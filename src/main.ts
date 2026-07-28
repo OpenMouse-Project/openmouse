@@ -128,6 +128,7 @@ app.innerHTML = `
       <ol>
         <li><span>Now</span><div><h3>Device explorer</h3><p>Identify compatible HID interfaces and understand how each mouse communicates.</p></div></li>
         <li><span>Next</span><div><h3>Read-only status</h3><p>Surface safe information such as battery level, firmware version, DPI, and polling rate.</p></div></li>
+        <li><span>Planned</span><div><h3>Offline-ready app</h3><p>Cache the control panel and device definitions after the first online visit, so supported mice can be managed without an internet connection.</p></div></li>
         <li><span>Later</span><div><h3>Verified controls</h3><p>Enable supported settings only after they have a known command and a reliable read-back check.</p></div></li>
       </ol>
     </section>
