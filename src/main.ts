@@ -115,6 +115,10 @@ app.innerHTML = `
           <p>The app is planned to run in a compatible browser using WebHID, without a separate desktop utility.</p>
         </details>
         <details>
+          <summary>Why won’t OpenMouse work in Firefox?</summary>
+          <p>Firefox does not currently implement WebHID, the browser API OpenMouse needs to communicate with a mouse. Mozilla has raised security and standards-maturity concerns about the API, so use a Chromium-based browser such as Chrome or Edge for now. <a href="https://discourse.mozilla.org/t/when-time-support-webhid-for-firefox/147736" target="_blank" rel="noreferrer">Read the Mozilla community discussion <span aria-hidden="true">↗</span></a></p>
+        </details>
+        <details>
           <summary>Will I need an account?</summary>
           <p>No account is planned. Your mouse settings stay between your browser and your device.</p>
         </details>
