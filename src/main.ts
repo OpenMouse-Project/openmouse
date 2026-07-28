@@ -39,6 +39,7 @@ app.innerHTML = `
     <a class="wordmark" href="#top" aria-label="OpenMouse home">OpenMouse</a>
     <div class="header-actions">
       <span class="status-badge">In development</span>
+      <a class="github-link" href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">GitHub <span aria-hidden="true">↗</span></a>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch color mode"></button>
     </div>
   </header>
@@ -49,7 +50,16 @@ app.innerHTML = `
       <h1>All your mice.<br><em>One control panel.</em></h1>
       <p class="hero-copy">OpenMouse is a browser-based app for managing supported gaming mice in one place. Connect a mouse, see its settings, and make changes without switching between vendor utilities.</p>
       <a class="button" href="#roadmap">See what’s coming <span aria-hidden="true">↓</span></a>
-      
+      <div class="compatibility" aria-label="Browser compatibility">
+        <span>Browser support</span>
+        <ul>
+          <li class="supported">Chrome</li>
+          <li class="supported">Edge</li>
+          <li class="unsupported">Firefox</li>
+          <li class="unsupported">Safari</li>
+        </ul>
+        <p>Requires WebHID. Firefox and Safari do not currently support it.</p>
+      </div>
     </section>
 
     <section class="promise" aria-label="OpenMouse principles">
@@ -68,6 +78,30 @@ app.innerHTML = `
         <h2>One interface</h2>
         <p>Each supported mouse will use the same clear layout, while showing only the settings that mouse provides.</p>
       </article>
+    </section>
+
+    <section class="how-it-works" aria-labelledby="how-title">
+      <div class="section-heading">
+        <p class="eyebrow">HOW IT WORKS</p>
+        <h2 id="how-title">From connected to configured.</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <span class="number">01</span>
+          <h3>Connect your mouse</h3>
+          <p>Plug in a supported mouse and open OpenMouse in a compatible browser.</p>
+        </li>
+        <li>
+          <span class="number">02</span>
+          <h3>Grant permission</h3>
+          <p>Choose your device in the browser prompt. Access is only granted after you approve it.</p>
+        </li>
+        <li>
+          <span class="number">03</span>
+          <h3>Adjust its settings</h3>
+          <p>View the available controls and change verified settings from one consistent interface.</p>
+        </li>
+      </ol>
     </section>
 
     <section class="devices" aria-labelledby="devices-title">
@@ -130,7 +164,10 @@ app.innerHTML = `
     </section>
   </main>
 
-  <footer>OpenMouse · One place to manage supported mice.</footer>
+  <footer>
+    <span>OpenMouse · One place to manage supported mice.</span>
+    <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">View source and contribute on GitHub <span aria-hidden="true">↗</span></a>
+  </footer>
 `;
 
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
