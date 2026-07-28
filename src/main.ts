@@ -7,23 +7,32 @@ if (!app) {
 }
 
 type Theme = "light" | "dark";
+type ThemePreference = Theme | "system";
 
-function preferredTheme(): Theme {
-  const savedTheme = localStorage.getItem("openmouse-theme");
+const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-  if (savedTheme === "light" || savedTheme === "dark") {
+function preferredTheme(): ThemePreference {
+  const savedTheme = localStorage.getItem("openmouse-theme-preference");
+
+  if (savedTheme === "system" || savedTheme === "light" || savedTheme === "dark") {
     return savedTheme;
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "system";
 }
 
-function applyTheme(theme: Theme): void {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("openmouse-theme", theme);
+function resolvedTheme(preference: ThemePreference): Theme {
+  return preference === "system" ? (colorSchemeQuery.matches ? "dark" : "light") : preference;
 }
 
-applyTheme(preferredTheme());
+let themePreference = preferredTheme();
+
+function applyTheme(): void {
+  document.documentElement.dataset.theme = resolvedTheme(themePreference);
+  localStorage.setItem("openmouse-theme-preference", themePreference);
+}
+
+applyTheme();
 
 app.innerHTML = `
   <header class="site-header">
@@ -104,14 +113,20 @@ if (!themeToggle) {
 const toggle = themeToggle;
 
 function updateThemeToggle(): void {
-  const isDark = document.documentElement.dataset.theme === "dark";
-  toggle.textContent = isDark ? "Light" : "Dark";
-  toggle.setAttribute("aria-label", `Switch to ${isDark ? "light" : "dark"} mode`);
+  toggle.textContent = `Theme: ${themePreference[0].toUpperCase()}${themePreference.slice(1)}`;
+  toggle.setAttribute("aria-label", "Change color theme");
 }
 
 toggle.addEventListener("click", () => {
-  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  themePreference = themePreference === "system" ? "light" : themePreference === "light" ? "dark" : "system";
+  applyTheme();
   updateThemeToggle();
+});
+
+colorSchemeQuery.addEventListener("change", () => {
+  if (themePreference === "system") {
+    applyTheme();
+  }
 });
 
 updateThemeToggle();
