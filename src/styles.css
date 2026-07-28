@@ -144,6 +144,10 @@ a { color: inherit; text-decoration: none; }
 footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.8rem 0; border-top: 1px solid var(--border); color: var(--subtle); font-size: .78rem; }
 footer a { color: var(--accent-dark); font-weight: 700; }
 footer a:hover { color: var(--accent); }
+.footer-actions { display: flex; align-items: center; gap: 1rem; }
+.discord-placeholder { display: inline-flex; align-items: center; gap: .35rem; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 999px; cursor: default; color: var(--subtle); }
+.discord-placeholder svg { width: .95rem; height: .95rem; }
+.discord-placeholder small { padding-left: .35rem; border-left: 1px solid var(--border); color: var(--accent-dark); font-size: .65rem; font-weight: 700; }
 
 .reveal {
   opacity: 0;
@@ -170,4 +174,5 @@ footer a:hover { color: var(--accent); }
   .steps h3 { margin-top: 2.5rem; }
   .roadmap li { grid-template-columns: 1fr; gap: .6rem; }
   footer { align-items: flex-start; flex-direction: column; }
+  .footer-actions { align-items: flex-start; flex-direction: column; }
 }
