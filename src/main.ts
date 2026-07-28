@@ -140,6 +140,23 @@ app.innerHTML = `
       <p>OpenMouse is at an early stage. It starts with the hardware currently available, then expands one supported device at a time.</p>
     </section>
 
+    <section class="discord-community" aria-labelledby="discord-title">
+      <div class="discord-intro">
+        <p class="eyebrow">JOIN THE COMMUNITY</p>
+        <h2 id="discord-title">Follow OpenMouse from the start.</h2>
+        <p>Join the future OpenMouse Discord to test what’s next, follow development, and help shape device support.</p>
+        <span class="discord-cta" aria-disabled="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.5 5.3A17.2 17.2 0 0 0 15.2 4l-.5 1a16 16 0 0 0-5.3 0l-.6-1a17.5 17.5 0 0 0-4.3 1.3C1.8 9.4 1 13.4 1.3 17.4a17.4 17.4 0 0 0 5.3 2.7l1.3-1.8a11 11 0 0 1-2-1l.5-.4a12.3 12.3 0 0 0 11.2 0l.6.4c-.7.4-1.3.7-2 1l1.3 1.8a17.4 17.4 0 0 0 5.3-2.7c.4-4.6-.8-8.5-3.3-12.1ZM8.3 15.2c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Zm7.4 0c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Z"/></svg>
+          Discord coming soon
+        </span>
+      </div>
+      <ul class="discord-benefits">
+        <li><span>01</span><div><h3>Early access</h3><p>Try beta features and new device support before wider releases.</p></div></li>
+        <li><span>02</span><div><h3>Progress updates</h3><p>Follow development, changelogs, milestones, and project updates.</p></div></li>
+        <li><span>03</span><div><h3>Support and requests</h3><p>In the future, get help and request mice you’d like OpenMouse to support.</p></div></li>
+      </ul>
+    </section>
+
     <section class="faq" aria-labelledby="faq-title">
       <div class="section-heading">
         <p class="eyebrow">FAQ</p>
@@ -168,13 +185,7 @@ app.innerHTML = `
 
   <footer>
     <span>OpenMouse · One place to manage supported mice.</span>
-    <div class="footer-actions">
-      <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">View source and contribute on GitHub <span aria-hidden="true">↗</span></a>
-      <span class="discord-placeholder" aria-disabled="true" title="OpenMouse Discord coming soon">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.5 5.3A17.2 17.2 0 0 0 15.2 4l-.5 1a16 16 0 0 0-5.3 0l-.6-1a17.5 17.5 0 0 0-4.3 1.3C1.8 9.4 1 13.4 1.3 17.4a17.4 17.4 0 0 0 5.3 2.7l1.3-1.8a11 11 0 0 1-2-1l.5-.4a12.3 12.3 0 0 0 11.2 0l.6.4c-.7.4-1.3.7-2 1l1.3 1.8a17.4 17.4 0 0 0 5.3-2.7c.4-4.6-.8-8.5-3.3-12.1ZM8.3 15.2c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Zm7.4 0c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Z"/></svg>
-        Discord <small>Coming soon</small>
-      </span>
-    </div>
+    <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">View source and contribute on GitHub <span aria-hidden="true">↗</span></a>
   </footer>
 `;
 
@@ -234,7 +245,7 @@ async function updateGithubStars(): Promise<void> {
 void updateGithubStars();
 
 const revealTargets = document.querySelectorAll<HTMLElement>(
-  ".promise, .how-it-works, .devices, .roadmap, .closing, .faq",
+  ".promise, .how-it-works, .devices, .roadmap, .closing, .discord-community, .faq",
 );
 
 if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
