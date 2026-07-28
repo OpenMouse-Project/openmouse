@@ -39,7 +39,10 @@ app.innerHTML = `
     <a class="wordmark" href="#top" aria-label="OpenMouse home">OpenMouse</a>
     <div class="header-actions">
       <span class="status-badge">In development</span>
-      <a class="github-link" href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="github-link" href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
+        GitHub <span aria-hidden="true">↗</span>
+        <span id="github-stars" class="github-stars" aria-label="GitHub stars" hidden></span>
+      </a>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch color mode"></button>
     </div>
   </header>
@@ -66,7 +69,7 @@ app.innerHTML = `
       <article>
         <span class="number">01</span>
         <h2>Browser-based</h2>
-        <p>The planned app uses WebHID to communicate with compatible devices from a secure website. No account is planned.</p>
+        <p>The planned app uses WebHID to communicate with compatible devices directly from a secure website.</p>
       </article>
       <article>
         <span class="number">02</span>
@@ -150,11 +153,7 @@ app.innerHTML = `
         </details>
         <details>
           <summary>Why won’t OpenMouse work in Firefox?</summary>
-          <p>Firefox does not currently implement WebHID, the browser API OpenMouse needs to communicate with a mouse. Mozilla currently lists the proposal as negative, so use a Chromium-based browser such as Chrome or Edge for now. <a href="https://github.com/mozilla/standards-positions/issues/459" target="_blank" rel="noreferrer">Read Mozilla’s WebHID discussion on GitHub <span aria-hidden="true">↗</span></a></p>
-        </details>
-        <details>
-          <summary>Will I need an account?</summary>
-          <p>No account is planned. Your mouse settings stay between your browser and your device.</p>
+          <p>Firefox does not currently implement WebHID, the browser API OpenMouse needs to communicate with a mouse. Mozilla currently lists the proposal as negative, so use a Chromium-based browser such as Chrome or Edge for now. <a href="https://github.com/mozilla/standards-positions/pull/193" target="_blank" rel="noreferrer">Read Mozilla’s discussion on GitHub <span aria-hidden="true">↗</span></a></p>
         </details>
         <details>
           <summary>Can OpenMouse update firmware?</summary>
@@ -171,6 +170,7 @@ app.innerHTML = `
 `;
 
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
+const githubStars = document.querySelector<HTMLSpanElement>("#github-stars");
 
 if (!themeToggle) {
   throw new Error("OpenMouse could not initialize its theme toggle.");
@@ -196,3 +196,30 @@ colorSchemeQuery.addEventListener("change", () => {
 });
 
 updateThemeToggle();
+
+async function updateGithubStars(): Promise<void> {
+  if (!githubStars) {
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.github.com/repos/snekxs/openmouse", {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const repository = await response.json() as { stargazers_count?: number };
+
+    if (typeof repository.stargazers_count === "number") {
+      githubStars.textContent = `★ ${new Intl.NumberFormat().format(repository.stargazers_count)}`;
+      githubStars.hidden = false;
+    }
+  } catch {
+    // The GitHub link remains usable when its public API is unavailable.
+  }
+}
+
+void updateGithubStars();

@@ -46,6 +46,8 @@ a { color: inherit; text-decoration: none; }
 .wordmark { font-size: 1.05rem; font-weight: 800; letter-spacing: -.05em; }
 .header-actions { display: flex; align-items: center; gap: .6rem; }
 .status-badge, .theme-toggle, .github-link { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
+.github-link { display: inline-flex; align-items: center; gap: .25rem; }
+.github-stars { margin-left: .15rem; padding-left: .4rem; border-left: 1px solid var(--border); color: var(--text); font-variant-numeric: tabular-nums; }
 .theme-toggle { cursor: pointer; }
 .theme-toggle:hover, .github-link:hover { border-color: var(--accent-dark); color: var(--text); }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent-dark); font-size: .7rem; font-weight: 750; letter-spacing: .13em; }
