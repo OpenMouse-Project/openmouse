@@ -64,7 +64,7 @@ a { color: inherit; text-decoration: none; }
 .promise h2 { margin: 4rem 0 .7rem; font-size: 1.15rem; letter-spacing: -.03em; }
 .promise p, .closing p { color: var(--muted); font-size: .92rem; line-height: 1.6; }
 
-.devices, .roadmap { padding: 9rem 0; }
+.devices, .roadmap, .faq { padding: 9rem 0; }
 .section-heading { max-width: 590px; margin-bottom: 2.5rem; }
 .section-heading h2, .closing h2 { font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: .98; }
 .device-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
@@ -83,6 +83,38 @@ a { color: inherit; text-decoration: none; }
 
 .closing { padding: 6rem 0 7rem; max-width: 750px; }
 .closing p:last-child { max-width: 520px; margin-top: 1.5rem; }
+
+.faq { border-top: 1px solid var(--border); }
+.faq-list { border-bottom: 1px solid var(--border); }
+.faq details { border-top: 1px solid var(--border); }
+.faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.45rem 0;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  list-style: none;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+";
+  color: var(--accent-dark);
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.faq details[open] summary::after { content: "−"; }
+.faq details p {
+  max-width: 650px;
+  margin: -.35rem 0 1.5rem;
+  color: var(--muted);
+  font-size: .92rem;
+  line-height: 1.6;
+}
 footer { padding: 1.8rem 0; border-top: 1px solid var(--border); color: var(--subtle); font-size: .78rem; }
 
 @media (max-width: 700px) {
@@ -91,6 +123,6 @@ footer { padding: 1.8rem 0; border-top: 1px solid var(--border); color: var(--su
   .promise, .device-list { grid-template-columns: 1fr; }
   .promise article { min-height: 190px; }
   .promise h2 { margin-top: 2rem; }
-  .devices, .roadmap { padding: 5.5rem 0; }
+  .devices, .roadmap, .faq { padding: 5.5rem 0; }
   .roadmap li { grid-template-columns: 1fr; gap: .6rem; }
 }

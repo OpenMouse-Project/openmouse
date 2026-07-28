@@ -99,6 +99,31 @@ app.innerHTML = `
       <h2>Built one device at a time.</h2>
       <p>OpenMouse is at an early stage. It starts with the hardware currently available, then expands one supported device at a time.</p>
     </section>
+
+    <section class="faq" aria-labelledby="faq-title">
+      <div class="section-heading">
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-title">A few quick answers.</h2>
+      </div>
+      <div class="faq-list">
+        <details>
+          <summary>Does OpenMouse work with every mouse?</summary>
+          <p>Not yet. Support is added one device at a time so every available setting can be tested and verified.</p>
+        </details>
+        <details>
+          <summary>Do I need to install anything?</summary>
+          <p>The app is planned to run in a compatible browser using WebHID, without a separate desktop utility.</p>
+        </details>
+        <details>
+          <summary>Will I need an account?</summary>
+          <p>No account is planned. Your mouse settings stay between your browser and your device.</p>
+        </details>
+        <details>
+          <summary>Can OpenMouse update firmware?</summary>
+          <p>No. Firmware flashing and other high-risk device actions are intentionally outside the project’s scope.</p>
+        </details>
+      </div>
+    </section>
   </main>
 
   <footer>OpenMouse · One place to manage supported mice.</footer>
