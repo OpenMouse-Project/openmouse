@@ -40,7 +40,7 @@ app.innerHTML = `
       <h1>All your mice.<br><em>One control panel.</em></h1>
       <p class="hero-copy">OpenMouse is a browser-based app for managing supported gaming mice in one place. Connect a mouse, see its settings, and make changes without switching between vendor utilities.</p>
       <a class="button" href="#roadmap">See what’s coming <span aria-hidden="true">↓</span></a>
-      <p class="availability">Coming first to Chrome and Edge on desktop.</p>
+      
     </section>
 
     <section class="promise" aria-label="OpenMouse principles">
