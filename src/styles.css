@@ -1,0 +1,96 @@
+:root {
+  --background: #f2efe7;
+  --surface: #e9e4da;
+  --text: #20201e;
+  --muted: #625d56;
+  --subtle: #847c72;
+  --border: #d2cbc0;
+  --accent: #d75a32;
+  --accent-dark: #b84b2a;
+  --accent-text: #fffaf2;
+  color: var(--text);
+  background: var(--background);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  scroll-behavior: smooth;
+}
+
+:root[data-theme="dark"] {
+  --background: #171514;
+  --surface: #24201d;
+  --text: #f2ece4;
+  --muted: #c0b5aa;
+  --subtle: #91877d;
+  --border: #443b34;
+  --accent: #ef8358;
+  --accent-dark: #f09a76;
+  --accent-text: #26130d;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; text-decoration: none; }
+
+.site-header, main, footer {
+  width: min(100% - 2.5rem, 1120px);
+  margin: 0 auto;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 0;
+}
+
+.wordmark { font-size: 1.05rem; font-weight: 800; letter-spacing: -.05em; }
+.header-actions { display: flex; align-items: center; gap: .6rem; }
+.status-badge, .theme-toggle { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
+.theme-toggle { cursor: pointer; }
+.theme-toggle:hover { border-color: var(--accent-dark); color: var(--text); }
+.eyebrow { margin: 0 0 .7rem; color: var(--accent-dark); font-size: .7rem; font-weight: 750; letter-spacing: .13em; }
+
+.hero { max-width: 760px; padding: 8.5rem 0 10rem; }
+.hero h1, .section-heading h2, .closing h2 { margin: 0; letter-spacing: -.07em; }
+.hero h1 { font-size: clamp(4rem, 10vw, 8.6rem); line-height: .86; }
+.hero h1 em { color: var(--accent); font-style: normal; }
+.hero-copy { max-width: 570px; margin: 2rem 0 1.75rem; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.6; }
+.button { display: inline-flex; gap: .8rem; align-items: center; border-radius: 9px; padding: .9rem 1.05rem; background: var(--accent); color: var(--accent-text); font-size: .92rem; font-weight: 750; }
+.availability { margin-top: 1rem; color: var(--subtle); font-size: .8rem; }
+
+.promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border: 1px solid var(--border); background: var(--border); }
+.promise article { min-height: 255px; padding: 1.6rem; background: var(--surface); }
+.number { color: var(--accent-dark); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; }
+.promise h2 { margin: 4rem 0 .7rem; font-size: 1.15rem; letter-spacing: -.03em; }
+.promise p, .closing p { color: var(--muted); font-size: .92rem; line-height: 1.6; }
+
+.devices, .roadmap { padding: 9rem 0; }
+.section-heading { max-width: 590px; margin-bottom: 2.5rem; }
+.section-heading h2, .closing h2 { font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: .98; }
+.device-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.device-card { min-height: 185px; padding: 1.25rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.device-card p { margin: 0; color: var(--subtle); font-size: .82rem; }
+.device-card h3 { margin: .4rem 0 2.6rem; font-size: 1.3rem; letter-spacing: -.04em; }
+.device-card span { color: var(--accent-dark); font-size: .75rem; font-weight: 700; }
+
+.roadmap { border-top: 1px solid var(--border); }
+.roadmap ol { margin: 0; padding: 0; list-style: none; }
+.roadmap li { display: grid; grid-template-columns: 110px 1fr; gap: 1.5rem; padding: 1.6rem 0; border-top: 1px solid var(--border); }
+.roadmap li:last-child { border-bottom: 1px solid var(--border); }
+.roadmap li > span { color: var(--accent-dark); font-size: .78rem; font-weight: 700; }
+.roadmap h3 { margin: 0 0 .4rem; font-size: 1.25rem; letter-spacing: -.03em; }
+.roadmap p { max-width: 550px; margin: 0; color: var(--muted); line-height: 1.55; }
+
+.closing { padding: 6rem 0 7rem; max-width: 750px; }
+.closing p:last-child { max-width: 520px; margin-top: 1.5rem; }
+footer { padding: 1.8rem 0; border-top: 1px solid var(--border); color: var(--subtle); font-size: .78rem; }
+
+@media (max-width: 700px) {
+  .site-header, main, footer { width: min(100% - 2rem, 1120px); }
+  .hero { padding: 5.5rem 0 6rem; }
+  .promise, .device-list { grid-template-columns: 1fr; }
+  .promise article { min-height: 190px; }
+  .promise h2 { margin-top: 2rem; }
+  .devices, .roadmap { padding: 5.5rem 0; }
+  .roadmap li { grid-template-columns: 1fr; gap: .6rem; }
+}
