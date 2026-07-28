@@ -77,6 +77,7 @@ a { color: inherit; text-decoration: none; }
 .how-it-works, .devices, .roadmap, .faq { padding: 9rem 0; }
 .section-heading { max-width: 590px; margin-bottom: 2.5rem; }
 .section-heading h2, .closing h2 { font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: .98; }
+.section-copy { max-width: 540px; margin: 1.25rem 0 0; color: var(--muted); font-size: .95rem; line-height: 1.6; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 0; padding: 0; list-style: none; }
 .steps li { min-height: 220px; padding: 1.4rem; border-top: 1px solid var(--border); transition: transform .25s ease, border-color .25s ease, background-color .25s ease; }
 .steps li:hover { border-color: var(--accent-dark); background: var(--surface); transform: translateY(-4px); }

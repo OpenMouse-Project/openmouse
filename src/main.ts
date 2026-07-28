@@ -112,6 +112,7 @@ app.innerHTML = `
       <div class="section-heading">
         <p class="eyebrow">FIRST DEVICES</p>
         <h2 id="devices-title">The first supported mice.</h2>
+        <p class="section-copy">Support starts with these models. If other mice from the same brand use similar commands, they may be added more quickly.</p>
       </div>
       <div class="device-list">
         <article class="device-card"><p>Logitech</p><h3>Superlight 2C</h3><span>Planned</span></article>
