@@ -54,7 +54,12 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [{ vendorId: LOGITECH_VENDOR_ID, productId: LOGITECH_RECEIVER_PRODUCT_ID }],
+      filters: [{
+        vendorId: LOGITECH_VENDOR_ID,
+        productId: LOGITECH_RECEIVER_PRODUCT_ID,
+        usagePage: 0xff00,
+        usage: 0x0001,
+      }],
     });
     const device = devices[0];
     return device ? new LogitechHidppClient(device) : null;
@@ -213,8 +218,12 @@ export class LogitechHidppClient {
       parameters[2] ?? 0,
     ]);
     const response = this.waitForResponse(featureIndex, functionId);
+    // Keep the timeout rejection observed even when sendReport itself fails
+    // (for example, when a browser selected a protected mouse collection).
+    // The original sendReport error is then shown by the control panel.
+    void response.catch(() => undefined);
     await this.device.sendReport(SHORT_REPORT_ID, report);
-    return response;
+    return await response;
   }
 
   private waitForResponse(featureIndex: number, functionId: number): Promise<Uint8Array> {
@@ -225,7 +234,7 @@ export class LogitechHidppClient {
           this.waiters.splice(index, 1);
         }
         reject(new Error("The mouse did not answer. Move it or click a button, then try again."));
-      }, 2500);
+      }, 6000);
 
       this.waiters.push({
         resolve: (report) => {
