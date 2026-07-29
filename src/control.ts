@@ -11,6 +11,9 @@ const appRoot = controlApp;
 
 const ACCESS_KEY = "openmouse-control-access";
 const ACCESS_CODE = "3734";
+let activeClient: LogitechHidppClient | null = null;
+let refreshTimer: number | null = null;
+let refreshInProgress = false;
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
@@ -62,7 +65,7 @@ function renderControl(): void {
         <section class="device-overview">
           <div class="mouse-stage"><img class="mouse-image" src="/superlight-2c-black.png" alt="Gaming mouse" /><span id="model-caption" class="model-caption">SUPPORTED LOGITECH RECEIVER</span></div>
           <div class="quick-stats">
-            <article><span>BATTERY</span><strong id="battery-value">—</strong><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
+            <article><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
             <article><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
             <article><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
           </div>
@@ -92,6 +95,7 @@ function showStatus(status: LogitechMouseStatus): void {
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   setText("#dpi-output", `${status.dpi.toLocaleString()} DPI`);
   setText("#battery-value", battery);
+  setText("#battery-detail", status.batteryState);
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
@@ -107,6 +111,8 @@ function showStatus(status: LogitechMouseStatus): void {
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
+  const connectButton = document.querySelector<HTMLButtonElement>("#connect-button");
+  if (connectButton) connectButton.hidden = true;
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
 }
@@ -126,18 +132,44 @@ async function connect(): Promise<void> {
       setText("#read-status", "No receiver was selected.");
       return;
     }
-    showStatus(await client.readStatus());
-    await client.close();
+    activeClient = client;
+    showStatus(await activeClient.readStatus());
+    startAutomaticRefresh();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
     setText("#device-status", "Connection failed");
     setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
-    button.disabled = false;
-    button.textContent = "Refresh status";
+    if (!activeClient) button.disabled = false;
   }
 }
+
+function startAutomaticRefresh(): void {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer);
+  refreshTimer = window.setInterval(() => {
+    void refreshStatus();
+  }, 5000);
+}
+
+async function refreshStatus(): Promise<void> {
+  if (!activeClient || refreshInProgress) return;
+  refreshInProgress = true;
+  try {
+    showStatus(await activeClient.readStatus());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to refresh the mouse status.";
+    setText("#device-status", "Waiting to refresh");
+    setText("#read-status", message);
+  } finally {
+    refreshInProgress = false;
+  }
+}
+
+window.addEventListener("beforeunload", () => {
+  if (refreshTimer !== null) window.clearInterval(refreshTimer);
+  void activeClient?.close();
+});
 
 if (sessionStorage.getItem(ACCESS_KEY) === "granted") {
   renderControl();

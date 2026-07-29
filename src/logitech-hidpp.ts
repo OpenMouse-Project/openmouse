@@ -18,11 +18,17 @@ const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
 export interface LogitechMouseStatus {
   name: string;
   batteryPercent: number | null;
+  batteryState: "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
   dpi: number;
   pollingRateHz: number;
   activeProfile: number | null;
   liftOffDistance: "Low" | "Medium" | "High" | null;
   firmware: string[];
+}
+
+interface BatteryReading {
+  percent: number | null;
+  state: LogitechMouseStatus["batteryState"];
 }
 
 interface FeatureInfo {
@@ -90,7 +96,7 @@ export class LogitechHidppClient {
     // HID++ receivers expect one request at a time. Keeping the sequence serial
     // also makes every input report unambiguous to the WebHID event handler.
     const name = await this.readName(nameFeature.index);
-    const batteryPercent = batteryFeature.index ? await this.readBattery(batteryFeature.index) : null;
+    const battery = batteryFeature.index ? await this.readBattery(batteryFeature.index) : { percent: null, state: "Unknown" as const };
     const dpiState = await this.readDpi(dpiFeature.index);
     const pollingRateHz = await this.readPollingRate(reportRateFeature.index);
     const activeProfile = await this.readActiveProfile(profilesFeature.index);
@@ -98,7 +104,8 @@ export class LogitechHidppClient {
 
     return {
       name,
-      batteryPercent,
+      batteryPercent: battery.percent,
+      batteryState: battery.state,
       dpi: dpiState.dpi,
       liftOffDistance: dpiState.liftOffDistance,
       pollingRateHz,
@@ -139,10 +146,17 @@ export class LogitechHidppClient {
     return new TextDecoder().decode(new Uint8Array(fragments));
   }
 
-  private async readBattery(featureIndex: number): Promise<number | null> {
+  private async readBattery(featureIndex: number): Promise<BatteryReading> {
     const reply = await this.request(featureIndex, 0x10);
     const percentage = reply[3];
-    return percentage && percentage <= 100 ? percentage : null;
+    const state = ({
+      0x00: "Discharging",
+      0x01: "Charging",
+      0x02: "Almost full",
+      0x03: "Full",
+      0x04: "Charging slowly",
+    } as const)[reply[5] ?? -1] ?? "Unknown";
+    return { percent: percentage && percentage <= 100 ? percentage : null, state };
   }
 
   private async readDpi(featureIndex: number): Promise<{ dpi: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
