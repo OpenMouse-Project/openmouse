@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360" role="img" aria-labelledby="title desc">
+  <title id="title">Gaming mouse</title>
+  <desc id="desc">A simple top view of a black wireless gaming mouse.</desc>
+  <defs>
+    <linearGradient id="body" x1="38" y1="28" x2="194" y2="326" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3a3a3d"/>
+      <stop offset=".48" stop-color="#202023"/>
+      <stop offset="1" stop-color="#111113"/>
+    </linearGradient>
+    <linearGradient id="button" x1="64" y1="30" x2="165" y2="154" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4a4a4e"/>
+      <stop offset="1" stop-color="#242427"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M120 10C65 10 37 48 31 115L22 246c-5 68 36 104 98 104s103-36 98-104l-9-131C203 48 175 10 120 10Z" fill="url(#body)" stroke="#55555a" stroke-width="2"/>
+
+  <path d="M116 12C73 14 48 44 41 104l-4 43c-1 12 5 18 17 18h62V12Z" fill="url(#button)" stroke="#101012" stroke-width="3"/>
+  <path d="M124 12c43 2 68 32 75 92l4 43c1 12-5 18-17 18h-62V12Z" fill="url(#button)" stroke="#101012" stroke-width="3"/>
+
+  <path d="M120 12v78M120 138v27" stroke="#09090b" stroke-width="5" stroke-linecap="round"/>
+  <rect x="100" y="77" width="40" height="70" rx="18" fill="#09090b" stroke="#4b4b50" stroke-width="2"/>
+  <rect x="108" y="84" width="24" height="54" rx="11" fill="#b8b8bc"/>
+  <path d="M110 94h20m-20 7h20m-20 7h20m-20 7h20m-20 7h20m-20 7h20" stroke="#4b4b50" stroke-width="2"/>
+
+  <path d="M28 132c-7 4-8 14-7 27l3 31c1 8 5 12 10 9l4-3-5-67-5 3Z" fill="#29292c" stroke="#4a4a4e" stroke-width="2"/>
+  <path d="M26 202c-5 4-5 12-4 21l2 20c1 7 4 10 8 8l4-3-4-50-6 4Z" fill="#29292c" stroke="#4a4a4e" stroke-width="2"/>
+
+  <circle cx="120" cy="190" r="4" fill="#70d68f"/>
+  <circle cx="120" cy="190" r="9" fill="#70d68f" opacity=".12"/>
+</svg>
