@@ -44,7 +44,7 @@ function renderGate(message = ""): void {
 
 function renderControl(): void {
   appRoot.innerHTML = `
-    <div class="control-shell">
+    <div class="control-shell is-empty">
       <aside class="sidebar">
         <a class="demo-wordmark" href="/">OpenMouse</a>
         <div class="device-label">CONNECTED DEVICE</div>
@@ -62,7 +62,13 @@ function renderControl(): void {
           <div><p class="overline">LOGITECH</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
         </header>
-        <section class="device-overview">
+        <section class="empty-state" aria-labelledby="empty-state-title">
+          <p class="overline">READY WHEN YOU ARE</p>
+          <h2 id="empty-state-title">Connect a supported Logitech mouse.</h2>
+          <p>Use <strong>Add device</strong> in the sidebar, then choose the Logitech USB Receiver in the browser prompt.</p>
+          <small>OpenMouse only reads device status at this stage. No settings are changed.</small>
+        </section>
+        <section class="device-overview device-data">
           <div class="mouse-stage"><img class="mouse-image" src="/superlight-2c-black.png" alt="Gaming mouse" /><span id="model-caption" class="model-caption">SUPPORTED LOGITECH RECEIVER</span></div>
           <div class="quick-stats">
             <article><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
@@ -70,12 +76,12 @@ function renderControl(): void {
             <article><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
           </div>
         </section>
-        <section class="settings-grid" aria-label="Mouse status">
+        <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><input id="dpi-range" type="range" min="100" max="3200" value="100" disabled /><div class="range-labels"><span>Read-only</span><span>Current value</span></div><p class="setting-note">Read directly from the mouse. Settings writes are deliberately disabled.</p></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Hz. The selected value is the active report rate.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Low" disabled>Low</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
         </section>
-        <footer class="panel-footer"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
+        <footer class="panel-footer device-data"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
       </main>
     </div>`;
 
@@ -113,6 +119,7 @@ function showStatus(status: LogitechMouseStatus): void {
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   const connectButton = document.querySelector<HTMLButtonElement>("#connect-button");
   if (connectButton) connectButton.hidden = true;
+  document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
 }

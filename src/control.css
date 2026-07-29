@@ -31,6 +31,12 @@
 .device-status { flex: 0 0 auto; white-space: nowrap; }
 .device-status > .status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: #69d28d; }
 .device-status > #device-status { width: auto; height: auto; border-radius: 0; background: transparent; color: inherit; }
+.empty-state { display: none; max-width: 680px; margin: auto 0; padding: clamp(2rem, 5vw, 4.5rem) 0; }
+.empty-state h2 { max-width: 640px; margin: 0; font-size: clamp(2.4rem, 5vw, 4.8rem); font-weight: 500; letter-spacing: -.045em; line-height: .94; }
+.empty-state > p:not(.overline) { max-width: 520px; margin: 1.5rem 0 1rem; color: #a5a5a9; font-size: 1rem; line-height: 1.55; }
+.empty-state small { color: #707076; font-size: .78rem; }
+.is-empty .empty-state { display: block; }
+.is-empty .device-data { display: none; }
 
 @media (min-width: 900px) and (min-height: 720px) {
   .control-shell { height: 100vh; overflow: hidden; }
@@ -38,7 +44,7 @@
   .control-shell .preview-banner { padding: .55rem .7rem; }
   .control-shell .panel-header { padding: 1.5rem 0 1rem; }
   .control-shell .panel-header h1 { font-size: clamp(2.25rem, 3.8vw, 3.4rem); }
-  .control-shell .device-overview { min-height: 235px; }
+  .control-shell .device-overview { flex: 0 0 235px; min-height: 235px; }
   .control-shell .mouse-stage { min-height: 235px; }
   .control-shell .mouse-stage::before { width: 310px; height: 310px; }
   .control-shell .mouse-image { width: min(185px, 56%); }
@@ -46,7 +52,7 @@
   .control-shell .quick-stats strong { font-size: 1.25rem; }
   .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .4rem; }
   .control-shell .meter { margin-top: .55rem; }
-  .control-shell .settings-grid { grid-auto-rows: minmax(118px, 1fr); gap: .75rem; margin-top: .75rem; }
+  .control-shell .settings-grid { flex: 1 1 auto; min-height: 0; grid-template-rows: repeat(2, minmax(118px, 1fr)); gap: .75rem; margin-top: .75rem; }
   .control-shell .setting-card { padding: 1.1rem; }
   .control-shell .setting-heading { margin-bottom: 1rem; }
   .control-shell .dpi-card { grid-row: span 2; }
