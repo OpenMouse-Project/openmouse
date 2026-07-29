@@ -15,6 +15,8 @@ let activeClient: LogitechHidppClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
+let settingInProgress = false;
+let dpiSelectionDirty = false;
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
@@ -86,7 +88,10 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
     void connect();
   });
-  document.querySelector<HTMLInputElement>("#dpi-range")?.addEventListener("input", updateDpiPreview);
+  document.querySelector<HTMLInputElement>("#dpi-range")?.addEventListener("input", () => {
+    dpiSelectionDirty = true;
+    updateDpiPreview();
+  });
   document.querySelector<HTMLButtonElement>("#apply-dpi")?.addEventListener("click", () => {
     void applyDpi();
   });
@@ -130,7 +135,7 @@ function showStatus(status: LogitechMouseStatus): void {
     button.disabled = false;
   });
   const dpiRange = document.querySelector<HTMLInputElement>("#dpi-range");
-  if (dpiRange && dpiOptions.length > 0) {
+  if (dpiRange && dpiOptions.length > 0 && !dpiSelectionDirty) {
     dpiRange.value = String(Math.max(0, dpiOptions.indexOf(status.dpi)));
     updateDpiPreview();
   }
@@ -192,22 +197,26 @@ async function applyDpi(): Promise<void> {
   const range = document.querySelector<HTMLInputElement>("#dpi-range");
   const button = document.querySelector<HTMLButtonElement>("#apply-dpi");
   const dpi = range ? dpiOptions[Number(range.value)] : undefined;
-  if (!activeClient || !button || dpi === undefined) return;
+  if (!activeClient || !button || dpi === undefined || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
   button.disabled = true;
   setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
   try {
     await activeClient.setDpi(dpi);
-    await refreshStatus();
+    dpiSelectionDirty = false;
+    showStatus(await activeClient.readStatus());
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
   } finally {
+    settingInProgress = false;
     button.disabled = false;
   }
 }
 
 async function applyPollingRate(rate: number): Promise<void> {
-  if (!activeClient) return;
+  if (!activeClient || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
   buttons.forEach((button) => {
     button.disabled = true;
@@ -215,10 +224,11 @@ async function applyPollingRate(rate: number): Promise<void> {
   setText("#read-status", `Setting ${rate.toLocaleString()} Hz…`);
   try {
     await activeClient.setPollingRate(rate);
-    await refreshStatus();
+    showStatus(await activeClient.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
   } finally {
+    settingInProgress = false;
     buttons.forEach((button) => {
       button.disabled = false;
     });
@@ -233,7 +243,7 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
-  if (!activeClient || refreshInProgress) return;
+  if (!activeClient || refreshInProgress || settingInProgress) return;
   refreshInProgress = true;
   try {
     showStatus(await activeClient.readStatus());
