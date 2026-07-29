@@ -1,0 +1,32 @@
+@import "./demo.css";
+
+.access-gate {
+  display: flex;
+  min-height: 100vh;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  width: min(100% - 3rem, 520px);
+  margin: 0 auto;
+}
+
+.access-gate .demo-wordmark { margin-bottom: 5rem; }
+.access-gate h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 4.6rem); font-weight: 500; letter-spacing: -.04em; line-height: .92; }
+.access-gate > p:not(.overline) { max-width: 420px; color: #96969b; line-height: 1.6; }
+.access-form { display: grid; width: min(100%, 360px); gap: .6rem; margin-top: 1.4rem; }
+.access-form label { color: #96969b; font-size: .72rem; }
+.access-form input { padding: .8rem .9rem; border: 1px solid #36363a; border-radius: 8px; outline: none; background: #161618; color: #f7f7f7; }
+.access-form input:focus { border-color: #f7f7f7; }
+.access-form button { padding: .8rem .9rem; border: 0; border-radius: 8px; background: #f7f7f7; color: #09090b; font-weight: 600; }
+.access-form output { min-height: 1.2rem; color: #ee8c85; font-size: .72rem; }
+.control-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+.device-select { cursor: default; }
+.setting-card button:disabled { cursor: default; opacity: 1; }
+.panel-footer button:disabled { cursor: wait; opacity: .7; }
+
+@media (max-width: 899px) {
+  .control-shell { display: block; }
+  .control-shell .sidebar { position: static; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid #29292d; }
+  .control-shell .sidebar-footer { display: none; }
+  .control-shell .control-panel { width: min(100% - 2rem, 1180px); }
+}
