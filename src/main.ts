@@ -57,10 +57,10 @@ app.innerHTML = `
       <div class="compatibility" aria-label="Browser compatibility">
         <span>Browser support</span>
         <ul>
-          <li class="supported"><span class="browser-icon chrome" aria-hidden="true"></span>Chrome</li>
-          <li class="supported"><span class="browser-icon edge" aria-hidden="true">e</span>Edge</li>
-          <li class="unsupported"><span class="browser-icon firefox" aria-hidden="true">F</span>Firefox</li>
-          <li class="unsupported"><span class="browser-icon safari" aria-hidden="true"></span>Safari</li>
+          <li class="supported">Chrome</li>
+          <li class="supported">Edge</li>
+          <li class="unsupported">Firefox</li>
+          <li class="unsupported">Safari</li>
         </ul>
         <p>Requires WebHID. Firefox and Safari do not currently support it.</p>
       </div>
