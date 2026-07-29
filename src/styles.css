@@ -43,7 +43,7 @@ a { color: inherit; text-decoration: none; }
   padding: 1.5rem 0;
 }
 
-.wordmark { font-size: 1.05rem; font-weight: 800; letter-spacing: -.05em; }
+.wordmark { font-size: 1.05rem; font-weight: 600; letter-spacing: -.025em; }
 .header-actions { display: flex; align-items: center; gap: .6rem; }
 .status-badge, .theme-toggle, .github-link { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
 .github-link { display: inline-flex; align-items: center; gap: .25rem; }
@@ -54,8 +54,8 @@ a { color: inherit; text-decoration: none; }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent-dark); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .67rem; font-weight: 500; letter-spacing: .11em; }
 
 .hero { max-width: 760px; padding: 8.5rem 0 10rem; }
-.hero h1, .section-heading h2, .closing h2 { margin: 0; letter-spacing: -.07em; }
-.hero h1 { font-size: clamp(4rem, 10vw, 8.6rem); font-weight: 500; line-height: .86; }
+.hero h1, .section-heading h2, .closing h2 { margin: 0; letter-spacing: -.04em; }
+.hero h1 { font-size: clamp(4rem, 10vw, 8.6rem); font-weight: 500; line-height: .9; }
 .hero h1 em { color: var(--muted); font-style: normal; }
 .hero-copy { max-width: 570px; margin: 2rem 0 1.75rem; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.6; }
 .button { display: inline-flex; gap: .8rem; align-items: center; border-radius: 9px; padding: .9rem 1.05rem; background: var(--accent); color: var(--accent-text); font-size: .92rem; font-weight: 600; transition: transform .2s ease, box-shadow .2s ease; }
@@ -74,24 +74,24 @@ a { color: inherit; text-decoration: none; }
 .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border: 1px solid var(--border); background: var(--border); }
 .promise article { min-height: 255px; padding: 1.6rem; background: var(--surface); }
 .number { color: var(--accent-dark); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .72rem; }
-.promise h2 { margin: 4rem 0 .7rem; font-size: 1.15rem; letter-spacing: -.03em; }
+.promise h2 { margin: 4rem 0 .7rem; font-size: 1.15rem; letter-spacing: -.015em; }
 .promise p, .closing p { color: var(--muted); font-size: .92rem; line-height: 1.6; }
 
 .how-it-works, .devices, .roadmap, .faq { padding: 9rem 0; }
 .section-heading { max-width: 590px; margin-bottom: 2.5rem; }
-.section-heading h2, .closing h2 { font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: .98; }
+.section-heading h2, .closing h2 { font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: .96; }
 .section-copy { max-width: 540px; margin: 1.25rem 0 0; color: var(--muted); font-size: .95rem; line-height: 1.6; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 0; padding: 0; list-style: none; }
 .steps li { min-height: 220px; padding: 1.4rem; border-top: 1px solid var(--border); transition: transform .25s ease, border-color .25s ease, background-color .25s ease; }
 .steps li:hover { border-color: var(--accent-dark); background: var(--surface); transform: translateY(-4px); }
-.steps h3 { margin: 4rem 0 .65rem; font-size: 1.2rem; letter-spacing: -.03em; }
+.steps h3 { margin: 4rem 0 .65rem; font-size: 1.2rem; letter-spacing: -.015em; }
 .steps p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 .device-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .device-card { min-height: 185px; padding: 1.25rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
 .device-card:hover { border-color: var(--accent-dark); box-shadow: 0 12px 28px rgb(32 32 30 / 8%); transform: translateY(-4px); }
 :root[data-theme="dark"] .device-card:hover { box-shadow: 0 12px 28px rgb(0 0 0 / 24%); }
 .device-card p { margin: 0; color: var(--subtle); font-size: .82rem; }
-.device-card h3 { margin: .4rem 0 2.6rem; font-size: 1.3rem; letter-spacing: -.04em; }
+.device-card h3 { margin: .4rem 0 2.6rem; font-size: 1.3rem; letter-spacing: -.02em; }
 .device-card span { color: var(--accent-dark); font-size: .75rem; font-weight: 700; }
 
 .roadmap { border-top: 1px solid var(--border); }
@@ -99,7 +99,7 @@ a { color: inherit; text-decoration: none; }
 .roadmap li { display: grid; grid-template-columns: 110px 1fr; gap: 1.5rem; padding: 1.6rem 0; border-top: 1px solid var(--border); }
 .roadmap li:last-child { border-bottom: 1px solid var(--border); }
 .roadmap li > span { color: var(--accent-dark); font-size: .78rem; font-weight: 700; }
-.roadmap h3 { margin: 0 0 .4rem; font-size: 1.25rem; letter-spacing: -.03em; }
+.roadmap h3 { margin: 0 0 .4rem; font-size: 1.25rem; letter-spacing: -.015em; }
 .roadmap p { max-width: 550px; margin: 0; color: var(--muted); line-height: 1.55; }
 
 .closing { padding: 6rem 0 7rem; max-width: 750px; }
@@ -115,7 +115,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--accent-text);
 }
 .discord-community .eyebrow { color: currentColor; opacity: .75; }
-.discord-intro h2 { max-width: 500px; margin: 0; font-size: clamp(2.3rem, 5vw, 4rem); line-height: .98; letter-spacing: -.07em; }
+.discord-intro h2 { max-width: 500px; margin: 0; font-size: clamp(2.3rem, 5vw, 4rem); line-height: .96; letter-spacing: -.04em; }
 .discord-intro > p:last-of-type { max-width: 480px; margin: 1.3rem 0 1.6rem; line-height: 1.6; opacity: .85; }
 .discord-cta { display: inline-flex; align-items: center; gap: .55rem; padding: .8rem 1rem; border: 1px solid currentColor; border-radius: 9px; background: var(--accent-text); color: var(--accent); font-size: .85rem; font-weight: 800; transition: transform .2s ease, box-shadow .2s ease; }
 .discord-cta:hover { box-shadow: 0 8px 20px rgb(0 0 0 / 14%); transform: translateY(-2px); }
@@ -123,7 +123,7 @@ a { color: inherit; text-decoration: none; }
 .discord-benefits { margin: 0; padding: 0; border-top: 1px solid color-mix(in srgb, currentColor 35%, transparent); list-style: none; }
 .discord-benefits li { display: grid; grid-template-columns: 2rem 1fr; gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
 .discord-benefits li > span { padding-top: .15rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .7rem; opacity: .65; }
-.discord-benefits h3 { margin: 0 0 .35rem; font-size: 1.05rem; letter-spacing: -.02em; }
+.discord-benefits h3 { margin: 0 0 .35rem; font-size: 1.05rem; letter-spacing: -.01em; }
 .discord-benefits p { margin: 0; font-size: .85rem; line-height: 1.5; opacity: .8; }
 
 .faq { border-top: 1px solid var(--border); }
@@ -138,7 +138,7 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: -.02em;
+  letter-spacing: -.01em;
   list-style: none;
 }
 .faq summary::-webkit-details-marker { display: none; }
