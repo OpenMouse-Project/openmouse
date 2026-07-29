@@ -37,6 +37,12 @@
 .empty-state small { color: #707076; font-size: .78rem; }
 .is-empty .empty-state { display: block; }
 .is-empty .device-data { display: none; }
+.device-overview .summary-stat { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 1.1rem 1.35rem; border-right: 1px solid #2b2b2f; }
+.device-overview .summary-stat:last-child { border-right: 0; }
+.device-overview .summary-stat > span { margin-bottom: .45rem; color: #77777c; font-family: "JetBrains Mono", monospace; font-size: .6rem; letter-spacing: .09em; }
+.device-overview .summary-stat strong { font-size: 1.3rem; font-weight: 500; letter-spacing: -.025em; }
+.device-overview .summary-stat small { margin-top: .2rem; color: #77777c; font-size: .68rem; }
+.device-overview .summary-stat .meter { margin-top: .7rem; }
 
 @media (min-width: 900px) {
   .control-shell { height: 100vh; overflow: hidden; }
@@ -44,16 +50,12 @@
   .control-shell .preview-banner { padding: .45rem .65rem; }
   .control-shell .panel-header { padding: .8rem 0 .65rem; }
   .control-shell .panel-header h1 { font-size: clamp(2rem, 3.2vw, 2.8rem); }
-  .control-shell .device-overview { flex: 0 0 170px; min-height: 170px; }
-  .control-shell .mouse-stage { min-height: 170px; }
-  .control-shell .mouse-stage::before { width: 230px; height: 230px; }
-  .control-shell .mouse-image { width: min(125px, 42%); }
-  .control-shell .model-caption { right: .7rem; bottom: .65rem; }
-  .control-shell .quick-stats article { padding: .55rem .9rem; }
-  .control-shell .quick-stats strong { font-size: 1.1rem; }
-  .control-shell .quick-stats small { margin-top: .1rem; }
-  .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .3rem; }
-  .control-shell .meter { margin-top: .4rem; }
+  .control-shell .device-overview { flex: 0 0 104px; min-height: 104px; grid-template-columns: repeat(3, 1fr); }
+  .control-shell .device-overview .summary-stat { padding: .65rem .9rem; }
+  .control-shell .device-overview .summary-stat strong { font-size: 1.1rem; }
+  .control-shell .device-overview .summary-stat small { margin-top: .1rem; }
+  .control-shell .device-overview .summary-stat > span, .control-shell .setting-heading p { margin-bottom: .3rem; }
+  .control-shell .device-overview .meter { margin-top: .4rem; }
   .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-template-rows: 176px; gap: .65rem; margin-top: .65rem; }
   .control-shell .setting-card { min-height: 176px; padding: .85rem; }
   .control-shell .dpi-card { grid-row: auto; }

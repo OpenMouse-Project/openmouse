@@ -68,13 +68,10 @@ function renderControl(): void {
           <p>Use <strong>Add device</strong> in the sidebar, then choose the Logitech USB Receiver in the browser prompt.</p>
           <small>OpenMouse only reads device status at this stage. No settings are changed.</small>
         </section>
-        <section class="device-overview device-data">
-          <div class="mouse-stage"><img class="mouse-image" src="/superlight-2c-black.png" alt="Gaming mouse" /><span id="model-caption" class="model-caption">SUPPORTED LOGITECH RECEIVER</span></div>
-          <div class="quick-stats">
-            <article><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
-            <article><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-            <article><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
-          </div>
+        <section class="device-overview device-data" aria-label="Device status">
+          <article class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
+          <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
+          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><input id="dpi-range" type="range" min="100" max="3200" value="100" disabled /><div class="range-labels"><span>Read-only</span><span>Current value</span></div><p class="setting-note">Read directly from the mouse. Settings writes are deliberately disabled.</p></article>
@@ -110,7 +107,6 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#device-title", status.name);
   setText("#sidebar-device-name", status.name);
   setText("#sidebar-device-status", "Logitech · Connected");
-  setText("#model-caption", status.name.toUpperCase());
   setText("#device-status", "Connected");
   setText("#connection-banner", "Live status read directly through WebHID. No device settings have been changed.");
   setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
