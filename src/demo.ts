@@ -45,10 +45,9 @@ demoApp.innerHTML = `
       <section class="device-overview">
         <div class="mouse-stage" aria-label="Abstract mouse preview">
           <div class="mouse-visual">
-            <span class="mouse-left"></span>
-            <span class="mouse-right"></span>
+            <span class="button-divider"></span>
             <span class="mouse-wheel"></span>
-            <span class="mouse-body"></span>
+            <span class="mouse-mark">OM</span>
           </div>
           <span class="model-caption">SUPERLIGHT 2C</span>
         </div>
