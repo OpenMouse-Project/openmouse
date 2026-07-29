@@ -44,12 +44,24 @@ interface DpiConfiguration {
 
 export class LogitechHidppClient {
   private dpiOptionsCache: number[] | null = null;
+  private reportRateFeatureIndex: number | null = null;
+  private livePollingRateHz: number | null = null;
+  private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
   private readonly onInputReport = (event: HIDInputReportEvent): void => {
     if (event.reportId !== SHORT_REPORT_ID && event.reportId !== LONG_REPORT_ID) {
       return;
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
+    if (report[0] === DEVICE_INDEX && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
+      const rate = REPORT_RATE_HZ[report[4] ?? -1];
+      if (rate) {
+        this.livePollingRateHz = rate;
+        const matchingRateWaiters = this.rateChangeWaiters.filter((waiter) => waiter.rate === rate);
+        this.rateChangeWaiters.splice(0, this.rateChangeWaiters.length, ...this.rateChangeWaiters.filter((waiter) => waiter.rate !== rate));
+        matchingRateWaiters.forEach((waiter) => waiter.resolve());
+      }
+    }
     const matchingIndex = this.waiters.findIndex(
       (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
     );
@@ -157,12 +169,10 @@ export class LogitechHidppClient {
     if (!feature.index) {
       throw new Error("This mouse does not expose report-rate controls.");
     }
+    const confirmation = this.waitForRateChange(pollingRateHz);
     await this.request(feature.index, 0x30, rateIndex);
-    const confirmed = await this.readPollingRate(feature.index);
-    if (confirmed !== pollingRateHz) {
-      throw new Error(`The mouse kept ${confirmed} Hz instead of ${pollingRateHz} Hz.`);
-    }
-    return confirmed;
+    await confirmation;
+    return pollingRateHz;
   }
 
   async getDpiOptions(): Promise<number[]> {
@@ -238,7 +248,9 @@ export class LogitechHidppClient {
 
   private async getFeature(featureId: number): Promise<FeatureInfo> {
     const reply = await this.request(0x00, 0x00, featureId >> 8, featureId & 0xff);
-    return { index: reply[3] ?? 0, version: reply[6] ?? 0 };
+    const feature = { index: reply[3] ?? 0, version: reply[6] ?? 0 };
+    if (featureId === FEATURE.extendedReportRate) this.reportRateFeatureIndex = feature.index;
+    return feature;
   }
 
   private async readName(featureIndex: number): Promise<string> {
@@ -296,7 +308,25 @@ export class LogitechHidppClient {
     if (!rate) {
       throw new Error("The mouse returned an unknown report-rate value.");
     }
-    return rate;
+    return this.livePollingRateHz ?? rate;
+  }
+
+  private waitForRateChange(rate: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        const index = this.rateChangeWaiters.findIndex((waiter) => waiter.reject === reject);
+        if (index >= 0) this.rateChangeWaiters.splice(index, 1);
+        reject(new Error("The mouse acknowledged the rate write but did not confirm the new active rate."));
+      }, 6000);
+      this.rateChangeWaiters.push({
+        rate,
+        resolve: () => {
+          window.clearTimeout(timeout);
+          resolve();
+        },
+        reject,
+      });
+    });
   }
 
   private async readActiveProfile(featureIndex: number): Promise<number | null> {

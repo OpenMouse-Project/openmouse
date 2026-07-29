@@ -16,7 +16,6 @@ let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
-let dpiSelectionDirty = false;
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
@@ -77,7 +76,7 @@ function renderControl(): void {
           <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><input id="dpi-range" type="range" min="0" max="0" value="0" disabled /><div class="range-labels"><span id="dpi-min">—</span><span id="dpi-max">—</span></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="apply-dpi" type="button" disabled>Apply</button></div></article>
+          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="custom-dpi" type="button" disabled>Custom DPI</button></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Changing this switches the mouse to Host Control; the mouse confirms every write.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Low" disabled>Low</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
         </section>
@@ -88,12 +87,8 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
     void connect();
   });
-  document.querySelector<HTMLInputElement>("#dpi-range")?.addEventListener("input", () => {
-    dpiSelectionDirty = true;
-    updateDpiPreview();
-  });
-  document.querySelector<HTMLButtonElement>("#apply-dpi")?.addEventListener("click", () => {
-    void applyDpi();
+  document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
+    void chooseCustomDpi();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -134,11 +129,7 @@ function showStatus(status: LogitechMouseStatus): void {
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     button.disabled = false;
   });
-  const dpiRange = document.querySelector<HTMLInputElement>("#dpi-range");
-  if (dpiRange && dpiOptions.length > 0 && !dpiSelectionDirty) {
-    dpiRange.value = String(Math.max(0, dpiOptions.indexOf(status.dpi)));
-    updateDpiPreview();
-  }
+  document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
 }
 
 async function connect(): Promise<void> {
@@ -173,44 +164,44 @@ async function connect(): Promise<void> {
 }
 
 function configureDpiControl(currentDpi: number): void {
-  const range = document.querySelector<HTMLInputElement>("#dpi-range");
-  const apply = document.querySelector<HTMLButtonElement>("#apply-dpi");
-  if (!range || !apply || dpiOptions.length === 0) return;
-  range.max = String(dpiOptions.length - 1);
-  range.value = String(Math.max(0, dpiOptions.indexOf(currentDpi)));
-  range.disabled = false;
-  apply.disabled = false;
-  setText("#dpi-min", `${dpiOptions[0].toLocaleString()} DPI`);
-  setText("#dpi-max", `${dpiOptions.at(-1)?.toLocaleString() ?? "—"} DPI`);
-  updateDpiPreview();
+  const presets = document.querySelector<HTMLElement>("#dpi-presets");
+  const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (!presets || !custom || dpiOptions.length === 0) return;
+  const common = [400, 800, 1600, 3200, 6400, 8000].filter((dpi) => dpiOptions.includes(dpi));
+  const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
+  presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
+  presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
+    button.addEventListener("click", () => void applyDpiValue(Number(button.dataset.dpi)));
+  });
+  custom.disabled = false;
 }
 
-function updateDpiPreview(): void {
-  const range = document.querySelector<HTMLInputElement>("#dpi-range");
-  const dpi = range ? dpiOptions[Number(range.value)] : undefined;
-  if (dpi === undefined) return;
-  setText("#dpi-output", `${dpi.toLocaleString()} DPI`);
-  setText("#dpi-pending", `Set to ${dpi.toLocaleString()} DPI`);
+async function chooseCustomDpi(): Promise<void> {
+  const answer = window.prompt("Enter a DPI value supported by this mouse:", "800");
+  if (answer === null) return;
+  const dpi = Number(answer);
+  if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
+    setText("#read-status", "That DPI value is not supported by this mouse.");
+    return;
+  }
+  await applyDpiValue(dpi);
 }
 
-async function applyDpi(): Promise<void> {
-  const range = document.querySelector<HTMLInputElement>("#dpi-range");
-  const button = document.querySelector<HTMLButtonElement>("#apply-dpi");
-  const dpi = range ? dpiOptions[Number(range.value)] : undefined;
-  if (!activeClient || !button || dpi === undefined || refreshInProgress || settingInProgress) return;
+async function applyDpiValue(dpi: number): Promise<void> {
+  if (!activeClient || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
-  button.disabled = true;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
+  buttons.forEach((button) => { button.disabled = true; });
   setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
   try {
     await activeClient.setDpi(dpi);
-    dpiSelectionDirty = false;
     showStatus(await activeClient.readStatus());
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
   } finally {
     settingInProgress = false;
-    button.disabled = false;
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 

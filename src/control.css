@@ -46,6 +46,8 @@
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: #77777c; font-size: .65rem; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid #f7f7f7; border-radius: 6px; background: #f7f7f7; color: #09090b; font-size: .65rem; font-weight: 700; }
 .setting-action button:disabled { cursor: default; opacity: .45; }
+.dpi-presets { grid-template-columns: repeat(3, 1fr); }
+.dpi-presets button { padding-inline: .25rem; }
 
 @media (min-width: 900px) {
   .control-shell { height: 100vh; overflow: hidden; }
