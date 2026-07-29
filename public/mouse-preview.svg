@@ -1,31 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 430" role="img" aria-labelledby="title desc">
   <title id="title">Gaming mouse</title>
   <desc id="desc">A simple top view of a black wireless gaming mouse.</desc>
   <defs>
-    <linearGradient id="body" x1="38" y1="28" x2="194" y2="326" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3a3a3d"/>
-      <stop offset=".48" stop-color="#202023"/>
+    <linearGradient id="shell" x1="52" y1="28" x2="228" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#404044"/>
+      <stop offset=".48" stop-color="#252528"/>
       <stop offset="1" stop-color="#111113"/>
     </linearGradient>
-    <linearGradient id="button" x1="64" y1="30" x2="165" y2="154" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#4a4a4e"/>
-      <stop offset="1" stop-color="#242427"/>
+    <linearGradient id="keys" x1="65" y1="38" x2="207" y2="181" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#47474b"/>
+      <stop offset="1" stop-color="#28282b"/>
     </linearGradient>
   </defs>
 
-  <path d="M120 10C65 10 37 48 31 115L22 246c-5 68 36 104 98 104s103-36 98-104l-9-131C203 48 175 10 120 10Z" fill="url(#body)" stroke="#55555a" stroke-width="2"/>
+  <!-- broad-shouldered shell with straighter sides and a round base -->
+  <path d="M140 14C79 14 43 45 34 108c-7 48-4 101-7 151l-4 49c-6 70 39 108 117 108s123-38 117-108l-4-49c-3-50 0-103-7-151-9-63-45-94-106-94Z" fill="url(#shell)" stroke="#57575c" stroke-width="2.5"/>
 
-  <path d="M116 12C73 14 48 44 41 104l-4 43c-1 12 5 18 17 18h62V12Z" fill="url(#button)" stroke="#101012" stroke-width="3"/>
-  <path d="M124 12c43 2 68 32 75 92l4 43c1 12-5 18-17 18h-62V12Z" fill="url(#button)" stroke="#101012" stroke-width="3"/>
+  <!-- left and right main buttons follow the outer shoulder shape -->
+  <path d="M135 17C83 19 54 47 46 107c-4 31-4 67-2 96 1 12 7 18 19 18h72V17Z" fill="url(#keys)" stroke="#0b0b0d" stroke-width="3"/>
+  <path d="M145 17c52 2 81 30 89 90 4 31 4 67 2 96-1 12-7 18-19 18h-72V17Z" fill="url(#keys)" stroke="#0b0b0d" stroke-width="3"/>
 
-  <path d="M120 12v78M120 138v27" stroke="#09090b" stroke-width="5" stroke-linecap="round"/>
-  <rect x="100" y="77" width="40" height="70" rx="18" fill="#09090b" stroke="#4b4b50" stroke-width="2"/>
-  <rect x="108" y="84" width="24" height="54" rx="11" fill="#b8b8bc"/>
-  <path d="M110 94h20m-20 7h20m-20 7h20m-20 7h20m-20 7h20m-20 7h20" stroke="#4b4b50" stroke-width="2"/>
+  <!-- center split -->
+  <path d="M140 17v91M140 174v47" stroke="#09090b" stroke-width="6" stroke-linecap="round"/>
 
-  <path d="M28 132c-7 4-8 14-7 27l3 31c1 8 5 12 10 9l4-3-5-67-5 3Z" fill="#29292c" stroke="#4a4a4e" stroke-width="2"/>
-  <path d="M26 202c-5 4-5 12-4 21l2 20c1 7 4 10 8 8l4-3-4-50-6 4Z" fill="#29292c" stroke="#4a4a4e" stroke-width="2"/>
+  <!-- wheel recess and wheel -->
+  <rect x="116" y="88" width="48" height="91" rx="22" fill="#09090b" stroke="#505055" stroke-width="2"/>
+  <rect x="125" y="98" width="30" height="70" rx="14" fill="#b9b9bd"/>
+  <path d="M128 110h24m-24 8h24m-24 8h24m-24 8h24m-24 8h24m-24 8h24m-24 8h24" stroke="#505055" stroke-width="2.5"/>
 
-  <circle cx="120" cy="190" r="4" fill="#70d68f"/>
-  <circle cx="120" cy="190" r="9" fill="#70d68f" opacity=".12"/>
+  <!-- side buttons -->
+  <path d="M28 131c-8 5-10 16-9 30l3 38c1 9 5 13 11 10l7-5-6-77-6 4Z" fill="#2d2d30" stroke="#505055" stroke-width="2"/>
+  <path d="M25 217c-6 5-7 14-6 25l2 25c1 8 5 12 10 9l6-5-5-59-7 5Z" fill="#2d2d30" stroke="#505055" stroke-width="2"/>
+
+  <!-- connection indicator -->
+  <circle cx="140" cy="252" r="4.5" fill="#70d68f"/>
+  <circle cx="140" cy="252" r="11" fill="#70d68f" opacity=".12"/>
 </svg>
