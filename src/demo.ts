@@ -6,7 +6,23 @@ if (!demoApp) {
   throw new Error("OpenMouse could not find the demo application root.");
 }
 
+const mobileNavigator = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+const isMobileDevice = mobileNavigator.userAgentData?.mobile === true
+  || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+if (isMobileDevice) {
+  document.documentElement.classList.add("blocked-device");
+}
+
 demoApp.innerHTML = `
+  <section class="small-screen-blocker" aria-labelledby="desktop-required-title">
+    <span class="blocker-mark">OM</span>
+    <p class="blocker-label">INTERFACE PREVIEW</p>
+    <h1 id="desktop-required-title">Desktop required.</h1>
+    <p>The OpenMouse interface preview needs a larger screen. Open this page on a desktop or laptop with a window at least 900px wide.</p>
+    <a href="/">Back to OpenMouse</a>
+  </section>
+
   <div class="demo-shell">
     <aside class="sidebar">
       <a class="demo-wordmark" href="/" aria-label="Back to OpenMouse">OpenMouse</a>
