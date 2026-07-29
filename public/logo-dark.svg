@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">OpenMouse</title>
+  <rect width="512" height="512" rx="108" fill="#09090b"/>
+  <path d="M256 92c-72 0-124 45-124 119v38h112V92h12Z" fill="#fafafa"/>
+  <path d="M268 92v157h112v-38c0-74-47-119-112-119Z" fill="#fafafa"/>
+  <path d="M132 267h248v46c0 77-51 127-124 127s-124-50-124-127v-46Z" fill="#fafafa"/>
+  <rect x="235" y="141" width="42" height="79" rx="21" fill="#09090b"/>
+  <rect x="244" y="151" width="24" height="59" rx="12" fill="#70d68f"/>
+</svg>
