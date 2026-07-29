@@ -43,8 +43,8 @@ demoApp.innerHTML = `
       </header>
 
       <section class="device-overview">
-        <div class="mouse-stage" aria-label="Abstract mouse preview">
-          <img class="mouse-svg" src="/mouse-preview.svg" alt="Top view of a black gaming mouse" />
+        <div class="mouse-stage" aria-label="Mouse preview">
+          <img class="mouse-image" src="/superlight-2c-black.png" alt="Top view of a black Logitech Superlight 2C gaming mouse" />
           <span class="model-caption">SUPERLIGHT 2C</span>
         </div>
         <div class="quick-stats">

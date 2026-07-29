@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#09090B"/>
+  <circle cx="975" cy="130" r="250" fill="#151519"/>
+  <circle cx="975" cy="130" r="160" fill="#1D1D22"/>
+  <path d="M711 204c0-78 63-141 141-141h67c78 0 141 63 141 141v184H711V204Z" fill="#F7F7F7"/>
+  <path d="M711 413h349v57c0 104-78 188-175 188s-174-84-174-188v-57Z" fill="#F7F7F7"/>
+  <path d="M872 93h27v161h-27z" fill="#09090B"/>
+  <rect x="850" y="175" width="71" height="132" rx="35" fill="#09090B"/>
+  <rect x="867" y="191" width="37" height="99" rx="18" fill="#69D28D"/>
+  <path d="M711 400h349" stroke="#09090B" stroke-width="28"/>
+  <text x="88" y="212" fill="#F7F7F7" font-family="Arial, Helvetica, sans-serif" font-size="96" font-weight="700" letter-spacing="-5">OpenMouse</text>
+  <text x="92" y="285" fill="#A1A1AA" font-family="Arial, Helvetica, sans-serif" font-size="31">Your mouse, in focus.</text>
+  <rect x="92" y="353" width="164" height="40" rx="20" fill="#17171B"/>
+  <circle cx="117" cy="373" r="7" fill="#69D28D"/>
+  <text x="136" y="381" fill="#D4D4D8" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">CONNECTED</text>
+</svg>
