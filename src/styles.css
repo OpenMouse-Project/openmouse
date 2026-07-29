@@ -45,12 +45,12 @@ a { color: inherit; text-decoration: none; }
 
 .wordmark { font-size: 1.05rem; font-weight: 600; letter-spacing: -.025em; }
 .header-actions { display: flex; align-items: center; gap: .6rem; }
-.status-badge, .theme-toggle, .github-link { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
+.status-badge, .theme-toggle, .github-link, .demo-link { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
 .github-link { display: inline-flex; align-items: center; gap: .25rem; }
 .github-link > svg { width: .9rem; height: .9rem; }
 .github-stars { margin-left: .15rem; padding-left: .4rem; border-left: 1px solid var(--border); color: var(--text); font-variant-numeric: tabular-nums; }
 .theme-toggle { cursor: pointer; }
-.theme-toggle:hover, .github-link:hover { border-color: var(--accent-dark); color: var(--text); }
+.theme-toggle:hover, .github-link:hover, .demo-link:hover { border-color: var(--accent-dark); color: var(--text); }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent-dark); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .67rem; font-weight: 500; letter-spacing: .11em; }
 
 .hero { max-width: 760px; padding: 8.5rem 0 10rem; }
@@ -58,10 +58,13 @@ a { color: inherit; text-decoration: none; }
 .hero h1 { font-size: clamp(4rem, 10vw, 8.6rem); font-weight: 500; line-height: .9; }
 .hero h1 em { color: var(--muted); font-style: normal; }
 .hero-copy { max-width: 570px; margin: 2rem 0 1.75rem; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.6; }
+.hero-actions { display: flex; align-items: center; gap: 1rem; }
 .button { display: inline-flex; gap: .8rem; align-items: center; border-radius: 9px; padding: .9rem 1.05rem; background: var(--accent); color: var(--accent-text); font-size: .92rem; font-weight: 600; transition: transform .2s ease, box-shadow .2s ease; }
 .button:hover { box-shadow: 0 9px 24px rgb(0 0 0 / 14%); transform: translateY(-2px); }
 .button span { transition: transform .2s ease; }
-.button:hover span { transform: translateY(3px); }
+.button:hover span { transform: translateX(3px); }
+.text-link { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .88rem; font-weight: 500; }
+.text-link:hover { color: var(--text); }
 .compatibility { margin-top: 1.35rem; color: var(--subtle); font-size: .76rem; }
 .compatibility > span { display: block; margin-bottom: .55rem; font-weight: 700; }
 .compatibility ul { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0; padding: 0; list-style: none; }
@@ -197,7 +200,9 @@ footer a:hover { color: var(--accent); }
 @media (max-width: 700px) {
   .site-header, main, footer { width: min(100% - 2rem, 1120px); }
   .status-badge { display: none; }
+  .demo-link { display: none; }
   .hero { padding: 5.5rem 0 6rem; }
+  .hero-actions { align-items: flex-start; flex-direction: column; }
   .promise, .steps, .device-list { grid-template-columns: 1fr; }
   .promise article { min-height: 190px; }
   .promise h2 { margin-top: 2rem; }
