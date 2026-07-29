@@ -22,7 +22,15 @@
 .control-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
 .device-select { cursor: default; }
 .setting-card button:disabled { cursor: default; opacity: 1; }
-.panel-footer button:disabled { cursor: wait; opacity: .7; }
+.device-dot.is-idle, .status-dot.is-idle { background: #5a5a5f; box-shadow: none; }
+.sidebar-action { width: 100%; margin-top: .7rem; padding: .75rem .85rem; border: 1px dashed #3a3a3e; border-radius: 9px; background: transparent; color: #c7c7cb; text-align: left; font-size: .78rem; font-weight: 500; }
+.sidebar-action:hover { border-color: #f7f7f7; color: #fff; }
+.sidebar-action:disabled { cursor: wait; opacity: .7; }
+.panel-header { gap: 1.5rem; }
+.panel-header h1 { max-width: min(760px, 70vw); font-size: clamp(2.5rem, 4.5vw, 4rem); overflow-wrap: anywhere; }
+.device-status { flex: 0 0 auto; white-space: nowrap; }
+.device-status > .status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: #69d28d; }
+.device-status > #device-status { width: auto; height: auto; border-radius: 0; background: transparent; color: inherit; }
 
 @media (max-width: 899px) {
   .control-shell { display: block; }

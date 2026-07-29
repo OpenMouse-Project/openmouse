@@ -46,9 +46,10 @@ function renderControl(): void {
         <a class="demo-wordmark" href="/">OpenMouse</a>
         <div class="device-label">CONNECTED DEVICE</div>
         <div class="device-select">
-          <span class="device-dot"></span>
+          <span class="device-dot is-idle"></span>
           <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Logitech receiver required</small></span>
         </div>
+        <button id="connect-button" class="sidebar-action" type="button">Add device</button>
         <div class="sidebar-footer"><span>Read-only WebHID status</span><a href="/">Back to website</a></div>
       </aside>
 
@@ -56,7 +57,7 @@ function renderControl(): void {
         <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported Logitech receiver to read its current status. No settings are changed.</p></div>
         <header class="panel-header">
           <div><p class="overline">LOGITECH</p><h1 id="device-title">Connect a mouse</h1></div>
-          <div class="device-status"><span></span><span id="device-status">Waiting for permission</span></div>
+          <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
         </header>
         <section class="device-overview">
           <div class="mouse-stage"><img class="mouse-image" src="/superlight-2c-black.png" alt="Gaming mouse" /><span id="model-caption" class="model-caption">SUPPORTED LOGITECH RECEIVER</span></div>
@@ -71,7 +72,7 @@ function renderControl(): void {
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Hz. The selected value is the active report rate.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Low" disabled>Low</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
         </section>
-        <footer class="panel-footer"><span id="read-status">No device data has been read yet.</span><button id="connect-button" type="button">Connect Logitech</button></footer>
+        <footer class="panel-footer"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
       </main>
     </div>`;
 
@@ -105,6 +106,7 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
+  document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
 }
