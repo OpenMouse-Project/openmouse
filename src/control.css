@@ -38,27 +38,32 @@
 .is-empty .empty-state { display: block; }
 .is-empty .device-data { display: none; }
 
-@media (min-width: 900px) and (min-height: 720px) {
+@media (min-width: 900px) {
   .control-shell { height: 100vh; overflow: hidden; }
-  .control-shell .control-panel { display: flex; flex-direction: column; width: min(100% - 3rem, 1180px); min-height: 0; padding: 1rem 0; }
-  .control-shell .preview-banner { padding: .55rem .7rem; }
-  .control-shell .panel-header { padding: 1.5rem 0 1rem; }
-  .control-shell .panel-header h1 { font-size: clamp(2.25rem, 3.8vw, 3.4rem); }
-  .control-shell .device-overview { flex: 0 0 235px; min-height: 235px; }
-  .control-shell .mouse-stage { min-height: 235px; }
-  .control-shell .mouse-stage::before { width: 310px; height: 310px; }
-  .control-shell .mouse-image { width: min(185px, 56%); }
-  .control-shell .quick-stats article { padding: .85rem 1.1rem; }
-  .control-shell .quick-stats strong { font-size: 1.25rem; }
-  .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .4rem; }
-  .control-shell .meter { margin-top: .55rem; }
-  .control-shell .settings-grid { flex: 1 1 auto; min-height: 0; grid-template-rows: repeat(2, minmax(118px, 1fr)); gap: .75rem; margin-top: .75rem; }
-  .control-shell .setting-card { padding: 1.1rem; }
-  .control-shell .setting-heading { margin-bottom: 1rem; }
-  .control-shell .dpi-card { grid-row: span 2; }
-  .control-shell .dpi-card .setting-note { margin-top: 1rem; }
-  .control-shell .setting-note { margin-top: .7rem; }
-  .control-shell .panel-footer { margin-top: .65rem; padding: .65rem 0 0; }
+  .control-shell .control-panel { display: flex; flex-direction: column; width: min(100% - 3rem, 1180px); min-height: 0; padding: .65rem 0; }
+  .control-shell .preview-banner { padding: .45rem .65rem; }
+  .control-shell .panel-header { padding: .8rem 0 .65rem; }
+  .control-shell .panel-header h1 { font-size: clamp(2rem, 3.2vw, 2.8rem); }
+  .control-shell .device-overview { flex: 0 0 170px; min-height: 170px; }
+  .control-shell .mouse-stage { min-height: 170px; }
+  .control-shell .mouse-stage::before { width: 230px; height: 230px; }
+  .control-shell .mouse-image { width: min(125px, 42%); }
+  .control-shell .model-caption { right: .7rem; bottom: .65rem; }
+  .control-shell .quick-stats article { padding: .55rem .9rem; }
+  .control-shell .quick-stats strong { font-size: 1.1rem; }
+  .control-shell .quick-stats small { margin-top: .1rem; }
+  .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .3rem; }
+  .control-shell .meter { margin-top: .4rem; }
+  .control-shell .settings-grid { flex: 1 1 auto; min-height: 0; grid-template-columns: 1.2fr .9fr .9fr; grid-template-rows: 1fr; gap: .65rem; margin-top: .65rem; }
+  .control-shell .setting-card { min-height: 0; padding: .85rem; }
+  .control-shell .dpi-card { grid-row: auto; }
+  .control-shell .setting-heading { margin-bottom: .75rem; }
+  .control-shell .setting-heading h2 { font-size: 1rem; }
+  .control-shell .segmented { gap: .3rem; }
+  .control-shell .segmented button { padding: .45rem .25rem; }
+  .control-shell .setting-note, .control-shell .dpi-card .setting-note { margin-top: .55rem; font-size: .62rem; }
+  .control-shell .range-labels { margin-top: .25rem; }
+  .control-shell .panel-footer { margin-top: .35rem; padding: .4rem 0 0; }
 }
 
 @media (max-width: 899px) {
