@@ -14,6 +14,7 @@ const ACCESS_CODE = "3734";
 let activeClient: LogitechHidppClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
+let dpiOptions: number[] = [];
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
@@ -74,8 +75,8 @@ function renderControl(): void {
           <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><input id="dpi-range" type="range" min="100" max="3200" value="100" disabled /><div class="range-labels"><span>Read-only</span><span>Current value</span></div><p class="setting-note">Read directly from the mouse. Settings writes are deliberately disabled.</p></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Hz. The selected value is the active report rate.</small></article>
+          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><input id="dpi-range" type="range" min="0" max="0" value="0" disabled /><div class="range-labels"><span id="dpi-min">—</span><span id="dpi-max">—</span></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="apply-dpi" type="button" disabled>Apply</button></div></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Changing this switches the mouse to Host Control; the mouse confirms every write.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Low" disabled>Low</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
         </section>
         <footer class="panel-footer device-data"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
@@ -85,6 +86,15 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
     void connect();
   });
+  document.querySelector<HTMLInputElement>("#dpi-range")?.addEventListener("input", updateDpiPreview);
+  document.querySelector<HTMLButtonElement>("#apply-dpi")?.addEventListener("click", () => {
+    void applyDpi();
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void applyPollingRate(Number(button.dataset.rate));
+    });
+  });
 }
 
 function setText(selector: string, value: string): void {
@@ -93,8 +103,6 @@ function setText(selector: string, value: string): void {
 }
 
 function showStatus(status: LogitechMouseStatus): void {
-  const dpiRange = document.querySelector<HTMLInputElement>("#dpi-range");
-  if (dpiRange) dpiRange.value = String(Math.max(100, Math.min(3200, status.dpi)));
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   setText("#dpi-output", `${status.dpi.toLocaleString()} DPI`);
   setText("#battery-value", battery);
@@ -103,7 +111,7 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
   setText("#connection-detail", status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver");
-  setText("#profile-value", status.activeProfile ? `Onboard Profile ${status.activeProfile} is active.` : "Onboard profiles are not active.");
+  setText("#profile-value", status.activeProfile ? `Onboard Profile ${status.activeProfile} is active.` : "Host control is active for custom settings.");
   setText("#device-title", status.name);
   setText("#sidebar-device-name", status.name);
   setText("#sidebar-device-status", "Logitech · Connected");
@@ -118,6 +126,14 @@ function showStatus(status: LogitechMouseStatus): void {
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
+  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
+    button.disabled = false;
+  });
+  const dpiRange = document.querySelector<HTMLInputElement>("#dpi-range");
+  if (dpiRange && dpiOptions.length > 0) {
+    dpiRange.value = String(Math.max(0, dpiOptions.indexOf(status.dpi)));
+    updateDpiPreview();
+  }
 }
 
 async function connect(): Promise<void> {
@@ -136,7 +152,10 @@ async function connect(): Promise<void> {
       return;
     }
     activeClient = client;
-    showStatus(await activeClient.readStatus());
+    const status = await activeClient.readStatus();
+    dpiOptions = await activeClient.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
     startAutomaticRefresh();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
@@ -145,6 +164,64 @@ async function connect(): Promise<void> {
     setText("#read-status", message);
   } finally {
     if (!activeClient) button.disabled = false;
+  }
+}
+
+function configureDpiControl(currentDpi: number): void {
+  const range = document.querySelector<HTMLInputElement>("#dpi-range");
+  const apply = document.querySelector<HTMLButtonElement>("#apply-dpi");
+  if (!range || !apply || dpiOptions.length === 0) return;
+  range.max = String(dpiOptions.length - 1);
+  range.value = String(Math.max(0, dpiOptions.indexOf(currentDpi)));
+  range.disabled = false;
+  apply.disabled = false;
+  setText("#dpi-min", `${dpiOptions[0].toLocaleString()} DPI`);
+  setText("#dpi-max", `${dpiOptions.at(-1)?.toLocaleString() ?? "—"} DPI`);
+  updateDpiPreview();
+}
+
+function updateDpiPreview(): void {
+  const range = document.querySelector<HTMLInputElement>("#dpi-range");
+  const dpi = range ? dpiOptions[Number(range.value)] : undefined;
+  if (dpi === undefined) return;
+  setText("#dpi-output", `${dpi.toLocaleString()} DPI`);
+  setText("#dpi-pending", `Set to ${dpi.toLocaleString()} DPI`);
+}
+
+async function applyDpi(): Promise<void> {
+  const range = document.querySelector<HTMLInputElement>("#dpi-range");
+  const button = document.querySelector<HTMLButtonElement>("#apply-dpi");
+  const dpi = range ? dpiOptions[Number(range.value)] : undefined;
+  if (!activeClient || !button || dpi === undefined) return;
+  button.disabled = true;
+  setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
+  try {
+    await activeClient.setDpi(dpi);
+    await refreshStatus();
+    setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function applyPollingRate(rate: number): Promise<void> {
+  if (!activeClient) return;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  setText("#read-status", `Setting ${rate.toLocaleString()} Hz…`);
+  try {
+    await activeClient.setPollingRate(rate);
+    await refreshStatus();
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
+  } finally {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
   }
 }
 
