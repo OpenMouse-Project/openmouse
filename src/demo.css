@@ -40,7 +40,7 @@ nav { display: grid; gap: .3rem; margin-top: 2.5rem; }
 .device-overview { display: grid; grid-template-columns: 1.45fr 1fr; min-height: 330px; overflow: hidden; border: 1px solid #2b2b2f; border-radius: 14px; background: #111113; }
 .mouse-stage { position: relative; display: grid; min-height: 330px; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 45%, #29292d 0, #151517 40%, #101012 72%); }
 .mouse-stage::before { position: absolute; width: 430px; height: 430px; border: 1px solid #29292d; border-radius: 50%; content: ""; }
-.mouse-svg { position: relative; width: 154px; height: auto; filter: drop-shadow(0 30px 28px rgb(0 0 0 / 55%)); transform: rotate(-7deg); }
+.mouse-svg { position: relative; width: 188px; height: auto; filter: drop-shadow(0 30px 28px rgb(0 0 0 / 55%)); }
 .model-caption { position: absolute; right: 1rem; bottom: 1rem; color: #66666b; font-family: "JetBrains Mono", monospace; font-size: .58rem; letter-spacing: .1em; }
 .quick-stats { display: grid; grid-template-rows: repeat(3, 1fr); border-left: 1px solid #2b2b2f; }
 .quick-stats article { display: flex; flex-direction: column; justify-content: center; padding: 1.5rem; border-bottom: 1px solid #2b2b2f; }
