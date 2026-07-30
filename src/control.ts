@@ -121,6 +121,7 @@ function renderControl(): void {
       if (lod) void applyLiftOffDistance(lod);
     });
   });
+  void reconnectAuthorizedDevice();
 }
 
 function setText(selector: string, value: string): void {
@@ -275,6 +276,39 @@ async function connect(): Promise<void> {
     setText("#read-status", message);
   } finally {
     if (!activeClient) button.disabled = false;
+  }
+}
+
+async function reconnectAuthorizedDevice(): Promise<void> {
+  if (activeClient) return;
+  const button = document.querySelector<HTMLButtonElement>("#connect-button");
+  if (!button) return;
+  button.disabled = true;
+  button.textContent = "Checking for device…";
+
+  try {
+    const client = await LogitechHidppClient.reconnectAuthorizedReceiver();
+    if (!client) return;
+    activeClient = client;
+    setText("#device-status", "Reconnecting");
+    setText("#read-status", "Reading the previously authorized device.");
+    const status = await activeClient.readStatus();
+    dpiOptions = await activeClient.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+    startAutomaticRefresh();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to reconnect to the mouse.";
+    await activeClient?.close().catch(() => undefined);
+    activeClient = null;
+    setText("#device-status", "Not connected");
+    setText("#connection-banner", message);
+    setText("#read-status", "Use Add device to reconnect.");
+  } finally {
+    if (!activeClient) {
+      button.disabled = false;
+      button.textContent = "Add device";
+    }
   }
 }
 
