@@ -30,6 +30,7 @@ const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
+const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -75,8 +76,16 @@ type BatteryHistory = Record<string, BatterySample[]>;
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
+    <style>
+      .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:5rem }
+      .build-identity .demo-wordmark { margin-bottom:0 }
+      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid rgb(105 210 141 / 35%);border-radius:999px;background:rgb(105 210 141 / 9%);color:#8be3a9;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
+    </style>
     <main class="access-gate">
-      <a class="demo-wordmark" href="/">OpenMouse</a>
+      <div class="build-identity">
+        <a class="demo-wordmark" href="/">OpenMouse</a>
+        <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
+      </div>
       <p class="overline">PRIVATE CONTROL PANEL</p>
       <h1>Sign in to continue.</h1>
       <p>Private control for supported devices through WebHID.</p>
@@ -142,6 +151,9 @@ function renderControl(): void {
   appRoot.innerHTML = `
     <style>
       .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
+      .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:4rem }
+      .build-identity .demo-wordmark { margin-bottom:0 }
+      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
       .control-shell[data-interface-theme="violet"] { --ui-accent:#a78bfa;--ui-accent-ink:#130b25;--ui-accent-soft:rgb(167 139 250 / 17%) }
       .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
       .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
@@ -266,7 +278,10 @@ function renderControl(): void {
     </style>
     <div class="control-shell is-empty">
       <aside class="sidebar">
-        <a class="demo-wordmark" href="/">OpenMouse</a>
+        <div class="build-identity">
+          <a class="demo-wordmark" href="/">OpenMouse</a>
+          <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
+        </div>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
           <div class="device-select">
