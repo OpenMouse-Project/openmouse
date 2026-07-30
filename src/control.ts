@@ -9,8 +9,9 @@ if (!controlApp) {
 
 const appRoot = controlApp;
 
-const ACCESS_KEY = "openmouse-control-access";
-const ACCESS_CODE = "3734";
+const ACCESS_KEY = "openmouse-control-access-v2";
+const ACCESS_USERNAME = "snekxs";
+const ACCESS_PASSWORD = "3734";
 let activeClient: LogitechHidppClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
@@ -22,25 +23,28 @@ function renderGate(message = ""): void {
     <main class="access-gate">
       <a class="demo-wordmark" href="/">OpenMouse</a>
       <p class="overline">PRIVATE CONTROL PANEL</p>
-      <h1>Enter access code.</h1>
-      <p>This temporary control panel reads supported Logitech devices through WebHID.</p>
+      <h1>Sign in to continue.</h1>
+      <p>Private control for supported Logitech devices through WebHID.</p>
       <form id="access-form" class="access-form">
-        <label for="access-code">Access code</label>
-        <input id="access-code" type="password" inputmode="numeric" autocomplete="current-password" autofocus />
-        <button type="submit">Continue</button>
+        <label for="access-username">Username</label>
+        <input id="access-username" type="text" autocomplete="username" autofocus />
+        <label for="access-password">Password</label>
+        <input id="access-password" type="password" inputmode="numeric" autocomplete="current-password" />
+        <button type="submit">Sign in</button>
         <output id="access-error" aria-live="polite">${message}</output>
       </form>
     </main>`;
 
   document.querySelector<HTMLFormElement>("#access-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    const input = document.querySelector<HTMLInputElement>("#access-code");
-    if (input?.value === ACCESS_CODE) {
+    const username = document.querySelector<HTMLInputElement>("#access-username");
+    const password = document.querySelector<HTMLInputElement>("#access-password");
+    if (username?.value === ACCESS_USERNAME && password?.value === ACCESS_PASSWORD) {
       sessionStorage.setItem(ACCESS_KEY, "granted");
       renderControl();
       return;
     }
-    renderGate("Incorrect access code.");
+    renderGate("Incorrect username or password.");
   });
 }
 
