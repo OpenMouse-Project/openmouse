@@ -52,8 +52,9 @@ app.innerHTML = `
   <header class="site-header">
     <a class="wordmark" href="#top" aria-label="OpenMouse home">OpenMouse</a>
     <div class="header-actions">
-      <span class="status-badge">In development</span>
+      <span class="status-badge">Early access coming soon</span>
       <a class="demo-link" href="/demo.html">UI demo</a>
+      <a class="discord-jump" href="#discord">Join Discord <span aria-hidden="true">↓</span></a>
       <a class="github-link" href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7A11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.7-1.3-1.7-1.1-.8.1-.8.1-.8 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.6.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C15.8 3.7 17 4 17 4c.6 1.5.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.8 5.4-5.5 5.7.4.4.8 1.1.8 2.2v4.3c0 .4.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"/></svg>
         GitHub <span aria-hidden="true">↗</span>
@@ -65,9 +66,13 @@ app.innerHTML = `
 
   <main id="top">
     <section class="hero">
+      <div class="launch-notice" role="status">
+        <span class="launch-notice-dot" aria-hidden="true"></span>
+        <span>Early access coming soon</span>
+      </div>
       <p class="eyebrow">ONE PLACE FOR EVERY MOUSE</p>
       <h1>All your mice.<br><em>One control panel.</em></h1>
-      <p class="hero-copy">OpenMouse is a browser-based app for managing supported gaming mice in one place. Connect a mouse, see its settings, and make changes without switching between vendor utilities.</p>
+      <p class="hero-copy">OpenMouse is a browser-based app for managing supported gaming mice in one place. Early access is coming soon. Follow the project as support is built one mouse at a time.</p>
       <div class="hero-actions">
         <a class="button" href="/demo.html">Preview the interface <span aria-hidden="true">→</span></a>
         <a class="text-link" href="#roadmap">See the roadmap <span aria-hidden="true">↓</span></a>
@@ -159,7 +164,7 @@ app.innerHTML = `
       <p>OpenMouse is at an early stage. It starts with the hardware currently available, then expands one supported device at a time.</p>
     </section>
 
-    <section class="discord-community" aria-labelledby="discord-title">
+    <section id="discord" class="discord-community" aria-labelledby="discord-title">
       <div class="discord-intro">
         <p class="eyebrow">JOIN THE COMMUNITY</p>
         <h2 id="discord-title">Follow OpenMouse from the start.</h2>

@@ -49,7 +49,17 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 
 .wordmark { font-size: 1.05rem; font-weight: 600; letter-spacing: -.025em; }
 .header-actions { display: flex; align-items: center; gap: .6rem; }
-.status-badge, .theme-toggle, .github-link, .demo-link { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
+.status-badge, .theme-toggle, .github-link, .demo-link, .discord-jump { border: 1px solid var(--border); border-radius: 999px; padding: .35rem .6rem; color: var(--subtle); background: transparent; font: inherit; font-size: .72rem; }
+.discord-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.discord-jump:hover { box-shadow: 0 5px 14px rgb(0 0 0 / 14%); transform: translateY(-1px); }
 .github-link { display: inline-flex; align-items: center; gap: .25rem; }
 .github-link > svg { width: .9rem; height: .9rem; }
 .github-stars { margin-left: .15rem; padding-left: .4rem; border-left: 1px solid var(--border); color: var(--text); font-variant-numeric: tabular-nums; }
@@ -57,7 +67,31 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .theme-toggle:hover, .github-link:hover, .demo-link:hover { border-color: var(--accent-dark); color: var(--text); }
 .eyebrow { margin: 0 0 .7rem; color: var(--accent-dark); font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .67rem; font-weight: 500; letter-spacing: .11em; }
 
-.hero { max-width: 760px; padding: 8.5rem 0 10rem; }
+.hero { max-width: 760px; padding: 7rem 0 10rem; }
+.launch-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  margin-bottom: 2.2rem;
+  padding: .65rem .9rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
+}
+.launch-notice-dot {
+  width: .55rem;
+  height: .55rem;
+  border-radius: 50%;
+  background: #55d187;
+  box-shadow: 0 0 0 4px rgb(85 209 135 / 18%);
+  animation: status-pulse 2.2s ease-in-out infinite;
+}
 .hero h1, .section-heading h2, .closing h2 { margin: 0; letter-spacing: -.04em; }
 .hero h1 { font-size: clamp(4rem, 10vw, 8.6rem); font-weight: 500; line-height: .9; }
 .hero h1 em { color: var(--muted); font-style: normal; }
@@ -118,6 +152,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .closing p:last-child { max-width: 520px; margin-top: 1.5rem; }
 
 .discord-community {
+  scroll-margin-top: 2rem;
   display: grid;
   grid-template-columns: .9fr 1.1fr;
   gap: clamp(2rem, 6vw, 6rem);
@@ -194,16 +229,22 @@ footer a:hover { color: var(--accent); }
   to { opacity: 1; transform: none; }
 }
 
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgb(85 209 135 / 18%); }
+  50% { box-shadow: 0 0 0 7px rgb(85 209 135 / 5%); }
+}
+
 .hero > * { animation: hero-enter .7s cubic-bezier(.22, 1, .36, 1) both; }
-.hero > :nth-child(2) { animation-delay: .06s; }
-.hero > :nth-child(3) { animation-delay: .12s; }
-.hero > :nth-child(4) { animation-delay: .18s; }
-.hero > :nth-child(5) { animation-delay: .24s; }
+.hero > :nth-child(2) { animation-delay: .05s; }
+.hero > :nth-child(3) { animation-delay: .1s; }
+.hero > :nth-child(4) { animation-delay: .15s; }
+.hero > :nth-child(5) { animation-delay: .2s; }
+.hero > :nth-child(6) { animation-delay: .25s; }
 
 @media (prefers-reduced-motion: reduce) {
   :root { scroll-behavior: auto; }
   body, .steps li, .device-card, .discord-cta, .button, .button span { transition: none; }
-  .hero > * { animation: none; }
+  .hero > *, .launch-notice-dot { animation: none; }
   .steps li:hover, .device-card:hover, .discord-cta:hover, .button:hover, .button:hover span { transform: none; }
 }
 
