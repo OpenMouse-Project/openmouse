@@ -14,5 +14,8 @@ OpenMouse will begin with a small number of supported mice and grow one device a
 a time. Future versions are planned to include verified device controls, more
 supported models, and an offline-ready app.
 
-The project is open source. You can follow its progress, suggest a mouse, share
-feedback, or help with the project through GitHub and the OpenMouse Discord.
+The project is source available. You can follow its progress, suggest a mouse,
+share feedback, or contribute through GitHub and the OpenMouse Discord. The
+source may be modified to prepare contributions to the official project, but it
+may not be redistributed, sold, or used in another product. See
+[LICENSE](LICENSE) and [CONTRIBUTING.md](CONTRIBUTING.md) for the complete terms.

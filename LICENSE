@@ -1,0 +1,134 @@
+OpenMouse Source-Available License 1.0
+
+Copyright (c) 2026 snekxs. All rights reserved.
+
+This license governs the OpenMouse software and associated source code,
+documentation, assets, and other materials distributed with this license
+(collectively, the "Software").
+
+1. Official Project
+
+The "Official Project" is the OpenMouse project maintained by the copyright
+holder at:
+
+https://github.com/snekxs/openmouse
+
+2. Limited Permission
+
+Subject to all terms of this license, the copyright holder grants you a
+limited, worldwide, royalty-free, non-exclusive, non-transferable,
+non-sublicensable, and revocable license to:
+
+(a) view and inspect the Software;
+
+(b) download and make a reasonable number of copies of the Software for
+personal evaluation, testing, and use; and
+
+(c) modify the Software privately and locally only for the purpose of
+preparing a good-faith contribution intended for submission to the Official
+Project.
+
+You may submit such a contribution to the Official Project under its published
+contribution terms. No other rights are granted.
+
+3. Restrictions
+
+Unless you have separate written permission from the copyright holder, you
+must not:
+
+(a) sell, rent, lease, sublicense, monetize, or otherwise commercially exploit
+the Software;
+
+(b) distribute, publish, mirror, transmit, or make the Software or any modified
+version available to any third party, except by submitting a contribution to
+the Official Project;
+
+(c) operate the Software as a paid service or use it to provide a paid product
+or service;
+
+(d) incorporate the Software or any substantial portion of it into another
+program, product, service, or codebase;
+
+(e) use the Software, its non-public implementation details, or a modified
+version to create or assist in creating a competing or substantially similar
+program, product, or service;
+
+(f) remove, obscure, or alter copyright, license, attribution, trademark, or
+other proprietary notices;
+
+(g) use the OpenMouse name, logos, or other branding except to truthfully
+identify the Official Project; or
+
+(h) enable or assist another person or entity to do anything prohibited by
+this license.
+
+For clarity, publishing a fork or modified copy is distribution and is not
+permitted, even when no money is charged. Copies created automatically by a
+source-code hosting platform may be used only as necessary to submit a
+contribution and must not be promoted, released, or used as an independent
+project.
+
+4. Ownership
+
+The Software is licensed, not sold. The copyright holder and applicable
+contributors retain all right, title, and interest in the Software. All rights
+not expressly granted by this license are reserved. This license does not grant
+any right to trademarks, service marks, logos, or trade names.
+
+5. Contributions
+
+Any contribution submitted to the Official Project is governed by the
+CONTRIBUTING.md file published by the Official Project at the time of
+submission. You must have the right to submit the contribution and agree to
+those terms.
+
+6. No Patent License
+
+No patent license is granted except to the minimum extent required to exercise
+the permissions expressly granted in Section 2.
+
+7. Compliance and Termination
+
+Your rights under this license terminate automatically and immediately if you
+breach any term. Upon termination, you must stop using the Software and delete
+all copies in your possession or control, except copies that applicable law
+requires you to retain.
+
+The copyright holder may reinstate your rights in writing. Sections 3 through
+10 survive termination to the extent applicable.
+
+8. Third-Party Components
+
+Third-party components included with or used by the Software remain governed
+by their own license terms. This license does not limit rights granted directly
+by a third party.
+
+9. Disclaimer of Warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED "AS IS" AND
+"AS AVAILABLE," WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+10. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER AND CONTRIBUTORS
+WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+CONSEQUENTIAL, OR OTHER DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, REVENUE,
+BUSINESS, OR GOODWILL, ARISING FROM OR RELATED TO THE SOFTWARE OR THIS LICENSE,
+UNDER ANY THEORY OF LIABILITY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+11. Separate Licenses
+
+The copyright holder may offer the Software under separate terms, including a
+commercial license. A separate license changes your rights only if it is in a
+written agreement authorized by the copyright holder.
+
+12. Entire Permission
+
+This license states the complete permission granted to you for the Software.
+If any provision is unenforceable, it will be limited or removed only to the
+minimum extent necessary, and the remaining provisions will continue in
+effect.
+
