@@ -5,8 +5,15 @@ export interface MouseStatus {
   batteryVoltageMv?: number | null;
   batteryState: "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
   dpi: number;
+  dpiY?: number;
+  supportsSeparateDpiAxes?: boolean;
   pollingRateHz: number;
+  supportedPollingRates?: number[];
   activeProfile: number | null;
+  deviceMode?: "Onboard" | "Host" | "Unknown";
+  unitId?: string | null;
+  modelId?: string | null;
+  transportIds?: Record<string, string>;
   connectionType?: "Wired" | "Wireless";
   connectionDetail?: string;
   dongleLedEnabled?: boolean | null;

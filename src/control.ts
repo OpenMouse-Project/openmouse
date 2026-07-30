@@ -38,6 +38,8 @@ let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
+let activeDevice: HIDDevice | null = null;
+const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
 type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient;
@@ -145,6 +147,11 @@ function renderControl(): void {
       .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
       .control-shell[data-interface-theme="mono"] { --ui-accent:#f1f1f3;--ui-accent-ink:#09090b;--ui-accent-soft:rgb(241 241 243 / 13%) }
       .control-shell .sidebar-action::before { color:var(--ui-accent) }
+      .sidebar-device-list { display:grid;gap:.45rem }
+      .sidebar-device-list .device-select { width:100%;color:inherit }
+      .sidebar-device-list button.device-select { cursor:pointer;transition:border-color .18s ease,background .18s ease }
+      .sidebar-device-list button.device-select:hover { border-color:#4a4a4f;background:#1b1b1e }
+      .sidebar-device-list button.device-select.is-selected { border-color:#55555b;background:#202023 }
       .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
       .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
       .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
@@ -249,15 +256,23 @@ function renderControl(): void {
       .density-comfortable .device-overview .summary-stat { padding:1rem 1.2rem !important }
       .density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding:.95rem 1rem }
       .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
+      #logitech-device-details { flex:0 0 auto }
+      #logitech-device-details .setting-card { min-height:0 }
+      @media (min-width:900px) {
+        .control-shell .settings-grid { grid-template-rows:minmax(220px,auto) }
+        .control-shell .settings-grid > .setting-card { min-height:220px }
+      }
       @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
     </style>
     <div class="control-shell is-empty">
       <aside class="sidebar">
         <a class="demo-wordmark" href="/">OpenMouse</a>
-        <div class="device-label">CONNECTED DEVICE</div>
-        <div class="device-select">
-          <span class="device-dot is-idle"></span>
-          <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Choose a supported device</small></span>
+        <div class="device-label">CONNECTED DEVICES</div>
+        <div id="sidebar-device-list" class="sidebar-device-list">
+          <div class="device-select">
+            <span class="device-dot is-idle"></span>
+            <span><strong>No device connected</strong><small>Choose a supported device</small></span>
+          </div>
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
         <button id="interface-settings-button" class="sidebar-action interface-settings-button" type="button">Interface settings</button>
@@ -283,9 +298,12 @@ function renderControl(): void {
           <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
+          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+        </section>
+        <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
+          <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
         </section>
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
@@ -320,6 +338,11 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#empty-connect-button")?.addEventListener("click", () => {
     void connect();
   });
+  document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
+    if (!button) return;
+    void selectAuthorizedDevice(Number(button.dataset.deviceIndex));
+  });
   document.querySelector<HTMLButtonElement>("#interface-settings-button")?.addEventListener("click", openInterfaceSettings);
   document.querySelector<HTMLButtonElement>("#close-interface-settings")?.addEventListener("click", closeInterfaceSettings);
   document.querySelector<HTMLSelectElement>("#interface-density")?.addEventListener("change", (event) => {
@@ -349,6 +372,9 @@ function renderControl(): void {
   });
   document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
     void chooseCustomDpi();
+  });
+  document.querySelector<HTMLButtonElement>("#apply-logitech-axes")?.addEventListener("click", () => {
+    void applyLogitechAxisDpi();
   });
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -438,6 +464,8 @@ function renderControl(): void {
   }, { passive: false });
   populateInterfaceSettings();
   applyInterfacePreferences();
+  navigator.hid?.addEventListener("connect", handleHidConnect);
+  navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
   void reconnectAuthorizedDevice();
 }
 
@@ -556,10 +584,28 @@ function batteryDetail(status: MouseStatus): string {
   return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
 }
 
+function resetDeviceSpecificPanels(): void {
+  for (const selector of [
+    "#egg-filter-settings",
+    "#egg-spdt-settings",
+    "#egg-polling-settings",
+    "#egg-cpi-settings",
+    "#egg-button-settings",
+    "#pulsar-pro-settings",
+  ]) {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (element) element.style.display = "none";
+  }
+  document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
+}
+
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
   const isEgg = status.brand === "Endgame Gear";
   const isWired = status.connectionType === "Wired";
+  // Always clear device-specific panels first. A status read from the previous
+  // mouse may have left these visible when WebHID switches devices.
+  resetDeviceSpecificPanels();
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
     batterySummary.hidden = isWired;
@@ -645,23 +691,27 @@ function showStatus(status: MouseStatus): void {
     }
   }
   setText("#device-title", status.name);
-  setText("#sidebar-device-name", status.name);
-  setText("#sidebar-device-status", `${status.brand} · Connected`);
+  if (activeDevice) {
+    deviceStatuses.set(activeDevice, status);
+    void renderDeviceSidebar();
+  }
   setText("#device-status", "Connected");
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
-  const connectButton = document.querySelector<HTMLButtonElement>("#connect-button");
-  if (connectButton) connectButton.hidden = true;
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    const unsupportedForEgg = isEgg && Number(button.dataset.rate) < 1000;
-    button.hidden = unsupportedForEgg;
-    button.disabled = unsupportedForEgg;
+    const rate = Number(button.dataset.rate);
+    const unsupportedForEgg = isEgg && rate < 1000;
+    const unsupportedForLogitech = status.brand === "Logitech"
+      && Array.isArray(status.supportedPollingRates)
+      && !status.supportedPollingRates.includes(rate);
+    button.hidden = unsupportedForEgg || unsupportedForLogitech;
+    button.disabled = unsupportedForEgg || unsupportedForLogitech;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
@@ -669,6 +719,35 @@ function showStatus(status: MouseStatus): void {
     button.disabled = unsupportedForEgg || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
+  const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
+  if (axisControls) axisControls.style.display = status.brand === "Logitech" && status.supportsSeparateDpiAxes ? "block" : "none";
+  const dpiX = document.querySelector<HTMLInputElement>("#logitech-dpi-x");
+  const dpiY = document.querySelector<HTMLInputElement>("#logitech-dpi-y");
+  if (dpiX) dpiX.value = String(status.dpi);
+  if (dpiY) dpiY.value = String(status.dpiY ?? status.dpi);
+  const logitechDetails = document.querySelector<HTMLElement>("#logitech-device-details");
+  if (logitechDetails) logitechDetails.style.display = status.brand === "Logitech" ? "block" : "none";
+  if (status.brand === "Logitech") renderLogitechDetails(status);
+}
+
+function renderLogitechDetails(status: MouseStatus): void {
+  const list = document.querySelector<HTMLElement>("#logitech-detail-list");
+  if (!list) return;
+  const transports = Object.entries(status.transportIds ?? {})
+    .map(([name, id]) => `${name}: ${id}`)
+    .join(" · ") || "Not reported";
+  const rates = status.supportedPollingRates?.map((rate) => `${rate >= 1000 ? `${rate / 1000}K` : rate} Hz`).join(", ") || "Not reported";
+  const items = [
+    ["Mode", status.deviceMode ?? "Unknown"],
+    ["Active profile", status.activeProfile === null ? "None in host mode" : `Profile ${status.activeProfile}`],
+    ["Model ID", status.modelId ?? "Not reported"],
+    ["Unit ID", status.unitId ?? "Not reported"],
+    ["Transport IDs", transports],
+    ["Advertised polling", rates],
+    ["DPI axes", status.supportsSeparateDpiAxes ? `X ${status.dpi} · Y ${status.dpiY ?? status.dpi}` : "Linked X/Y"],
+  ];
+  list.innerHTML = items.map(([label, value]) =>
+    `<div style="padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416"><small style="display:block;margin-bottom:.25rem;color:#77777c;font-size:.52rem;letter-spacing:.08em">${label.toUpperCase()}</small><span style="color:#d8d8dc;font:600 .67rem 'JetBrains Mono',monospace;overflow-wrap:anywhere">${value}</span></div>`).join("");
 }
 
 function setControlValue(selector: string, value: number | string | null | undefined): void {
@@ -707,14 +786,10 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   setText("#connection-value", "Connected");
   setText("#connection-detail", "Reading Pulsar receiver identity");
   setText("#device-title", device.productName || "Pulsar Mouse");
-  setText("#sidebar-device-name", device.productName || "Pulsar Mouse");
-  setText("#sidebar-device-status", "Pulsar · Connecting");
   setText("#device-status", "Connected");
   setText("#connection-banner", "Pulsar vendor HID connected. Reading verified settings.");
   setText("#read-status", client.describeCollections());
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
-  const connectButton = document.querySelector<HTMLButtonElement>("#connect-button");
-  if (connectButton) connectButton.hidden = true;
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
   const info = await client.readDeviceInfo();
   setText("#connection-value", info.connection);
@@ -730,8 +805,153 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
   if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
-  if (device.vendorId === 0x046d && device.productId === 0xc54d) return new LogitechHidppClient(device);
+  if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
   return null;
+}
+
+function deviceBrand(client: SupportedClient): string {
+  if (client instanceof EggOp1HidClient) return "Endgame Gear";
+  if (client instanceof LogitechHidppClient) return "Logitech";
+  return "Pulsar";
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character]!);
+}
+
+async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
+  const list = document.querySelector<HTMLElement>("#sidebar-device-list");
+  if (!list) return;
+  const supportedDevices = (devices ?? await navigator.hid?.getDevices() ?? [])
+    .filter((device) => createSupportedClient(device) !== null);
+  if (supportedDevices.length === 0) {
+    list.innerHTML = `<div class="device-select"><span class="device-dot is-idle"></span><span><strong>No device connected</strong><small>Choose a supported device</small></span></div>`;
+    return;
+  }
+  list.innerHTML = supportedDevices.map((device, index) => {
+    const client = createSupportedClient(device)!;
+    const status = deviceStatuses.get(device);
+    const selected = device === activeDevice;
+    const name = status?.name ?? device.productName ?? `${deviceBrand(client)} mouse`;
+    const detail = status ? `${status.brand} · Connected` : `${deviceBrand(client)} · Available`;
+    return `<button class="device-select${selected ? " is-selected" : ""}" type="button" data-device-index="${index}" aria-pressed="${selected}">
+      <span class="device-dot${selected ? "" : " is-idle"}"></span>
+      <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span>
+    </button>`;
+  }).join("");
+}
+
+async function selectAuthorizedDevice(index: number): Promise<void> {
+  if (settingInProgress || refreshInProgress) return;
+  const devices = (await navigator.hid?.getDevices() ?? [])
+    .filter((device) => createSupportedClient(device) !== null);
+  const device = devices[index];
+  if (!device || device === activeDevice) return;
+  const client = createSupportedClient(device);
+  if (!client) return;
+  setText("#device-status", "Switching");
+  setText("#read-status", `Reading ${device.productName || "the selected mouse"}.`);
+  try {
+    await activateClient(client);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to switch devices.";
+    setText("#device-status", "Connection failed");
+    setText("#read-status", message);
+  }
+}
+
+async function activateClient(client: SupportedClient): Promise<void> {
+  resetDeviceSpecificPanels();
+  activeClient = null;
+  activePulsarClient = null;
+  activeEggClient = null;
+  activeDevice = client.device;
+  lastRenderedStatusKey = null;
+  if (client instanceof EggOp1HidClient) {
+    activeEggClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof LogitechHidppClient) {
+    activeClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = await client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else {
+    activePulsarClient = client;
+    await showPulsarExplorer(client);
+  }
+  await renderDeviceSidebar();
+  startAutomaticRefresh();
+}
+
+function showDisconnectedState(): void {
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  activeClient = null;
+  activePulsarClient = null;
+  activeEggClient = null;
+  activeDevice = null;
+  lastRenderedStatusKey = null;
+  document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
+  document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
+  setText("#device-title", "Connect a mouse");
+  setText("#device-status", "No device connected");
+  setText("#connection-banner", "Connect a supported device to view and change its settings.");
+  setText("#read-status", "Add a supported device from the sidebar to read its current status.");
+  setConnectionButtons(false, "Add device");
+}
+
+function handleHidConnect(event: HIDConnectionEvent): void {
+  const client = createSupportedClient(event.device);
+  if (!client) {
+    void renderDeviceSidebar();
+    return;
+  }
+  setText("#device-status", "New device detected");
+  setText("#read-status", `Reading ${event.device.productName || "the connected mouse"}.`);
+  void activateClient(client).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+    setText("#device-status", "Connection failed");
+    setText("#read-status", message);
+    void renderDeviceSidebar();
+  });
+}
+
+function handleHidDisconnect(event: HIDConnectionEvent): void {
+  deviceStatuses.delete(event.device);
+  if (event.device !== activeDevice) {
+    void renderDeviceSidebar();
+    return;
+  }
+  showDisconnectedState();
+  void (async () => {
+    const devices = (await navigator.hid?.getDevices() ?? [])
+      .filter((device) => device !== event.device);
+    const replacement = devices
+      .map(createSupportedClient)
+      .find((client): client is SupportedClient => client !== null);
+    if (replacement) {
+      await activateClient(replacement);
+    } else {
+      await renderDeviceSidebar(devices);
+    }
+  })().catch((error: unknown) => {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to switch to another connected mouse.");
+    void renderDeviceSidebar();
+  });
 }
 
 async function requestSupportedClient(): Promise<SupportedClient | null> {
@@ -764,26 +984,7 @@ async function connect(): Promise<void> {
       setText("#read-status", "No supported device was selected.");
       return;
     }
-    if (client instanceof EggOp1HidClient) {
-      activeEggClient = client;
-      const status = await client.readStatus();
-      dpiOptions = client.getDpiOptions();
-      configureDpiControl(status.dpi);
-      showStatus(status);
-      startAutomaticRefresh();
-      return;
-    }
-    if (!(client instanceof LogitechHidppClient)) {
-      activePulsarClient = client;
-      await showPulsarExplorer(client);
-      return;
-    }
-    activeClient = client;
-    const status = await activeClient.readStatus();
-    dpiOptions = await activeClient.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-    startAutomaticRefresh();
+    await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
     await activeEggClient?.close().catch(() => undefined);
@@ -814,27 +1015,12 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (delay) await waitForHidChange(delay);
       const devices = await navigator.hid?.getDevices() ?? [];
       const clients = devices.map(createSupportedClient).filter((candidate): candidate is SupportedClient => candidate !== null);
+      await renderDeviceSidebar(devices);
       for (const client of clients) {
         try {
           setText("#device-status", "Reconnecting");
           setText("#read-status", "Reading the previously authorized device.");
-          if (client instanceof EggOp1HidClient) {
-            const status = await client.readStatus();
-            activeEggClient = client;
-            dpiOptions = client.getDpiOptions();
-            configureDpiControl(status.dpi);
-            showStatus(status);
-          } else if (client instanceof LogitechHidppClient) {
-            const status = await client.readStatus();
-            activeClient = client;
-            dpiOptions = await client.getDpiOptions();
-            configureDpiControl(status.dpi);
-            showStatus(status);
-          } else {
-            await showPulsarExplorer(client);
-            activePulsarClient = client;
-          }
-          startAutomaticRefresh();
+          await activateClient(client);
           return;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error("Unable to reconnect to the mouse.");
@@ -942,6 +1128,27 @@ async function applyDpiValue(dpi: number): Promise<boolean> {
   } finally {
     settingInProgress = false;
     buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+
+async function applyLogitechAxisDpi(): Promise<void> {
+  if (!activeClient || refreshInProgress || settingInProgress) return;
+  const dpiX = Number(document.querySelector<HTMLInputElement>("#logitech-dpi-x")?.value);
+  const dpiY = Number(document.querySelector<HTMLInputElement>("#logitech-dpi-y")?.value);
+  if (!dpiOptions.includes(dpiX) || !dpiOptions.includes(dpiY)) {
+    setText("#read-status", "Both axis values must be advertised DPI values.");
+    return;
+  }
+  settingInProgress = true;
+  setText("#read-status", `Setting X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI…`);
+  try {
+    await activeClient.setDpi(dpiX, dpiY);
+    showStatus(await activeClient.readStatus());
+    setText("#dpi-pending", `Confirmed X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI`);
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set axis DPI.");
+  } finally {
+    settingInProgress = false;
   }
 }
 
@@ -1222,6 +1429,8 @@ async function refreshStatus(): Promise<void> {
   refreshInProgress = true;
   try {
     const status = await client.readStatus();
+    const currentClient = activeClient ?? activePulsarClient ?? activeEggClient;
+    if (client !== currentClient || client.device !== activeDevice) return;
     if (JSON.stringify(status) !== lastRenderedStatusKey) showStatus(status);
   } catch (error) {
     lastRenderedStatusKey = null;
@@ -1235,6 +1444,8 @@ async function refreshStatus(): Promise<void> {
 
 window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
+  navigator.hid?.removeEventListener("connect", handleHidConnect);
+  navigator.hid?.removeEventListener("disconnect", handleHidDisconnect);
   void activeClient?.close();
   void activePulsarClient?.close();
   void activeEggClient?.close();

@@ -44,6 +44,12 @@ interface DpiConfiguration {
   lod: number;
 }
 
+interface DeviceIdentity {
+  unitId: string | null;
+  modelId: string | null;
+  transportIds: Record<string, string>;
+}
+
 export class LogitechHidppClient {
   private dpiOptionsCache: number[] | null = null;
   private reportRateFeatureIndex: number | null = null;
@@ -93,6 +99,17 @@ export class LogitechHidppClient {
 
   constructor(readonly device: HIDDevice) {}
 
+  static isSupported(device: HIDDevice): boolean {
+    if (device.vendorId !== LOGITECH_VENDOR_ID || device.productId !== LOGITECH_RECEIVER_PRODUCT_ID) {
+      return false;
+    }
+    const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
+      collections.some((collection) =>
+        (collection.usagePage === 0xff00 && collection.usage === 0x0001)
+        || hasHidppCollection(collection.children));
+    return hasHidppCollection(device.collections);
+  }
+
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
     if (!navigator.hid) {
       throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
@@ -116,9 +133,7 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.getDevices();
-    const device = devices.find(
-      (candidate) => candidate.vendorId === LOGITECH_VENDOR_ID && candidate.productId === LOGITECH_RECEIVER_PRODUCT_ID,
-    );
+    const device = devices.find((candidate) => this.isSupported(candidate));
     return device ? new LogitechHidppClient(device) : null;
   }
 
@@ -137,6 +152,7 @@ export class LogitechHidppClient {
     // HID++ receivers expect one request at a time. Keeping the sequence serial
     // also makes every input report unambiguous to the WebHID event handler.
     const name = await this.readName(nameFeature.index);
+    const identity = await this.readIdentity(firmwareFeature.index);
     const battery = batteryFeature.index
       ? await this.readBattery(batteryFeature.index)
       : batteryVoltageFeature.index
@@ -150,8 +166,10 @@ export class LogitechHidppClient {
       battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
     }
     const dpiState = await this.readDpi(dpiFeature.index);
+    const supportsSeparateDpiAxes = await this.readDpiCapabilities(dpiFeature.index);
+    const supportedPollingRates = await this.readSupportedPollingRates(reportRateFeature.index);
     const pollingRateHz = await this.readPollingRate(reportRateFeature.index);
-    const activeProfile = await this.readActiveProfile(profilesFeature.index);
+    const profileState = await this.readProfileState(profilesFeature.index);
     const firmware = await this.readFirmware(firmwareFeature.index);
 
     return {
@@ -161,9 +179,16 @@ export class LogitechHidppClient {
       batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
       dpi: dpiState.dpi,
+      dpiY: dpiState.dpiY,
+      supportsSeparateDpiAxes,
       liftOffDistance: dpiState.liftOffDistance,
       pollingRateHz,
-      activeProfile,
+      supportedPollingRates,
+      activeProfile: profileState.activeProfile,
+      deviceMode: profileState.deviceMode,
+      unitId: identity.unitId,
+      modelId: identity.modelId,
+      transportIds: identity.transportIds,
       firmware,
     };
   }
@@ -232,10 +257,10 @@ export class LogitechHidppClient {
     return options;
   }
 
-  async setDpi(dpi: number): Promise<number> {
+  async setDpi(dpi: number, dpiY = dpi): Promise<number> {
     const options = await this.getDpiOptions();
-    if (!options.includes(dpi)) {
-      throw new Error(`${dpi} DPI is not advertised by this mouse.`);
+    if (!options.includes(dpi) || !options.includes(dpiY)) {
+      throw new Error(`${dpi}/${dpiY} DPI is not advertised by this mouse.`);
     }
 
     await this.ensureHostControl();
@@ -245,13 +270,13 @@ export class LogitechHidppClient {
       0x00,
       dpi >> 8,
       dpi & 0xff,
-      dpi >> 8,
-      dpi & 0xff,
+      dpiY >> 8,
+      dpiY & 0xff,
       current.lod,
     ]);
     const confirmed = await this.readDpiConfiguration(feature.index);
-    if (confirmed.x !== dpi) {
-      throw new Error(`The mouse kept ${confirmed.x} DPI instead of ${dpi} DPI.`);
+    if (confirmed.x !== dpi || confirmed.y !== dpiY) {
+      throw new Error(`The mouse kept ${confirmed.x}/${confirmed.y} DPI instead of ${dpi}/${dpiY} DPI.`);
     }
     return confirmed.x;
   }
@@ -370,7 +395,7 @@ export class LogitechHidppClient {
     return 0;
   }
 
-  private async readDpi(featureIndex: number): Promise<{ dpi: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
+  private async readDpi(featureIndex: number): Promise<{ dpi: number; dpiY: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
     if (!featureIndex) {
       throw new Error("This Logitech mouse does not expose extended DPI controls.");
     }
@@ -379,7 +404,13 @@ export class LogitechHidppClient {
     const dpi = configuration.x;
     const lod = configuration.lod;
     const liftOffDistance = lod === 0 ? "Low" : lod === 1 ? "Medium" : lod === 2 ? "High" : null;
-    return { dpi, liftOffDistance };
+    return { dpi, dpiY: configuration.y, liftOffDistance };
+  }
+
+  private async readDpiCapabilities(featureIndex: number): Promise<boolean> {
+    if (!featureIndex) return false;
+    const reply = await this.request(featureIndex, 0x10, 0x00);
+    return ((reply[5] ?? 0) & 0x01) !== 0;
   }
 
   private async readDpiConfiguration(featureIndex: number): Promise<DpiConfiguration> {
@@ -387,6 +418,13 @@ export class LogitechHidppClient {
     const x = ((reply[4] ?? 0) << 8) | (reply[5] ?? 0);
     const y = ((reply[8] ?? 0) << 8) | (reply[9] ?? 0);
     return { x, y, lod: reply[12] ?? 0 };
+  }
+
+  private async readSupportedPollingRates(featureIndex: number): Promise<number[]> {
+    if (!featureIndex) return [];
+    const reply = await this.request(featureIndex, 0x10);
+    const flags = ((reply[3] ?? 0) << 8) | (reply[4] ?? 0);
+    return REPORT_RATE_HZ.filter((_rate, index) => (flags & (1 << index)) !== 0);
   }
 
   private async readPollingRate(featureIndex: number): Promise<number> {
@@ -420,18 +458,44 @@ export class LogitechHidppClient {
     });
   }
 
-  private async readActiveProfile(featureIndex: number): Promise<number | null> {
+  private async readProfileState(featureIndex: number): Promise<{
+    activeProfile: number | null;
+    deviceMode: NonNullable<LogitechMouseStatus["deviceMode"]>;
+  }> {
     if (!featureIndex) {
-      return null;
+      return { activeProfile: null, deviceMode: "Unknown" };
     }
 
     const mode = await this.request(featureIndex, 0x20);
     if (mode[3] !== 0x01) {
-      return null;
+      return { activeProfile: null, deviceMode: mode[3] === 0x02 ? "Host" : "Unknown" };
     }
 
     const active = await this.request(featureIndex, 0x40);
-    return ((active[3] ?? 0) << 8) | (active[4] ?? 0);
+    return {
+      activeProfile: ((active[3] ?? 0) << 8) | (active[4] ?? 0),
+      deviceMode: "Onboard",
+    };
+  }
+
+  private async readIdentity(featureIndex: number): Promise<DeviceIdentity> {
+    if (!featureIndex) return { unitId: null, modelId: null, transportIds: {} };
+    const reply = await this.request(featureIndex, 0x00);
+    const payload = reply.slice(3);
+    if (payload.length < 13) return { unitId: null, modelId: null, transportIds: {} };
+    const hex = (bytes: Uint8Array): string => [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+    const unitId = hex(payload.slice(1, 5));
+    const modelBytes = payload.slice(7, 13);
+    const modelId = hex(modelBytes);
+    const transportIds: Record<string, string> = {};
+    let offset = 0;
+    for (const [name, flag] of [["Bluetooth", 0x01], ["Bluetooth LE", 0x02], ["Wireless", 0x04], ["USB", 0x08]] as const) {
+      if ((payload[6] & flag) !== 0 && offset + 2 <= modelBytes.length) {
+        transportIds[name] = hex(modelBytes.slice(offset, offset + 2));
+        offset += 2;
+      }
+    }
+    return { unitId: unitId === "00000000" ? null : unitId, modelId, transportIds };
   }
 
   private async ensureHostControl(): Promise<void> {
