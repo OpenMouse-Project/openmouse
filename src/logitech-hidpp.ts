@@ -239,6 +239,30 @@ export class LogitechHidppClient {
     return confirmed.x;
   }
 
+  async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
+    const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
+    await this.ensureHostControl();
+    const feature = await this.getFeature(FEATURE.extendedDpi);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose lift-off-distance controls.");
+    }
+    const current = await this.readDpiConfiguration(feature.index);
+    await this.requestLong(feature.index, 0x60, [
+      0x00,
+      current.x >> 8,
+      current.x & 0xff,
+      current.y >> 8,
+      current.y & 0xff,
+      lod,
+    ]);
+    const confirmed = await this.readDpiConfiguration(feature.index);
+    const result = confirmed.lod === 0 ? "Low" : confirmed.lod === 1 ? "Medium" : confirmed.lod === 2 ? "High" : null;
+    if (result !== liftOffDistance) {
+      throw new Error(`The mouse kept ${result ?? "an unknown"} lift-off distance instead of ${liftOffDistance}.`);
+    }
+    return result;
+  }
+
   private async open(): Promise<void> {
     if (!this.device.opened) {
       await this.device.open();

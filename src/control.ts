@@ -78,7 +78,7 @@ function renderControl(): void {
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="custom-dpi" type="button" disabled>Custom DPI</button></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Changing this switches the mouse to Host Control; the mouse confirms every write.</small></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Low" disabled>Low</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented lod-options"><button data-lod="Low" disabled>Low</button><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Onboard profile will appear after connection.</small></article>
         </section>
         <footer class="panel-footer device-data"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
       </main>
@@ -93,6 +93,12 @@ function renderControl(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
       void applyPollingRate(Number(button.dataset.rate));
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const lod = button.dataset.lod as LogitechMouseStatus["liftOffDistance"];
+      if (lod) void applyLiftOffDistance(lod);
     });
   });
 }
@@ -127,6 +133,9 @@ function showStatus(status: LogitechMouseStatus): void {
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
+    button.disabled = false;
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     button.disabled = false;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
@@ -223,6 +232,23 @@ async function applyPollingRate(rate: number): Promise<void> {
     buttons.forEach((button) => {
       button.disabled = false;
     });
+  }
+}
+
+async function applyLiftOffDistance(lod: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<void> {
+  if (!activeClient || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
+  buttons.forEach((button) => { button.disabled = true; });
+  setText("#read-status", `Setting ${lod.toLowerCase()} lift-off distance…`);
+  try {
+    await activeClient.setLiftOffDistance(lod);
+    showStatus(await activeClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
+  } finally {
+    settingInProgress = false;
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 
