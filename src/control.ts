@@ -255,15 +255,19 @@ function estimateBatteryTime(samples: BatterySample[], percent: number, mode: Ba
 }
 
 function batteryDetail(status: MouseStatus): string {
-  if (status.batteryPercent === null) return status.batteryState;
-  if (status.batteryState === "Full") return "Fully charged";
+  const voltage = status.batteryVoltageMv
+    ? `${status.batteryVoltageEstimated ? "≈" : ""}${(status.batteryVoltageMv / 1000).toFixed(3)} V${status.batteryVoltageEstimated ? " estimated" : ""}`
+    : null;
+  const withVoltage = (detail: string): string => voltage ? `${detail} · ${voltage}` : detail;
+  if (status.batteryPercent === null) return withVoltage(status.batteryState);
+  if (status.batteryState === "Full") return withVoltage("Fully charged");
   const mode = batteryMode(status.batteryState);
-  if (!mode) return status.batteryState;
+  if (!mode) return withVoltage(status.batteryState);
   const now = Date.now();
   const samples = saveBatterySample(status.name, status.batteryPercent, mode, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? "until full" : "remaining";
-  return estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`;
+  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
 }
 
 function showStatus(status: MouseStatus): void {

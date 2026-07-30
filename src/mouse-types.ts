@@ -2,6 +2,8 @@ export interface MouseStatus {
   brand: "Logitech" | "Pulsar";
   name: string;
   batteryPercent: number | null;
+  batteryVoltageMv?: number | null;
+  batteryVoltageEstimated?: boolean;
   batteryState: "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
   dpi: number;
   pollingRateHz: number;

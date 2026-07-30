@@ -10,6 +10,8 @@ const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
   unifiedBattery: 0x1004,
+  batteryVoltage: 0x1001,
+  adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
   onboardProfiles: 0x8100,
@@ -22,7 +24,14 @@ export type LogitechMouseStatus = MouseStatus;
 interface BatteryReading {
   percent: number | null;
   state: LogitechMouseStatus["batteryState"];
+  voltageMv?: number | null;
 }
+
+const BATTERY_VOLTAGE_CURVE = [
+  [4186, 100], [4067, 90], [3989, 80], [3922, 70], [3859, 60],
+  [3811, 50], [3778, 40], [3751, 30], [3717, 20], [3671, 10],
+  [3646, 5], [3579, 2], [3500, 0],
+] as const;
 
 interface FeatureInfo {
   index: number;
@@ -119,6 +128,8 @@ export class LogitechHidppClient {
     const nameFeature = await this.getFeature(FEATURE.deviceName);
     const firmwareFeature = await this.getFeature(FEATURE.firmware);
     const batteryFeature = await this.getFeature(FEATURE.unifiedBattery);
+    const batteryVoltageFeature = await this.getFeature(FEATURE.batteryVoltage);
+    const adcMeasurementFeature = await this.getFeature(FEATURE.adcMeasurement);
     const dpiFeature = await this.getFeature(FEATURE.extendedDpi);
     const reportRateFeature = await this.getFeature(FEATURE.extendedReportRate);
     const profilesFeature = await this.getFeature(FEATURE.onboardProfiles);
@@ -126,7 +137,20 @@ export class LogitechHidppClient {
     // HID++ receivers expect one request at a time. Keeping the sequence serial
     // also makes every input report unambiguous to the WebHID event handler.
     const name = await this.readName(nameFeature.index);
-    const battery = batteryFeature.index ? await this.readBattery(batteryFeature.index) : { percent: null, state: "Unknown" as const };
+    const battery = batteryFeature.index
+      ? await this.readBattery(batteryFeature.index)
+      : batteryVoltageFeature.index
+        ? await this.readBatteryVoltage(batteryVoltageFeature.index)
+        : adcMeasurementFeature.index
+          ? await this.readAdcMeasurement(adcMeasurementFeature.index)
+        : { percent: null, state: "Unknown" as const, voltageMv: null };
+    if (batteryVoltageFeature.index && battery.voltageMv === undefined) {
+      battery.voltageMv = (await this.readBatteryVoltage(batteryVoltageFeature.index)).voltageMv;
+    } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
+      battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
+    }
+    const measuredVoltage = battery.voltageMv ?? null;
+    const batteryVoltageMv = measuredVoltage ?? (battery.percent === null ? null : this.estimateBatteryVoltage(battery.percent));
     const dpiState = await this.readDpi(dpiFeature.index);
     const pollingRateHz = await this.readPollingRate(reportRateFeature.index);
     const activeProfile = await this.readActiveProfile(profilesFeature.index);
@@ -136,6 +160,8 @@ export class LogitechHidppClient {
       brand: "Logitech",
       name,
       batteryPercent: battery.percent,
+      batteryVoltageMv,
+      batteryVoltageEstimated: measuredVoltage === null && batteryVoltageMv !== null,
       batteryState: battery.state,
       dpi: dpiState.dpi,
       liftOffDistance: dpiState.liftOffDistance,
@@ -298,6 +324,66 @@ export class LogitechHidppClient {
       0x04: "Charging slowly",
     } as const)[reply[5] ?? -1] ?? "Unknown";
     return { percent: percentage <= 100 ? percentage : null, state };
+  }
+
+  private async readBatteryVoltage(featureIndex: number): Promise<BatteryReading> {
+    const reply = await this.request(featureIndex, 0x00);
+    const voltageMv = ((reply[3] ?? 0) << 8) | (reply[4] ?? 0);
+    const flags = reply[5] ?? 0;
+    const charging = (flags & 0x80) !== 0;
+    const full = charging && (flags & 0x03) === 0x02;
+    const state: BatteryReading["state"] = full
+      ? "Full"
+      : (flags & 0x10) !== 0
+        ? "Charging slowly"
+        : charging
+          ? "Charging"
+          : "Discharging";
+    return {
+      percent: voltageMv ? this.estimateBatteryPercent(voltageMv) : null,
+      state,
+      voltageMv: voltageMv || null,
+    };
+  }
+
+  private async readAdcMeasurement(featureIndex: number): Promise<BatteryReading> {
+    const reply = await this.request(featureIndex, 0x00);
+    const voltageMv = ((reply[3] ?? 0) << 8) | (reply[4] ?? 0);
+    const flags = reply[5] ?? 0;
+    if ((flags & 0x01) === 0 || voltageMv === 0) {
+      return { percent: null, state: "Unknown", voltageMv: null };
+    }
+    return {
+      percent: this.estimateBatteryPercent(voltageMv),
+      state: (flags & 0x02) !== 0 ? "Charging" : "Discharging",
+      voltageMv,
+    };
+  }
+
+  private estimateBatteryPercent(voltageMv: number): number {
+    if (voltageMv >= BATTERY_VOLTAGE_CURVE[0][0]) return 100;
+    if (voltageMv <= BATTERY_VOLTAGE_CURVE.at(-1)![0]) return 0;
+    for (let index = 0; index < BATTERY_VOLTAGE_CURVE.length - 1; index += 1) {
+      const [highMv, highPercent] = BATTERY_VOLTAGE_CURVE[index];
+      const [lowMv, lowPercent] = BATTERY_VOLTAGE_CURVE[index + 1];
+      if (voltageMv >= lowMv) {
+        return Math.round(lowPercent + ((highPercent - lowPercent) * (voltageMv - lowMv)) / (highMv - lowMv));
+      }
+    }
+    return 0;
+  }
+
+  private estimateBatteryVoltage(percent: number): number {
+    if (percent >= 100) return BATTERY_VOLTAGE_CURVE[0][0];
+    if (percent <= 0) return BATTERY_VOLTAGE_CURVE.at(-1)![0];
+    for (let index = 0; index < BATTERY_VOLTAGE_CURVE.length - 1; index += 1) {
+      const [highMv, highPercent] = BATTERY_VOLTAGE_CURVE[index];
+      const [lowMv, lowPercent] = BATTERY_VOLTAGE_CURVE[index + 1];
+      if (percent >= lowPercent) {
+        return Math.round(lowMv + ((highMv - lowMv) * (percent - lowPercent)) / (highPercent - lowPercent));
+      }
+    }
+    return BATTERY_VOLTAGE_CURVE.at(-1)![0];
   }
 
   private async readDpi(featureIndex: number): Promise<{ dpi: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
