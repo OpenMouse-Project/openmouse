@@ -149,8 +149,6 @@ export class LogitechHidppClient {
     } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
     }
-    const measuredVoltage = battery.voltageMv ?? null;
-    const batteryVoltageMv = measuredVoltage ?? (battery.percent === null ? null : this.estimateBatteryVoltage(battery.percent));
     const dpiState = await this.readDpi(dpiFeature.index);
     const pollingRateHz = await this.readPollingRate(reportRateFeature.index);
     const activeProfile = await this.readActiveProfile(profilesFeature.index);
@@ -160,8 +158,7 @@ export class LogitechHidppClient {
       brand: "Logitech",
       name,
       batteryPercent: battery.percent,
-      batteryVoltageMv,
-      batteryVoltageEstimated: measuredVoltage === null && batteryVoltageMv !== null,
+      batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
       dpi: dpiState.dpi,
       liftOffDistance: dpiState.liftOffDistance,
@@ -371,19 +368,6 @@ export class LogitechHidppClient {
       }
     }
     return 0;
-  }
-
-  private estimateBatteryVoltage(percent: number): number {
-    if (percent >= 100) return BATTERY_VOLTAGE_CURVE[0][0];
-    if (percent <= 0) return BATTERY_VOLTAGE_CURVE.at(-1)![0];
-    for (let index = 0; index < BATTERY_VOLTAGE_CURVE.length - 1; index += 1) {
-      const [highMv, highPercent] = BATTERY_VOLTAGE_CURVE[index];
-      const [lowMv, lowPercent] = BATTERY_VOLTAGE_CURVE[index + 1];
-      if (percent >= lowPercent) {
-        return Math.round(lowMv + ((highMv - lowMv) * (percent - lowPercent)) / (highPercent - lowPercent));
-      }
-    }
-    return BATTERY_VOLTAGE_CURVE.at(-1)![0];
   }
 
   private async readDpi(featureIndex: number): Promise<{ dpi: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
