@@ -80,7 +80,7 @@ function renderControl(): void {
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented"><button data-rate="125" disabled>125</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1000</button><button data-rate="8000" disabled>8000</button></div><small class="setting-note">Changing this switches the mouse to Host Control; the mouse confirms every write.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Medium and High are supported by this mouse.</small></article>
         </section>
-        <footer class="panel-footer device-data"><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
+        <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
       </main>
     </div>`;
 

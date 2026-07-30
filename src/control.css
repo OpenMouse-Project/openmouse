@@ -49,6 +49,10 @@
 .setting-action button:disabled { cursor: default; opacity: .45; }
 .dpi-presets { grid-template-columns: repeat(3, 1fr); }
 .dpi-presets button { padding-inline: .25rem; }
+.panel-footer { justify-content: flex-start; padding: .65rem .8rem; border: 1px solid #29292d; border-radius: 9px; background: #101012; }
+.panel-footer .live-status-label { display: inline-flex; align-items: center; gap: .42rem; padding-right: .75rem; border-right: 1px solid #29292d; color: #8b8b90; font-family: "JetBrains Mono", monospace; font-size: .58rem; letter-spacing: .08em; white-space: nowrap; }
+.panel-footer .live-status-label i { width: .38rem; height: .38rem; border-radius: 50%; background: #69d28d; box-shadow: 0 0 0 3px rgb(105 210 141 / 10%); }
+.panel-footer #read-status { color: #b3b3b7; font-size: .7rem; }
 
 @media (min-width: 900px) {
   .control-shell { height: 100vh; overflow: hidden; }
@@ -71,7 +75,9 @@
   .control-shell .segmented button { padding: .45rem .25rem; }
   .control-shell .setting-note, .control-shell .dpi-card .setting-note { margin-top: .55rem; font-size: .62rem; }
   .control-shell .range-labels { margin-top: .25rem; }
-  .control-shell .panel-footer { margin-top: .35rem; padding: .4rem 0 0; }
+  .control-shell .panel-footer { margin-top: .45rem; padding: .5rem .7rem; }
+  .control-shell .panel-footer .live-status-label { font-size: .54rem; }
+  .control-shell .panel-footer #read-status { font-size: .64rem; }
   .control-shell.is-empty .empty-state { position: relative; display: grid; flex: 1 1 auto; min-height: 0; align-content: center; margin: .15rem 0 0; padding: clamp(2rem, 5vw, 4.5rem); overflow: hidden; border: 1px solid #252529; border-radius: 14px; background: radial-gradient(circle at 76% 48%, rgb(105 210 141 / 7%), transparent 21%), linear-gradient(135deg, #111114, #0d0d0f 68%); }
   .control-shell.is-empty .empty-state::before { position: absolute; top: 0; right: 10%; bottom: 0; width: min(30vw, 400px); border-right: 1px solid rgb(255 255 255 / 4%); border-left: 1px solid rgb(255 255 255 / 4%); background: repeating-linear-gradient(90deg, transparent 0 31px, rgb(255 255 255 / 2%) 32px); content: ""; transform: skewX(-18deg); }
   .control-shell.is-empty .empty-state::after { position: absolute; right: clamp(1.5rem, 6vw, 6rem); bottom: clamp(1rem, 5vh, 3rem); color: rgb(255 255 255 / 6%); font-family: "JetBrains Mono", monospace; font-size: clamp(7rem, 15vw, 15rem); font-weight: 700; letter-spacing: -.12em; line-height: .75; content: "01"; }
