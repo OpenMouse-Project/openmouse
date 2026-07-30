@@ -55,11 +55,11 @@ function renderControl(): void {
           <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Logitech receiver required</small></span>
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
-        <div class="sidebar-footer"><span>Read-only WebHID status</span><a href="/">Back to website</a></div>
+        <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
       </aside>
 
       <main class="control-panel">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported Logitech receiver to read its current status. No settings are changed.</p></div>
+        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported Logitech receiver to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">LOGITECH</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
@@ -68,7 +68,7 @@ function renderControl(): void {
           <p class="overline">READY WHEN YOU ARE</p>
           <h2 id="empty-state-title">Connect a supported Logitech mouse.</h2>
           <p>Use <strong>Add device</strong> in the sidebar, then choose the Logitech USB Receiver in the browser prompt.</p>
-          <small>OpenMouse only reads device status at this stage. No settings are changed.</small>
+          <small>Choose a Logitech USB Receiver to view and adjust supported settings.</small>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
           <article class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
@@ -122,7 +122,7 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#sidebar-device-name", status.name);
   setText("#sidebar-device-status", "Logitech · Connected");
   setText("#device-status", "Connected");
-  setText("#connection-banner", "Live status read directly through WebHID. No device settings have been changed.");
+  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
