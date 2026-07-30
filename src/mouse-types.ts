@@ -7,6 +7,7 @@ export interface MouseStatus {
   dpi: number;
   pollingRateHz: number;
   activeProfile: number | null;
+  connectionType?: "Wired" | "Wireless";
   connectionDetail?: string;
   dongleLedEnabled?: boolean | null;
   signalStrength?: number | null;
@@ -15,6 +16,15 @@ export interface MouseStatus {
   sleepTimeout?: number | null;
   angleSnapping?: boolean | null;
   rippleControl?: boolean | null;
+  slamclickFilter?: boolean | null;
+  motionJitterFilter?: boolean | null;
+  leftSpdtMode?: "Off" | "GX Safe" | "GX Speed" | null;
+  rightSpdtMode?: "Off" | "GX Safe" | "GX Speed" | null;
+  eggCpiLevels?: number;
+  eggCpiStages?: Array<{ x: number; y: number }>;
+  eggPollingDivider?: number;
+  eggMulticlickFilters?: number[];
+  eggButtonMappings?: string[];
   performanceMode?: boolean | null;
   angleTuning?: number | null;
   wheelAcceleration?: boolean | null;

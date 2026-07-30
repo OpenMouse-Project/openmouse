@@ -1,5 +1,12 @@
 import "./control.css";
-import { EggOp1HidClient } from "./egg-op1-hid";
+import {
+  EGG_BUTTON_MAPPINGS,
+  EGG_BUTTON_NAMES,
+  EggOp1HidClient,
+  type EggButtonIndex,
+  type EggButtonMapping,
+  type EggSpdtMode,
+} from "./egg-op1-hid";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
@@ -22,6 +29,7 @@ const BATTERY_MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
+const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -35,6 +43,25 @@ type PulsarClient = PulsarHidClient | PulsarProHidClient;
 type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient;
 
 type BatteryMode = "charging" | "discharging";
+type InterfaceDensity = "Compact" | "Comfortable";
+type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
+
+interface InterfacePreferences {
+  density: InterfaceDensity;
+  theme: InterfaceTheme;
+  reducedMotion: boolean;
+  expandSections: boolean;
+  showExperimental: boolean;
+}
+
+const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
+  density: "Compact",
+  theme: "Emerald",
+  reducedMotion: false,
+  expandSections: false,
+  showExperimental: true,
+};
+let interfacePreferences = loadInterfacePreferences();
 
 interface BatterySample {
   timestamp: number;
@@ -74,8 +101,146 @@ function renderGate(message = ""): void {
   });
 }
 
+function loadInterfacePreferences(): InterfacePreferences {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
+    return {
+      density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
+      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono"].includes(saved.theme ?? "")
+        ? saved.theme as InterfaceTheme
+        : "Emerald",
+      reducedMotion: saved.reducedMotion === true,
+      expandSections: saved.expandSections === true,
+      showExperimental: saved.showExperimental !== false,
+    };
+  } catch {
+    return { ...DEFAULT_INTERFACE_PREFERENCES };
+  }
+}
+
+function saveInterfacePreferences(): void {
+  localStorage.setItem(INTERFACE_SETTINGS_KEY, JSON.stringify(interfacePreferences));
+  applyInterfacePreferences();
+}
+
+function applyInterfacePreferences(): void {
+  const shell = document.querySelector<HTMLElement>(".control-shell");
+  if (!shell) return;
+  shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
+  shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
+  shell.dataset.interfaceTheme = interfacePreferences.theme.toLowerCase();
+  document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
+    details.open = interfacePreferences.expandSections;
+  });
+  const experimental = document.querySelector<HTMLElement>("#egg-polling-settings");
+  if (experimental && activeEggClient) experimental.style.display = interfacePreferences.showExperimental ? "block" : "none";
+}
+
 function renderControl(): void {
   appRoot.innerHTML = `
+    <style>
+      .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
+      .control-shell[data-interface-theme="violet"] { --ui-accent:#a78bfa;--ui-accent-ink:#130b25;--ui-accent-soft:rgb(167 139 250 / 17%) }
+      .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
+      .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
+      .control-shell[data-interface-theme="mono"] { --ui-accent:#f1f1f3;--ui-accent-ink:#09090b;--ui-accent-soft:rgb(241 241 243 / 13%) }
+      .control-shell .sidebar-action::before { color:var(--ui-accent) }
+      .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
+      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
+      .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
+      .control-shell .dpi-header-actions button { padding:.38rem .6rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#b3b3b7;font-size:.62rem;font-weight:700;white-space:nowrap }
+      .control-shell .dpi-header-actions button:disabled { cursor:default;opacity:.45 }
+      .control-shell .dpi-header-actions input { width:4.7rem;box-sizing:border-box;padding:.38rem .48rem;border:1px solid #343438;border-radius:6px;background:#111113;color:#ececef;font:600 .62rem "JetBrains Mono",monospace;text-align:center }
+      .control-shell .dpi-header-actions input:not([readonly]) { border-color:var(--ui-accent);background:#171719 }
+      .control-shell .dpi-card .setting-action { margin-top:.55rem }
+      .control-shell button:focus-visible, .control-shell select:focus-visible, .control-shell input:focus-visible { outline:2px solid var(--ui-accent);outline-offset:2px }
+      #pulsar-advanced input[type="number"], #pulsar-advanced select { width:100%;box-sizing:border-box;margin-top:.2rem;padding:.48rem .55rem;border:1px solid #343438;border-radius:6px;outline:none;background:#171719;color:#eee;font:inherit;color-scheme:dark }
+      #pulsar-advanced input[type="number"]:focus, #pulsar-advanced select:focus { border-color:#77777c;box-shadow:0 0 0 2px rgb(255 255 255 / 4%) }
+      #pulsar-advanced input:disabled, #pulsar-advanced select:disabled { cursor:not-allowed;opacity:.45 }
+      #pulsar-advanced input[type="checkbox"] { width:.85rem;height:.85rem;margin:0;accent-color:#69d28d }
+      .egg-action-button, #egg-cpi-stage-list [data-apply-cpi] { margin-top:.5rem;padding:.42rem .62rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem;font-weight:650;transition:border-color .18s ease,background .18s ease,transform .18s ease }
+      .egg-action-button:hover, #egg-cpi-stage-list [data-apply-cpi]:hover { border-color:#77777c;background:#29292d;transform:translateY(-1px) }
+      .egg-experimental { overflow:hidden;border:1px solid #343438;border-radius:9px;background:#111113 }
+      .egg-experimental summary { display:flex;align-items:center;justify-content:space-between;padding:.8rem .9rem;cursor:pointer;color:#d8d8dc;font-size:.76rem;font-weight:650;list-style:none }
+      .egg-experimental summary::-webkit-details-marker { display:none }
+      .egg-experimental summary small { display:block;margin-bottom:.18rem;color:#d49b62;font-family:"JetBrains Mono",monospace;font-size:.52rem;letter-spacing:.09em }
+      .egg-experimental summary i { width:.45rem;height:.45rem;border-right:1px solid #96969b;border-bottom:1px solid #96969b;transform:rotate(45deg);transition:transform .18s ease }
+      .egg-experimental[open] summary i { transform:rotate(225deg) }
+      .egg-experimental-body { padding:0 .65rem .65rem;border-top:1px solid #29292d }
+      .egg-experimental .egg-form-card { min-height:0;margin-top:.65rem;padding:.8rem }
+      .egg-experimental .egg-form-card label { display:block;max-width:220px;color:#77777c;font-size:.62rem }
+      .egg-warning { margin:-.15rem 0 .65rem;color:#a28b75;font-size:.63rem;line-height:1.45 }
+      .egg-experimental #egg-polling-result { display:block;margin-top:.4rem }
+      .egg-collapsible { overflow:hidden;border:1px solid #343438;border-radius:9px;background:#111113 }
+      .egg-collapsible summary { display:flex;align-items:center;justify-content:space-between;padding:.72rem .85rem;cursor:pointer;color:#d8d8dc;font-size:.74rem;font-weight:650;list-style:none }
+      .egg-collapsible summary::-webkit-details-marker { display:none }
+      .egg-collapsible summary span small { display:block;margin-bottom:.12rem;color:#77777c;font-family:"JetBrains Mono",monospace;font-size:.5rem;letter-spacing:.09em }
+      .egg-collapsible summary i { width:.42rem;height:.42rem;border-right:1px solid #96969b;border-bottom:1px solid #96969b;transform:rotate(45deg);transition:transform .18s ease }
+      .egg-collapsible[open] summary i { transform:rotate(225deg) }
+      .egg-collapsible-body { padding:.6rem;border-top:1px solid #29292d }
+      .egg-collapsible-body > .setting-card { min-height:0 !important;padding:.7rem !important }
+      .control-panel { scrollbar-width:none }
+      .control-panel::-webkit-scrollbar { display:none;width:0;height:0 }
+      #pulsar-advanced.egg-advanced-layout { grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:.55rem !important }
+      #pulsar-advanced.egg-advanced-layout > .setting-card { min-height:0 !important;padding:.72rem !important }
+      #egg-cpi-stage-list { grid-template-columns:repeat(4,minmax(0,1fr)) !important }
+      #egg-button-list { grid-template-columns:repeat(5,minmax(0,1fr)) !important }
+      #egg-cpi-stage-list > div, #egg-button-list > div { min-width:0;padding:.48rem !important }
+      @media (max-width:1100px) {
+        #egg-cpi-stage-list { grid-template-columns:repeat(2,minmax(0,1fr)) !important }
+        #egg-button-list { grid-template-columns:repeat(3,minmax(0,1fr)) !important }
+      }
+      @media (max-width:720px) {
+        #pulsar-advanced.egg-advanced-layout { grid-template-columns:1fr !important }
+        #egg-cpi-stage-list, #egg-button-list { grid-template-columns:1fr !important }
+      }
+      .interface-settings-button::before { content:"⚙";font-size:.72rem }
+      .interface-settings-page { position:absolute;z-index:20;inset:0;display:none;padding:1rem 0 2rem;overflow:auto;background:#0b0b0d;scrollbar-width:none }
+      .interface-settings-page::-webkit-scrollbar { display:none }
+      .interface-settings-page.is-open { display:block }
+      .interface-settings-header { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0 1.2rem;border-bottom:1px solid #29292d }
+      .interface-settings-header h2 { margin:.25rem 0 0;font-size:2rem;font-weight:500;letter-spacing:-.035em }
+      .interface-settings-back { padding:.48rem .7rem;border:1px solid #3b3b40;border-radius:7px;background:#18181b;color:#e6e6e9;font-size:.68rem;font-weight:650 }
+      .interface-settings-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.75rem }
+      .interface-setting-card { min-height:120px;padding:1rem;border:1px solid #2f2f34;border-radius:10px;background:#111113 }
+      .interface-setting-card > span { color:#77777c;font-family:"JetBrains Mono",monospace;font-size:.55rem;letter-spacing:.09em }
+      .interface-setting-card h3 { margin:.35rem 0 .3rem;font-size:1rem;font-weight:550 }
+      .interface-setting-card p { margin:0 0 .8rem;color:#85858a;font-size:.68rem;line-height:1.45 }
+      .interface-setting-card select { width:100%;padding:.52rem;border:1px solid #39393e;border-radius:7px;background:#18181b;color:#eee;color-scheme:dark }
+      .theme-preview { display:flex;gap:.32rem;margin-top:.65rem }
+      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:var(--ui-accent);opacity:.2 }
+      .theme-preview i:nth-child(2) { opacity:.35 }.theme-preview i:nth-child(3) { opacity:.55 }.theme-preview i:nth-child(4) { opacity:.75 }.theme-preview i:nth-child(5) { opacity:1 }
+      .interface-switch-row { display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.7rem;color:#c5c5c9;font-size:.72rem }
+      .interface-switch-row input {
+        appearance:none;
+        width:2.25rem;
+        height:1.25rem;
+        flex:0 0 auto;
+        margin:0;
+        border:1px solid #414147;
+        border-radius:999px;
+        outline:none;
+        background-color:#242428;
+        background-image:radial-gradient(circle at .56rem 50%,#a0a0a5 0 .34rem,transparent .36rem);
+        cursor:pointer;
+        transition:border-color .18s ease,background-color .18s ease,background-position .18s ease,box-shadow .18s ease;
+      }
+      .interface-switch-row input:checked {
+        border-color:var(--ui-accent);
+        background-color:var(--ui-accent);
+        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,#07120b 0 .34rem,transparent .36rem);
+      }
+      .interface-switch-row input:focus-visible { box-shadow:0 0 0 3px var(--ui-accent-soft) }
+      .interface-reset { margin-top:.75rem;padding:.55rem .75rem;border:1px solid #4a3436;border-radius:7px;background:#1c1315;color:#e7a7aa;font-size:.68rem;font-weight:650 }
+      .density-comfortable #pulsar-advanced.egg-advanced-layout { gap:.8rem !important }
+      .density-comfortable #pulsar-advanced.egg-advanced-layout > .setting-card { padding:1rem !important }
+      .density-comfortable .settings-grid { gap:.9rem !important }
+      .density-comfortable .settings-grid .setting-card { padding:1.1rem !important }
+      .density-comfortable .device-overview .summary-stat { padding:1rem 1.2rem !important }
+      .density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding:.95rem 1rem }
+      .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
+      @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
+    </style>
     <div class="control-shell is-empty">
       <aside class="sidebar">
         <a class="demo-wordmark" href="/">OpenMouse</a>
@@ -85,10 +250,11 @@ function renderControl(): void {
           <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Choose a supported device</small></span>
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
+        <button id="interface-settings-button" class="sidebar-action interface-settings-button" type="button">Interface settings</button>
         <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
       </aside>
 
-      <main class="control-panel" style="overflow-y:auto">
+      <main class="control-panel" style="position:relative;overflow-y:auto">
         <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
@@ -101,31 +267,84 @@ function renderControl(): void {
           <small>Compatible devices will appear in the browser prompt.</small>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
-          <article class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
+          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
           <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="custom-dpi" type="button" disabled>Custom DPI</button></div></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
+          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
         </section>
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
-          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
-          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
-          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
-          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
+          <article id="debounce-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
+          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
+          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
+          <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
+          <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
+          <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
+        <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
+          <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
+          <div class="interface-settings-grid">
+            <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
+            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+            <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
+            <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
+            <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
+          </div>
+          <button id="reset-interface-settings" class="interface-reset" type="button">Reset interface preferences</button>
+        </section>
       </main>
     </div>`;
 
   document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
     void connect();
   });
+  document.querySelector<HTMLButtonElement>("#interface-settings-button")?.addEventListener("click", openInterfaceSettings);
+  document.querySelector<HTMLButtonElement>("#close-interface-settings")?.addEventListener("click", closeInterfaceSettings);
+  document.querySelector<HTMLSelectElement>("#interface-density")?.addEventListener("change", (event) => {
+    interfacePreferences.density = (event.target as HTMLSelectElement).value as InterfaceDensity;
+    saveInterfacePreferences();
+  });
+  document.querySelector<HTMLSelectElement>("#interface-theme")?.addEventListener("change", (event) => {
+    interfacePreferences.theme = (event.target as HTMLSelectElement).value as InterfaceTheme;
+    saveInterfacePreferences();
+  });
+  document.querySelector<HTMLInputElement>("#interface-reduced-motion")?.addEventListener("change", (event) => {
+    interfacePreferences.reducedMotion = (event.target as HTMLInputElement).checked;
+    saveInterfacePreferences();
+  });
+  document.querySelector<HTMLInputElement>("#interface-expand-sections")?.addEventListener("change", (event) => {
+    interfacePreferences.expandSections = (event.target as HTMLInputElement).checked;
+    saveInterfacePreferences();
+  });
+  document.querySelector<HTMLInputElement>("#interface-show-experimental")?.addEventListener("change", (event) => {
+    interfacePreferences.showExperimental = (event.target as HTMLInputElement).checked;
+    saveInterfacePreferences();
+  });
+  document.querySelector<HTMLButtonElement>("#reset-interface-settings")?.addEventListener("click", () => {
+    interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
+    saveInterfacePreferences();
+    populateInterfaceSettings();
+  });
   document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
     void chooseCustomDpi();
+  });
+  document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void chooseCustomDpi();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finishCustomDpiEditing();
+    }
   });
   document.querySelector<HTMLButtonElement>("#dongle-led-toggle")?.addEventListener("click", () => {
     void toggleDongleLed();
@@ -153,6 +372,29 @@ function renderControl(): void {
       void applyPulsarToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
     });
   }
+  const eggFilterToggles = [
+    ["#slamclick-filter-toggle", "slamclick"],
+    ["#motion-jitter-filter-toggle", "motionJitter"],
+  ] as const;
+  for (const [selector, setting] of eggFilterToggles) {
+    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
+      void applyEggFilter(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
+    });
+  }
+  document.querySelector<HTMLSelectElement>("#left-spdt-select")?.addEventListener("change", (event) => {
+    void applyEggSpdtMode("left", (event.target as HTMLSelectElement).value as EggSpdtMode);
+  });
+  document.querySelector<HTMLSelectElement>("#right-spdt-select")?.addEventListener("change", (event) => {
+    void applyEggSpdtMode("right", (event.target as HTMLSelectElement).value as EggSpdtMode);
+  });
+  document.querySelector<HTMLSelectElement>("#egg-cpi-levels")?.addEventListener("change", (event) => {
+    void applyEggCpiLevels(Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLInputElement>("#egg-polling-divider")?.addEventListener("input", updateCustomPollingPreview);
+  document.querySelector<HTMLButtonElement>("#apply-egg-polling")?.addEventListener("click", () => {
+    const divider = Number(document.querySelector<HTMLInputElement>("#egg-polling-divider")?.value);
+    void applyEggPollingDivider(divider);
+  });
   document.querySelector<HTMLButtonElement>("#wheel-acceleration-toggle")?.addEventListener("click", (event) => {
     void applyProSetting("wheelAcceleration", (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
   });
@@ -173,7 +415,37 @@ function renderControl(): void {
       if (lod) void applyLiftOffDistance(lod);
     });
   });
+  const shell = document.querySelector<HTMLElement>(".control-shell");
+  const panel = document.querySelector<HTMLElement>(".control-panel");
+  shell?.addEventListener("wheel", (event) => {
+    if (!panel || panel.contains(event.target as Node) || event.deltaY === 0) return;
+    panel.scrollTop += event.deltaY;
+    event.preventDefault();
+  }, { passive: false });
+  populateInterfaceSettings();
+  applyInterfacePreferences();
   void reconnectAuthorizedDevice();
+}
+
+function openInterfaceSettings(): void {
+  populateInterfaceSettings();
+  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.add("is-open");
+  document.querySelector<HTMLElement>(".control-panel")?.scrollTo({ top: 0 });
+}
+
+function closeInterfaceSettings(): void {
+  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.remove("is-open");
+}
+
+function populateInterfaceSettings(): void {
+  setControlValue("#interface-density", interfacePreferences.density);
+  setControlValue("#interface-theme", interfacePreferences.theme);
+  const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
+  const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
+  const showExperimental = document.querySelector<HTMLInputElement>("#interface-show-experimental");
+  if (reducedMotion) reducedMotion.checked = interfacePreferences.reducedMotion;
+  if (expandSections) expandSections.checked = interfacePreferences.expandSections;
+  if (showExperimental) showExperimental.checked = interfacePreferences.showExperimental;
 }
 
 function setText(selector: string, value: string): void {
@@ -272,13 +544,35 @@ function batteryDetail(status: MouseStatus): string {
 
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
+  const isEgg = status.brand === "Endgame Gear";
+  const isWired = status.connectionType === "Wired";
+  const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
+  if (batterySummary) {
+    batterySummary.hidden = isWired;
+    batterySummary.style.display = isWired ? "none" : "flex";
+  }
+  const overview = document.querySelector<HTMLElement>(".device-overview");
+  if (overview) overview.style.gridTemplateColumns = isWired ? "repeat(2, 1fr)" : "repeat(3, 1fr)";
+  setText("#polling-note", isEgg
+    ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
+    : "Higher rates update cursor movement more often, but use more battery.");
+  for (const selector of ["#signal-settings", "#debounce-settings", "#sleep-settings"]) {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (element) element.hidden = isEgg;
+  }
+  const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
+  if (performanceModeSetting) {
+    performanceModeSetting.hidden = isEgg;
+    performanceModeSetting.style.display = isEgg ? "none" : "flex";
+  }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
-  setText("#dpi-output", `${status.dpi.toLocaleString()} DPI`);
+  const dpiOutput = document.querySelector<HTMLInputElement>("#dpi-output");
+  if (dpiOutput?.readOnly) dpiOutput.value = `${status.dpi.toLocaleString()} DPI`;
   setText("#battery-value", battery);
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
-  setText("#connection-value", status.brand === "Endgame Gear" ? "Wired" : "Wireless");
+  setText("#connection-value", status.connectionType ?? "Wireless");
   setText("#connection-detail", status.connectionDetail
     ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
   const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
@@ -290,7 +584,10 @@ function showStatus(status: MouseStatus): void {
     dongleLedButton.textContent = status.dongleLedEnabled ? "Receiver LED: On" : "Receiver LED: Off";
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
-  if (advanced) advanced.style.display = status.brand === "Pulsar" || status.brand === "Endgame Gear" ? "grid" : "none";
+  if (advanced) {
+    advanced.style.display = status.brand === "Pulsar" || status.brand === "Endgame Gear" ? "grid" : "none";
+    advanced.classList.toggle("egg-advanced-layout", isEgg);
+  }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
@@ -303,6 +600,27 @@ function showStatus(status: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
     setToggleValue("#performance-mode-toggle", status.performanceMode);
+    const eggFilterSettings = document.querySelector<HTMLElement>("#egg-filter-settings");
+    const eggSpdtSettings = document.querySelector<HTMLElement>("#egg-spdt-settings");
+    const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
+    const eggCpiSettings = document.querySelector<HTMLElement>("#egg-cpi-settings");
+    const eggButtonSettings = document.querySelector<HTMLElement>("#egg-button-settings");
+    if (eggFilterSettings) eggFilterSettings.style.display = isEgg ? "block" : "none";
+    if (eggSpdtSettings) eggSpdtSettings.style.display = isEgg ? "block" : "none";
+    if (eggPollingSettings) eggPollingSettings.style.display = isEgg && interfacePreferences.showExperimental ? "block" : "none";
+    if (eggCpiSettings) eggCpiSettings.style.display = isEgg ? "block" : "none";
+    if (eggButtonSettings) eggButtonSettings.style.display = isEgg ? "block" : "none";
+    if (isEgg) {
+      setToggleValue("#slamclick-filter-toggle", status.slamclickFilter);
+      setToggleValue("#motion-jitter-filter-toggle", status.motionJitterFilter);
+      setControlValue("#left-spdt-select", status.leftSpdtMode);
+      setControlValue("#right-spdt-select", status.rightSpdtMode);
+      setControlValue("#egg-cpi-levels", status.eggCpiLevels);
+      setControlValue("#egg-polling-divider", status.eggPollingDivider);
+      updateCustomPollingPreview();
+      renderEggCpiStages(status);
+      renderEggButtons(status);
+    }
     const proSettings = document.querySelector<HTMLElement>("#pulsar-pro-settings");
     const isPro = status.connectionDetail?.includes("Pulsar Pro protocol") === true;
     if (proSettings) proSettings.style.display = isPro ? "block" : "none";
@@ -327,15 +645,19 @@ function showStatus(status: MouseStatus): void {
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    button.disabled = status.brand === "Endgame Gear" && Number(button.dataset.rate) < 1000;
+    const unsupportedForEgg = isEgg && Number(button.dataset.rate) < 1000;
+    button.hidden = unsupportedForEgg;
+    button.disabled = unsupportedForEgg;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    button.disabled = (status.brand === "Logitech" || status.brand === "Endgame Gear") && button.dataset.lod === "Low";
+    const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
+    button.hidden = unsupportedForEgg;
+    button.disabled = unsupportedForEgg || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
 }
 
-function setControlValue(selector: string, value: number | null | undefined): void {
+function setControlValue(selector: string, value: number | string | null | undefined): void {
   const control = document.querySelector<HTMLSelectElement>(selector);
   if (!control) return;
   control.disabled = value === null || value === undefined;
@@ -356,9 +678,9 @@ function setToggleValue(selector: string, value: boolean | null | undefined): vo
   }
   control.setAttribute("aria-checked", String(value));
   control.textContent = value ? "On" : "Off";
-  control.style.background = value ? "#69d28d" : "#202023";
-  control.style.borderColor = value ? "#69d28d" : "#3a3a3f";
-  control.style.color = value ? "#07120b" : "#8b8b90";
+  control.style.background = value ? "var(--ui-accent)" : "#202023";
+  control.style.borderColor = value ? "var(--ui-accent)" : "#3a3a3f";
+  control.style.color = value ? "var(--ui-accent-ink)" : "#8b8b90";
 }
 
 function formatHex(value: number, width = 2): string {
@@ -471,49 +793,54 @@ async function reconnectAuthorizedDevice(): Promise<void> {
   button.disabled = true;
   button.textContent = "Checking for device…";
 
+  let lastError: Error | null = null;
   try {
-    const devices = await navigator.hid?.getDevices() ?? [];
-    const client = devices.map(createSupportedClient).find((candidate): candidate is SupportedClient => candidate !== null);
-    if (!client) return;
-    if (client instanceof EggOp1HidClient) {
-      activeEggClient = client;
-      const status = await client.readStatus();
-      dpiOptions = client.getDpiOptions();
-      configureDpiControl(status.dpi);
-      showStatus(status);
-      startAutomaticRefresh();
-      return;
+    const retryDelays = [0, 100, 250, 500, 1000, 2000];
+    for (const delay of retryDelays) {
+      if (delay) await wait(delay);
+      const devices = await navigator.hid?.getDevices() ?? [];
+      const clients = devices.map(createSupportedClient).filter((candidate): candidate is SupportedClient => candidate !== null);
+      for (const client of clients) {
+        try {
+          setText("#device-status", "Reconnecting");
+          setText("#read-status", "Reading the previously authorized device.");
+          if (client instanceof EggOp1HidClient) {
+            const status = await client.readStatus();
+            activeEggClient = client;
+            dpiOptions = client.getDpiOptions();
+            configureDpiControl(status.dpi);
+            showStatus(status);
+          } else if (client instanceof LogitechHidppClient) {
+            const status = await client.readStatus();
+            activeClient = client;
+            dpiOptions = await client.getDpiOptions();
+            configureDpiControl(status.dpi);
+            showStatus(status);
+          } else {
+            await showPulsarExplorer(client);
+            activePulsarClient = client;
+          }
+          startAutomaticRefresh();
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error("Unable to reconnect to the mouse.");
+          await client.close().catch(() => undefined);
+        }
+      }
     }
-    if (!(client instanceof LogitechHidppClient)) {
-      activePulsarClient = client;
-      await showPulsarExplorer(client);
-      return;
-    }
-    activeClient = client;
-    setText("#device-status", "Reconnecting");
-    setText("#read-status", "Reading the previously authorized device.");
-    const status = await activeClient.readStatus();
-    dpiOptions = await activeClient.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-    startAutomaticRefresh();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to reconnect to the mouse.";
-    await activeClient?.close().catch(() => undefined);
-    await activePulsarClient?.close().catch(() => undefined);
-    await activeEggClient?.close().catch(() => undefined);
-    activeClient = null;
-    activePulsarClient = null;
-    activeEggClient = null;
     setText("#device-status", "Not connected");
-    setText("#connection-banner", message);
-    setText("#read-status", "Use Add device to reconnect.");
+    if (lastError) setText("#connection-banner", lastError.message);
+    setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
   } finally {
     if (!activeClient && !activePulsarClient && !activeEggClient) {
       button.disabled = false;
       button.textContent = "Add device";
     }
   }
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function configureDpiControl(currentDpi: number): void {
@@ -530,19 +857,42 @@ function configureDpiControl(currentDpi: number): void {
 }
 
 async function chooseCustomDpi(): Promise<void> {
-  const answer = window.prompt("Enter a DPI value supported by this mouse:", "800");
-  if (answer === null) return;
-  const dpi = Number(answer);
-  if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
-    setText("#read-status", "That DPI value is not supported by this mouse.");
+  const input = document.querySelector<HTMLInputElement>("#dpi-output");
+  const button = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (!input || !button) return;
+  if (input.readOnly) {
+    input.dataset.previousValue = input.value;
+    input.readOnly = false;
+    input.value = input.value.replace(/[^\d]/g, "");
+    button.textContent = "Apply";
+    input.focus();
+    input.select();
     return;
   }
-  await applyDpiValue(dpi);
+  const dpi = Number(input.value.replace(/[^\d]/g, ""));
+  if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
+    setText("#read-status", "That DPI value is not supported by this mouse.");
+    input.focus();
+    input.select();
+    return;
+  }
+  if (await applyDpiValue(dpi)) finishCustomDpiEditing(dpi);
 }
 
-async function applyDpiValue(dpi: number): Promise<void> {
+function finishCustomDpiEditing(dpi?: number): void {
+  const input = document.querySelector<HTMLInputElement>("#dpi-output");
+  const button = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (!input || !button) return;
+  const fallback = Number((input.dataset.previousValue ?? input.value).replace(/[^\d]/g, "")) || dpiOptions[0] || 800;
+  input.readOnly = true;
+  input.value = `${(dpi ?? fallback).toLocaleString()} DPI`;
+  delete input.dataset.previousValue;
+  button.textContent = "Custom";
+}
+
+async function applyDpiValue(dpi: number): Promise<boolean> {
   const client = activeClient ?? activePulsarClient ?? activeEggClient;
-  if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return;
+  if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return false;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
   buttons.forEach((button) => { button.disabled = true; });
@@ -551,8 +901,10 @@ async function applyDpiValue(dpi: number): Promise<void> {
     await client.setDpi(dpi);
     showStatus(await client.readStatus());
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
+    return true;
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
+    return false;
   } finally {
     settingInProgress = false;
     buttons.forEach((button) => { button.disabled = false; });
@@ -649,6 +1001,147 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: "performance mode",
   } as const)[setting];
+}
+
+async function applyEggFilter(setting: "slamclick" | "motionJitter", enabled: boolean): Promise<void> {
+  if (!activeEggClient || settingInProgress) return;
+  settingInProgress = true;
+  const label = setting === "slamclick" ? "slamclick filter" : "motion-jitter filter";
+  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${label}…`);
+  try {
+    if (setting === "slamclick") await activeEggClient.setSlamclickFilter(enabled);
+    else await activeEggClient.setMotionJitterFilter(enabled);
+    showStatus(await activeEggClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${label}.`);
+    const status = await activeEggClient.readStatus().catch(() => null);
+    if (status) showStatus(status);
+  } finally {
+    settingInProgress = false;
+  }
+}
+
+async function applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Promise<void> {
+  if (!activeEggClient || settingInProgress) return;
+  settingInProgress = true;
+  setText("#read-status", `Setting the ${button} button to ${mode}…`);
+  try {
+    await activeEggClient.setSpdtMode(button, mode);
+    showStatus(await activeEggClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${button} button GX mode.`);
+    const status = await activeEggClient.readStatus().catch(() => null);
+    if (status) showStatus(status);
+  } finally {
+    settingInProgress = false;
+  }
+}
+
+function updateCustomPollingPreview(): void {
+  const divider = Number(document.querySelector<HTMLInputElement>("#egg-polling-divider")?.value);
+  setText("#egg-polling-result", Number.isInteger(divider) && divider > 0 && divider <= 255
+    ? `Result: ${(8000 / divider).toLocaleString(undefined, { maximumFractionDigits: 2 })} Hz`
+    : "Enter a divider from 1 to 255.");
+}
+
+function renderEggCpiStages(status: MouseStatus): void {
+  const container = document.querySelector<HTMLElement>("#egg-cpi-stage-list");
+  const stages = status.eggCpiStages;
+  const levels = status.eggCpiLevels ?? 0;
+  if (!container || !stages) return;
+  container.innerHTML = stages.slice(0, levels).map((stage, index) => {
+    const split = stage.x !== stage.y;
+    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
+      <strong style="font-size:.7rem">Stage ${index + 1}</strong>
+      <label style="display:flex;align-items:center;gap:.35rem;margin:.4rem 0;color:#8b8b90;font-size:.62rem"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
+        <label style="color:#77777c;font-size:.58rem">X<input data-cpi-x="${index}" type="number" min="50" max="26000" step="50" value="${stage.x}" style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
+        <label style="color:#77777c;font-size:.58rem">Y<input data-cpi-y="${index}" type="number" min="50" max="26000" step="50" value="${stage.y}" ${split ? "" : "disabled"} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
+      </div>
+      <button data-apply-cpi="${index}" type="button" style="margin-top:.4rem;padding:.3rem .5rem">Apply stage</button>
+    </div>`;
+  }).join("");
+  container.querySelectorAll<HTMLInputElement>("[data-cpi-split]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const index = checkbox.dataset.cpiSplit;
+      const y = container.querySelector<HTMLInputElement>(`[data-cpi-y="${index}"]`);
+      if (y) y.disabled = !checkbox.checked;
+    });
+  });
+  container.querySelectorAll<HTMLButtonElement>("[data-apply-cpi]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const level = Number(button.dataset.applyCpi);
+      const x = Number(container.querySelector<HTMLInputElement>(`[data-cpi-x="${level}"]`)?.value);
+      const split = container.querySelector<HTMLInputElement>(`[data-cpi-split="${level}"]`)?.checked === true;
+      const y = split ? Number(container.querySelector<HTMLInputElement>(`[data-cpi-y="${level}"]`)?.value) : x;
+      void applyEggCpiStage(level, x, y);
+    });
+  });
+}
+
+function renderEggButtons(status: MouseStatus): void {
+  const container = document.querySelector<HTMLElement>("#egg-button-list");
+  const filters = status.eggMulticlickFilters;
+  const mappings = status.eggButtonMappings;
+  if (!container || !filters || !mappings) return;
+  container.innerHTML = EGG_BUTTON_NAMES.map((name, index) => {
+    const gxActive = index === 0 ? status.leftSpdtMode !== "Off" : index === 1 ? status.rightSpdtMode !== "Off" : false;
+    const mappingOptions = EGG_BUTTON_MAPPINGS.map((mapping) =>
+      `<option ${mappings[index] === mapping ? "selected" : ""}>${mapping}</option>`).join("");
+    const unsupported = EGG_BUTTON_MAPPINGS.includes(mappings[index] as EggButtonMapping)
+      ? "" : `<option selected disabled>${mappings[index]}</option>`;
+    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
+      <strong style="font-size:.7rem">${name}</strong>
+      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter
+        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" />
+      </label>
+      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Mapping
+        <select data-button-mapping="${index}" style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${mappingOptions}</select>
+      </label>
+    </div>`;
+  }).join("");
+  container.querySelectorAll<HTMLInputElement>("[data-multiclick]").forEach((input) => {
+    input.addEventListener("change", () => void applyEggMulticlick(Number(input.dataset.multiclick) as EggButtonIndex, Number(input.value)));
+  });
+  container.querySelectorAll<HTMLSelectElement>("[data-button-mapping]").forEach((select) => {
+    select.addEventListener("change", () => void applyEggButtonMapping(Number(select.dataset.buttonMapping) as EggButtonIndex, select.value as EggButtonMapping));
+  });
+}
+
+async function applyEggCpiLevels(levels: number): Promise<void> {
+  await applyEggChange("CPI stage count", async (client) => client.setCpiLevels(levels));
+}
+
+async function applyEggCpiStage(level: number, x: number, y: number): Promise<void> {
+  await applyEggChange(`CPI stage ${level + 1}`, async (client) => client.setCpiStage(level, x, y));
+}
+
+async function applyEggPollingDivider(divider: number): Promise<void> {
+  await applyEggChange("custom polling divider", async (client) => client.setCustomPollingDivider(divider));
+}
+
+async function applyEggMulticlick(button: EggButtonIndex, value: number): Promise<void> {
+  await applyEggChange(`${EGG_BUTTON_NAMES[button]} multiclick filter`, async (client) => client.setMulticlickFilter(button, value));
+}
+
+async function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): Promise<void> {
+  await applyEggChange(`${EGG_BUTTON_NAMES[button]} mapping`, async (client) => client.setButtonMapping(button, mapping));
+}
+
+async function applyEggChange(label: string, change: (client: EggOp1HidClient) => Promise<void>): Promise<void> {
+  if (!activeEggClient || settingInProgress) return;
+  settingInProgress = true;
+  setText("#read-status", `Changing ${label}…`);
+  try {
+    await change(activeEggClient);
+    showStatus(await activeEggClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : `Unable to change ${label}.`);
+    const status = await activeEggClient.readStatus().catch(() => null);
+    if (status) showStatus(status);
+  } finally {
+    settingInProgress = false;
+  }
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
