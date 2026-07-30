@@ -303,7 +303,7 @@ export class LogitechHidppClient {
       0x03: "Full",
       0x04: "Charging slowly",
     } as const)[reply[5] ?? -1] ?? "Unknown";
-    return { percent: percentage && percentage <= 100 ? percentage : null, state };
+    return { percent: percentage <= 100 ? percentage : null, state };
   }
 
   private async readDpi(featureIndex: number): Promise<{ dpi: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {

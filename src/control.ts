@@ -10,13 +10,29 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const ACCESS_KEY = "openmouse-control-access-v2";
+const BATTERY_HISTORY_KEY = "openmouse-battery-history-v1";
 const ACCESS_USERNAME = "snekxs";
 const ACCESS_PASSWORD = "3734";
+const BATTERY_CHECKPOINT_MS = 5 * 60 * 1000;
+const BATTERY_MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
+const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
+const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 let activeClient: LogitechHidppClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
+
+type BatteryMode = "charging" | "discharging";
+
+interface BatterySample {
+  timestamp: number;
+  percent: number;
+  mode: BatteryMode;
+}
+
+type BatteryHistory = Record<string, BatterySample[]>;
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
@@ -112,11 +128,98 @@ function setText(selector: string, value: string): void {
   if (element) element.textContent = value;
 }
 
+function batteryMode(state: LogitechMouseStatus["batteryState"]): BatteryMode | null {
+  if (state === "Charging" || state === "Charging slowly" || state === "Almost full") return "charging";
+  if (state === "Discharging") return "discharging";
+  return null;
+}
+
+function loadBatteryHistory(): BatteryHistory {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(BATTERY_HISTORY_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as BatteryHistory : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveBatterySample(deviceName: string, percent: number, mode: BatteryMode, now = Date.now()): BatterySample[] {
+  const history = loadBatteryHistory();
+  const cutoff = now - BATTERY_MAX_SAMPLE_AGE_MS;
+  const storedSamples = Array.isArray(history[deviceName]) ? history[deviceName] : [];
+  const samples = storedSamples.filter((sample) =>
+    Number.isFinite(sample.timestamp)
+    && Number.isFinite(sample.percent)
+    && sample.timestamp >= cutoff
+    && sample.percent >= 0
+    && sample.percent <= 100
+    && (sample.mode === "charging" || sample.mode === "discharging"));
+  const previous = samples.at(-1);
+  const shouldSave = !previous
+    || previous.mode !== mode
+    || previous.percent !== percent
+    || now - previous.timestamp >= BATTERY_CHECKPOINT_MS;
+
+  if (shouldSave) samples.push({ timestamp: now, percent, mode });
+  const retainedSamples = samples.slice(-BATTERY_MAX_SAMPLES_PER_DEVICE);
+  history[deviceName] = retainedSamples;
+  if (shouldSave || retainedSamples.length !== storedSamples.length) {
+    try {
+      localStorage.setItem(BATTERY_HISTORY_KEY, JSON.stringify(history));
+    } catch {
+      // Estimates remain optional when browser storage is unavailable or full.
+    }
+  }
+  return retainedSamples;
+}
+
+function formatEstimate(milliseconds: number): string {
+  const minutes = Math.max(1, Math.round(milliseconds / 60000));
+  if (minutes < 60) return `~${minutes} min`;
+  const hours = minutes / 60;
+  if (hours < 48) return `~${hours < 10 ? hours.toFixed(1) : Math.round(hours)} hr`;
+  const days = hours / 24;
+  return `~${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
+}
+
+function estimateBatteryTime(samples: BatterySample[], percent: number, mode: BatteryMode, now = Date.now()): string | null {
+  const continuous: BatterySample[] = [];
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    const sample = samples[index];
+    const newer = continuous[0];
+    if (sample.mode !== mode || (newer && newer.timestamp - sample.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS)) break;
+    continuous.unshift(sample);
+  }
+
+  const first = continuous[0];
+  const last = continuous.at(-1);
+  if (!first || !last || now - last.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS) return null;
+  const elapsed = last.timestamp - first.timestamp;
+  const change = mode === "charging" ? last.percent - first.percent : first.percent - last.percent;
+  if (elapsed < BATTERY_MIN_ESTIMATE_SPAN_MS || change < 1) return null;
+
+  const remainingPercent = mode === "charging" ? 100 - percent : percent;
+  if (remainingPercent <= 0) return null;
+  return formatEstimate(remainingPercent / (change / elapsed));
+}
+
+function batteryDetail(status: LogitechMouseStatus): string {
+  if (status.batteryPercent === null) return status.batteryState;
+  if (status.batteryState === "Full") return "Fully charged";
+  const mode = batteryMode(status.batteryState);
+  if (!mode) return status.batteryState;
+  const now = Date.now();
+  const samples = saveBatterySample(status.name, status.batteryPercent, mode, now);
+  const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
+  const label = mode === "charging" ? "until full" : "remaining";
+  return estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`;
+}
+
 function showStatus(status: LogitechMouseStatus): void {
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   setText("#dpi-output", `${status.dpi.toLocaleString()} DPI`);
   setText("#battery-value", battery);
-  setText("#battery-detail", status.batteryState);
+  setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
