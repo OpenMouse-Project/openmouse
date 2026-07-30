@@ -240,6 +240,9 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
+    if (liftOffDistance === "Low") {
+      throw new Error("This mouse does not support a Low lift-off distance.");
+    }
     const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
     await this.ensureHostControl();
     const feature = await this.getFeature(FEATURE.extendedDpi);
