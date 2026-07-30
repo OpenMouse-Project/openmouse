@@ -1,4 +1,5 @@
 import "./control.css";
+import { EggOp1HidClient } from "./egg-op1-hid";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
@@ -23,6 +24,7 @@ const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
+let activeEggClient: EggOp1HidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -30,7 +32,7 @@ let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient;
+type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient;
 
 type BatteryMode = "charging" | "discharging";
 
@@ -276,7 +278,7 @@ function showStatus(status: MouseStatus): void {
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
-  setText("#connection-value", "Wireless");
+  setText("#connection-value", status.brand === "Endgame Gear" ? "Wired" : "Wireless");
   setText("#connection-detail", status.connectionDetail
     ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
   const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
@@ -288,8 +290,8 @@ function showStatus(status: MouseStatus): void {
     dongleLedButton.textContent = status.dongleLedEnabled ? "Receiver LED: On" : "Receiver LED: Off";
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
-  if (advanced) advanced.style.display = status.brand === "Pulsar" ? "grid" : "none";
-  if (status.brand === "Pulsar") {
+  if (advanced) advanced.style.display = status.brand === "Pulsar" || status.brand === "Endgame Gear" ? "grid" : "none";
+  if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
     setText("#signal-detail", strength === null || strength === undefined
@@ -325,10 +327,10 @@ function showStatus(status: MouseStatus): void {
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    button.disabled = false;
+    button.disabled = status.brand === "Endgame Gear" && Number(button.dataset.rate) < 1000;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    button.disabled = status.brand === "Logitech" && button.dataset.lod === "Low";
+    button.disabled = (status.brand === "Logitech" || status.brand === "Endgame Gear") && button.dataset.lod === "Low";
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
 }
@@ -389,6 +391,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
 }
 
 function createSupportedClient(device: HIDDevice): SupportedClient | null {
+  if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
   if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (device.vendorId === 0x046d && device.productId === 0xc54d) return new LogitechHidppClient(device);
@@ -400,6 +403,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const devices = await navigator.hid.requestDevice({
     filters: [
       { vendorId: 0x3710 },
+      { vendorId: 0x3367 },
       { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
     ],
   });
@@ -425,6 +429,15 @@ async function connect(): Promise<void> {
       setText("#read-status", "No supported device was selected.");
       return;
     }
+    if (client instanceof EggOp1HidClient) {
+      activeEggClient = client;
+      const status = await client.readStatus();
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+      startAutomaticRefresh();
+      return;
+    }
     if (!(client instanceof LogitechHidppClient)) {
       activePulsarClient = client;
       await showPulsarExplorer(client);
@@ -438,11 +451,13 @@ async function connect(): Promise<void> {
     startAutomaticRefresh();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    await activeEggClient?.close().catch(() => undefined);
+    activeEggClient = null;
     setText("#device-status", "Connection failed");
     setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
-    if (!activeClient && !activePulsarClient) {
+    if (!activeClient && !activePulsarClient && !activeEggClient) {
       button.disabled = false;
       button.textContent = "Add device";
     }
@@ -450,7 +465,7 @@ async function connect(): Promise<void> {
 }
 
 async function reconnectAuthorizedDevice(): Promise<void> {
-  if (activeClient || activePulsarClient) return;
+  if (activeClient || activePulsarClient || activeEggClient) return;
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
   button.disabled = true;
@@ -460,6 +475,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     const devices = await navigator.hid?.getDevices() ?? [];
     const client = devices.map(createSupportedClient).find((candidate): candidate is SupportedClient => candidate !== null);
     if (!client) return;
+    if (client instanceof EggOp1HidClient) {
+      activeEggClient = client;
+      const status = await client.readStatus();
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+      startAutomaticRefresh();
+      return;
+    }
     if (!(client instanceof LogitechHidppClient)) {
       activePulsarClient = client;
       await showPulsarExplorer(client);
@@ -477,13 +501,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     const message = error instanceof Error ? error.message : "Unable to reconnect to the mouse.";
     await activeClient?.close().catch(() => undefined);
     await activePulsarClient?.close().catch(() => undefined);
+    await activeEggClient?.close().catch(() => undefined);
     activeClient = null;
     activePulsarClient = null;
+    activeEggClient = null;
     setText("#device-status", "Not connected");
     setText("#connection-banner", message);
     setText("#read-status", "Use Add device to reconnect.");
   } finally {
-    if (!activeClient && !activePulsarClient) {
+    if (!activeClient && !activePulsarClient && !activeEggClient) {
       button.disabled = false;
       button.textContent = "Add device";
     }
@@ -515,7 +541,7 @@ async function chooseCustomDpi(): Promise<void> {
 }
 
 async function applyDpiValue(dpi: number): Promise<void> {
-  const client = activeClient ?? activePulsarClient;
+  const client = activeClient ?? activePulsarClient ?? activeEggClient;
   if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
@@ -534,7 +560,7 @@ async function applyDpiValue(dpi: number): Promise<void> {
 }
 
 async function applyPollingRate(rate: number): Promise<void> {
-  const client = activeClient ?? activePulsarClient;
+  const client = activeClient ?? activePulsarClient ?? activeEggClient;
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
@@ -556,7 +582,7 @@ async function applyPollingRate(rate: number): Promise<void> {
 }
 
 async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void> {
-  const client = activeClient ?? activePulsarClient;
+  const client = activeClient ?? activePulsarClient ?? activeEggClient;
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
@@ -596,18 +622,20 @@ async function toggleDongleLed(): Promise<void> {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  if (!activePulsarClient || settingInProgress) return;
+  const client = activePulsarClient ?? activeEggClient;
+  if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
   try {
-    if (setting === "motionSync") await activePulsarClient.setMotionSync(enabled);
-    if (setting === "angleSnapping") await activePulsarClient.setAngleSnapping(enabled);
-    if (setting === "rippleControl") await activePulsarClient.setRippleControl(enabled);
-    if (setting === "performanceMode") await activePulsarClient.setPerformanceMode(enabled);
-    showStatus(await activePulsarClient.readStatus());
+    if (setting === "motionSync") await client.setMotionSync(enabled);
+    if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
+    if (setting === "rippleControl") await client.setRippleControl(enabled);
+    if (setting === "performanceMode" && client instanceof EggOp1HidClient) throw new Error("Performance mode is not exposed by the OP1 8K protocol.");
+    if (setting === "performanceMode" && !(client instanceof EggOp1HidClient)) await client.setPerformanceMode(enabled);
+    showStatus(await client.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
-    const status = await activePulsarClient.readStatus().catch(() => null);
+    const status = await client.readStatus().catch(() => null);
     if (status) showStatus(status);
   } finally {
     settingInProgress = false;
@@ -662,7 +690,7 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
-  const client = activeClient ?? activePulsarClient;
+  const client = activeClient ?? activePulsarClient ?? activeEggClient;
   if (!client || refreshInProgress || settingInProgress) return;
   refreshInProgress = true;
   try {
@@ -682,6 +710,7 @@ window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   void activeClient?.close();
   void activePulsarClient?.close();
+  void activeEggClient?.close();
 });
 
 if (sessionStorage.getItem(ACCESS_KEY) === "granted") {

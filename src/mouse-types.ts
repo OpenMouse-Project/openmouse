@@ -1,5 +1,5 @@
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear";
   name: string;
   batteryPercent: number | null;
   batteryVoltageMv?: number | null;
