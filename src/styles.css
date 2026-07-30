@@ -73,10 +73,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .compatibility > span { display: block; margin-bottom: .55rem; font-weight: 700; }
 .compatibility ul { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0; padding: 0; list-style: none; }
 .compatibility li { display: flex; align-items: center; gap: .35rem; border: 1px solid var(--border); border-radius: 999px; padding: .28rem .55rem; }
+.compatibility li.current { border-color: var(--text); color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.compatibility li.current::after { margin-left: .1rem; color: var(--subtle); font-size: .58rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; content: "You"; }
 .compatibility li::before { width: .42rem; height: .42rem; border-radius: 50%; content: ""; }
 .compatibility .supported::before { background: #3c8b64; }
 .compatibility .unsupported::before { background: #c9584f; }
 .compatibility p { margin: .6rem 0 0; }
+.compatibility .browser-result { max-width: 590px; line-height: 1.5; }
+.compatibility .browser-result.compatible { color: #3c8b64; }
+.compatibility .browser-result.incompatible { color: #c9584f; }
 
 .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border: 1px solid var(--border); background: var(--border); }
 .promise article { min-height: 255px; padding: 1.6rem; background: var(--surface); }

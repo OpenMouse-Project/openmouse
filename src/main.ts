@@ -75,12 +75,12 @@ app.innerHTML = `
       <div class="compatibility" aria-label="Browser compatibility">
         <span>Browser support</span>
         <ul>
-          <li class="supported">Chrome</li>
-          <li class="supported">Edge</li>
-          <li class="unsupported">Firefox</li>
-          <li class="unsupported">Safari</li>
+          <li class="supported" data-browser="chrome">Chrome</li>
+          <li class="supported" data-browser="edge">Edge</li>
+          <li class="unsupported" data-browser="firefox">Firefox</li>
+          <li class="unsupported" data-browser="safari">Safari</li>
         </ul>
-        <p>Requires WebHID. Firefox and Safari do not currently support it.</p>
+        <p id="browser-support-message" aria-live="polite">Checking your browser for WebHID support…</p>
       </div>
     </section>
 
@@ -213,6 +213,45 @@ app.innerHTML = `
 
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
 const githubStars = document.querySelector<HTMLSpanElement>("#github-stars");
+const browserSupportMessage = document.querySelector<HTMLParagraphElement>("#browser-support-message");
+
+function currentBrowser(): { id: string; name: string } {
+  const userAgent = navigator.userAgent;
+
+  if (/\bEdg\//.test(userAgent)) return { id: "edge", name: "Edge" };
+  if (/\bFirefox\//.test(userAgent)) return { id: "firefox", name: "Firefox" };
+  if (/\bChrome\//.test(userAgent) && !/\b(?:OPR|Edg)\//.test(userAgent)) {
+    return { id: "chrome", name: "Chrome" };
+  }
+  if (/\bSafari\//.test(userAgent) && !/\b(?:Chrome|Chromium|CriOS|FxiOS|EdgiOS)\//.test(userAgent)) {
+    return { id: "safari", name: "Safari" };
+  }
+
+  return { id: "other", name: "Your browser" };
+}
+
+function updateBrowserSupport(): void {
+  if (!browserSupportMessage) return;
+
+  const browser = currentBrowser();
+  const supportsWebHid = "hid" in navigator;
+  const currentBrowserBadge = document.querySelector<HTMLElement>(
+    `.compatibility [data-browser="${browser.id}"]`,
+  );
+
+  currentBrowserBadge?.classList.add("current");
+  currentBrowserBadge?.setAttribute("aria-current", "true");
+
+  if (supportsWebHid) {
+    browserSupportMessage.className = "browser-result compatible";
+    browserSupportMessage.textContent = `You’re using ${browser.name}. Your browser supports WebHID and is compatible with OpenMouse.`;
+  } else {
+    browserSupportMessage.className = "browser-result incompatible";
+    browserSupportMessage.textContent = `You’re using ${browser.name}. Your browser does not support WebHID, so OpenMouse won’t be able to connect to your mouse. Use Chrome or Edge on desktop.`;
+  }
+}
+
+updateBrowserSupport();
 
 if (!themeToggle) {
   throw new Error("OpenMouse could not initialize its theme toggle.");
