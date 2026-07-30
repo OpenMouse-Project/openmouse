@@ -153,6 +153,16 @@ function renderControl(): void {
       .control-shell .dpi-header-actions input { width:4.7rem;box-sizing:border-box;padding:.38rem .48rem;border:1px solid #343438;border-radius:6px;background:#111113;color:#ececef;font:600 .62rem "JetBrains Mono",monospace;text-align:center }
       .control-shell .dpi-header-actions input:not([readonly]) { border-color:var(--ui-accent);background:#171719 }
       .control-shell .dpi-card .setting-action { margin-top:.55rem }
+      .control-shell.is-empty .empty-state { width:min(100%,760px);min-height:0;flex:0 0 auto;align-self:center;box-sizing:border-box;margin:auto;padding:clamp(2rem,5vw,4rem) !important }
+      .control-shell.is-empty .empty-state::before { right:-5% !important;width:42% !important;opacity:.65 }
+      .control-shell.is-empty .empty-state::after { right:2.5rem !important;bottom:1.75rem !important;font-size:clamp(6rem,12vw,10rem) !important }
+      .control-shell.is-empty .empty-state h2 { max-width:480px !important;font-size:clamp(2.5rem,4vw,4rem);line-height:.96 }
+      .control-shell.is-empty .empty-state > p:not(.overline) { max-width:440px;margin:.95rem 0 .45rem !important;font-size:.88rem }
+      .control-shell.is-empty .empty-state small { display:block;max-width:420px }
+      .empty-connect-action { width:max-content;margin-top:1.5rem;padding:.7rem 1rem;border:1px solid var(--ui-accent);border-radius:7px;background:var(--ui-accent);color:var(--ui-accent-ink);font-size:.72rem;font-weight:750 }
+      .empty-connect-action::before { margin-right:.45rem;content:"+" }
+      .empty-connect-action:hover { filter:brightness(1.07);transform:translateY(-1px) }
+      .empty-connect-action:disabled { cursor:wait;opacity:.6;transform:none }
       .control-shell button:focus-visible, .control-shell select:focus-visible, .control-shell input:focus-visible { outline:2px solid var(--ui-accent);outline-offset:2px }
       #pulsar-advanced input[type="number"], #pulsar-advanced select { width:100%;box-sizing:border-box;margin-top:.2rem;padding:.48rem .55rem;border:1px solid #343438;border-radius:6px;outline:none;background:#171719;color:#eee;font:inherit;color-scheme:dark }
       #pulsar-advanced input[type="number"]:focus, #pulsar-advanced select:focus { border-color:#77777c;box-shadow:0 0 0 2px rgb(255 255 255 / 4%) }
@@ -263,8 +273,9 @@ function renderControl(): void {
         <section class="empty-state" aria-labelledby="empty-state-title">
           <p class="overline">READY WHEN YOU ARE</p>
           <h2 id="empty-state-title">Connect a supported mouse.</h2>
-          <p>Use <strong>Add device</strong> in the sidebar, then choose your device in the browser prompt.</p>
-          <small>Compatible devices will appear in the browser prompt.</small>
+          <p>Choose your mouse in the browser prompt to view and adjust its onboard settings.</p>
+          <small>Your browser will only show compatible WebHID devices.</small>
+          <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
           <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
@@ -304,6 +315,9 @@ function renderControl(): void {
     </div>`;
 
   document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
+    void connect();
+  });
+  document.querySelector<HTMLButtonElement>("#empty-connect-button")?.addEventListener("click", () => {
     void connect();
   });
   document.querySelector<HTMLButtonElement>("#interface-settings-button")?.addEventListener("click", openInterfaceSettings);
@@ -739,8 +753,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
 async function connect(): Promise<void> {
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
-  button.disabled = true;
-  button.textContent = "Connecting…";
+  setConnectionButtons(true, "Connecting…");
   setText("#device-status", "Requesting permission");
   setText("#read-status", "Choose your device in the browser prompt.");
 
@@ -780,8 +793,7 @@ async function connect(): Promise<void> {
     setText("#read-status", message);
   } finally {
     if (!activeClient && !activePulsarClient && !activeEggClient) {
-      button.disabled = false;
-      button.textContent = "Add device";
+      setConnectionButtons(false, "Add device");
     }
   }
 }
@@ -790,14 +802,16 @@ async function reconnectAuthorizedDevice(): Promise<void> {
   if (activeClient || activePulsarClient || activeEggClient) return;
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
-  button.disabled = true;
-  button.textContent = "Checking for device…";
+  setConnectionButtons(true, "Reconnecting…");
 
   let lastError: Error | null = null;
   try {
-    const retryDelays = [0, 100, 250, 500, 1000, 2000];
+    // Browsers can restore WebHID authorization a fraction of a second after the
+    // page is ready. Poll quickly at first so reloads do not feel stalled, then
+    // keep a few wider retries for slower USB enumeration.
+    const retryDelays = [0, 40, 60, 75, 100, 150, 225, 350, 500, 750];
     for (const delay of retryDelays) {
-      if (delay) await wait(delay);
+      if (delay) await waitForHidChange(delay);
       const devices = await navigator.hid?.getDevices() ?? [];
       const clients = devices.map(createSupportedClient).filter((candidate): candidate is SupportedClient => candidate !== null);
       for (const client of clients) {
@@ -833,14 +847,34 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
   } finally {
     if (!activeClient && !activePulsarClient && !activeEggClient) {
-      button.disabled = false;
-      button.textContent = "Add device";
+      setConnectionButtons(false, "Add device");
     }
   }
 }
 
+function setConnectionButtons(disabled: boolean, label: string): void {
+  document.querySelectorAll<HTMLButtonElement>("#connect-button, #empty-connect-button").forEach((button) => {
+    button.disabled = disabled;
+    button.textContent = label;
+  });
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function waitForHidChange(milliseconds: number): Promise<void> {
+  const hid = navigator.hid;
+  if (!hid) return wait(milliseconds);
+  return new Promise((resolve) => {
+    const finish = (): void => {
+      window.clearTimeout(timer);
+      hid.removeEventListener("connect", finish);
+      resolve();
+    };
+    const timer = window.setTimeout(finish, milliseconds);
+    hid.addEventListener("connect", finish, { once: true });
+  });
 }
 
 function configureDpiControl(currentDpi: number): void {
