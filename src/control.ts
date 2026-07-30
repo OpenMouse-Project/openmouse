@@ -77,8 +77,8 @@ function renderControl(): void {
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="custom-dpi" type="button" disabled>Custom DPI</button></div></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note" id="profile-value">Medium and High are supported by this mouse.</small></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. High keeps tracking a little longer.</small></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
       </main>
@@ -117,7 +117,6 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
   setText("#connection-detail", status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver");
-  setText("#profile-value", status.activeProfile ? "Using the mouse's saved settings." : "Changes are applied directly to the mouse.");
   setText("#device-title", status.name);
   setText("#sidebar-device-name", status.name);
   setText("#sidebar-device-status", "Logitech · Connected");
