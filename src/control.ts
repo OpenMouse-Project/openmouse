@@ -24,7 +24,7 @@ function renderGate(message = ""): void {
       <a class="demo-wordmark" href="/">OpenMouse</a>
       <p class="overline">PRIVATE CONTROL PANEL</p>
       <h1>Sign in to continue.</h1>
-      <p>Private control for supported Logitech devices through WebHID.</p>
+      <p>Private control for supported devices through WebHID.</p>
       <form id="access-form" class="access-form">
         <label for="access-username">Username</label>
         <input id="access-username" type="text" autocomplete="username" autofocus />
@@ -56,23 +56,23 @@ function renderControl(): void {
         <div class="device-label">CONNECTED DEVICE</div>
         <div class="device-select">
           <span class="device-dot is-idle"></span>
-          <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Logitech receiver required</small></span>
+          <span><strong id="sidebar-device-name">No device connected</strong><small id="sidebar-device-status">Choose a supported device</small></span>
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
         <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
       </aside>
 
       <main class="control-panel">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported Logitech receiver to view and change its settings.</p></div>
+        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
-          <div><p class="overline">LOGITECH</p><h1 id="device-title">Connect a mouse</h1></div>
+          <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
         </header>
         <section class="empty-state" aria-labelledby="empty-state-title">
           <p class="overline">READY WHEN YOU ARE</p>
-          <h2 id="empty-state-title">Connect a supported Logitech mouse.</h2>
-          <p>Use <strong>Add device</strong> in the sidebar, then choose the Logitech USB Receiver in the browser prompt.</p>
-          <small>Choose a Logitech USB Receiver to view and adjust supported settings.</small>
+          <h2 id="empty-state-title">Connect a supported mouse.</h2>
+          <p>Use <strong>Add device</strong> in the sidebar, then choose your device in the browser prompt.</p>
+          <small>Compatible devices will appear in the browser prompt.</small>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
           <article class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
@@ -84,7 +84,7 @@ function renderControl(): void {
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
           <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. High keeps tracking a little longer.</small></article>
         </section>
-        <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a Logitech receiver from the sidebar to read its current status.</span></footer>
+        <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
       </main>
     </div>`;
 
@@ -150,7 +150,7 @@ async function connect(): Promise<void> {
   button.disabled = true;
   button.textContent = "Connecting…";
   setText("#device-status", "Requesting permission");
-  setText("#read-status", "Choose the Logitech USB Receiver in the browser prompt.");
+  setText("#read-status", "Choose your device in the browser prompt.");
 
   try {
     const client = await LogitechHidppClient.requestReceiver();
