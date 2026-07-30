@@ -117,7 +117,7 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
   setText("#connection-detail", status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver");
-  setText("#profile-value", status.activeProfile ? `Onboard Profile ${status.activeProfile} is active.` : "Host control is active for custom settings.");
+  setText("#profile-value", status.activeProfile ? "Using the mouse's saved settings." : "Changes are applied directly to the mouse.");
   setText("#device-title", status.name);
   setText("#sidebar-device-name", status.name);
   setText("#sidebar-device-status", "Logitech · Connected");
