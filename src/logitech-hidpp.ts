@@ -1,3 +1,5 @@
+import type { MouseStatus } from "./mouse-types";
+
 const LOGITECH_VENDOR_ID = 0x046d;
 const LOGITECH_RECEIVER_PRODUCT_ID = 0xc54d;
 const SHORT_REPORT_ID = 0x10;
@@ -15,16 +17,7 @@ const FEATURE = {
 
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
 
-export interface LogitechMouseStatus {
-  name: string;
-  batteryPercent: number | null;
-  batteryState: "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
-  dpi: number;
-  pollingRateHz: number;
-  activeProfile: number | null;
-  liftOffDistance: "Low" | "Medium" | "High" | null;
-  firmware: string[];
-}
+export type LogitechMouseStatus = MouseStatus;
 
 interface BatteryReading {
   percent: number | null;
@@ -140,6 +133,7 @@ export class LogitechHidppClient {
     const firmware = await this.readFirmware(firmwareFeature.index);
 
     return {
+      brand: "Logitech",
       name,
       batteryPercent: battery.percent,
       batteryState: battery.state,

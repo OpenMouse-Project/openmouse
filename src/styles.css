@@ -30,6 +30,10 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; transition: background-color .35s ease, color .35s ease; }
 a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 4px;
+}
 
 .site-header, main, footer {
   width: min(100% - 2.5rem, 1120px);
@@ -89,7 +93,7 @@ a { color: inherit; text-decoration: none; }
 .steps li:hover { border-color: var(--accent-dark); background: var(--surface); transform: translateY(-4px); }
 .steps h3 { margin: 4rem 0 .65rem; font-size: 1.2rem; letter-spacing: -.015em; }
 .steps p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
-.device-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.device-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .device-card { min-height: 185px; padding: 1.25rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
 .device-card:hover { border-color: var(--accent-dark); box-shadow: 0 12px 28px rgb(32 32 30 / 8%); transform: translateY(-4px); }
 :root[data-theme="dark"] .device-card:hover { box-shadow: 0 12px 28px rgb(0 0 0 / 24%); }
@@ -212,4 +216,12 @@ footer a:hover { color: var(--accent); }
   .roadmap li { grid-template-columns: 1fr; gap: .6rem; }
   .discord-community { grid-template-columns: 1fr; }
   footer { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 420px) {
+  .site-header { align-items: flex-start; }
+  .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .github-link { font-size: 0; }
+  .github-link > svg, .github-link > span { font-size: .72rem; }
+  .hero h1 { font-size: clamp(3.25rem, 17vw, 4rem); }
 }

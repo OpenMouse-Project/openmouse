@@ -12,7 +12,13 @@ type ThemePreference = Theme | "system";
 const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 function preferredTheme(): ThemePreference {
-  const savedTheme = localStorage.getItem("openmouse-theme-preference");
+  let savedTheme: string | null = null;
+
+  try {
+    savedTheme = localStorage.getItem("openmouse-theme-preference");
+  } catch {
+    // Storage can be unavailable in privacy-restricted browser contexts.
+  }
 
   if (savedTheme === "system" || savedTheme === "light" || savedTheme === "dark") {
     return savedTheme;
@@ -28,8 +34,16 @@ function resolvedTheme(preference: ThemePreference): Theme {
 let themePreference = preferredTheme();
 
 function applyTheme(): void {
-  document.documentElement.dataset.theme = resolvedTheme(themePreference);
-  localStorage.setItem("openmouse-theme-preference", themePreference);
+  const theme = resolvedTheme(themePreference);
+  document.documentElement.dataset.theme = theme;
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    ?.setAttribute("content", theme === "dark" ? "#09090b" : "#ffffff");
+
+  try {
+    localStorage.setItem("openmouse-theme-preference", themePreference);
+  } catch {
+    // The theme still works for the current page when storage is unavailable.
+  }
 }
 
 applyTheme();
@@ -122,6 +136,7 @@ app.innerHTML = `
         <article class="device-card"><p>Logitech</p><h3>Superlight 2C</h3><span>Planned</span></article>
         <article class="device-card"><p>Pulsar</p><h3>X2 CrazyLight</h3><span>Planned</span></article>
         <article class="device-card"><p>Endgame Gear</p><h3>OP1 8K</h3><span>Planned</span></article>
+        <article class="device-card"><p>Ninjutso</p><h3>Sora V3</h3><span>Planned</span></article>
       </div>
     </section>
 
@@ -157,7 +172,7 @@ app.innerHTML = `
       <ul class="discord-benefits">
         <li><span>01</span><div><h3>Early access</h3><p>Try beta features and new device support before wider releases.</p></div></li>
         <li><span>02</span><div><h3>Progress updates</h3><p>Follow development, changelogs, milestones, and project updates.</p></div></li>
-        <li><span>03</span><div><h3>Support and requests</h3><p>In the future, get help and request mice you’d like OpenMouse to support.</p></div></li>
+        <li><span>03</span><div><h3>Help shape OpenMouse</h3><p>Request mice you’d like supported, share feedback, and find opportunities to contribute to the project.</p></div></li>
       </ul>
     </section>
 

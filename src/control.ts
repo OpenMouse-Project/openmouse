@@ -1,5 +1,8 @@
 import "./control.css";
-import { LogitechHidppClient, type LogitechMouseStatus } from "./logitech-hidpp";
+import { LogitechHidppClient } from "./logitech-hidpp";
+import type { MouseStatus } from "./mouse-types";
+import { PulsarHidClient } from "./pulsar-hid";
+import { PulsarProHidClient } from "./pulsar-pro-hid";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -19,10 +22,15 @@ const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 let activeClient: LogitechHidppClient | null = null;
+let activePulsarClient: PulsarClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
+let lastRenderedStatusKey: string | null = null;
+
+type PulsarClient = PulsarHidClient | PulsarProHidClient;
+type SupportedClient = LogitechHidppClient | PulsarClient;
 
 type BatteryMode = "charging" | "discharging";
 
@@ -78,7 +86,7 @@ function renderControl(): void {
         <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
       </aside>
 
-      <main class="control-panel">
+      <main class="control-panel" style="overflow-y:auto">
         <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
@@ -93,12 +101,19 @@ function renderControl(): void {
         <section class="device-overview device-data" aria-label="Device status">
           <article class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small></article>
+          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><output id="dpi-output">— DPI</output></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span><button id="custom-dpi" type="button" disabled>Custom DPI</button></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented two"><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. High keeps tracking a little longer.</small></article>
+          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+        </section>
+        <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
+          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
+          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
+          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
+          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
       </main>
@@ -110,6 +125,41 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
     void chooseCustomDpi();
   });
+  document.querySelector<HTMLButtonElement>("#dongle-led-toggle")?.addEventListener("click", () => {
+    void toggleDongleLed();
+  });
+  for (let debounce = 0; debounce <= 15; debounce += 1) {
+    document.querySelector<HTMLSelectElement>("#debounce-select")?.add(new Option(`${debounce} ms`, String(debounce)));
+  }
+  for (let angle = -30; angle <= 30; angle += 1) {
+    document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.add(new Option(`${angle}°`, String(angle)));
+  }
+  document.querySelector<HTMLSelectElement>("#debounce-select")?.addEventListener("change", (event) => {
+    void applyPulsarValue("debounce", Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
+    void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
+  });
+  const toggles = [
+    ["#motion-sync-toggle", "motionSync"],
+    ["#angle-snapping-toggle", "angleSnapping"],
+    ["#ripple-control-toggle", "rippleControl"],
+    ["#performance-mode-toggle", "performanceMode"],
+  ] as const;
+  for (const [selector, setting] of toggles) {
+    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
+      void applyPulsarToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
+    });
+  }
+  document.querySelector<HTMLButtonElement>("#wheel-acceleration-toggle")?.addEventListener("click", (event) => {
+    void applyProSetting("wheelAcceleration", (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
+  });
+  document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.addEventListener("change", (event) => {
+    void applyProSetting("angleTuning", Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLSelectElement>("#profile-select")?.addEventListener("change", (event) => {
+    void applyProSetting("profile", Number((event.target as HTMLSelectElement).value));
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
       void applyPollingRate(Number(button.dataset.rate));
@@ -117,7 +167,7 @@ function renderControl(): void {
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     button.addEventListener("click", () => {
-      const lod = button.dataset.lod as LogitechMouseStatus["liftOffDistance"];
+      const lod = button.dataset.lod as MouseStatus["liftOffDistance"];
       if (lod) void applyLiftOffDistance(lod);
     });
   });
@@ -129,7 +179,7 @@ function setText(selector: string, value: string): void {
   if (element) element.textContent = value;
 }
 
-function batteryMode(state: LogitechMouseStatus["batteryState"]): BatteryMode | null {
+function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
   if (state === "Charging" || state === "Charging slowly" || state === "Almost full") return "charging";
   if (state === "Discharging") return "discharging";
   return null;
@@ -204,7 +254,7 @@ function estimateBatteryTime(samples: BatterySample[], percent: number, mode: Ba
   return formatEstimate(remainingPercent / (change / elapsed));
 }
 
-function batteryDetail(status: LogitechMouseStatus): string {
+function batteryDetail(status: MouseStatus): string {
   if (status.batteryPercent === null) return status.batteryState;
   if (status.batteryState === "Full") return "Fully charged";
   const mode = batteryMode(status.batteryState);
@@ -216,7 +266,8 @@ function batteryDetail(status: LogitechMouseStatus): string {
   return estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`;
 }
 
-function showStatus(status: LogitechMouseStatus): void {
+function showStatus(status: MouseStatus): void {
+  lastRenderedStatusKey = JSON.stringify(status);
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   setText("#dpi-output", `${status.dpi.toLocaleString()} DPI`);
   setText("#battery-value", battery);
@@ -224,10 +275,42 @@ function showStatus(status: LogitechMouseStatus): void {
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
   setText("#connection-value", "Wireless");
-  setText("#connection-detail", status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver");
+  setText("#connection-detail", status.connectionDetail
+    ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
+  const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
+  if (dongleLedButton) {
+    const supported = status.brand === "Pulsar" && status.dongleLedEnabled !== null && status.dongleLedEnabled !== undefined;
+    dongleLedButton.hidden = !supported;
+    dongleLedButton.disabled = !supported;
+    dongleLedButton.dataset.enabled = status.dongleLedEnabled ? "true" : "false";
+    dongleLedButton.textContent = status.dongleLedEnabled ? "Receiver LED: On" : "Receiver LED: Off";
+  }
+  const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
+  if (advanced) advanced.style.display = status.brand === "Pulsar" ? "grid" : "none";
+  if (status.brand === "Pulsar") {
+    const strength = status.signalStrength;
+    setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
+    setText("#signal-detail", strength === null || strength === undefined
+      ? "Receiver signal is unavailable."
+      : ["Very weak", "Weak", "Fair", "Good", "Excellent"][strength] ?? `Level ${strength}`);
+    setControlValue("#debounce-select", status.debounceMs);
+    setControlValue("#sleep-select", status.sleepTimeout);
+    setToggleValue("#motion-sync-toggle", status.motionSync);
+    setToggleValue("#angle-snapping-toggle", status.angleSnapping);
+    setToggleValue("#ripple-control-toggle", status.rippleControl);
+    setToggleValue("#performance-mode-toggle", status.performanceMode);
+    const proSettings = document.querySelector<HTMLElement>("#pulsar-pro-settings");
+    const isPro = status.connectionDetail?.includes("Pulsar Pro protocol") === true;
+    if (proSettings) proSettings.style.display = isPro ? "block" : "none";
+    if (isPro) {
+      setToggleValue("#wheel-acceleration-toggle", status.wheelAcceleration);
+      setControlValue("#angle-tuning-select", status.angleTuning);
+      setControlValue("#profile-select", status.activeProfile);
+    }
+  }
   setText("#device-title", status.name);
   setText("#sidebar-device-name", status.name);
-  setText("#sidebar-device-status", "Logitech · Connected");
+  setText("#sidebar-device-status", `${status.brand} · Connected`);
   setText("#device-status", "Connected");
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
@@ -243,9 +326,86 @@ function showStatus(status: LogitechMouseStatus): void {
     button.disabled = false;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    button.disabled = false;
+    button.disabled = status.brand === "Logitech" && button.dataset.lod === "Low";
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
+}
+
+function setControlValue(selector: string, value: number | null | undefined): void {
+  const control = document.querySelector<HTMLSelectElement>(selector);
+  if (!control) return;
+  control.disabled = value === null || value === undefined;
+  if (control.disabled) return;
+  control.value = String(value);
+}
+
+function setToggleValue(selector: string, value: boolean | null | undefined): void {
+  const control = document.querySelector<HTMLButtonElement>(selector);
+  if (!control) return;
+  control.disabled = value === null || value === undefined;
+  if (control.disabled) {
+    control.textContent = "N/A";
+    control.style.background = "#202023";
+    control.style.borderColor = "#3a3a3f";
+    control.style.color = "#66666b";
+    return;
+  }
+  control.setAttribute("aria-checked", String(value));
+  control.textContent = value ? "On" : "Off";
+  control.style.background = value ? "#69d28d" : "#202023";
+  control.style.borderColor = value ? "#69d28d" : "#3a3a3f";
+  control.style.color = value ? "#07120b" : "#8b8b90";
+}
+
+function formatHex(value: number, width = 2): string {
+  return value.toString(16).toUpperCase().padStart(width, "0");
+}
+
+async function showPulsarExplorer(client: PulsarClient): Promise<void> {
+  await client.open();
+  const device = client.device;
+  setText("#connection-value", "Connected");
+  setText("#connection-detail", "Reading Pulsar receiver identity");
+  setText("#device-title", device.productName || "Pulsar Mouse");
+  setText("#sidebar-device-name", device.productName || "Pulsar Mouse");
+  setText("#sidebar-device-status", "Pulsar · Connecting");
+  setText("#device-status", "Connected");
+  setText("#connection-banner", "Pulsar vendor HID connected. Reading verified settings.");
+  setText("#read-status", client.describeCollections());
+  document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
+  const connectButton = document.querySelector<HTMLButtonElement>("#connect-button");
+  if (connectButton) connectButton.hidden = true;
+  document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
+  const info = await client.readDeviceInfo();
+  setText("#connection-value", info.connection);
+  setText("#connection-detail", `CID 0x${formatHex(info.cid)} · MID 0x${formatHex(info.mid)} · Type ${info.type} · Dongle ${info.dongleType}`);
+  const status = await client.readStatus();
+  dpiOptions = client.getDpiOptions();
+  configureDpiControl(status.dpi);
+  showStatus(status);
+  startAutomaticRefresh();
+}
+
+function createSupportedClient(device: HIDDevice): SupportedClient | null {
+  if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
+  if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
+  if (device.vendorId === 0x046d && device.productId === 0xc54d) return new LogitechHidppClient(device);
+  return null;
+}
+
+async function requestSupportedClient(): Promise<SupportedClient | null> {
+  if (!navigator.hid) throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
+  const devices = await navigator.hid.requestDevice({
+    filters: [
+      { vendorId: 0x3710 },
+      { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
+    ],
+  });
+  for (const device of devices) {
+    const client = createSupportedClient(device);
+    if (client) return client;
+  }
+  return null;
 }
 
 async function connect(): Promise<void> {
@@ -257,10 +417,15 @@ async function connect(): Promise<void> {
   setText("#read-status", "Choose your device in the browser prompt.");
 
   try {
-    const client = await LogitechHidppClient.requestReceiver();
+    const client = await requestSupportedClient();
     if (!client) {
       setText("#device-status", "Not connected");
-      setText("#read-status", "No receiver was selected.");
+      setText("#read-status", "No supported device was selected.");
+      return;
+    }
+    if (!(client instanceof LogitechHidppClient)) {
+      activePulsarClient = client;
+      await showPulsarExplorer(client);
       return;
     }
     activeClient = client;
@@ -275,20 +440,29 @@ async function connect(): Promise<void> {
     setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
-    if (!activeClient) button.disabled = false;
+    if (!activeClient && !activePulsarClient) {
+      button.disabled = false;
+      button.textContent = "Add device";
+    }
   }
 }
 
 async function reconnectAuthorizedDevice(): Promise<void> {
-  if (activeClient) return;
+  if (activeClient || activePulsarClient) return;
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
   button.disabled = true;
   button.textContent = "Checking for device…";
 
   try {
-    const client = await LogitechHidppClient.reconnectAuthorizedReceiver();
+    const devices = await navigator.hid?.getDevices() ?? [];
+    const client = devices.map(createSupportedClient).find((candidate): candidate is SupportedClient => candidate !== null);
     if (!client) return;
+    if (!(client instanceof LogitechHidppClient)) {
+      activePulsarClient = client;
+      await showPulsarExplorer(client);
+      return;
+    }
     activeClient = client;
     setText("#device-status", "Reconnecting");
     setText("#read-status", "Reading the previously authorized device.");
@@ -300,12 +474,14 @@ async function reconnectAuthorizedDevice(): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to reconnect to the mouse.";
     await activeClient?.close().catch(() => undefined);
+    await activePulsarClient?.close().catch(() => undefined);
     activeClient = null;
+    activePulsarClient = null;
     setText("#device-status", "Not connected");
     setText("#connection-banner", message);
     setText("#read-status", "Use Add device to reconnect.");
   } finally {
-    if (!activeClient) {
+    if (!activeClient && !activePulsarClient) {
       button.disabled = false;
       button.textContent = "Add device";
     }
@@ -337,14 +513,15 @@ async function chooseCustomDpi(): Promise<void> {
 }
 
 async function applyDpiValue(dpi: number): Promise<void> {
-  if (!activeClient || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return;
+  const client = activeClient ?? activePulsarClient;
+  if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
   buttons.forEach((button) => { button.disabled = true; });
   setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
   try {
-    await activeClient.setDpi(dpi);
-    showStatus(await activeClient.readStatus());
+    await client.setDpi(dpi);
+    showStatus(await client.readStatus());
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
@@ -355,7 +532,8 @@ async function applyDpiValue(dpi: number): Promise<void> {
 }
 
 async function applyPollingRate(rate: number): Promise<void> {
-  if (!activeClient || refreshInProgress || settingInProgress) return;
+  const client = activeClient ?? activePulsarClient;
+  if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
   buttons.forEach((button) => {
@@ -363,8 +541,8 @@ async function applyPollingRate(rate: number): Promise<void> {
   });
   setText("#read-status", `Setting ${rate.toLocaleString()} Hz…`);
   try {
-    await activeClient.setPollingRate(rate);
-    showStatus(await activeClient.readStatus());
+    await client.setPollingRate(rate);
+    showStatus(await client.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
   } finally {
@@ -375,20 +553,102 @@ async function applyPollingRate(rate: number): Promise<void> {
   }
 }
 
-async function applyLiftOffDistance(lod: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<void> {
-  if (!activeClient || refreshInProgress || settingInProgress) return;
+async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void> {
+  const client = activeClient ?? activePulsarClient;
+  if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
   buttons.forEach((button) => { button.disabled = true; });
   setText("#read-status", `Setting ${lod.toLowerCase()} lift-off distance…`);
   try {
-    await activeClient.setLiftOffDistance(lod);
-    showStatus(await activeClient.readStatus());
+    await client.setLiftOffDistance(lod);
+    showStatus(await client.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
   } finally {
     settingInProgress = false;
-    buttons.forEach((button) => { button.disabled = false; });
+    buttons.forEach((button) => {
+      button.disabled = activeClient !== null && button.dataset.lod === "Low";
+    });
+  }
+}
+
+async function toggleDongleLed(): Promise<void> {
+  const button = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
+  if (!button || !activePulsarClient || settingInProgress) return;
+  const enabled = button.dataset.enabled !== "true";
+  settingInProgress = true;
+  button.disabled = true;
+  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} the receiver LED…`);
+  try {
+    await activePulsarClient.setDongleLed(enabled);
+    showStatus(await activePulsarClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the receiver LED.");
+  } finally {
+    settingInProgress = false;
+    button.disabled = false;
+  }
+}
+
+type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
+
+async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
+  if (!activePulsarClient || settingInProgress) return;
+  settingInProgress = true;
+  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
+  try {
+    if (setting === "motionSync") await activePulsarClient.setMotionSync(enabled);
+    if (setting === "angleSnapping") await activePulsarClient.setAngleSnapping(enabled);
+    if (setting === "rippleControl") await activePulsarClient.setRippleControl(enabled);
+    if (setting === "performanceMode") await activePulsarClient.setPerformanceMode(enabled);
+    showStatus(await activePulsarClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
+    const status = await activePulsarClient.readStatus().catch(() => null);
+    if (status) showStatus(status);
+  } finally {
+    settingInProgress = false;
+  }
+}
+
+function settingLabel(setting: PulsarToggleSetting): string {
+  return ({
+    motionSync: "Motion Sync",
+    angleSnapping: "angle snapping",
+    rippleControl: "ripple control",
+    performanceMode: "performance mode",
+  } as const)[setting];
+}
+
+async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
+  if (!activePulsarClient || settingInProgress) return;
+  settingInProgress = true;
+  setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
+  try {
+    if (setting === "debounce") await activePulsarClient.setDebounceTime(value);
+    else await activePulsarClient.setSleepTimeout(value);
+    showStatus(await activePulsarClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
+  } finally {
+    settingInProgress = false;
+  }
+}
+
+async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void> {
+  if (!(activePulsarClient instanceof PulsarProHidClient) || settingInProgress) return;
+  settingInProgress = true;
+  setText("#read-status", `Changing ${setting === "wheelAcceleration" ? "wheel acceleration" : setting === "angleTuning" ? "angle tuning" : "onboard profile"}…`);
+  try {
+    if (setting === "wheelAcceleration") await activePulsarClient.setWheelAcceleration(Boolean(value));
+    if (setting === "angleTuning") await activePulsarClient.setAngleTuning(Number(value));
+    if (setting === "profile") await activePulsarClient.setProfile(Number(value));
+    showStatus(await activePulsarClient.readStatus());
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar Pro setting.");
+  } finally {
+    settingInProgress = false;
   }
 }
 
@@ -400,11 +660,14 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
-  if (!activeClient || refreshInProgress || settingInProgress) return;
+  const client = activeClient ?? activePulsarClient;
+  if (!client || refreshInProgress || settingInProgress) return;
   refreshInProgress = true;
   try {
-    showStatus(await activeClient.readStatus());
+    const status = await client.readStatus();
+    if (JSON.stringify(status) !== lastRenderedStatusKey) showStatus(status);
   } catch (error) {
+    lastRenderedStatusKey = null;
     const message = error instanceof Error ? error.message : "Unable to refresh the mouse status.";
     setText("#device-status", "Waiting to refresh");
     setText("#read-status", message);
@@ -416,6 +679,7 @@ async function refreshStatus(): Promise<void> {
 window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   void activeClient?.close();
+  void activePulsarClient?.close();
 });
 
 if (sessionStorage.getItem(ACCESS_KEY) === "granted") {

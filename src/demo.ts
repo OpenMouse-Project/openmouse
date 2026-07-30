@@ -9,6 +9,7 @@ if (!demoApp) {
 const mobileNavigator = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
 const isMobileDevice = mobileNavigator.userAgentData?.mobile === true
   || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const DEMO_SETTINGS_KEY = "openmouse-demo-settings-v1";
 
 if (isMobileDevice) {
   document.documentElement.classList.add("blocked-device");
@@ -27,11 +28,10 @@ demoApp.innerHTML = `
     <aside class="sidebar">
       <a class="demo-wordmark" href="/" aria-label="Back to OpenMouse">OpenMouse</a>
       <div class="device-label">CONNECTED DEVICE</div>
-      <button class="device-select" type="button" aria-label="Selected device">
+      <div class="device-select" aria-label="Selected device">
         <span class="device-dot"></span>
         <span><strong>Superlight 2C</strong><small>Logitech · Connected</small></span>
-        <span aria-hidden="true">⌄</span>
-      </button>
+      </div>
       <nav aria-label="Device settings">
         <button class="nav-item active" type="button" data-panel="overview">Overview</button>
         <button class="nav-item" type="button" data-panel="performance">Performance</button>
@@ -47,7 +47,7 @@ demoApp.innerHTML = `
     <main class="control-panel">
       <div class="preview-banner">
         <span>CONCEPT PREVIEW</span>
-        <p>This demo does not connect to or change a real device.</p>
+        <p id="preview-message" aria-live="polite">This demo does not connect to or change a real device.</p>
       </div>
 
       <header class="panel-header">
@@ -130,6 +130,12 @@ const dpiButtons = document.querySelectorAll<HTMLButtonElement>("[data-dpi]");
 const segmentedControls = document.querySelectorAll<HTMLElement>(".segmented");
 const saveButton = document.querySelector<HTMLButtonElement>("#save-button");
 const saveStatus = document.querySelector<HTMLSpanElement>("#save-status");
+const previewMessage = document.querySelector<HTMLParagraphElement>("#preview-message");
+const navItems = document.querySelectorAll<HTMLButtonElement>(".nav-item");
+
+function markChanged(): void {
+  if (saveStatus) saveStatus.textContent = "Preview settings have unsaved changes.";
+}
 
 function setDpi(value: number): void {
   if (!dpiRange || !dpiOutput) return;
@@ -138,23 +144,63 @@ function setDpi(value: number): void {
   dpiButtons.forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === value));
 }
 
-dpiRange?.addEventListener("input", () => setDpi(Number(dpiRange.value)));
-dpiButtons.forEach((button) => button.addEventListener("click", () => setDpi(Number(button.dataset.dpi))));
+dpiRange?.addEventListener("input", () => {
+  setDpi(Number(dpiRange.value));
+  markChanged();
+});
+dpiButtons.forEach((button) => button.addEventListener("click", () => {
+  setDpi(Number(button.dataset.dpi));
+  markChanged();
+}));
 
 segmentedControls.forEach((control) => {
   control.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => {
       control.querySelectorAll("button").forEach((item) => item.classList.remove("selected"));
       button.classList.add("selected");
+      markChanged();
     });
   });
 });
 
 saveButton?.addEventListener("click", () => {
   if (!saveStatus || !saveButton) return;
+  try {
+    localStorage.setItem(DEMO_SETTINGS_KEY, JSON.stringify({
+      dpi: Number(dpiRange?.value ?? 1600),
+      polling: document.querySelector('[data-control="polling"] .selected')?.textContent?.trim(),
+      lift: document.querySelector('[data-control="lift"] .selected')?.textContent?.trim(),
+      motionSync: document.querySelector<HTMLInputElement>(".toggle-row input")?.checked,
+    }));
+  } catch {
+    saveStatus.textContent = "Settings could not be stored in this browser.";
+    return;
+  }
   saveButton.textContent = "Saved";
-  saveStatus.textContent = "Demo settings saved locally for this preview.";
+  saveStatus.textContent = "Demo settings saved in this browser.";
   window.setTimeout(() => {
     saveButton.textContent = "Save changes";
   }, 1600);
+});
+
+document.querySelector<HTMLInputElement>(".toggle-row input")?.addEventListener("change", markChanged);
+
+navItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    navItems.forEach((navItem) => {
+      const isActive = navItem === item;
+      navItem.classList.toggle("active", isActive);
+      navItem.setAttribute("aria-pressed", String(isActive));
+    });
+    const plannedPanel = item.dataset.panel === "buttons" || item.dataset.panel === "profiles";
+    const target = item.dataset.panel === "overview"
+      ? document.querySelector(".device-overview")
+      : document.querySelector(".settings-grid");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (previewMessage) {
+      previewMessage.textContent = plannedPanel
+        ? `${item.textContent} controls are planned for a future device profile.`
+        : "This demo does not connect to or change a real device.";
+    }
+  });
 });
