@@ -49,6 +49,7 @@
 .setting-action button:disabled { cursor: default; opacity: .45; }
 .dpi-presets { grid-template-columns: repeat(3, 1fr); }
 .dpi-presets button { padding-inline: .25rem; }
+.rate-options { grid-template-columns: repeat(4, 1fr); }
 .panel-footer { justify-content: flex-start; padding: .65rem .8rem; border: 1px solid #29292d; border-radius: 9px; background: #101012; }
 .panel-footer .live-status-label { display: inline-flex; align-items: center; gap: .42rem; padding-right: .75rem; border-right: 1px solid #29292d; color: #8b8b90; font-family: "JetBrains Mono", monospace; font-size: .58rem; letter-spacing: .08em; white-space: nowrap; }
 .panel-footer .live-status-label i { width: .38rem; height: .38rem; border-radius: 50%; background: #69d28d; box-shadow: 0 0 0 3px rgb(105 210 141 / 10%); }
