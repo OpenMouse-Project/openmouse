@@ -204,7 +204,10 @@ app.innerHTML = `
 
   <footer>
     <span>OpenMouse · One place to manage supported mice.</span>
-    <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">View source and contribute on GitHub <span aria-hidden="true">↗</span></a>
+    <div class="footer-links">
+      <a href="https://x.com/openmouseapp" target="_blank" rel="noreferrer">Follow @openmouseapp on X <span aria-hidden="true">↗</span></a>
+      <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">View source and contribute on GitHub <span aria-hidden="true">↗</span></a>
+    </div>
   </footer>
 `;
 

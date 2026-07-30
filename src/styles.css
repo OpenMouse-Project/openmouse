@@ -175,6 +175,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.8rem 0; border-top: 1px solid var(--border); color: var(--subtle); font-size: .78rem; }
 footer a { color: var(--accent-dark); font-weight: 700; }
 footer a:hover { color: var(--accent); }
+.footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem 1.2rem; }
 
 .reveal {
   opacity: 0;
@@ -216,6 +217,7 @@ footer a:hover { color: var(--accent); }
   .roadmap li { grid-template-columns: 1fr; gap: .6rem; }
   .discord-community { grid-template-columns: 1fr; }
   footer { align-items: flex-start; flex-direction: column; }
+  .footer-links { justify-content: flex-start; }
 }
 
 @media (max-width: 420px) {
