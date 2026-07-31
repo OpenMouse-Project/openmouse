@@ -40,12 +40,18 @@ let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+/** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
+let reconnectInFlight = false;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
 type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient;
 
 function activeSettingsClient(): SupportedClient | null {
   return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient;
+}
+
+function hasActiveClient(): boolean {
+  return activeSettingsClient() !== null;
 }
 
 type BatteryMode = "charging" | "discharging";
@@ -956,6 +962,8 @@ async function activateClient(client: SupportedClient): Promise<void> {
   }
   await renderDeviceSidebar();
   startAutomaticRefresh();
+  // Always restore the sidebar action after a successful activate.
+  setConnectionButtons(false, "Add device");
 }
 
 function showDisconnectedState(): void {
@@ -1113,7 +1121,7 @@ async function connect(): Promise<void> {
       return;
     }
     setText("#device-status", "Opening device");
-    setText("#read-status", `Reading ${client.device.productName || "device"}…`);
+    setText("#read-status", `Reading ${statusNameForClient(client)}…`);
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
@@ -1125,16 +1133,16 @@ async function connect(): Promise<void> {
     setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
-    if (!activeClient && !activePulsarClient && !activeEggClient && !activeEggWeClient) {
-      setConnectionButtons(false, "Add device");
-    }
+    // Always clear the busy label — success used to leave "Connecting…" stuck.
+    setConnectionButtons(false, "Add device");
   }
 }
 
 async function reconnectAuthorizedDevice(): Promise<void> {
-  if (activeClient || activePulsarClient || activeEggClient || activeEggWeClient) return;
+  if (hasActiveClient() || reconnectInFlight) return;
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
+  reconnectInFlight = true;
   setConnectionButtons(true, "Reconnecting…");
 
   let lastError: Error | null = null;
@@ -1144,7 +1152,11 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     // keep a few wider retries for slower USB enumeration.
     const retryDelays = [0, 40, 60, 75, 100, 150, 225, 350, 500, 750];
     for (const delay of retryDelays) {
+      // Another path (HID connect handler) may have already activated a client.
+      if (hasActiveClient()) return;
       if (delay) await waitForHidChange(delay);
+      if (hasActiveClient()) return;
+
       const devices = await navigator.hid?.getDevices() ?? [];
       const clients = listLogicalDevices(devices)
         .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
@@ -1152,7 +1164,10 @@ async function reconnectAuthorizedDevice(): Promise<void> {
         .sort((left, right) => right.score - left.score)
         .map((entry) => entry.client);
       await renderDeviceSidebar(devices);
+      if (clients.length === 0) continue;
+
       for (const client of clients) {
+        if (hasActiveClient()) return;
         try {
           setText("#device-status", "Reconnecting");
           setText("#read-status", "Reading the previously authorized device.");
@@ -1164,13 +1179,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
         }
       }
     }
-    setText("#device-status", "Not connected");
-    if (lastError) setText("#connection-banner", lastError.message);
-    setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
-  } finally {
-    if (!activeClient && !activePulsarClient && !activeEggClient && !activeEggWeClient) {
-      setConnectionButtons(false, "Add device");
+    if (!hasActiveClient()) {
+      setText("#device-status", "Not connected");
+      if (lastError) setText("#connection-banner", lastError.message);
+      setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
     }
+  } finally {
+    reconnectInFlight = false;
+    // Always restore the button — previously success left "Reconnecting…" forever.
+    setConnectionButtons(false, "Add device");
   }
 }
 
