@@ -45,10 +45,10 @@ export class EggWeHidClient {
   static readonly pollIntervalMs = 0;
 
   /**
-   * When true, attempt one battery feature read on the receiver path.
-   * Set false immediately if wireless freezes return.
+   * Wireless battery HID is off until OEM capture — dongle chatter freezes the
+   * mouse and current commands only return empty frames.
    */
-  static readonly ALLOW_WIRELESS_BATTERY = true;
+  static readonly ALLOW_WIRELESS_BATTERY = false;
 
   constructor(readonly device: HIDDevice) {}
 
@@ -271,87 +271,117 @@ export class EggWeHidClient {
   }
 
   // ---------------------------------------------------------------------------
-  // Battery — few short attempts, no refresh loop
-  // Earlier working path used report 0x06 (7B) + cmd 0x04 on this hardware.
+  // Battery
+  // User capture: feature 0x08/16B returns 08 + zeros (no payload yet);
+  // feature 0x06 with wrong length fails write. Need exact sizes + possibly
+  // output/input (Pulsar-style) or OEM wake sequence — Wireshark will settle.
   // ---------------------------------------------------------------------------
 
-  private batteryTargets(): FeatureReportTarget[] {
+  private batteryFeatureTargets(): FeatureReportTarget[] {
     const fromDescriptor = EggWeHidClient.listFeatureReports(this.device)
       .filter((report) => report.payloadLength > 0);
-    const extras: FeatureReportTarget[] = [
+    // Only exact sizes that match this hardware (never invent len=6).
+    const known: FeatureReportTarget[] = [
       { reportId: 0x06, payloadLength: 7 },
       { reportId: 0x08, payloadLength: 16 },
-      { reportId: 0x08, payloadLength: 15 },
-      { reportId: 0x06, payloadLength: 6 },
     ];
-    const merged = [...fromDescriptor, ...extras];
-    // Prefer 0x06 first — that is what succeeded on the user's OP1we before.
-    merged.sort((left, right) => {
-      const rank = (report: FeatureReportTarget): number => {
-        if (report.reportId === 0x06) return 0;
-        if (report.reportId === 0x08) return 1;
-        return 2;
-      };
-      return rank(left) - rank(right) || left.payloadLength - right.payloadLength;
-    });
+    const merged = [...fromDescriptor, ...known];
     const seen = new Set<string>();
-    return merged.filter((target) => {
-      const key = `${target.reportId}:${target.payloadLength}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return merged
+      .filter((target) => {
+        // Drop known-bad sizes from empty item counts.
+        if (target.reportId === 0x06 && target.payloadLength !== 7) return false;
+        if (target.reportId === 0x08 && target.payloadLength < 15) return false;
+        const key = `${target.reportId}:${target.payloadLength}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((left, right) => {
+        // Prefer 0x06/7 (previously returned data) then 0x08/16.
+        if (left.reportId !== right.reportId) {
+          return left.reportId === 0x06 ? -1 : right.reportId === 0x06 ? 1 : left.reportId - right.reportId;
+        }
+        return left.payloadLength - right.payloadLength;
+      });
   }
 
   private async readBatteryOnce(wireless: boolean): Promise<{
     percent: number | null;
     state: MouseStatus["batteryState"];
   }> {
-    // Cap attempts: wireless ≤2, wired ≤6 (2 reports × 2 cmds × variants, early exit).
-    const targets = this.batteryTargets().slice(0, wireless ? 2 : 4);
-    const commands = wireless ? [0x04] : [0x04, 0xb4];
+    const targets = this.batteryFeatureTargets().slice(0, wireless ? 2 : 4);
+    const commands = wireless ? [0x04] : [0x04, 0xb4, 0x05];
     let lastRaw = "";
 
     for (const target of targets) {
       for (const command of commands) {
-        for (const withChecksum of target.payloadLength >= 16 ? [false, true] : [false]) {
+        // Feature report path (no checksum first — zeros were returned with/without).
+        try {
+          const response = await this.featureExchange(target, command, wireless, false);
+          lastRaw = this.toHex(response);
+          const parsed = this.parseBattery(response, command, wireless);
+          if (parsed.percent !== null) {
+            console.info(`[OpenMouse WE battery] ok feature 0x${target.reportId.toString(16)}/${target.payloadLength} cmd=0x${command.toString(16)} raw=[${lastRaw}] → ${parsed.percent}%`);
+            return this.batteryResult(parsed.percent, parsed.charging, wireless);
+          }
+          console.info(`[OpenMouse WE battery] empty feature 0x${target.reportId.toString(16)}/${target.payloadLength} cmd=0x${command.toString(16)} raw=[${lastRaw}]`);
+        } catch (error) {
+          lastRaw = error instanceof Error ? error.message : String(error);
+          console.info(`[OpenMouse WE battery] fail feature 0x${target.reportId.toString(16)}/${target.payloadLength} cmd=0x${command.toString(16)}: ${lastRaw}`);
+        }
+
+        // Wired only: double-read wake (old EGG battery pattern) for 0xb4 / 0x04.
+        if (!wireless && (command === 0x04 || command === 0xb4)) {
           try {
-            const response = await this.featureExchange(target, command, wireless, withChecksum);
-            lastRaw = [...response].map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
+            const response = await this.featureExchangeWake(target, command);
+            lastRaw = this.toHex(response);
             const parsed = this.parseBattery(response, command, wireless);
             if (parsed.percent !== null) {
-              console.info(
-                `[OpenMouse WE battery] ok report=0x${target.reportId.toString(16)} `
-                + `len=${target.payloadLength} cmd=0x${command.toString(16)} `
-                + `checksum=${withChecksum} raw=[${lastRaw}] → ${parsed.percent}%`,
-              );
-              return {
-                percent: parsed.percent,
-                state: parsed.charging
-                  ? (parsed.percent >= 99 ? "Full" : "Charging")
-                  : (wireless ? "Discharging" : "Charging"),
-              };
+              console.info(`[OpenMouse WE battery] ok wake 0x${target.reportId.toString(16)} cmd=0x${command.toString(16)} raw=[${lastRaw}] → ${parsed.percent}%`);
+              return this.batteryResult(parsed.percent, parsed.charging, wireless);
             }
-            console.info(
-              `[OpenMouse WE battery] no parse report=0x${target.reportId.toString(16)} `
-              + `len=${target.payloadLength} cmd=0x${command.toString(16)} raw=[${lastRaw}]`,
-            );
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            lastRaw = message;
-            console.info(
-              `[OpenMouse WE battery] fail report=0x${target.reportId.toString(16)} `
-              + `len=${target.payloadLength} cmd=0x${command.toString(16)}: ${message}`,
-            );
+            lastRaw = error instanceof Error ? error.message : String(error);
+          }
+        }
+
+        // Output/input path (same report id family as Pulsar 0x08) — cable only.
+        if (!wireless && target.reportId === 0x08) {
+          try {
+            const response = await this.outputExchange(target, command);
+            lastRaw = this.toHex(response);
+            const parsed = this.parseBattery(response, command, wireless);
+            if (parsed.percent !== null) {
+              console.info(`[OpenMouse WE battery] ok output 0x08 cmd=0x${command.toString(16)} raw=[${lastRaw}] → ${parsed.percent}%`);
+              return this.batteryResult(parsed.percent, parsed.charging, wireless);
+            }
+            console.info(`[OpenMouse WE battery] empty output 0x08 cmd=0x${command.toString(16)} raw=[${lastRaw}]`);
+          } catch (error) {
+            lastRaw = error instanceof Error ? error.message : String(error);
+            console.info(`[OpenMouse WE battery] fail output 0x08: ${lastRaw}`);
           }
         }
       }
-      // Wireless: at most two report targets (0x06 then 0x08), no command flood.
       if (wireless) break;
     }
 
-    console.info(`[OpenMouse WE battery] unread last=${lastRaw || "none"}`);
+    console.info(
+      `[OpenMouse WE battery] unread pid=0x${this.device.productId.toString(16)} `
+      + `reports=${this.describeCollections()} last=${lastRaw || "none"}`,
+    );
     return { percent: null, state: "Unknown" };
+  }
+
+  private batteryResult(
+    percent: number,
+    charging: boolean,
+    wireless: boolean,
+  ): { percent: number; state: MouseStatus["batteryState"] } {
+    if (charging) {
+      return { percent, state: percent >= 99 ? "Full" : "Charging" };
+    }
+    return { percent, state: wireless ? "Discharging" : "Charging" };
   }
 
   private async featureExchange(
@@ -369,23 +399,62 @@ export class EggWeHidClient {
       packet[15] = (0x55 - (sum & 0xff) - target.reportId) & 0xff;
     }
     await this.device.sendFeatureReport(target.reportId, packet);
-    // Short settle; double-get can help flaky feature endpoints on cable only.
-    await this.delay(wireless ? 40 : 60);
-    let view = await this.device.receiveFeatureReport(target.reportId);
-    let bytes = new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
-    if (!wireless && bytes.every((byte) => byte === 0)) {
-      await this.delay(80);
-      view = await this.device.receiveFeatureReport(target.reportId);
-      bytes = new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
-    }
-    return bytes;
+    await this.delay(wireless ? 40 : 80);
+    const view = await this.device.receiveFeatureReport(target.reportId);
+    return this.copyView(view);
   }
 
-  /**
-   * Parse battery from a single response.
-   * Accept 1–99 at likely payload indices. Reject bare 100 on wireless.
-   * Also try Windows-style layout (report id at [0]) by shifting indices +1.
-   */
+  /** Classic EGG-style double transaction (discard first response). */
+  private async featureExchangeWake(
+    target: FeatureReportTarget,
+    command: number,
+  ): Promise<Uint8Array> {
+    const packet = new Uint8Array(target.payloadLength);
+    packet[0] = command;
+    await this.device.sendFeatureReport(target.reportId, packet);
+    await this.delay(200);
+    try {
+      await this.device.receiveFeatureReport(target.reportId);
+    } catch {
+      // ignore first
+    }
+    await this.delay(80);
+    await this.device.sendFeatureReport(target.reportId, packet);
+    await this.delay(200);
+    return this.copyView(await this.device.receiveFeatureReport(target.reportId));
+  }
+
+  private async outputExchange(
+    target: FeatureReportTarget,
+    command: number,
+  ): Promise<Uint8Array> {
+    const packet = new Uint8Array(target.payloadLength);
+    packet[0] = command;
+    // Soft wait for matching input report.
+    const reply = new Promise<Uint8Array>((resolve) => {
+      const timer = window.setTimeout(() => {
+        this.device.removeEventListener("inputreport", onInput);
+        resolve(new Uint8Array());
+      }, 600);
+      const onInput = (event: HIDInputReportEvent): void => {
+        if (event.reportId !== target.reportId) return;
+        window.clearTimeout(timer);
+        this.device.removeEventListener("inputreport", onInput);
+        resolve(this.copyView(event.data));
+      };
+      this.device.addEventListener("inputreport", onInput);
+    });
+    await this.device.sendReport(target.reportId, packet);
+    const input = await reply;
+    if (input.byteLength > 0) return input;
+    // Fall back to feature get on same id.
+    try {
+      return this.copyView(await this.device.receiveFeatureReport(target.reportId));
+    } catch {
+      return input;
+    }
+  }
+
   private parseBattery(
     response: Uint8Array,
     command: number,
@@ -393,50 +462,56 @@ export class EggWeHidClient {
   ): { percent: number | null; charging: boolean } {
     if (response.byteLength === 0) return { percent: null, charging: !wireless };
 
-    // Detect whether byte0 is a report id (0x06/0x08) rather than a command echo.
-    const hasReportIdPrefix = response[0] === 0x06 || response[0] === 0x08;
-    const at = (index: number): number | undefined => {
-      const real = hasReportIdPrefix ? index + 1 : index;
-      return real < response.byteLength ? response[real] : undefined;
-    };
+    // Strip leading report id if present (08 00 00… from user's capture).
+    let data = response;
+    if ((response[0] === 0x06 || response[0] === 0x08) && response.byteLength > 1) {
+      // If everything after report id is zero, there is no battery payload yet.
+      if (response.slice(1).every((byte) => byte === 0)) {
+        return { percent: null, charging: !wireless };
+      }
+      data = response.slice(1);
+    }
 
-    const chargeFlag = at(6);
+    // All-zero payload = device ignored the command.
+    if (data.every((byte) => byte === 0)) {
+      return { percent: null, charging: !wireless };
+    }
+
+    const chargeFlag = data[6];
     const charging = chargeFlag === 1 || chargeFlag === 2
-      || (!wireless && chargeFlag !== 0 && chargeFlag !== undefined);
+      || (!wireless && chargeFlag !== undefined && chargeFlag !== 0);
 
     const asPercent = (raw: number | undefined): number | null => {
-      if (raw === undefined) return null;
-      if (raw === command) return null;
-      if (raw === 0 || raw > 100) return null;
-      if (raw === 100) {
-        // Only trust 100 when charge flag implies charging/full.
-        if (chargeFlag === 1 || chargeFlag === 2) return 100;
-        if (wireless) return null;
-        return 100;
-      }
+      if (raw === undefined || raw === command) return null;
+      if (raw <= 0 || raw > 100) return null;
+      if (raw === 100 && wireless && chargeFlag !== 1 && chargeFlag !== 2) return null;
       return raw;
     };
 
-    // Preferred order: CompX/Pulsar percent @5, then nearby payload bytes.
-    for (const index of [5, 4, 3, 2, 6, 1, 7]) {
-      const value = asPercent(at(index));
+    for (const index of [5, 4, 3, 2, 6, 1, 7, 8, 9, 10]) {
+      const value = asPercent(data[index]);
       if (value !== null && value < 100) {
         return { percent: value, charging: charging || !wireless };
       }
     }
 
-    // Direct buffer scan (no shift) as last resort — skip [0].
-    for (let index = 1; index < response.byteLength; index += 1) {
-      const value = asPercent(response[index]);
+    // Any non-zero 1–99 in payload (last resort).
+    for (let index = 1; index < data.byteLength; index += 1) {
+      const value = asPercent(data[index]);
       if (value !== null && value < 100) {
         return { percent: value, charging: charging || !wireless };
       }
     }
-
-    const full = asPercent(at(5)) ?? asPercent(at(4)) ?? asPercent(response[5]);
-    if (full === 100) return { percent: 100, charging: true };
 
     return { percent: null, charging: !wireless };
+  }
+
+  private toHex(bytes: Uint8Array): string {
+    return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
+  }
+
+  private copyView(view: DataView): Uint8Array {
+    return new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
   }
 
   private delay(milliseconds: number): Promise<void> {
