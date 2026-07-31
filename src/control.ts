@@ -1057,6 +1057,9 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const devices = await navigator.hid.requestDevice({
     filters: [
       { vendorId: 0x3710 },
+      // OP1we config collections (from report descriptors): FF02 feature id 8, FF04 feature id 6
+      { vendorId: 0x3367, usagePage: 0xff02 },
+      { vendorId: 0x3367, usagePage: 0xff04 },
       { vendorId: 0x3367 },
       { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
     ],
