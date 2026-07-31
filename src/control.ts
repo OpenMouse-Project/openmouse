@@ -614,9 +614,9 @@ function showStatus(status: MouseStatus): void {
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
-    // Debounce: WE series + Pulsar. Not exposed on OP1 8K.
-    const showDebounce = isEggWe
-      || (status.brand === "Pulsar" && status.debounceMs !== null && status.debounceMs !== undefined);
+    // Debounce: Pulsar when reported; WE only once settings map is reverse-engineered.
+    const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
+      && (status.brand === "Pulsar" || (isEggWe && EggWeHidClient.settingsMapped));
     debounceSettings.hidden = !showDebounce;
   }
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
@@ -630,8 +630,8 @@ function showStatus(status: MouseStatus): void {
     processingCard.style.display = isEggWe ? "none" : "";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
-  const dpiOutput = document.querySelector<HTMLInputElement>("#dpi-output");
-  if (dpiOutput?.readOnly) dpiOutput.value = `${status.dpi.toLocaleString()} DPI`;
+  const dpiOutputField = document.querySelector<HTMLInputElement>("#dpi-output");
+  if (dpiOutputField?.readOnly) dpiOutputField.value = `${status.dpi.toLocaleString()} DPI`;
   setText("#battery-value", battery);
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
@@ -649,7 +649,10 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    advanced.style.display = status.brand === "Pulsar" || status.brand === "Endgame Gear" ? "grid" : "none";
+    const showAdvanced = status.brand === "Pulsar"
+      || isEgg8k
+      || (isEggWe && EggWeHidClient.settingsMapped);
+    advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
@@ -701,8 +704,17 @@ function showStatus(status: MouseStatus): void {
     void renderDeviceSidebar();
   }
   setText("#device-status", "Connected");
-  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
-  setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
+  const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
+  setText("#connection-banner", weSettingsPending
+    ? "OP1we connected. Battery uses a known HID command; CPI/polling/LOD need a capture from WE Series software."
+    : "Connected directly through WebHID. Supported settings can be adjusted here.");
+  if (weSettingsPending) {
+    setText("#read-status", status.batteryPercent === null
+      ? `Battery not parsed yet. ${status.connectionDetail ?? ""}`
+      : `Battery ${status.batteryPercent}% · settings map pending reverse-engineering`);
+  } else {
+    setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
+  }
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
@@ -715,17 +727,29 @@ function showStatus(status: MouseStatus): void {
     const unsupportedForEgg8k = isEgg8k && rate < 1000;
     const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
     const unsupportedForLogitech = status.brand === "Logitech" && unsupportedForListed;
-    const unsupportedForWe = isEggWe && unsupportedForListed;
+    const unsupportedForWe = isEggWe && (weSettingsPending || unsupportedForListed);
     const hide = unsupportedForEgg8k || unsupportedForLogitech || unsupportedForWe;
-    button.hidden = hide;
-    button.disabled = hide;
+    button.hidden = hide || weSettingsPending;
+    button.disabled = hide || weSettingsPending;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
-    button.hidden = unsupportedForEgg;
-    button.disabled = unsupportedForEgg || (status.brand === "Logitech" && button.dataset.lod === "Low");
+    const disableWe = weSettingsPending || status.liftOffDistance === null;
+    button.hidden = unsupportedForEgg || weSettingsPending;
+    button.disabled = unsupportedForEgg || disableWe || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
-  document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi));
+  document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
+    button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
+    if (weSettingsPending) {
+      button.disabled = true;
+    }
+  });
+  const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (customDpi) customDpi.disabled = weSettingsPending;
+  if (dpiOutputField && weSettingsPending) {
+    dpiOutputField.value = "Pending RE";
+    dpiOutputField.readOnly = true;
+  }
   const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
   if (axisControls) axisControls.style.display = status.brand === "Logitech" && status.supportsSeparateDpiAxes ? "block" : "none";
   const dpiX = document.querySelector<HTMLInputElement>("#logitech-dpi-x");
@@ -896,6 +920,17 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+    // Log battery framing diagnostics for reverse-engineering when % is missing.
+    if (status.batteryPercent === null) {
+      void client.probeBattery().then((report) => {
+        console.info("[OpenMouse WE battery probe]\n" + report);
+        if (activeEggWeClient === client) {
+          setText("#read-status", `Battery probe finished — see DevTools console. ${status.connectionDetail ?? ""}`);
+        }
+      }).catch((error: unknown) => {
+        console.warn("[OpenMouse WE battery probe]", error);
+      });
+    }
   } else if (client instanceof LogitechHidppClient) {
     activeClient = client;
     const status = await client.readStatus();
