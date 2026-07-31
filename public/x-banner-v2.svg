@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="500" viewBox="0 0 1500 500" fill="none">
+  <defs>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(1180 250) rotate(180) scale(440 420)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#183B27"/>
+      <stop offset="1" stop-color="#09090B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="330" y1="0" x2="1360" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2B2B30" stop-opacity="0"/>
+      <stop offset=".3" stop-color="#2B2B30"/>
+      <stop offset=".8" stop-color="#2B2B30"/>
+      <stop offset="1" stop-color="#2B2B30" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1500" height="500" fill="#09090B"/>
+  <rect width="1500" height="500" fill="url(#glow)"/>
+  <path d="M1320 0H1500V500H1060L1320 0Z" fill="#69D28D" fill-opacity=".08"/>
+  <path d="M1415 0H1500V500H1155L1415 0Z" fill="#69D28D" fill-opacity=".08"/>
+
+  <g transform="translate(390 120)">
+    <path d="M85 0C54 0 37 23 37 63v16c0 42 18 66 48 66s48-24 48-66V63C133 23 116 0 85 0Z" fill="#F7F7F7"/>
+    <path d="M85 0V43" stroke="#111114" stroke-width="6"/>
+    <rect x="72" y="28" width="26" height="47" rx="13" fill="#111114"/>
+    <rect x="80" y="37" width="10" height="29" rx="5" fill="#69D28D"/>
+  </g>
+
+  <text x="570" y="211" fill="#F7F7F7" font-family="Arial, Helvetica, sans-serif" font-size="86" font-weight="700" letter-spacing="-4">OpenMouse</text>
+  <text x="575" y="268" fill="#A1A1AA" font-family="Arial, Helvetica, sans-serif" font-size="28">All your mice. One control panel.</text>
+
+  <g transform="translate(575 310)">
+    <rect width="238" height="42" rx="21" fill="#17171B" stroke="#2B2B30"/>
+    <circle cx="24" cy="21" r="6" fill="#69D28D"/>
+    <text x="42" y="27" fill="#D4D4D8" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing=".7">EARLY ACCESS SOON</text>
+  </g>
+
+  <rect x="330" y="420" width="1030" height="1" fill="url(#line)"/>
+  <text x="575" y="457" fill="#71717A" font-family="Arial, Helvetica, sans-serif" font-size="15" letter-spacing="2">OPENMOUSE.APP</text>
+</svg>

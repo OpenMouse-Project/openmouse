@@ -11,6 +11,12 @@ import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
+import {
+  getControlAccess,
+  isSupabaseConfigured,
+  redeemLicenseKey,
+  supabase,
+} from "./supabase";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -20,10 +26,7 @@ if (!controlApp) {
 
 const appRoot = controlApp;
 
-const ACCESS_KEY = "openmouse-control-access-v2";
 const BATTERY_HISTORY_KEY = "openmouse-battery-history-v1";
-const ACCESS_USERNAME = "snekxs";
-const ACCESS_PASSWORD = "3734";
 const BATTERY_CHECKPOINT_MS = 5 * 60 * 1000;
 const BATTERY_MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
@@ -35,6 +38,7 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let refreshTimer: number | null = null;
+let accessCheckTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
@@ -74,6 +78,16 @@ interface BatterySample {
 
 type BatteryHistory = Record<string, BatterySample[]>;
 
+function escapeMarkup(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    "\"": "&quot;",
+  })[character] ?? character);
+}
+
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
     <style>
@@ -87,29 +101,73 @@ function renderGate(message = ""): void {
         <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
       </div>
       <p class="overline">PRIVATE CONTROL PANEL</p>
-      <h1>Sign in to continue.</h1>
-      <p>Private control for supported devices through WebHID.</p>
+      <h1>Enter your license.</h1>
+      <p>Use your OpenMouse license code to unlock device control.</p>
       <form id="access-form" class="access-form">
-        <label for="access-username">Username</label>
-        <input id="access-username" type="text" autocomplete="username" autofocus />
-        <label for="access-password">Password</label>
-        <input id="access-password" type="password" inputmode="numeric" autocomplete="current-password" />
-        <button type="submit">Sign in</button>
-        <output id="access-error" aria-live="polite">${message}</output>
+        <label for="license-key">License code</label>
+        <input id="license-key" type="text" autocomplete="off" spellcheck="false" autofocus required />
+        <button type="submit">Unlock control panel</button>
+        <output id="access-error" aria-live="polite">${escapeMarkup(message)}</output>
       </form>
     </main>`;
 
-  document.querySelector<HTMLFormElement>("#access-form")?.addEventListener("submit", (event) => {
+  document.querySelector<HTMLFormElement>("#access-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const username = document.querySelector<HTMLInputElement>("#access-username");
-    const password = document.querySelector<HTMLInputElement>("#access-password");
-    if (username?.value === ACCESS_USERNAME && password?.value === ACCESS_PASSWORD) {
-      sessionStorage.setItem(ACCESS_KEY, "granted");
+    const input = document.querySelector<HTMLInputElement>("#license-key");
+    const button = document.querySelector<HTMLButtonElement>("#access-form button");
+    if (!supabase || !input || !button) return;
+    button.disabled = true;
+    button.textContent = "Checking license…";
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+      }
+      const access = await redeemLicenseKey(input.value);
+      if (!access.allowed) {
+        renderGate("This license does not grant control panel access.");
+        return;
+      }
+      scheduleAccessCheck(access.expiresAt);
       renderControl();
-      return;
+    } catch (error) {
+      renderGate(error instanceof Error ? error.message : "Unable to activate this license.");
     }
-    renderGate("Incorrect username or password.");
   });
+}
+
+function renderLicenseGate(message = ""): void {
+  renderGate(message);
+}
+
+function scheduleAccessCheck(expiresAt: string | null): void {
+  if (accessCheckTimer !== null) window.clearTimeout(accessCheckTimer);
+  accessCheckTimer = null;
+  if (!expiresAt) return;
+
+  const remaining = new Date(expiresAt).getTime() - Date.now() + 1000;
+  const delay = Math.max(0, Math.min(remaining, 2_147_000_000));
+  accessCheckTimer = window.setTimeout(() => {
+    void routeAuthenticatedSession();
+  }, delay);
+}
+
+async function routeAuthenticatedSession(): Promise<void> {
+  if (!supabase) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    renderGate();
+    return;
+  }
+  try {
+    const access = await getControlAccess();
+    scheduleAccessCheck(access.expiresAt);
+    if (access.allowed) renderControl();
+    else renderLicenseGate("Your license has expired or been revoked.");
+  } catch (error) {
+    renderGate(error instanceof Error ? error.message : "Unable to verify control panel access.");
+  }
 }
 
 function loadInterfacePreferences(): InterfacePreferences {
@@ -1459,6 +1517,7 @@ async function refreshStatus(): Promise<void> {
 
 window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
+  if (accessCheckTimer !== null) window.clearTimeout(accessCheckTimer);
   navigator.hid?.removeEventListener("connect", handleHidConnect);
   navigator.hid?.removeEventListener("disconnect", handleHidDisconnect);
   void activeClient?.close();
@@ -1466,8 +1525,15 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
 });
 
-if (sessionStorage.getItem(ACCESS_KEY) === "granted") {
-  renderControl();
+if (!isSupabaseConfigured || !supabase) {
+  renderGate("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+  document.querySelector<HTMLButtonElement>("#access-form button")?.setAttribute("disabled", "true");
 } else {
-  renderGate();
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") {
+      scheduleAccessCheck(null);
+      renderGate();
+    }
+  });
+  void routeAuthenticatedSession();
 }
