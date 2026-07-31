@@ -44,7 +44,7 @@ returns jsonb
 language plpgsql
 security definer
 stable
-set search_path = public, auth
+set search_path = public, auth, extensions
 as $$
 declare
   entitlement_expiry timestamptz;
@@ -90,7 +90,7 @@ create or replace function public.redeem_license_key(license_key text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public, auth
+set search_path = public, auth, extensions
 as $$
 declare
   matched_key public.license_keys%rowtype;

@@ -88,6 +88,15 @@ function escapeMarkup(value: string): string {
   })[character] ?? character);
 }
 
+function readableError(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
     <style>
@@ -132,7 +141,7 @@ function renderGate(message = ""): void {
       scheduleAccessCheck(access.expiresAt);
       renderControl();
     } catch (error) {
-      renderGate(error instanceof Error ? error.message : "Unable to activate this license.");
+      renderGate(readableError(error, "Unable to activate this license."));
     }
   });
 }
@@ -166,7 +175,7 @@ async function routeAuthenticatedSession(): Promise<void> {
     if (access.allowed) renderControl();
     else renderLicenseGate("Your license has expired or been revoked.");
   } catch (error) {
-    renderGate(error instanceof Error ? error.message : "Unable to verify control panel access.");
+    renderGate(readableError(error, "Unable to verify control panel access."));
   }
 }
 
