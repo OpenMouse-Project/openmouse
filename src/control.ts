@@ -7,6 +7,7 @@ import {
   type EggButtonMapping,
   type EggSpdtMode,
 } from "./egg-op1-hid";
+import { EggWeHidClient } from "./egg-we-hid";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
@@ -31,6 +32,7 @@ const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
+let activeEggWeClient: EggWeHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -40,7 +42,11 @@ let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient;
+type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient;
+
+function activeSettingsClient(): SupportedClient | null {
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient;
+}
 
 type BatteryMode = "charging" | "discharging";
 type InterfaceDensity = "Compact" | "Comfortable";
@@ -103,7 +109,9 @@ function applyInterfacePreferences(): void {
     details.open = interfacePreferences.expandSections;
   });
   const experimental = document.querySelector<HTMLElement>("#egg-polling-settings");
-  if (experimental && activeEggClient) experimental.style.display = interfacePreferences.showExperimental ? "block" : "none";
+  if (experimental && activeEggClient && !activeEggWeClient) {
+    experimental.style.display = interfacePreferences.showExperimental ? "block" : "none";
+  }
 }
 
 function renderControl(): void {
@@ -575,29 +583,51 @@ function resetDeviceSpecificPanels(): void {
 
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
-  const isEgg = status.brand === "Endgame Gear";
+  const isEgg8k = status.brand === "Endgame Gear" && status.connectionDetail?.includes("WE protocol") !== true
+    && (status.eggCpiStages !== undefined || status.leftSpdtMode !== undefined || activeEggClient !== null);
+  const isEggWe = status.brand === "Endgame Gear" && (
+    status.connectionDetail?.includes("WE protocol") === true || activeEggWeClient !== null
+  );
+  const isEgg = isEgg8k || isEggWe;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
   // mouse may have left these visible when WebHID switches devices.
   resetDeviceSpecificPanels();
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
-    batterySummary.hidden = isWired;
-    batterySummary.style.display = isWired ? "none" : "flex";
+    // WE mice report battery even when cable-connected (charging); 8K is wired-only.
+    const hideBattery = isEgg8k || (isWired && !isEggWe && status.batteryPercent === null);
+    batterySummary.hidden = hideBattery;
+    batterySummary.style.display = hideBattery ? "none" : "flex";
   }
   const overview = document.querySelector<HTMLElement>(".device-overview");
-  if (overview) overview.style.gridTemplateColumns = isWired ? "repeat(2, 1fr)" : "repeat(3, 1fr)";
-  setText("#polling-note", isEgg
+  if (overview) {
+    const showBatteryColumn = !isEgg8k && (isEggWe || !isWired || status.batteryPercent !== null);
+    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+  }
+  setText("#polling-note", isEgg8k
     ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
     : "Higher rates update cursor movement more often, but use more battery.");
-  for (const selector of ["#signal-settings", "#debounce-settings", "#sleep-settings"]) {
+  for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.hidden = isEgg;
+  }
+  const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
+  if (debounceSettings) {
+    // Debounce: WE series + Pulsar. Not exposed on OP1 8K.
+    const showDebounce = isEggWe
+      || (status.brand === "Pulsar" && status.debounceMs !== null && status.debounceMs !== undefined);
+    debounceSettings.hidden = !showDebounce;
   }
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
     performanceModeSetting.hidden = isEgg;
     performanceModeSetting.style.display = isEgg ? "none" : "flex";
+  }
+  // Motion Sync / angle / ripple card is Pulsar (+ 8K partially via other cards). Hide for WE.
+  const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
+  if (processingCard && processingCard.id !== "egg-filter-settings") {
+    processingCard.style.display = isEggWe ? "none" : "";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   const dpiOutput = document.querySelector<HTMLInputElement>("#dpi-output");
@@ -620,7 +650,7 @@ function showStatus(status: MouseStatus): void {
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
     advanced.style.display = status.brand === "Pulsar" || status.brand === "Endgame Gear" ? "grid" : "none";
-    advanced.classList.toggle("egg-advanced-layout", isEgg);
+    advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     const strength = status.signalStrength;
@@ -639,12 +669,13 @@ function showStatus(status: MouseStatus): void {
     const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
     const eggCpiSettings = document.querySelector<HTMLElement>("#egg-cpi-settings");
     const eggButtonSettings = document.querySelector<HTMLElement>("#egg-button-settings");
-    if (eggFilterSettings) eggFilterSettings.style.display = isEgg ? "block" : "none";
-    if (eggSpdtSettings) eggSpdtSettings.style.display = isEgg ? "block" : "none";
-    if (eggPollingSettings) eggPollingSettings.style.display = isEgg && interfacePreferences.showExperimental ? "block" : "none";
-    if (eggCpiSettings) eggCpiSettings.style.display = isEgg ? "block" : "none";
-    if (eggButtonSettings) eggButtonSettings.style.display = isEgg ? "block" : "none";
-    if (isEgg) {
+    // 8K-only panels — never show for WE series.
+    if (eggFilterSettings) eggFilterSettings.style.display = isEgg8k ? "block" : "none";
+    if (eggSpdtSettings) eggSpdtSettings.style.display = isEgg8k ? "block" : "none";
+    if (eggPollingSettings) eggPollingSettings.style.display = isEgg8k && interfacePreferences.showExperimental ? "block" : "none";
+    if (eggCpiSettings) eggCpiSettings.style.display = isEgg8k ? "block" : "none";
+    if (eggButtonSettings) eggButtonSettings.style.display = isEgg8k ? "block" : "none";
+    if (isEgg8k) {
       setToggleValue("#slamclick-filter-toggle", status.slamclickFilter);
       setToggleValue("#motion-jitter-filter-toggle", status.motionJitterFilter);
       setControlValue("#left-spdt-select", status.leftSpdtMode);
@@ -680,12 +711,14 @@ function showStatus(status: MouseStatus): void {
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     const rate = Number(button.dataset.rate);
-    const unsupportedForEgg = isEgg && rate < 1000;
-    const unsupportedForLogitech = status.brand === "Logitech"
-      && Array.isArray(status.supportedPollingRates)
-      && !status.supportedPollingRates.includes(rate);
-    button.hidden = unsupportedForEgg || unsupportedForLogitech;
-    button.disabled = unsupportedForEgg || unsupportedForLogitech;
+    const supportedRates = status.supportedPollingRates;
+    const unsupportedForEgg8k = isEgg8k && rate < 1000;
+    const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
+    const unsupportedForLogitech = status.brand === "Logitech" && unsupportedForListed;
+    const unsupportedForWe = isEggWe && unsupportedForListed;
+    const hide = unsupportedForEgg8k || unsupportedForLogitech || unsupportedForWe;
+    button.hidden = hide;
+    button.disabled = hide;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
@@ -777,6 +810,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
 
 function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
+  if (EggWeHidClient.isSupported(device)) return new EggWeHidClient(device);
   if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
@@ -784,7 +818,7 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
 }
 
 function deviceBrand(client: SupportedClient): string {
-  if (client instanceof EggOp1HidClient) return "Endgame Gear";
+  if (client instanceof EggOp1HidClient || client instanceof EggWeHidClient) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
   return "Pulsar";
 }
@@ -845,10 +879,18 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeClient = null;
   activePulsarClient = null;
   activeEggClient = null;
+  activeEggWeClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
   if (client instanceof EggOp1HidClient) {
     activeEggClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof EggWeHidClient) {
+    activeEggWeClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
@@ -877,6 +919,7 @@ function showDisconnectedState(): void {
   activeClient = null;
   activePulsarClient = null;
   activeEggClient = null;
+  activeEggWeClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
@@ -963,18 +1006,20 @@ async function connect(): Promise<void> {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
+    await activeEggWeClient?.close().catch(() => undefined);
+    activeEggWeClient = null;
     setText("#device-status", "Connection failed");
     setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
-    if (!activeClient && !activePulsarClient && !activeEggClient) {
+    if (!activeClient && !activePulsarClient && !activeEggClient && !activeEggWeClient) {
       setConnectionButtons(false, "Add device");
     }
   }
 }
 
 async function reconnectAuthorizedDevice(): Promise<void> {
-  if (activeClient || activePulsarClient || activeEggClient) return;
+  if (activeClient || activePulsarClient || activeEggClient || activeEggWeClient) return;
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
   setConnectionButtons(true, "Reconnecting…");
@@ -1006,7 +1051,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     if (lastError) setText("#connection-banner", lastError.message);
     setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
   } finally {
-    if (!activeClient && !activePulsarClient && !activeEggClient) {
+    if (!activeClient && !activePulsarClient && !activeEggClient && !activeEggWeClient) {
       setConnectionButtons(false, "Add device");
     }
   }
@@ -1085,7 +1130,7 @@ function finishCustomDpiEditing(dpi?: number): void {
 }
 
 async function applyDpiValue(dpi: number): Promise<boolean> {
-  const client = activeClient ?? activePulsarClient ?? activeEggClient;
+  const client = activeSettingsClient();
   if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return false;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
@@ -1127,7 +1172,7 @@ async function applyLogitechAxisDpi(): Promise<void> {
 }
 
 async function applyPollingRate(rate: number): Promise<void> {
-  const client = activeClient ?? activePulsarClient ?? activeEggClient;
+  const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
@@ -1149,7 +1194,7 @@ async function applyPollingRate(rate: number): Promise<void> {
 }
 
 async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void> {
-  const client = activeClient ?? activePulsarClient ?? activeEggClient;
+  const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
@@ -1191,6 +1236,10 @@ type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "p
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
   const client = activePulsarClient ?? activeEggClient;
   if (!client || settingInProgress) return;
+  if (client instanceof EggWeHidClient) {
+    setText("#read-status", "That sensor toggle is not exposed by the OP1we protocol.");
+    return;
+  }
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
   try {
@@ -1360,15 +1409,20 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  if (!activePulsarClient || settingInProgress) return;
+  const pulsarOrWe = activePulsarClient ?? activeEggWeClient;
+  if (!pulsarOrWe || settingInProgress) return;
+  if (setting === "sleep" && activeEggWeClient) {
+    setText("#read-status", "Auto sleep is not exposed by the OP1we protocol yet.");
+    return;
+  }
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
   try {
-    if (setting === "debounce") await activePulsarClient.setDebounceTime(value);
-    else await activePulsarClient.setSleepTimeout(value);
-    showStatus(await activePulsarClient.readStatus());
+    if (setting === "debounce") await pulsarOrWe.setDebounceTime(value);
+    else if (activePulsarClient) await activePulsarClient.setSleepTimeout(value);
+    showStatus(await pulsarOrWe.readStatus());
   } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
   } finally {
     settingInProgress = false;
   }
@@ -1398,12 +1452,12 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
-  const client = activeClient ?? activePulsarClient ?? activeEggClient;
+  const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
   refreshInProgress = true;
   try {
     const status = await client.readStatus();
-    const currentClient = activeClient ?? activePulsarClient ?? activeEggClient;
+    const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     if (JSON.stringify(status) !== lastRenderedStatusKey) showStatus(status);
   } catch (error) {
@@ -1423,6 +1477,7 @@ window.addEventListener("beforeunload", () => {
   void activeClient?.close();
   void activePulsarClient?.close();
   void activeEggClient?.close();
+  void activeEggWeClient?.close();
 });
 
 renderControl();
