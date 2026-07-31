@@ -85,7 +85,6 @@ app.innerHTML = `
           <li class="unsupported" data-browser="firefox">Firefox</li>
           <li class="unsupported" data-browser="safari">Safari</li>
         </ul>
-        <p id="browser-support-message" aria-live="polite">Checking your browser for WebHID support…</p>
       </div>
     </section>
 
@@ -133,28 +132,31 @@ app.innerHTML = `
 
     <section class="devices" aria-labelledby="devices-title">
       <div class="section-heading">
-        <p class="eyebrow">FIRST DEVICES</p>
-        <h2 id="devices-title">The first supported mice.</h2>
-        <p class="section-copy">Support starts with these models. If other mice from the same brand use similar commands, they may be added more quickly.</p>
+        <p class="eyebrow">MORE MICE, ONE APP</p>
+        <h2 id="devices-title">Your favorite brands, together.</h2>
+        <p class="section-copy">OpenMouse is growing support across the gaming mouse ecosystem, one verified device at a time.</p>
       </div>
-      <div class="device-list">
-        <article class="device-card"><p>Logitech</p><h3>Superlight 2C</h3><span>Planned</span></article>
-        <article class="device-card"><p>Pulsar</p><h3>X2 CrazyLight</h3><span>Planned</span></article>
-        <article class="device-card"><p>Endgame Gear</p><h3>OP1 8K</h3><span>Planned</span></article>
-        <article class="device-card"><p>Ninjutso</p><h3>Sora V3</h3><span>Planned</span></article>
+      <div class="brand-marquee" aria-label="Gaming mouse brands">
+        <div class="brand-track">
+          <div class="brand-group">
+            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
+          </div>
+          <div class="brand-group" aria-hidden="true">
+            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
+          </div>
+        </div>
       </div>
     </section>
 
     <section id="roadmap" class="roadmap" aria-labelledby="roadmap-title">
       <div class="section-heading">
         <p class="eyebrow">ROADMAP</p>
-        <h2 id="roadmap-title">A shared control panel, built carefully.</h2>
+        <h2 id="roadmap-title">What’s next for OpenMouse.</h2>
       </div>
       <ol>
-        <li><span>Now</span><div><h3>Device explorer</h3><p>Identify compatible HID interfaces and understand how each mouse communicates.</p></div></li>
-        <li><span>Available</span><div><h3>Device control</h3><p>View battery level, firmware, DPI, polling rate, and other supported settings.</p></div></li>
-        <li><span>Planned</span><div><h3>Offline-ready app</h3><p>Cache the control panel and device definitions after the first online visit, so supported mice can be managed without an internet connection.</p></div></li>
-        <li><span>Later</span><div><h3>Verified controls</h3><p>Enable supported settings only after they have a known command and a reliable read-back check.</p></div></li>
+        <li><span>Available</span><div><h3>Core device controls</h3><p>Manage DPI, polling rate, battery information, and other verified settings from the browser.</p></div></li>
+        <li><span>In progress</span><div><h3>More supported mice</h3><p>Expand reliable support across Logitech, Pulsar, Endgame Gear, and other brands.</p></div></li>
+        <li><span>Next</span><div><h3>Offline access</h3><p>Use the control panel with supported mice even when an internet connection isn’t available.</p></div></li>
       </ol>
     </section>
 
@@ -188,8 +190,16 @@ app.innerHTML = `
       </div>
       <div class="faq-list">
         <details>
+          <summary>Is my mouse data uploaded anywhere?</summary>
+          <p>No. OpenMouse communicates with your mouse locally through WebHID. Device information and setting changes are not uploaded to an OpenMouse server.</p>
+        </details>
+        <details>
           <summary>Does OpenMouse work with every mouse?</summary>
           <p>Not yet. Support is added one device at a time so every available setting can be tested and verified.</p>
+        </details>
+        <details>
+          <summary>Does OpenMouse work wirelessly?</summary>
+          <p>Supported mice can connect over USB or through a compatible wireless receiver. Bluetooth support is not currently available.</p>
         </details>
         <details>
           <summary>Do I need to install anything?</summary>
@@ -202,6 +212,10 @@ app.innerHTML = `
         <details>
           <summary>Can OpenMouse update firmware?</summary>
           <p>No. Firmware flashing and other high-risk device actions are intentionally outside the project’s scope.</p>
+        </details>
+        <details>
+          <summary>How can I request a mouse or contribute?</summary>
+          <p>Join the <a href="https://discord.gg/5Vw9uQV3xB" target="_blank" rel="noreferrer">OpenMouse Discord <span aria-hidden="true">↗</span></a> to request device support and share testing feedback, or visit the <a href="https://github.com/snekxs/openmouse" target="_blank" rel="noreferrer">project on GitHub <span aria-hidden="true">↗</span></a> to contribute.</p>
         </details>
       </div>
     </section>
@@ -216,9 +230,13 @@ app.innerHTML = `
   </footer>
 `;
 
+document.body.insertAdjacentHTML(
+  "afterbegin",
+  '<div class="landing-grid" aria-hidden="true"></div>',
+);
+
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
 const githubStars = document.querySelector<HTMLSpanElement>("#github-stars");
-const browserSupportMessage = document.querySelector<HTMLParagraphElement>("#browser-support-message");
 
 function currentBrowser(): { id: string; name: string } {
   const userAgent = navigator.userAgent;
@@ -236,8 +254,6 @@ function currentBrowser(): { id: string; name: string } {
 }
 
 function updateBrowserSupport(): void {
-  if (!browserSupportMessage) return;
-
   const browser = currentBrowser();
   const supportsWebHid = "hid" in navigator;
   const currentBrowserBadge = document.querySelector<HTMLElement>(
@@ -246,14 +262,10 @@ function updateBrowserSupport(): void {
 
   currentBrowserBadge?.classList.add("current");
   currentBrowserBadge?.setAttribute("aria-current", "true");
-
-  if (supportsWebHid) {
-    browserSupportMessage.className = "browser-result compatible";
-    browserSupportMessage.textContent = `You’re using ${browser.name}. Your browser supports WebHID and is compatible with OpenMouse.`;
-  } else {
-    browserSupportMessage.className = "browser-result incompatible";
-    browserSupportMessage.textContent = `You’re using ${browser.name}. Your browser does not support WebHID, so OpenMouse won’t be able to connect to your mouse. Use Chrome or Edge on desktop.`;
-  }
+  currentBrowserBadge?.setAttribute(
+    "aria-label",
+    `${browser.name}, your current browser, ${supportsWebHid ? "compatible with OpenMouse" : "not compatible with OpenMouse"}`,
+  );
 }
 
 updateBrowserSupport();
@@ -270,9 +282,21 @@ function updateThemeToggle(): void {
 }
 
 toggle.addEventListener("click", () => {
-  themePreference = themePreference === "system" ? "light" : themePreference === "light" ? "dark" : "system";
-  applyTheme();
-  updateThemeToggle();
+  const updateTheme = (): void => {
+    themePreference = themePreference === "system" ? "light" : themePreference === "light" ? "dark" : "system";
+    applyTheme();
+    updateThemeToggle();
+  };
+  const transitionDocument = document as Document & {
+    startViewTransition?: (update: () => void) => void;
+  };
+
+  if (transitionDocument.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    transitionDocument.startViewTransition(updateTheme);
+    return;
+  }
+
+  updateTheme();
 });
 
 colorSchemeQuery.addEventListener("change", () => {
@@ -330,4 +354,79 @@ if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-mot
   );
 
   revealTargets.forEach((target) => revealObserver.observe(target));
+}
+
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const hero = document.querySelector<HTMLElement>(".hero");
+
+if (hero && !reducedMotion.matches) {
+  let parallaxFrame = 0;
+
+  const updateHeroParallax = (): void => {
+    hero.style.setProperty("--hero-shift", `${Math.min(window.scrollY * .055, 28)}px`);
+    parallaxFrame = 0;
+  };
+
+  window.addEventListener("scroll", () => {
+    if (!parallaxFrame) {
+      parallaxFrame = window.requestAnimationFrame(updateHeroParallax);
+    }
+  }, { passive: true });
+}
+
+const finePointer = window.matchMedia("(pointer: fine)").matches;
+
+if (finePointer && !reducedMotion.matches) {
+  document.querySelectorAll<HTMLElement>(".hero-actions a").forEach((action) => {
+    action.addEventListener("pointermove", (event) => {
+      const bounds = action.getBoundingClientRect();
+      const x = (event.clientX - bounds.left - bounds.width / 2) * .16;
+      const y = (event.clientY - bounds.top - bounds.height / 2) * .2;
+      action.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    });
+    action.addEventListener("pointerleave", () => action.style.removeProperty("transform"));
+  });
+}
+
+const brandMarquee = document.querySelector<HTMLElement>(".brand-marquee");
+const brandNames = document.querySelectorAll<HTMLElement>(".brand-group span");
+const landingGrid = document.querySelector<HTMLElement>(".landing-grid");
+
+if (!reducedMotion.matches) {
+  let effectsFrame = 0;
+
+  const updateLandingEffects = (): void => {
+    effectsFrame = 0;
+    landingGrid?.style.setProperty("--grid-shift", `${window.scrollY * .12}px`);
+
+    if (brandMarquee) {
+      const bounds = brandMarquee.getBoundingClientRect();
+      if (bounds.bottom > 0 && bounds.top < window.innerHeight) {
+        const viewportCenter = window.innerWidth / 2;
+        brandNames.forEach((brand) => {
+          const brandBounds = brand.getBoundingClientRect();
+          const brandCenter = brandBounds.left + brandBounds.width / 2;
+          const proximity = Math.max(0, 1 - Math.abs(brandCenter - viewportCenter) / (window.innerWidth * .32));
+          brand.style.setProperty("--brand-stretch", (1 + proximity * .22).toFixed(3));
+        });
+      }
+    }
+  };
+
+  const requestEffectsUpdate = (): void => {
+    if (!effectsFrame) effectsFrame = window.requestAnimationFrame(updateLandingEffects);
+  };
+
+  window.addEventListener("scroll", requestEffectsUpdate, { passive: true });
+  window.addEventListener("resize", requestEffectsUpdate, { passive: true });
+  brandMarquee?.addEventListener("mouseenter", requestEffectsUpdate);
+
+  const animateBrandDistortion = (): void => {
+    updateLandingEffects();
+    if (brandMarquee?.matches(":hover")) return;
+    window.requestAnimationFrame(animateBrandDistortion);
+  };
+
+  brandMarquee?.addEventListener("mouseleave", () => window.requestAnimationFrame(animateBrandDistortion));
+  window.requestAnimationFrame(animateBrandDistortion);
 }
