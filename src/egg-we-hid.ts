@@ -15,14 +15,20 @@ import type { MouseStatus } from "./mouse-types";
 
 const EGG_VENDOR_ID = 0x3367;
 
-/** Wired mice report charging; the shared dongle is wireless. */
-const SUPPORTED_PRODUCTS = new Map<number, { name: string; wired: boolean }>([
+/**
+ * Known WE-family product IDs. Unknown 0x3367 PIDs are still accepted when the
+ * HID interface looks like a vendor config channel (see isSupported) — OP1we
+ * firmware has used more than one PID across cable vs dongle revisions.
+ */
+const KNOWN_PRODUCTS = new Map<number, { name: string; wired: boolean }>([
   [0x1972, { name: "Endgame Gear OP1we", wired: true }],
   [0x1970, { name: "Endgame Gear wireless receiver", wired: false }],
-  // Other WE-family PIDs (same transport); safe to claim when present.
   [0x1968, { name: "Endgame Gear XM2we", wired: true }],
   [0x1982, { name: "Endgame Gear XM2w v2", wired: true }],
 ]);
+
+/** Wired OP1 8K / XM2 8K PIDs — owned by egg-op1-hid, never claim here. */
+const EGG_8K_PRODUCT_IDS = new Set([0x1964, 0x1966, 0x1976, 0x1978]);
 
 const REPORT_SIZE = 64;
 const REPORT = {
@@ -69,16 +75,59 @@ export class EggWeHidClient {
 
   constructor(readonly device: HIDDevice) {}
 
+  /**
+   * Accept Endgame Gear WE interfaces that are not the wired 8K driver.
+   * Prefer vendor feature report 0xa1 when present; also accept vendor usage
+   * collections (0xff01 / 0xff00) so the Chrome picker entry is not rejected
+   * before we can open and probe.
+   */
   static isSupported(device: HIDDevice): boolean {
-    return device.vendorId === EGG_VENDOR_ID
-      && SUPPORTED_PRODUCTS.has(device.productId)
-      && device.collections.some((collection) =>
-        this.collectionHasFeatureReport(collection, REPORT.read));
+    if (device.vendorId !== EGG_VENDOR_ID) return false;
+    if (EGG_8K_PRODUCT_IDS.has(device.productId)) return false;
+    return this.hasVendorConfigInterface(device);
   }
 
-  private static collectionHasFeatureReport(collection: HIDCollectionInfo, reportId: number): boolean {
-    return collection.featureReports.some((report) => report.reportId === reportId)
-      || collection.children.some((child) => this.collectionHasFeatureReport(child, reportId));
+  /** Rank higher when the interface exposes the WE feature report we talk on. */
+  static supportScore(device: HIDDevice): number {
+    if (!this.isSupported(device)) return 0;
+    let score = 1;
+    if (this.collectionTreeHasFeatureReport(device.collections, REPORT.read)) score += 4;
+    if (this.collectionTreeHasFeatureReport(device.collections, REPORT.write)) score += 2;
+    if (this.collectionTreeHasVendorUsage(device.collections)) score += 1;
+    return score;
+  }
+
+  private static hasVendorConfigInterface(device: HIDDevice): boolean {
+    if (this.collectionTreeHasFeatureReport(device.collections, REPORT.read)) return true;
+    if (this.collectionTreeHasFeatureReport(device.collections, REPORT.write)) return true;
+    // Some Windows enumerations expose the vendor page before report ids resolve.
+    if (this.collectionTreeHasVendorUsage(device.collections)) return true;
+    // Last resort: any non-boot feature report on this VID (not 8K).
+    return device.collections.some((collection) =>
+      this.collectionTreeHasAnyFeatureReport([collection]));
+  }
+
+  private static collectionTreeHasFeatureReport(
+    collections: readonly HIDCollectionInfo[],
+    reportId: number,
+  ): boolean {
+    return collections.some((collection) =>
+      collection.featureReports.some((report) => report.reportId === reportId)
+      || this.collectionTreeHasFeatureReport(collection.children, reportId));
+  }
+
+  private static collectionTreeHasAnyFeatureReport(collections: readonly HIDCollectionInfo[]): boolean {
+    return collections.some((collection) =>
+      collection.featureReports.length > 0
+      || this.collectionTreeHasAnyFeatureReport(collection.children));
+  }
+
+  private static collectionTreeHasVendorUsage(collections: readonly HIDCollectionInfo[]): boolean {
+    return collections.some((collection) => {
+      const page = collection.usagePage;
+      if (page === 0xff00 || page === 0xff01 || page >= 0xff00) return true;
+      return this.collectionTreeHasVendorUsage(collection.children);
+    });
   }
 
   async open(): Promise<void> {
@@ -103,8 +152,16 @@ export class EggWeHidClient {
   }
 
   private productMeta(): { name: string; wired: boolean } {
-    return SUPPORTED_PRODUCTS.get(this.device.productId)
-      ?? { name: this.device.productName || "Endgame Gear WE mouse", wired: false };
+    const known = KNOWN_PRODUCTS.get(this.device.productId);
+    if (known) return known;
+    const productName = this.device.productName?.trim() || "Endgame Gear WE mouse";
+    const lower = productName.toLowerCase();
+    const wired = !lower.includes("receiver") && !lower.includes("dongle");
+    // Prefer the marketing name from the OS when PID is unknown.
+    if (lower.includes("op1we") || lower.includes("op1 we")) {
+      return { name: wired ? "Endgame Gear OP1we" : "Endgame Gear OP1we receiver", wired };
+    }
+    return { name: productName, wired };
   }
 
   async readStatus(): Promise<MouseStatus> {

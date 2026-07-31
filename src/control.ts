@@ -980,11 +980,40 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
       { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
     ],
   });
-  for (const device of devices) {
-    const client = createSupportedClient(device);
-    if (client) return client;
-  }
-  return null;
+  if (devices.length === 0) return null;
+
+  // Prefer the interface that scores highest for its brand driver (e.g. WE feature 0xa1).
+  const ranked = devices
+    .map((device) => ({ device, client: createSupportedClient(device), score: clientSupportScore(device) }))
+    .sort((left, right) => right.score - left.score);
+  const best = ranked.find((entry) => entry.client !== null);
+  if (best?.client) return best.client;
+
+  const details = devices.map((device) => describeHidDevice(device)).join(" · ");
+  throw new Error(
+    `Selected device is not a supported control interface (${details}). `
+    + "Pick the OP1we entry that is not a plain boot mouse, or try the receiver. "
+    + "If this keeps failing, note the VID/PID from this message.",
+  );
+}
+
+function clientSupportScore(device: HIDDevice): number {
+  if (EggOp1HidClient.isSupported(device)) return 10;
+  if (EggWeHidClient.isSupported(device)) return EggWeHidClient.supportScore(device);
+  if (PulsarProHidClient.isSupported(device)) return 8;
+  if (PulsarHidClient.isSupported(device)) return 7;
+  if (LogitechHidppClient.isSupported(device)) return 6;
+  return 0;
+}
+
+function describeHidDevice(device: HIDDevice): string {
+  const name = device.productName || "unknown";
+  const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
+  const collections = device.collections.map((collection) => {
+    const features = collection.featureReports.map((report) => `0x${report.reportId.toString(16)}`).join(",") || "none";
+    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} feat[${features}]`;
+  }).join(" | ") || "no collections";
+  return `${name} (${ids}; ${collections})`;
 }
 
 async function connect(): Promise<void> {
@@ -998,9 +1027,11 @@ async function connect(): Promise<void> {
     const client = await requestSupportedClient();
     if (!client) {
       setText("#device-status", "Not connected");
-      setText("#read-status", "No supported device was selected.");
+      setText("#read-status", "No device was selected in the browser prompt.");
       return;
     }
+    setText("#device-status", "Opening device");
+    setText("#read-status", `Reading ${client.device.productName || "device"}…`);
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
