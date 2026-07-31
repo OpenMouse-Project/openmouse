@@ -706,12 +706,14 @@ function showStatus(status: MouseStatus): void {
   setText("#device-status", "Connected");
   const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
   setText("#connection-banner", weSettingsPending
-    ? "OP1we connected. Battery uses a known HID command; CPI/polling/LOD need a capture from WE Series software."
+    ? (status.connectionType === "Wireless"
+      ? "OP1we via receiver — HID polling disabled to avoid freezing the mouse. Battery is approximate; settings need WE software capture."
+      : "OP1we connected over USB. Battery is approximate; CPI/polling/LOD need a capture from WE Series software.")
     : "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (weSettingsPending) {
     setText("#read-status", status.batteryPercent === null
-      ? `Battery not parsed yet. ${status.connectionDetail ?? ""}`
-      : `Battery ${status.batteryPercent}% · settings map pending reverse-engineering`);
+      ? `Battery unread. ${status.connectionDetail ?? ""}`
+      : `Battery ~${status.batteryPercent}% (approx) · no auto-refresh · settings map pending`);
   } else {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -939,22 +941,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     showStatus(status);
   } else if (client instanceof EggWeHidClient) {
     activeEggWeClient = client;
+    // Single gentle status read only — never multi-command probe on connect
+    // (flooding the dongle freezes the OP1we).
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-    // Log battery framing diagnostics for reverse-engineering when % is missing.
-    if (status.batteryPercent === null) {
-      void client.probeBattery().then((report) => {
-        console.info("[OpenMouse WE battery probe]\n" + report);
-        if (activeEggWeClient === client) {
-          setText("#read-status", `Battery probe finished — see DevTools console. ${status.connectionDetail ?? ""}`);
-        }
-      }).catch((error: unknown) => {
-        console.warn("[OpenMouse WE battery probe]", error);
-      });
-    }
   } else if (client instanceof LogitechHidppClient) {
     activeClient = client;
     const status = await client.readStatus();
@@ -1542,6 +1535,12 @@ async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "p
 
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
+  // OP1we over the dongle freezes if we poll feature reports every few seconds.
+  // Read once on connect only; other brands keep a light refresh.
+  if (activeEggWeClient) {
+    refreshTimer = null;
+    return;
+  }
   refreshTimer = window.setInterval(() => {
     void refreshStatus();
   }, 5000);
@@ -1550,6 +1549,8 @@ function startAutomaticRefresh(): void {
 async function refreshStatus(): Promise<void> {
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
+  // Never background-poll WE — wireless path is sensitive to HID chatter.
+  if (client instanceof EggWeHidClient) return;
   refreshInProgress = true;
   try {
     const status = await client.readStatus();

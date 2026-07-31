@@ -15,11 +15,11 @@ import type { MouseStatus } from "./mouse-types";
 const EGG_VENDOR_ID = 0x3367;
 
 /**
- * Known PIDs are hints only. Cable vs dongle is detected from the product
- * name ("Receiver" / "Dongle"). Display name is always the mouse, never the
- * receiver as a separate product.
+ * Known PIDs are hints only. Display name is always the mouse.
+ * Observed OP1we: cable PID 0x1962, dongle PID 0x1961.
  */
 const KNOWN_MOUSE_NAMES = new Map<number, string>([
+  [0x1961, "Endgame Gear OP1we"],
   [0x1962, "Endgame Gear OP1we"],
   [0x1972, "Endgame Gear OP1we"],
   [0x1970, "Endgame Gear OP1we"],
@@ -27,15 +27,17 @@ const KNOWN_MOUSE_NAMES = new Map<number, string>([
   [0x1982, "Endgame Gear XM2w"],
 ]);
 
+/** Dongle / receiver product IDs (HID path to the mouse over 2.4 GHz). */
+const RECEIVER_PIDS = new Set([0x1961, 0x1970]);
+
 const EGG_8K_PRODUCT_IDS = new Set([0x1964, 0x1966, 0x1976, 0x1978]);
 
-/** Commands worth trying for battery / identity on CompX-style 16-byte reports. */
+/** Lightweight battery command only — never spam the wireless link. */
+const BATTERY_COMMAND = 0x04;
+
+/** Full probe list — only used by explicit probeBattery(), never on a timer. */
 const BATTERY_COMMAND_CANDIDATES = [
-  0x04, // Pulsar-family battery
-  0xb4, // older EGG WE battery docs
-  0x05, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x0e,
-  0x10, 0x11, 0x12, 0x14, 0x1d, 0x20, 0x2b,
-  0x01, 0x02, 0x03,
+  0x04, 0xb4, 0x05, 0x0b, 0x0e, 0x01, 0x02, 0x03,
 ] as const;
 
 const POLLING_RATES = [125, 250, 500, 1000] as const;
@@ -83,10 +85,19 @@ export class EggWeHidClient {
       || this.collectionTreeHasVendorUsage(device.collections);
   }
 
-  /** USB dongle / receiver interface (still talks to the mouse over 2.4 GHz). */
+  /**
+   * USB dongle / receiver interface (wireless path to the mouse).
+   * Prefer product-name match; also known dongle PIDs (0x1961, 0x1970).
+   */
   static isReceiverDevice(device: HIDDevice): boolean {
+    if (RECEIVER_PIDS.has(device.productId)) return true;
     const name = (device.productName || "").toLowerCase();
     return name.includes("receiver") || name.includes("dongle");
+  }
+
+  /** True when HID traffic goes over the 2.4 GHz dongle (easy to wedge the mouse). */
+  isWirelessPath(): boolean {
+    return EggWeHidClient.isReceiverDevice(this.device);
   }
 
   static supportScore(device: HIDDevice): number {
@@ -200,28 +211,17 @@ export class EggWeHidClient {
     const productName = this.device.productName?.trim() || "";
     const lower = productName.toLowerCase();
 
-    let name = knownName ?? (productName || "Endgame Gear WE mouse");
-    // Always show the mouse name — never list "Receiver" as the product.
-    if (viaReceiver) {
-      if (lower.includes("op1we") || lower.includes("op1 we") || knownName?.includes("OP1we")) {
-        name = "Endgame Gear OP1we";
-      } else if (lower.includes("xm2") || knownName?.includes("XM2")) {
-        name = knownName ?? "Endgame Gear XM2we";
-      } else {
-        const cleaned = productName
-          .replace(/\s*receiver\s*/ig, " ")
-          .replace(/\s*dongle\s*/ig, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        name = knownName ?? (cleaned || "Endgame Gear mouse");
-      }
-    } else if (lower.includes("op1we") || lower.includes("op1 we")) {
+    // Always the mouse product name — never "Receiver" / truncated "WE Series Gaming".
+    let name = knownName ?? "Endgame Gear WE mouse";
+    if (lower.includes("op1we") || lower.includes("op1 we") || knownName?.includes("OP1we")
+      || lower.includes("we series") || this.device.productId === 0x1961 || this.device.productId === 0x1962) {
       name = "Endgame Gear OP1we";
+    } else if (lower.includes("xm2") || knownName?.includes("XM2")) {
+      name = knownName ?? "Endgame Gear XM2we";
     }
 
     return {
       name,
-      // Cable interface = wired/charging path; receiver = wireless path to the same mouse.
       wired: !viaReceiver,
       viaReceiver,
     };
@@ -439,53 +439,33 @@ export class EggWeHidClient {
     this.lastBatteryNote = null;
     const meta = this.productMeta();
 
-    // Quick path: preferred report + common battery commands.
+    // CRITICAL: one feature transaction only. Multi-command probes and long wake
+    // delays wedge the OP1we over the dongle (cursor freeze).
     const target = this.resolvePreferredTarget();
     this.reportTarget = target;
     this.useOutputReport = false;
+    const command = this.lockedBattery?.command ?? BATTERY_COMMAND;
 
-    const commands = this.lockedBattery
-      ? [this.lockedBattery.command, 0x04, 0xb4, 0x05, 0x0b]
-      : [0x04, 0xb4, 0x05, 0x0b];
-
-    for (const command of commands) {
-      try {
-        const response = await this.query(command, { wake: true });
-        this.lastBatteryRaw = this.toHex(response, 16);
-        const parsed = this.parseBatteryResponse(response, command);
-        if (parsed.percent !== null) {
-          this.lastBatteryNote = parsed.note;
-          if (parsed.byteIndex !== undefined) {
-            this.lockedBattery = { command, byteIndex: parsed.byteIndex };
-          }
-          return {
-            percent: parsed.percent,
-            state: this.decodeChargeState(response, meta.wired, parsed.percent),
-          };
-        }
-      } catch (error) {
-        this.lastBatteryError = error instanceof Error ? error.message : String(error);
-      }
-    }
-
-    // Full probe across real report ids (0x06 / 0x08).
     try {
-      const report = await this.probeBattery();
-      const selected = report.split("\n").find((line) => line.startsWith("SELECTED:"));
-      if (selected && this.lastBatteryRaw) {
-        const match = /parse=(\d+)/.exec(selected);
-        if (match) {
-          return {
-            percent: Number(match[1]),
-            state: this.decodeChargeState(null, meta.wired, Number(match[1])),
-          };
+      const response = await this.query(command, { wake: false });
+      this.lastBatteryRaw = this.toHex(response, 16);
+      const parsed = this.parseBatteryResponse(response, command);
+      if (parsed.percent !== null) {
+        this.lastBatteryNote = `${parsed.note ?? "batt"} · approx`;
+        if (parsed.byteIndex !== undefined) {
+          this.lockedBattery = { command, byteIndex: parsed.byteIndex };
         }
+        return {
+          percent: parsed.percent,
+          state: this.decodeChargeState(response, meta.wired, parsed.percent),
+        };
       }
-      this.lastBatteryError = "no battery byte in responses (see console probe)";
+      this.lastBatteryError = `no percent in [${this.lastBatteryRaw}]`;
     } catch (error) {
       this.lastBatteryError = error instanceof Error ? error.message : String(error);
     }
 
+    // Do NOT fall through into probeBattery() here — that floods the link.
     return { percent: null, state: "Unknown" };
   }
 
@@ -502,8 +482,9 @@ export class EggWeHidClient {
   }
 
   /**
-   * Parse battery carefully — early heuristics grabbed the first 1–100 byte and
-   * often mis-read status/flags (e.g. sticky 100% on the receiver, or ~52 vs OEM 70).
+   * Parse battery carefully. 7-byte reports only have indices 0–6.
+   * 100% is treated as a flag unless charge state also looks full.
+   * Values are approximate until OEM layout is captured.
    */
   private parseBatteryResponse(
     response: Uint8Array,
@@ -511,54 +492,59 @@ export class EggWeHidClient {
   ): { percent: number | null; byteIndex?: number; note: string | null } {
     if (response.byteLength === 0) return { percent: null, note: null };
 
+    const maxIndex = response.byteLength - 1;
+
     // Locked offset from a previous good read on this session.
     if (this.lockedBattery && this.lockedBattery.command === command) {
-      const value = response[this.lockedBattery.byteIndex];
-      const scaled = this.normalizePercent(value);
-      if (scaled !== null) {
-        return {
-          percent: scaled,
-          byteIndex: this.lockedBattery.byteIndex,
-          note: `batt@${this.lockedBattery.byteIndex} cmd 0x${command.toString(16)}`,
-        };
+      const index = this.lockedBattery.byteIndex;
+      if (index <= maxIndex) {
+        const scaled = this.normalizePercent(response[index], response, index);
+        if (scaled !== null) {
+          return {
+            percent: scaled,
+            byteIndex: index,
+            note: `batt@${index} cmd 0x${command.toString(16)}`,
+          };
+        }
       }
     }
 
-    // Pulsar-family layout (cmd 0x04): percent @5, charge @6.
-    if (command === 0x04 || response[0] === 0x04) {
-      const at5 = this.normalizePercent(response[5]);
+    // Preferred: cmd 0x04 layout — percent at [5] when present and not a 100 flag.
+    if ((command === 0x04 || response[0] === 0x04) && 5 <= maxIndex) {
+      const at5 = this.normalizePercent(response[5], response, 5);
       if (at5 !== null) {
-        return { percent: at5, byteIndex: 5, note: "batt@5 (0x04 layout)" };
+        return { percent: at5, byteIndex: 5, note: "batt@5 cmd 0x4" };
       }
     }
 
-    // Score candidate payload indices — skip command echo [0] and checksum tail.
     type Candidate = { index: number; percent: number; score: number };
     const candidates: Candidate[] = [];
-    const last = Math.max(1, response.byteLength - 1);
-    for (let index = 1; index < last; index += 1) {
+    // Never read past the report; skip [0] command echo.
+    for (let index = 1; index <= maxIndex; index += 1) {
+      // Last byte on 16B frames is often checksum — skip.
+      if (response.byteLength >= 16 && index === maxIndex) continue;
       const raw = response[index];
-      const percent = this.normalizePercent(raw);
+      const percent = this.normalizePercent(raw, response, index);
       if (percent === null) continue;
 
       let score = 10;
-      // Prefer CompX/Pulsar payload region.
-      if (index === 5) score += 8;
-      if (index === 4 || index === 3) score += 4;
-      if (index >= 2 && index <= 6) score += 2;
-      // 100% is often a status flag, not a real reading — deprioritize.
-      if (percent === 100) score -= 12;
-      if (percent === 0) score -= 6;
-      // Extremely common false positives.
+      if (index === 5) score += 10;
+      if (index === 4 || index === 3) score += 3;
+      if (index === 6 && response.byteLength <= 8) score += 2;
+      // Sticky 100% on dongle is almost always wrong.
+      if (percent === 100) score -= 20;
+      if (percent === 0) score -= 8;
       if (raw === command) score -= 20;
-      if (raw === 0x08 || raw === 0x06) score -= 4;
+      if (raw === 0x08 || raw === 0x06) score -= 6;
+      // Index 7 on a 7-byte descriptor means we overran — heavily penalize if length is 7–8.
+      if (index >= response.byteLength) score -= 50;
 
       candidates.push({ index, percent, score });
     }
 
     candidates.sort((left, right) => right.score - left.score || left.index - right.index);
     const best = candidates[0];
-    if (!best || best.score < 8) return { percent: null, note: null };
+    if (!best || best.score < 10) return { percent: null, note: null };
 
     return {
       percent: best.percent,
@@ -567,12 +553,19 @@ export class EggWeHidClient {
     };
   }
 
-  /** Map raw report bytes to 1–100%. Supports plain % and 0–20×5 style. */
-  private normalizePercent(value: number | undefined): number | null {
+  private normalizePercent(
+    value: number | undefined,
+    response: Uint8Array,
+    _index: number,
+  ): number | null {
     if (value === undefined) return null;
-    if (value >= 1 && value <= 100) return value;
-    // Some CompX stacks report 0–20 in 5% steps.
-    if (value >= 1 && value <= 20) return value * 5;
+    // Reject 100% unless a charge/full flag suggests it is real.
+    if (value === 100) {
+      const chargeFlag = response[6];
+      if (chargeFlag === 1 || chargeFlag === 2) return 100;
+      return null;
+    }
+    if (value >= 1 && value <= 99) return value;
     return null;
   }
 
@@ -582,19 +575,20 @@ export class EggWeHidClient {
       const target = this.reportTarget ?? this.resolvePreferredTarget();
       const packet = new Uint8Array(target.payloadLength);
       packet[0] = command;
-      // CompX/Pulsar-style: length field + checksum on 16-byte reports.
+      // CompX/Pulsar-style: length field + checksum on 16-byte reports only.
       if (target.payloadLength >= 16) {
         packet[4] = 0;
         packet[15] = this.simpleChecksum(packet, target.reportId);
       }
 
+      // Keep wireless dongle traffic minimal — long waits + multi-packet sequences freeze the mouse.
+      const wireless = this.isWirelessPath();
       if (this.useOutputReport) {
-        return await this.exchangeOutput(target.reportId, packet, options.wake ? 400 : 80);
+        return await this.exchangeOutput(target.reportId, packet, wireless ? 30 : (options.wake ? 200 : 50));
       }
 
       await this.sendFeature(target, packet);
-      if (options.wake) await this.delay(200);
-      else await this.delay(40);
+      await this.delay(wireless ? 25 : (options.wake ? 120 : 30));
       return await this.receiveFeature(target.reportId);
     };
     const next = this.commandQueue.then(run, run);
