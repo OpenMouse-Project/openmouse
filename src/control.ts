@@ -707,13 +707,15 @@ function showStatus(status: MouseStatus): void {
   const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
   setText("#connection-banner", weSettingsPending
     ? (status.connectionType === "Wireless"
-      ? "OP1we via receiver — HID polling disabled to avoid freezing the mouse. Battery is approximate; settings need WE software capture."
-      : "OP1we connected over USB. Battery is approximate; CPI/polling/LOD need a capture from WE Series software.")
+      ? "OP1we (via receiver). Config HID is idle so the mouse does not freeze. Settings need WE software capture."
+      : "OP1we (USB). Battery approximate if shown; settings need WE software capture.")
     : "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (weSettingsPending) {
-    setText("#read-status", status.batteryPercent === null
-      ? `Battery unread. ${status.connectionDetail ?? ""}`
-      : `Battery ~${status.batteryPercent}% (approx) · no auto-refresh · settings map pending`);
+    setText("#read-status", status.connectionType === "Wireless"
+      ? "Wireless path · no config HID · settings map pending"
+      : (status.batteryPercent === null
+        ? `Connected · ${status.connectionDetail ?? ""}`
+        : `Battery ~${status.batteryPercent}% (approx) · settings map pending`));
   } else {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -859,23 +861,13 @@ function escapeHtml(value: string): string {
   })[character]!);
 }
 
-/**
- * Collapse Endgame WE cable + receiver into one logical mouse.
- * Prefer the USB mouse interface when both are present; otherwise use the
- * receiver as the wireless path to that same mouse.
- */
+/** Supported devices for the sidebar; WE cable/receiver collapsed via driver. */
 function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
-  const supported = (devices ?? [])
-    .filter((device) => createSupportedClient(device) !== null);
-  const we = supported.filter((device) => EggWeHidClient.isSupported(device));
-  const other = supported.filter((device) => !EggWeHidClient.isSupported(device));
-  if (we.length === 0) return supported;
-
-  const mice = we.filter((device) => !EggWeHidClient.isReceiverDevice(device));
-  const receivers = we.filter((device) => EggWeHidClient.isReceiverDevice(device));
-  if (mice.length > 0) return [...other, ...mice];
-  // Wireless-only: one receiver entry represents the mouse.
-  return [...other, ...receivers.slice(0, 1)];
+  const all = devices ?? [];
+  const nonWe = all.filter((device) =>
+    createSupportedClient(device) !== null && !EggWeHidClient.isSupported(device));
+  const we = EggWeHidClient.pickDevices(all);
+  return [...nonWe, ...we];
 }
 
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
@@ -891,14 +883,12 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
     const client = createSupportedClient(device)!;
     const status = deviceStatuses.get(device);
     const selected = device === activeDevice;
-    const viaReceiver = client instanceof EggWeHidClient && EggWeHidClient.isReceiverDevice(device);
+    // Prefer status from driver (OP1we names itself); avoid productName for WE.
     const name = status?.name
-      ?? (viaReceiver ? "Endgame Gear OP1we" : (device.productName ?? `${deviceBrand(client)} mouse`));
+      ?? (client instanceof EggWeHidClient ? "Endgame Gear OP1we" : (device.productName ?? `${deviceBrand(client)} mouse`));
     const detail = status
       ? `${status.brand} · ${status.connectionType ?? "Connected"}`
-      : viaReceiver
-        ? `${deviceBrand(client)} · Wireless receiver`
-        : `${deviceBrand(client)} · Available`;
+      : `${deviceBrand(client)} · Available`;
     return `<button class="device-select${selected ? " is-selected" : ""}" type="button" data-device-index="${index}" aria-pressed="${selected}">
       <span class="device-dot${selected ? "" : " is-idle"}"></span>
       <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span>
@@ -914,7 +904,7 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
   const client = createSupportedClient(device);
   if (!client) return;
   setText("#device-status", "Switching");
-  setText("#read-status", `Reading ${device.productName || "the selected mouse"}.`);
+  setText("#read-status", `Reading ${statusNameForClient(client)}.`);
   try {
     await activateClient(client);
   } catch (error) {
@@ -922,6 +912,11 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
     setText("#device-status", "Connection failed");
     setText("#read-status", message);
   }
+}
+
+function statusNameForClient(client: SupportedClient): string {
+  if (client instanceof EggWeHidClient) return "Endgame Gear OP1we";
+  return client.device.productName || "the selected mouse";
 }
 
 async function activateClient(client: SupportedClient): Promise<void> {
@@ -1535,22 +1530,23 @@ async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "p
 
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
-  // OP1we over the dongle freezes if we poll feature reports every few seconds.
-  // Read once on connect only; other brands keep a light refresh.
-  if (activeEggWeClient) {
+  // Drivers may opt out (e.g. WE pollIntervalMs = 0 — feature traffic freezes OP1we).
+  const interval = activeEggWeClient
+    ? EggWeHidClient.pollIntervalMs
+    : 5000;
+  if (!interval || interval <= 0) {
     refreshTimer = null;
     return;
   }
   refreshTimer = window.setInterval(() => {
     void refreshStatus();
-  }, 5000);
+  }, interval);
 }
 
 async function refreshStatus(): Promise<void> {
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
-  // Never background-poll WE — wireless path is sensitive to HID chatter.
-  if (client instanceof EggWeHidClient) return;
+  if (client instanceof EggWeHidClient && EggWeHidClient.pollIntervalMs <= 0) return;
   refreshInProgress = true;
   try {
     const status = await client.readStatus();
