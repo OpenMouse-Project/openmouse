@@ -67,16 +67,19 @@ export class EggWeHidClient {
   }
 
   /**
-   * Among WE-capable devices, collapse cable + receiver into one logical mouse.
-   * Prefer cable when both are present; otherwise keep a single receiver.
+   * Among WE-capable HID interfaces, pick exactly one logical mouse.
+   * Prefer cable over receiver; among equals, highest supportScore wins.
+   * (A single USB mouse often enumerates multiple interfaces — never return both.)
    */
   static pickDevices(devices: readonly HIDDevice[]): HIDDevice[] {
     const we = devices.filter((device) => this.isSupported(device));
     if (we.length === 0) return [];
-    const cables = we.filter((device) => !this.isReceiverDevice(device));
-    const receivers = we.filter((device) => this.isReceiverDevice(device));
-    if (cables.length > 0) return cables;
-    return receivers.slice(0, 1);
+    const ranked = [...we].sort((left, right) => {
+      const receiverDelta = Number(this.isReceiverDevice(left)) - Number(this.isReceiverDevice(right));
+      if (receiverDelta !== 0) return receiverDelta; // non-receiver first
+      return this.supportScore(right) - this.supportScore(left);
+    });
+    return ranked[0] ? [ranked[0]] : [];
   }
 
   static supportScore(device: HIDDevice): number {
@@ -86,8 +89,10 @@ export class EggWeHidClient {
     if (OP1WE_RECEIVER_PIDS.has(device.productId)) score += 2;
     if (!this.isReceiverDevice(device)) score += 4;
     const features = this.listFeatureReports(device);
-    if (features.some((report) => report.reportId === 0x08)) score += 2;
+    if (features.some((report) => report.reportId === 0x08)) score += 3;
     if (features.some((report) => report.reportId === 0x06)) score += 1;
+    // Prefer interfaces that actually expose config reports over bare boot mice.
+    if (features.length > 0) score += 2;
     return score;
   }
 

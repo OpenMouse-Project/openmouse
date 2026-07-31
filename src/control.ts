@@ -984,6 +984,38 @@ function handleHidConnect(event: HIDConnectionEvent): void {
     void renderDeviceSidebar();
     return;
   }
+
+  // WE cable + receiver (or multi-interface USB) must not activate twice.
+  if (client instanceof EggWeHidClient) {
+    void (async () => {
+      const all = await navigator.hid?.getDevices() ?? [];
+      await renderDeviceSidebar(all);
+      const preferred = EggWeHidClient.pickDevices(all)[0];
+      if (!preferred) return;
+      // Ignore secondary interface (e.g. receiver while cable is preferred).
+      if (preferred !== event.device && activeDevice === preferred) return;
+      if (preferred !== event.device) {
+        // A better path appeared (cable over receiver) — switch once.
+        const next = createSupportedClient(preferred);
+        if (!next || next.device === activeDevice) return;
+        setText("#device-status", "Switching path");
+        setText("#read-status", "Preferring OP1we USB over receiver.");
+        await activateClient(next);
+        return;
+      }
+      if (activeDevice === preferred) return;
+      setText("#device-status", "New device detected");
+      setText("#read-status", "Reading Endgame Gear OP1we.");
+      await activateClient(new EggWeHidClient(preferred));
+    })().catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+      setText("#device-status", "Connection failed");
+      setText("#read-status", message);
+      void renderDeviceSidebar();
+    });
+    return;
+  }
+
   setText("#device-status", "New device detected");
   setText("#read-status", `Reading ${event.device.productName || "the connected mouse"}.`);
   void activateClient(client).catch((error: unknown) => {
@@ -1004,7 +1036,8 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   void (async () => {
     const devices = (await navigator.hid?.getDevices() ?? [])
       .filter((device) => device !== event.device);
-    const replacement = devices
+    const logical = listLogicalDevices(devices);
+    const replacement = logical
       .map(createSupportedClient)
       .find((client): client is SupportedClient => client !== null);
     if (replacement) {
