@@ -21,6 +21,12 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         demo: resolve(__dirname, "demo.html"),
         control: resolve(__dirname, "control.html"),
+        controlApp: resolve(__dirname, "control-app.html"),
+      },
+      output: {
+        entryFileNames: (chunk) => chunk.name === "controlApp"
+          ? "protected-assets/control-[hash].js"
+          : "assets/[name]-[hash].js",
       },
     },
   },

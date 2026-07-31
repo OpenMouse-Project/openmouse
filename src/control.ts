@@ -11,12 +11,6 @@ import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
-import {
-  getControlAccess,
-  isSupabaseConfigured,
-  redeemLicenseKey,
-  supabase,
-} from "./supabase";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -38,7 +32,6 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let refreshTimer: number | null = null;
-let accessCheckTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
@@ -77,107 +70,6 @@ interface BatterySample {
 }
 
 type BatteryHistory = Record<string, BatterySample[]>;
-
-function escapeMarkup(value: string): string {
-  return value.replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    "\"": "&quot;",
-  })[character] ?? character);
-}
-
-function readableError(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return fallback;
-}
-
-function renderGate(message = ""): void {
-  appRoot.innerHTML = `
-    <style>
-      .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:5rem }
-      .build-identity .demo-wordmark { margin-bottom:0 }
-      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid rgb(105 210 141 / 35%);border-radius:999px;background:rgb(105 210 141 / 9%);color:#8be3a9;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
-    </style>
-    <main class="access-gate">
-      <div class="build-identity">
-        <a class="demo-wordmark" href="/">OpenMouse</a>
-        <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
-      </div>
-      <p class="overline">PRIVATE CONTROL PANEL</p>
-      <h1>Enter your license.</h1>
-      <p>Use your OpenMouse license code to unlock device control.</p>
-      <form id="access-form" class="access-form">
-        <label for="license-key">License code</label>
-        <input id="license-key" type="text" autocomplete="off" spellcheck="false" autofocus required />
-        <button type="submit">Unlock control panel</button>
-        <output id="access-error" aria-live="polite">${escapeMarkup(message)}</output>
-      </form>
-    </main>`;
-
-  document.querySelector<HTMLFormElement>("#access-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = document.querySelector<HTMLInputElement>("#license-key");
-    const button = document.querySelector<HTMLButtonElement>("#access-form button");
-    if (!supabase || !input || !button) return;
-    button.disabled = true;
-    button.textContent = "Checking license…";
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) throw error;
-      }
-      const access = await redeemLicenseKey(input.value);
-      if (!access.allowed) {
-        renderGate("This license does not grant control panel access.");
-        return;
-      }
-      scheduleAccessCheck(access.expiresAt);
-      renderControl();
-    } catch (error) {
-      renderGate(readableError(error, "Unable to activate this license."));
-    }
-  });
-}
-
-function renderLicenseGate(message = ""): void {
-  renderGate(message);
-}
-
-function scheduleAccessCheck(expiresAt: string | null): void {
-  if (accessCheckTimer !== null) window.clearTimeout(accessCheckTimer);
-  accessCheckTimer = null;
-  if (!expiresAt) return;
-
-  const remaining = new Date(expiresAt).getTime() - Date.now() + 1000;
-  const delay = Math.max(0, Math.min(remaining, 2_147_000_000));
-  accessCheckTimer = window.setTimeout(() => {
-    void routeAuthenticatedSession();
-  }, delay);
-}
-
-async function routeAuthenticatedSession(): Promise<void> {
-  if (!supabase) return;
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    renderGate();
-    return;
-  }
-  try {
-    const access = await getControlAccess();
-    scheduleAccessCheck(access.expiresAt);
-    if (access.allowed) renderControl();
-    else renderLicenseGate("Your license has expired or been revoked.");
-  } catch (error) {
-    renderGate(readableError(error, "Unable to verify control panel access."));
-  }
-}
 
 function loadInterfacePreferences(): InterfacePreferences {
   try {
@@ -1526,7 +1418,6 @@ async function refreshStatus(): Promise<void> {
 
 window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
-  if (accessCheckTimer !== null) window.clearTimeout(accessCheckTimer);
   navigator.hid?.removeEventListener("connect", handleHidConnect);
   navigator.hid?.removeEventListener("disconnect", handleHidDisconnect);
   void activeClient?.close();
@@ -1534,15 +1425,4 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
 });
 
-if (!isSupabaseConfigured || !supabase) {
-  renderGate("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
-  document.querySelector<HTMLButtonElement>("#access-form button")?.setAttribute("disabled", "true");
-} else {
-  supabase.auth.onAuthStateChange((event) => {
-    if (event === "SIGNED_OUT") {
-      scheduleAccessCheck(null);
-      renderGate();
-    }
-  });
-  void routeAuthenticatedSession();
-}
+renderControl();
