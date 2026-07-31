@@ -1,23 +1,21 @@
 import type { MouseStatus } from "./mouse-types";
 
 /**
- * Endgame Gear WE-series (OP1we / dongle / related PIDs).
+ * Endgame Gear WE-series (OP1we and related).
  *
- * Verified: battery via feature report 0xa1, command 0xb4 (public RE).
- * Not verified: CPI / polling / LOD / debounce command IDs — those need a
- * USB capture of official WE Series software. Writes for unmapped settings
- * are intentionally disabled so the UI does not pretend defaults are live.
+ * Observed on OP1we (PID 0x1962):
+ *   feature reports: 0x06 (7 bytes), 0x08 (16 bytes)
+ * Older public RE for some EGG wireless used 0xa1/0xb4 — that map does NOT
+ * apply to this firmware generation.
  *
- * WebHID notes:
- * - sendFeatureReport(reportId, data) — data must NOT include report id
- * - length must match the HID feature report payload (often 63 for a 64-byte
- *   Windows buffer that includes report id as byte 0)
- * - receiveFeatureReport usually omits report id; Windows docs include it
+ * Settings (CPI/polling/LOD/debounce) still need a USB capture of WE software.
+ * Battery is probed across the real report ids + common command bytes.
  */
 
 const EGG_VENDOR_ID = 0x3367;
 
 const KNOWN_PRODUCTS = new Map<number, { name: string; wired: boolean }>([
+  [0x1962, { name: "Endgame Gear OP1we", wired: true }],
   [0x1972, { name: "Endgame Gear OP1we", wired: true }],
   [0x1970, { name: "Endgame Gear wireless receiver", wired: false }],
   [0x1968, { name: "Endgame Gear XM2we", wired: true }],
@@ -26,10 +24,14 @@ const KNOWN_PRODUCTS = new Map<number, { name: string; wired: boolean }>([
 
 const EGG_8K_PRODUCT_IDS = new Set([0x1964, 0x1966, 0x1976, 0x1978]);
 
-/** Verified WE battery transport (Windows HidD uses report id + 63 payload). */
-const WE_REPORT_ID = 0xa1;
-const WE_PAYLOAD_LENGTH = 63;
-const BATTERY_COMMAND = 0xb4;
+/** Commands worth trying for battery / identity on CompX-style 16-byte reports. */
+const BATTERY_COMMAND_CANDIDATES = [
+  0x04, // Pulsar-family battery
+  0xb4, // older EGG WE battery docs
+  0x05, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x0e,
+  0x10, 0x11, 0x12, 0x14, 0x1d, 0x20, 0x2b,
+  0x01, 0x02, 0x03,
+] as const;
 
 const POLLING_RATES = [125, 250, 500, 1000] as const;
 
@@ -43,12 +45,24 @@ export class EggWeHidClient {
   private reportTarget: FeatureReportTarget | null = null;
   private lastBatteryRaw: string | null = null;
   private lastBatteryError: string | null = null;
-  /** True when receiveFeatureReport includes report id as byte 0. */
-  private responseIncludesReportId: boolean | null = null;
+  private useOutputReport = false;
+  private inputWaiter: {
+    reportId: number;
+    resolve: (bytes: Uint8Array) => void;
+    reject: (error: Error) => void;
+    timer: number;
+  } | null = null;
+
+  private readonly onInputReport = (event: HIDInputReportEvent): void => {
+    if (!this.inputWaiter || event.reportId !== this.inputWaiter.reportId) return;
+    const waiter = this.inputWaiter;
+    this.inputWaiter = null;
+    window.clearTimeout(waiter.timer);
+    waiter.resolve(this.copyDataView(event.data));
+  };
 
   /**
-   * Settings command map is not reverse-engineered yet. Keep false until a
-   * capture confirms read/write pairs for CPI, polling, LOD, and debounce.
+   * Settings command map is not reverse-engineered yet for this report family.
    */
   static readonly settingsMapped = false;
 
@@ -57,22 +71,21 @@ export class EggWeHidClient {
   static isSupported(device: HIDDevice): boolean {
     if (device.vendorId !== EGG_VENDOR_ID) return false;
     if (EGG_8K_PRODUCT_IDS.has(device.productId)) return false;
-    return this.hasVendorConfigInterface(device);
+    return this.listFeatureReports(device).length > 0
+      || this.listOutputReports(device).length > 0
+      || this.collectionTreeHasVendorUsage(device.collections);
   }
 
   static supportScore(device: HIDDevice): number {
     if (!this.isSupported(device)) return 0;
     let score = 1;
-    if (this.findFeatureReport(device, WE_REPORT_ID)) score += 5;
-    if (this.findFeatureReport(device, 0xa0)) score += 1;
-    if (this.collectionTreeHasVendorUsage(device.collections)) score += 1;
+    const features = this.listFeatureReports(device);
+    // Prefer the 16-byte config-style report (0x08) when present.
+    if (features.some((report) => report.reportId === 0x08 && report.payloadLength >= 15)) score += 6;
+    if (features.some((report) => report.reportId === 0x06)) score += 2;
+    if (features.some((report) => report.reportId === 0xa1)) score += 1;
+    score += Math.min(features.length, 3);
     return score;
-  }
-
-  private static hasVendorConfigInterface(device: HIDDevice): boolean {
-    if (this.findFeatureReport(device, WE_REPORT_ID) || this.findFeatureReport(device, 0xa0)) return true;
-    if (this.collectionTreeHasVendorUsage(device.collections)) return true;
-    return this.listFeatureReports(device).length > 0;
   }
 
   private static listFeatureReports(device: HIDDevice): FeatureReportTarget[] {
@@ -82,7 +95,7 @@ export class EggWeHidClient {
         for (const report of collection.featureReports) {
           found.push({
             reportId: report.reportId,
-            payloadLength: this.featureReportPayloadLength(report),
+            payloadLength: this.reportPayloadLength(report),
           });
         }
         visit(collection.children);
@@ -92,17 +105,46 @@ export class EggWeHidClient {
     return found;
   }
 
-  private static findFeatureReport(device: HIDDevice, reportId: number): FeatureReportTarget | null {
-    return this.listFeatureReports(device).find((report) => report.reportId === reportId) ?? null;
+  private static listOutputReports(device: HIDDevice): FeatureReportTarget[] {
+    const found: FeatureReportTarget[] = [];
+    const visit = (collections: readonly HIDCollectionInfo[]): void => {
+      for (const collection of collections) {
+        for (const report of collection.outputReports) {
+          found.push({
+            reportId: report.reportId,
+            payloadLength: this.reportPayloadLength(report),
+          });
+        }
+        visit(collection.children);
+      }
+    };
+    visit(device.collections);
+    return found;
   }
 
-  private static featureReportPayloadLength(report: HIDReportInfo): number {
+  private static listInputReports(device: HIDDevice): FeatureReportTarget[] {
+    const found: FeatureReportTarget[] = [];
+    const visit = (collections: readonly HIDCollectionInfo[]): void => {
+      for (const collection of collections) {
+        for (const report of collection.inputReports) {
+          found.push({
+            reportId: report.reportId,
+            payloadLength: this.reportPayloadLength(report),
+          });
+        }
+        visit(collection.children);
+      }
+    };
+    visit(device.collections);
+    return found;
+  }
+
+  private static reportPayloadLength(report: HIDReportInfo): number {
     let bits = 0;
     for (const item of report.items ?? []) {
       bits += item.reportSize * item.reportCount;
     }
-    if (bits === 0) return WE_PAYLOAD_LENGTH;
-    return Math.ceil(bits / 8);
+    return bits === 0 ? 0 : Math.ceil(bits / 8);
   }
 
   private static collectionTreeHasVendorUsage(collections: readonly HIDCollectionInfo[]): boolean {
@@ -112,16 +154,19 @@ export class EggWeHidClient {
 
   async open(): Promise<void> {
     if (!this.device.opened) await this.device.open();
-    if (!this.reportTarget) this.reportTarget = this.resolveReportTarget();
+    this.device.removeEventListener("inputreport", this.onInputReport);
+    this.device.addEventListener("inputreport", this.onInputReport);
+    if (!this.reportTarget) this.reportTarget = this.resolvePreferredTarget();
   }
 
   describeCollections(): string {
-    const reports = EggWeHidClient.listFeatureReports(this.device);
-    if (reports.length === 0) {
-      return `fallback report 0x${WE_REPORT_ID.toString(16)}/${WE_PAYLOAD_LENGTH}B`;
-    }
-    return reports.map((report) =>
-      `id 0x${report.reportId.toString(16)}/${report.payloadLength}B`).join(" · ");
+    const features = EggWeHidClient.listFeatureReports(this.device)
+      .map((report) => `feat 0x${report.reportId.toString(16)}/${report.payloadLength}B`);
+    const outputs = EggWeHidClient.listOutputReports(this.device)
+      .map((report) => `out 0x${report.reportId.toString(16)}/${report.payloadLength}B`);
+    const inputs = EggWeHidClient.listInputReports(this.device)
+      .map((report) => `in 0x${report.reportId.toString(16)}/${report.payloadLength}B`);
+    return [...features, ...outputs, ...inputs].join(" · ") || "no reports";
   }
 
   getDpiOptions(): number[] {
@@ -146,34 +191,66 @@ export class EggWeHidClient {
     return { name: productName, wired };
   }
 
-  private resolveReportTarget(): FeatureReportTarget {
-    const preferred = EggWeHidClient.findFeatureReport(this.device, WE_REPORT_ID);
-    if (preferred) {
-      return {
-        reportId: preferred.reportId,
-        // Prefer descriptor length, but never invent a weird size for battery.
-        payloadLength: preferred.payloadLength > 0 ? preferred.payloadLength : WE_PAYLOAD_LENGTH,
-      };
+  /** Prefer 16-byte report 0x08, then any largest feature report, then output reports. */
+  private resolvePreferredTarget(): FeatureReportTarget {
+    const features = EggWeHidClient.listFeatureReports(this.device);
+    const byId08 = features.find((report) => report.reportId === 0x08);
+    if (byId08 && byId08.payloadLength > 0) return byId08;
+
+    const sortedFeatures = [...features]
+      .filter((report) => report.payloadLength > 0)
+      .sort((left, right) => right.payloadLength - left.payloadLength || left.reportId - right.reportId);
+    if (sortedFeatures[0]) return sortedFeatures[0];
+
+    const outputs = EggWeHidClient.listOutputReports(this.device)
+      .filter((report) => report.payloadLength > 0)
+      .sort((left, right) => right.payloadLength - left.payloadLength);
+    if (outputs[0]) {
+      this.useOutputReport = true;
+      return outputs[0];
     }
-    return { reportId: WE_REPORT_ID, payloadLength: WE_PAYLOAD_LENGTH };
+
+    // Last resort — sizes from the user's probe.
+    return { reportId: 0x08, payloadLength: 16 };
+  }
+
+  private allTransportTargets(): FeatureReportTarget[] {
+    const features = EggWeHidClient.listFeatureReports(this.device)
+      .filter((report) => report.payloadLength > 0);
+    const outputs = EggWeHidClient.listOutputReports(this.device)
+      .filter((report) => report.payloadLength > 0);
+    const merged = [...features, ...outputs];
+    if (merged.length === 0) {
+      return [
+        { reportId: 0x08, payloadLength: 16 },
+        { reportId: 0x06, payloadLength: 7 },
+      ];
+    }
+    // De-dupe by reportId+length
+    const seen = new Set<string>();
+    return merged.filter((target) => {
+      const key = `${target.reportId}:${target.payloadLength}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   async readStatus(): Promise<MouseStatus> {
     const meta = this.productMeta();
     await this.open();
     const battery = await this.readBattery();
-    const target = this.reportTarget ?? this.resolveReportTarget();
+    const target = this.reportTarget ?? this.resolvePreferredTarget();
 
     const detailParts = [
       meta.wired ? "Wired USB" : "2.4 GHz dongle",
       `PID 0x${this.device.productId.toString(16).toUpperCase()}`,
       "WE protocol",
-      `report 0x${target.reportId.toString(16)}/${target.payloadLength}B`,
+      `${this.useOutputReport ? "out" : "feat"} 0x${target.reportId.toString(16)}/${target.payloadLength}B`,
+      this.describeCollections(),
     ];
     if (battery.percent === null) {
-      detailParts.push(this.lastBatteryError
-        ? `battery fail: ${this.lastBatteryError}`
-        : "battery unread");
+      detailParts.push(this.lastBatteryError ? `battery: ${this.lastBatteryError}` : "battery unread");
       if (this.lastBatteryRaw) detailParts.push(`raw ${this.lastBatteryRaw}`);
     }
     detailParts.push("settings map pending RE");
@@ -183,7 +260,6 @@ export class EggWeHidClient {
       name: meta.name,
       batteryPercent: battery.percent,
       batteryState: battery.state,
-      // Placeholders — not live device values until settings are reverse-engineered.
       dpi: 800,
       pollingRateHz: 1000,
       supportedPollingRates: this.supportedPollingRates,
@@ -194,7 +270,7 @@ export class EggWeHidClient {
       liftOffDistance: null,
       firmware: battery.percent !== null
         ? ["Firmware unread (settings map pending)"]
-        : ["Connect OK · battery protocol probing"],
+        : ["Probing WE reports 0x06/0x08"],
     };
   }
 
@@ -216,66 +292,96 @@ export class EggWeHidClient {
 
   private settingsNotMappedError(label: string): Error {
     return new Error(
-      `OP1we ${label} is not reverse-engineered yet. `
-      + "Battery uses a known command; DPI/polling/LOD/debounce need a USB capture "
-      + "of Endgame Gear WE Series software. The values shown are placeholders.",
+      `OP1we ${label} is not reverse-engineered yet on this report family `
+      + `(${this.describeCollections()}). Capture WE Series software USB traffic to map writes.`,
     );
   }
 
   async close(): Promise<void> {
+    this.device.removeEventListener("inputreport", this.onInputReport);
+    this.clearInputWaiter(new Error("Device closed."));
     if (this.device.opened) await this.device.close();
   }
 
   /**
-   * Dump command responses for reverse engineering (DevTools / temporary UI).
+   * Probe real report ids (0x06/0x08 etc.) with battery-ish commands.
+   * Called on connect when battery % is missing.
    */
-  async probeCommands(from = 0x00, to = 0xff): Promise<string> {
+  async probeBattery(): Promise<string> {
     const lines: string[] = [
-      `device: ${this.device.productName || "unknown"}`,
-      `pid: 0x${this.device.productId.toString(16)}`,
+      `pid 0x${this.device.productId.toString(16)}`,
       `collections: ${this.describeCollections()}`,
-      `target: report 0x${(this.reportTarget ?? this.resolveReportTarget()).reportId.toString(16)}`
-        + `/${(this.reportTarget ?? this.resolveReportTarget()).payloadLength}B`,
     ];
-    for (let command = from; command <= to; command += 1) {
-      try {
-        const response = await this.query(command, { wake: command === BATTERY_COMMAND });
-        const hex = [...response].slice(0, 24).map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
-        const tail = response.byteLength > 24 ? " …" : "";
-        lines.push(`0x${command.toString(16).padStart(2, "0")}: (${response.byteLength}B) ${hex}${tail}`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "failed";
-        lines.push(`0x${command.toString(16).padStart(2, "0")}: ${message}`);
+    const targets = this.allTransportTargets();
+    let found: { percent: number; line: string } | null = null;
+
+    for (const target of targets) {
+      for (const viaOutput of [false, true]) {
+        // Skip output mode if this target is only known as a feature report with no matching out.
+        if (viaOutput) {
+          const hasOut = EggWeHidClient.listOutputReports(this.device)
+            .some((report) => report.reportId === target.reportId);
+          if (!hasOut && EggWeHidClient.listOutputReports(this.device).length === 0) {
+            // Still try sendReport — some stacks accept it when only feature is listed.
+          } else if (!hasOut) {
+            continue;
+          }
+        }
+
+        for (const command of BATTERY_COMMAND_CANDIDATES) {
+          try {
+            this.reportTarget = target;
+            this.useOutputReport = viaOutput;
+            const response = await this.query(command, { wake: command === 0xb4 || command === 0x04 });
+            const parsed = this.parseBatteryResponse(response);
+            const mode = viaOutput ? "out" : "feat";
+            const line =
+              `${mode} 0x${target.reportId.toString(16)}/${target.payloadLength}B `
+              + `cmd 0x${command.toString(16).padStart(2, "0")} → ${response.byteLength}B `
+              + `[${this.toHex(response, 16)}] parse=${parsed.percent ?? "null"}`;
+            lines.push(line);
+            if (parsed.percent !== null && !found) {
+              found = { percent: parsed.percent, line };
+              this.lastBatteryRaw = this.toHex(response, 16);
+              // Keep working transport locked in.
+              this.reportTarget = target;
+              this.useOutputReport = viaOutput;
+              lines.push(`SELECTED: ${line}`);
+              return lines.join("\n");
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "failed";
+            const mode = viaOutput ? "out" : "feat";
+            lines.push(
+              `${mode} 0x${target.reportId.toString(16)}/${target.payloadLength}B `
+              + `cmd 0x${command.toString(16).padStart(2, "0")} → ${message}`,
+            );
+          }
+        }
       }
     }
+
+    // Reset to preferred feature target after failed probe.
+    this.useOutputReport = false;
+    this.reportTarget = this.resolvePreferredTarget();
     return lines.join("\n");
   }
 
-  /** Narrow battery-focused probe used on connect diagnostics. */
-  async probeBattery(): Promise<string> {
-    const lines: string[] = [];
-    const sizes = this.payloadLengthsToTry();
-    for (const length of sizes) {
-      for (const reportId of [WE_REPORT_ID, 0xa0]) {
-        try {
-          this.reportTarget = { reportId, payloadLength: length };
-          const response = await this.query(BATTERY_COMMAND, { wake: true });
-          await this.delay(100);
-          const second = await this.query(BATTERY_COMMAND, { wake: true });
-          const parsed = this.parseBatteryResponse(second);
-          lines.push(
-            `report 0x${reportId.toString(16)}/${length}B → ${second.byteLength}B `
-            + `raw[${this.toHex(second, 20)}] parse=${parsed.percent ?? "null"}%`,
-          );
-          if (parsed.percent !== null) {
-            this.lastBatteryRaw = this.toHex(second, 20);
-            return lines.join("\n");
-          }
-          void response;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "failed";
-          lines.push(`report 0x${reportId.toString(16)}/${length}B → ${message}`);
-        }
+  async probeCommands(from = 0x00, to = 0x30): Promise<string> {
+    const target = this.reportTarget ?? this.resolvePreferredTarget();
+    const lines: string[] = [
+      `target: ${this.useOutputReport ? "out" : "feat"} 0x${target.reportId.toString(16)}/${target.payloadLength}B`,
+      `collections: ${this.describeCollections()}`,
+    ];
+    for (let command = from; command <= to; command += 1) {
+      try {
+        const response = await this.query(command);
+        lines.push(
+          `0x${command.toString(16).padStart(2, "0")}: (${response.byteLength}B) ${this.toHex(response, 16)}`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "failed";
+        lines.push(`0x${command.toString(16).padStart(2, "0")}: ${message}`);
       }
     }
     return lines.join("\n");
@@ -288,21 +394,15 @@ export class EggWeHidClient {
     this.lastBatteryError = null;
     this.lastBatteryRaw = null;
 
-    // Try verified framing first, then a small set of alternate lengths only if needed.
-    const attempts = this.payloadLengthsToTry().flatMap((length) => ([
-      { reportId: WE_REPORT_ID, payloadLength: length },
-      { reportId: 0xa0, payloadLength: length },
-    ]));
+    // Quick path: preferred report + common battery commands.
+    const target = this.resolvePreferredTarget();
+    this.reportTarget = target;
+    this.useOutputReport = false;
 
-    let lastError: Error | null = null;
-    for (const attempt of attempts) {
+    for (const command of [0x04, 0xb4, 0x05, 0x0b]) {
       try {
-        this.reportTarget = attempt;
-        // Public protocol: double-read with wake delays.
-        await this.query(BATTERY_COMMAND, { wake: true });
-        await this.delay(100);
-        const response = await this.query(BATTERY_COMMAND, { wake: true });
-        this.lastBatteryRaw = this.toHex(response, 24);
+        const response = await this.query(command, { wake: true });
+        this.lastBatteryRaw = this.toHex(response, 16);
         const parsed = this.parseBatteryResponse(response);
         if (parsed.percent !== null) {
           return {
@@ -310,73 +410,56 @@ export class EggWeHidClient {
             state: this.productMeta().wired ? "Charging" : "Discharging",
           };
         }
-        // Keep the working transport even if parse failed — try next framing.
-        lastError = new Error(`no battery byte in ${this.lastBatteryRaw}`);
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        this.lastBatteryError = error instanceof Error ? error.message : String(error);
       }
     }
 
-    this.lastBatteryError = lastError?.message ?? "unknown";
-    // Restore preferred target for later probes.
-    this.reportTarget = this.resolveReportTarget();
-    return { percent: null, state: "Unknown" };
-  }
+    // Full probe across real report ids (0x06 / 0x08).
+    try {
+      const report = await this.probeBattery();
+      const selected = report.split("\n").find((line) => line.startsWith("SELECTED:"));
+      if (selected && this.lastBatteryRaw) {
+        const match = /parse=(\d+)/.exec(selected);
+        if (match) {
+          return {
+            percent: Number(match[1]),
+            state: this.productMeta().wired ? "Charging" : "Discharging",
+          };
+        }
+      }
+      this.lastBatteryError = "no battery byte in responses (see console probe)";
+    } catch (error) {
+      this.lastBatteryError = error instanceof Error ? error.message : String(error);
+    }
 
-  private payloadLengthsToTry(): number[] {
-    const fromDescriptor = EggWeHidClient.findFeatureReport(this.device, WE_REPORT_ID)?.payloadLength;
-    const lengths = [
-      WE_PAYLOAD_LENGTH, // 63 — matches Windows 64-byte buffer with report id
-      fromDescriptor,
-      64,
-      32,
-      31,
-      15,
-      7,
-    ].filter((value): value is number => typeof value === "number" && value > 0);
-    return [...new Set(lengths)];
+    return { percent: null, state: "Unknown" };
   }
 
   private parseBatteryResponse(response: Uint8Array): { percent: number | null } {
     if (response.byteLength === 0) return { percent: null };
 
-    // Detect whether report id is present.
-    if (response[0] === WE_REPORT_ID || response[0] === 0xa0) {
-      this.responseIncludesReportId = true;
-    } else if (this.responseIncludesReportId === null) {
-      this.responseIncludesReportId = false;
+    // Documented Pulsar-style: command echo + status + percent around index 5.
+    const pulsarStyle = response[5];
+    if (pulsarStyle !== undefined && pulsarStyle <= 100 && response[0] === 0x04) {
+      return { percent: pulsarStyle };
     }
 
-    const at = (windowsIndex: number): number | undefined => {
-      if (this.responseIncludesReportId) return response[windowsIndex];
-      return response[windowsIndex - 1];
-    };
-
-    // Documented layout (Windows indices): [1]=status 0x01|0x08, [16]=percent.
-    const status = at(1);
-    const documented = at(16);
-    if ((status === 0x01 || status === 0x08) && documented !== undefined && documented <= 100) {
-      return { percent: documented };
+    // Older WE docs (if report id still present): status @1, percent @16 — rare on 16B reports.
+    if (response.byteLength > 16) {
+      const status = response[1];
+      const percent = response[16];
+      if ((status === 0x01 || status === 0x08) && percent !== undefined && percent <= 100) {
+        return { percent };
+      }
     }
 
-    // Alternate common layouts seen across CompX-ish devices.
-    const candidates = [
-      at(16), at(15), at(5), at(4), at(3), at(2),
-      response[15], response[16], response[5], response[4], response[0],
-    ];
+    // Heuristic: prefer payload bytes (skip command echo at [0]).
+    const candidates = [5, 4, 3, 2, 6, 7, 1, 8, 9, 10, 11, 12, 13, 14, 15]
+      .map((index) => response[index])
+      .filter((value): value is number => value !== undefined);
     for (const value of candidates) {
-      if (value !== undefined && value > 0 && value <= 100) {
-        return { percent: value };
-      }
-    }
-
-    // Last resort: any byte in 5–100 that is not a known status marker alone.
-    for (let index = 0; index < response.byteLength; index += 1) {
-      const value = response[index];
-      if (value >= 5 && value <= 100 && value !== WE_REPORT_ID && value !== BATTERY_COMMAND) {
-        // Prefer later bytes (payload) over early command echoes.
-        if (index >= 2) return { percent: value };
-      }
+      if (value >= 1 && value <= 100) return { percent: value };
     }
     return { percent: null };
   }
@@ -384,60 +467,112 @@ export class EggWeHidClient {
   private query(command: number, options: { wake?: boolean } = {}): Promise<Uint8Array> {
     const run = async (): Promise<Uint8Array> => {
       await this.open();
-      const payload = new Uint8Array(1);
-      payload[0] = command;
-      await this.sendFeatureExact(payload);
-      if (options.wake) await this.delay(350);
+      const target = this.reportTarget ?? this.resolvePreferredTarget();
+      const packet = new Uint8Array(target.payloadLength);
+      packet[0] = command;
+      // CompX/Pulsar-style: length field + checksum on 16-byte reports.
+      if (target.payloadLength >= 16) {
+        packet[4] = 0;
+        packet[15] = this.simpleChecksum(packet, target.reportId);
+      }
+
+      if (this.useOutputReport) {
+        return await this.exchangeOutput(target.reportId, packet, options.wake ? 400 : 80);
+      }
+
+      await this.sendFeature(target, packet);
+      if (options.wake) await this.delay(200);
       else await this.delay(40);
-      return await this.receiveFeature();
+      return await this.receiveFeature(target.reportId);
     };
     const next = this.commandQueue.then(run, run);
     this.commandQueue = next.then(() => undefined, () => undefined);
     return next;
   }
 
-  /**
-   * Send using the current report target only (exact size). Do not “succeed”
-   * on a random length — that was caching a silent no-op framing.
-   */
-  private async sendFeatureExact(payload: Uint8Array): Promise<void> {
-    await this.open();
-    const target = this.reportTarget ?? this.resolveReportTarget();
+  private simpleChecksum(packet: Uint8Array, reportId: number): number {
+    let sum = 0;
+    for (let index = 0; index < packet.length - 1; index += 1) sum += packet[index];
+    // Pulsar uses 0x55 - sum - reportId; try that on 16-byte frames.
+    return (0x55 - (sum & 0xff) - reportId) & 0xff;
+  }
+
+  private async sendFeature(target: FeatureReportTarget, packet: Uint8Array): Promise<void> {
     const data = new Uint8Array(target.payloadLength);
-    data.set(payload.subarray(0, Math.min(payload.byteLength, data.byteLength)));
+    data.set(packet.subarray(0, Math.min(packet.byteLength, data.byteLength)));
     try {
       await this.device.sendFeatureReport(target.reportId, data);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `${message} (report 0x${target.reportId.toString(16)}, ${target.payloadLength}B payload, `
-        + `pid 0x${this.device.productId.toString(16)}, ${this.describeCollections()})`,
+        `${message} (feat 0x${target.reportId.toString(16)}, ${target.payloadLength}B, `
+        + `pid 0x${this.device.productId.toString(16)})`,
       );
     }
   }
 
-  private async receiveFeature(): Promise<Uint8Array> {
-    await this.open();
-    const target = this.reportTarget ?? this.resolveReportTarget();
+  private async receiveFeature(reportId: number): Promise<Uint8Array> {
     try {
-      const view = await this.device.receiveFeatureReport(target.reportId);
-      return this.copyDataView(view);
+      return this.copyDataView(await this.device.receiveFeatureReport(reportId));
     } catch (error) {
-      // Some stacks want the same report id used for set; try the other common id once.
-      if (target.reportId === WE_REPORT_ID) {
+      // Try sibling report id if present.
+      const alt = this.allTransportTargets().find((target) => target.reportId !== reportId);
+      if (alt) {
         try {
-          const view = await this.device.receiveFeatureReport(0xa0);
-          return this.copyDataView(view);
+          return this.copyDataView(await this.device.receiveFeatureReport(alt.reportId));
         } catch {
           // fall through
         }
       }
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${message} (receive report 0x${target.reportId.toString(16)})`);
+      throw new Error(`${message} (receive feat 0x${reportId.toString(16)})`);
     }
   }
 
-  private toHex(bytes: Uint8Array, max = 24): string {
+  private async exchangeOutput(
+    reportId: number,
+    packet: Uint8Array,
+    settleMs: number,
+  ): Promise<Uint8Array> {
+    this.clearInputWaiter(new Error("Superseded."));
+
+    const response = new Promise<Uint8Array>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.inputWaiter = null;
+        resolve(new Uint8Array());
+      }, 800);
+      this.inputWaiter = { reportId, resolve, reject, timer };
+    });
+
+    const data = new Uint8Array(packet.byteLength);
+    data.set(packet);
+    try {
+      await this.device.sendReport(reportId, data);
+    } catch (error) {
+      this.clearInputWaiter();
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`${message} (out 0x${reportId.toString(16)}, ${packet.byteLength}B)`);
+    }
+
+    await this.delay(settleMs);
+    const input = await response;
+    if (input.byteLength > 0) return input;
+    try {
+      return this.copyDataView(await this.device.receiveFeatureReport(reportId));
+    } catch {
+      return input;
+    }
+  }
+
+  private clearInputWaiter(reason?: Error): void {
+    const waiter = this.inputWaiter;
+    if (!waiter) return;
+    window.clearTimeout(waiter.timer);
+    this.inputWaiter = null;
+    if (reason) waiter.reject(reason);
+  }
+
+  private toHex(bytes: Uint8Array, max = 16): string {
     const slice = bytes.subarray(0, max);
     const hex = [...slice].map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
     return bytes.byteLength > max ? `${hex}…` : hex;
