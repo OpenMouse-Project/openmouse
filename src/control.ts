@@ -857,11 +857,30 @@ function escapeHtml(value: string): string {
   })[character]!);
 }
 
+/**
+ * Collapse Endgame WE cable + receiver into one logical mouse.
+ * Prefer the USB mouse interface when both are present; otherwise use the
+ * receiver as the wireless path to that same mouse.
+ */
+function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
+  const supported = (devices ?? [])
+    .filter((device) => createSupportedClient(device) !== null);
+  const we = supported.filter((device) => EggWeHidClient.isSupported(device));
+  const other = supported.filter((device) => !EggWeHidClient.isSupported(device));
+  if (we.length === 0) return supported;
+
+  const mice = we.filter((device) => !EggWeHidClient.isReceiverDevice(device));
+  const receivers = we.filter((device) => EggWeHidClient.isReceiverDevice(device));
+  if (mice.length > 0) return [...other, ...mice];
+  // Wireless-only: one receiver entry represents the mouse.
+  return [...other, ...receivers.slice(0, 1)];
+}
+
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
   const list = document.querySelector<HTMLElement>("#sidebar-device-list");
   if (!list) return;
-  const supportedDevices = (devices ?? await navigator.hid?.getDevices() ?? [])
-    .filter((device) => createSupportedClient(device) !== null);
+  const all = devices ?? await navigator.hid?.getDevices() ?? [];
+  const supportedDevices = listLogicalDevices(all);
   if (supportedDevices.length === 0) {
     list.innerHTML = `<div class="device-select"><span class="device-dot is-idle"></span><span><strong>No device connected</strong><small>Choose a supported device</small></span></div>`;
     return;
@@ -870,8 +889,14 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
     const client = createSupportedClient(device)!;
     const status = deviceStatuses.get(device);
     const selected = device === activeDevice;
-    const name = status?.name ?? device.productName ?? `${deviceBrand(client)} mouse`;
-    const detail = status ? `${status.brand} · Connected` : `${deviceBrand(client)} · Available`;
+    const viaReceiver = client instanceof EggWeHidClient && EggWeHidClient.isReceiverDevice(device);
+    const name = status?.name
+      ?? (viaReceiver ? "Endgame Gear OP1we" : (device.productName ?? `${deviceBrand(client)} mouse`));
+    const detail = status
+      ? `${status.brand} · ${status.connectionType ?? "Connected"}`
+      : viaReceiver
+        ? `${deviceBrand(client)} · Wireless receiver`
+        : `${deviceBrand(client)} · Available`;
     return `<button class="device-select${selected ? " is-selected" : ""}" type="button" data-device-index="${index}" aria-pressed="${selected}">
       <span class="device-dot${selected ? "" : " is-idle"}"></span>
       <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span>
@@ -881,8 +906,7 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
 
 async function selectAuthorizedDevice(index: number): Promise<void> {
   if (settingInProgress || refreshInProgress) return;
-  const devices = (await navigator.hid?.getDevices() ?? [])
-    .filter((device) => createSupportedClient(device) !== null);
+  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
   const device = devices[index];
   if (!device || device === activeDevice) return;
   const client = createSupportedClient(device);
@@ -1017,11 +1041,13 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   });
   if (devices.length === 0) return null;
 
-  // Prefer the interface that scores highest for its brand driver (e.g. WE feature 0xa1).
+  // Prefer the interface that scores highest for its brand driver.
+  // For WE: prefer the mouse USB interface over a separate receiver entry.
   const ranked = devices
     .map((device) => ({ device, client: createSupportedClient(device), score: clientSupportScore(device) }))
+    .filter((entry) => entry.client !== null)
     .sort((left, right) => right.score - left.score);
-  const best = ranked.find((entry) => entry.client !== null);
+  const best = ranked[0];
   if (best?.client) return best.client;
 
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
@@ -1099,7 +1125,11 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     for (const delay of retryDelays) {
       if (delay) await waitForHidChange(delay);
       const devices = await navigator.hid?.getDevices() ?? [];
-      const clients = devices.map(createSupportedClient).filter((candidate): candidate is SupportedClient => candidate !== null);
+      const clients = listLogicalDevices(devices)
+        .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
+        .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
+        .sort((left, right) => right.score - left.score)
+        .map((entry) => entry.client);
       await renderDeviceSidebar(devices);
       for (const client of clients) {
         try {

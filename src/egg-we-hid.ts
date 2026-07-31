@@ -14,12 +14,17 @@ import type { MouseStatus } from "./mouse-types";
 
 const EGG_VENDOR_ID = 0x3367;
 
-const KNOWN_PRODUCTS = new Map<number, { name: string; wired: boolean }>([
-  [0x1962, { name: "Endgame Gear OP1we", wired: true }],
-  [0x1972, { name: "Endgame Gear OP1we", wired: true }],
-  [0x1970, { name: "Endgame Gear wireless receiver", wired: false }],
-  [0x1968, { name: "Endgame Gear XM2we", wired: true }],
-  [0x1982, { name: "Endgame Gear XM2w v2", wired: true }],
+/**
+ * Known PIDs are hints only. Cable vs dongle is detected from the product
+ * name ("Receiver" / "Dongle"). Display name is always the mouse, never the
+ * receiver as a separate product.
+ */
+const KNOWN_MOUSE_NAMES = new Map<number, string>([
+  [0x1962, "Endgame Gear OP1we"],
+  [0x1972, "Endgame Gear OP1we"],
+  [0x1970, "Endgame Gear OP1we"],
+  [0x1968, "Endgame Gear XM2we"],
+  [0x1982, "Endgame Gear XM2w"],
 ]);
 
 const EGG_8K_PRODUCT_IDS = new Set([0x1964, 0x1966, 0x1976, 0x1978]);
@@ -45,6 +50,8 @@ export class EggWeHidClient {
   private reportTarget: FeatureReportTarget | null = null;
   private lastBatteryRaw: string | null = null;
   private lastBatteryError: string | null = null;
+  private lastBatteryNote: string | null = null;
+  private lockedBattery: { command: number; byteIndex: number } | null = null;
   private useOutputReport = false;
   private inputWaiter: {
     reportId: number;
@@ -76,6 +83,12 @@ export class EggWeHidClient {
       || this.collectionTreeHasVendorUsage(device.collections);
   }
 
+  /** USB dongle / receiver interface (still talks to the mouse over 2.4 GHz). */
+  static isReceiverDevice(device: HIDDevice): boolean {
+    const name = (device.productName || "").toLowerCase();
+    return name.includes("receiver") || name.includes("dongle");
+  }
+
   static supportScore(device: HIDDevice): number {
     if (!this.isSupported(device)) return 0;
     let score = 1;
@@ -84,6 +97,8 @@ export class EggWeHidClient {
     if (features.some((report) => report.reportId === 0x08 && report.payloadLength >= 15)) score += 6;
     if (features.some((report) => report.reportId === 0x06)) score += 2;
     if (features.some((report) => report.reportId === 0xa1)) score += 1;
+    // Prefer the mouse USB interface over a bare receiver when both are present.
+    if (!this.isReceiverDevice(device)) score += 3;
     score += Math.min(features.length, 3);
     return score;
   }
@@ -179,16 +194,37 @@ export class EggWeHidClient {
     return [...POLLING_RATES];
   }
 
-  private productMeta(): { name: string; wired: boolean } {
-    const known = KNOWN_PRODUCTS.get(this.device.productId);
-    if (known) return known;
-    const productName = this.device.productName?.trim() || "Endgame Gear WE mouse";
+  private productMeta(): { name: string; wired: boolean; viaReceiver: boolean } {
+    const viaReceiver = EggWeHidClient.isReceiverDevice(this.device);
+    const knownName = KNOWN_MOUSE_NAMES.get(this.device.productId);
+    const productName = this.device.productName?.trim() || "";
     const lower = productName.toLowerCase();
-    const wired = !lower.includes("receiver") && !lower.includes("dongle");
-    if (lower.includes("op1we") || lower.includes("op1 we")) {
-      return { name: wired ? "Endgame Gear OP1we" : "Endgame Gear OP1we receiver", wired };
+
+    let name = knownName ?? (productName || "Endgame Gear WE mouse");
+    // Always show the mouse name — never list "Receiver" as the product.
+    if (viaReceiver) {
+      if (lower.includes("op1we") || lower.includes("op1 we") || knownName?.includes("OP1we")) {
+        name = "Endgame Gear OP1we";
+      } else if (lower.includes("xm2") || knownName?.includes("XM2")) {
+        name = knownName ?? "Endgame Gear XM2we";
+      } else {
+        const cleaned = productName
+          .replace(/\s*receiver\s*/ig, " ")
+          .replace(/\s*dongle\s*/ig, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        name = knownName ?? (cleaned || "Endgame Gear mouse");
+      }
+    } else if (lower.includes("op1we") || lower.includes("op1 we")) {
+      name = "Endgame Gear OP1we";
     }
-    return { name: productName, wired };
+
+    return {
+      name,
+      // Cable interface = wired/charging path; receiver = wireless path to the same mouse.
+      wired: !viaReceiver,
+      viaReceiver,
+    };
   }
 
   /** Prefer 16-byte report 0x08, then any largest feature report, then output reports. */
@@ -243,12 +279,14 @@ export class EggWeHidClient {
     const target = this.reportTarget ?? this.resolvePreferredTarget();
 
     const detailParts = [
-      meta.wired ? "Wired USB" : "2.4 GHz dongle",
+      meta.viaReceiver ? "2.4 GHz (via receiver)" : "Wired USB",
       `PID 0x${this.device.productId.toString(16).toUpperCase()}`,
       "WE protocol",
       `${this.useOutputReport ? "out" : "feat"} 0x${target.reportId.toString(16)}/${target.payloadLength}B`,
-      this.describeCollections(),
     ];
+    if (battery.percent !== null && this.lastBatteryNote) {
+      detailParts.push(this.lastBatteryNote);
+    }
     if (battery.percent === null) {
       detailParts.push(this.lastBatteryError ? `battery: ${this.lastBatteryError}` : "battery unread");
       if (this.lastBatteryRaw) detailParts.push(`raw ${this.lastBatteryRaw}`);
@@ -333,16 +371,21 @@ export class EggWeHidClient {
             this.reportTarget = target;
             this.useOutputReport = viaOutput;
             const response = await this.query(command, { wake: command === 0xb4 || command === 0x04 });
-            const parsed = this.parseBatteryResponse(response);
+            const parsed = this.parseBatteryResponse(response, command);
             const mode = viaOutput ? "out" : "feat";
             const line =
               `${mode} 0x${target.reportId.toString(16)}/${target.payloadLength}B `
               + `cmd 0x${command.toString(16).padStart(2, "0")} → ${response.byteLength}B `
-              + `[${this.toHex(response, 16)}] parse=${parsed.percent ?? "null"}`;
+              + `[${this.toHex(response, 16)}] parse=${parsed.percent ?? "null"}`
+              + (parsed.note ? ` (${parsed.note})` : "");
             lines.push(line);
             if (parsed.percent !== null && !found) {
               found = { percent: parsed.percent, line };
               this.lastBatteryRaw = this.toHex(response, 16);
+              this.lastBatteryNote = parsed.note;
+              if (parsed.byteIndex !== undefined) {
+                this.lockedBattery = { command, byteIndex: parsed.byteIndex };
+              }
               // Keep working transport locked in.
               this.reportTarget = target;
               this.useOutputReport = viaOutput;
@@ -393,21 +436,31 @@ export class EggWeHidClient {
   }> {
     this.lastBatteryError = null;
     this.lastBatteryRaw = null;
+    this.lastBatteryNote = null;
+    const meta = this.productMeta();
 
     // Quick path: preferred report + common battery commands.
     const target = this.resolvePreferredTarget();
     this.reportTarget = target;
     this.useOutputReport = false;
 
-    for (const command of [0x04, 0xb4, 0x05, 0x0b]) {
+    const commands = this.lockedBattery
+      ? [this.lockedBattery.command, 0x04, 0xb4, 0x05, 0x0b]
+      : [0x04, 0xb4, 0x05, 0x0b];
+
+    for (const command of commands) {
       try {
         const response = await this.query(command, { wake: true });
         this.lastBatteryRaw = this.toHex(response, 16);
-        const parsed = this.parseBatteryResponse(response);
+        const parsed = this.parseBatteryResponse(response, command);
         if (parsed.percent !== null) {
+          this.lastBatteryNote = parsed.note;
+          if (parsed.byteIndex !== undefined) {
+            this.lockedBattery = { command, byteIndex: parsed.byteIndex };
+          }
           return {
             percent: parsed.percent,
-            state: this.productMeta().wired ? "Charging" : "Discharging",
+            state: this.decodeChargeState(response, meta.wired, parsed.percent),
           };
         }
       } catch (error) {
@@ -424,7 +477,7 @@ export class EggWeHidClient {
         if (match) {
           return {
             percent: Number(match[1]),
-            state: this.productMeta().wired ? "Charging" : "Discharging",
+            state: this.decodeChargeState(null, meta.wired, Number(match[1])),
           };
         }
       }
@@ -436,32 +489,91 @@ export class EggWeHidClient {
     return { percent: null, state: "Unknown" };
   }
 
-  private parseBatteryResponse(response: Uint8Array): { percent: number | null } {
-    if (response.byteLength === 0) return { percent: null };
+  private decodeChargeState(
+    response: Uint8Array | null,
+    wired: boolean,
+    percent: number,
+  ): MouseStatus["batteryState"] {
+    // Pulsar-style charge flag at index 6.
+    if (response && response[6] === 1) return "Charging";
+    if (response && response[6] === 0 && !wired) return "Discharging";
+    if (wired) return percent >= 99 ? "Full" : "Charging";
+    return "Discharging";
+  }
 
-    // Documented Pulsar-style: command echo + status + percent around index 5.
-    const pulsarStyle = response[5];
-    if (pulsarStyle !== undefined && pulsarStyle <= 100 && response[0] === 0x04) {
-      return { percent: pulsarStyle };
-    }
+  /**
+   * Parse battery carefully — early heuristics grabbed the first 1–100 byte and
+   * often mis-read status/flags (e.g. sticky 100% on the receiver, or ~52 vs OEM 70).
+   */
+  private parseBatteryResponse(
+    response: Uint8Array,
+    command: number,
+  ): { percent: number | null; byteIndex?: number; note: string | null } {
+    if (response.byteLength === 0) return { percent: null, note: null };
 
-    // Older WE docs (if report id still present): status @1, percent @16 — rare on 16B reports.
-    if (response.byteLength > 16) {
-      const status = response[1];
-      const percent = response[16];
-      if ((status === 0x01 || status === 0x08) && percent !== undefined && percent <= 100) {
-        return { percent };
+    // Locked offset from a previous good read on this session.
+    if (this.lockedBattery && this.lockedBattery.command === command) {
+      const value = response[this.lockedBattery.byteIndex];
+      const scaled = this.normalizePercent(value);
+      if (scaled !== null) {
+        return {
+          percent: scaled,
+          byteIndex: this.lockedBattery.byteIndex,
+          note: `batt@${this.lockedBattery.byteIndex} cmd 0x${command.toString(16)}`,
+        };
       }
     }
 
-    // Heuristic: prefer payload bytes (skip command echo at [0]).
-    const candidates = [5, 4, 3, 2, 6, 7, 1, 8, 9, 10, 11, 12, 13, 14, 15]
-      .map((index) => response[index])
-      .filter((value): value is number => value !== undefined);
-    for (const value of candidates) {
-      if (value >= 1 && value <= 100) return { percent: value };
+    // Pulsar-family layout (cmd 0x04): percent @5, charge @6.
+    if (command === 0x04 || response[0] === 0x04) {
+      const at5 = this.normalizePercent(response[5]);
+      if (at5 !== null) {
+        return { percent: at5, byteIndex: 5, note: "batt@5 (0x04 layout)" };
+      }
     }
-    return { percent: null };
+
+    // Score candidate payload indices — skip command echo [0] and checksum tail.
+    type Candidate = { index: number; percent: number; score: number };
+    const candidates: Candidate[] = [];
+    const last = Math.max(1, response.byteLength - 1);
+    for (let index = 1; index < last; index += 1) {
+      const raw = response[index];
+      const percent = this.normalizePercent(raw);
+      if (percent === null) continue;
+
+      let score = 10;
+      // Prefer CompX/Pulsar payload region.
+      if (index === 5) score += 8;
+      if (index === 4 || index === 3) score += 4;
+      if (index >= 2 && index <= 6) score += 2;
+      // 100% is often a status flag, not a real reading — deprioritize.
+      if (percent === 100) score -= 12;
+      if (percent === 0) score -= 6;
+      // Extremely common false positives.
+      if (raw === command) score -= 20;
+      if (raw === 0x08 || raw === 0x06) score -= 4;
+
+      candidates.push({ index, percent, score });
+    }
+
+    candidates.sort((left, right) => right.score - left.score || left.index - right.index);
+    const best = candidates[0];
+    if (!best || best.score < 8) return { percent: null, note: null };
+
+    return {
+      percent: best.percent,
+      byteIndex: best.index,
+      note: `batt@${best.index} raw 0x${(response[best.index] ?? 0).toString(16)}`,
+    };
+  }
+
+  /** Map raw report bytes to 1–100%. Supports plain % and 0–20×5 style. */
+  private normalizePercent(value: number | undefined): number | null {
+    if (value === undefined) return null;
+    if (value >= 1 && value <= 100) return value;
+    // Some CompX stacks report 0–20 in 5% steps.
+    if (value >= 1 && value <= 20) return value * 5;
+    return null;
   }
 
   private query(command: number, options: { wake?: boolean } = {}): Promise<Uint8Array> {
