@@ -589,19 +589,18 @@ function resetDeviceSpecificPanels(): void {
 
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
-  const isEgg8k = status.brand === "Endgame Gear" && status.connectionDetail?.includes("WE protocol") !== true
-    && (status.eggCpiStages !== undefined || status.leftSpdtMode !== undefined || activeEggClient !== null);
-  const isEggWe = status.brand === "Endgame Gear" && (
-    status.connectionDetail?.includes("WE protocol") === true || activeEggWeClient !== null
-  );
+  // 8K exposes CPI stages / GX; WE does not.
+  const isEgg8k = status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages);
+  const isEggWe = status.brand === "Endgame Gear" && !isEgg8k;
   const isEgg = isEgg8k || isEggWe;
+  const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
   // mouse may have left these visible when WebHID switches devices.
   resetDeviceSpecificPanels();
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
-    // WE mice report battery even when cable-connected (charging); 8K is wired-only.
+    // 8K is wired-only (no battery). WE and wireless mice show the battery column.
     const hideBattery = isEgg8k || (isWired && !isEggWe && status.batteryPercent === null);
     batterySummary.hidden = hideBattery;
     batterySummary.style.display = hideBattery ? "none" : "flex";
@@ -620,9 +619,8 @@ function showStatus(status: MouseStatus): void {
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
-    // Debounce: Pulsar when reported; WE only once settings map is reverse-engineered.
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || (isEggWe && EggWeHidClient.settingsMapped));
+      && status.brand === "Pulsar";
     debounceSettings.hidden = !showDebounce;
   }
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
@@ -630,7 +628,6 @@ function showStatus(status: MouseStatus): void {
     performanceModeSetting.hidden = isEgg;
     performanceModeSetting.style.display = isEgg ? "none" : "flex";
   }
-  // Motion Sync / angle / ripple card is Pulsar (+ 8K partially via other cards). Hide for WE.
   const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
   if (processingCard && processingCard.id !== "egg-filter-settings") {
     processingCard.style.display = isEggWe ? "none" : "";
@@ -641,7 +638,11 @@ function showStatus(status: MouseStatus): void {
   setText("#battery-value", battery);
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
-  setText("#firmware-detail", status.firmware.slice(1).join(" · ") || "Firmware reported by mouse");
+  setText("#firmware-detail", status.firmware.length > 1
+    ? status.firmware.slice(1).join(" · ")
+    : status.firmware.length === 1
+      ? "Firmware reported by mouse"
+      : "Not reported");
   setText("#connection-value", status.connectionType ?? "Wireless");
   setText("#connection-detail", status.connectionDetail
     ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
@@ -655,12 +656,14 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar"
-      || isEgg8k
-      || (isEggWe && EggWeHidClient.settingsMapped);
+    const showAdvanced = status.brand === "Pulsar" || isEgg8k;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
+  // Hide DPI / polling / LOD until WE settings are mapped — same overview-only look as early empty state.
+  const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
+  if (settingsGrid) settingsGrid.style.display = weSettingsPending ? "none" : "";
+
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
@@ -678,7 +681,6 @@ function showStatus(status: MouseStatus): void {
     const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
     const eggCpiSettings = document.querySelector<HTMLElement>("#egg-cpi-settings");
     const eggButtonSettings = document.querySelector<HTMLElement>("#egg-button-settings");
-    // 8K-only panels — never show for WE series.
     if (eggFilterSettings) eggFilterSettings.style.display = isEgg8k ? "block" : "none";
     if (eggSpdtSettings) eggSpdtSettings.style.display = isEgg8k ? "block" : "none";
     if (eggPollingSettings) eggPollingSettings.style.display = isEgg8k && interfacePreferences.showExperimental ? "block" : "none";
@@ -710,18 +712,12 @@ function showStatus(status: MouseStatus): void {
     void renderDeviceSidebar();
   }
   setText("#device-status", "Connected");
-  const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
-  setText("#connection-banner", weSettingsPending
-    ? (status.connectionType === "Wireless"
-      ? "OP1we (via receiver). Config HID is idle so the mouse does not freeze. Settings need WE software capture."
-      : "OP1we (USB). Battery approximate if shown; settings need WE software capture.")
-    : "Connected directly through WebHID. Supported settings can be adjusted here.");
+  // Same banner copy as other brands — no RE/debug messaging in the chrome.
+  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (weSettingsPending) {
-    setText("#read-status", status.connectionType === "Wireless"
-      ? "Wireless path · no config HID · settings map pending"
-      : (status.batteryPercent === null
-        ? `Connected · ${status.connectionDetail ?? ""}`
-        : `Battery ~${status.batteryPercent}% (approx) · settings map pending`));
+    setText("#read-status", status.batteryPercent === null
+      ? "Connected"
+      : `Battery ${status.batteryPercent}%`);
   } else {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -737,27 +733,24 @@ function showStatus(status: MouseStatus): void {
     const unsupportedForEgg8k = isEgg8k && rate < 1000;
     const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
     const unsupportedForLogitech = status.brand === "Logitech" && unsupportedForListed;
-    const unsupportedForWe = isEggWe && (weSettingsPending || unsupportedForListed);
-    const hide = unsupportedForEgg8k || unsupportedForLogitech || unsupportedForWe;
-    button.hidden = hide || weSettingsPending;
-    button.disabled = hide || weSettingsPending;
+    const hide = unsupportedForEgg8k || unsupportedForLogitech || weSettingsPending;
+    button.hidden = hide;
+    button.disabled = hide;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
-    const disableWe = weSettingsPending || status.liftOffDistance === null;
     button.hidden = unsupportedForEgg || weSettingsPending;
-    button.disabled = unsupportedForEgg || disableWe || (status.brand === "Logitech" && button.dataset.lod === "Low");
+    button.disabled = unsupportedForEgg || weSettingsPending
+      || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
-    if (weSettingsPending) {
-      button.disabled = true;
-    }
+    button.disabled = weSettingsPending;
   });
   const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (customDpi) customDpi.disabled = weSettingsPending;
   if (dpiOutputField && weSettingsPending) {
-    dpiOutputField.value = "Pending RE";
+    dpiOutputField.value = "—";
     dpiOutputField.readOnly = true;
   }
   const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
