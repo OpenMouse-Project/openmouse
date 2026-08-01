@@ -315,7 +315,9 @@ function renderControl(): void {
           <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" type="button" role="switch" aria-checked="false" hidden style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
           <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
           <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="egg-sensor-tuning" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PAW3950</p><h2>Sensor tuning</h2></div></div><div id="egg-glass-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Glass Mode</span><button id="egg-glass-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="egg-v2-sensor-controls"><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Force max Sensor FPS</span><button id="egg-max-fps-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Disable LED on lift-off</span><button id="egg-led-lift-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Sensor angle tuning<input id="egg-angle-tuning" type="number" min="-127" max="127" step="1" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label></div></article>
           <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
+          <article id="egg-device-actions" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>DEVICE</p><h2>Onboard settings</h2></div></div><button id="egg-reload" class="egg-action-button" type="button">Reload from mouse</button><button id="egg-factory-reset" class="egg-action-button" type="button" style="border-color:#6a373a;color:#e7a7aa">Factory reset</button></article>
           <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
           <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
           <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:flex;align-items:center;gap:.4rem;margin:0 0 .65rem;color:#b3b3b7;font-size:.68rem"><input id="egg-left-handed" type="checkbox" /> Left-handed mode</label><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
@@ -429,6 +431,21 @@ function renderControl(): void {
       void applyEggFilter(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
     });
   }
+  const eggSensorToggles = [
+    ["#egg-glass-toggle", "glass"],
+    ["#egg-max-fps-toggle", "maxFps"],
+    ["#egg-led-lift-toggle", "ledLift"],
+  ] as const;
+  for (const [selector, setting] of eggSensorToggles) {
+    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
+      void applyEggSensorToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
+    });
+  }
+  document.querySelector<HTMLInputElement>("#egg-angle-tuning")?.addEventListener("change", (event) => {
+    void applyEggAngleTuning(Number((event.target as HTMLInputElement).value));
+  });
+  document.querySelector<HTMLButtonElement>("#egg-reload")?.addEventListener("click", () => { void refreshStatus(); });
+  document.querySelector<HTMLButtonElement>("#egg-factory-reset")?.addEventListener("click", () => { void applyEggFactoryReset(); });
   document.querySelector<HTMLSelectElement>("#left-spdt-select")?.addEventListener("change", (event) => {
     void applyEggSpdtMode("left", (event.target as HTMLSelectElement).value as EggSpdtMode);
   });
@@ -624,6 +641,8 @@ function resetDeviceSpecificPanels(): void {
     "#egg-polling-settings",
     "#egg-cpi-settings",
     "#egg-button-settings",
+    "#egg-sensor-tuning",
+    "#egg-device-actions",
     "#pulsar-pro-settings",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
@@ -753,11 +772,20 @@ function showStatus(status: MouseStatus): void {
     const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
     const eggCpiSettings = document.querySelector<HTMLElement>("#egg-cpi-settings");
     const eggButtonSettings = document.querySelector<HTMLElement>("#egg-button-settings");
+    const eggSensorTuning = document.querySelector<HTMLElement>("#egg-sensor-tuning");
+    const eggDeviceActions = document.querySelector<HTMLElement>("#egg-device-actions");
     if (eggFilterSettings) eggFilterSettings.style.display = isEgg8k ? "block" : "none";
     if (eggSpdtSettings) eggSpdtSettings.style.display = isEgg8k ? "block" : "none";
     if (eggPollingSettings) eggPollingSettings.style.display = isEgg8k && interfacePreferences.showExperimental ? "block" : "none";
     if (eggCpiSettings) eggCpiSettings.style.display = isEgg8k ? "block" : "none";
     if (eggButtonSettings) eggButtonSettings.style.display = isEgg8k ? "block" : "none";
+    if (eggSensorTuning) {
+      eggSensorTuning.style.display = eggStatus
+        && (eggStatus.eggSupportsGlassMode === true || eggStatus.eggSupportsV2SensorControls === true)
+        ? "block"
+        : "none";
+    }
+    if (eggDeviceActions) eggDeviceActions.style.display = isEgg8k ? "block" : "none";
     if (eggStatus) {
       setToggleValue("#slamclick-filter-toggle", eggStatus.slamclickFilter);
       setToggleValue("#motion-jitter-filter-toggle", eggStatus.motionJitterFilter);
@@ -765,6 +793,28 @@ function showStatus(status: MouseStatus): void {
       setControlValue("#right-spdt-select", eggStatus.rightSpdtMode);
       setControlValue("#egg-cpi-levels", eggStatus.eggCpiLevels);
       setControlValue("#egg-polling-divider", eggStatus.eggPollingDivider);
+      setToggleValue("#egg-glass-toggle", eggStatus.eggGlassMode);
+      setToggleValue("#egg-max-fps-toggle", eggStatus.eggForceMaxFps);
+      setToggleValue("#egg-led-lift-toggle", eggStatus.eggLedLiftOffDisabled);
+      setControlValue("#egg-angle-tuning", eggStatus.eggAngleTuning);
+      const glassRow = document.querySelector<HTMLElement>("#egg-glass-row");
+      const v2SensorControls = document.querySelector<HTMLElement>("#egg-v2-sensor-controls");
+      if (glassRow) glassRow.style.display = eggStatus.eggSupportsGlassMode ? "flex" : "none";
+      if (v2SensorControls) v2SensorControls.style.display = eggStatus.eggSupportsV2SensorControls ? "block" : "none";
+      const customDivider = document.querySelector<HTMLInputElement>("#egg-polling-divider");
+      const applyDivider = document.querySelector<HTMLButtonElement>("#apply-egg-polling");
+      if (customDivider) customDivider.disabled = settingsPending || eggStatus.eggGlassMode === true;
+      if (applyDivider) applyDivider.disabled = settingsPending || eggStatus.eggGlassMode === true;
+      const motionSync = document.querySelector<HTMLButtonElement>("#motion-sync-toggle");
+      if (motionSync && status.pollingRateHz === 8000 && eggStatus.eggMotionSyncAt8k === false) {
+        motionSync.disabled = true;
+        motionSync.title = "The PAW3395 cannot use Motion Sync at 8,000 Hz.";
+      } else if (motionSync) {
+        motionSync.title = "";
+      }
+      if (eggStatus.eggGlassMode === true) {
+        setText("#polling-note", "Glass Mode is active; mouse firmware controls the polling divider.");
+      }
       const leftHanded = document.querySelector<HTMLInputElement>("#egg-left-handed");
       if (leftHanded) leftHanded.checked = eggStatus.eggLeftHanded;
       updateCustomPollingPreview();
@@ -819,7 +869,7 @@ function showStatus(status: MouseStatus): void {
     const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
     const hide = hideListed || settingsPending;
     button.hidden = hide;
-    button.disabled = hide || settingsPending;
+    button.disabled = hide || settingsPending || eggStatus?.eggGlassMode === true;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const hideLow = button.dataset.lod === "Low"
@@ -1752,6 +1802,31 @@ async function applyEggButtonMapping(button: EggButtonIndex, action: EggButtonAc
       : action;
     await client.setButtonMapping(button, normalized);
   });
+}
+
+type EggSensorToggle = "glass" | "maxFps" | "ledLift";
+
+async function applyEggSensorToggle(setting: EggSensorToggle, enabled: boolean): Promise<void> {
+  const label = setting === "glass"
+    ? "Glass Mode"
+    : setting === "maxFps"
+      ? "Force max Sensor FPS"
+      : "lift-off LED behavior";
+  await applyEggChange(label, async (client) => {
+    if (setting === "glass") await client.setGlassMode(enabled);
+    if (setting === "maxFps") await client.setForceMaxSensorFps(enabled);
+    if (setting === "ledLift") await client.setLedLiftOffDisabled(enabled);
+  });
+}
+
+async function applyEggAngleTuning(value: number): Promise<void> {
+  await applyEggChange("Sensor Angle Tuning", async (client) => client.setSensorAngleTuning(value));
+}
+
+async function applyEggFactoryReset(): Promise<void> {
+  if (!activeEggClient || settingInProgress) return;
+  if (!window.confirm("Reset every onboard setting on this mouse to its factory default?")) return;
+  await applyEggChange("factory defaults", async (client) => client.factoryReset());
 }
 
 async function applyEggChange(label: string, change: (client: EggOp1HidClient) => Promise<void>): Promise<void> {

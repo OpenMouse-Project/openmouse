@@ -159,6 +159,19 @@ export class EggOp1HidClient {
       eggPollingDivider: config[EGG_OFFSET.pollingDivider],
       eggLodIndex: lodIndex,
       eggLodOptions: [...lodOptions],
+      eggGlassMode: glassMode,
+      eggSupportsGlassMode: this.profile.lodGlass !== null,
+      eggMotionSyncAt8k: this.profile.motionSyncAt8k,
+      eggAngleTuning: this.profile.configFamily === "v2"
+        ? this.decodeInt8(config[EGG_OFFSET.angleTuning])
+        : undefined,
+      eggForceMaxFps: this.profile.configFamily === "v2"
+        ? config[EGG_OFFSET.forceMaxFps] !== 0
+        : undefined,
+      eggLedLiftOffDisabled: this.profile.configFamily === "v2"
+        ? config[EGG_OFFSET.ledLiftOff] === 0
+        : undefined,
+      eggSupportsV2SensorControls: this.profile.configFamily === "v2",
       eggMulticlickFilters: Array.from({ length: 5 }, (_, index) => {
         const offset = eggButtonControlOffset(index);
         if (offset === null) throw new Error(`Missing multiclick offset for button ${index}.`);
@@ -195,6 +208,9 @@ export class EggOp1HidClient {
     }
     const divider = 8000 / rate;
     const confirmed = await this.updateConfig((config) => {
+      if (this.profile.lodGlass !== null && config[EGG_OFFSET.glassMode] !== 0) {
+        throw new Error("Polling rate is controlled by firmware while Glass Mode is active.");
+      }
       config[EGG_OFFSET.pollingDivider] = divider;
       if (rate === 8000 && !this.profile.motionSyncAt8k) config[EGG_OFFSET.motionSync] = 0;
     });
@@ -224,6 +240,41 @@ export class EggOp1HidClient {
       config[EGG_OFFSET.lod] = index;
     });
     if (confirmed[EGG_OFFSET.lod] !== index) throw new Error("The mouse did not confirm the requested lift-off distance.");
+  }
+
+  async setGlassMode(enabled: boolean): Promise<void> {
+    if (this.profile.lodGlass === null) throw new Error(`${this.profile.name} does not support Glass Mode.`);
+    const confirmed = await this.updateConfig((config) => {
+      config[EGG_OFFSET.glassMode] = enabled ? 1 : 0;
+      config[EGG_OFFSET.lod] = 0;
+    });
+    if ((confirmed[EGG_OFFSET.glassMode] !== 0) !== enabled) {
+      throw new Error("The mouse did not confirm Glass Mode.");
+    }
+  }
+
+  async setSensorAngleTuning(value: number): Promise<void> {
+    this.assertV2SensorControl("Sensor Angle Tuning");
+    if (!Number.isInteger(value) || value < -127 || value > 127) {
+      throw new Error("Sensor Angle Tuning must be an integer from -127 to 127.");
+    }
+    const confirmed = await this.updateConfig((config) => { config[EGG_OFFSET.angleTuning] = value & 0xff; });
+    if (this.decodeInt8(confirmed[EGG_OFFSET.angleTuning]) !== value) {
+      throw new Error("The mouse did not confirm Sensor Angle Tuning.");
+    }
+  }
+
+  async setForceMaxSensorFps(enabled: boolean): Promise<void> {
+    this.assertV2SensorControl("Force max Sensor FPS");
+    await this.setBoolean(EGG_OFFSET.forceMaxFps, enabled, "Force max Sensor FPS");
+  }
+
+  async setLedLiftOffDisabled(enabled: boolean): Promise<void> {
+    this.assertV2SensorControl("Disable LED on Lift-Off");
+    const confirmed = await this.updateConfig((config) => { config[EGG_OFFSET.ledLiftOff] = enabled ? 0 : 1; });
+    if ((confirmed[EGG_OFFSET.ledLiftOff] === 0) !== enabled) {
+      throw new Error("The mouse did not confirm the lift-off LED setting.");
+    }
   }
 
   async setMotionSync(enabled: boolean): Promise<void> {
@@ -294,7 +345,12 @@ export class EggOp1HidClient {
 
   async setCustomPollingDivider(divider: number): Promise<void> {
     if (!Number.isInteger(divider) || divider < 1 || divider > 255) throw new Error("Polling divider must be an integer from 1 to 255.");
-    const confirmed = await this.updateConfig((config) => { config[EGG_OFFSET.pollingDivider] = divider; });
+    const confirmed = await this.updateConfig((config) => {
+      if (this.profile.lodGlass !== null && config[EGG_OFFSET.glassMode] !== 0) {
+        throw new Error("Polling rate is controlled by firmware while Glass Mode is active.");
+      }
+      config[EGG_OFFSET.pollingDivider] = divider;
+    });
     if (confirmed[EGG_OFFSET.pollingDivider] !== divider) throw new Error("The mouse did not confirm the custom polling divider.");
   }
 
@@ -344,6 +400,15 @@ export class EggOp1HidClient {
     if (this.configIsLeftHanded(confirmed) !== enabled) throw new Error("The mouse did not confirm left-handed mode.");
   }
 
+  async factoryReset(): Promise<void> {
+    await this.run(async () => {
+      await this.open();
+      await this.sendCommand(EGG_OPERATION.factoryReset);
+      await this.delay(1100);
+      if (!await this.pollCommandOk(8)) throw new Error("The EGG mouse did not acknowledge the factory reset.");
+    });
+  }
+
   async close(): Promise<void> {
     this.onDeviceChange = undefined;
     this.device.removeEventListener("inputreport", this.onInputReport);
@@ -356,6 +421,14 @@ export class EggOp1HidClient {
         `${this.profile.name} CPI must be ${this.profile.cpiMin.toLocaleString()} to ${this.profile.cpiMax.toLocaleString()} using the device's supported steps.`,
       );
     }
+  }
+
+  private assertV2SensorControl(label: string): void {
+    if (this.profile.configFamily !== "v2") throw new Error(`${label} is available only on v2 mice.`);
+  }
+
+  private decodeInt8(value: number): number {
+    return value > 127 ? value - 256 : value;
   }
 
   private async setBoolean(offset: number, enabled: boolean, label: string): Promise<void> {
