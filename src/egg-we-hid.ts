@@ -36,10 +36,6 @@ import {
 const EGG_VENDOR_ID = 0x3367;
 const OP1WE_CABLE_PIDS = new Set([0x1962, 0x1972]);
 const OP1WE_RECEIVER_PIDS = new Set([0x1961, 0x1970]);
-const OTHER_WE_MOUSE_PIDS = new Map<number, string>([
-  [0x1968, "Endgame Gear XM2we"],
-  [0x1982, "Endgame Gear XM2w"],
-]);
 const EGG_8K_PRODUCT_IDS = new Set([0x1964, 0x1966, 0x1976, 0x1978]);
 
 const USAGE_PAGE_CMD = 0xff02;
@@ -64,9 +60,6 @@ interface WeChannels {
 }
 
 export class EggWeHidClient {
-  /** Basic settings (DPI, LOD) are mapped on cable and wireless receiver. */
-  static readonly settingsMapped = true;
-
   /** Max report rate for this model (OEM UI: 125 / 250 / 500 / 1000 Hz). */
   static readonly MAX_POLLING_HZ = 1000;
 
@@ -255,14 +248,13 @@ export class EggWeHidClient {
       activeProfile: null,
       connectionType: wireless ? "Wireless" : "Wired",
       connectionDetail: wireless ? "2.4 GHz receiver" : "USB",
-      // Debounce mapped on wire but not in the simple WE control grid.
       debounceMs: null,
       liftOffDistance: profile?.lod ?? null,
       // Do not set eggCpiStages — that flag selects OP1 8K advanced UI.
       firmware: [],
       ui: {
         family: "egg-we",
-        settingsReady: EggWeHidClient.settingsMapped && profile !== null,
+        settingsReady: profile !== null,
         hideLodLow: true,
         hideUnsupportedPollingRates: true,
         hideProcessingCard: true,
@@ -319,22 +311,6 @@ export class EggWeHidClient {
     if (profile.lod !== value) {
       throw new Error(`The mouse kept ${profile.lod ?? "unknown"} LOD instead of ${value}.`);
     }
-  }
-
-  async setDebounceTime(milliseconds: number): Promise<number> {
-    if (!Number.isInteger(milliseconds) || milliseconds < 0 || milliseconds > 20) {
-      throw new Error("OP1we debounce must be an integer from 0 to 20 ms.");
-    }
-    await this.open();
-    const [v, c] = wePackScalarPair(milliseconds);
-    await this.writeEeprom(WE_OFF.debounce, [v, c]);
-    const profile = weDecodeProfile(await this.readProfileMemory());
-    if (profile.debounceMs !== milliseconds) {
-      throw new Error(
-        `The mouse kept ${profile.debounceMs ?? "unknown"} ms debounce instead of ${milliseconds} ms.`,
-      );
-    }
-    return milliseconds;
   }
 
   async close(): Promise<void> {
@@ -414,16 +390,9 @@ export class EggWeHidClient {
   // ---------------------------------------------------------------------------
 
   private productMeta(): { name: string; wired: boolean; viaReceiver: boolean } {
+    // isSupported only accepts OP1we cable/receiver PIDs.
     const viaReceiver = EggWeHidClient.isReceiverDevice(this.device);
-    const other = OTHER_WE_MOUSE_PIDS.get(this.device.productId);
-    const name = other
-      ?? (OP1WE_CABLE_PIDS.has(this.device.productId)
-        || OP1WE_RECEIVER_PIDS.has(this.device.productId)
-        || /op1\s*we|we series/i.test(this.device.productName || "")
-        ? "Endgame Gear OP1we"
-        : (this.device.productName?.replace(/\s*(receiver|dongle)\s*/ig, " ").trim()
-          || "Endgame Gear WE mouse"));
-    return { name, wired: !viaReceiver, viaReceiver };
+    return { name: "Endgame Gear OP1we", wired: !viaReceiver, viaReceiver };
   }
 
   private requireChannels(): WeChannels {
@@ -478,16 +447,20 @@ export class EggWeHidClient {
     return { percent: power, charging: (data[6] ?? 0) !== 0 };
   }
 
+  private failWaiter(error: Error): void {
+    const waiter = this.responseWaiter;
+    if (!waiter) return;
+    window.clearTimeout(waiter.timer);
+    this.responseWaiter = null;
+    waiter.reject(error);
+  }
+
   private async transact(
     channels: WeChannels,
     command: number,
     payload: Uint8Array,
   ): Promise<Uint8Array> {
-    if (this.responseWaiter) {
-      window.clearTimeout(this.responseWaiter.timer);
-      this.responseWaiter.reject(new Error("Superseded by another OP1we request."));
-      this.responseWaiter = null;
-    }
+    this.failWaiter(new Error("Superseded by another OP1we request."));
 
     const responsePromise = new Promise<Uint8Array>((resolve, reject) => {
       const timer = window.setTimeout(() => {
@@ -500,23 +473,15 @@ export class EggWeHidClient {
     channels.notify.removeEventListener("inputreport", this.onInputReport);
     channels.notify.addEventListener("inputreport", this.onInputReport);
 
-    const body = payload.byteLength === WE_PAYLOAD_LEN
-      ? payload
-      : (() => { throw new Error("WE payload must be 16 bytes."); })();
+    if (payload.byteLength !== WE_PAYLOAD_LEN) {
+      throw new Error("WE payload must be 16 bytes.");
+    }
     // Ensure ArrayBuffer-backed view for WebHID typings.
-    const copy = new Uint8Array(body);
+    const copy = new Uint8Array(payload);
     try {
       await channels.cmd.sendFeatureReport(WE_REPORT_ID, copy.buffer);
     } catch (error) {
-      const waiter = this.responseWaiter as {
-        reject: (reason: Error) => void;
-        timer: number;
-      } | null;
-      if (waiter) {
-        window.clearTimeout(waiter.timer);
-        this.responseWaiter = null;
-        waiter.reject(error instanceof Error ? error : new Error(String(error)));
-      }
+      this.failWaiter(error instanceof Error ? error : new Error(String(error)));
     }
     return responsePromise;
   }
@@ -565,7 +530,7 @@ export class EggWeHidClient {
 
   private static listReports(
     device: HIDDevice,
-    kind: "featureReports" | "outputReports" | "inputReports",
+    kind: "featureReports" | "inputReports",
   ): ReportTarget[] {
     const found: ReportTarget[] = [];
     const visit = (collections: readonly HIDCollectionInfo[]): void => {
@@ -590,26 +555,4 @@ export class EggWeHidClient {
     }
     return bits === 0 ? 0 : Math.ceil(bits / 8);
   }
-
-  private static collectionTreeHasVendorUsage(collections: readonly HIDCollectionInfo[]): boolean {
-    return collections.some((collection) =>
-      collection.usagePage >= 0xff00 || this.collectionTreeHasVendorUsage(collection.children));
-  }
 }
-
-// Re-export protocol helpers for tests / tooling that import the client module.
-export {
-  weBuildCmdPayload,
-  weBuildReadEepromPayload,
-  weBuildWriteEepromPayload,
-  weDecodeProfile,
-  wePackDpiStage,
-  weUnpackDpiStage,
-  wePackScalarPair,
-  weReportChecksum,
-  weCpiToByte,
-  weByteToCpi,
-  weParseReadEepromResponse,
-  weParseWriteEepromResponse,
-  wePatchActiveDpi,
-} from "./egg-we-protocol";

@@ -1394,10 +1394,6 @@ type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "p
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
   const client = activePulsarClient ?? activeEggClient;
   if (!client || settingInProgress) return;
-  if (isEggWeClient(client)) {
-    setText("#read-status", "That sensor toggle is not exposed by this mouse.");
-    return;
-  }
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
   try {
@@ -1567,19 +1563,13 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const client = activePulsarClient
-    ?? (activeEggWeClient && setting === "debounce" ? activeEggWeClient : null);
-  if (!client || settingInProgress) return;
-  if (setting === "sleep" && !activePulsarClient) {
-    setText("#read-status", "Auto sleep is not available on this mouse.");
-    return;
-  }
+  if (!activePulsarClient || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
   try {
-    if (setting === "debounce") await client.setDebounceTime(value);
-    else if (activePulsarClient) await activePulsarClient.setSleepTimeout(value);
-    showStatus(await client.readStatus());
+    if (setting === "debounce") await activePulsarClient.setDebounceTime(value);
+    else await activePulsarClient.setSleepTimeout(value);
+    showStatus(await activePulsarClient.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
   } finally {
