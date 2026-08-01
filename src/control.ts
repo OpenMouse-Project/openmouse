@@ -1,10 +1,9 @@
 import "./control.css";
 import {
-  EGG_BUTTON_MAPPINGS,
+  EGG_BUTTON_ACTION_OPTIONS,
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
   type EggButtonIndex,
-  type EggButtonMapping,
   type EggSpdtMode,
 } from "./egg-op1-hid";
 import {
@@ -23,7 +22,7 @@ import {
 } from "./egg-we-control";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
-import type { EggOp1Status } from "./egg-op1-protocol";
+import type { EggButtonAction, EggButtonActionKey, EggOp1Status } from "./egg-op1-protocol";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
 import { SUPPORTED_HID_FILTERS } from "./vendors";
@@ -319,7 +318,7 @@ function renderControl(): void {
           <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
           <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
           <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
-          <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
+          <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:flex;align-items:center;gap:.4rem;margin:0 0 .65rem;color:#b3b3b7;font-size:.68rem"><input id="egg-left-handed" type="checkbox" /> Left-handed mode</label><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
@@ -441,6 +440,9 @@ function renderControl(): void {
   });
   document.querySelector<HTMLSelectElement>("#egg-lod-select")?.addEventListener("change", (event) => {
     void applyEggLodIndex(Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLInputElement>("#egg-left-handed")?.addEventListener("change", (event) => {
+    void applyEggLeftHanded((event.target as HTMLInputElement).checked);
   });
   document.querySelector<HTMLInputElement>("#egg-polling-divider")?.addEventListener("input", updateCustomPollingPreview);
   document.querySelector<HTMLButtonElement>("#apply-egg-polling")?.addEventListener("click", () => {
@@ -763,6 +765,8 @@ function showStatus(status: MouseStatus): void {
       setControlValue("#right-spdt-select", eggStatus.rightSpdtMode);
       setControlValue("#egg-cpi-levels", eggStatus.eggCpiLevels);
       setControlValue("#egg-polling-divider", eggStatus.eggPollingDivider);
+      const leftHanded = document.querySelector<HTMLInputElement>("#egg-left-handed");
+      if (leftHanded) leftHanded.checked = eggStatus.eggLeftHanded;
       updateCustomPollingPreview();
       renderEggCpiStages(eggStatus);
       renderEggButtons(eggStatus);
@@ -1552,7 +1556,7 @@ function renderEggCpiStages(status: EggOp1Status): void {
     const split = stage.x !== stage.y;
     const step = stage.x <= 10_000 ? status.eggCpiStepLow : status.eggCpiStepHigh;
     return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem"><input data-active-cpi="${index}" name="egg-active-cpi" type="radio" ${status.eggActiveCpiStage === index ? "checked" : ""} /> Stage ${index + 1}${status.eggActiveCpiStage === index ? " · active" : ""}</label>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem"><input data-active-cpi="${index}" name="egg-active-cpi" type="radio" ${status.eggActiveCpiStage === index ? "checked" : ""} /> Stage ${index + 1}${status.eggActiveCpiStage === index ? " - active" : ""}</label>
       <label style="display:flex;align-items:center;gap:.35rem;margin:.4rem 0;color:#8b8b90;font-size:.62rem"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
         <label style="color:#77777c;font-size:.58rem">X<input data-cpi-x="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" step="${step}" value="${stage.x}" style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
@@ -1593,29 +1597,115 @@ function renderEggButtons(status: EggOp1Status): void {
   const container = document.querySelector<HTMLElement>("#egg-button-list");
   const filters = status.eggMulticlickFilters;
   const mappings = status.eggButtonMappings;
-  if (!container || !filters || !mappings) return;
+  const actions = status.eggButtonActions;
+  if (!container || !filters || !mappings || !actions) return;
+  const groupedOptions = [...new Set(EGG_BUTTON_ACTION_OPTIONS.map((option) => option.group))].map((group) =>
+    `<optgroup label="${group}">${EGG_BUTTON_ACTION_OPTIONS.filter((option) => option.group === group).map((option) =>
+      `<option value="${option.key}">${option.label}</option>`).join("")}</optgroup>`).join("");
   container.innerHTML = EGG_BUTTON_NAMES.map((name, index) => {
     const gxActive = index === 0 ? status.leftSpdtMode !== "Off" : index === 1 ? status.rightSpdtMode !== "Off" : false;
-    const mappingOptions = EGG_BUTTON_MAPPINGS.map((mapping) =>
-      `<option ${mappings[index] === mapping ? "selected" : ""}>${mapping}</option>`).join("");
-    const unsupported = EGG_BUTTON_MAPPINGS.includes(mappings[index] as EggButtonMapping)
-      ? "" : `<option selected disabled>${mappings[index]}</option>`;
+    const fixedPrimary = (index === 0 && !status.eggLeftHanded) || (index === 1 && status.eggLeftHanded);
+    const action = actions[index];
+    const unsupported = action.key === "raw" ? `<option value="raw" selected disabled>${escapeHtml(mappings[index])}</option>` : "";
+    const multiclick = filters[index] === null || filters[index] === undefined ? "" : `<label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter
+        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" />
+      </label>`;
+    const keyboard = action.key === "keyboard"
+      ? `<button data-capture-key="${index}" class="egg-action-button" type="button">${escapeHtml(mappings[index])} - change</button>`
+      : "";
+    const fixedCpi = action.key === "fixed-cpi"
+      ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-top:.35rem"><input data-fixed-x="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" value="${action.x}" aria-label="Fixed X CPI" /><input data-fixed-y="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" value="${action.y}" aria-label="Fixed Y CPI" /></div><button data-apply-fixed="${index}" class="egg-action-button" type="button">Apply fixed CPI</button>`
+      : "";
     return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
       <strong style="font-size:.7rem">${name}</strong>
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter
-        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" />
-      </label>
+      ${multiclick}
       <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Mapping
-        <select data-button-mapping="${index}" style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${mappingOptions}</select>
+        <select data-button-mapping="${index}" ${fixedPrimary ? "disabled" : ""} style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${groupedOptions}</select>
       </label>
+      ${fixedPrimary ? `<small style="display:block;margin-top:.3rem;color:#77777c">Fixed primary click</small>` : ""}
+      ${keyboard}${fixedCpi}
     </div>`;
   }).join("");
+  actions.forEach((action, index) => {
+    const select = container.querySelector<HTMLSelectElement>(`[data-button-mapping="${index}"]`);
+    if (select && action.key !== "raw") select.value = action.key;
+  });
   container.querySelectorAll<HTMLInputElement>("[data-multiclick]").forEach((input) => {
     input.addEventListener("change", () => void applyEggMulticlick(Number(input.dataset.multiclick) as EggButtonIndex, Number(input.value)));
   });
   container.querySelectorAll<HTMLSelectElement>("[data-button-mapping]").forEach((select) => {
-    select.addEventListener("change", () => void applyEggButtonMapping(Number(select.dataset.buttonMapping) as EggButtonIndex, select.value as EggButtonMapping));
+    select.addEventListener("change", () => {
+      const button = Number(select.dataset.buttonMapping) as EggButtonIndex;
+      const key = select.value as EggButtonActionKey;
+      if (key === "keyboard") void captureEggShortcut(button);
+      else if (key === "fixed-cpi") void applyEggButtonMapping(button, { key, x: status.dpi, y: status.dpi });
+      else void applyEggButtonMapping(button, { key });
+    });
   });
+  container.querySelectorAll<HTMLButtonElement>("[data-capture-key]").forEach((button) => {
+    button.addEventListener("click", () => void captureEggShortcut(Number(button.dataset.captureKey) as EggButtonIndex));
+  });
+  container.querySelectorAll<HTMLInputElement>("[data-fixed-x], [data-fixed-y]").forEach((input) => {
+    input.addEventListener("change", () => { clampEggDpiInput(input); });
+  });
+  container.querySelectorAll<HTMLButtonElement>("[data-apply-fixed]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.applyFixed) as EggButtonIndex;
+      const xInput = container.querySelector<HTMLInputElement>(`[data-fixed-x="${index}"]`);
+      const yInput = container.querySelector<HTMLInputElement>(`[data-fixed-y="${index}"]`);
+      const x = xInput ? clampEggDpiInput(xInput) : Number.NaN;
+      const y = yInput ? clampEggDpiInput(yInput) : Number.NaN;
+      void applyEggButtonMapping(index, { key: "fixed-cpi", x, y });
+    });
+  });
+}
+
+function eggKeyboardUsage(code: string): number | null {
+  if (/^Key[A-Z]$/.test(code)) return 0x04 + code.charCodeAt(3) - 65;
+  if (/^Digit[1-9]$/.test(code)) return 0x1e + Number(code.slice(5)) - 1;
+  if (code === "Digit0") return 0x27;
+  if (/^F([1-9]|1[0-2])$/.test(code)) return 0x3a + Number(code.slice(1)) - 1;
+  if (/^Numpad[1-9]$/.test(code)) return 0x59 + Number(code.slice(6)) - 1;
+  return ({
+    Enter: 0x28, Escape: 0x29, Backspace: 0x2a, Tab: 0x2b, Space: 0x2c,
+    Minus: 0x2d, Equal: 0x2e, BracketLeft: 0x2f, BracketRight: 0x30,
+    Backslash: 0x31, Semicolon: 0x33, Quote: 0x34, Backquote: 0x35,
+    Comma: 0x36, Period: 0x37, Slash: 0x38, CapsLock: 0x39,
+    PrintScreen: 0x46, ScrollLock: 0x47, Pause: 0x48, Insert: 0x49,
+    Home: 0x4a, PageUp: 0x4b, Delete: 0x4c, End: 0x4d, PageDown: 0x4e,
+    ArrowRight: 0x4f, ArrowLeft: 0x50, ArrowDown: 0x51, ArrowUp: 0x52,
+    NumLock: 0x53, NumpadDivide: 0x54, NumpadMultiply: 0x55, NumpadSubtract: 0x56,
+    NumpadAdd: 0x57, NumpadEnter: 0x58, Numpad0: 0x62, NumpadDecimal: 0x63,
+  } as Record<string, number>)[code] ?? null;
+}
+
+async function captureEggShortcut(button: EggButtonIndex): Promise<void> {
+  if (!activeEggClient || settingInProgress) return;
+  setText("#read-status", `Press the keyboard shortcut for ${EGG_BUTTON_NAMES[button]}...`);
+  const action = await new Promise<EggButtonAction | null>((resolve) => {
+    const finish = (value: EggButtonAction | null): void => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKey, true);
+      resolve(value);
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (/^(Control|Shift|Alt|Meta)/.test(event.code)) return;
+      const usage = eggKeyboardUsage(event.code);
+      if (usage === null) {
+        setText("#read-status", `${event.code} is not a supported mouse shortcut key. Try another key.`);
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const modifiers = (event.ctrlKey ? 1 : 0) | (event.shiftKey ? 2 : 0)
+        | (event.altKey ? 4 : 0) | (event.metaKey ? 8 : 0);
+      finish({ key: "keyboard", modifiers, usage });
+    };
+    const timer = window.setTimeout(() => finish(null), 15_000);
+    window.addEventListener("keydown", onKey, true);
+  });
+  if (action) await applyEggButtonMapping(button, action);
+  else setText("#read-status", "Keyboard shortcut capture timed out.");
 }
 
 function clampEggDpiInput(input: HTMLInputElement): number {
@@ -1637,6 +1727,10 @@ async function applyEggLodIndex(index: number): Promise<void> {
   await applyEggChange("lift-off distance", async (client) => client.setEggLodIndex(index));
 }
 
+async function applyEggLeftHanded(enabled: boolean): Promise<void> {
+  await applyEggChange("left-handed mode", async (client) => client.setLeftHanded(enabled));
+}
+
 async function applyEggCpiStage(level: number, x: number, y: number): Promise<void> {
   await applyEggChange(`CPI stage ${level + 1}`, async (client) => {
     await client.setCpiStage(level, client.clampDpi(x), client.clampDpi(y));
@@ -1651,8 +1745,13 @@ async function applyEggMulticlick(button: EggButtonIndex, value: number): Promis
   await applyEggChange(`${EGG_BUTTON_NAMES[button]} multiclick filter`, async (client) => client.setMulticlickFilter(button, value));
 }
 
-async function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): Promise<void> {
-  await applyEggChange(`${EGG_BUTTON_NAMES[button]} mapping`, async (client) => client.setButtonMapping(button, mapping));
+async function applyEggButtonMapping(button: EggButtonIndex, action: EggButtonAction): Promise<void> {
+  await applyEggChange(`${EGG_BUTTON_NAMES[button]} mapping`, async (client) => {
+    const normalized = action.key === "fixed-cpi"
+      ? { ...action, x: client.clampDpi(action.x ?? 0), y: client.clampDpi(action.y ?? action.x ?? 0) }
+      : action;
+    await client.setButtonMapping(button, normalized);
+  });
 }
 
 async function applyEggChange(label: string, change: (client: EggOp1HidClient) => Promise<void>): Promise<void> {

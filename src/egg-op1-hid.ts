@@ -1,5 +1,6 @@
 import type { MouseStatus } from "./mouse-types";
 import {
+  EGG_BUTTON_ACTION_OPTIONS,
   EGG_COMMAND_SIZE,
   EGG_CONFIG_SIZE,
   EGG_DEVICE_PROFILES,
@@ -8,15 +9,22 @@ import {
   EGG_POLLING_RATES,
   EGG_REPORT,
   EGG_VENDOR_ID,
+  eggButtonActionLabel,
+  eggButtonControlOffset,
+  eggButtonMappingOffset,
   eggClampCpi,
+  eggDecodeButtonAction,
   eggDpiOptions,
+  eggEncodeButtonAction,
   eggFormatFirmwareVersion,
+  eggIsPlainLeftAction,
   eggIsValidCpi,
   eggLodOptions,
   eggNormalizeFeatureReport,
   eggProfileForPid,
   eggReadUint16LE,
   eggWriteUint16LE,
+  type EggButtonAction,
   type EggDeviceProfile,
   type EggOp1Status,
 } from "./egg-op1-protocol";
@@ -35,13 +43,9 @@ const SPDT = {
 } as const;
 
 export type EggSpdtMode = keyof typeof SPDT;
-export const EGG_BUTTON_NAMES = ["Left", "Right", "Middle", "Forward", "Back"] as const;
-export type EggButtonIndex = 0 | 1 | 2 | 3 | 4;
-export const EGG_BUTTON_MAPPINGS = [
-  "Left Click", "Right Click", "Middle Click", "Back", "Forward",
-  "Scroll Up", "Scroll Down", "CPI Cycle", "Disabled",
-] as const;
-export type EggButtonMapping = (typeof EGG_BUTTON_MAPPINGS)[number];
+export const EGG_BUTTON_NAMES = ["Left", "Right", "Middle", "Forward", "Back", "Wheel Up", "Wheel Down"] as const;
+export type EggButtonIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export { EGG_BUTTON_ACTION_OPTIONS };
 
 interface ReceivedFeature {
   bytes: Uint8Array;
@@ -118,6 +122,10 @@ export class EggOp1HidClient {
     const glassMode = this.profile.lodGlass !== null && config[EGG_OFFSET.glassMode] !== 0;
     const lodOptions = eggLodOptions(this.profile, glassMode);
     const lodIndex = config[EGG_OFFSET.lod];
+    const handedBytes = Array.from(config.slice(EGG_OFFSET.handedButton, EGG_OFFSET.handedButton + 6));
+    const leftHanded = !eggIsPlainLeftAction(handedBytes) && handedBytes.some(Boolean);
+    const buttonActions = EGG_BUTTON_NAMES.map((_, index) =>
+      this.decodePhysicalButtonAction(config, index as EggButtonIndex, leftHanded));
     return {
       brand: "Endgame Gear",
       name: this.profile.name,
@@ -151,12 +159,15 @@ export class EggOp1HidClient {
       eggPollingDivider: config[EGG_OFFSET.pollingDivider],
       eggLodIndex: lodIndex,
       eggLodOptions: [...lodOptions],
-      eggMulticlickFilters: EGG_BUTTON_NAMES.map((_, index) => {
-        const value = config[EGG_OFFSET.firstButton + index * BUTTON_CONFIG_SIZE];
+      eggMulticlickFilters: Array.from({ length: 5 }, (_, index) => {
+        const offset = eggButtonControlOffset(index);
+        if (offset === null) throw new Error(`Missing multiclick offset for button ${index}.`);
+        const value = config[offset];
         return value >= 0xf0 ? 8 : value;
       }),
-      eggButtonMappings: EGG_BUTTON_NAMES.map((_, index) =>
-        this.decodeButtonMapping(config, index as EggButtonIndex)),
+      eggButtonMappings: buttonActions.map(eggButtonActionLabel),
+      eggButtonActions: buttonActions,
+      eggLeftHanded: leftHanded,
       liftOffDistance: this.genericLod(lodOptions[lodIndex]),
       firmware: this.firmwareVersion ? [`Firmware ${this.firmwareVersion}`] : ["Firmware unavailable"],
     };
@@ -289,7 +300,8 @@ export class EggOp1HidClient {
 
   async setMulticlickFilter(button: EggButtonIndex, value: number): Promise<void> {
     if (!Number.isInteger(value) || value < 0 || value > 25) throw new Error("Multiclick filtering must be from 0 to 25.");
-    const offset = EGG_OFFSET.firstButton + button * BUTTON_CONFIG_SIZE;
+    const offset = eggButtonControlOffset(button);
+    if (offset === null) throw new Error(`${EGG_BUTTON_NAMES[button]} has no multiclick filter.`);
     const confirmed = await this.updateConfig((config) => {
       if (button < 2 && config[offset] >= 0xf0) {
         throw new Error(`Turn GX mode off for the ${EGG_BUTTON_NAMES[button]} button first.`);
@@ -299,16 +311,37 @@ export class EggOp1HidClient {
     if (confirmed[offset] !== value) throw new Error(`The mouse did not confirm the ${EGG_BUTTON_NAMES[button]} multiclick value.`);
   }
 
-  async setButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): Promise<void> {
-    const offset = EGG_OFFSET.firstButton + button * BUTTON_CONFIG_SIZE + 1;
-    const encoded = this.encodeButtonMapping(mapping);
+  async setButtonMapping(button: EggButtonIndex, action: EggButtonAction): Promise<void> {
+    const encoded = eggEncodeButtonAction(action);
+    if (!encoded) throw new Error("Unknown mappings are preserved until a supported action is selected.");
+    if (action.key === "fixed-cpi") {
+      this.assertCpi(action.x ?? 0);
+      this.assertCpi(action.y ?? action.x ?? 0);
+    }
     const confirmed = await this.updateConfig((config) => {
-      config.fill(0, offset, offset + 6);
-      config[offset] = encoded.type;
-      config[offset + 1] = encoded.value;
+      const leftHanded = this.configIsLeftHanded(config);
+      if ((button === 0 && !leftHanded) || (button === 1 && leftHanded)) {
+        throw new Error(`${EGG_BUTTON_NAMES[button]} is the fixed primary button in the current handedness mode.`);
+      }
+      this.writePhysicalButtonAction(config, button, encoded, leftHanded);
     });
-    const actual = this.decodeButtonMapping(confirmed, button);
-    if (actual !== mapping) throw new Error(`The mouse kept the ${EGG_BUTTON_NAMES[button]} mapping as ${actual}.`);
+    const actual = this.decodePhysicalButtonAction(confirmed, button, this.configIsLeftHanded(confirmed));
+    if (JSON.stringify(eggEncodeButtonAction(actual)) !== JSON.stringify(encoded)) {
+      throw new Error(`The mouse kept the ${EGG_BUTTON_NAMES[button]} mapping as ${eggButtonActionLabel(actual)}.`);
+    }
+  }
+
+  async setLeftHanded(enabled: boolean): Promise<void> {
+    const confirmed = await this.updateConfig((config) => {
+      if (enabled) {
+        this.writeActionAt(config, EGG_OFFSET.handedButton, { type: 0x00, params: [0x02, 0, 0, 0, 0] });
+        this.writeActionAt(config, EGG_OFFSET.firstButton + 1, { type: 0x00, params: [0x01, 0, 0, 0, 0] });
+      } else {
+        this.writeActionAt(config, EGG_OFFSET.handedButton, { type: 0x00, params: [0x01, 0, 0, 0, 0] });
+        this.writeActionAt(config, EGG_OFFSET.firstButton + 1, { type: 0x00, params: [0x02, 0, 0, 0, 0] });
+      }
+    });
+    if (this.configIsLeftHanded(confirmed) !== enabled) throw new Error("The mouse did not confirm left-handed mode.");
   }
 
   async close(): Promise<void> {
@@ -347,29 +380,51 @@ export class EggOp1HidClient {
     return "Off";
   }
 
-  private decodeButtonMapping(config: Uint8Array, button: EggButtonIndex): string {
-    const offset = EGG_OFFSET.firstButton + button * BUTTON_CONFIG_SIZE + 1;
-    const type = config[offset];
-    const value = config[offset + 1];
-    if (type === 0) {
-      return ({ 1: "Left Click", 2: "Right Click", 4: "Middle Click", 8: "Back", 16: "Forward" } as Record<number, EggButtonMapping>)[value]
-        ?? `Unsupported mouse action 0x${value.toString(16)}`;
-    }
-    if (type === 1) return value === 0xff ? "Scroll Down" : value === 1 ? "Scroll Up" : `Unsupported scroll action ${value}`;
-    if (type === 9) return "CPI Cycle";
-    if (type === 0xff) return "Disabled";
-    return `Unsupported mapping type 0x${type.toString(16)}`;
+  private configIsLeftHanded(config: Uint8Array): boolean {
+    const handed = Array.from(config.slice(EGG_OFFSET.handedButton, EGG_OFFSET.handedButton + 6));
+    return !eggIsPlainLeftAction(handed) && handed.some(Boolean);
   }
 
-  private encodeButtonMapping(mapping: EggButtonMapping): { type: number; value: number } {
-    const mouse = {
-      "Left Click": 1, "Right Click": 2, "Middle Click": 4, "Back": 8, "Forward": 16,
-    } as const;
-    if (mapping in mouse) return { type: 0, value: mouse[mapping as keyof typeof mouse] };
-    if (mapping === "Scroll Up") return { type: 1, value: 1 };
-    if (mapping === "Scroll Down") return { type: 1, value: 0xff };
-    if (mapping === "CPI Cycle") return { type: 9, value: 0xf1 };
-    return { type: 0xff, value: 0 };
+  private decodePhysicalButtonAction(
+    config: Uint8Array,
+    button: EggButtonIndex,
+    leftHanded: boolean,
+  ): EggButtonAction {
+    if (button === 0) return this.decodeActionAt(config, EGG_OFFSET.handedButton);
+    const offset = eggButtonMappingOffset(button, leftHanded);
+    if (offset === null) return { key: "mouse-left" };
+    return this.decodeActionAt(config, offset);
+  }
+
+  private decodeActionAt(config: Uint8Array, offset: number): EggButtonAction {
+    return eggDecodeButtonAction(config[offset], Array.from(config.slice(offset + 1, offset + 6)));
+  }
+
+  private writePhysicalButtonAction(
+    config: Uint8Array,
+    button: EggButtonIndex,
+    action: NonNullable<ReturnType<typeof eggEncodeButtonAction>>,
+    leftHanded: boolean,
+  ): void {
+    if (button === 0) {
+      this.writeActionAt(config, EGG_OFFSET.handedButton, action);
+      if (leftHanded) {
+        this.writeActionAt(config, EGG_OFFSET.firstButton + 1, { type: 0x00, params: [0x01, 0, 0, 0, 0] });
+      }
+      return;
+    }
+    const offset = eggButtonMappingOffset(button, leftHanded);
+    if (offset === null) throw new Error(`${EGG_BUTTON_NAMES[button]} has no writable mapping slot.`);
+    this.writeActionAt(config, offset, action);
+  }
+
+  private writeActionAt(
+    config: Uint8Array,
+    offset: number,
+    action: NonNullable<ReturnType<typeof eggEncodeButtonAction>>,
+  ): void {
+    config[offset] = action.type;
+    for (let index = 0; index < 5; index += 1) config[offset + index + 1] = action.params[index];
   }
 
   private genericLod(label: string | undefined): MouseStatus["liftOffDistance"] {

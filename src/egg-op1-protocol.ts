@@ -1,5 +1,21 @@
 import type { MouseStatus } from "./mouse-types";
 
+export type EggButtonActionKey =
+  | "mouse-left" | "mouse-right" | "mouse-middle" | "mouse-back" | "mouse-forward"
+  | "scroll-up" | "scroll-down" | "keyboard" | "cpi-loop" | "fixed-cpi"
+  | "media-play" | "media-next" | "media-previous" | "media-mute" | "media-volume-up"
+  | "media-volume-down" | "browser-home" | "file-explorer" | "disabled" | "raw";
+
+export interface EggButtonAction {
+  key: EggButtonActionKey;
+  modifiers?: number;
+  usage?: number;
+  x?: number;
+  y?: number;
+  rawType?: number;
+  rawParams?: number[];
+}
+
 export interface EggOp1Status extends MouseStatus {
   eggCpiLevels: number;
   eggCpiStages: Array<{ x: number; y: number }>;
@@ -13,6 +29,8 @@ export interface EggOp1Status extends MouseStatus {
   eggLodOptions: string[];
   eggMulticlickFilters: number[];
   eggButtonMappings: string[];
+  eggButtonActions: EggButtonAction[];
+  eggLeftHanded: boolean;
 }
 
 export const EGG_VENDOR_ID = 0x3367;
@@ -133,6 +151,7 @@ export const EGG_OFFSET = {
   activeCpiStage: 29,
   cpiLevels: 30,
   firstCpiSplit: 51,
+  handedButton: 71,
   firstButton: 77,
   glassMode: 127,
   angleTuning: 128,
@@ -223,4 +242,134 @@ export function eggReadUint16LE(bytes: Uint8Array, offset: number): number {
 export function eggWriteUint16LE(bytes: Uint8Array, offset: number, value: number): void {
   bytes[offset] = value & 0xff;
   bytes[offset + 1] = value >> 8;
+}
+
+export const EGG_BUTTON_ACTION_OPTIONS = [
+  { group: "Mouse", key: "mouse-left", label: "Left Click" },
+  { group: "Mouse", key: "mouse-right", label: "Right Click" },
+  { group: "Mouse", key: "mouse-middle", label: "Middle Click" },
+  { group: "Mouse", key: "mouse-back", label: "Back" },
+  { group: "Mouse", key: "mouse-forward", label: "Forward" },
+  { group: "Scroll", key: "scroll-up", label: "Wheel Up" },
+  { group: "Scroll", key: "scroll-down", label: "Wheel Down" },
+  { group: "Keyboard", key: "keyboard", label: "Keyboard shortcut" },
+  { group: "CPI", key: "cpi-loop", label: "CPI Loop" },
+  { group: "CPI", key: "fixed-cpi", label: "Fixed CPI" },
+  { group: "Media", key: "media-play", label: "Play / Pause" },
+  { group: "Media", key: "media-next", label: "Next Track" },
+  { group: "Media", key: "media-previous", label: "Previous Track" },
+  { group: "Media", key: "media-mute", label: "Mute" },
+  { group: "Media", key: "media-volume-up", label: "Volume Up" },
+  { group: "Media", key: "media-volume-down", label: "Volume Down" },
+  { group: "System", key: "browser-home", label: "Browser Home" },
+  { group: "System", key: "file-explorer", label: "File Explorer" },
+  { group: "Other", key: "disabled", label: "Disabled" },
+] as const;
+
+export interface EggEncodedButtonAction {
+  type: number;
+  params: [number, number, number, number, number];
+}
+
+export function eggDecodeButtonAction(type: number, params: readonly number[]): EggButtonAction {
+  const p = (index: number): number => params[index] ?? 0;
+  if (type === 0x00) {
+    const key = ({
+      0x01: "mouse-left",
+      0x02: "mouse-right",
+      0x04: "mouse-middle",
+      0x08: "mouse-back",
+      0x10: "mouse-forward",
+    } as const)[p(0) as 0x01 | 0x02 | 0x04 | 0x08 | 0x10];
+    if (key) return { key };
+  }
+  if (type === 0x01 && p(0) === 0x01) return { key: "scroll-up" };
+  if (type === 0x01 && p(0) === 0xff) return { key: "scroll-down" };
+  if (type === 0x02) return { key: "keyboard", modifiers: p(0) & 0x0f, usage: p(1) };
+  if (type === 0x09) return { key: "cpi-loop" };
+  if (type === 0x0c) {
+    return { key: "fixed-cpi", x: p(1) | (p(2) << 8), y: p(3) | (p(4) << 8) };
+  }
+  if (type === 0x18 && p(0) === 0x96) return { key: "browser-home" };
+  if (type === 0x18 && p(0) === 0x94) return { key: "file-explorer" };
+  const media = ({
+    0xcd: "media-play",
+    0xb5: "media-next",
+    0xb6: "media-previous",
+    0xe2: "media-mute",
+    0xe9: "media-volume-up",
+    0xea: "media-volume-down",
+  } as const)[p(0) as 0xcd | 0xb5 | 0xb6 | 0xe2 | 0xe9 | 0xea];
+  if (type === 0x20 && media) return { key: media };
+  if (type === 0xff) return { key: "disabled" };
+  return { key: "raw", rawType: type, rawParams: Array.from({ length: 5 }, (_, index) => p(index)) };
+}
+
+export function eggEncodeButtonAction(action: EggButtonAction): EggEncodedButtonAction | null {
+  const params = (...values: number[]): [number, number, number, number, number] => {
+    const result: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+    values.slice(0, 5).forEach((value, index) => { result[index] = value & 0xff; });
+    return result;
+  };
+  switch (action.key) {
+    case "mouse-left": return { type: 0x00, params: params(0x01) };
+    case "mouse-right": return { type: 0x00, params: params(0x02) };
+    case "mouse-middle": return { type: 0x00, params: params(0x04) };
+    case "mouse-back": return { type: 0x00, params: params(0x08) };
+    case "mouse-forward": return { type: 0x00, params: params(0x10) };
+    case "scroll-up": return { type: 0x01, params: params(0x01) };
+    case "scroll-down": return { type: 0x01, params: params(0xff) };
+    case "keyboard": return { type: 0x02, params: params(action.modifiers ?? 0, action.usage ?? 0) };
+    case "cpi-loop": return { type: 0x09, params: params(0xf1) };
+    case "fixed-cpi": {
+      const x = action.x ?? 1600;
+      const y = action.y ?? x;
+      return { type: 0x0c, params: params(0, x, x >> 8, y, y >> 8) };
+    }
+    case "browser-home": return { type: 0x18, params: params(0x96) };
+    case "file-explorer": return { type: 0x18, params: params(0x94) };
+    case "media-play": return { type: 0x20, params: params(0xcd) };
+    case "media-next": return { type: 0x20, params: params(0xb5) };
+    case "media-previous": return { type: 0x20, params: params(0xb6) };
+    case "media-mute": return { type: 0x20, params: params(0xe2) };
+    case "media-volume-up": return { type: 0x20, params: params(0xe9) };
+    case "media-volume-down": return { type: 0x20, params: params(0xea) };
+    case "disabled": return { type: 0xff, params: params() };
+    case "raw": return null;
+  }
+}
+
+export function eggButtonActionLabel(action: EggButtonAction): string {
+  if (action.key === "raw") return "Custom (preserved)";
+  if (action.key === "keyboard") {
+    const modifiers = [
+      [0x01, "Ctrl"], [0x02, "Shift"], [0x04, "Alt"], [0x08, "Win"],
+    ] as const;
+    const parts: string[] = modifiers.filter(([mask]) => (action.modifiers ?? 0) & mask).map(([, label]) => label);
+    parts.push(action.usage ? `HID 0x${action.usage.toString(16).padStart(2, "0")}` : "Unassigned");
+    return parts.join(" + ");
+  }
+  if (action.key === "fixed-cpi") {
+    return action.x === action.y ? `CPI ${action.x}` : `X ${action.x} / Y ${action.y}`;
+  }
+  return EGG_BUTTON_ACTION_OPTIONS.find((option) => option.key === action.key)?.label ?? action.key;
+}
+
+export function eggIsPlainLeftAction(bytes: readonly number[]): boolean {
+  return bytes[0] === 0x00 && bytes[1] === 0x01 && !bytes.slice(2, 6).some(Boolean);
+}
+
+const BUTTON_CONTROL_INDEX = [0, 1, 2, 3, 4, null, null] as const;
+const BUTTON_MAPPING_INDEX = [null, 0, 1, 2, 3, 5, 6] as const;
+
+export function eggButtonControlOffset(button: number): number | null {
+  const index = BUTTON_CONTROL_INDEX[button];
+  return index === null || index === undefined ? null : EGG_OFFSET.firstButton + index * 7;
+}
+
+export function eggButtonMappingOffset(button: number, leftHanded: boolean): number | null {
+  if (button === 0) return leftHanded ? EGG_OFFSET.handedButton : null;
+  if (button === 1 && leftHanded) return null;
+  const index = BUTTON_MAPPING_INDEX[button];
+  return index === null || index === undefined ? null : EGG_OFFSET.firstButton + index * 7 + 1;
 }
