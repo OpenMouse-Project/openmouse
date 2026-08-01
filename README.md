@@ -39,3 +39,6 @@ Each supported vendor is self-contained under `src/devices/<vendor>/`.
 
 The registry is the only central integration point for a new vendor; the
 control UI discovers supported clients through it automatically.
+
+Hardware-specific validation checklists live with each driver, for example
+`src/devices/orbital/TESTING.md` for Orbital DMS V1/V2 devices and receivers.

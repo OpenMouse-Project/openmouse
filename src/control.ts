@@ -41,6 +41,7 @@ import {
 import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
+import { OrbitalHidClient } from "./devices/orbital/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
@@ -58,6 +59,7 @@ let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeOrbitalClient: OrbitalHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -69,7 +71,7 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let reconnectInFlight = false;
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient ?? activeOrbitalClient;
 }
 
 function hasActiveClient(): boolean {
@@ -512,6 +514,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeOrbitalClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
   if (client instanceof WLMouseHidClient) {
@@ -546,6 +549,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = await client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof OrbitalHidClient) {
+    activeOrbitalClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -566,6 +576,7 @@ function showDisconnectedState(): void {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeOrbitalClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   resetDeviceSpecificPanels();
@@ -949,7 +960,7 @@ async function toggleDongleLed(): Promise<void> {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient;
+  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient ?? activeOrbitalClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
@@ -957,8 +968,8 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
     if (setting === "motionSync") await client.setMotionSync(enabled);
     if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
     if (setting === "rippleControl") await client.setRippleControl(enabled);
-    if (setting === "performanceMode" && !activePulsarClient) throw new Error("Performance mode is not exposed by this device's protocol.");
-    if (setting === "performanceMode" && activePulsarClient) await activePulsarClient.setPerformanceMode(enabled);
+    if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient) throw new Error("Performance mode is not exposed by this device's protocol.");
+    if (setting === "performanceMode") await (activePulsarClient ?? activeOrbitalClient)!.setPerformanceMode(enabled);
     showStatus(await client.readStatus());
   } catch (error) {
     const status = await client.readStatus().catch(() => null);
@@ -1057,7 +1068,7 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const client = activePulsarClient ?? activeWLMouseClient;
+  const client = activePulsarClient ?? activeWLMouseClient ?? activeOrbitalClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
@@ -1136,6 +1147,7 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
   void activeEggWeClient?.close();
   void activeWLMouseClient?.close();
+  void activeOrbitalClient?.close();
 });
 
 renderControl();
