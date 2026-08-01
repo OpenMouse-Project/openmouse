@@ -58,6 +58,9 @@
 .egg-collapsible-body > .setting-card { min-height:0 !important;padding:.7rem !important }
 .control-panel { scrollbar-width:none }
 .control-panel::-webkit-scrollbar { display:none;width:0;height:0 }
+.testing-note { display:flex;align-items:flex-start;gap:.75rem;margin-top:.55rem;padding:.65rem .8rem;border:1px solid #3b3428;border-radius:8px;background:#16140f;color:#aaa08d;font-size:.65rem;line-height:1.45 }
+.testing-note strong { flex:0 0 auto;color:#d8c58f;font-family:"JetBrains Mono",monospace;font-size:.57rem;letter-spacing:.08em;text-transform:uppercase }
+.testing-note span { max-width:780px }
 #pulsar-advanced.egg-advanced-layout { grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:.55rem !important }
 #pulsar-advanced.egg-advanced-layout > .setting-card { min-height:0 !important;padding:.72rem !important }
 #egg-cpi-stage-list { grid-template-columns:repeat(4,minmax(0,1fr)) !important }
