@@ -460,7 +460,9 @@ function showStatus(status: MouseStatus): void {
     dpiOutputField.readOnly = true;
   }
   const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
-  if (axisControls) axisControls.style.display = status.brand === "Logitech" && status.supportsSeparateDpiAxes ? "block" : "none";
+  const showSeparateDpiAxes = status.brand === "Logitech" && status.supportsSeparateDpiAxes === true;
+  if (axisControls) axisControls.style.display = showSeparateDpiAxes ? "block" : "none";
+  settingsGrid?.classList.toggle("has-logitech-axis-controls", showSeparateDpiAxes);
   const dpiX = document.querySelector<HTMLInputElement>("#logitech-dpi-x");
   const dpiY = document.querySelector<HTMLInputElement>("#logitech-dpi-y");
   if (dpiX) dpiX.value = String(status.dpi);

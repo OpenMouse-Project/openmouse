@@ -126,7 +126,6 @@
 .device-debug-note { margin:0 0 .75rem;color:#99999f;font-size:.68rem;line-height:1.45 }
 .device-debug-snapshot { max-height:26rem;margin:0;padding:.8rem;overflow:auto;border:1px solid #29292d;border-radius:7px;background:#101012;color:#d8d8dc;font:.64rem/1.55 'JetBrains Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text }
 @media (min-width:900px) {
-  .control-shell .settings-grid { grid-template-rows:minmax(220px,auto) }
-  .control-shell .settings-grid > .setting-card { min-height:220px }
+  .control-shell .settings-grid.has-logitech-axis-controls { grid-template-rows:minmax(330px,auto) }
 }
 @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
