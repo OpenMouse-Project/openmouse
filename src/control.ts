@@ -1,4 +1,12 @@
 import "./control.css";
+import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
+import {
+  DEFAULT_INTERFACE_PREFERENCES,
+  loadInterfacePreferences,
+  saveInterfacePreferences as persistInterfacePreferences,
+  type InterfaceDensity,
+  type InterfaceTheme,
+} from "./interface-preferences";
 import {
   EGG_BUTTON_MAPPINGS,
   EGG_BUTTON_NAMES,
@@ -36,13 +44,6 @@ if (!controlApp) {
 
 const appRoot = controlApp;
 
-const BATTERY_HISTORY_KEY = "openmouse-battery-history-v1";
-const BATTERY_CHECKPOINT_MS = 5 * 60 * 1000;
-const BATTERY_MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
-const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
-const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
-const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
@@ -70,54 +71,10 @@ function hasActiveClient(): boolean {
   return activeSettingsClient() !== null;
 }
 
-type BatteryMode = "charging" | "discharging";
-type InterfaceDensity = "Compact" | "Comfortable";
-type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
-
-interface InterfacePreferences {
-  density: InterfaceDensity;
-  theme: InterfaceTheme;
-  reducedMotion: boolean;
-  expandSections: boolean;
-  showExperimental: boolean;
-}
-
-const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
-  density: "Compact",
-  theme: "Emerald",
-  reducedMotion: false,
-  expandSections: false,
-  showExperimental: true,
-};
-let interfacePreferences = loadInterfacePreferences();
-
-interface BatterySample {
-  timestamp: number;
-  percent: number;
-  mode: BatteryMode;
-}
-
-type BatteryHistory = Record<string, BatterySample[]>;
-
-function loadInterfacePreferences(): InterfacePreferences {
-  try {
-    const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
-    return {
-      density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono"].includes(saved.theme ?? "")
-        ? saved.theme as InterfaceTheme
-        : "Emerald",
-      reducedMotion: saved.reducedMotion === true,
-      expandSections: saved.expandSections === true,
-      showExperimental: saved.showExperimental !== false,
-    };
-  } catch {
-    return { ...DEFAULT_INTERFACE_PREFERENCES };
-  }
-}
+let interfacePreferences = loadInterfacePreferences(localStorage);
 
 function saveInterfacePreferences(): void {
-  localStorage.setItem(INTERFACE_SETTINGS_KEY, JSON.stringify(interfacePreferences));
+  persistInterfacePreferences(localStorage, interfacePreferences);
   applyInterfacePreferences();
 }
 
@@ -509,75 +466,6 @@ function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
   return null;
 }
 
-function loadBatteryHistory(): BatteryHistory {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(BATTERY_HISTORY_KEY) ?? "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as BatteryHistory : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveBatterySample(deviceName: string, percent: number, mode: BatteryMode, now = Date.now()): BatterySample[] {
-  const history = loadBatteryHistory();
-  const cutoff = now - BATTERY_MAX_SAMPLE_AGE_MS;
-  const storedSamples = Array.isArray(history[deviceName]) ? history[deviceName] : [];
-  const samples = storedSamples.filter((sample) =>
-    Number.isFinite(sample.timestamp)
-    && Number.isFinite(sample.percent)
-    && sample.timestamp >= cutoff
-    && sample.percent >= 0
-    && sample.percent <= 100
-    && (sample.mode === "charging" || sample.mode === "discharging"));
-  const previous = samples.at(-1);
-  const shouldSave = !previous
-    || previous.mode !== mode
-    || previous.percent !== percent
-    || now - previous.timestamp >= BATTERY_CHECKPOINT_MS;
-
-  if (shouldSave) samples.push({ timestamp: now, percent, mode });
-  const retainedSamples = samples.slice(-BATTERY_MAX_SAMPLES_PER_DEVICE);
-  history[deviceName] = retainedSamples;
-  if (shouldSave || retainedSamples.length !== storedSamples.length) {
-    try {
-      localStorage.setItem(BATTERY_HISTORY_KEY, JSON.stringify(history));
-    } catch {
-      // Estimates remain optional when browser storage is unavailable or full.
-    }
-  }
-  return retainedSamples;
-}
-
-function formatEstimate(milliseconds: number): string {
-  const minutes = Math.max(1, Math.round(milliseconds / 60000));
-  if (minutes < 60) return `~${minutes} min`;
-  const hours = minutes / 60;
-  if (hours < 48) return `~${hours < 10 ? hours.toFixed(1) : Math.round(hours)} hr`;
-  const days = hours / 24;
-  return `~${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
-}
-
-function estimateBatteryTime(samples: BatterySample[], percent: number, mode: BatteryMode, now = Date.now()): string | null {
-  const continuous: BatterySample[] = [];
-  for (let index = samples.length - 1; index >= 0; index -= 1) {
-    const sample = samples[index];
-    const newer = continuous[0];
-    if (sample.mode !== mode || (newer && newer.timestamp - sample.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS)) break;
-    continuous.unshift(sample);
-  }
-
-  const first = continuous[0];
-  const last = continuous.at(-1);
-  if (!first || !last || now - last.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS) return null;
-  const elapsed = last.timestamp - first.timestamp;
-  const change = mode === "charging" ? last.percent - first.percent : first.percent - last.percent;
-  if (elapsed < BATTERY_MIN_ESTIMATE_SPAN_MS || change < 1) return null;
-
-  const remainingPercent = mode === "charging" ? 100 - percent : percent;
-  if (remainingPercent <= 0) return null;
-  return formatEstimate(remainingPercent / (change / elapsed));
-}
-
 function batteryDetail(status: MouseStatus): string {
   const voltage = status.batteryVoltageMv ? `${(status.batteryVoltageMv / 1000).toFixed(3)} V` : null;
   const withVoltage = (detail: string): string => voltage ? `${detail} · ${voltage}` : detail;
@@ -586,7 +474,7 @@ function batteryDetail(status: MouseStatus): string {
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(status.batteryState);
   const now = Date.now();
-  const samples = saveBatterySample(status.name, status.batteryPercent, mode, now);
+  const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? "until full" : "remaining";
   return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
