@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "test": "node --test src/egg-we-protocol.test.ts",
     "preview": "vite preview"
   },
   "devDependencies": {

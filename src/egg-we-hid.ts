@@ -18,7 +18,7 @@ import {
   weParseWriteEepromResponse,
   weEncodeReportRate,
   weIsValidPollingRate,
-  wePatchAllActiveDpi,
+  wePatchActiveDpi,
   WE_POLLING_RATES,
   type WeLod,
   type WeProfile,
@@ -104,15 +104,8 @@ export class EggWeHidClient {
 
   static isSupported(device: HIDDevice): boolean {
     if (device.vendorId !== EGG_VENDOR_ID) return false;
-    if (EGG_8K_PRODUCT_IDS.has(device.productId)) return false;
-    if (OP1WE_CABLE_PIDS.has(device.productId) || OP1WE_RECEIVER_PIDS.has(device.productId)) {
-      return true;
-    }
-    if (OTHER_WE_MOUSE_PIDS.has(device.productId)) return true;
-    return this.listFeatureReports(device).length > 0
-      || this.listOutputReports(device).length > 0
-      || this.listInputReports(device).length > 0
-      || this.collectionTreeHasVendorUsage(device.collections);
+    return !EGG_8K_PRODUCT_IDS.has(device.productId)
+      && (OP1WE_CABLE_PIDS.has(device.productId) || OP1WE_RECEIVER_PIDS.has(device.productId));
   }
 
   static isReceiverDevice(device: HIDDevice): boolean {
@@ -269,7 +262,7 @@ export class EggWeHidClient {
       firmware: [],
       ui: {
         family: "egg-we",
-        settingsReady: EggWeHidClient.settingsMapped,
+        settingsReady: EggWeHidClient.settingsMapped && profile !== null,
         hideLodLow: true,
         hideUnsupportedPollingRates: true,
         hideProcessingCard: true,
@@ -287,12 +280,9 @@ export class EggWeHidClient {
     await this.open();
     const mem = await this.readProfileMemory();
     const profile = weDecodeProfile(mem);
-    wePatchAllActiveDpi(mem, dpi, profile.dpiStageCount);
-    // Write each active stage chunk (4 bytes) via WriteEEPROM.
-    for (let i = 0; i < profile.dpiStageCount; i += 1) {
-      const off = WE_OFF.dpiStages + i * WE_OFF.dpiStageBytes;
-      await this.writeEeprom(off, [...mem.subarray(off, off + 4)]);
-    }
+    wePatchActiveDpi(mem, dpi, profile.activeDpiLevel);
+    const off = WE_OFF.dpiStages + profile.activeDpiLevel * WE_OFF.dpiStageBytes;
+    await this.writeEeprom(off, [...mem.subarray(off, off + WE_OFF.dpiStageBytes)]);
     const confirmed = weDecodeProfile(await this.readProfileMemory());
     if (confirmed.dpi !== dpi) {
       throw new Error(`The mouse kept ${confirmed.dpi} CPI instead of ${dpi} CPI.`);
@@ -515,7 +505,19 @@ export class EggWeHidClient {
       : (() => { throw new Error("WE payload must be 16 bytes."); })();
     // Ensure ArrayBuffer-backed view for WebHID typings.
     const copy = new Uint8Array(body);
-    await channels.cmd.sendFeatureReport(WE_REPORT_ID, copy.buffer);
+    try {
+      await channels.cmd.sendFeatureReport(WE_REPORT_ID, copy.buffer);
+    } catch (error) {
+      const waiter = this.responseWaiter as {
+        reject: (reason: Error) => void;
+        timer: number;
+      } | null;
+      if (waiter) {
+        window.clearTimeout(waiter.timer);
+        this.responseWaiter = null;
+        waiter.reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
     return responsePromise;
   }
 
@@ -555,10 +557,6 @@ export class EggWeHidClient {
 
   private static listFeatureReports(device: HIDDevice): ReportTarget[] {
     return this.listReports(device, "featureReports");
-  }
-
-  private static listOutputReports(device: HIDDevice): ReportTarget[] {
-    return this.listReports(device, "outputReports");
   }
 
   private static listInputReports(device: HIDDevice): ReportTarget[] {
@@ -613,4 +611,5 @@ export {
   weByteToCpi,
   weParseReadEepromResponse,
   weParseWriteEepromResponse,
+  wePatchActiveDpi,
 } from "./egg-we-protocol";

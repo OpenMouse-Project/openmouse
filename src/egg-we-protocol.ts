@@ -254,14 +254,16 @@ export function weDecodeProfile(mem: Uint8Array): WeProfile {
   };
 }
 
-/** Patch DPI stages 0..count-1 in a profile image (same CPI on X/Y). */
-export function wePatchAllActiveDpi(mem: Uint8Array, cpi: number, stageCount: number): void {
-  const count = Math.min(Math.max(stageCount, 1), WE_OFF.maxDpiStages);
-  const packed = wePackDpiStage(cpi, cpi, 0);
-  for (let i = 0; i < count; i += 1) {
-    const off = WE_OFF.dpiStages + i * WE_OFF.dpiStageBytes;
-    mem.set(packed, off);
+/** Patch only the selected DPI stage, preserving its protocol flags. */
+export function wePatchActiveDpi(mem: Uint8Array, cpi: number, activeLevel: number): void {
+  if (!Number.isInteger(activeLevel) || activeLevel < 0 || activeLevel >= WE_OFF.maxDpiStages) {
+    throw new Error("WE active DPI stage is out of range.");
   }
+  const off = WE_OFF.dpiStages + activeLevel * WE_OFF.dpiStageBytes;
+  if (mem.length < off + WE_OFF.dpiStageBytes) throw new Error("WE profile is missing the active DPI stage.");
+  const existing = weUnpackDpiStage(mem.subarray(off, off + WE_OFF.dpiStageBytes));
+  if (!existing) throw new Error("WE active DPI stage checksum is invalid.");
+  mem.set(wePackDpiStage(cpi, cpi, existing.flags), off);
 }
 
 export function wePatchScalar(mem: Uint8Array, addr: number, value: number): void {
