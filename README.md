@@ -26,3 +26,16 @@ battery history, and device-client selection live in focused modules under
 `src/`. Vendor drivers are grouped under `src/devices/`: `endgame/`,
 `logitech/`, `pulsar/`, and `wlmouse/`; shared device types and HID filters
 remain directly under `src/devices/`.
+
+## Adding a vendor
+
+Each supported vendor is self-contained under `src/devices/<vendor>/`.
+
+1. Add the vendor's HID driver module(s) in a new vendor folder.
+2. Register the driver in `src/devices/registry.ts`, including its brand,
+   support check, client factory, and priority score.
+3. Add the vendor's WebHID filters in `src/devices/vendors.ts`.
+4. Add or extend protocol tests, then run `npm run check`.
+
+The registry is the only central integration point for a new vendor; the
+control UI discovers supported clients through it automatically.
