@@ -1,48 +1,17 @@
-import { EggOp1HidClient } from "./devices/endgame/egg-op1-hid";
 import {
-  eggWeCreate,
-  eggWeIsSupported,
   eggWeMergeLogicalDevices,
-  eggWeSupportScore,
-  isEggWeClient,
-  type EggWeHidClient,
 } from "./devices/endgame/egg-we-control";
-import { LogitechHidppClient } from "./devices/logitech/hidpp";
-import { PulsarHidClient } from "./devices/pulsar/pulsar-hid";
-import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
-import { WLMouseHidClient } from "./devices/wlmouse/hid";
+import {
+  clientSupportScore,
+  createSupportedClient,
+  deviceBrand,
+  type PulsarClient,
+  type SupportedClient,
+} from "./devices/registry";
 export { describeHidDevice } from "./hid-diagnostics";
-
-export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
-
-export function createSupportedClient(device: HIDDevice): SupportedClient | null {
-  if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
-  if (eggWeIsSupported(device)) return eggWeCreate(device);
-  if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
-  if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
-  if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
-  if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
-  return null;
-}
-
-export function deviceBrand(client: SupportedClient): string {
-  if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
-  if (client instanceof LogitechHidppClient) return "Logitech";
-  if (client instanceof WLMouseHidClient) return "WLMouse";
-  return "Pulsar";
-}
+export { clientSupportScore, createSupportedClient, deviceBrand, type PulsarClient, type SupportedClient };
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
 export function listLogicalDevices(devices: HIDDevice[] = []): HIDDevice[] {
   return eggWeMergeLogicalDevices(devices, (device) => createSupportedClient(device) !== null);
-}
-
-export function clientSupportScore(device: HIDDevice): number {
-  if (EggOp1HidClient.isSupported(device)) return 10;
-  if (eggWeIsSupported(device)) return eggWeSupportScore(device);
-  if (PulsarProHidClient.isSupported(device)) return 8;
-  if (PulsarHidClient.isSupported(device)) return 7;
-  if (LogitechHidppClient.isSupported(device)) return 6;
-  return 0;
 }
