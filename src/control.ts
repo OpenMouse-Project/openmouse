@@ -7,7 +7,21 @@ import {
   type EggButtonMapping,
   type EggSpdtMode,
 } from "./egg-op1-hid";
-import { EggWeHidClient } from "./egg-we-hid";
+import {
+  EGG_WE_DISPLAY_NAME,
+  EGG_WE_HID_FILTERS,
+  eggWeAuthorizedPool,
+  eggWeCreate,
+  eggWeFromAuthorized,
+  eggWeIsSupported,
+  eggWeMergeLogicalDevices,
+  eggWeOwnsDevice,
+  eggWePrepare,
+  eggWeResolveConnect,
+  eggWeSupportScore,
+  isEggWeClient,
+  type EggWeHidClient,
+} from "./egg-we-control";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
@@ -377,7 +391,7 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#dongle-led-toggle")?.addEventListener("click", () => {
     void toggleDongleLed();
   });
-  for (let debounce = 0; debounce <= 15; debounce += 1) {
+  for (let debounce = 0; debounce <= 20; debounce += 1) {
     document.querySelector<HTMLSelectElement>("#debounce-select")?.add(new Option(`${debounce} ms`, String(debounce)));
   }
   for (let angle = -30; angle <= 30; angle += 1) {
@@ -589,30 +603,40 @@ function resetDeviceSpecificPanels(): void {
 
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
-  // 8K exposes CPI stages / GX; WE does not.
-  const isEgg8k = status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages);
-  const isEggWe = status.brand === "Endgame Gear" && !isEgg8k;
+  // Driver UI hints (e.g. status.ui.family === "egg-we") avoid brand-specific imports.
+  const ui = status.ui;
+  const isEgg8k = activeEggClient !== null
+    || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
+  const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const weSettingsPending = isEggWe && !EggWeHidClient.settingsMapped;
+  const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
   // mouse may have left these visible when WebHID switches devices.
   resetDeviceSpecificPanels();
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
-    // 8K is wired-only (no battery). WE and wireless mice show the battery column.
-    const hideBattery = isEgg8k || (isWired && !isEggWe && status.batteryPercent === null);
+    // 8K is wired-only (no battery). Drivers may force the column via ui.forceShowBattery.
+    const hideBattery = isEgg8k
+      || (isWired && !ui?.forceShowBattery && status.batteryPercent === null);
     batterySummary.hidden = hideBattery;
     batterySummary.style.display = hideBattery ? "none" : "flex";
   }
   const overview = document.querySelector<HTMLElement>(".device-overview");
   if (overview) {
-    const showBatteryColumn = !isEgg8k && (isEggWe || !isWired || status.batteryPercent !== null);
+    const showBatteryColumn = !isEgg8k
+      && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
     overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
   }
-  setText("#polling-note", isEgg8k
-    ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
-    : "Higher rates update cursor movement more often, but use more battery.");
+  setText("#polling-note", ui?.pollingNote
+    ?? (isEgg8k
+      ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
+      : "Higher rates update cursor movement more often, but use more battery."));
+  const pollingCard = document.querySelector<HTMLElement>("[data-rate]")?.closest<HTMLElement>(".setting-card");
+  if (pollingCard) {
+    pollingCard.hidden = false;
+    pollingCard.style.display = "";
+  }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.hidden = isEgg;
@@ -630,7 +654,7 @@ function showStatus(status: MouseStatus): void {
   }
   const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
   if (processingCard && processingCard.id !== "egg-filter-settings") {
-    processingCard.style.display = isEggWe ? "none" : "";
+    processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   const dpiOutputField = document.querySelector<HTMLInputElement>("#dpi-output");
@@ -660,9 +684,8 @@ function showStatus(status: MouseStatus): void {
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
-  // Hide DPI / polling / LOD until WE settings are mapped — same overview-only look as early empty state.
   const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
-  if (settingsGrid) settingsGrid.style.display = weSettingsPending ? "none" : "";
+  if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
 
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     const strength = status.signalStrength;
@@ -714,7 +737,7 @@ function showStatus(status: MouseStatus): void {
   setText("#device-status", "Connected");
   // Same banner copy as other brands — no RE/debug messaging in the chrome.
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
-  if (weSettingsPending) {
+  if (settingsPending) {
     setText("#read-status", status.batteryPercent === null
       ? "Connected"
       : `Battery ${status.batteryPercent}%`);
@@ -732,24 +755,25 @@ function showStatus(status: MouseStatus): void {
     const supportedRates = status.supportedPollingRates;
     const unsupportedForEgg8k = isEgg8k && rate < 1000;
     const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
-    const unsupportedForLogitech = status.brand === "Logitech" && unsupportedForListed;
-    const hide = unsupportedForEgg8k || unsupportedForLogitech || weSettingsPending;
+    const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
+    const hide = unsupportedForEgg8k || hideListed || settingsPending;
     button.hidden = hide;
-    button.disabled = hide;
+    button.disabled = hide || settingsPending;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    const unsupportedForEgg = isEgg && button.dataset.lod === "Low";
-    button.hidden = unsupportedForEgg || weSettingsPending;
-    button.disabled = unsupportedForEgg || weSettingsPending
+    const hideLow = button.dataset.lod === "Low"
+      && (isEgg || ui?.hideLodLow === true);
+    button.hidden = hideLow;
+    button.disabled = hideLow || settingsPending
       || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
-    button.disabled = weSettingsPending;
+    button.disabled = settingsPending;
   });
   const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
-  if (customDpi) customDpi.disabled = weSettingsPending;
-  if (dpiOutputField && weSettingsPending) {
+  if (customDpi) customDpi.disabled = settingsPending;
+  if (dpiOutputField && settingsPending) {
     dpiOutputField.value = "—";
     dpiOutputField.readOnly = true;
   }
@@ -837,7 +861,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
 
 function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
-  if (EggWeHidClient.isSupported(device)) return new EggWeHidClient(device);
+  if (eggWeIsSupported(device)) return eggWeCreate(device);
   if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
@@ -845,7 +869,7 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
 }
 
 function deviceBrand(client: SupportedClient): string {
-  if (client instanceof EggOp1HidClient || client instanceof EggWeHidClient) return "Endgame Gear";
+  if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
   return "Pulsar";
 }
@@ -860,13 +884,13 @@ function escapeHtml(value: string): string {
   })[character]!);
 }
 
-/** Supported devices for the sidebar; WE cable/receiver collapsed via driver. */
+/** Supported devices for the sidebar; multi-path drivers collapse via their module. */
 function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
   const all = devices ?? [];
-  const nonWe = all.filter((device) =>
-    createSupportedClient(device) !== null && !EggWeHidClient.isSupported(device));
-  const we = EggWeHidClient.pickDevices(all);
-  return [...nonWe, ...we];
+  return eggWeMergeLogicalDevices(
+    all,
+    (device) => createSupportedClient(device) !== null,
+  );
 }
 
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
@@ -882,9 +906,9 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
     const client = createSupportedClient(device)!;
     const status = deviceStatuses.get(device);
     const selected = device === activeDevice;
-    // Prefer status from driver (OP1we names itself); avoid productName for WE.
     const name = status?.name
-      ?? (client instanceof EggWeHidClient ? "Endgame Gear OP1we" : (device.productName ?? `${deviceBrand(client)} mouse`));
+      ?? status?.ui?.defaultDisplayName
+      ?? (isEggWeClient(client) ? EGG_WE_DISPLAY_NAME : (device.productName ?? `${deviceBrand(client)} mouse`));
     const detail = status
       ? `${status.brand} · ${status.connectionType ?? "Connected"}`
       : `${deviceBrand(client)} · Available`;
@@ -914,7 +938,7 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
 }
 
 function statusNameForClient(client: SupportedClient): string {
-  if (client instanceof EggWeHidClient) return "Endgame Gear OP1we";
+  if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
   return client.device.productName || "the selected mouse";
 }
 
@@ -933,10 +957,9 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof EggWeHidClient) {
+  } else if (isEggWeClient(client)) {
+    await eggWePrepare(client);
     activeEggWeClient = client;
-    // Single gentle status read only — never multi-command probe on connect
-    // (flooding the dongle freezes the OP1we).
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
@@ -986,28 +1009,28 @@ function handleHidConnect(event: HIDConnectionEvent): void {
     return;
   }
 
-  // WE cable + receiver (or multi-interface USB) must not activate twice.
-  if (client instanceof EggWeHidClient) {
+  if (isEggWeClient(client)) {
     void (async () => {
       const all = await navigator.hid?.getDevices() ?? [];
       await renderDeviceSidebar(all);
-      const preferred = EggWeHidClient.pickDevices(all)[0];
-      if (!preferred) return;
-      // Ignore secondary interface (e.g. receiver while cable is preferred).
-      if (preferred !== event.device && activeDevice === preferred) return;
-      if (preferred !== event.device) {
-        // A better path appeared (cable over receiver) — switch once.
-        const next = createSupportedClient(preferred);
-        if (!next || next.device === activeDevice) return;
-        setText("#device-status", "Switching path");
-        setText("#read-status", "Preferring OP1we USB over receiver.");
-        await activateClient(next);
+      const result = await eggWeResolveConnect(event.device, activeEggWeClient, activeDevice, all);
+      if (result.action === "ignore") return;
+      if (result.action === "refresh") {
+        try {
+          const status = await result.client.readStatus();
+          deviceStatuses.set(result.client.device, status);
+          showStatus(status);
+          startAutomaticRefresh();
+        } catch {
+          /* keep existing UI */
+        }
         return;
       }
-      if (activeDevice === preferred) return;
-      setText("#device-status", "New device detected");
-      setText("#read-status", "Reading Endgame Gear OP1we.");
-      await activateClient(new EggWeHidClient(preferred));
+      setText("#device-status", result.reason === "path" ? "Switching path" : "New device detected");
+      setText("#read-status", result.reason === "path"
+        ? "Preferring USB over receiver."
+        : `Reading ${EGG_WE_DISPLAY_NAME}.`);
+      await activateClient(result.client);
     })().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
       setText("#device-status", "Connection failed");
@@ -1029,7 +1052,8 @@ function handleHidConnect(event: HIDConnectionEvent): void {
 
 function handleHidDisconnect(event: HIDConnectionEvent): void {
   deviceStatuses.delete(event.device);
-  if (event.device !== activeDevice) {
+  // Multi-collection drivers (cmd + notify) treat either handle as the active mouse.
+  if (event.device !== activeDevice && !eggWeOwnsDevice(activeEggWeClient, event.device)) {
     void renderDeviceSidebar();
     return;
   }
@@ -1057,35 +1081,39 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const devices = await navigator.hid.requestDevice({
     filters: [
       { vendorId: 0x3710 },
-      // OP1we config collections (from report descriptors): FF02 feature id 8, FF04 feature id 6
-      { vendorId: 0x3367, usagePage: 0xff02 },
-      { vendorId: 0x3367, usagePage: 0xff04 },
-      { vendorId: 0x3367 },
+      ...EGG_WE_HID_FILTERS,
       { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
     ],
   });
   if (devices.length === 0) return null;
 
-  // Prefer the interface that scores highest for its brand driver.
-  // For WE: prefer the mouse USB interface over a separate receiver entry.
+  // Dual-collection drivers (e.g. WE) need the full authorized set.
+  if (devices.some((device) => eggWeIsSupported(device))) {
+    const weClient = eggWeFromAuthorized(await eggWeAuthorizedPool(devices));
+    if (weClient) return weClient;
+  }
+
   const ranked = devices
     .map((device) => ({ device, client: createSupportedClient(device), score: clientSupportScore(device) }))
     .filter((entry) => entry.client !== null)
     .sort((left, right) => right.score - left.score);
   const best = ranked[0];
-  if (best?.client) return best.client;
+  if (best?.client) {
+    if (isEggWeClient(best.client)) await eggWePrepare(best.client);
+    return best.client;
+  }
 
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
-    + "Pick the OP1we entry that is not a plain boot mouse, or try the receiver. "
+    + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
 }
 
 function clientSupportScore(device: HIDDevice): number {
   if (EggOp1HidClient.isSupported(device)) return 10;
-  if (EggWeHidClient.isSupported(device)) return EggWeHidClient.supportScore(device);
+  if (eggWeIsSupported(device)) return eggWeSupportScore(device);
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
   if (LogitechHidppClient.isSupported(device)) return 6;
@@ -1366,8 +1394,8 @@ type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "p
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
   const client = activePulsarClient ?? activeEggClient;
   if (!client || settingInProgress) return;
-  if (client instanceof EggWeHidClient) {
-    setText("#read-status", "That sensor toggle is not exposed by the OP1we protocol.");
+  if (isEggWeClient(client)) {
+    setText("#read-status", "That sensor toggle is not exposed by this mouse.");
     return;
   }
   settingInProgress = true;
@@ -1539,18 +1567,19 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const pulsarOrWe = activePulsarClient ?? activeEggWeClient;
-  if (!pulsarOrWe || settingInProgress) return;
-  if (setting === "sleep" && activeEggWeClient) {
-    setText("#read-status", "Auto sleep is not exposed by the OP1we protocol yet.");
+  const client = activePulsarClient
+    ?? (activeEggWeClient && setting === "debounce" ? activeEggWeClient : null);
+  if (!client || settingInProgress) return;
+  if (setting === "sleep" && !activePulsarClient) {
+    setText("#read-status", "Auto sleep is not available on this mouse.");
     return;
   }
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
   try {
-    if (setting === "debounce") await pulsarOrWe.setDebounceTime(value);
+    if (setting === "debounce") await client.setDebounceTime(value);
     else if (activePulsarClient) await activePulsarClient.setSleepTimeout(value);
-    showStatus(await pulsarOrWe.readStatus());
+    showStatus(await client.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
   } finally {
@@ -1576,9 +1605,9 @@ async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "p
 
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
-  // Drivers may opt out (e.g. WE pollIntervalMs = 0 — feature traffic freezes OP1we).
-  const interval = activeEggWeClient
-    ? EggWeHidClient.pollIntervalMs
+  const client = activeSettingsClient();
+  const interval = client && "pollIntervalMs" in client
+    ? Number((client as { pollIntervalMs: number }).pollIntervalMs)
     : 5000;
   if (!interval || interval <= 0) {
     refreshTimer = null;
@@ -1592,7 +1621,9 @@ function startAutomaticRefresh(): void {
 async function refreshStatus(): Promise<void> {
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
-  if (client instanceof EggWeHidClient && EggWeHidClient.pollIntervalMs <= 0) return;
+  if ("pollIntervalMs" in client && Number((client as { pollIntervalMs: number }).pollIntervalMs) <= 0) {
+    return;
+  }
   refreshInProgress = true;
   try {
     const status = await client.readStatus();
