@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
