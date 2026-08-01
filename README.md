@@ -6,3 +6,21 @@ Connect a mouse, view its information, and change supported settings such as DPI
 and polling rate without installing a different app for every brand.
 
 This branch is deployed as the public development control panel.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+Run the full local check before pushing changes:
+
+```bash
+npm run check
+```
+
+The control panel is organized by responsibility: `control.ts` coordinates the
+application, while the template, events, DOM helpers, persisted preferences,
+battery history, and device-client selection live in focused modules under
+`src/`. Individual mouse protocols remain in their own driver files.

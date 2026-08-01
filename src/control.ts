@@ -2,6 +2,15 @@ import "./control.css";
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
 import { controlTemplate } from "./control-template";
 import { bindControlEvents } from "./control-events";
+import {
+  clientSupportScore,
+  createSupportedClient,
+  describeHidDevice,
+  deviceBrand,
+  listLogicalDevices,
+  type PulsarClient,
+  type SupportedClient,
+} from "./device-clients";
 import { escapeHtml, formatHex, setControlValue, setText, setToggleValue } from "./dom";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
@@ -21,20 +30,16 @@ import {
 import {
   EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
-  eggWeCreate,
   eggWeFromAuthorized,
   eggWeIsSupported,
-  eggWeMergeLogicalDevices,
   eggWeOwnsDevice,
   eggWePrepare,
   eggWeResolveConnect,
-  eggWeSupportScore,
   isEggWeClient,
   type EggWeHidClient,
 } from "./egg-we-control";
 import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
-import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
 import { SUPPORTED_HID_FILTERS } from "./vendors";
 import { WLMouseHidClient } from "./wlmouse-hid";
@@ -62,9 +67,6 @@ let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
-
-type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
 
 function activeSettingsClient(): SupportedClient | null {
   return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
@@ -472,32 +474,6 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   startAutomaticRefresh();
 }
 
-function createSupportedClient(device: HIDDevice): SupportedClient | null {
-  if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
-  if (eggWeIsSupported(device)) return eggWeCreate(device);
-  if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
-  if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
-  if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
-  if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
-  return null;
-}
-
-function deviceBrand(client: SupportedClient): string {
-  if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
-  if (client instanceof LogitechHidppClient) return "Logitech";
-  if (client instanceof WLMouseHidClient) return "WLMouse";
-  return "Pulsar";
-}
-
-/** Supported devices for the sidebar; multi-path drivers collapse via their module. */
-function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
-  const all = devices ?? [];
-  return eggWeMergeLogicalDevices(
-    all,
-    (device) => createSupportedClient(device) !== null,
-  );
-}
-
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
   const list = document.querySelector<HTMLElement>("#sidebar-device-list");
   if (!list) return;
@@ -725,25 +701,6 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
-}
-
-function clientSupportScore(device: HIDDevice): number {
-  if (EggOp1HidClient.isSupported(device)) return 10;
-  if (eggWeIsSupported(device)) return eggWeSupportScore(device);
-  if (PulsarProHidClient.isSupported(device)) return 8;
-  if (PulsarHidClient.isSupported(device)) return 7;
-  if (LogitechHidppClient.isSupported(device)) return 6;
-  return 0;
-}
-
-function describeHidDevice(device: HIDDevice): string {
-  const name = device.productName || "unknown";
-  const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
-  const collections = device.collections.map((collection) => {
-    const features = collection.featureReports.map((report) => `0x${report.reportId.toString(16)}`).join(",") || "none";
-    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} feat[${features}]`;
-  }).join(" | ") || "no collections";
-  return `${name} (${ids}; ${collections})`;
 }
 
 async function connect(): Promise<void> {
