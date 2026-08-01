@@ -11,7 +11,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
-import { renderEggControls } from "./egg-controls-view";
+import { renderEggControls } from "./devices/endgame/egg-controls-view";
 import { formatHex, setControlValue, setText, setToggleValue } from "./ui/dom";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
