@@ -1,6 +1,32 @@
+/**
+ * Optional UI policy from a driver (used by control.ts).
+ * Drivers added in a PR should set only the flags they need so the shell
+ * stays free of brand-specific branching.
+ */
+export interface MouseUiHints {
+  /** Stable driver id, e.g. "egg-we". */
+  family?: string;
+  /** When false, core settings grid stays hidden. Default true. */
+  settingsReady?: boolean;
+  /** Hide 0.7 mm LOD option. */
+  hideLodLow?: boolean;
+  /** Hide poll rates not listed in supportedPollingRates. */
+  hideUnsupportedPollingRates?: boolean;
+  /** Hide Motion Sync / angle snap / ripple card. */
+  hideProcessingCard?: boolean;
+  /** Always show battery column (even wired with null %). */
+  forceShowBattery?: boolean;
+  /** Override the polling-rate footnote. */
+  pollingNote?: string;
+  /** Sidebar name before first status read. */
+  defaultDisplayName?: string;
+}
+
 export interface MouseStatus {
   brand: "Logitech" | "Pulsar" | "Endgame Gear";
   name: string;
+  /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
+  ui?: MouseUiHints;
   batteryPercent: number | null;
   batteryVoltageMv?: number | null;
   batteryState: "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";

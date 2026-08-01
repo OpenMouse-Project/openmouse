@@ -15,8 +15,14 @@ interface HIDConnectionEvent extends Event {
   readonly device: HIDDevice;
 }
 
+interface HIDReportItem {
+  readonly reportSize: number;
+  readonly reportCount: number;
+}
+
 interface HIDReportInfo {
   readonly reportId: number;
+  readonly items: readonly HIDReportItem[];
 }
 
 interface HIDCollectionInfo {
