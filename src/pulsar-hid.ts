@@ -152,8 +152,8 @@ export class PulsarHidClient {
         performanceMode: flash[FLASH.performanceState] === 1,
         liftOffDistance: lodValue === 3 ? "Low" : lodValue === 1 ? "Medium" : lodValue === 2 ? "High" : null,
         firmware: [
-          this.decodeVersion("Mouse", deviceVersion),
-          dongleVersion ? this.decodeVersion("Dongle", dongleVersion) : "Dongle v1.00",
+          this.decodeVersionOptional("Mouse", deviceVersion) ?? "Mouse firmware unavailable",
+          this.decodeVersionOptional("Dongle", dongleVersion) ?? "Dongle firmware unavailable",
         ],
       };
     });
@@ -451,6 +451,11 @@ export class PulsarHidClient {
   private decodeVersion(label: string, response: Uint8Array): string {
     this.assertAccepted(response, `${label.toLowerCase()} firmware read`);
     return `${label} v${response[5] ?? 0}.${(response[6] ?? 0).toString(16).padStart(2, "0")}`;
+  }
+
+  private decodeVersionOptional(label: string, response: Uint8Array | null): string | null {
+    if (!response || response[1] !== 0) return null;
+    return this.decodeVersion(label, response);
   }
 
   private assertAccepted(response: Uint8Array, operation: string): void {
