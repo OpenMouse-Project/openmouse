@@ -29,6 +29,13 @@ export interface EggOp1Status extends MouseStatus {
   eggLodOptions: string[];
   eggMulticlickFilters: number[];
   eggButtonMappings: string[];
+  eggGlassMode: boolean;
+  eggSupportsGlassMode: boolean;
+  eggMotionSyncAt8k: boolean;
+  eggAngleTuning?: number;
+  eggForceMaxFps?: boolean;
+  eggLedLiftOffDisabled?: boolean;
+  eggSupportsV2SensorControls: boolean;
   eggButtonActions: EggButtonAction[];
   eggLeftHanded: boolean;
 }
