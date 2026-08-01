@@ -1,7 +1,5 @@
 import type { MouseStatus } from "./mouse-types";
-import { VENDOR_ID, WLMOUSE_DEVICES, WLMOUSE_SLEEP_SECONDS, deviceKey, type DeviceProfile } from "./vendors";
-
-export const WLMOUSE_VENDOR_ID = VENDOR_ID.wlmouse;
+import { LAMZU_DEVICES, LAMZU_SLEEP_SECONDS, deviceKey, type DeviceProfile } from "./vendors";
 
 const REPORT_ID = 0;
 const PACKET_LENGTH = 64;
@@ -10,8 +8,8 @@ const RESPONSE_ATTEMPTS = 12;
 const RESPONSE_DELAY_MS = 30;
 const WAKE_DELAY_MS = 300;
 const QUICK_ATTEMPTS = 3;
-const SLEEP_DISABLED = 0xffff;
 const SLEEP_DISABLED_MIN = 0xff00;
+const SLEEP_MAX_SECONDS = 0xfeff;
 const PROFILE = 0x01;
 const DPI_STEP = 50;
 const DPI_MAX = 30000;
@@ -56,7 +54,7 @@ const LIFT_OFF_DISTANCES: ReadonlyArray<readonly [number, LiftOffDistance]> = [
   [0x02, "High"],
 ];
 
-interface WLMouseRequest {
+interface LamzuRequest {
   target: number;
   page: number;
   command: number;
@@ -68,7 +66,6 @@ interface WLMouseRequest {
 const READ = {
   firmware: { target: TARGET.mouse, page: PAGE.device, command: 0x81, length: 0x10, args: [] },
   dongleFirmware: { target: TARGET.dongle, page: PAGE.device, command: 0x81, length: 0x10, args: [], attempts: 2 },
-  serial: { target: TARGET.mouse, page: PAGE.device, command: 0x82, length: 0x02, args: [] },
   battery: { target: TARGET.mouse, page: PAGE.device, command: 0x83, length: 0x02, args: [] },
   activeProfile: { target: TARGET.mouse, page: PAGE.device, command: 0x85, length: 0x01, args: [] },
   sleepTimeout: { target: TARGET.mouse, page: PAGE.device, command: 0x87, length: 0x03, args: [PROFILE] },
@@ -81,7 +78,7 @@ const READ = {
   angleSnapping: { target: TARGET.mouse, page: PAGE.profile, command: 0x84, length: 0x02, args: [PROFILE] },
   motionSync: { target: TARGET.mouse, page: PAGE.profile, command: 0x89, length: 0x02, args: [PROFILE] },
   rippleControl: { target: TARGET.mouse, page: PAGE.profile, command: 0x8a, length: 0x02, args: [PROFILE] },
-} as const satisfies Record<string, WLMouseRequest>;
+} as const satisfies Record<string, LamzuRequest>;
 
 const WRITE = {
   dpiStages: 0x01,
@@ -94,13 +91,13 @@ const WRITE = {
   rippleControl: 0x0a,
 } as const;
 
-export interface WLMouseDpiStage {
+export interface LamzuDpiStage {
   x: number;
   y: number;
 }
 
-export class WLMouseHidClient {
-  readonly canDisableSleep = true;
+export class LamzuHidClient {
+  readonly canDisableSleep = false;
 
   private queue: Promise<unknown> = Promise.resolve();
   private readonly staticReads = new Map<string, Promise<Uint8Array | null>>();
@@ -114,11 +111,12 @@ export class WLMouseHidClient {
     const search = (collection: HIDCollectionInfo): boolean =>
       collection.featureReports.some((report) => report.reportId === REPORT_ID)
       || collection.children.some(search);
-    return device.vendorId === WLMOUSE_VENDOR_ID && device.collections.some(search);
+    return LAMZU_DEVICES.has(deviceKey(device.vendorId, device.productId))
+      && device.collections.some(search);
   }
 
   private profile(): DeviceProfile | undefined {
-    return WLMOUSE_DEVICES.get(deviceKey(this.device.vendorId, this.device.productId));
+    return LAMZU_DEVICES.get(deviceKey(this.device.vendorId, this.device.productId));
   }
 
   async open(): Promise<void> {
@@ -174,7 +172,7 @@ export class WLMouseHidClient {
 
   displayName(): string {
     const known = this.profile();
-    return known ? `WLmouse ${known.model}` : this.device.productName || "WLmouse";
+    return known ? `Lamzu ${known.model}` : this.device.productName || "Lamzu";
   }
 
   maxDpi(): number {
@@ -182,24 +180,17 @@ export class WLMouseHidClient {
   }
 
   getSleepOptions(): readonly number[] {
-    return this.profile()?.sleepOptions ?? WLMOUSE_SLEEP_SECONDS;
+    return this.profile()?.sleepOptions ?? LAMZU_SLEEP_SECONDS;
   }
 
   getDebounceMaxMs(): number {
     return DEBOUNCE_MAX_MS;
   }
 
-  maxPollingRateHz(): number | null {
-    const marker = /(\d+)\s*K\b/i.exec(this.device.productName || "");
-    return marker ? Number(marker[1]) * 1000 : null;
-  }
-
   getSupportedPollingRates(): number[] {
     const listed = this.profile()?.pollingRates;
     if (listed) return [...listed];
-    const all = [...new Set(POLLING_RATES.map(([, hertz]) => hertz))].sort((left, right) => left - right);
-    const max = this.maxPollingRateHz();
-    return max === null ? all : all.filter((rate) => rate <= max);
+    return [...new Set(POLLING_RATES.map(([, hertz]) => hertz))].sort((left, right) => left - right);
   }
 
   getDpiOptions(): number[] {
@@ -222,7 +213,6 @@ export class WLMouseHidClient {
     if (!firmware) throw new Error("The mouse did not report a firmware version.");
     const dongleFirmware = await this.once("dongleFirmware", () =>
       wireless ? this.request(READ.dongleFirmware).catch(() => null) : Promise.resolve(null));
-    const serial = await this.once("serial", () => this.request(READ.serial).catch(() => null));
     const battery = await this.request(READ.battery);
     const sleepTimeout = await this.request(READ.sleepTimeout).catch(() => null);
     const debounce = await this.request(READ.debounce).catch(() => null);
@@ -238,10 +228,10 @@ export class WLMouseHidClient {
     const stage = stages[activeStage];
     if (!stage) throw new Error("The mouse did not report any DPI stages.");
     return this.lastStatus = {
-      brand: "WLMouse",
+      brand: "Lamzu",
       name: this.displayName(),
       ui: {
-        family: "wlmouse",
+        family: "lamzu",
         hideUnsupportedPollingRates: true,
         forceShowBattery: true,
       },
@@ -258,7 +248,6 @@ export class WLMouseHidClient {
       rippleControl: rippleControl ? rippleControl[1] === 1 : null,
       connectionType: wireless ? "Wireless" : "Wired",
       connectionDetail: wireless ? "2.4 GHz receiver" : "Wired USB",
-      unitId: this.decodeText(serial),
       debounceMs: debounce ? debounce[1] : null,
       sleepTimeout: this.decodeSleepTimeout(sleepTimeout),
       liftOffDistance: this.decodeLiftOffDistance(liftOffDistance[1]),
@@ -319,7 +308,7 @@ export class WLMouseHidClient {
 
   private async setFlag(
     command: number,
-    read: WLMouseRequest,
+    read: LamzuRequest,
     enabled: boolean,
     field: "angleSnapping" | "motionSync" | "rippleControl",
     label: string,
@@ -347,8 +336,8 @@ export class WLMouseHidClient {
   }
 
   async setSleepTimeout(seconds: number): Promise<number> {
-    if (!Number.isInteger(seconds) || seconds < 0 || seconds > SLEEP_DISABLED) {
-      throw new Error(`The sleep timeout must be a whole number of seconds between 0 and ${SLEEP_DISABLED}.`);
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > SLEEP_MAX_SECONDS) {
+      throw new Error(`The sleep timeout must be a whole number of seconds between 1 and ${SLEEP_MAX_SECONDS}.`);
     }
     await this.write(PAGE.device, WRITE.sleepTimeout, [seconds >> 8 & 0xff, seconds & 0xff]);
     const reply = await this.request(READ.sleepTimeout);
@@ -396,13 +385,13 @@ export class WLMouseHidClient {
     return Math.min(Math.max(reported, 1), Math.max(count, 1)) - 1;
   }
 
-  private async request(spec: WLMouseRequest): Promise<Uint8Array> {
+  private async request(spec: LamzuRequest): Promise<Uint8Array> {
     const run = this.queue.then(() => this.exchange(spec), () => this.exchange(spec));
     this.queue = run.catch(() => undefined);
     return await run;
   }
 
-  private async exchange(spec: WLMouseRequest): Promise<Uint8Array> {
+  private async exchange(spec: LamzuRequest): Promise<Uint8Array> {
     await this.open();
     const packet = new Uint8Array(PACKET_LENGTH);
     packet[0] = STATUS.request;
@@ -429,14 +418,14 @@ export class WLMouseHidClient {
     throw new Error(this.describe(spec, "got no answer — the mouse may be asleep or out of range"));
   }
 
-  private describe(spec: WLMouseRequest, problem: string): string {
+  private describe(spec: LamzuRequest, problem: string): string {
     const hex = (value: number) => `0x${value.toString(16).padStart(2, "0")}`;
     return `Page ${hex(spec.page)} command ${hex(spec.command)} ${problem}.`;
   }
 
-  private decodeDpiStages(payload: Uint8Array): WLMouseDpiStage[] {
+  private decodeDpiStages(payload: Uint8Array): LamzuDpiStage[] {
     const count = payload[1];
-    const stages: WLMouseDpiStage[] = [];
+    const stages: LamzuDpiStage[] = [];
     for (let index = 0; index < count; index += 1) {
       const offset = 2 + index * 4;
       if (offset + 3 >= payload.length) break;
@@ -470,16 +459,6 @@ export class WLMouseHidClient {
   private decodeFirmware(label: string, payload: Uint8Array | null): string {
     if (!payload || payload.length < 4) return `${label} firmware unavailable`;
     return `${label} ${payload[2]}.${payload[3]}`;
-  }
-
-  private decodeText(payload: Uint8Array | null): string | null {
-    if (!payload) return null;
-    const text = [...payload]
-      .filter((byte) => byte >= 0x20 && byte <= 0x7e)
-      .map((byte) => String.fromCharCode(byte))
-      .join("")
-      .trim();
-    return text || null;
   }
 
   private copyDataView(view: DataView): Uint8Array {
