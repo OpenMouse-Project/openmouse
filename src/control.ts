@@ -231,6 +231,38 @@ function resetDeviceSpecificPanels(): void {
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
 }
 
+function renderDeviceDiagnostics(status: MouseStatus): void {
+  const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
+  if (!output) return;
+
+  const serializeCollection = (collection: HIDCollectionInfo): object => ({
+    usagePage: `0x${formatHex(collection.usagePage, 4)}`,
+    usage: `0x${formatHex(collection.usage, 4)}`,
+    inputReports: collection.inputReports.map((report) => `0x${formatHex(report.reportId)}`),
+    outputReports: collection.outputReports.map((report) => `0x${formatHex(report.reportId)}`),
+    featureReports: collection.featureReports.map((report) => `0x${formatHex(report.reportId)}`),
+    children: collection.children.map(serializeCollection),
+  });
+
+  const device = activeDevice;
+  const snapshot = {
+    driver: {
+      brand: status.brand,
+      family: status.ui?.family ?? null,
+      description: device ? describeHidDevice(device) : null,
+    },
+    webhid: device ? {
+      productName: device.productName || null,
+      vendorId: `0x${formatHex(device.vendorId, 4)}`,
+      productId: `0x${formatHex(device.productId, 4)}`,
+      opened: device.opened,
+      collections: device.collections.map(serializeCollection),
+    } : null,
+    status,
+  };
+  output.textContent = JSON.stringify(snapshot, null, 2);
+}
+
 function showStatus(status: MouseStatus): void {
   lastRenderedStatusKey = JSON.stringify(status);
   // Driver UI hints (e.g. status.ui.family === "egg-we") avoid brand-specific imports.
@@ -436,6 +468,7 @@ function showStatus(status: MouseStatus): void {
   const logitechDetails = document.querySelector<HTMLElement>("#logitech-device-details");
   if (logitechDetails) logitechDetails.style.display = status.brand === "Logitech" ? "block" : "none";
   if (status.brand === "Logitech") renderLogitechDetails(status);
+  renderDeviceDiagnostics(status);
 }
 
 function renderLogitechDetails(status: MouseStatus): void {

@@ -121,6 +121,10 @@
 .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
 #logitech-device-details { flex:0 0 auto }
 #logitech-device-details .setting-card { min-height:0 }
+#device-debug-details { flex:0 0 auto }
+.device-debug-card { min-height:0 !important }
+.device-debug-note { margin:0 0 .75rem;color:#99999f;font-size:.68rem;line-height:1.45 }
+.device-debug-snapshot { max-height:26rem;margin:0;padding:.8rem;overflow:auto;border:1px solid #29292d;border-radius:7px;background:#101012;color:#d8d8dc;font:.64rem/1.55 'JetBrains Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text }
 @media (min-width:900px) {
   .control-shell .settings-grid { grid-template-rows:minmax(220px,auto) }
   .control-shell .settings-grid > .setting-card { min-height:220px }
