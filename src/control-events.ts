@@ -78,9 +78,6 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   });
   onClick("#dongle-led-toggle", () => void handlers.toggleDongleLed());
 
-  for (let debounce = 0; debounce <= 20; debounce += 1) {
-    document.querySelector<HTMLSelectElement>("#debounce-select")?.add(new Option(`${debounce} ms`, String(debounce)));
-  }
   for (let angle = -30; angle <= 30; angle += 1) {
     document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.add(new Option(`${angle}°`, String(angle)));
   }

@@ -4,6 +4,7 @@ export const VENDOR_ID = {
   pulsar: 0x3710,
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
+  lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
 } as const;
@@ -49,6 +50,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
+  { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
