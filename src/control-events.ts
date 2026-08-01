@@ -15,6 +15,7 @@ export interface ControlEventHandlers {
   setExpandSections(enabled: boolean): void;
   setShowExperimental(enabled: boolean): void;
   resetInterfacePreferences(): void;
+  copyDiagnostics(): Promise<void>;
   chooseCustomDpi(): Promise<void>;
   finishCustomDpiEditing(): void;
   applyLogitechAxisDpi(): Promise<void>;
@@ -62,6 +63,7 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     handlers.setShowExperimental((event.target as HTMLInputElement).checked);
   });
   onClick("#reset-interface-settings", handlers.resetInterfacePreferences);
+  onClick("#copy-diagnostics", () => void handlers.copyDiagnostics());
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {

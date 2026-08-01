@@ -123,7 +123,17 @@
 #logitech-device-details .setting-card { min-height:0 }
 #device-debug-details { flex:0 0 auto }
 .device-debug-card { min-height:0 !important }
-.device-debug-note { margin:0 0 .75rem;color:#99999f;font-size:.68rem;line-height:1.45 }
+.device-debug-overview { display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.5rem }
+.device-debug-overview > div { min-width:0;padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416 }
+.device-debug-overview small { display:block;margin-bottom:.24rem;color:#77777c;font-size:.52rem;letter-spacing:.08em }
+.device-debug-overview span { display:block;color:#d8d8dc;font:600 .67rem/1.45 'JetBrains Mono',monospace;overflow-wrap:anywhere }
+.device-debug-actions { display:flex;align-items:center;gap:.55rem;margin-top:.7rem }
+.device-debug-actions button { padding:.42rem .62rem;border:1px solid var(--ui-accent);border-radius:6px;background:var(--ui-accent);color:var(--ui-accent-ink);font-size:.62rem;font-weight:700 }
+.device-debug-actions button:disabled { cursor:default;opacity:.45 }
+.device-debug-actions span { color:#99999f;font-size:.62rem }
+.device-debug-raw { margin-top:.7rem;border:1px solid #29292d;border-radius:7px;background:#101012 }
+.device-debug-raw summary { padding:.55rem .65rem;cursor:pointer;color:#b3b3b7;font-size:.65rem;font-weight:650 }
+.device-debug-raw .device-debug-snapshot { border:0;border-top:1px solid #29292d;border-radius:0 }
 .device-debug-snapshot { max-height:26rem;margin:0;padding:.8rem;overflow:auto;border:1px solid #29292d;border-radius:7px;background:#101012;color:#d8d8dc;font:.64rem/1.55 'JetBrains Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text }
 @media (min-width:900px) {
   .control-shell .settings-grid.has-logitech-axis-controls { grid-template-rows:minmax(330px,auto) }

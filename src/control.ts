@@ -67,6 +67,10 @@ let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+let latestDiagnosticsSnapshot = "";
+let latestDiagnosticStatus: MouseStatus | null = null;
+let lastDiagnosticCommand: string | null = null;
+let lastDiagnosticError: string | null = null;
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
 
@@ -133,6 +137,7 @@ function renderControl(): void {
       saveInterfacePreferences();
       populateInterfaceSettings();
     },
+    copyDiagnostics,
     chooseCustomDpi,
     finishCustomDpiEditing,
     applyLogitechAxisDpi,
@@ -231,6 +236,21 @@ function resetDeviceSpecificPanels(): void {
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
 }
 
+function diagnosticErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function recordDiagnosticCommand(command: string): void {
+  lastDiagnosticCommand = command;
+  lastDiagnosticError = null;
+  if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+}
+
+function recordDiagnosticError(error: unknown, fallback: string): void {
+  lastDiagnosticError = diagnosticErrorMessage(error, fallback);
+  if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+}
+
 function renderDeviceDiagnostics(status: MouseStatus): void {
   const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
   if (!output) return;
@@ -245,6 +265,31 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
   });
 
   const device = activeDevice;
+  const driver = status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand;
+  const transport = [status.connectionType, status.connectionDetail].filter(Boolean).join(" · ") || "Not reported";
+  const firmware = status.firmware.join(" · ") || "Not reported";
+  const protocol = status.firmware.find((value) => /protocol/i.test(value)) ?? status.ui?.family ?? "Not reported";
+  const overview = document.querySelector<HTMLElement>("#device-debug-overview");
+  if (overview) {
+    const items = [
+      ["Driver", driver],
+      ["VID / PID", device ? `0x${formatHex(device.vendorId, 4)} / 0x${formatHex(device.productId, 4)}` : "Not reported"],
+      ["Transport", transport],
+      ["Firmware", firmware],
+      ["Protocol", protocol],
+      ["Last command", lastDiagnosticCommand ?? "None"],
+      ["Last error", lastDiagnosticError ?? "None"],
+    ];
+    overview.replaceChildren(...items.map(([label, value]) => {
+      const item = document.createElement("div");
+      const heading = document.createElement("small");
+      const content = document.createElement("span");
+      heading.textContent = label.toUpperCase();
+      content.textContent = value;
+      item.append(heading, content);
+      return item;
+    }));
+  }
   const snapshot = {
     driver: {
       brand: status.brand,
@@ -259,11 +304,41 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
       collections: device.collections.map(serializeCollection),
     } : null,
     status,
+    diagnostics: {
+      lastCommand: lastDiagnosticCommand,
+      lastError: lastDiagnosticError,
+    },
   };
-  output.textContent = JSON.stringify(snapshot, null, 2);
+  latestDiagnosticsSnapshot = JSON.stringify(snapshot, null, 2);
+  output.textContent = latestDiagnosticsSnapshot;
+  const copyButton = document.querySelector<HTMLButtonElement>("#copy-diagnostics");
+  if (copyButton) copyButton.disabled = false;
+}
+
+async function copyDiagnostics(): Promise<void> {
+  const status = document.querySelector<HTMLElement>("#diagnostic-copy-status");
+  if (!latestDiagnosticsSnapshot) return;
+  try {
+    if (!navigator.clipboard) throw new Error("Clipboard access is unavailable.");
+    await navigator.clipboard.writeText(latestDiagnosticsSnapshot);
+    if (status) status.textContent = "Copied";
+  } catch {
+    const raw = document.querySelector<HTMLDetailsElement>("#device-debug-raw");
+    const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
+    if (raw) raw.open = true;
+    if (output) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(output);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    if (status) status.textContent = "Snapshot selected — press ⌘C / Ctrl+C";
+  }
 }
 
 function showStatus(status: MouseStatus): void {
+  latestDiagnosticStatus = status;
   lastRenderedStatusKey = JSON.stringify(status);
   // Driver UI hints (e.g. status.ui.family === "egg-we") avoid brand-specific imports.
   const ui = status.ui;
@@ -551,6 +626,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeWLMouseClient = null;
   activeOrbitalClient = null;
   activeDevice = client.device;
+  recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   if (client instanceof WLMouseHidClient) {
     activeWLMouseClient = client;
@@ -895,12 +971,14 @@ async function applyDpiValue(dpi: number): Promise<boolean> {
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
   buttons.forEach((button) => { button.disabled = true; });
   setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
+  recordDiagnosticCommand(`Set DPI to ${dpi.toLocaleString()}`);
   try {
     await client.setDpi(dpi);
     showStatus(await client.readStatus());
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
     return true;
   } catch (error) {
+    recordDiagnosticError(error, "Unable to set DPI.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
     return false;
   } finally {
@@ -919,11 +997,13 @@ async function applyLogitechAxisDpi(): Promise<void> {
   }
   settingInProgress = true;
   setText("#read-status", `Setting X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI…`);
+  recordDiagnosticCommand(`Set DPI axes to X ${dpiX.toLocaleString()} / Y ${dpiY.toLocaleString()}`);
   try {
     await activeClient.setDpi(dpiX, dpiY);
     showStatus(await activeClient.readStatus());
     setText("#dpi-pending", `Confirmed X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI`);
   } catch (error) {
+    recordDiagnosticError(error, "Unable to set axis DPI.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to set axis DPI.");
   } finally {
     settingInProgress = false;
@@ -939,10 +1019,12 @@ async function applyPollingRate(rate: number): Promise<void> {
     button.disabled = true;
   });
   setText("#read-status", `Setting ${rate.toLocaleString()} Hz…`);
+  recordDiagnosticCommand(`Set polling rate to ${rate.toLocaleString()} Hz`);
   try {
     await client.setPollingRate(rate);
     showStatus(await client.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to set polling rate.");
     const status = await client.readStatus().catch(() => null);
     if (status) showStatus(status);
     setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
@@ -961,10 +1043,12 @@ async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistanc
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
   buttons.forEach((button) => { button.disabled = true; });
   setText("#read-status", `Setting ${lod.toLowerCase()} lift-off distance…`);
+  recordDiagnosticCommand(`Set lift-off distance to ${lod}`);
   try {
     await client.setLiftOffDistance(lod);
     showStatus(await client.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to set lift-off distance.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
   } finally {
     settingInProgress = false;
@@ -981,10 +1065,12 @@ async function toggleDongleLed(): Promise<void> {
   settingInProgress = true;
   button.disabled = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} the receiver LED…`);
+  recordDiagnosticCommand(`${enabled ? "Enable" : "Disable"} receiver LED`);
   try {
     await activePulsarClient.setDongleLed(enabled);
     showStatus(await activePulsarClient.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to change the receiver LED.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to change the receiver LED.");
   } finally {
     settingInProgress = false;
@@ -999,6 +1085,7 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
+  recordDiagnosticCommand(`${enabled ? "Enable" : "Disable"} ${settingLabel(setting)}`);
   try {
     if (setting === "motionSync") await client.setMotionSync(enabled);
     if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
@@ -1007,6 +1094,7 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
     if (setting === "performanceMode") await (activePulsarClient ?? activeOrbitalClient)!.setPerformanceMode(enabled);
     showStatus(await client.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to change the setting.");
     const status = await client.readStatus().catch(() => null);
     if (status) showStatus(status);
     setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
@@ -1029,11 +1117,13 @@ async function applyEggFilter(setting: "slamclick" | "motionJitter", enabled: bo
   settingInProgress = true;
   const label = setting === "slamclick" ? "slamclick filter" : "motion-jitter filter";
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${label}…`);
+  recordDiagnosticCommand(`${enabled ? "Enable" : "Disable"} ${label}`);
   try {
     if (setting === "slamclick") await activeEggClient.setSlamclickFilter(enabled);
     else await activeEggClient.setMotionJitterFilter(enabled);
     showStatus(await activeEggClient.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, `Unable to change the ${label}.`);
     setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${label}.`);
     const status = await activeEggClient.readStatus().catch(() => null);
     if (status) showStatus(status);
@@ -1046,10 +1136,12 @@ async function applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Pr
   if (!activeEggClient || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting the ${button} button to ${mode}…`);
+  recordDiagnosticCommand(`Set ${button} button GX mode to ${mode}`);
   try {
     await activeEggClient.setSpdtMode(button, mode);
     showStatus(await activeEggClient.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, `Unable to change the ${button} button GX mode.`);
     setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${button} button GX mode.`);
     const status = await activeEggClient.readStatus().catch(() => null);
     if (status) showStatus(status);
@@ -1090,10 +1182,12 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
   if (!activeEggClient || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Changing ${label}…`);
+  recordDiagnosticCommand(`Change ${label}`);
   try {
     await change(activeEggClient);
     showStatus(await activeEggClient.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, `Unable to change ${label}.`);
     setText("#read-status", error instanceof Error ? error.message : `Unable to change ${label}.`);
     const status = await activeEggClient.readStatus().catch(() => null);
     if (status) showStatus(status);
@@ -1107,11 +1201,13 @@ async function applyPulsarValue(setting: "debounce" | "sleep", value: number): P
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
+  recordDiagnosticCommand(setting === "debounce" ? `Set debounce to ${value} ms` : `Set auto sleep to ${value} seconds`);
   try {
     if (setting === "debounce") await client.setDebounceTime(value);
     else await client.setSleepTimeout(value);
     showStatus(await client.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to change that setting.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
   } finally {
     settingInProgress = false;
@@ -1122,12 +1218,14 @@ async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "p
   if (!(activePulsarClient instanceof PulsarProHidClient) || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Changing ${setting === "wheelAcceleration" ? "wheel acceleration" : setting === "angleTuning" ? "angle tuning" : "onboard profile"}…`);
+  recordDiagnosticCommand(`Change ${setting === "wheelAcceleration" ? "wheel acceleration" : setting === "angleTuning" ? "angle tuning" : "onboard profile"}`);
   try {
     if (setting === "wheelAcceleration") await activePulsarClient.setWheelAcceleration(Boolean(value));
     if (setting === "angleTuning") await activePulsarClient.setAngleTuning(Number(value));
     if (setting === "profile") await activePulsarClient.setProfile(Number(value));
     showStatus(await activePulsarClient.readStatus());
   } catch (error) {
+    recordDiagnosticError(error, "Unable to change the Pulsar Pro setting.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar Pro setting.");
   } finally {
     settingInProgress = false;
