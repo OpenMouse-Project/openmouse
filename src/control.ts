@@ -1,6 +1,8 @@
 import "./control.css";
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
 import { controlTemplate } from "./control-template";
+import { bindControlEvents } from "./control-events";
+import { escapeHtml, formatHex, setControlValue, setText, setToggleValue } from "./dom";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
@@ -97,140 +99,52 @@ function applyInterfacePreferences(): void {
 function renderControl(): void {
   appRoot.innerHTML = controlTemplate(BUILD_LABEL);
 
-  document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
-    void connect();
+  bindControlEvents({
+    connect,
+    selectAuthorizedDevice,
+    openInterfaceSettings,
+    closeInterfaceSettings,
+    setInterfaceDensity: (value) => {
+      interfacePreferences.density = value as InterfaceDensity;
+      saveInterfacePreferences();
+    },
+    setInterfaceTheme: (value) => {
+      interfacePreferences.theme = value as InterfaceTheme;
+      saveInterfacePreferences();
+    },
+    setReducedMotion: (enabled) => {
+      interfacePreferences.reducedMotion = enabled;
+      saveInterfacePreferences();
+    },
+    setExpandSections: (enabled) => {
+      interfacePreferences.expandSections = enabled;
+      saveInterfacePreferences();
+    },
+    setShowExperimental: (enabled) => {
+      interfacePreferences.showExperimental = enabled;
+      saveInterfacePreferences();
+    },
+    resetInterfacePreferences: () => {
+      interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
+      saveInterfacePreferences();
+      populateInterfaceSettings();
+    },
+    chooseCustomDpi,
+    finishCustomDpiEditing,
+    applyLogitechAxisDpi,
+    toggleDongleLed,
+    applyPulsarValue,
+    toggleSleep: (enabled) => applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER),
+    applyPulsarToggle,
+    applyEggFilter,
+    applyEggSpdtMode,
+    applyEggCpiLevels,
+    updateCustomPollingPreview,
+    applyEggPollingDivider,
+    applyProSetting,
+    applyPollingRate,
+    applyLiftOffDistance,
   });
-  document.querySelector<HTMLButtonElement>("#empty-connect-button")?.addEventListener("click", () => {
-    void connect();
-  });
-  document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
-    if (!button) return;
-    void selectAuthorizedDevice(Number(button.dataset.deviceIndex));
-  });
-  document.querySelector<HTMLButtonElement>("#interface-settings-button")?.addEventListener("click", openInterfaceSettings);
-  document.querySelector<HTMLButtonElement>("#close-interface-settings")?.addEventListener("click", closeInterfaceSettings);
-  document.querySelector<HTMLSelectElement>("#interface-density")?.addEventListener("change", (event) => {
-    interfacePreferences.density = (event.target as HTMLSelectElement).value as InterfaceDensity;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLSelectElement>("#interface-theme")?.addEventListener("change", (event) => {
-    interfacePreferences.theme = (event.target as HTMLSelectElement).value as InterfaceTheme;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-reduced-motion")?.addEventListener("change", (event) => {
-    interfacePreferences.reducedMotion = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-expand-sections")?.addEventListener("change", (event) => {
-    interfacePreferences.expandSections = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-show-experimental")?.addEventListener("change", (event) => {
-    interfacePreferences.showExperimental = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLButtonElement>("#reset-interface-settings")?.addEventListener("click", () => {
-    interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
-    saveInterfacePreferences();
-    populateInterfaceSettings();
-  });
-  document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
-    void chooseCustomDpi();
-  });
-  document.querySelector<HTMLButtonElement>("#apply-logitech-axes")?.addEventListener("click", () => {
-    void applyLogitechAxisDpi();
-  });
-  document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void chooseCustomDpi();
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      finishCustomDpiEditing();
-    }
-  });
-  document.querySelector<HTMLButtonElement>("#dongle-led-toggle")?.addEventListener("click", () => {
-    void toggleDongleLed();
-  });
-  for (let debounce = 0; debounce <= 20; debounce += 1) {
-    document.querySelector<HTMLSelectElement>("#debounce-select")?.add(new Option(`${debounce} ms`, String(debounce)));
-  }
-  for (let angle = -30; angle <= 30; angle += 1) {
-    document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.add(new Option(`${angle}°`, String(angle)));
-  }
-  document.querySelector<HTMLSelectElement>("#debounce-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("debounce", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLButtonElement>("#sleep-toggle")?.addEventListener("click", (event) => {
-    const enabled = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
-    void applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
-  });
-  const toggles = [
-    ["#motion-sync-toggle", "motionSync"],
-    ["#angle-snapping-toggle", "angleSnapping"],
-    ["#ripple-control-toggle", "rippleControl"],
-    ["#performance-mode-toggle", "performanceMode"],
-  ] as const;
-  for (const [selector, setting] of toggles) {
-    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
-      void applyPulsarToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-    });
-  }
-  const eggFilterToggles = [
-    ["#slamclick-filter-toggle", "slamclick"],
-    ["#motion-jitter-filter-toggle", "motionJitter"],
-  ] as const;
-  for (const [selector, setting] of eggFilterToggles) {
-    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
-      void applyEggFilter(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-    });
-  }
-  document.querySelector<HTMLSelectElement>("#left-spdt-select")?.addEventListener("change", (event) => {
-    void applyEggSpdtMode("left", (event.target as HTMLSelectElement).value as EggSpdtMode);
-  });
-  document.querySelector<HTMLSelectElement>("#right-spdt-select")?.addEventListener("change", (event) => {
-    void applyEggSpdtMode("right", (event.target as HTMLSelectElement).value as EggSpdtMode);
-  });
-  document.querySelector<HTMLSelectElement>("#egg-cpi-levels")?.addEventListener("change", (event) => {
-    void applyEggCpiLevels(Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLInputElement>("#egg-polling-divider")?.addEventListener("input", updateCustomPollingPreview);
-  document.querySelector<HTMLButtonElement>("#apply-egg-polling")?.addEventListener("click", () => {
-    const divider = Number(document.querySelector<HTMLInputElement>("#egg-polling-divider")?.value);
-    void applyEggPollingDivider(divider);
-  });
-  document.querySelector<HTMLButtonElement>("#wheel-acceleration-toggle")?.addEventListener("click", (event) => {
-    void applyProSetting("wheelAcceleration", (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-  });
-  document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.addEventListener("change", (event) => {
-    void applyProSetting("angleTuning", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLSelectElement>("#profile-select")?.addEventListener("change", (event) => {
-    void applyProSetting("profile", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    button.addEventListener("click", () => {
-      void applyPollingRate(Number(button.dataset.rate));
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const lod = button.dataset.lod as MouseStatus["liftOffDistance"];
-      if (lod) void applyLiftOffDistance(lod);
-    });
-  });
-  const shell = document.querySelector<HTMLElement>(".control-shell");
-  const panel = document.querySelector<HTMLElement>(".control-panel");
-  shell?.addEventListener("wheel", (event) => {
-    if (!panel || panel.contains(event.target as Node) || event.deltaY === 0) return;
-    panel.scrollTop += event.deltaY;
-    event.preventDefault();
-  }, { passive: false });
   populateInterfaceSettings();
   applyInterfacePreferences();
   navigator.hid?.addEventListener("connect", handleHidConnect);
@@ -257,11 +171,6 @@ function populateInterfaceSettings(): void {
   if (reducedMotion) reducedMotion.checked = interfacePreferences.reducedMotion;
   if (expandSections) expandSections.checked = interfacePreferences.expandSections;
   if (showExperimental) showExperimental.checked = interfacePreferences.showExperimental;
-}
-
-function setText(selector: string, value: string): void {
-  const element = document.querySelector<HTMLElement>(selector);
-  if (element) element.textContent = value;
 }
 
 function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
@@ -542,36 +451,6 @@ function renderLogitechDetails(status: MouseStatus): void {
     `<div style="padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416"><small style="display:block;margin-bottom:.25rem;color:#77777c;font-size:.52rem;letter-spacing:.08em">${label.toUpperCase()}</small><span style="color:#d8d8dc;font:600 .67rem 'JetBrains Mono',monospace;overflow-wrap:anywhere">${value}</span></div>`).join("");
 }
 
-function setControlValue(selector: string, value: number | string | null | undefined): void {
-  const control = document.querySelector<HTMLSelectElement>(selector);
-  if (!control) return;
-  control.disabled = value === null || value === undefined;
-  if (control.disabled) return;
-  control.value = String(value);
-}
-
-function setToggleValue(selector: string, value: boolean | null | undefined): void {
-  const control = document.querySelector<HTMLButtonElement>(selector);
-  if (!control) return;
-  control.disabled = value === null || value === undefined;
-  if (control.disabled) {
-    control.textContent = "N/A";
-    control.style.background = "#202023";
-    control.style.borderColor = "#3a3a3f";
-    control.style.color = "#66666b";
-    return;
-  }
-  control.setAttribute("aria-checked", String(value));
-  control.textContent = value ? "On" : "Off";
-  control.style.background = value ? "var(--ui-accent)" : "#202023";
-  control.style.borderColor = value ? "var(--ui-accent)" : "#3a3a3f";
-  control.style.color = value ? "var(--ui-accent-ink)" : "#8b8b90";
-}
-
-function formatHex(value: number, width = 2): string {
-  return value.toString(16).toUpperCase().padStart(width, "0");
-}
-
 async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   await client.open();
   const device = client.device;
@@ -608,16 +487,6 @@ function deviceBrand(client: SupportedClient): string {
   if (client instanceof LogitechHidppClient) return "Logitech";
   if (client instanceof WLMouseHidClient) return "WLMouse";
   return "Pulsar";
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  })[character]!);
 }
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */

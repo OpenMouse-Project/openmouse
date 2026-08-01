@@ -1,4 +1,5 @@
 @import "./control-base.css";
+@import "./control-overrides.css";
 
 .access-gate {
   display: flex;
