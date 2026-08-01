@@ -9,7 +9,6 @@ import {
 } from "./egg-op1-hid";
 import {
   EGG_WE_DISPLAY_NAME,
-  EGG_WE_HID_FILTERS,
   eggWeAuthorizedPool,
   eggWeCreate,
   eggWeFromAuthorized,
@@ -26,6 +25,8 @@ import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
+import { SUPPORTED_HID_FILTERS } from "./vendors";
+import { WLMouseHidClient } from "./wlmouse-hid";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -47,6 +48,7 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
+let activeWLMouseClient: WLMouseHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -58,10 +60,10 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let reconnectInFlight = false;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient;
+type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
 }
 
 function hasActiveClient(): boolean {
@@ -310,8 +312,8 @@ function renderControl(): void {
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
           <article id="debounce-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
-          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
-          <article class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
+          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" type="button" role="switch" aria-checked="false" hidden style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
+          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
           <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
           <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
           <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
@@ -402,6 +404,10 @@ function renderControl(): void {
   });
   document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
     void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLButtonElement>("#sleep-toggle")?.addEventListener("click", (event) => {
+    const enabled = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
+    void applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
   });
   const toggles = [
     ["#motion-sync-toggle", "motionSync"],
@@ -586,6 +592,25 @@ function batteryDetail(status: MouseStatus): string {
   return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
 }
 
+const WLMOUSE_SLEEP_NEVER = 0xffff;
+const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
+  [1, "10 seconds"], [3, "30 seconds"], [6, "1 minute"], [12, "2 minutes"],
+  [30, "5 minutes"], [60, "10 minutes"], [180, "30 minutes"],
+];
+const WLMOUSE_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
+  [30, "30 seconds"], [60, "1 minute"], [120, "2 minutes"], [300, "5 minutes"],
+  [600, "10 minutes"], [1800, "30 minutes"],
+];
+const WLMOUSE_SLEEP_DEFAULT = 60;
+let lastSleepSeconds = WLMOUSE_SLEEP_DEFAULT;
+
+function fillSleepOptions(options: ReadonlyArray<readonly [number, string]>): void {
+  const select = document.querySelector<HTMLSelectElement>("#sleep-select");
+  if (!select || select.dataset.options === String(options[0][0])) return;
+  select.replaceChildren(...options.map(([value, label]) => new Option(label, String(value))));
+  select.dataset.options = String(options[0][0]);
+}
+
 function resetDeviceSpecificPanels(): void {
   for (const selector of [
     "#egg-filter-settings",
@@ -609,6 +634,7 @@ function showStatus(status: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
+  const isWLMouse = ui?.family === "wlmouse" || activeWLMouseClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -644,13 +670,16 @@ function showStatus(status: MouseStatus): void {
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && status.brand === "Pulsar";
+      && (status.brand === "Pulsar" || isWLMouse);
     debounceSettings.hidden = !showDebounce;
   }
+  const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
+  if (signalSettings) signalSettings.hidden = isEgg || isWLMouse;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    performanceModeSetting.hidden = isEgg;
-    performanceModeSetting.style.display = isEgg ? "none" : "flex";
+    const hidePerformanceMode = isEgg || isWLMouse;
+    performanceModeSetting.hidden = hidePerformanceMode;
+    performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
   const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
   if (processingCard && processingCard.id !== "egg-filter-settings") {
@@ -680,14 +709,27 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k;
+    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
   const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
   if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
 
+  const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
+  if (sleepToggle) sleepToggle.hidden = !isWLMouse;
+  if (isWLMouse) {
+    fillSleepOptions(WLMOUSE_SLEEP_OPTIONS);
+    if (status.sleepTimeout) lastSleepSeconds = status.sleepTimeout;
+    setToggleValue("#sleep-toggle", status.sleepTimeout !== null && status.sleepTimeout !== undefined);
+    setControlValue("#debounce-select", status.debounceMs);
+    setControlValue("#sleep-select", status.sleepTimeout);
+    setToggleValue("#motion-sync-toggle", status.motionSync);
+    setToggleValue("#angle-snapping-toggle", status.angleSnapping);
+    setToggleValue("#ripple-control-toggle", status.rippleControl);
+  }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
+    fillSleepOptions(PULSAR_SLEEP_OPTIONS);
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
     setText("#signal-detail", strength === null || strength === undefined
@@ -865,12 +907,14 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
+  if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
   return null;
 }
 
 function deviceBrand(client: SupportedClient): string {
   if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
+  if (client instanceof WLMouseHidClient) return "WLMouse";
   return "Pulsar";
 }
 
@@ -948,9 +992,20 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
+  activeWLMouseClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
-  if (client instanceof EggOp1HidClient) {
+  if (client instanceof WLMouseHidClient) {
+    activeWLMouseClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+    await client.startNotifications(() => {
+      void refreshStatus();
+    }).catch(() => false);
+  } else if (client instanceof EggOp1HidClient) {
     activeEggClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
@@ -991,8 +1046,12 @@ function showDisconnectedState(): void {
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
+  activeWLMouseClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
+  resetDeviceSpecificPanels();
+  const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
+  if (advanced) advanced.style.display = "none";
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
   setText("#device-title", "Connect a mouse");
@@ -1079,11 +1138,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
 async function requestSupportedClient(): Promise<SupportedClient | null> {
   if (!navigator.hid) throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
   const devices = await navigator.hid.requestDevice({
-    filters: [
-      { vendorId: 0x3710 },
-      ...EGG_WE_HID_FILTERS,
-      { vendorId: 0x046d, productId: 0xc54d, usagePage: 0xff00, usage: 0x0001 },
-    ],
+    filters: SUPPORTED_HID_FILTERS,
   });
   if (devices.length === 0) return null;
 
@@ -1342,6 +1397,8 @@ async function applyPollingRate(rate: number): Promise<void> {
     await client.setPollingRate(rate);
     showStatus(await client.readStatus());
   } catch (error) {
+    const status = await client.readStatus().catch(() => null);
+    if (status) showStatus(status);
     setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
   } finally {
     settingInProgress = false;
@@ -1392,7 +1449,7 @@ async function toggleDongleLed(): Promise<void> {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  const client = activePulsarClient ?? activeEggClient;
+  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
@@ -1400,13 +1457,13 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
     if (setting === "motionSync") await client.setMotionSync(enabled);
     if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
     if (setting === "rippleControl") await client.setRippleControl(enabled);
-    if (setting === "performanceMode" && client instanceof EggOp1HidClient) throw new Error("Performance mode is not exposed by the OP1 8K protocol.");
-    if (setting === "performanceMode" && !(client instanceof EggOp1HidClient)) await client.setPerformanceMode(enabled);
+    if (setting === "performanceMode" && !activePulsarClient) throw new Error("Performance mode is not exposed by this device's protocol.");
+    if (setting === "performanceMode" && activePulsarClient) await activePulsarClient.setPerformanceMode(enabled);
     showStatus(await client.readStatus());
   } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
     const status = await client.readStatus().catch(() => null);
     if (status) showStatus(status);
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
   } finally {
     settingInProgress = false;
   }
@@ -1563,13 +1620,14 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  if (!activePulsarClient || settingInProgress) return;
+  const client = activePulsarClient ?? activeWLMouseClient;
+  if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
   try {
-    if (setting === "debounce") await activePulsarClient.setDebounceTime(value);
-    else await activePulsarClient.setSleepTimeout(value);
-    showStatus(await activePulsarClient.readStatus());
+    if (setting === "debounce") await client.setDebounceTime(value);
+    else await client.setSleepTimeout(value);
+    showStatus(await client.readStatus());
   } catch (error) {
     setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
   } finally {
@@ -1616,7 +1674,9 @@ async function refreshStatus(): Promise<void> {
   }
   refreshInProgress = true;
   try {
-    const status = await client.readStatus();
+    const status = activeWLMouseClient && client === activeWLMouseClient
+      ? await activeWLMouseClient.readStatus(true)
+      : await client.readStatus();
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     if (JSON.stringify(status) !== lastRenderedStatusKey) showStatus(status);
@@ -1638,6 +1698,7 @@ window.addEventListener("beforeunload", () => {
   void activePulsarClient?.close();
   void activeEggClient?.close();
   void activeEggWeClient?.close();
+  void activeWLMouseClient?.close();
 });
 
 renderControl();
