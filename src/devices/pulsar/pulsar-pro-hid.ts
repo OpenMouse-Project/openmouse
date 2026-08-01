@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "../mouse-types";
 import type { PulsarDeviceInfo } from "./pulsar-hid";
 
 const VENDOR_ID = 0x3710;

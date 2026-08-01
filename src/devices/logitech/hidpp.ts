@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "../mouse-types";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 const LOGITECH_RECEIVER_PRODUCT_ID = 0xc54d;

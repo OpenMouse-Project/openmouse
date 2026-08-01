@@ -26,7 +26,7 @@ import {
   type EggButtonIndex,
   type EggButtonMapping,
   type EggSpdtMode,
-} from "./egg-op1-hid";
+} from "./devices/endgame/egg-op1-hid";
 import {
   EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
@@ -37,12 +37,12 @@ import {
   eggWeResolveConnect,
   isEggWeClient,
   type EggWeHidClient,
-} from "./egg-we-control";
-import { LogitechHidppClient } from "./logitech-hidpp";
-import type { MouseStatus } from "./mouse-types";
-import { PulsarProHidClient } from "./pulsar-pro-hid";
-import { SUPPORTED_HID_FILTERS } from "./vendors";
-import { WLMouseHidClient } from "./wlmouse-hid";
+} from "./devices/endgame/egg-we-control";
+import { LogitechHidppClient } from "./devices/logitech/hidpp";
+import type { MouseStatus } from "./devices/mouse-types";
+import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
+import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
+import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 

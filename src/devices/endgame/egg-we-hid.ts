@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "../mouse-types";
 import {
   WE_CMD_GET_POWER,
   WE_CMD_READ_EEPROM,

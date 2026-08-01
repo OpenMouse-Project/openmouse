@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "../mouse-types";
 
 const EGG_VENDOR_ID = 0x3367;
 const SUPPORTED_PRODUCTS = new Map<number, string>([

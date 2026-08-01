@@ -1,7 +1,7 @@
 import { createSupportedClient, deviceBrand, listLogicalDevices } from "./device-clients";
-import { EGG_WE_DISPLAY_NAME, isEggWeClient } from "./egg-we-control";
+import { EGG_WE_DISPLAY_NAME, isEggWeClient } from "./devices/endgame/egg-we-control";
 import { escapeHtml } from "./dom";
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "./devices/mouse-types";
 
 export function renderDeviceSidebar(
   devices: HIDDevice[],

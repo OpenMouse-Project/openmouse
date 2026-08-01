@@ -1,4 +1,4 @@
-import { EggOp1HidClient } from "./egg-op1-hid";
+import { EggOp1HidClient } from "./devices/endgame/egg-op1-hid";
 import {
   eggWeCreate,
   eggWeIsSupported,
@@ -6,11 +6,11 @@ import {
   eggWeSupportScore,
   isEggWeClient,
   type EggWeHidClient,
-} from "./egg-we-control";
-import { LogitechHidppClient } from "./logitech-hidpp";
-import { PulsarHidClient } from "./pulsar-hid";
-import { PulsarProHidClient } from "./pulsar-pro-hid";
-import { WLMouseHidClient } from "./wlmouse-hid";
+} from "./devices/endgame/egg-we-control";
+import { LogitechHidppClient } from "./devices/logitech/hidpp";
+import { PulsarHidClient } from "./devices/pulsar/pulsar-hid";
+import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
+import { WLMouseHidClient } from "./devices/wlmouse/hid";
 export { describeHidDevice } from "./hid-diagnostics";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;

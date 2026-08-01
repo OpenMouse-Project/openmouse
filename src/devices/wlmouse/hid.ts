@@ -1,5 +1,5 @@
-import type { MouseStatus } from "./mouse-types";
-import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "./vendors";
+import type { MouseStatus } from "../mouse-types";
+import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "../vendors";
 
 export const WLMOUSE_VENDOR_ID = VENDOR_ID.wlmouse;
 

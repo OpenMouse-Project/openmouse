@@ -1,5 +1,5 @@
-import type { EggSpdtMode } from "./egg-op1-hid";
-import type { MouseStatus } from "./mouse-types";
+import type { EggSpdtMode } from "./devices/endgame/egg-op1-hid";
+import type { MouseStatus } from "./devices/mouse-types";
 
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 type EggFilterSetting = "slamclick" | "motionJitter";

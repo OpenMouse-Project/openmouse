@@ -1,4 +1,4 @@
-import { EGG_WE_HID_FILTERS } from "./egg-we-control";
+import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
