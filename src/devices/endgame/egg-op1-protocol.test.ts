@@ -3,8 +3,12 @@ import test from "node:test";
 
 import {
   EGG_DEVICE_PROFILES,
+  eggButtonControlOffset,
+  eggButtonMappingOffset,
   eggClampCpi,
+  eggDecodeButtonAction,
   eggDpiOptions,
+  eggEncodeButtonAction,
   eggFormatFirmwareVersion,
   eggIsValidCpi,
   eggLodOptions,
@@ -68,4 +72,28 @@ test("firmware response normalization preserves an included report ID", () => {
   const normalized = eggNormalizeFeatureReport(raw, 0xa1, 64, 63);
   assert.equal(normalized.length, 65);
   assert.equal(eggFormatFirmwareVersion(normalized), "V1.07");
+});
+
+test("button control and mapping offsets follow the shifted physical layout", () => {
+  assert.deepEqual(Array.from({ length: 7 }, (_, button) => eggButtonControlOffset(button)), [77, 84, 91, 98, 105, null, null]);
+  assert.deepEqual(Array.from({ length: 7 }, (_, button) => eggButtonMappingOffset(button, false)), [null, 78, 85, 92, 99, 113, 120]);
+  assert.deepEqual(Array.from({ length: 7 }, (_, button) => eggButtonMappingOffset(button, true)), [71, null, 85, 92, 99, 113, 120]);
+});
+
+test("all supported button actions round-trip through the wire codec", () => {
+  const actions = [
+    { key: "mouse-left" },
+    { key: "scroll-down" },
+    { key: "keyboard", modifiers: 0x05, usage: 0x06 },
+    { key: "cpi-loop" },
+    { key: "fixed-cpi", x: 800, y: 1600 },
+    { key: "media-mute" },
+    { key: "browser-home" },
+    { key: "disabled" },
+  ] as const;
+  for (const action of actions) {
+    const encoded = eggEncodeButtonAction(action)!;
+    assert.deepEqual(eggEncodeButtonAction(eggDecodeButtonAction(encoded.type, encoded.params)), encoded);
+  }
+  assert.deepEqual(eggEncodeButtonAction({ key: "cpi-loop" })!.params, [0xf1, 0, 0, 0, 0]);
 });
