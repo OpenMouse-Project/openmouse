@@ -1,5 +1,7 @@
 node_modules/
 dist/
+CHANGELOG.md
+supabase/migrations/
 .DS_Store
 .env
 .env.*
