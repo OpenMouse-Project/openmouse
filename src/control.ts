@@ -12,6 +12,7 @@ import {
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
 import { renderEggControls } from "./devices/endgame/egg-controls-view";
+import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import { formatHex, setControlValue, setText, setToggleValue } from "./ui/dom";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
@@ -38,6 +39,7 @@ import {
   isEggWeClient,
   type EggWeHidClient,
 } from "./devices/endgame/egg-we-control";
+import { LamzuHidClient } from "./devices/lamzu/hid";
 import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
@@ -58,7 +60,7 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
-let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeDmClient: WLMouseHidClient | LamzuHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
@@ -74,8 +76,14 @@ let lastDiagnosticError: string | null = null;
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
 
+async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
+  return activeDmClient && client === activeDmClient
+    ? await activeDmClient.readStatus(true)
+    : await client.readStatus();
+}
+
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient ?? activeOrbitalClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient;
 }
 
 function hasActiveClient(): boolean {
@@ -105,7 +113,11 @@ function applyInterfacePreferences(): void {
 }
 
 function renderControl(): void {
+  startHidCapture();
   appRoot.innerHTML = controlTemplate(BUILD_LABEL);
+  document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.addEventListener("toggle", () => {
+    if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+  });
 
   bindControlEvents({
     connect,
@@ -207,18 +219,27 @@ const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
   [1, "10 seconds"], [3, "30 seconds"], [6, "1 minute"], [12, "2 minutes"],
   [30, "5 minutes"], [60, "10 minutes"], [180, "30 minutes"],
 ];
-const WLMOUSE_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
-  [30, "30 seconds"], [60, "1 minute"], [120, "2 minutes"], [300, "5 minutes"],
-  [600, "10 minutes"], [1800, "30 minutes"],
-];
-const WLMOUSE_SLEEP_DEFAULT = 60;
-let lastSleepSeconds = WLMOUSE_SLEEP_DEFAULT;
+let lastSleepSeconds = 60;
+
+function sleepLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds} seconds`;
+  const minutes = seconds / 60;
+  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+}
 
 function fillSleepOptions(options: ReadonlyArray<readonly [number, string]>): void {
   const select = document.querySelector<HTMLSelectElement>("#sleep-select");
-  if (!select || select.dataset.options === String(options[0][0])) return;
+  const signature = options.map(([value]) => value).join(",");
+  if (!select || select.dataset.options === signature) return;
   select.replaceChildren(...options.map(([value, label]) => new Option(label, String(value))));
-  select.dataset.options = String(options[0][0]);
+  select.dataset.options = signature;
+}
+
+function fillDebounceOptions(maxMs: number): void {
+  const select = document.querySelector<HTMLSelectElement>("#debounce-select");
+  if (!select || select.dataset.max === String(maxMs)) return;
+  select.replaceChildren(...Array.from({ length: maxMs + 1 }, (_, ms) => new Option(`${ms} ms`, String(ms))));
+  select.dataset.max = String(maxMs);
 }
 
 function resetDeviceSpecificPanels(): void {
@@ -242,18 +263,21 @@ function diagnosticErrorMessage(error: unknown, fallback: string): string {
 
 function recordDiagnosticCommand(command: string): void {
   lastDiagnosticCommand = command;
+  markHidActivity(command);
   lastDiagnosticError = null;
   if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
 function recordDiagnosticError(error: unknown, fallback: string): void {
   lastDiagnosticError = diagnosticErrorMessage(error, fallback);
+  markHidActivity(lastDiagnosticError, { failed: true });
+  renderReads();
   if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
 function renderDeviceDiagnostics(status: MouseStatus): void {
   const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
-  if (!output) return;
+  if (!output || !diagnosticsOpen()) return;
 
   const serializeCollection = (collection: HIDCollectionInfo): object => ({
     usagePage: `0x${formatHex(collection.usagePage, 4)}`,
@@ -266,20 +290,14 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
 
   const device = activeDevice;
   const driver = status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand;
-  const transport = [status.connectionType, status.connectionDetail].filter(Boolean).join(" · ") || "Not reported";
-  const firmware = status.firmware.join(" · ") || "Not reported";
-  const protocol = status.firmware.find((value) => /protocol/i.test(value)) ?? status.ui?.family ?? "Not reported";
   const overview = document.querySelector<HTMLElement>("#device-debug-overview");
   if (overview) {
-    const items = [
+    const items: string[][] = [
       ["Driver", driver],
       ["VID / PID", device ? `0x${formatHex(device.vendorId, 4)} / 0x${formatHex(device.productId, 4)}` : "Not reported"],
-      ["Transport", transport],
-      ["Firmware", firmware],
-      ["Protocol", protocol],
       ["Last command", lastDiagnosticCommand ?? "None"],
-      ["Last error", lastDiagnosticError ?? "None"],
     ];
+    if (lastDiagnosticError) items.push(["Last error", lastDiagnosticError]);
     overview.replaceChildren(...items.map(([label, value]) => {
       const item = document.createElement("div");
       const heading = document.createElement("small");
@@ -303,7 +321,7 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
       opened: device.opened,
       collections: device.collections.map(serializeCollection),
     } : null,
-    status,
+    status: { ...status, unitId: status.unitId ? "(masked)" : status.unitId },
     diagnostics: {
       lastCommand: lastDiagnosticCommand,
       lastError: lastDiagnosticError,
@@ -313,14 +331,89 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
   output.textContent = latestDiagnosticsSnapshot;
   const copyButton = document.querySelector<HTMLButtonElement>("#copy-diagnostics");
   if (copyButton) copyButton.disabled = false;
+  renderReads();
 }
+
+function maskBytes(bytes: Uint8Array): string {
+  const hide = new Set<number>();
+  let run = -1;
+  for (let i = 0; i <= bytes.length; i += 1) {
+    const printable = i < bytes.length && bytes[i] >= 0x20 && bytes[i] <= 0x7e;
+    if (printable && run < 0) run = i;
+    if (!printable && run >= 0) {
+      if (i - run >= 6) for (let j = run; j < i; j += 1) hide.add(j);
+      run = -1;
+    }
+  }
+  let end = bytes.length;
+  while (end > 8 && bytes[end - 1] === 0) end -= 1;
+  const shown = Array.from(bytes.slice(0, end), (byte, i) => hide.has(i) ? "**" : formatHex(byte)).join(" ");
+  return end < bytes.length ? `${shown}  (${bytes.length}B)` : shown;
+}
+
+function diagnosticsOpen(): boolean {
+  return document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.open === true;
+}
+
+function renderReads(): void {
+  const target = document.querySelector<HTMLPreElement>("#device-debug-reads");
+  if (target && diagnosticsOpen()) target.textContent = renderReadTable();
+}
+
+const BACKGROUND = "Background refresh";
+
+function renderReadTable(): string {
+  const rows = hidTraffic(activeDevice);
+  if (!rows.length) return "Nothing yet. Change a setting to see what gets sent.";
+
+  const groups: { label: string; failed: boolean; items: HidTrafficEntry[] }[] = [];
+  for (const row of rows) {
+    if (isMark(row)) groups.push({ label: row.label, failed: row.failed, items: [] });
+    else {
+      if (!groups.length) groups.push({ label: BACKGROUND, failed: false, items: [] });
+      groups[groups.length - 1].items.push(row);
+    }
+  }
+
+  const interesting = groups.filter((group) => group.label !== BACKGROUND || group.items.some((item) => item.error));
+  const shown = interesting.slice(-15);
+  const lines: string[] = [];
+  const hidden = groups.length - shown.length;
+  if (hidden > 0) lines.push(`… ${hidden} earlier or background entries hidden`);
+
+  for (const group of shown) {
+    lines.push(`${group.failed ? "!" : ">"} ${group.label}`);
+    for (const row of group.items) {
+      const outcome = row.error ? `FAILED ${row.error}` : maskBytes(row.bytes);
+      lines.push(`    ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function diagnosticsMarkdown(): string {
+  const table = renderReadTable();
+  return [
+    "## Device",
+    "```",
+    activeDevice ? describeHidDevice(activeDevice) : "none",
+    "```",
+    ...(table ? ["", "## Reads", "```", table, "```"] : []),
+    "",
+    "## Snapshot",
+    "```json",
+    latestDiagnosticsSnapshot,
+    "```",
+  ].join("\n");
+}
+
 
 async function copyDiagnostics(): Promise<void> {
   const status = document.querySelector<HTMLElement>("#diagnostic-copy-status");
   if (!latestDiagnosticsSnapshot) return;
   try {
     if (!navigator.clipboard) throw new Error("Clipboard access is unavailable.");
-    await navigator.clipboard.writeText(latestDiagnosticsSnapshot);
+    await navigator.clipboard.writeText(diagnosticsMarkdown());
     if (status) status.textContent = "Copied";
   } catch {
     const raw = document.querySelector<HTMLDetailsElement>("#device-debug-raw");
@@ -346,7 +439,7 @@ function showStatus(status: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isWLMouse = ui?.family === "wlmouse" || activeWLMouseClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || activeDmClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -382,14 +475,14 @@ function showStatus(status: MouseStatus): void {
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || isWLMouse);
+      && (status.brand === "Pulsar" || isDmFamily);
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
-  if (signalSettings) signalSettings.hidden = isEgg || isWLMouse;
+  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isWLMouse;
+    const hidePerformanceMode = isEgg || isDmFamily;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
@@ -421,7 +514,7 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse;
+    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isDmFamily;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -429,10 +522,12 @@ function showStatus(status: MouseStatus): void {
   if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
 
   const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
-  if (sleepToggle) sleepToggle.hidden = !isWLMouse;
-  if (isWLMouse) {
-    fillSleepOptions(WLMOUSE_SLEEP_OPTIONS);
-    if (status.sleepTimeout) lastSleepSeconds = status.sleepTimeout;
+  if (sleepToggle) sleepToggle.hidden = !isDmFamily || !activeDmClient?.canDisableSleep;
+  if (isDmFamily && activeDmClient) {
+    const seconds = activeDmClient.getSleepOptions();
+    fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
+    fillDebounceOptions(activeDmClient.getDebounceMaxMs());
+    lastSleepSeconds = status.sleepTimeout ?? seconds[0] ?? 60;
     setToggleValue("#sleep-toggle", status.sleepTimeout !== null && status.sleepTimeout !== undefined);
     setControlValue("#debounce-select", status.debounceMs);
     setControlValue("#sleep-select", status.sleepTimeout);
@@ -442,6 +537,7 @@ function showStatus(status: MouseStatus): void {
   }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
+    fillDebounceOptions(20);
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
     setText("#signal-detail", strength === null || strength === undefined
@@ -623,13 +719,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
-  activeWLMouseClient = null;
+  activeDmClient = null;
   activeOrbitalClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient) {
-    activeWLMouseClient = client;
+  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient) {
+    activeDmClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
@@ -686,7 +782,7 @@ function showDisconnectedState(): void {
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
-  activeWLMouseClient = null;
+  activeDmClient = null;
   activeOrbitalClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
@@ -826,6 +922,7 @@ async function connect(): Promise<void> {
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    recordDiagnosticError(error, message);
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
@@ -974,7 +1071,7 @@ async function applyDpiValue(dpi: number): Promise<boolean> {
   recordDiagnosticCommand(`Set DPI to ${dpi.toLocaleString()}`);
   try {
     await client.setDpi(dpi);
-    showStatus(await client.readStatus());
+    showStatus(await statusAfterWrite(client));
     setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
     return true;
   } catch (error) {
@@ -1022,10 +1119,10 @@ async function applyPollingRate(rate: number): Promise<void> {
   recordDiagnosticCommand(`Set polling rate to ${rate.toLocaleString()} Hz`);
   try {
     await client.setPollingRate(rate);
-    showStatus(await client.readStatus());
+    showStatus(await statusAfterWrite(client));
   } catch (error) {
     recordDiagnosticError(error, "Unable to set polling rate.");
-    const status = await client.readStatus().catch(() => null);
+    const status = await statusAfterWrite(client).catch(() => null);
     if (status) showStatus(status);
     setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
   } finally {
@@ -1046,7 +1143,7 @@ async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistanc
   recordDiagnosticCommand(`Set lift-off distance to ${lod}`);
   try {
     await client.setLiftOffDistance(lod);
-    showStatus(await client.readStatus());
+    showStatus(await statusAfterWrite(client));
   } catch (error) {
     recordDiagnosticError(error, "Unable to set lift-off distance.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
@@ -1081,7 +1178,7 @@ async function toggleDongleLed(): Promise<void> {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient ?? activeOrbitalClient;
+  const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
@@ -1092,10 +1189,10 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
     if (setting === "rippleControl") await client.setRippleControl(enabled);
     if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient) throw new Error("Performance mode is not exposed by this device's protocol.");
     if (setting === "performanceMode") await (activePulsarClient ?? activeOrbitalClient)!.setPerformanceMode(enabled);
-    showStatus(await client.readStatus());
+    showStatus(await statusAfterWrite(client));
   } catch (error) {
     recordDiagnosticError(error, "Unable to change the setting.");
-    const status = await client.readStatus().catch(() => null);
+    const status = await statusAfterWrite(client).catch(() => null);
     if (status) showStatus(status);
     setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
   } finally {
@@ -1197,7 +1294,7 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const client = activePulsarClient ?? activeWLMouseClient ?? activeOrbitalClient;
+  const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
@@ -1205,7 +1302,7 @@ async function applyPulsarValue(setting: "debounce" | "sleep", value: number): P
   try {
     if (setting === "debounce") await client.setDebounceTime(value);
     else await client.setSleepTimeout(value);
-    showStatus(await client.readStatus());
+    showStatus(await statusAfterWrite(client));
   } catch (error) {
     recordDiagnosticError(error, "Unable to change that setting.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
@@ -1254,9 +1351,10 @@ async function refreshStatus(): Promise<void> {
     return;
   }
   refreshInProgress = true;
+  markHidActivity(BACKGROUND, { transient: true });
   try {
-    const status = activeWLMouseClient && client === activeWLMouseClient
-      ? await activeWLMouseClient.readStatus(true)
+    const status = activeDmClient && client === activeDmClient
+      ? await activeDmClient.readStatus(true)
       : await client.readStatus();
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
@@ -1279,7 +1377,7 @@ window.addEventListener("beforeunload", () => {
   void activePulsarClient?.close();
   void activeEggClient?.close();
   void activeEggWeClient?.close();
-  void activeWLMouseClient?.close();
+  void activeDmClient?.close();
   void activeOrbitalClient?.close();
 });
 
