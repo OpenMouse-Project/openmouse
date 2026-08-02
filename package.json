@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/*.test.ts src/devices/endgame/*.test.ts src/devices/orbital/*.test.ts",
+    "test": "node --test src/*.test.ts src/devices/atk/*.test.ts src/devices/endgame/*.test.ts src/devices/orbital/*.test.ts",
     "check": "npm run build && npm test",
     "preview": "vite preview"
   },

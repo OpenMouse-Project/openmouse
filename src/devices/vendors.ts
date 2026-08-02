@@ -7,6 +7,7 @@ export const VENDOR_ID = {
   lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
+  atk: 0x373b,
 } as const;
 
 // Logitech wireless receivers that expose an HID++ control interface.
@@ -57,6 +58,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.wlmouse },
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
+  { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
