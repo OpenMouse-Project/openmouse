@@ -18,14 +18,14 @@ interface DeviceDriver {
 }
 
 const DEVICE_DRIVERS: readonly DeviceDriver[] = [
-  { brand: "Endgame Gear", supports: EggOp1HidClient.isSupported, create: (device) => new EggOp1HidClient(device), score: () => 10 },
+  { brand: "Endgame Gear", supports: (device) => EggOp1HidClient.isSupported(device), create: (device) => new EggOp1HidClient(device), score: () => 10 },
   { brand: "Endgame Gear", supports: eggWeIsSupported, create: eggWeCreate, score: eggWeSupportScore },
-  { brand: "Pulsar", supports: PulsarProHidClient.isSupported, create: (device) => new PulsarProHidClient(device), score: () => 8 },
-  { brand: "Pulsar", supports: PulsarHidClient.isSupported, create: (device) => new PulsarHidClient(device), score: () => 7 },
-  { brand: "Logitech", supports: LogitechHidppClient.isSupported, create: (device) => new LogitechHidppClient(device), score: () => 6 },
-  { brand: "WLMouse", supports: WLMouseHidClient.isSupported, create: (device) => new WLMouseHidClient(device), score: () => 5 },
-  { brand: "Lamzu", supports: LamzuHidClient.isSupported, create: (device) => new LamzuHidClient(device), score: () => 5 },
-  { brand: "Orbital", supports: OrbitalHidClient.isSupported, create: (device) => new OrbitalHidClient(device), score: () => 6 },
+  { brand: "Pulsar", supports: (device) => PulsarProHidClient.isSupported(device), create: (device) => new PulsarProHidClient(device), score: () => 8 },
+  { brand: "Pulsar", supports: (device) => PulsarHidClient.isSupported(device), create: (device) => new PulsarHidClient(device), score: () => 7 },
+  { brand: "Logitech", supports: (device) => LogitechHidppClient.isSupported(device), create: (device) => new LogitechHidppClient(device), score: () => 6 },
+  { brand: "WLMouse", supports: (device) => WLMouseHidClient.isSupported(device), create: (device) => new WLMouseHidClient(device), score: () => 5 },
+  { brand: "Lamzu", supports: (device) => LamzuHidClient.isSupported(device), create: (device) => new LamzuHidClient(device), score: () => 5 },
+  { brand: "Orbital", supports: (device) => OrbitalHidClient.isSupported(device), create: (device) => new OrbitalHidClient(device), score: () => 6 },
 ];
 
 function driverFor(device: HIDDevice): DeviceDriver | undefined {
