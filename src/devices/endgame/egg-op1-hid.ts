@@ -45,6 +45,11 @@ const SPDT = {
 export type EggSpdtMode = keyof typeof SPDT;
 export const EGG_BUTTON_NAMES = ["Left", "Right", "Middle", "Forward", "Back", "Wheel Up", "Wheel Down"] as const;
 export type EggButtonIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export const EGG_BUTTON_MAPPINGS = [
+  "Left Click", "Right Click", "Middle Click", "Back", "Forward",
+  "Scroll Up", "Scroll Down", "CPI Cycle", "Disabled",
+] as const;
+export type EggButtonMapping = (typeof EGG_BUTTON_MAPPINGS)[number];
 export { EGG_BUTTON_ACTION_OPTIONS };
 
 interface ReceivedFeature {
@@ -367,7 +372,17 @@ export class EggOp1HidClient {
     if (confirmed[offset] !== value) throw new Error(`The mouse did not confirm the ${EGG_BUTTON_NAMES[button]} multiclick value.`);
   }
 
-  async setButtonMapping(button: EggButtonIndex, action: EggButtonAction): Promise<void> {
+  async setButtonMapping(button: EggButtonIndex, action: EggButtonAction | EggButtonMapping): Promise<void> {
+    if (typeof action === "string") {
+      const legacy = {
+        "Left Click": { key: "mouse-left" }, "Right Click": { key: "mouse-right" },
+        "Middle Click": { key: "mouse-middle" }, "Back": { key: "mouse-back" },
+        "Forward": { key: "mouse-forward" }, "Scroll Up": { key: "scroll-up" },
+        "Scroll Down": { key: "scroll-down" }, "CPI Cycle": { key: "cpi-loop" },
+        "Disabled": { key: "disabled" },
+      } as const;
+      action = legacy[action];
+    }
     const encoded = eggEncodeButtonAction(action);
     if (!encoded) throw new Error("Unknown mappings are preserved until a supported action is selected.");
     if (action.key === "fixed-cpi") {

@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./mouse-types";
+import type { MouseStatus } from "../mouse-types";
 
 export type EggButtonActionKey =
   | "mouse-left" | "mouse-right" | "mouse-middle" | "mouse-back" | "mouse-forward"
