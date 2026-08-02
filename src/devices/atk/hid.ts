@@ -319,9 +319,8 @@ export class AtkHidClient {
   }
 
   /**
-   * Command 0x12 (GetMouseVersion) is named by libatk-rs but its payload is not
-   * documented, so the reply is reported as major.minor and the raw bytes are
-   * kept alongside it until a device confirms the layout.
+   * Command 0x12 (GetMouseVersion) reports the version as BCD, matching the
+   * Endgame Gear siblings: an A9 Nearlink dongle answering 0x01 0x23 is 1.23.
    */
   private async readFirmware(): Promise<string[]> {
     const reply = await this.exchange(
@@ -331,8 +330,8 @@ export class AtkHidClient {
     if (!reply) return [];
     const data = reply.subarray(DATA_OFFSET, DATA_OFFSET + Math.min(reply[4], MAX_DATA_LENGTH));
     if (data.length < 2) return [];
-    const bytes = [...data].map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
-    return [`Mouse ${data[0]}.${data[1]}`, `Reported bytes ${bytes}`];
+    const bcd = (byte: number) => byte.toString(16).padStart(2, "0");
+    return [`Mouse ${Number(bcd(data[0]))}.${bcd(data[1])}`];
   }
 
   private async readBattery(): Promise<number | null> {
