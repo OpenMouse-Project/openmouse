@@ -11,6 +11,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
+import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import { renderEggControls } from "./egg-controls-view";
 import { formatHex, setControlValue, setText, setToggleValue } from "./ui/dom";
 import {
@@ -112,7 +113,11 @@ function applyInterfacePreferences(): void {
 }
 
 function renderControl(): void {
+  startHidCapture();
   appRoot.innerHTML = controlTemplate(BUILD_LABEL);
+  document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.addEventListener("toggle", () => {
+    if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+  });
 
   bindControlEvents({
     connect,
@@ -258,18 +263,21 @@ function diagnosticErrorMessage(error: unknown, fallback: string): string {
 
 function recordDiagnosticCommand(command: string): void {
   lastDiagnosticCommand = command;
+  markHidActivity(command);
   lastDiagnosticError = null;
   if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
 function recordDiagnosticError(error: unknown, fallback: string): void {
   lastDiagnosticError = diagnosticErrorMessage(error, fallback);
+  markHidActivity(lastDiagnosticError, { failed: true });
+  renderReads();
   if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
 function renderDeviceDiagnostics(status: MouseStatus): void {
   const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
-  if (!output) return;
+  if (!output || !diagnosticsOpen()) return;
 
   const serializeCollection = (collection: HIDCollectionInfo): object => ({
     usagePage: `0x${formatHex(collection.usagePage, 4)}`,
@@ -282,20 +290,14 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
 
   const device = activeDevice;
   const driver = status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand;
-  const transport = [status.connectionType, status.connectionDetail].filter(Boolean).join(" · ") || "Not reported";
-  const firmware = status.firmware.join(" · ") || "Not reported";
-  const protocol = status.firmware.find((value) => /protocol/i.test(value)) ?? status.ui?.family ?? "Not reported";
   const overview = document.querySelector<HTMLElement>("#device-debug-overview");
   if (overview) {
-    const items = [
+    const items: string[][] = [
       ["Driver", driver],
       ["VID / PID", device ? `0x${formatHex(device.vendorId, 4)} / 0x${formatHex(device.productId, 4)}` : "Not reported"],
-      ["Transport", transport],
-      ["Firmware", firmware],
-      ["Protocol", protocol],
       ["Last command", lastDiagnosticCommand ?? "None"],
-      ["Last error", lastDiagnosticError ?? "None"],
     ];
+    if (lastDiagnosticError) items.push(["Last error", lastDiagnosticError]);
     overview.replaceChildren(...items.map(([label, value]) => {
       const item = document.createElement("div");
       const heading = document.createElement("small");
@@ -319,7 +321,7 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
       opened: device.opened,
       collections: device.collections.map(serializeCollection),
     } : null,
-    status,
+    status: { ...status, unitId: status.unitId ? "(masked)" : status.unitId },
     diagnostics: {
       lastCommand: lastDiagnosticCommand,
       lastError: lastDiagnosticError,
@@ -329,14 +331,89 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
   output.textContent = latestDiagnosticsSnapshot;
   const copyButton = document.querySelector<HTMLButtonElement>("#copy-diagnostics");
   if (copyButton) copyButton.disabled = false;
+  renderReads();
 }
+
+function maskBytes(bytes: Uint8Array): string {
+  const hide = new Set<number>();
+  let run = -1;
+  for (let i = 0; i <= bytes.length; i += 1) {
+    const printable = i < bytes.length && bytes[i] >= 0x20 && bytes[i] <= 0x7e;
+    if (printable && run < 0) run = i;
+    if (!printable && run >= 0) {
+      if (i - run >= 6) for (let j = run; j < i; j += 1) hide.add(j);
+      run = -1;
+    }
+  }
+  let end = bytes.length;
+  while (end > 8 && bytes[end - 1] === 0) end -= 1;
+  const shown = Array.from(bytes.slice(0, end), (byte, i) => hide.has(i) ? "**" : formatHex(byte)).join(" ");
+  return end < bytes.length ? `${shown}  (${bytes.length}B)` : shown;
+}
+
+function diagnosticsOpen(): boolean {
+  return document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.open === true;
+}
+
+function renderReads(): void {
+  const target = document.querySelector<HTMLPreElement>("#device-debug-reads");
+  if (target && diagnosticsOpen()) target.textContent = renderReadTable();
+}
+
+const BACKGROUND = "Background refresh";
+
+function renderReadTable(): string {
+  const rows = hidTraffic(activeDevice);
+  if (!rows.length) return "Nothing yet. Change a setting to see what gets sent.";
+
+  const groups: { label: string; failed: boolean; items: HidTrafficEntry[] }[] = [];
+  for (const row of rows) {
+    if (isMark(row)) groups.push({ label: row.label, failed: row.failed, items: [] });
+    else {
+      if (!groups.length) groups.push({ label: BACKGROUND, failed: false, items: [] });
+      groups[groups.length - 1].items.push(row);
+    }
+  }
+
+  const interesting = groups.filter((group) => group.label !== BACKGROUND || group.items.some((item) => item.error));
+  const shown = interesting.slice(-15);
+  const lines: string[] = [];
+  const hidden = groups.length - shown.length;
+  if (hidden > 0) lines.push(`… ${hidden} earlier or background entries hidden`);
+
+  for (const group of shown) {
+    lines.push(`${group.failed ? "!" : ">"} ${group.label}`);
+    for (const row of group.items) {
+      const outcome = row.error ? `FAILED ${row.error}` : maskBytes(row.bytes);
+      lines.push(`    ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function diagnosticsMarkdown(): string {
+  const table = renderReadTable();
+  return [
+    "## Device",
+    "```",
+    activeDevice ? describeHidDevice(activeDevice) : "none",
+    "```",
+    ...(table ? ["", "## Reads", "```", table, "```"] : []),
+    "",
+    "## Snapshot",
+    "```json",
+    latestDiagnosticsSnapshot,
+    "```",
+  ].join("\n");
+}
+
 
 async function copyDiagnostics(): Promise<void> {
   const status = document.querySelector<HTMLElement>("#diagnostic-copy-status");
   if (!latestDiagnosticsSnapshot) return;
   try {
     if (!navigator.clipboard) throw new Error("Clipboard access is unavailable.");
-    await navigator.clipboard.writeText(latestDiagnosticsSnapshot);
+    await navigator.clipboard.writeText(diagnosticsMarkdown());
     if (status) status.textContent = "Copied";
   } catch {
     const raw = document.querySelector<HTMLDetailsElement>("#device-debug-raw");
@@ -845,6 +922,7 @@ async function connect(): Promise<void> {
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    recordDiagnosticError(error, message);
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
@@ -1273,6 +1351,7 @@ async function refreshStatus(): Promise<void> {
     return;
   }
   refreshInProgress = true;
+  markHidActivity(BACKGROUND, { transient: true });
   try {
     const status = activeDmClient && client === activeDmClient
       ? await activeDmClient.readStatus(true)
