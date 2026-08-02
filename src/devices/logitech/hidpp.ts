@@ -1,13 +1,24 @@
 import type { MouseStatus } from "../mouse-types";
+import {
+  LOGITECH_PRODUCT_IDS,
+  LOGITECH_RECEIVER_PRODUCT_IDS as LOGITECH_RECEIVER_PRODUCT_ID_LIST,
+} from "../vendors";
 
 const LOGITECH_VENDOR_ID = 0x046d;
-// Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
-// Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
-// HERO-era wireless mice.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539]);
+// Product IDs come from vendors.ts so filters and the driver stay aligned.
+// Receivers use HID++ device index 0x01; wired mice (e.g. G900 0xc081) use 0xff.
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set<number>(LOGITECH_RECEIVER_PRODUCT_ID_LIST);
+const LOGITECH_PRODUCT_ID_SET = new Set<number>(LOGITECH_PRODUCT_IDS);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
-const DEVICE_INDEX = 0x01;
+const RECEIVER_DEVICE_INDEX = 0x01;
+const WIRED_DEVICE_INDEX = 0xff;
+
+function deviceIndexForProduct(productId: number): number {
+  return LOGITECH_RECEIVER_PRODUCT_IDS.has(productId)
+    ? RECEIVER_DEVICE_INDEX
+    : WIRED_DEVICE_INDEX;
+}
 
 const FEATURE = {
   deviceName: 0x0005,
@@ -17,8 +28,8 @@ const FEATURE = {
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
-  // Legacy features used by HERO-era mice (e.g. G502 HERO / LIGHTSPEED,
-  // Proteus). Queried only when the extended equivalents are absent.
+  // Legacy features used by HERO-era and earlier mice (G502 LIGHTSPEED, G900,
+  // Proteus, …). Queried only when the extended equivalents are absent.
   adjustableDpi: 0x2201,
   reportRate: 0x8060,
   onboardProfiles: 0x8100,
@@ -63,6 +74,7 @@ interface DeviceIdentity {
 }
 
 export class LogitechHidppClient {
+  private readonly deviceIndex: number;
   private dpiOptionsCache: number[] | null = null;
   private dpiFeatureResolved: ResolvedFeature | null = null;
   private rateFeatureResolved: ResolvedFeature | null = null;
@@ -75,7 +87,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
-    if (report[0] === DEVICE_INDEX && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
+    if (report[0] === this.deviceIndex && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
       const rate = REPORT_RATE_HZ[report[4] ?? -1];
       if (rate) {
         this.livePollingRateHz = rate;
@@ -85,7 +97,7 @@ export class LogitechHidppClient {
       }
     }
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
+      (waiter) => report[0] === this.deviceIndex && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
@@ -94,7 +106,7 @@ export class LogitechHidppClient {
 
     // HID++ can emit a status notification between a write acknowledgement and
     // the matching read response. Leave the pending request in place and wait.
-    if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
+    if (report[0] === this.deviceIndex && report[1] === 0xff) {
       const failedIndex = this.waiters.findIndex(
         (waiter) => report[2] === waiter.featureIndex && report[3] === waiter.functionId,
       );
@@ -111,10 +123,12 @@ export class LogitechHidppClient {
     reject: (reason: Error) => void;
   }> = [];
 
-  constructor(readonly device: HIDDevice) {}
+  constructor(readonly device: HIDDevice) {
+    this.deviceIndex = deviceIndexForProduct(device.productId);
+  }
 
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId)) {
+    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_PRODUCT_ID_SET.has(device.productId)) {
       return false;
     }
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
@@ -130,7 +144,7 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [...LOGITECH_RECEIVER_PRODUCT_IDS].map((productId) => ({
+      filters: [...LOGITECH_PRODUCT_ID_SET].map((productId) => ({
         vendorId: LOGITECH_VENDOR_ID,
         productId,
         usagePage: 0xff00,
@@ -163,9 +177,11 @@ export class LogitechHidppClient {
     const reportRateFeature = await this.resolveReportRateFeature();
     const profilesFeature = await this.getFeature(FEATURE.onboardProfiles);
 
-    // HID++ receivers expect one request at a time. Keeping the sequence serial
-    // also makes every input report unambiguous to the WebHID event handler.
-    const name = await this.readName(nameFeature.index);
+    // HID++ expects one request at a time. Keeping the sequence serial also
+    // makes every input report unambiguous to the WebHID event handler.
+    const name = nameFeature.index
+      ? await this.readName(nameFeature.index)
+      : (this.device.productName || "Logitech mouse");
     const identity = await this.readIdentity(firmwareFeature.index);
     const battery = batteryFeature.index
       ? await this.readBattery(batteryFeature.index)
@@ -179,7 +195,13 @@ export class LogitechHidppClient {
     } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
     }
-    const dpiState = dpiFeature.legacy
+    if (!dpiFeature.index) {
+      throw new Error("This Logitech mouse does not expose DPI controls.");
+    }
+    if (!reportRateFeature.index) {
+      throw new Error("This Logitech mouse does not expose report-rate controls.");
+    }
+    let dpiState = dpiFeature.legacy
       ? await this.readLegacyDpi(dpiFeature.index)
       : await this.readDpi(dpiFeature.index);
     const supportsSeparateDpiAxes = dpiFeature.legacy
@@ -191,7 +213,18 @@ export class LogitechHidppClient {
     const pollingRateHz = reportRateFeature.legacy
       ? await this.readLegacyReportRate(reportRateFeature.index)
       : await this.readPollingRate(reportRateFeature.index);
-    const profileState = await this.readProfileState(profilesFeature.index);
+    let profileState = await this.readProfileState(profilesFeature.index);
+    // A previous host-mode write (or G HUB) can leave the mouse unable to use its
+    // DPI button. Legacy mice are safe to return to onboard during status reads.
+    if (dpiFeature.legacy && profileState.deviceMode === "Host") {
+      await this.ensureOnboardMode();
+      profileState = await this.readProfileState(profilesFeature.index);
+      // Onboard stages may reassert their stored DPI; re-read after the mode change.
+      const refreshedDpi = await this.readLegacyDpi(dpiFeature.index);
+      dpiState.dpi = refreshedDpi.dpi;
+      dpiState.dpiY = refreshedDpi.dpiY;
+      dpiState.liftOffDistance = refreshedDpi.liftOffDistance;
+    }
     const firmware = await this.readFirmware(firmwareFeature.index);
 
     return {
@@ -211,6 +244,10 @@ export class LogitechHidppClient {
       unitId: identity.unitId,
       modelId: identity.modelId,
       transportIds: identity.transportIds,
+      connectionType: LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId) ? "Wireless" : "Wired",
+      connectionDetail: LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId)
+        ? `2.4 GHz receiver · PID 0x${this.device.productId.toString(16).toUpperCase()}`
+        : `Wired USB · PID 0x${this.device.productId.toString(16).toUpperCase()}`,
       firmware,
     };
   }
@@ -321,17 +358,17 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
+    const resolved = await this.resolveDpiFeature();
+    if (resolved.legacy || !resolved.index) {
+      throw new Error("This mouse does not expose lift-off-distance controls.");
+    }
     if (liftOffDistance === "Low") {
       throw new Error("This mouse does not support a Low lift-off distance.");
     }
     const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
     await this.ensureHostControl();
-    const feature = await this.getFeature(FEATURE.extendedDpi);
-    if (!feature.index) {
-      throw new Error("This mouse does not expose lift-off-distance controls.");
-    }
-    const current = await this.readDpiConfiguration(feature.index);
-    await this.requestLong(feature.index, 0x60, [
+    const current = await this.readDpiConfiguration(resolved.index);
+    await this.requestLong(resolved.index, 0x60, [
       0x00,
       current.x >> 8,
       current.x & 0xff,
@@ -339,7 +376,7 @@ export class LogitechHidppClient {
       current.y & 0xff,
       lod,
     ]);
-    const confirmed = await this.readDpiConfiguration(feature.index);
+    const confirmed = await this.readDpiConfiguration(resolved.index);
     const result = confirmed.lod === 0 ? "Low" : confirmed.lod === 1 ? "Medium" : confirmed.lod === 2 ? "High" : null;
     if (result !== liftOffDistance) {
       throw new Error(`The mouse kept ${result ?? "an unknown"} lift-off distance instead of ${liftOffDistance}.`);
@@ -420,7 +457,9 @@ export class LogitechHidppClient {
   }
 
   private async setLegacyDpi(featureIndex: number, dpi: number): Promise<number> {
-    await this.ensureHostControl();
+    // Host mode disables the physical DPI button. Adjustable DPI (0x2201) can be
+    // written in onboard mode so the change sticks and hardware stages still work.
+    await this.ensureOnboardMode();
     // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo].
     await this.requestLong(featureIndex, 0x30, [0x00, dpi >> 8, dpi & 0xff]);
     const confirmed = await this.readLegacyDpi(featureIndex);
@@ -659,14 +698,41 @@ export class LogitechHidppClient {
     return { unitId: unitId === "00000000" ? null : unitId, modelId, transportIds };
   }
 
-  private async ensureHostControl(): Promise<void> {
+  private async getOnboardProfilesIndex(): Promise<number> {
     const profiles = await this.getFeature(FEATURE.onboardProfiles);
-    if (!profiles.index) return;
-    const mode = await this.request(profiles.index, 0x20);
-    if (mode[3] === 0x02) return;
-    await this.request(profiles.index, 0x10, 0x02);
-    const confirmed = await this.request(profiles.index, 0x20);
-    if (confirmed[3] !== 0x02) {
+    return profiles.index;
+  }
+
+  private async readOnboardMode(profilesIndex: number): Promise<number | null> {
+    if (!profilesIndex) return null;
+    const mode = await this.request(profilesIndex, 0x20);
+    return mode[3] ?? null;
+  }
+
+  /**
+   * Host mode lets the PC own sensor settings, but it disables the mouse's own
+   * DPI button / onboard stages. Prefer onboard mode for everyday control.
+   */
+  private async ensureOnboardMode(): Promise<void> {
+    const profilesIndex = await this.getOnboardProfilesIndex();
+    if (!profilesIndex) return;
+    const mode = await this.readOnboardMode(profilesIndex);
+    if (mode === 0x01) return;
+    await this.request(profilesIndex, 0x10, 0x01);
+    const confirmed = await this.readOnboardMode(profilesIndex);
+    if (confirmed !== 0x01) {
+      throw new Error("The mouse did not return to onboard mode.");
+    }
+  }
+
+  private async ensureHostControl(): Promise<void> {
+    const profilesIndex = await this.getOnboardProfilesIndex();
+    if (!profilesIndex) return;
+    const mode = await this.readOnboardMode(profilesIndex);
+    if (mode === 0x02) return;
+    await this.request(profilesIndex, 0x10, 0x02);
+    const confirmed = await this.readOnboardMode(profilesIndex);
+    if (confirmed !== 0x02) {
       throw new Error("The mouse did not enter host-control mode.");
     }
   }
@@ -697,7 +763,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array([
-      DEVICE_INDEX,
+      this.deviceIndex,
       featureIndex,
       functionId,
       parameters[0] ?? 0,
@@ -718,7 +784,7 @@ export class LogitechHidppClient {
       throw new Error("HID++ long requests support at most 16 parameter bytes.");
     }
     const report = new Uint8Array(19);
-    report[0] = DEVICE_INDEX;
+    report[0] = this.deviceIndex;
     report[1] = featureIndex;
     report[2] = functionId;
     report.set(parameters, 3);
