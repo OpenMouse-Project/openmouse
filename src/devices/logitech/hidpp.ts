@@ -1,7 +1,10 @@
 import type { MouseStatus } from "../mouse-types";
 
 const LOGITECH_VENDOR_ID = 0x046d;
-const LOGITECH_RECEIVER_PRODUCT_ID = 0xc54d;
+// Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
+// Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
+// HERO-era wireless mice.
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const DEVICE_INDEX = 0x01;
@@ -14,8 +17,17 @@ const FEATURE = {
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
+  // Legacy features used by HERO-era mice (e.g. G502 HERO / LIGHTSPEED,
+  // Proteus). Queried only when the extended equivalents are absent.
+  adjustableDpi: 0x2201,
+  reportRate: 0x8060,
   onboardProfiles: 0x8100,
 } as const;
+
+interface ResolvedFeature {
+  index: number;
+  legacy: boolean;
+}
 
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
 
@@ -52,6 +64,8 @@ interface DeviceIdentity {
 
 export class LogitechHidppClient {
   private dpiOptionsCache: number[] | null = null;
+  private dpiFeatureResolved: ResolvedFeature | null = null;
+  private rateFeatureResolved: ResolvedFeature | null = null;
   private reportRateFeatureIndex: number | null = null;
   private livePollingRateHz: number | null = null;
   private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
@@ -100,7 +114,7 @@ export class LogitechHidppClient {
   constructor(readonly device: HIDDevice) {}
 
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID || device.productId !== LOGITECH_RECEIVER_PRODUCT_ID) {
+    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId)) {
       return false;
     }
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
@@ -116,12 +130,12 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [{
+      filters: [...LOGITECH_RECEIVER_PRODUCT_IDS].map((productId) => ({
         vendorId: LOGITECH_VENDOR_ID,
-        productId: LOGITECH_RECEIVER_PRODUCT_ID,
+        productId,
         usagePage: 0xff00,
         usage: 0x0001,
-      }],
+      })),
     });
     const device = devices[0];
     return device ? new LogitechHidppClient(device) : null;
@@ -145,8 +159,8 @@ export class LogitechHidppClient {
     const batteryFeature = await this.getFeature(FEATURE.unifiedBattery);
     const batteryVoltageFeature = await this.getFeature(FEATURE.batteryVoltage);
     const adcMeasurementFeature = await this.getFeature(FEATURE.adcMeasurement);
-    const dpiFeature = await this.getFeature(FEATURE.extendedDpi);
-    const reportRateFeature = await this.getFeature(FEATURE.extendedReportRate);
+    const dpiFeature = await this.resolveDpiFeature();
+    const reportRateFeature = await this.resolveReportRateFeature();
     const profilesFeature = await this.getFeature(FEATURE.onboardProfiles);
 
     // HID++ receivers expect one request at a time. Keeping the sequence serial
@@ -165,10 +179,18 @@ export class LogitechHidppClient {
     } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
     }
-    const dpiState = await this.readDpi(dpiFeature.index);
-    const supportsSeparateDpiAxes = await this.readDpiCapabilities(dpiFeature.index);
-    const supportedPollingRates = await this.readSupportedPollingRates(reportRateFeature.index);
-    const pollingRateHz = await this.readPollingRate(reportRateFeature.index);
+    const dpiState = dpiFeature.legacy
+      ? await this.readLegacyDpi(dpiFeature.index)
+      : await this.readDpi(dpiFeature.index);
+    const supportsSeparateDpiAxes = dpiFeature.legacy
+      ? false
+      : await this.readDpiCapabilities(dpiFeature.index);
+    const supportedPollingRates = reportRateFeature.legacy
+      ? await this.readLegacyReportRates(reportRateFeature.index)
+      : await this.readSupportedPollingRates(reportRateFeature.index);
+    const pollingRateHz = reportRateFeature.legacy
+      ? await this.readLegacyReportRate(reportRateFeature.index)
+      : await this.readPollingRate(reportRateFeature.index);
     const profileState = await this.readProfileState(profilesFeature.index);
     const firmware = await this.readFirmware(firmwareFeature.index);
 
@@ -201,6 +223,10 @@ export class LogitechHidppClient {
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
+    const resolved = await this.resolveReportRateFeature();
+    if (resolved.legacy) {
+      return this.setLegacyReportRate(resolved.index, pollingRateHz);
+    }
     const rateIndex = REPORT_RATE_HZ.indexOf(pollingRateHz as (typeof REPORT_RATE_HZ)[number]);
     if (rateIndex < 0) {
       throw new Error("Unsupported polling rate.");
@@ -221,10 +247,15 @@ export class LogitechHidppClient {
     if (this.dpiOptionsCache) {
       return this.dpiOptionsCache;
     }
-    const feature = await this.getFeature(FEATURE.extendedDpi);
-    if (!feature.index) {
-      throw new Error("This mouse does not expose extended DPI controls.");
+    const resolved = await this.resolveDpiFeature();
+    if (!resolved.index) {
+      throw new Error("This mouse does not expose DPI controls.");
     }
+    if (resolved.legacy) {
+      this.dpiOptionsCache = await this.readLegacyDpiList(resolved.index);
+      return this.dpiOptionsCache;
+    }
+    const feature = { index: resolved.index };
 
     const bytes: number[] = [];
     for (let page = 0; page < 32; page += 1) {
@@ -258,6 +289,14 @@ export class LogitechHidppClient {
   }
 
   async setDpi(dpi: number, dpiY = dpi): Promise<number> {
+    const resolved = await this.resolveDpiFeature();
+    if (resolved.legacy) {
+      const legacyOptions = await this.getDpiOptions();
+      if (!legacyOptions.includes(dpi)) {
+        throw new Error(`${dpi} DPI is not advertised by this mouse.`);
+      }
+      return this.setLegacyDpi(resolved.index, dpi);
+    }
     const options = await this.getDpiOptions();
     if (!options.includes(dpi) || !options.includes(dpiY)) {
       throw new Error(`${dpi}/${dpiY} DPI is not advertised by this mouse.`);
@@ -313,6 +352,128 @@ export class LogitechHidppClient {
       await this.device.open();
     }
     this.device.addEventListener("inputreport", this.onInputReport);
+  }
+
+  /** Prefer extended DPI (0x2202); fall back to legacy Adjustable DPI (0x2201). */
+  private async resolveDpiFeature(): Promise<ResolvedFeature> {
+    if (this.dpiFeatureResolved) return this.dpiFeatureResolved;
+    const extended = await this.getFeature(FEATURE.extendedDpi);
+    if (extended.index) {
+      return (this.dpiFeatureResolved = { index: extended.index, legacy: false });
+    }
+    const legacy = await this.getFeature(FEATURE.adjustableDpi);
+    return (this.dpiFeatureResolved = { index: legacy.index, legacy: true });
+  }
+
+  /** Prefer extended report rate (0x8061); fall back to legacy Report Rate (0x8060). */
+  private async resolveReportRateFeature(): Promise<ResolvedFeature> {
+    if (this.rateFeatureResolved) return this.rateFeatureResolved;
+    const extended = await this.getFeature(FEATURE.extendedReportRate);
+    if (extended.index) {
+      return (this.rateFeatureResolved = { index: extended.index, legacy: false });
+    }
+    const legacy = await this.getFeature(FEATURE.reportRate);
+    return (this.rateFeatureResolved = { index: legacy.index, legacy: true });
+  }
+
+  // --- Legacy Adjustable DPI (0x2201) ---------------------------------------
+  // These mice expose a single sensor and no adjustable lift-off distance.
+
+  private async readLegacyDpi(featureIndex: number): Promise<{
+    dpi: number;
+    dpiY: number;
+    liftOffDistance: LogitechMouseStatus["liftOffDistance"];
+  }> {
+    if (!featureIndex) {
+      throw new Error("This Logitech mouse does not expose DPI controls.");
+    }
+    // getSensorDpi(sensor 0): reply data = [sensorIdx, dpiHi, dpiLo, defaultHi, defaultLo].
+    const reply = await this.request(featureIndex, 0x20, 0x00);
+    const dpi = ((reply[4] ?? 0) << 8) | (reply[5] ?? 0);
+    return { dpi, dpiY: dpi, liftOffDistance: null };
+  }
+
+  private async readLegacyDpiList(featureIndex: number): Promise<number[]> {
+    if (!featureIndex) return [];
+    // getSensorDpiList(sensor 0): reply data = [sensorIdx, ...uint16 BE values].
+    // A value with the top three bits set marks a range: (0xE000 | step), with
+    // the previous value as the minimum and the following value as the maximum.
+    const reply = await this.request(featureIndex, 0x10, 0x00);
+    const bytes = [...reply.slice(4)];
+    const options: number[] = [];
+    for (let index = 0; index + 1 < bytes.length; ) {
+      const value = (bytes[index] << 8) | bytes[index + 1];
+      if (value === 0) break;
+      if (value >> 13 === 0b111) {
+        const step = value & 0x1fff;
+        const last = ((bytes[index + 2] ?? 0) << 8) | (bytes[index + 3] ?? 0);
+        const first = options.at(-1);
+        if (!first || !last || last <= first) break;
+        for (let dpi = first + step; dpi <= last; dpi += step) options.push(dpi);
+        index += 4;
+      } else {
+        options.push(value);
+        index += 2;
+      }
+    }
+    return options;
+  }
+
+  private async setLegacyDpi(featureIndex: number, dpi: number): Promise<number> {
+    await this.ensureHostControl();
+    // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo].
+    await this.requestLong(featureIndex, 0x30, [0x00, dpi >> 8, dpi & 0xff]);
+    const confirmed = await this.readLegacyDpi(featureIndex);
+    if (confirmed.dpi !== dpi) {
+      throw new Error(`The mouse kept ${confirmed.dpi} DPI instead of ${dpi} DPI.`);
+    }
+    return confirmed.dpi;
+  }
+
+  // --- Legacy Report Rate (0x8060) ------------------------------------------
+  // Rates are expressed in milliseconds (1 ms = 1000 Hz).
+
+  private async readLegacyReportRates(featureIndex: number): Promise<number[]> {
+    if (!featureIndex) return [];
+    // getReportRateList: reply data byte 0 is a bitmap where bit i => (i + 1) ms.
+    const reply = await this.request(featureIndex, 0x00);
+    const bitflags = reply[3] ?? 0;
+    const rates: number[] = [];
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((bitflags & (1 << bit)) !== 0) rates.push(Math.round(1000 / (bit + 1)));
+    }
+    return rates.sort((left, right) => left - right);
+  }
+
+  private async readLegacyReportRate(featureIndex: number): Promise<number> {
+    if (!featureIndex) {
+      throw new Error("This Logitech mouse does not expose report-rate controls.");
+    }
+    // getReportRate: reply data byte 0 is the current rate in milliseconds.
+    const reply = await this.request(featureIndex, 0x10);
+    const rateMs = reply[3] ?? 0;
+    if (!rateMs) {
+      throw new Error("The mouse returned an unknown report-rate value.");
+    }
+    return Math.round(1000 / rateMs);
+  }
+
+  private async setLegacyReportRate(featureIndex: number, pollingRateHz: number): Promise<number> {
+    if (!featureIndex) {
+      throw new Error("This mouse does not expose report-rate controls.");
+    }
+    const rateMs = Math.round(1000 / pollingRateHz);
+    if (rateMs < 1 || rateMs > 8) {
+      throw new Error("Unsupported polling rate.");
+    }
+    await this.ensureHostControl();
+    // setReportRate(rateMs).
+    await this.request(featureIndex, 0x20, rateMs);
+    const confirmed = await this.readLegacyReportRate(featureIndex);
+    if (confirmed !== pollingRateHz) {
+      throw new Error(`The mouse kept ${confirmed} Hz instead of ${pollingRateHz} Hz.`);
+    }
+    return confirmed;
   }
 
   private async getFeature(featureId: number): Promise<FeatureInfo> {

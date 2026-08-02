@@ -9,12 +9,17 @@ export const VENDOR_ID = {
   orbital: 0x1915,
 } as const;
 
-export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
-  vendorId: VENDOR_ID.logitech,
-  productId: 0xc54d,
-  usagePage: 0xff00,
-  usage: 0x0001,
-};
+// Logitech wireless receivers that expose an HID++ control interface.
+// 0xc54d: Bolt / newer Lightspeed receiver; 0xc539: Lightspeed receiver used by
+// the G502 LIGHTSPEED, G Pro Wireless, and other HERO-era wireless mice.
+export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539] as const;
+
+export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_RECEIVER_PRODUCT_IDS.map(
+  (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
+);
+
+// Retained for existing imports; points at the first supported receiver.
+export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = LOGITECH_RECEIVER_FILTERS[0];
 
 export const WLMOUSE_PRODUCTS: ReadonlyMap<number, { name: string; wireless: boolean }> = new Map([
   [0xa860, { name: "Beast G", wireless: true }],
@@ -53,5 +58,5 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...EGG_WE_HID_FILTERS,
-  LOGITECH_RECEIVER_FILTER,
+  ...LOGITECH_RECEIVER_FILTERS,
 ];
