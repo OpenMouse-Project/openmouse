@@ -1,4 +1,5 @@
 import type { MouseStatus } from "../mouse-types";
+import { withSoftwareId } from "./protocol";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
@@ -92,7 +93,9 @@ export class LogitechHidppClient {
       }
     }
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
+      (waiter) => report[0] === DEVICE_INDEX
+        && report[1] === waiter.featureIndex
+        && report[2] === withSoftwareId(waiter.functionId),
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
@@ -103,7 +106,7 @@ export class LogitechHidppClient {
     // the matching read response. Leave the pending request in place and wait.
     if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
       const failedIndex = this.waiters.findIndex(
-        (waiter) => report[2] === waiter.featureIndex && report[3] === waiter.functionId,
+        (waiter) => report[2] === waiter.featureIndex && report[3] === withSoftwareId(waiter.functionId),
       );
       if (failedIndex >= 0) {
         this.waiters.splice(failedIndex, 1)[0].reject(new Error("The mouse rejected that setting."));
@@ -782,7 +785,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array([
       DEVICE_INDEX,
       featureIndex,
-      functionId,
+      withSoftwareId(functionId),
       parameters[0] ?? 0,
       parameters[1] ?? 0,
       parameters[2] ?? 0,
@@ -803,7 +806,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array(19);
     report[0] = DEVICE_INDEX;
     report[1] = featureIndex;
-    report[2] = functionId;
+    report[2] = withSoftwareId(functionId);
     report.set(parameters, 3);
     const response = this.waitForResponse(featureIndex, functionId);
     void response.catch(() => undefined);
