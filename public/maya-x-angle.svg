@@ -6,19 +6,24 @@
       <stop offset=".55" stop-color="#1c1c1f"/>
       <stop offset="1" stop-color="#0e0e10"/>
     </linearGradient>
+    <linearGradient id="wheel" x1="54" y1="44" x2="66" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e8e8ea"/>
+      <stop offset="1" stop-color="#9a9a9f"/>
+    </linearGradient>
   </defs>
-  <!-- top-down Maya-like shell -->
+  <!-- solid Maya X shell (no honeycomb) -->
   <path d="M60 8C36 8 22 28 18 58c-4 28-3 58-5 86-3 34 18 52 47 52s50-18 47-52c-2-28-1-58-5-86C98 28 84 8 60 8Z" fill="url(#body)" stroke="#6a6a70" stroke-width="2"/>
-  <path d="M58 10C38 12 26 30 23 56c-2 18-2 40-1 58 1 7 4 11 11 11h25V10Z" fill="#2b2b2f" stroke="#0a0a0c" stroke-width="2"/>
-  <path d="M62 10c20 2 32 20 35 46 2 18 2 40 1 58-1 7-4 11-11 11H62V10Z" fill="#2b2b2f" stroke="#0a0a0c" stroke-width="2"/>
-  <path d="M60 10v48M60 88v22" stroke="#09090b" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- main buttons -->
+  <path d="M58 10C38 12 26 30 23 56c-2 18-2 36-1 48 1 6 4 10 11 10h25V10Z" fill="#2b2b2f" stroke="#0a0a0c" stroke-width="2"/>
+  <path d="M62 10c20 2 32 20 35 46 2 18 2 36 1 48-1 6-4 10-11 10H62V10Z" fill="#2b2b2f" stroke="#0a0a0c" stroke-width="2"/>
+  <path d="M60 10v52" stroke="#09090b" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- curved button/palm seam -->
+  <path d="M28 104c18 10 46 10 64 0" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- silver scroll wheel -->
   <rect x="50" y="42" width="20" height="38" rx="9" fill="#09090b" stroke="#55555a" stroke-width="1.5"/>
-  <rect x="54" y="47" width="12" height="28" rx="6" fill="#c2c2c6"/>
-  <!-- honeycomb hint -->
-  <g fill="none" stroke="#4a4a50" stroke-width="1" opacity=".55">
-    <path d="M34 108h10m-5-8v16m16-8h10m-5-8v16m16-8h10m-5-8v16"/>
-    <path d="M42 128h10m-5-8v16m16-8h10m-5-8v16"/>
-  </g>
-  <circle cx="60" cy="118" r="3" fill="#69d28d"/>
-  <circle cx="60" cy="118" r="8" fill="#69d28d" opacity=".15"/>
+  <rect x="54" y="47" width="12" height="28" rx="6" fill="url(#wheel)"/>
+  <path d="M56 52c2 1 4 1 6 0m-6 5c2 1 4 1 6 0m-6 5c2 1 4 1 6 0m-6 5c2 1 4 1 6 0m-6 5c2 1 4 1 6 0" fill="none" stroke="#6e6e74" stroke-width="1"/>
+  <!-- left side buttons -->
+  <path d="M16 78c-4 3-5 10-4 18l2 22c1 5 3 7 7 5l4-3-4-45-5 3Z" fill="#2a2a2e" stroke="#55555a" stroke-width="1.5"/>
+  <path d="M15 126c-3 3-4 8-3 14l1 14c1 4 3 6 6 4l3-2-3-32-4 2Z" fill="#2a2a2e" stroke="#55555a" stroke-width="1.5"/>
 </svg>
