@@ -1352,7 +1352,7 @@ async function connect(): Promise<void> {
   if (!button) return;
   setConnectionButtons(true, "Connecting…");
   setText("#device-status", "Requesting permission");
-  setText("#read-status", "Choose your device in the browser prompt. For Lamzu, prefer the Compx/report-8 interface (you can select multiple receiver entries).");
+  setText("#read-status", "Select “2.4G Wireless Receiver” in the browser prompt, then click Connect. One entry is normal for this dongle.");
 
   try {
     const client = await requestSupportedClient();
