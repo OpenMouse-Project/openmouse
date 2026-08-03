@@ -760,6 +760,8 @@ export class LamzuHidClient {
   private responseLooksAlive(response: Uint8Array): boolean {
     if (response.length === 0) return false;
     const status = this.auroraStatus(response);
+    // 0xA2 (162) and other >0xA1 values mean "busy / retry" — never treat as success.
+    if (status > LAMZU_AURORA_STATUS_OK) return false;
     if (status === LAMZU_AURORA_STATUS_OK || status === 2) return true;
     if (response[6] === 129 || response[5] === 129) return true;
     if (parseAuroraBattery(response) !== null) return true;
@@ -772,19 +774,21 @@ export class LamzuHidClient {
   }
 
   /**
-   * Bounded cousin of Lamzu Aurora `retrySetGet`.
-   * Status 0 means "not ready yet" — poll briefly before giving up.
-   * Keep polls short so a bad framing cannot freeze reconnect for minutes.
+   * Mirror Lamzu Aurora `retrySetGet`:
+   * - status 0xA1 / 2 → done
+   * - status > 0xA1 (e.g. 162 / 0xA2) → resend command
+   * - status < 0xA1 → poll receives, then resend
    */
   private async retryAuroraSetGet(
     reportId: number,
     request: Uint8Array,
     size: number,
     initial: Uint8Array<ArrayBuffer>,
-    options?: { maxAttempts?: number; maxPolls?: number },
+    options?: { maxAttempts?: number; maxPolls?: number; delayMs?: number },
   ): Promise<Uint8Array<ArrayBuffer>> {
-    const maxAttempts = options?.maxAttempts ?? 3;
-    const maxPolls = options?.maxPolls ?? 8;
+    const maxAttempts = options?.maxAttempts ?? 5;
+    const maxPolls = options?.maxPolls ?? 16;
+    const delayMs = options?.delayMs ?? LAMZU_AURORA_COMMON_DELAY_MS;
     let response: Uint8Array<ArrayBuffer> = initial;
     this.noteAuroraHidIndex(response);
     if (this.responseLooksAlive(response)) return response;
@@ -794,26 +798,27 @@ export class LamzuHidClient {
       if (this.responseLooksAlive(response)) return response;
 
       if (status > LAMZU_AURORA_STATUS_OK) {
-        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+        await this.sleep(delayMs);
         try {
           await this.sendAuroraFeature(reportId, size, request);
         } catch {
           /* keep polling / retrying like the official driver */
         }
-        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+        await this.sleep(delayMs);
         try {
           response = await this.receiveAuroraFeature(reportId);
         } catch {
           response = new Uint8Array(0);
         }
         this.noteAuroraHidIndex(response);
+        if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK) return response;
         if (this.responseLooksAlive(response)) return response;
         continue;
       }
 
       // status < 0xA1 (including 0): poll reads only, then one resend.
       for (let poll = 0; poll < maxPolls; poll += 1) {
-        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+        await this.sleep(delayMs);
         try {
           response = await this.receiveAuroraFeature(reportId);
         } catch {
@@ -824,13 +829,13 @@ export class LamzuHidClient {
       }
       if (this.responseLooksAlive(response)) return response;
 
-      await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+      await this.sleep(delayMs);
       try {
         await this.sendAuroraFeature(reportId, size, request);
       } catch {
         /* ignore */
       }
-      await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+      await this.sleep(delayMs);
       try {
         response = await this.receiveAuroraFeature(reportId);
       } catch {
@@ -1003,6 +1008,7 @@ export class LamzuHidClient {
     // Never fail the whole connect on a single Aurora getter — the sidebar
     // otherwise stays on "Available" with a grey idle indicator.
     const firmware = await this.readAuroraFirmware().catch(() => "Firmware version unavailable");
+    await this.syncAuroraProfile().catch(() => undefined);
     const battery = await this.readAuroraBattery().catch(() => null);
     const pollingRateHz = await this.getPollingRate().catch(() => 1000);
     const lodRaw = await this.auroraGetValue(LAMZU_AURORA_CMD.getLod).catch(() => 1);
@@ -1169,7 +1175,20 @@ export class LamzuHidClient {
     write[offset + 1] = dpi & 0xff;
     write[offset + 2] = (dpi >> 8) & 0xff;
     write[offset + 3] = dpi & 0xff;
-    await this.auroraExchange(write);
+    let writeResponse = await this.auroraExchange(write, { acceptBusyRetry: true });
+    if (this.auroraStatus(writeResponse) > LAMZU_AURORA_STATUS_OK) {
+      // Retry once after a short settle — Maya X often returns 0xA2 while busy.
+      await this.sleep(50);
+      writeResponse = await this.auroraExchange(write, { acceptBusyRetry: true });
+    }
+    if (
+      this.auroraStatus(writeResponse) !== LAMZU_AURORA_STATUS_OK
+      && this.auroraStatus(writeResponse) !== 2
+    ) {
+      throw new Error(
+        `Lamzu Aurora DPI write failed (status ${this.auroraStatus(writeResponse) || "none"}).`,
+      );
+    }
 
     const confirmed = await this.readAuroraDpi();
     if (confirmed !== dpi) throw new Error(`The mouse kept ${confirmed} DPI instead of ${dpi} DPI.`);
@@ -1206,41 +1225,86 @@ export class LamzuHidClient {
     return null;
   }
 
+  private async syncAuroraProfile(): Promise<void> {
+    const request = createAuroraCommand(LAMZU_AURORA_CMD.getProfile, { isNewProtocol: false });
+    request[2] = 2;
+    request[3] = 1;
+    request[5] = 133;
+    const response = await this.auroraExchange(request, { allowEmpty: true });
+    if (
+      this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK
+      && (response[6 - this.auroraHidIndex] ?? 0) === 133
+    ) {
+      this.auroraProfile = response[7 - this.auroraHidIndex] ?? 0;
+    }
+  }
+
   private async auroraSet(
     cmd: readonly [number, number, number, number],
     value: number,
   ): Promise<void> {
-    const request = createAuroraCommand(cmd, {
-      profile: this.auroraProfile,
-      value,
-      isNewProtocol: this.auroraIsNewProtocol,
-    });
-    await this.auroraExchange(request);
+    const trySet = async (isNewProtocol: boolean): Promise<Uint8Array> => {
+      const request = createAuroraCommand(cmd, {
+        profile: this.auroraProfile,
+        value,
+        isNewProtocol,
+      });
+      return await this.auroraExchange(request, { acceptBusyRetry: true });
+    };
+
+    let response = await trySet(this.auroraIsNewProtocol);
+    let status = this.auroraStatus(response);
+    if (status === LAMZU_AURORA_STATUS_OK || status === 2) {
+      return;
+    }
+
+    // Status 162 (0xA2) often means the profile/value layout is wrong — flip protocol.
+    if (status > LAMZU_AURORA_STATUS_OK) {
+      const flipped = !this.auroraIsNewProtocol;
+      response = await trySet(flipped);
+      status = this.auroraStatus(response);
+      if (status === LAMZU_AURORA_STATUS_OK || status === 2) {
+        this.auroraIsNewProtocol = flipped;
+        return;
+      }
+    }
+
+    throw new Error(
+      `Lamzu Aurora command failed (report 0x${this.auroraReportId.toString(16)}, `
+      + `${this.auroraReportBytes} B, status ${status || "none"}).`,
+    );
   }
 
   private async auroraGetValue(cmd: readonly [number, number, number, number]): Promise<number> {
-    const tryProtocol = async (isNewProtocol: boolean): Promise<number> => {
+    const tryProtocol = async (isNewProtocol: boolean): Promise<{ value: number; status: number }> => {
       const request = createAuroraCommand(cmd, {
         profile: this.auroraProfile,
         isNewProtocol,
       });
-      const response = await this.auroraExchange(request);
-      return response[auroraValueIndex(this.auroraHidIndex, isNewProtocol)] ?? 0;
+      const response = await this.auroraExchange(request, { acceptBusyRetry: true });
+      return {
+        value: response[auroraValueIndex(this.auroraHidIndex, isNewProtocol)] ?? 0,
+        status: this.auroraStatus(response),
+      };
     };
 
-    try {
-      return await tryProtocol(this.auroraIsNewProtocol);
-    } catch {
-      const fallback = !this.auroraIsNewProtocol;
-      const value = await tryProtocol(fallback);
-      this.auroraIsNewProtocol = fallback;
-      return value;
+    const primary = await tryProtocol(this.auroraIsNewProtocol);
+    if (primary.status === LAMZU_AURORA_STATUS_OK || primary.status === 2) {
+      return primary.value;
     }
+    const fallback = !this.auroraIsNewProtocol;
+    const secondary = await tryProtocol(fallback);
+    if (secondary.status === LAMZU_AURORA_STATUS_OK || secondary.status === 2) {
+      this.auroraIsNewProtocol = fallback;
+      return secondary.value;
+    }
+    // Prefer a non-error payload if the device answered with data anyway.
+    return primary.value || secondary.value;
   }
 
   private async auroraExchange(
     request: Uint8Array<ArrayBuffer>,
-    options?: { allowEmpty?: boolean },
+    options?: { allowEmpty?: boolean; acceptBusyRetry?: boolean },
   ): Promise<Uint8Array> {
     return await this.withAuroraLock(async () => {
       await this.open();
@@ -1269,6 +1333,7 @@ export class LamzuHidClient {
 
       const seen = new Set<string>();
       let lastError: unknown = null;
+      let lastResponse: Uint8Array | null = null;
 
       for (const { reportId, size } of attempts) {
         if (!this.framingCanCarrySettings(size)) continue;
@@ -1276,20 +1341,20 @@ export class LamzuHidClient {
         if (seen.has(key)) continue;
         seen.add(key);
         try {
-          // Official setReport swallows write failures then still receives.
           try {
             await this.sendAuroraFeature(reportId, size, request);
           } catch (error) {
             lastError = error;
-            // Soft-fail write (lamzu.net style) and still attempt receive.
           }
           await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
           let response = await this.receiveAuroraFeature(reportId);
           response = await this.retryAuroraSetGet(reportId, request, size, response, {
-            maxAttempts: 3,
-            maxPolls: 12,
+            maxAttempts: 5,
+            maxPolls: 16,
+            delayMs: options?.acceptBusyRetry ? 30 : LAMZU_AURORA_COMMON_DELAY_MS,
           });
           this.noteAuroraHidIndex(response);
+          lastResponse = response;
           const status = this.auroraStatus(response);
           if (status === LAMZU_AURORA_STATUS_OK || status === 2 || this.responseLooksAlive(response)) {
             this.auroraReportId = reportId;
@@ -1302,6 +1367,12 @@ export class LamzuHidClient {
             this.auroraReportBytes = size;
             return response;
           }
+          // Let callers (auroraSet) inspect busy/error status and flip protocol.
+          if (options?.acceptBusyRetry && status > LAMZU_AURORA_STATUS_OK) {
+            this.auroraReportId = reportId;
+            this.auroraReportBytes = size;
+            return response;
+          }
           lastError = new Error(
             `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status ${status || "none"}).`,
           );
@@ -1309,6 +1380,8 @@ export class LamzuHidClient {
           lastError = error;
         }
       }
+
+      if (options?.acceptBusyRetry && lastResponse) return lastResponse;
 
       if (lastError instanceof Error) {
         const message = lastError.message;

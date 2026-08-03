@@ -83,6 +83,8 @@ export const LAMZU_AURORA_CMD = {
   getFirmware: [2, 16, 0, 129] as const,
   /** Battery percent (+ charging flag). Byte 4 stays 0 in the official Aurora driver. */
   getBattery: [2, 2, 0, 131] as const,
+  /** Active onboard profile index (0-based). */
+  getProfile: [2, 1, 0, 133] as const,
 } as const;
 
 export const LAMZU_AURORA_COMMON_DELAY_MS = 20;
