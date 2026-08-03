@@ -6,6 +6,14 @@ const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const DEVICE_INDEX = 0x01;
+/**
+ * Low nibble of the function byte. HID++ 2.0 reserves software id 0 for
+ * device-initiated notifications, so requests must use 1-15: anything else
+ * listening on the same receiver reads our traffic as unsolicited events.
+ * G HUB shows an "endurance mode" toast when it mistakes our replies for a
+ * mode-change notification from the mouse. G HUB itself uses 0xE and 0xC.
+ */
+const SOFTWARE_ID = 0x05;
 
 const FEATURE = {
   deviceName: 0x0005,
@@ -15,6 +23,7 @@ const FEATURE = {
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
+  modeStatus: 0x8090,
   // Legacy features used by HERO-era mice (e.g. G502 HERO / LIGHTSPEED,
   // Proteus). Queried only when the extended equivalents are absent.
   adjustableDpi: 0x2201,
@@ -29,6 +38,45 @@ interface ResolvedFeature {
 }
 
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
+
+export type GamingSurfaceMode = NonNullable<MouseStatus["gamingSurfaceMode"]>;
+export type LightforceSwitchMode = NonNullable<MouseStatus["lightforceSwitchMode"]>;
+
+/**
+ * G HUB's "Gaming surface" and LightForce switch mode both live in feature
+ * 0x8090 (Mode Status).
+ * 
+ * setModeStatus takes four one-byte fields: modeStatus0, modeStatus1,
+ * changeMask0, changeMask1. Both settings sit in modeStatus1, so a write is
+ * `00 <value> 00 <mask>`. Confirmed on hardware: the two-byte-field form and a
+ * bare value/mask pair are both rejected with INVALID_ARGUMENT.
+ *
+ * The change mask means a write only touches the bits it names, so bits 3-7
+ * (always 0 in every capture, purpose unknown) survive untouched.
+ */
+const MODE_STATUS = {
+  get: 0x00,
+  set: 0x10,
+  gamingSurface: {
+    mask: 0b0000_0110,
+    shift: 1,
+    values: { Auto: 0, On: 1, Off: 2 } as Record<GamingSurfaceMode, number>,
+  },
+  lightforce: {
+    mask: 0b0000_0001,
+    shift: 0,
+    values: { Optical: 0, Hybrid: 1 } as Record<LightforceSwitchMode, number>,
+  },
+} as const;
+
+function decodeModeStatus<T extends string>(
+  statusByte: number,
+  field: { mask: number; shift: number; values: Record<T, number> },
+): T | null {
+  const encoded = (statusByte & field.mask) >> field.shift;
+  const entry = (Object.entries(field.values) as Array<[T, number]>).find(([, value]) => value === encoded);
+  return entry?.[0] ?? null;
+}
 
 export type LogitechMouseStatus = MouseStatus;
 
@@ -92,7 +140,9 @@ export class LogitechHidppClient {
       }
     }
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
+      (waiter) => report[0] === DEVICE_INDEX
+        && report[1] === waiter.featureIndex
+        && report[2] === (waiter.functionId | SOFTWARE_ID),
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
@@ -103,7 +153,7 @@ export class LogitechHidppClient {
     // the matching read response. Leave the pending request in place and wait.
     if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
       const failedIndex = this.waiters.findIndex(
-        (waiter) => report[2] === waiter.featureIndex && report[3] === waiter.functionId,
+        (waiter) => report[2] === waiter.featureIndex && report[3] === (waiter.functionId | SOFTWARE_ID),
       );
       if (failedIndex >= 0) {
         this.waiters.splice(failedIndex, 1)[0].reject(new Error("The mouse rejected that setting."));
@@ -204,6 +254,8 @@ export class LogitechHidppClient {
     const analogButtonTuning = analogButtonsFeature.index
       ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
       : undefined;
+    const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
+    const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
     const wired = this.device.productId === 0xc0a8;
@@ -211,6 +263,11 @@ export class LogitechHidppClient {
     return {
       brand: "Logitech",
       name,
+      ui: {
+        family: "logitech-hidpp",
+        // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
+        lodRequiresSurface: true,
+      },
       batteryPercent: battery.percent,
       batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
@@ -219,6 +276,8 @@ export class LogitechHidppClient {
       supportsSeparateDpiAxes,
       analogButtonTuning,
       liftOffDistance: dpiState.liftOffDistance,
+      gamingSurfaceMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
+      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
       pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
@@ -403,6 +462,50 @@ export class LogitechHidppClient {
     if (!result || result.actuation !== tuning.actuation || result.rapidTrigger !== tuning.rapidTrigger || result.haptics !== tuning.haptics) {
       throw new Error("The mouse did not confirm the hall-effect button settings.");
     }
+  }
+
+  async setGamingSurfaceMode(mode: GamingSurfaceMode): Promise<GamingSurfaceMode> {
+    return this.setModeStatusField(MODE_STATUS.gamingSurface, mode, "gaming surface mode");
+  }
+
+  async setLightforceSwitchMode(mode: LightforceSwitchMode): Promise<LightforceSwitchMode> {
+    return this.setModeStatusField(MODE_STATUS.lightforce, mode, "LightForce switch mode");
+  }
+
+  /**
+   * Read-modify-write of one field of modeStatus1, then verify.
+   * The change mask stops the firmware touching other bits.
+   * Reading first keeps this correct if a future field spans bits we do not know about.
+   */
+  private async setModeStatusField<T extends string>(
+    field: { mask: number; shift: number; values: Record<T, number> },
+    mode: T,
+    label: string,
+  ): Promise<T> {
+    const feature = await this.getFeature(FEATURE.modeStatus);
+    if (!feature.index) {
+      throw new Error(`This mouse does not expose ${label} controls.`);
+    }
+
+    const current = await this.readModeStatus(feature.index);
+    if (current === null) {
+      throw new Error(`The mouse did not report its current ${label}.`);
+    }
+    const updated = (current & ~field.mask) | (field.values[mode] << field.shift);
+    await this.requestLong(feature.index, MODE_STATUS.set, [0x00, updated, 0x00, field.mask]);
+
+    const readBack = await this.readModeStatus(feature.index);
+    const confirmed = readBack === null ? null : decodeModeStatus(readBack, field);
+    if (confirmed !== mode) {
+      throw new Error(`The mouse kept ${confirmed ?? "an unknown"} ${label} instead of ${mode}.`);
+    }
+    return confirmed;
+  }
+
+  /** Byte 4 of getModeStatus, carrying both the surface and LightForce fields. */
+  private async readModeStatus(featureIndex: number): Promise<number | null> {
+    const reply = await this.request(featureIndex, MODE_STATUS.get).catch(() => null);
+    return reply ? (reply[4] ?? 0) : null;
   }
 
   private async open(): Promise<void> {
@@ -782,7 +885,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array([
       DEVICE_INDEX,
       featureIndex,
-      functionId,
+      functionId | SOFTWARE_ID,
       parameters[0] ?? 0,
       parameters[1] ?? 0,
       parameters[2] ?? 0,
@@ -803,7 +906,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array(19);
     report[0] = DEVICE_INDEX;
     report[1] = featureIndex;
-    report[2] = functionId;
+    report[2] = functionId | SOFTWARE_ID;
     report.set(parameters, 3);
     const response = this.waitForResponse(featureIndex, functionId);
     void response.catch(() => undefined);

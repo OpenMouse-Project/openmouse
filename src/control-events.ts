@@ -35,6 +35,8 @@ export interface ControlEventHandlers {
   applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void>;
   applyPollingRate(rate: number): Promise<void>;
   applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void>;
+  applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): Promise<void>;
+  applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): Promise<void>;
 }
 
 function onClick(selector: string, listener: () => void): void {
@@ -153,6 +155,18 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     button.addEventListener("click", () => {
       const lod = button.dataset.lod as MouseStatus["liftOffDistance"];
       if (lod) void handlers.applyLiftOffDistance(lod);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.gamingSurface as MouseStatus["gamingSurfaceMode"];
+      if (mode) void handlers.applyGamingSurfaceMode(mode);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.lightforce as MouseStatus["lightforceSwitchMode"];
+      if (mode) void handlers.applyLightforceSwitchMode(mode);
     });
   });
   const shell = document.querySelector<HTMLElement>(".control-shell");

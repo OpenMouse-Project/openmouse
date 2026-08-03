@@ -178,6 +178,8 @@ function renderControl(): void {
     applyProSetting,
     applyPollingRate,
     applyLiftOffDistance,
+    applyGamingSurfaceMode,
+    applyLightforceSwitchMode,
   });
   populateInterfaceSettings();
   applyInterfacePreferences();
@@ -671,6 +673,7 @@ function showStatus(status: MouseStatus): void {
     button.hidden = hide;
     button.disabled = hide || settingsPending;
   });
+  const lodNeedsSurface = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off";
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const supportedLods = status.supportedLiftOffDistances;
     const usesNamedLods = Array.isArray(supportedLods)
@@ -689,7 +692,25 @@ function showStatus(status: MouseStatus): void {
       && !Array.isArray(supportedLods)
       && button.dataset.lod === "Low";
     button.hidden = hideLow || unsupported;
-    button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow;
+    button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow || lodNeedsSurface;
+  });
+  const lodNote = document.querySelector<HTMLElement>("#lod-note");
+  if (lodNote) {
+    lodNote.textContent = lodNeedsSurface
+      ? "Turn the gaming surface on or set it to auto to adjust lift-off distance."
+      : "Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.";
+  }
+  const gamingSurfaceRow = document.querySelector<HTMLElement>("#gaming-surface-row");
+  if (gamingSurfaceRow) gamingSurfaceRow.hidden = !status.gamingSurfaceMode;
+  document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.gamingSurface === status.gamingSurfaceMode);
+    button.disabled = settingsPending || !status.gamingSurfaceMode;
+  });
+  const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
+  if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
+  document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.lightforce === status.lightforceSwitchMode);
+    button.disabled = settingsPending || !status.lightforceSwitchMode;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
@@ -1321,6 +1342,46 @@ async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistanc
     buttons.forEach((button) => {
       button.disabled = activeClient !== null && button.dataset.lod === "Low";
     });
+  }
+}
+
+async function applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]");
+  buttons.forEach((button) => { button.disabled = true; });
+  setText("#read-status", `Setting gaming surface to ${mode.toLowerCase()}…`);
+  recordDiagnosticCommand(`Set gaming surface to ${mode}`);
+  try {
+    await client.setGamingSurfaceMode(mode);
+    showStatus(await statusAfterWrite(client));
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to set the gaming surface mode.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set the gaming surface mode.");
+  } finally {
+    settingInProgress = false;
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+
+async function applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lightforce]");
+  buttons.forEach((button) => { button.disabled = true; });
+  setText("#read-status", `Setting LightForce switches to ${mode.toLowerCase()}…`);
+  recordDiagnosticCommand(`Set LightForce switches to ${mode}`);
+  try {
+    await client.setLightforceSwitchMode(mode);
+    showStatus(await statusAfterWrite(client));
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to set the LightForce switch mode.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set the LightForce switch mode.");
+  } finally {
+    settingInProgress = false;
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 
