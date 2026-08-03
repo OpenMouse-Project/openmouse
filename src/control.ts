@@ -257,6 +257,8 @@ function renderControl(): void {
       .density-comfortable .settings-grid { gap:.9rem !important }
       .density-comfortable .settings-grid .setting-card { padding:1.1rem !important }
       .density-comfortable .device-overview .summary-stat { padding:1rem 1.2rem !important }
+      .density-comfortable .device-overview.is-hero { min-height:340px }
+      .density-comfortable .device-overview.is-hero .summary-stat { padding:1.45rem 1.5rem !important }
       .density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding:.95rem 1rem }
       .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
       #logitech-device-details { flex:0 0 auto }
@@ -299,9 +301,15 @@ function renderControl(): void {
           <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
-          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
-          <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
+          <div class="mouse-stage" id="overview-mouse-stage" hidden>
+            <img class="mouse-image" id="overview-mouse-image" src="/maya-x-top.png" alt="Top view of a Lamzu Maya X gaming mouse" />
+            <span class="model-caption" id="overview-model-caption">MAYA X</span>
+          </div>
+          <div class="quick-stats">
+            <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
+            <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
+            <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
+          </div>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
@@ -315,7 +323,7 @@ function renderControl(): void {
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
           <article id="debounce-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
           <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" type="button" role="switch" aria-checked="false" hidden style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
-          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label id="lamzu-angle-tune-row" hidden style="display:none;margin-top:.45rem;color:#77777c;font-size:.62rem">Angle tune<span style="float:right;color:#b3b3b7" id="lamzu-angle-tune-value">0°</span><input id="lamzu-angle-tune" type="range" min="-30" max="30" step="1" value="0" style="width:100%;margin-top:.35rem" /></label></article>
+          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="lamzu-angle-tune-row" hidden style="display:none;margin-top:.55rem;padding-top:.55rem;border-top:1px solid #29292d"><div class="angle-tune-panel"><div class="angle-tune-visual" aria-hidden="true"><div class="angle-tune-ring"><span class="angle-tune-axis"></span><img id="lamzu-angle-tune-indicator" class="angle-tune-mouse" src="/maya-x-angle.svg" alt="" /></div></div><label class="angle-tune-controls" for="lamzu-angle-tune"><span class="angle-tune-label">Angle tune<strong id="lamzu-angle-tune-value">0°</strong></span><input id="lamzu-angle-tune" type="range" min="-30" max="30" step="1" value="0" /><span class="range-labels"><span>−30°</span><span>0°</span><span>+30°</span></span><small class="setting-note">Rotates the sensor coordinate plane to match how you hold the mouse.</small></label></div></div></article>
           <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
           <article id="egg-sensor-tuning" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PAW3950</p><h2>Sensor tuning</h2></div></div><div id="egg-glass-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Glass Mode</span><button id="egg-glass-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="egg-v2-sensor-controls"><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Force max Sensor FPS</span><button id="egg-max-fps-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Disable LED on lift-off</span><button id="egg-led-lift-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Sensor angle tuning<input id="egg-angle-tuning" type="number" min="-127" max="127" step="1" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label></div></article>
           <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
@@ -410,8 +418,7 @@ function renderControl(): void {
     void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
   });
   document.querySelector<HTMLInputElement>("#lamzu-angle-tune")?.addEventListener("input", (event) => {
-    const value = Number((event.target as HTMLInputElement).value);
-    setText("#lamzu-angle-tune-value", `${value}°`);
+    updateLamzuAngleTuneUi(Number((event.target as HTMLInputElement).value));
   });
   document.querySelector<HTMLInputElement>("#lamzu-angle-tune")?.addEventListener("change", (event) => {
     void applyLamzuAngleTune(Number((event.target as HTMLInputElement).value));
@@ -657,6 +664,7 @@ function resetDeviceSpecificPanels(): void {
     "#egg-sensor-tuning",
     "#egg-device-actions",
     "#pulsar-pro-settings",
+    "#lamzu-angle-tune-row",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
@@ -689,10 +697,31 @@ function showStatus(status: MouseStatus): void {
     batterySummary.style.display = hideBattery ? "none" : "flex";
   }
   const overview = document.querySelector<HTMLElement>(".device-overview");
+  const mouseStage = document.querySelector<HTMLElement>("#overview-mouse-stage");
   if (overview) {
-    const showBatteryColumn = !isEgg8k
-      && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
-    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    const useHeroOverview = isLamzu;
+    overview.classList.toggle("is-hero", useHeroOverview);
+    if (mouseStage) {
+      mouseStage.hidden = !useHeroOverview;
+      mouseStage.style.display = useHeroOverview ? "" : "none";
+    }
+    if (useHeroOverview) {
+      overview.style.gridTemplateColumns = "";
+      const caption = document.querySelector("#overview-model-caption");
+      if (caption) {
+        const product = status.name.replace(/^Lamzu\s+/i, "").trim() || "Maya X";
+        caption.textContent = product.toUpperCase();
+      }
+      const mouseImage = document.querySelector<HTMLImageElement>("#overview-mouse-image");
+      if (mouseImage) {
+        mouseImage.src = "/maya-x-top.png";
+        mouseImage.alt = `Top view of ${status.name}`;
+      }
+    } else {
+      const showBatteryColumn = !isEgg8k
+        && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
+      overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    }
   }
   setText("#polling-note", ui?.pollingNote
     ?? (isEgg8k
@@ -736,11 +765,13 @@ function showStatus(status: MouseStatus): void {
   setText("#firmware-detail", status.firmware.length > 1
     ? status.firmware.slice(1).join(" · ")
     : status.firmware.length === 1
-      ? "Firmware reported by mouse"
+      ? (isLamzu ? "Up to date" : "Firmware reported by mouse")
       : "Not reported");
   setText("#connection-value", status.connectionType ?? "Wireless");
-  setText("#connection-detail", status.connectionDetail
-    ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
+  setText("#connection-detail", isLamzu && status.connectionType === "Wireless"
+    ? "2.4 GHz receiver"
+    : (status.connectionDetail
+      ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver")));
   const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
   if (dongleLedButton) {
     const supported = status.brand === "Pulsar" && status.dongleLedEnabled !== null && status.dongleLedEnabled !== undefined;
@@ -793,8 +824,9 @@ function showStatus(status: MouseStatus): void {
       angleTuneRow.hidden = !showAngle;
       angleTuneRow.style.display = showAngle ? "block" : "none";
       if (showAngle) {
-        setControlValue("#lamzu-angle-tune", status.angleTuning ?? 0);
-        setText("#lamzu-angle-tune-value", `${status.angleTuning ?? 0}°`);
+        const degrees = status.angleTuning ?? 0;
+        setControlValue("#lamzu-angle-tune", degrees);
+        updateLamzuAngleTuneUi(degrees);
       }
     }
     const eggFilterSettings = document.querySelector<HTMLElement>("#egg-filter-settings");
@@ -1201,6 +1233,14 @@ function showDisconnectedState(): void {
   resetDeviceSpecificPanels();
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) advanced.style.display = "none";
+  const overview = document.querySelector<HTMLElement>(".device-overview");
+  overview?.classList.remove("is-hero");
+  if (overview) overview.style.gridTemplateColumns = "";
+  const mouseStage = document.querySelector<HTMLElement>("#overview-mouse-stage");
+  if (mouseStage) {
+    mouseStage.hidden = true;
+    mouseStage.style.display = "none";
+  }
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
   setText("#device-title", "Connect a mouse");
@@ -1968,9 +2008,16 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
   }
 }
 
+function updateLamzuAngleTuneUi(degrees: number): void {
+  setText("#lamzu-angle-tune-value", `${degrees}°`);
+  const indicator = document.querySelector<HTMLElement>("#lamzu-angle-tune-indicator");
+  if (indicator) indicator.style.transform = `rotate(${degrees}deg)`;
+}
+
 async function applyLamzuAngleTune(degrees: number): Promise<void> {
   if (!activeLamzuClient || settingInProgress) return;
   settingInProgress = true;
+  updateLamzuAngleTuneUi(degrees);
   setText("#read-status", `Setting angle tune to ${degrees}°…`);
   try {
     await activeLamzuClient.setAngleTuning(degrees);
