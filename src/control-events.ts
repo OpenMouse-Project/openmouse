@@ -19,6 +19,7 @@ export interface ControlEventHandlers {
   chooseCustomDpi(): Promise<void>;
   finishCustomDpiEditing(): void;
   applyLogitechAxisDpi(): Promise<void>;
+  applyLogitechAnalogButton(button: 0 | 1): Promise<void>;
   toggleDongleLed(): Promise<void>;
   applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void>;
   toggleSleep(enabled: boolean): Promise<void>;
@@ -66,6 +67,8 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   onClick("#copy-diagnostics", () => void handlers.copyDiagnostics());
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
+  onClick("#apply-logitech-left-button", () => void handlers.applyLogitechAnalogButton(0));
+  onClick("#apply-logitech-right-button", () => void handlers.applyLogitechAnalogButton(1));
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();

@@ -153,6 +153,7 @@ function renderControl(): void {
     chooseCustomDpi,
     finishCustomDpiEditing,
     applyLogitechAxisDpi,
+    applyLogitechAnalogButton,
     toggleDongleLed,
     applyPulsarValue,
     toggleSleep: (enabled) => applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER),
@@ -250,6 +251,7 @@ function resetDeviceSpecificPanels(): void {
     "#egg-cpi-settings",
     "#egg-button-settings",
     "#pulsar-pro-settings",
+    "#logitech-analog-button-settings",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
@@ -641,7 +643,30 @@ function showStatus(status: MouseStatus): void {
   const logitechDetails = document.querySelector<HTMLElement>("#logitech-device-details");
   if (logitechDetails) logitechDetails.style.display = status.brand === "Logitech" ? "block" : "none";
   if (status.brand === "Logitech") renderLogitechDetails(status);
+  renderLogitechAnalogButtonSettings(status);
   renderDeviceDiagnostics(status);
+}
+
+function renderLogitechAnalogButtonSettings(status: MouseStatus): void {
+  const section = document.querySelector<HTMLElement>("#logitech-analog-button-settings");
+  const tuning = status.brand === "Logitech" ? status.analogButtonTuning : undefined;
+  if (!section) return;
+  section.style.display = tuning?.buttons.length === 2 ? "block" : "none";
+  if (!tuning || tuning.buttons.length !== 2) return;
+  for (const side of ["left", "right"] as const) {
+    const values = tuning.buttons[side === "left" ? 0 : 1];
+    for (const [setting, value, max] of [
+      ["actuation", values.actuation, tuning.maxActuation],
+      ["rapid-trigger", values.rapidTrigger, tuning.maxRapidTrigger],
+      ["haptics", values.haptics, tuning.maxHaptics],
+    ] as const) {
+      const input = document.querySelector<HTMLInputElement>(`#logitech-${side}-${setting}`);
+      if (input) {
+        input.value = String(value);
+        input.max = String(max);
+      }
+    }
+  }
 }
 
 function renderLogitechDetails(status: MouseStatus): void {
@@ -1102,6 +1127,27 @@ async function applyLogitechAxisDpi(): Promise<void> {
   } catch (error) {
     recordDiagnosticError(error, "Unable to set axis DPI.");
     setText("#read-status", error instanceof Error ? error.message : "Unable to set axis DPI.");
+  } finally {
+    settingInProgress = false;
+  }
+}
+
+async function applyLogitechAnalogButton(button: 0 | 1): Promise<void> {
+  if (!activeClient || refreshInProgress || settingInProgress) return;
+  const side = button === 0 ? "left" : "right";
+  const read = (setting: "actuation" | "rapid-trigger" | "haptics"): number =>
+    Number(document.querySelector<HTMLInputElement>(`#logitech-${side}-${setting}`)?.value);
+  const tuning = { actuation: read("actuation"), rapidTrigger: read("rapid-trigger"), haptics: read("haptics") };
+  settingInProgress = true;
+  setText("#read-status", `Setting ${side} hall-effect button tuning…`);
+  recordDiagnosticCommand(`Set ${side} hall-effect button tuning`);
+  try {
+    await activeClient.setAnalogButtonTuning(button, tuning);
+    showStatus(await activeClient.readStatus());
+    setText("#read-status", `Confirmed ${side} hall-effect button tuning.`);
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to set hall-effect button tuning.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set hall-effect button tuning.");
   } finally {
     settingInProgress = false;
   }
