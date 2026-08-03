@@ -22,6 +22,7 @@ import {
   LAMZU_COMMAND,
   LAMZU_FLASH,
   LAMZU_MAX_RESOLUTION_STAGES,
+  LAMZU_PACKET_LENGTH,
   LAMZU_REPORT_ID,
   lamzuDataChecksum,
   parseAuroraBattery,
@@ -123,6 +124,26 @@ function describeFeatureReports(device: HIDDevice): string {
   return parts.join(", ") || "none";
 }
 
+function describeAllReports(device: HIDDevice): string {
+  const parts: string[] = [];
+  for (const collection of walkCollections(device.collections)) {
+    const usage = `0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)}`;
+    for (const report of collection.inputReports) {
+      const bytes = featureReportByteLength(report);
+      parts.push(`in:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
+    }
+    for (const report of collection.outputReports) {
+      const bytes = featureReportByteLength(report);
+      parts.push(`out:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
+    }
+    for (const report of collection.featureReports) {
+      const bytes = featureReportByteLength(report);
+      parts.push(`feat:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
+    }
+  }
+  return parts.join(", ") || "none";
+}
+
 function hasClassicConfigReports(device: HIDDevice): boolean {
   return walkCollections(device.collections).some((collection) => {
     const hasInput = collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID);
@@ -136,18 +157,6 @@ function hasClassicReport8(device: HIDDevice): boolean {
   return walkCollections(device.collections).some((collection) =>
     collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID)
     || collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
-}
-
-function describeLamzuCollections(device: HIDDevice): string {
-  return device.collections.map((collection) => {
-    const inputs = collection.inputReports.map((report) => `in:0x${report.reportId.toString(16)}`).join(",") || "in:none";
-    const outputs = collection.outputReports.map((report) => `out:0x${report.reportId.toString(16)}`).join(",") || "out:none";
-    const features = collection.featureReports.map((report) => {
-      const bytes = featureReportByteLength(report);
-      return `feat:0x${report.reportId.toString(16)}/${bytes || "?"}B`;
-    }).join(",") || "feat:none";
-    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} [${inputs}; ${outputs}; ${features}]`;
-  }).join(" | ") || "no collections";
 }
 
 export class LamzuHidClient {
@@ -448,7 +457,10 @@ export class LamzuHidClient {
           this.transport = "classic";
           this.blockedReason = null;
         } else {
-          this.blockedReason = "wrong-interface";
+          this.blockedReason = maxFeatureReportBytes(this.device) > 0
+            && maxFeatureReportBytes(this.device) < 32
+            ? "tiny-feature-report"
+            : "wrong-interface";
         }
       }
       return;
@@ -462,17 +474,16 @@ export class LamzuHidClient {
       return;
     }
 
-    // 2) Chrome often shows a single "2.4G Wireless Receiver" entry for Maya
-    // dongles. Report 8 may still accept writes even when collections omit it.
     await this.device.open().catch(() => undefined);
+
+    // 2) Blind Compx report-8 / any sizable output report.
     if (await this.probeClassicLink()) {
       this.transport = "classic";
       this.blockedReason = null;
       return;
     }
 
-    // 3) Aurora / feature-report path (including tiny 0xff04 reports — probe
-    // will try descriptor-exact sizes first, then larger Aurora framings).
+    // 3) Aurora feature-report path (needs >= 32 B payloads for DPI stages).
     const aurora = findAuroraFeatureReport(this.device);
     if (aurora || listFeatureReports(this.device).length > 0) {
       const feature = aurora ?? {
@@ -489,14 +500,16 @@ export class LamzuHidClient {
       if (this.auroraWriteReady) return;
     }
 
-    this.blockedReason = "wrong-interface";
+    this.blockedReason = maxFeatureReportBytes(this.device) > 0
+      && maxFeatureReportBytes(this.device) < 32
+      ? "tiny-feature-report"
+      : "wrong-interface";
     this.transport = "aurora";
     this.auroraWriteReady = false;
   }
 
   /**
-   * Try Compx report-8 even when the WebHID descriptor does not list it.
-   * Keep this fast — a long classic miss made “Reading…” feel stuck.
+   * Try Compx report-8 (and any output report large enough for a 16-byte packet).
    */
   private async probeClassicLink(): Promise<boolean> {
     if (!this.device.opened) {
@@ -508,13 +521,26 @@ export class LamzuHidClient {
     }
 
     this.device.addEventListener("inputreport", this.onInputReport);
-    // Only probe report 8 (and 0 as a long shot). Enumerating every report ID
-    // made connect take many seconds on this dongle.
-    for (const reportId of [LAMZU_REPORT_ID, 0]) {
+
+    const outputIds = walkCollections(this.device.collections).flatMap((collection) =>
+      collection.outputReports
+        .filter((report) => {
+          const bytes = report.items?.reduce(
+            (total, item) => total + item.reportSize * item.reportCount,
+            0,
+          ) ?? 0;
+          // Unknown size (0) or at least a Compx packet.
+          return bytes === 0 || bytes / 8 >= LAMZU_PACKET_LENGTH;
+        })
+        .map((report) => report.reportId));
+
+    const reportIds = [...new Set([LAMZU_REPORT_ID, 0, ...outputIds])];
+
+    for (const reportId of reportIds) {
       const packet = createLamzuPacket(LAMZU_COMMAND.readVersionId);
       finalizeLamzuPacket(packet);
       try {
-        const response = await this.exchangeOnReport(reportId, packet, 200);
+        const response = await this.exchangeOnReport(reportId, packet, 180);
         if (response[1] === 0 || response[0] === LAMZU_COMMAND.readVersionId) {
           this.classicReportId = reportId || LAMZU_REPORT_ID;
           return true;
@@ -847,11 +873,14 @@ export class LamzuHidClient {
   private async readAuroraStatus(): Promise<MouseStatus> {
     // Soft-connect: never block the UI if Aurora framing is not ready yet.
     if (!this.auroraWriteReady) {
-      const reports = describeFeatureReports(this.device) || describeLamzuCollections(this.device);
-      const tiny = this.blockedReason === "tiny-feature-report" || reports.includes("/7B");
+      const allReports = describeAllReports(this.device);
+      const featureReports = describeFeatureReports(this.device);
+      const tiny = this.blockedReason === "tiny-feature-report"
+        || /feat:0x6@[^/]+\/7B/.test(allReports)
+        || featureReports.includes("/7B");
       const protocolLabel = tiny
-        ? `Feature report too small for settings (${reports})`
-        : `Aurora writes blocked (${reports}; trying ${this.auroraReportBytes} B)`;
+        ? `Feature report too small for settings (${featureReports}) · reports: ${allReports}`
+        : `Aurora writes blocked (${featureReports}; trying ${this.auroraReportBytes} B) · reports: ${allReports}`;
       return this.buildStatus({
         dpi: 800,
         pollingRateHz: 1000,
@@ -869,7 +898,7 @@ export class LamzuHidClient {
         protocolLabel,
         settingsReady: false,
         blockedHint: tiny
-          ? "Windows only exposed a 7-byte feature report. OpenMouse needs a 63/64-byte Aurora buffer for DPI. Keep the mouse awake, replug the dongle, hard-refresh, then reconnect. If this persists, Chrome may be blocking the full Compx control interface."
+          ? "Chrome only exposed feature report 0x06 at 7 bytes on this wireless receiver — that is too small for DPI/polling (needs ~64 B). Try: (1) plug the Maya in with a USB cable and Add device again, or (2) open lamzu.net in Chrome — if the official driver also fails, WebHID cannot reach the Compx control interface on this PC. You can forget this site under chrome://settings/content/hidDevices and reconnect."
           : "Lamzu settings link is not ready. Keep the mouse awake, replug the dongle, then reconnect.",
       });
     }
