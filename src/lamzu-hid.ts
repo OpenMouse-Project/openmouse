@@ -61,32 +61,43 @@ function maxFeatureReportBytes(device: HIDDevice): number {
 }
 
 /**
- * Aurora receivers (including Maya PID 0xfa09) expose a vendor feature report.
- * Chrome sometimes omits item sizes, so any Lamzu feature report is enough to
- * select the interface — we still prefer report 0x06 / 64-byte payloads.
+ * True Aurora command interfaces expose a ~64-byte feature report (reportCount 64
+ * on Linux/macOS; often 63 data bytes on Windows). Tiny vendor features such as
+ * `0x06 @ 7 B` on usage 0xff04 are NOT the Aurora command channel — Lamzu's own
+ * Compx driver ignores them and uses report ID 8 instead.
+ */
+function isAuroraSizedFeatureReport(report: HIDReportInfo): boolean {
+  if (report.items?.some((item) => item.reportCount === 64)) return true;
+  const bytes = featureReportByteLength(report);
+  // 0 = Chrome omitted item sizes; still treat report ID 0x06 as a candidate.
+  if (bytes === 0 && report.reportId === 0x06) return true;
+  return bytes >= 32;
+}
+
+/**
+ * Aurora receivers expose a vendor feature report large enough for 64-byte commands.
  */
 function findAuroraFeatureReport(device: HIDDevice): { reportId: number; bytes: number } | null {
   const reports: HIDReportInfo[] = [];
   for (const collection of walkCollections(device.collections)) {
     reports.push(...collection.featureReports);
   }
-  if (reports.length === 0) return null;
+  const candidates = reports.filter(isAuroraSizedFeatureReport);
+  if (candidates.length === 0) return null;
 
-  const preferred = reports.find((report) => report.reportId === 0x06)
-    ?? reports.find((report) => {
+  const preferred = candidates.find((report) => report.reportId === 0x06)
+    ?? candidates.find((report) => {
       const bytes = featureReportByteLength(report);
       return bytes >= 64 || report.items?.some((item) => item.reportCount === 64);
     })
-    ?? reports[0];
+    ?? candidates[0];
 
   if (!preferred) return null;
   const preferredBytes = featureReportByteLength(preferred);
-  const maxBytes = maxFeatureReportBytes(device);
-  // Prefer the descriptor size (often 63 on Windows). Forcing 64 here made
-  // the first probe framing wrong and burned reconnect time.
+  // Always plan for Aurora's 64-byte command buffer; Windows often wants 63.
   return {
     reportId: preferred.reportId,
-    bytes: preferredBytes || maxBytes || LAMZU_AURORA_FEATURE_BYTES,
+    bytes: preferredBytes >= 32 ? preferredBytes : LAMZU_AURORA_FEATURE_BYTES,
   };
 }
 
@@ -104,9 +115,30 @@ function describeFeatureReports(device: HIDDevice): string {
 }
 
 function hasClassicConfigReports(device: HIDDevice): boolean {
+  return walkCollections(device.collections).some((collection) => {
+    const hasInput = collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID);
+    const hasOutput = collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID);
+    return hasInput && hasOutput;
+  });
+}
+
+/** Looser classic check used when ranking sibling interfaces. */
+function hasClassicReport8(device: HIDDevice): boolean {
   return walkCollections(device.collections).some((collection) =>
     collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID)
-    && collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
+    || collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
+}
+
+function describeLamzuCollections(device: HIDDevice): string {
+  return device.collections.map((collection) => {
+    const inputs = collection.inputReports.map((report) => `in:0x${report.reportId.toString(16)}`).join(",") || "in:none";
+    const outputs = collection.outputReports.map((report) => `out:0x${report.reportId.toString(16)}`).join(",") || "out:none";
+    const features = collection.featureReports.map((report) => {
+      const bytes = featureReportByteLength(report);
+      return `feat:0x${report.reportId.toString(16)}/${bytes || "?"}B`;
+    }).join(",") || "feat:none";
+    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} [${inputs}; ${outputs}; ${features}]`;
+  }).join(" | ") || "no collections";
 }
 
 export class LamzuHidClient {
@@ -121,6 +153,7 @@ export class LamzuHidClient {
   private auroraProfile = 0;
   private auroraWriteReady = false;
   private auroraOpChain: Promise<void> = Promise.resolve();
+  private blockedReason: string | null = null;
   private responseWaiter: {
     command: number;
     resolve: (bytes: Uint8Array) => void;
@@ -142,7 +175,59 @@ export class LamzuHidClient {
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID.lamzu
-      && (hasClassicConfigReports(device) || findAuroraFeatureReport(device) !== null);
+      && (hasClassicConfigReports(device)
+        || hasClassicReport8(device)
+        || findAuroraFeatureReport(device) !== null
+        || LAMZU_PRODUCTS.has(device.productId));
+  }
+
+  /** Prefer Compx report-8 interfaces over tiny vendor feature interfaces. */
+  static supportScore(device: HIDDevice): number {
+    if (device.vendorId !== VENDOR_ID.lamzu) return 0;
+    if (hasClassicConfigReports(device)) return 100;
+    if (hasClassicReport8(device)) return 90;
+    if (findAuroraFeatureReport(device)) return 70;
+    if (LAMZU_PRODUCTS.has(device.productId)) return 20;
+    return 10;
+  }
+
+  /**
+   * Among authorized Lamzu interfaces with the same VID/PID, pick the one that
+   * can actually configure the mouse (report 8 / real Aurora), not the 7-byte
+   * usage 0xff04 utility collection Windows often shows first.
+   */
+  static pickBestDevice(devices: readonly HIDDevice[], preferred?: HIDDevice): HIDDevice | null {
+    const lamzu = devices.filter((device) => device.vendorId === VENDOR_ID.lamzu);
+    if (lamzu.length === 0) return null;
+
+    const productId = preferred?.productId
+      ?? lamzu.find((device) => LAMZU_PRODUCTS.has(device.productId))?.productId
+      ?? lamzu[0]?.productId;
+    const siblings = productId === undefined
+      ? lamzu
+      : lamzu.filter((device) => device.productId === productId);
+    const pool = siblings.length > 0 ? siblings : lamzu;
+    return [...pool].sort((left, right) => LamzuHidClient.supportScore(right) - LamzuHidClient.supportScore(left))[0]
+      ?? null;
+  }
+
+  static fromAuthorizedDevices(devices: readonly HIDDevice[], preferred?: HIDDevice): LamzuHidClient | null {
+    const best = LamzuHidClient.pickBestDevice(devices, preferred);
+    return best ? new LamzuHidClient(best) : null;
+  }
+
+  /** Collapse multi-interface Compx receivers to one sidebar row per VID/PID. */
+  static mergeLogicalDevices(devices: readonly HIDDevice[]): HIDDevice[] {
+    const bestByKey = new Map<string, HIDDevice>();
+    for (const device of devices) {
+      if (device.vendorId !== VENDOR_ID.lamzu) continue;
+      const key = `${device.vendorId}:${device.productId}`;
+      const current = bestByKey.get(key);
+      if (!current || LamzuHidClient.supportScore(device) > LamzuHidClient.supportScore(current)) {
+        bestByKey.set(key, device);
+      }
+    }
+    return [...bestByKey.values()];
   }
 
   async open(): Promise<void> {
@@ -341,25 +426,32 @@ export class LamzuHidClient {
       await this.open();
       return;
     }
-    // Compx VID devices with report 8 should use the classic flash path first.
-    // Aurora feature reports are only for receivers that lack report 8 (e.g. PID 0xfa09).
-    if (hasClassicConfigReports(this.device)) {
+    this.blockedReason = null;
+
+    // Official Lamzu Compx (VID 0x3554) configures via report ID 8 — not the
+    // tiny usage 0xff04 feature report Windows exposes on some dongles.
+    if (hasClassicConfigReports(this.device) || hasClassicReport8(this.device)) {
       this.transport = "classic";
       await this.open();
       return;
     }
+
     const aurora = findAuroraFeatureReport(this.device);
     if (aurora) {
       this.transport = "aurora";
       this.auroraReportId = aurora.reportId;
-      this.auroraReportBytes = aurora.bytes >= 64 ? 64 : aurora.bytes || LAMZU_AURORA_FEATURE_BYTES;
+      this.auroraReportBytes = aurora.bytes >= 63 ? aurora.bytes : LAMZU_AURORA_FEATURE_BYTES;
       this.auroraIsNewProtocol = true;
       await this.open();
       await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
       await this.probeAuroraLink();
       return;
     }
-    throw new Error("No supported Lamzu control interface was found on this device.");
+
+    this.blockedReason = "wrong-interface";
+    this.transport = "aurora";
+    this.auroraWriteReady = false;
+    await this.open().catch(() => undefined);
   }
 
   private sleep(ms: number): Promise<void> {
@@ -382,17 +474,13 @@ export class LamzuHidClient {
   }
 
   private auroraFramings(): Array<{ reportId: number; size: number }> {
-    const descriptorMax = maxFeatureReportBytes(this.device);
-    const preferredSize = this.auroraReportBytes > 0 ? this.auroraReportBytes : descriptorMax;
-    // Keep this short — each framing can cost a USB round-trip, and connect
-    // must not stall the Reconnecting… UI for minutes.
+    // Never probe with the misleading 7-byte Windows size from usage 0xff04.
     const sizes = [...new Set([
-      preferredSize,
-      descriptorMax,
       63,
       LAMZU_AURORA_FEATURE_BYTES,
-    ].filter((size) => size > 0))];
-    // Windows Maya dongles usually need report 0x06 @ 63 B; Aurora webdriver uses 0 @ 64 B.
+      this.auroraReportBytes >= 32 ? this.auroraReportBytes : 0,
+      maxFeatureReportBytes(this.device) >= 32 ? maxFeatureReportBytes(this.device) : 0,
+    ].filter((size) => size >= 32))];
     const reportIds = [...new Set([
       this.auroraReportId || 0x06,
       0x06,
@@ -635,6 +723,11 @@ export class LamzuHidClient {
   private async readAuroraStatus(): Promise<MouseStatus> {
     // Soft-connect: never block the UI if Aurora framing is not ready yet.
     if (!this.auroraWriteReady) {
+      const wrongInterface = this.blockedReason === "wrong-interface"
+        || describeFeatureReports(this.device).includes("/7B");
+      const protocolLabel = wrongInterface
+        ? `Wrong HID interface (${describeFeatureReports(this.device) || describeLamzuCollections(this.device)})`
+        : `Aurora writes blocked (reports: ${describeFeatureReports(this.device)}; trying ${this.auroraReportBytes} B)`;
       return this.buildStatus({
         dpi: 800,
         pollingRateHz: 1000,
@@ -649,8 +742,11 @@ export class LamzuHidClient {
         rippleControl: false,
         performanceMode: null,
         firmware: ["Firmware version unavailable"],
-        protocolLabel: `Aurora writes blocked (reports: ${describeFeatureReports(this.device)}; trying ${this.auroraReportBytes} B)`,
+        protocolLabel,
         settingsReady: false,
+        blockedHint: wrongInterface
+          ? "This is not the Compx config interface. Click Add device and choose the Lamzu/Compx interface that exposes report ID 8 (often listed as a second “2.4G Wireless Receiver” / vendor device). Avoid the usage 0xff04 utility interface."
+          : "Chrome could not complete Lamzu feature-report writes on this interface. Replug the receiver, then use Add device and pick the Compx report-8 control interface.",
       });
     }
 
@@ -703,6 +799,7 @@ export class LamzuHidClient {
     firmware: string[];
     protocolLabel: string;
     settingsReady?: boolean;
+    blockedHint?: string;
   }): MouseStatus {
     const maxHz = this.maxPollingRateHz();
     const supportedPollingRates = [125, 250, 500, 1000, 2000, 4000, 8000].filter((hz) => hz <= maxHz);
@@ -716,11 +813,12 @@ export class LamzuHidClient {
         hideUnsupportedPollingRates: true,
         forceShowBattery: this.connectionType() === "Wireless",
         hideProcessingCard: false,
-        pollingNote: maxHz >= 8000
-          ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
-          : maxHz >= 4000
-            ? "This Lamzu receiver supports up to 4,000 Hz."
-            : "This Lamzu connection supports up to 1,000 Hz.",
+        pollingNote: input.blockedHint
+          ?? (maxHz >= 8000
+            ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
+            : maxHz >= 4000
+              ? "This Lamzu receiver supports up to 4,000 Hz."
+              : "This Lamzu connection supports up to 1,000 Hz."),
         defaultDisplayName: this.displayName(),
       },
       batteryPercent: input.batteryPercent,
@@ -873,9 +971,12 @@ export class LamzuHidClient {
       if (!this.auroraWriteReady) await this.probeAuroraLink();
       if (!this.auroraWriteReady) {
         throw new Error(
-          "Chrome blocked Lamzu feature-report writes. "
-          + "Replug the receiver, then use Add device and pick the vendor interface "
-          + "(usage 0xff04), not the plain mouse interface.",
+          this.blockedReason === "wrong-interface"
+            ? "This Lamzu HID interface cannot configure the mouse. "
+              + "Click Add device and choose the Compx/vendor interface with report ID 8 "
+              + "(not the usage 0xff04 utility interface)."
+            : "Chrome blocked Lamzu feature-report writes. "
+              + "Replug the receiver, then use Add device and pick the Compx report-8 control interface.",
         );
       }
 

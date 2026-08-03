@@ -745,7 +745,11 @@ function showStatus(status: MouseStatus): void {
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
   const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
-  if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
+  if (settingsGrid) {
+    // Keep Lamzu controls visible (disabled) so a wrong-interface connect still
+    // shows DPI / polling / LOD instead of an empty Sensor panel.
+    settingsGrid.style.display = settingsPending && !isLamzu ? "none" : "";
+  }
 
   const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
   if (sleepToggle) sleepToggle.hidden = !isWLMouse;
@@ -842,11 +846,13 @@ function showStatus(status: MouseStatus): void {
   }
   setText("#device-status", "Connected");
   // Same banner copy as other brands — no RE/debug messaging in the chrome.
-  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
+  setText("#connection-banner", settingsPending && ui?.pollingNote
+    ? ui.pollingNote
+    : "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", status.batteryPercent === null
-      ? "Connected"
-      : `Battery ${status.batteryPercent}%`);
+    setText("#read-status", ui?.pollingNote?.includes("Add device")
+      ? "Waiting for the Compx report-8 control interface."
+      : (status.batteryPercent === null ? "Connected" : `Battery ${status.batteryPercent}%`));
   } else {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -986,6 +992,21 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   return null;
 }
 
+async function createSupportedClientFromPool(
+  selected: HIDDevice,
+  pool?: HIDDevice[],
+): Promise<SupportedClient | null> {
+  const devices = pool ?? await navigator.hid?.getDevices() ?? [];
+  if (selected.vendorId === 0x3554 || LamzuHidClient.isSupported(selected)) {
+    const lamzu = LamzuHidClient.fromAuthorizedDevices(
+      devices.length > 0 ? devices : [selected],
+      selected,
+    );
+    if (lamzu) return lamzu;
+  }
+  return createSupportedClient(selected);
+}
+
 function deviceBrand(client: SupportedClient): string {
   if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
@@ -1007,10 +1028,13 @@ function escapeHtml(value: string): string {
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
 function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
   const all = devices ?? [];
-  return eggWeMergeLogicalDevices(
+  const merged = eggWeMergeLogicalDevices(
     all,
     (device) => createSupportedClient(device) !== null,
   );
+  const nonLamzu = merged.filter((device) => device.vendorId !== 0x3554);
+  const lamzu = LamzuHidClient.mergeLogicalDevices(merged);
+  return [...nonLamzu, ...lamzu];
 }
 
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
@@ -1041,10 +1065,11 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
 
 async function selectAuthorizedDevice(index: number): Promise<void> {
   if (settingInProgress || refreshInProgress) return;
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  const all = await navigator.hid?.getDevices() ?? [];
+  const devices = listLogicalDevices(all);
   const device = devices[index];
   if (!device || device === activeDevice) return;
-  const client = createSupportedClient(device);
+  const client = await createSupportedClientFromPool(device, all);
   if (!client) return;
   setText("#device-status", "Switching");
   setText("#read-status", `Reading ${statusNameForClient(client)}.`);
@@ -1163,6 +1188,31 @@ function showDisconnectedState(): void {
 }
 
 function handleHidConnect(event: HIDConnectionEvent): void {
+  if (event.device.vendorId === 0x3554 || LamzuHidClient.isSupported(event.device)) {
+    void (async () => {
+      const all = await navigator.hid?.getDevices() ?? [];
+      await renderDeviceSidebar(all);
+      const client = await createSupportedClientFromPool(event.device, all);
+      if (!client) return;
+      // If we already have a higher-scoring Lamzu interface active, ignore utility interfaces.
+      if (activeLamzuClient
+        && activeLamzuClient.device.productId === event.device.productId
+        && LamzuHidClient.supportScore(activeLamzuClient.device) >= LamzuHidClient.supportScore(event.device)
+        && activeLamzuClient.device !== event.device) {
+        return;
+      }
+      setText("#device-status", "New device detected");
+      setText("#read-status", `Reading ${statusNameForClient(client)}.`);
+      await activateClient(client);
+    })().catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+      setText("#device-status", "Connection failed");
+      setText("#read-status", message);
+      void renderDeviceSidebar();
+    });
+    return;
+  }
+
   const client = createSupportedClient(event.device);
   if (!client) {
     void renderDeviceSidebar();
@@ -1249,6 +1299,15 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     if (weClient) return weClient;
   }
 
+  const authorized = await navigator.hid.getDevices();
+  const pool = [...new Map([...authorized, ...devices].map((device) => [device, device])).keys()];
+
+  // Lamzu Compx receivers expose multiple interfaces; prefer report ID 8.
+  if (devices.some((device) => device.vendorId === 0x3554 || LamzuHidClient.isSupported(device))) {
+    const lamzu = LamzuHidClient.fromAuthorizedDevices(pool, devices[0]);
+    if (lamzu) return lamzu;
+  }
+
   const ranked = devices
     .map((device) => ({ device, client: createSupportedClient(device), score: clientSupportScore(device) }))
     .filter((entry) => entry.client !== null)
@@ -1262,8 +1321,8 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
-    + "Pick a vendor control interface (not a plain boot mouse). "
-    + "If this keeps failing, note the VID/PID from this message.",
+    + "For Lamzu Maya, pick the Compx/vendor interface with report ID 8 "
+    + "(not the usage 0xff04 utility interface or a plain boot mouse).",
   );
 }
 
@@ -1272,7 +1331,7 @@ function clientSupportScore(device: HIDDevice): number {
   if (eggWeIsSupported(device)) return eggWeSupportScore(device);
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
-  if (LamzuHidClient.isSupported(device)) return 9;
+  if (LamzuHidClient.isSupported(device)) return LamzuHidClient.supportScore(device);
   if (LogitechHidppClient.isSupported(device)) return 6;
   if (WLMouseHidClient.isSupported(device)) return 5;
   return 0;
@@ -1293,7 +1352,7 @@ async function connect(): Promise<void> {
   if (!button) return;
   setConnectionButtons(true, "Connecting…");
   setText("#device-status", "Requesting permission");
-  setText("#read-status", "Choose your device in the browser prompt.");
+  setText("#read-status", "Choose your device in the browser prompt. For Lamzu, prefer the Compx/report-8 interface (you can select multiple receiver entries).");
 
   try {
     const client = await requestSupportedClient();
@@ -1341,15 +1400,18 @@ async function reconnectAuthorizedDevice(): Promise<void> {
 
       const devices = await navigator.hid?.getDevices() ?? [];
       const clients = listLogicalDevices(devices)
-        .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
-        .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
-        .sort((left, right) => right.score - left.score)
-        .map((entry) => entry.client);
+        .map((device) => ({
+          device,
+          score: clientSupportScore(device),
+        }))
+        .sort((left, right) => right.score - left.score);
       await renderDeviceSidebar(devices);
       if (clients.length === 0) continue;
 
-      for (const client of clients) {
+      for (const entry of clients) {
         if (hasActiveClient()) return;
+        const client = await createSupportedClientFromPool(entry.device, devices);
+        if (!client) continue;
         try {
           setText("#device-status", "Reconnecting");
           setText("#read-status", "Reading the previously authorized device.");

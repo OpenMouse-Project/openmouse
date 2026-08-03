@@ -24,10 +24,8 @@ export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
   [0xfa09, 8000],
 ]);
 
-/** Prefer the vendor control collection over boot-mouse interfaces in the picker. */
+/** Prefer every Compx/Lamzu interface; ranking picks report-8 over usage 0xff04. */
 export const LAMZU_HID_FILTERS: HIDDeviceFilter[] = [
-  { vendorId: VENDOR_ID.lamzu, usagePage: 0xff04 },
-  { vendorId: VENDOR_ID.lamzu, usagePage: 0xff02 },
   { vendorId: VENDOR_ID.lamzu },
 ];
 
