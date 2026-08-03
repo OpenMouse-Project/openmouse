@@ -1,13 +1,18 @@
-import type { MouseStatus } from "../mouse-types";
+import type { LightingCapability, MouseStatus } from "../mouse-types";
+import { LOGITECH_PRODUCT_IDS } from "../vendors";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
 // Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
 // HERO-era wireless mice.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539]);
+LOGITECH_PRODUCT_IDS;
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
-const DEVICE_INDEX = 0x01;
+const SW_ID = 0x0a;
+const WIRED_DEVICE_INDEX = 0xff;
+const DEVICE_INDEX_CANDIDATES = [0x01, WIRED_DEVICE_INDEX] as const;
+const REQUEST_TIMEOUT_MS = 6000;
+const PING_TIMEOUT_MS = 300
 
 const FEATURE = {
   deviceName: 0x0005,
@@ -22,6 +27,10 @@ const FEATURE = {
   adjustableDpi: 0x2201,
   reportRate: 0x8060,
   onboardProfiles: 0x8100,
+  // RGB. 0x8071 is the newer RGB Effects feature; 0x8070 (Color LED Effects) is
+  // what HERO-era mice expose. A mouse with neither has no controllable lighting.
+  rgbEffects: 0x8071,
+  colorLedEffects: 0x8070,
 } as const;
 
 interface ResolvedFeature {
@@ -30,6 +39,8 @@ interface ResolvedFeature {
 }
 
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
+/** Upper bound for the zone probe. Logitech mice top out well below this. */
+const MAX_LIGHTING_ZONES = 4;
 
 export type LogitechMouseStatus = MouseStatus;
 
@@ -63,19 +74,47 @@ interface DeviceIdentity {
 }
 
 export class LogitechHidppClient {
+  private deviceIndex: number = DEVICE_INDEX_CANDIDATES[0];
+  private deviceIndexDetected = false;
   private dpiOptionsCache: number[] | null = null;
   private dpiFeatureResolved: ResolvedFeature | null = null;
   private rateFeatureResolved: ResolvedFeature | null = null;
+  private lightingFeatureResolved: ResolvedFeature | null = null;
+  private lightingZoneCount: number | null = null;
   private reportRateFeatureIndex: number | null = null;
   private livePollingRateHz: number | null = null;
   private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
+  
+  private async ping(): Promise<boolean> {
+    const marker = 0x5a;
+    const reply = await this.send(0x00, 0x10, [0x00, 0x00, marker], PING_TIMEOUT_MS).catch(() => null);
+    return reply?.[5] === marker;
+  }
+
+  private async detectDeviceIndex(): Promise<void> {
+    if (this.deviceIndexDetected) return;
+    for (const candidate of DEVICE_INDEX_CANDIDATES) {
+      this.deviceIndex = candidate;
+      if (await this.ping()) {
+        this.deviceIndexDetected = true;
+        return;
+      }
+    }
+    throw new Error("No Logitech HID++ device answered. Reconnect the mouse, or click a button to wake it.");
+  }
+
   private readonly onInputReport = (event: HIDInputReportEvent): void => {
     if (event.reportId !== SHORT_REPORT_ID && event.reportId !== LONG_REPORT_ID) {
       return;
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
-    if (report[0] === DEVICE_INDEX && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
+    if (report[0] !== this.deviceIndex) {
+      return;
+    }
+
+    // Device-initiated notifications carry software ID 0; responses echo SW_ID back.
+    if (report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
       const rate = REPORT_RATE_HZ[report[4] ?? -1];
       if (rate) {
         this.livePollingRateHz = rate;
@@ -84,25 +123,28 @@ export class LogitechHidppClient {
         matchingRateWaiters.forEach((waiter) => waiter.resolve());
       }
     }
+
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
+      (waiter) => report[1] === waiter.featureIndex && report[2] === (waiter.functionId | SW_ID),
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
       return;
     }
 
-    // HID++ can emit a status notification between a write acknowledgement and
-    // the matching read response. Leave the pending request in place and wait.
-    if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
+    // HID++ 2.0 errors put 0xFF at byte 1, HID++ 1.0 errors put 0x8F. Both echo the
+    // feature index and function byte of the failed request at the same offsets.
+    if (report[1] === 0xff || report[1] === 0x8f) {
       const failedIndex = this.waiters.findIndex(
-        (waiter) => report[2] === waiter.featureIndex && report[3] === waiter.functionId,
+        (waiter) => report[2] === waiter.featureIndex && report[3] === (waiter.functionId | SW_ID),
       );
       if (failedIndex >= 0) {
-        this.waiters.splice(failedIndex, 1)[0].reject(new Error("The mouse rejected that setting."));
+        const code = report[4] ?? 0;
+        this.waiters.splice(failedIndex, 1)[0].reject(new Error(`The mouse rejected that request (HID++ error 0x${code.toString(16)}).`));
       }
     }
   };
+
 
   private readonly waiters: Array<{
     featureIndex: number;
@@ -114,7 +156,7 @@ export class LogitechHidppClient {
   constructor(readonly device: HIDDevice) {}
 
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId)) {
+    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_PRODUCT_IDS.has(device.productId as any)) {
       return false;
     }
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
@@ -130,11 +172,12 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [...LOGITECH_RECEIVER_PRODUCT_IDS].map((productId) => ({
+      filters: [...LOGITECH_PRODUCT_IDS.entries()].map(([productId,{wireless}]) => ({
         vendorId: LOGITECH_VENDOR_ID,
         productId,
         usagePage: 0xff00,
         usage: 0x0001,
+        wireless
       })),
     });
     const device = devices[0];
@@ -191,18 +234,22 @@ export class LogitechHidppClient {
     const pollingRateHz = reportRateFeature.legacy
       ? await this.readLegacyReportRate(reportRateFeature.index)
       : await this.readPollingRate(reportRateFeature.index);
+    const lighting = await this.readLighting();
     const profileState = await this.readProfileState(profilesFeature.index);
+    const wired = this.deviceIndex === WIRED_DEVICE_INDEX;
     const firmware = await this.readFirmware(firmwareFeature.index);
 
     return {
       brand: "Logitech",
       name,
+      ui: { hideLodCard: dpiFeature.legacy || dpiState.liftOffDistance === null },
       batteryPercent: battery.percent,
       batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
       dpi: dpiState.dpi,
       dpiY: dpiState.dpiY,
       supportsSeparateDpiAxes,
+      lighting,
       liftOffDistance: dpiState.liftOffDistance,
       pollingRateHz,
       supportedPollingRates,
@@ -212,6 +259,11 @@ export class LogitechHidppClient {
       modelId: identity.modelId,
       transportIds: identity.transportIds,
       firmware,
+      connectionType: wired ? "Wired" : "Wireless",
+      connectionDetail: wired
+        ? "USB"
+        : profileState.activeProfile ? `2.4 GHz · Profile ${profileState.activeProfile}` : "2.4 GHz receiver",
+
     };
   }
 
@@ -305,19 +357,45 @@ export class LogitechHidppClient {
     await this.ensureHostControl();
     const feature = await this.getFeature(FEATURE.extendedDpi);
     const current = await this.readDpiConfiguration(feature.index);
+    // A mouse that reports Y as 0 has linked axes, whatever the capability bit says.
+    // Write its own Y back rather than inventing one, and verify only the axis it
+    // actually reports — otherwise the check can never pass on a linked-axis mouse.
+    const separateAxes = await this.readDpiCapabilities(feature.index) && current.y !== 0;
+    const targetY = separateAxes ? dpiY : current.y;
     await this.requestLong(feature.index, 0x60, [
       0x00,
       dpi >> 8,
       dpi & 0xff,
-      dpiY >> 8,
-      dpiY & 0xff,
+      targetY >> 8,
+      targetY & 0xff,
       current.lod,
     ]);
     const confirmed = await this.readDpiConfiguration(feature.index);
-    if (confirmed.x !== dpi || confirmed.y !== dpiY) {
+    if (confirmed.x !== dpi || (separateAxes && confirmed.y !== dpiY)) {
       throw new Error(`The mouse kept ${confirmed.x}/${confirmed.y} DPI instead of ${dpi}/${dpiY} DPI.`);
     }
     return confirmed.x;
+  }
+
+  /**
+   * Sets every zone to one static color. The method exists on all Logitech mice,
+   * so a model without 0x8071/0x8070 answers the caller with a clear refusal rather
+   * than the shell having to know which models have RGB.
+   */
+  async setLighting(color: string): Promise<string> {
+    const feature = await this.resolveLightingFeature();
+    if (!feature.index) {
+      throw new Error("This mouse does not expose lighting controls.");
+    }
+    const channels = [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
+    if (channels.some((channel) => !Number.isFinite(channel))) {
+      throw new Error(`"${color}" is not a #rrggbb color.`);
+    }
+    await this.ensureHostControl();
+    if (!await this.writeLightingZones(feature.index, channels)) {
+      throw new Error("The mouse rejected the lighting color.");
+    }
+    return color;
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
@@ -352,7 +430,9 @@ export class LogitechHidppClient {
       await this.device.open();
     }
     this.device.addEventListener("inputreport", this.onInputReport);
+    await this.detectDeviceIndex();
   }
+
 
   /** Prefer extended DPI (0x2202); fall back to legacy Adjustable DPI (0x2201). */
   private async resolveDpiFeature(): Promise<ResolvedFeature> {
@@ -363,6 +443,50 @@ export class LogitechHidppClient {
     }
     const legacy = await this.getFeature(FEATURE.adjustableDpi);
     return (this.dpiFeatureResolved = { index: legacy.index, legacy: true });
+  }
+
+  /** Prefer RGB Effects (0x8071); fall back to Color LED Effects (0x8070). */
+  private async resolveLightingFeature(): Promise<ResolvedFeature> {
+    if (this.lightingFeatureResolved) return this.lightingFeatureResolved;
+    const rgb = await this.getFeature(FEATURE.rgbEffects);
+    if (rgb.index) {
+      return (this.lightingFeatureResolved = { index: rgb.index, legacy: false });
+    }
+    const legacy = await this.getFeature(FEATURE.colorLedEffects);
+    return (this.lightingFeatureResolved = { index: legacy.index, legacy: true });
+  }
+
+  /**
+   * Presence of the feature is the capability test — that part is exact. Zone count
+   * is not read yet: the getInfo layout differs between 0x8070 and 0x8071 and is
+   * unconfirmed on real hardware, and every zone is written the same color anyway.
+   * ponytail: single zone assumed, revisit once a device dump confirms the offset.
+   */
+  private async readLighting(): Promise<LightingCapability | null> {
+    const feature = await this.resolveLightingFeature();
+    return feature.index ? { zoneCount: this.lightingZoneCount ?? 1, color: null } : null;
+  }
+
+  /**
+   * Writes every zone, learning how many the mouse has. Probing beats parsing
+   * getInfo: its layout differs between 0x8070 and 0x8071, and a wrong offset
+   * leaves zones silently dark, whereas a rejected zone index is unambiguous.
+   * The count is cached, so the extra rejected write happens once per session.
+   */
+  private async writeLightingZones(featureIndex: number, channels: number[]): Promise<number> {
+    const limit = this.lightingZoneCount ?? MAX_LIGHTING_ZONES;
+    let written = 0;
+    for (let zone = 0; zone < limit; zone += 1) {
+      try {
+        // setZoneEffect(zone, effect, r, g, b). Effect 0x00 is off, 0x01 is fixed.
+        await this.requestLong(featureIndex, 0x30, [zone, 0x01, ...channels]);
+        written += 1;
+      } catch {
+        break;
+      }
+    }
+    if (written) this.lightingZoneCount = written;
+    return written;
   }
 
   /** Prefer extended report rate (0x8061); fall back to legacy Report Rate (0x8060). */
@@ -564,7 +688,7 @@ export class LogitechHidppClient {
     const configuration = await this.readDpiConfiguration(featureIndex);
     const dpi = configuration.x;
     const lod = configuration.lod;
-    const liftOffDistance = lod === 0 ? "Low" : lod === 1 ? "Medium" : lod === 2 ? "High" : null;
+    const liftOffDistance = lod === 1 ? "Medium" : lod === 2 ? "High" : null;
     return { dpi, dpiY: configuration.y, liftOffDistance };
   }
 
@@ -695,19 +819,21 @@ export class LogitechHidppClient {
     if (parameters.length > 3) {
       throw new Error("This WebHID client only sends short, read-only HID++ requests.");
     }
+    return this.send(featureIndex, functionId, parameters, REQUEST_TIMEOUT_MS);
+  }
 
+  private async send(featureIndex: number, functionId: number, parameters: number[], timeoutMs: number): Promise<Uint8Array> {
     const report = new Uint8Array([
-      DEVICE_INDEX,
+      this.deviceIndex,
       featureIndex,
-      functionId,
+      functionId | SW_ID,
       parameters[0] ?? 0,
       parameters[1] ?? 0,
       parameters[2] ?? 0,
     ]);
-    const response = this.waitForResponse(featureIndex, functionId);
+    const response = this.waitForResponse(featureIndex, functionId, timeoutMs);
     // Keep the timeout rejection observed even when sendReport itself fails
     // (for example, when a browser selected a protected mouse collection).
-    // The original sendReport error is then shown by the control panel.
     void response.catch(() => undefined);
     await this.device.sendReport(SHORT_REPORT_ID, report);
     return await response;
@@ -718,17 +844,17 @@ export class LogitechHidppClient {
       throw new Error("HID++ long requests support at most 16 parameter bytes.");
     }
     const report = new Uint8Array(19);
-    report[0] = DEVICE_INDEX;
+    report[0] = this.deviceIndex;
     report[1] = featureIndex;
-    report[2] = functionId;
+    report[2] = functionId | SW_ID;
     report.set(parameters, 3);
-    const response = this.waitForResponse(featureIndex, functionId);
+    const response = this.waitForResponse(featureIndex, functionId, REQUEST_TIMEOUT_MS);
     void response.catch(() => undefined);
     await this.device.sendReport(LONG_REPORT_ID, report);
     return await response;
   }
 
-  private waitForResponse(featureIndex: number, functionId: number): Promise<Uint8Array> {
+  private waitForResponse(featureIndex: number, functionId: number, timeoutMs: number): Promise<Uint8Array> {
     return new Promise<Uint8Array>((resolve, reject) => {
       const timeout = window.setTimeout(() => {
         const index = this.waiters.findIndex((waiter) => waiter.reject === reject);
@@ -736,8 +862,7 @@ export class LogitechHidppClient {
           this.waiters.splice(index, 1);
         }
         reject(new Error("The mouse did not answer. Move it or click a button, then try again."));
-      }, 6000);
-
+      }, timeoutMs);
       this.waiters.push({
         featureIndex,
         functionId,

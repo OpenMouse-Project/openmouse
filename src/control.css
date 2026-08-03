@@ -39,12 +39,6 @@
 .empty-state small { color: #707076; font-size: .78rem; }
 .is-empty .empty-state { display: block; }
 .is-empty .device-data { display: none; }
-.device-overview .summary-stat { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 1.1rem 1.35rem; border-right: 1px solid #2b2b2f; }
-.device-overview .summary-stat:last-child { border-right: 0; }
-.device-overview .summary-stat > span { margin-bottom: .45rem; color: #77777c; font-family: "JetBrains Mono", monospace; font-size: .6rem; letter-spacing: .09em; }
-.device-overview .summary-stat strong { font-size: 1.3rem; font-weight: 500; letter-spacing: -.025em; }
-.device-overview .summary-stat small { margin-top: .2rem; color: #77777c; font-size: .68rem; }
-.device-overview .summary-stat .meter { margin-top: .7rem; }
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: #77777c; font-size: .65rem; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid #f7f7f7; border-radius: 6px; background: #f7f7f7; color: #09090b; font-size: .65rem; font-weight: 700; }
 .setting-action button:disabled { cursor: default; opacity: .45; }
@@ -62,13 +56,21 @@
   .control-shell .preview-banner { padding: .45rem .65rem; }
   .control-shell .panel-header { padding: .8rem 0 .65rem; }
   .control-shell .panel-header h1 { font-size: clamp(2rem, 3.2vw, 2.8rem); }
-  .control-shell .device-overview { flex: 0 0 104px; min-height: 104px; grid-template-columns: repeat(3, 1fr); }
-  .control-shell .device-overview .summary-stat { padding: .65rem .9rem; }
-  .control-shell .device-overview .summary-stat strong { font-size: 1.1rem; }
-  .control-shell .device-overview .summary-stat small { margin-top: .1rem; }
-  .control-shell .device-overview .summary-stat > span, .control-shell .setting-heading p { margin-bottom: .3rem; }
+  /* Tune this height first if the panel crowds the settings grid on short screens. */
+  .control-shell .device-overview { flex: 0 0 auto; min-height: 232px; }
+  .control-shell .mouse-stage { min-height: 0; }
+  .control-shell .mouse-stage::before { width: 300px; height: 300px; }
+  .control-shell .quick-stats article { padding: .65rem 1.1rem; }
+  .control-shell .quick-stats strong { font-size: 1.2rem; }
+  .control-shell .quick-stats small { margin-top: .1rem; }
+  .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .3rem; }
   .control-shell .device-overview .meter { margin-top: .4rem; }
-  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-template-rows: 176px; gap: .65rem; margin-top: .65rem; }
+  /* Rows grow past 176px when a card needs it, so the picker cannot spill out. */
+  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-auto-rows: minmax(176px, auto); gap: .65rem; margin-top: .65rem; }
+  /* Column count follows how many cards are actually visible: 2 cards and 4 cards
+     both want two columns, 3 cards wants three. Four wraps into a 2x2. */
+  .control-shell .settings-grid:has(#lod-settings[hidden]):has(#lighting-settings[hidden]) { grid-template-columns: 1.2fr .9fr; }
+  .control-shell .settings-grid:has(#lod-settings:not([hidden])):has(#lighting-settings:not([hidden])) { grid-template-columns: 1.2fr .9fr; }
   .control-shell .setting-card { min-height: 176px; padding: .85rem; }
   .control-shell .dpi-card { grid-row: auto; }
   .control-shell .setting-heading { margin-bottom: .75rem; }

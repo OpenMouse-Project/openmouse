@@ -31,6 +31,8 @@ export interface ControlEventHandlers {
   applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void>;
   applyPollingRate(rate: number): Promise<void>;
   applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void>;
+  applyLightingBrightness(percent: number): Promise<void>;
+  pickLightingColor(clientX: number, clientY: number, commit: boolean): void;
 }
 
 function onClick(selector: string, listener: () => void): void {
@@ -134,6 +136,27 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
       if (lod) void handlers.applyLiftOffDistance(lod);
     });
   });
+  // "change", not "input": one write when the slider is released, not one per pixel.
+  document.querySelector<HTMLInputElement>("#lighting-brightness")?.addEventListener("change", (event) => {
+    void handlers.applyLightingBrightness(Number((event.target as HTMLInputElement).value));
+  });
+  const wheel = document.querySelector<HTMLElement>("#lighting-wheel");
+  if (wheel) {
+    // Pointer capture keeps the drag alive once the pointer leaves the circle.
+    // Only pointerup commits, so a drag previews without writing to the mouse.
+    wheel.addEventListener("pointerdown", (event) => {
+      wheel.setPointerCapture(event.pointerId);
+      handlers.pickLightingColor(event.clientX, event.clientY, false);
+    });
+    wheel.addEventListener("pointermove", (event) => {
+      if (!wheel.hasPointerCapture(event.pointerId)) return;
+      handlers.pickLightingColor(event.clientX, event.clientY, false);
+    });
+    wheel.addEventListener("pointerup", (event) => {
+      wheel.releasePointerCapture(event.pointerId);
+      handlers.pickLightingColor(event.clientX, event.clientY, true);
+    });
+  }
   const shell = document.querySelector<HTMLElement>(".control-shell");
   const panel = document.querySelector<HTMLElement>(".control-panel");
   shell?.addEventListener("wheel", (event) => {

@@ -10,6 +10,8 @@ export interface MouseUiHints {
   settingsReady?: boolean;
   /** Hide 0.7 mm LOD option. */
   hideLodLow?: boolean;
+  /** Hide the lift-off card entirely. Set when the mouse exposes no LOD control at all. */
+  hideLodCard?: boolean;
   /** Hide poll rates not listed in supportedPollingRates. */
   hideUnsupportedPollingRates?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
@@ -20,6 +22,23 @@ export interface MouseUiHints {
   pollingNote?: string;
   /** Sidebar name before first status read. */
   defaultDisplayName?: string;
+}
+
+/** Reported by drivers whose device exposes controllable RGB. Absent means no lighting. */
+export interface LightingCapability {
+  /** Independently addressable zones. Every zone is set to the same color for now. */
+  zoneCount: number;
+  /** Current color as "#rrggbb", or null when the device will not report it. */
+  color: string | null;
+}
+
+export interface LightingClient {
+  setLighting(color: string): Promise<string>;
+}
+
+/** Structural check: a driver opts into lighting purely by having the method. */
+export function supportsLighting(client: unknown): client is LightingClient {
+  return typeof (client as Partial<LightingClient> | null)?.setLighting === "function";
 }
 
 export interface MouseStatus {
@@ -67,6 +86,8 @@ export interface MouseStatus {
   dpiLedMode?: number | null;
   dpiLedBrightness?: number | null;
   dpiLedSpeed?: number | null;
+  /** Present only when the mouse exposes controllable RGB; drives the lighting card. */
+  lighting?: LightingCapability | null;
   liftOffDistance: "Low" | "Medium" | "High" | null;
   firmware: string[];
 }

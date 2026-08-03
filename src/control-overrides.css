@@ -116,7 +116,7 @@
 .density-comfortable #pulsar-advanced.egg-advanced-layout > .setting-card { padding:1rem !important }
 .density-comfortable .settings-grid { gap:.9rem !important }
 .density-comfortable .settings-grid .setting-card { padding:1.1rem !important }
-.density-comfortable .device-overview .summary-stat { padding:1rem 1.2rem !important }
+.density-comfortable .quick-stats article { padding:1rem 1.2rem !important }
 .density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding:.95rem 1rem }
 .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
 #logitech-device-details { flex:0 0 auto }

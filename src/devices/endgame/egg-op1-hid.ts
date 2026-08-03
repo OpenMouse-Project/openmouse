@@ -186,6 +186,7 @@ export class EggOp1HidClient {
       eggButtonMappings: buttonActions.map(eggButtonActionLabel),
       eggButtonActions: buttonActions,
       eggLeftHanded: leftHanded,
+      ui: { hideLodCard: lodOptions.length === 0 },
       liftOffDistance: this.genericLod(lodOptions[lodIndex]),
       firmware: this.firmwareVersion ? [`Firmware ${this.firmwareVersion}`] : ["Firmware unavailable"],
     };

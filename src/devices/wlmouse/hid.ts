@@ -242,6 +242,7 @@ export class WLMouseHidClient {
         family: "wlmouse",
         hideUnsupportedPollingRates: true,
         forceShowBattery: true,
+        hideLodCard: liftOffDistance[1] === 0,
       },
       batteryPercent: battery[1] <= 100 ? battery[1] : null,
       batteryState: battery[0] === 1 ? "Charging" : "Discharging",

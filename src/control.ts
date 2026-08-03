@@ -1,6 +1,6 @@
 import "./control.css";
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
-import { controlTemplate } from "./control-template";
+import { controlTemplate, deviceImageSrc } from "./control-template";
 import { bindControlEvents } from "./control-events";
 import {
   clientSupportScore,
@@ -13,7 +13,7 @@ import {
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
 import { renderEggControls } from "./devices/endgame/egg-controls-view";
 import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
-import { formatHex, setControlValue, setText, setToggleValue } from "./ui/dom";
+import { formatHex, scaleBrightness, setControlValue, setText, setToggleValue, wheelColorAt } from "./ui/dom";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
@@ -41,6 +41,7 @@ import {
 } from "./devices/endgame/egg-we-control";
 import { LamzuHidClient } from "./devices/lamzu/hid";
 import { LogitechHidppClient } from "./devices/logitech/hidpp";
+import { supportsLighting } from "./devices/mouse-types";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
@@ -56,6 +57,8 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+let lightingColor = "#ffffff";
+let lightingBrightness = 100;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -165,12 +168,28 @@ function renderControl(): void {
     applyProSetting,
     applyPollingRate,
     applyLiftOffDistance,
+    applyLightingBrightness,
+    pickLightingColor,
   });
   populateInterfaceSettings();
   applyInterfacePreferences();
+  setLightingColor(lightingColor);
   navigator.hid?.addEventListener("connect", handleHidConnect);
   navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
   void reconnectAuthorizedDevice();
+}
+
+/**
+ * Swaps the product shot. Unhides first: a previous device with no art in
+ * public/devices left the element hidden by its own onerror handler.
+ */
+function setDeviceImage(brand: string, name: string): void {
+  const image = document.querySelector<HTMLImageElement>("#device-image");
+  if (!image) return;
+  image.hidden = false;
+  image.src = deviceImageSrc(name);
+  image.alt = `${brand} ${name}`;
+  setText("#model-caption", name.toUpperCase());
 }
 
 function openInterfaceSettings(): void {
@@ -453,11 +472,12 @@ function showStatus(status: MouseStatus): void {
     batterySummary.hidden = hideBattery;
     batterySummary.style.display = hideBattery ? "none" : "flex";
   }
-  const overview = document.querySelector<HTMLElement>(".device-overview");
-  if (overview) {
-    const showBatteryColumn = !isEgg8k
+  // Tiles stack down the right-hand column now, so dropping battery is a row change.
+  const quickStats = document.querySelector<HTMLElement>(".quick-stats");
+  if (quickStats) {
+    const showBatteryTile = !isEgg8k
       && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
-    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    quickStats.style.gridTemplateRows = `repeat(${showBatteryTile ? 3 : 2}, 1fr)`;
   }
   setText("#polling-note", ui?.pollingNote
     ?? (isEgg8k
@@ -504,6 +524,9 @@ function showStatus(status: MouseStatus): void {
   setText("#connection-value", status.connectionType ?? "Wireless");
   setText("#connection-detail", status.connectionDetail
     ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
+  const brandOverline = document.querySelector<HTMLElement>(".panel-header .overline");
+  if (brandOverline) brandOverline.textContent = status.brand.toUpperCase();
+  setDeviceImage(status.brand, status.name);
   const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
   if (dongleLedButton) {
     const supported = status.brand === "Pulsar" && status.dongleLedEnabled !== null && status.dongleLedEnabled !== undefined;
@@ -613,13 +636,23 @@ function showStatus(status: MouseStatus): void {
     button.hidden = hide;
     button.disabled = hide || settingsPending;
   });
+  const hideLodCard = ui?.hideLodCard === true;
+  const lodCard = document.querySelector<HTMLElement>("#lod-settings");
+  if (lodCard) lodCard.hidden = hideLodCard;
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
-    button.hidden = hideLow;
-    button.disabled = hideLow || settingsPending
+    button.hidden = hideLodCard || hideLow;
+    button.disabled = hideLodCard || hideLow || settingsPending
       || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
+  // Lighting is gated on the capability itself, not a ui hint: `lighting` has one
+  // meaning, so there is nothing here for the shell to misread.
+  const lightingCard = document.querySelector<HTMLElement>("#lighting-settings");
+  if (lightingCard) {
+    lightingCard.hidden = !status.lighting;
+    if (status.lighting?.color) setLightingColor(status.lighting.color);
+  }
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
     button.disabled = settingsPending;
@@ -791,6 +824,8 @@ function showDisconnectedState(): void {
   if (advanced) advanced.style.display = "none";
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
+  const idleImage = document.querySelector<HTMLImageElement>("#device-image");
+  if (idleImage) idleImage.hidden = true;
   setText("#device-title", "Connect a mouse");
   setText("#device-status", "No device connected");
   setText("#connection-banner", "Connect a supported device to view and change its settings.");
@@ -920,7 +955,9 @@ async function connect(): Promise<void> {
     setText("#device-status", "Opening device");
     setText("#read-status", `Reading ${statusNameForClient(client)}…`);
     await activateClient(client);
+
   } catch (error) {
+    console.log(error)
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
     recordDiagnosticError(error, message);
     await activeEggClient?.close().catch(() => undefined);
@@ -1130,6 +1167,74 @@ async function applyPollingRate(rate: number): Promise<void> {
     buttons.forEach((button) => {
       button.disabled = false;
     });
+  }
+}
+
+/** Display only — never touches the device. */
+function updateLightingSwatch(color: string): void {
+  const swatch = document.querySelector<HTMLElement>("#lighting-swatch");
+  if (!swatch) return;
+  swatch.style.background = color;
+  swatch.textContent = color.toUpperCase();
+}
+
+/**
+ * Records the picked color at full brightness. The slider scales this on the way
+ * out, so moving the slider twice cannot compound the dimming.
+ */
+function setLightingColor(color: string): void {
+  lightingColor = color;
+  // Feeds the brightness track's gradient so it runs black to the picked color.
+  document.querySelector<HTMLElement>("#lighting-settings")?.style.setProperty("--lighting-color", color);
+  updateLightingSwatch(scaleBrightness(color, lightingBrightness));
+}
+
+function applyLightingBrightness(percent: number): Promise<void> {
+  lightingBrightness = percent;
+  return applyLightingColor(scaleBrightness(lightingColor, percent));
+}
+
+/**
+ * Moves the wheel thumb and previews the color. Only `commit` writes to the mouse,
+ * so dragging across the wheel does not fire a write per pointer event.
+ */
+function pickLightingColor(clientX: number, clientY: number, commit: boolean): void {
+  const wheel = document.querySelector<HTMLElement>("#lighting-wheel");
+  if (!wheel) return;
+  const bounds = wheel.getBoundingClientRect();
+  const radius = bounds.width / 2;
+  const picked = wheelColorAt(clientX - bounds.left - radius, clientY - bounds.top - radius, radius);
+  const thumb = document.querySelector<HTMLElement>("#lighting-thumb");
+  if (thumb) {
+    thumb.style.left = `${radius + picked.x}px`;
+    thumb.style.top = `${radius + picked.y}px`;
+  }
+  setLightingColor(picked.hex);
+  if (commit) void applyLightingColor(scaleBrightness(picked.hex, lightingBrightness));
+}
+
+async function applyLightingColor(color: string): Promise<void> {
+  const client = activeSettingsClient();
+  if (!client || refreshInProgress || settingInProgress) return;
+  // The card is hidden for devices without lighting, so reaching here means a
+  // color arrived for a mouse that cannot use it. Say so instead of failing quietly.
+  if (!supportsLighting(client)) {
+    const error = new Error("This mouse does not support lighting control.");
+    recordDiagnosticError(error, error.message);
+    setText("#read-status", error.message);
+    return;
+  }
+  settingInProgress = true;
+  setText("#read-status", `Setting lighting to ${color.toUpperCase()}…`);
+  recordDiagnosticCommand(`Set lighting to ${color.toUpperCase()}`);
+  try {
+    updateLightingSwatch(await client.setLighting(color));
+    showStatus(await statusAfterWrite(client));
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to set the lighting color.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set the lighting color.");
+  } finally {
+    settingInProgress = false;
   }
 }
 

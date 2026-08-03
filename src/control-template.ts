@@ -1,3 +1,58 @@
+export interface DevicePanelStat {
+  value: string;
+  detail: string;
+}
+
+/** Everything the device panel renders. Fill it from a sample entry or a live MouseStatus. */
+export interface DevicePanelData {
+  /** Eyebrow above the model name, e.g. "LOGITECH". */
+  brand: string;
+  name: string;
+  statusLabel: string;
+  battery: DevicePanelStat & { percent: number | null };
+  firmware: DevicePanelStat;
+  connection: DevicePanelStat;
+}
+
+/** Device art lives in public/devices, named after the model exactly ("G502 SE.png"). */
+export function deviceImageSrc(name: string): string {
+  return `/devices/${encodeURIComponent(name)}.png`;
+}
+
+/** Seeds the panel before a device is read. The panel stays hidden until then. */
+const PLACEHOLDER_DEVICE: DevicePanelData = {
+  brand: "DEVICE CONTROL",
+  name: "Connect a mouse",
+  statusLabel: "No device connected",
+  battery: { value: "—", detail: "Read after connection", percent: null },
+  firmware: { value: "—", detail: "Read after connection" },
+  connection: { value: "—", detail: "2.4 GHz receiver" },
+};
+
+/**
+ * Header + overview for one device. Rendered once with a sample entry; every field
+ * is addressable by id afterwards, so live status updates patch it in place rather
+ * than re-rendering (control-events binds listeners to these nodes at startup).
+ */
+export function devicePanel(data: DevicePanelData): string {
+  return `
+        <header class="panel-header">
+          <div><p class="overline">${data.brand}</p><h1 id="device-title">${data.name}</h1></div>
+          <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">${data.statusLabel}</span></div>
+        </header>
+        <section class="device-overview device-data" aria-label="Device status">
+          <div class="mouse-stage">
+            <img id="device-image" class="mouse-image" alt="" onerror="this.hidden = true" hidden />
+            <span id="model-caption" class="model-caption">${data.name.toUpperCase()}</span>
+          </div>
+          <div class="quick-stats">
+            <article id="battery-summary"><span>BATTERY</span><strong id="battery-value">${data.battery.value}</strong><small id="battery-detail">${data.battery.detail}</small><div class="meter"><i id="battery-meter" style="width:${data.battery.percent ?? 0}%"></i></div></article>
+            <article><span>FIRMWARE</span><strong id="firmware-value">${data.firmware.value}</strong><small id="firmware-detail">${data.firmware.detail}</small></article>
+            <article><span>CONNECTION</span><strong id="connection-value">${data.connection.value}</strong><small id="connection-detail">${data.connection.detail}</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
+          </div>
+        </section>`;
+}
+
 export function controlTemplate(buildLabel: string): string {
   return `
     <div class="control-shell is-empty">
@@ -19,11 +74,7 @@ export function controlTemplate(buildLabel: string): string {
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
-        <header class="panel-header">
-          <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
-          <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
-        </header>
+        ${devicePanel(PLACEHOLDER_DEVICE)}
         <section class="empty-state" aria-labelledby="empty-state-title">
           <p class="overline">READY WHEN YOU ARE</p>
           <h2 id="empty-state-title">Connect a supported mouse.</h2>
@@ -31,15 +82,11 @@ export function controlTemplate(buildLabel: string): string {
           <small>Your browser will only show compatible WebHID devices.</small>
           <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
-        <section class="device-overview device-data" aria-label="Device status">
-          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
-          <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
-        </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
+          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+          <article id="lod-settings" class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+          <article id="lighting-settings" class="setting-card" hidden><div class="setting-heading"><div><p>LIGHTING</p><h2>Color</h2></div><output id="lighting-swatch" class="lighting-swatch" aria-label="Selected color"></output></div><div class="lighting-picker"><div id="lighting-wheel" class="lighting-wheel" role="slider" tabindex="0" aria-label="Color wheel" aria-valuetext="Choose a color"><i id="lighting-thumb" class="lighting-thumb" aria-hidden="true"></i></div><input id="lighting-brightness" class="lighting-brightness" type="range" min="0" max="100" value="100" aria-label="Brightness" /></div><small id="lighting-note" class="setting-note">Drag on the wheel, then set brightness.</small></article>
         </section>
         <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
           <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
