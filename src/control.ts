@@ -1072,49 +1072,64 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeLamzuClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient) {
-    activeWLMouseClient = client;
-    const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
-    dpiOptions = client.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-    await client.startNotifications(() => {
-      void refreshStatus();
-    }).catch(() => false);
-  } else if (client instanceof LamzuHidClient) {
-    activeLamzuClient = client;
-    const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
-    dpiOptions = client.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-  } else if (client instanceof EggOp1HidClient) {
-    activeEggClient = client;
-    client.onDeviceChange = () => { void refreshStatus(); };
-    const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
-    dpiOptions = client.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-  } else if (isEggWeClient(client)) {
-    await eggWePrepare(client);
-    activeEggWeClient = client;
-    const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
-    dpiOptions = client.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-  } else if (client instanceof LogitechHidppClient) {
-    activeClient = client;
-    const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
-    dpiOptions = await client.getDpiOptions();
-    configureDpiControl(status.dpi);
-    showStatus(status);
-  } else {
-    activePulsarClient = client;
-    await showPulsarExplorer(client);
+  try {
+    if (client instanceof WLMouseHidClient) {
+      activeWLMouseClient = client;
+      const status = await client.readStatus();
+      deviceStatuses.set(client.device, status);
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+      await client.startNotifications(() => {
+        void refreshStatus();
+      }).catch(() => false);
+    } else if (client instanceof LamzuHidClient) {
+      activeLamzuClient = client;
+      const status = await client.readStatus();
+      deviceStatuses.set(client.device, status);
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+    } else if (client instanceof EggOp1HidClient) {
+      activeEggClient = client;
+      client.onDeviceChange = () => { void refreshStatus(); };
+      const status = await client.readStatus();
+      deviceStatuses.set(client.device, status);
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+    } else if (isEggWeClient(client)) {
+      await eggWePrepare(client);
+      activeEggWeClient = client;
+      const status = await client.readStatus();
+      deviceStatuses.set(client.device, status);
+      dpiOptions = client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+    } else if (client instanceof LogitechHidppClient) {
+      activeClient = client;
+      const status = await client.readStatus();
+      deviceStatuses.set(client.device, status);
+      dpiOptions = await client.getDpiOptions();
+      configureDpiControl(status.dpi);
+      showStatus(status);
+    } else {
+      activePulsarClient = client;
+      await showPulsarExplorer(client);
+    }
+  } catch (error) {
+    // A failed read must not leave a half-active client that blocks reconnect.
+    if (activeSettingsClient() === client) {
+      activeClient = null;
+      activePulsarClient = null;
+      activeEggClient = null;
+      activeEggWeClient = null;
+      activeWLMouseClient = null;
+      activeLamzuClient = null;
+      activeDevice = null;
+    }
+    await client.close().catch(() => undefined);
+    throw error;
   }
   await renderDeviceSidebar();
   startAutomaticRefresh();

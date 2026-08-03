@@ -82,10 +82,11 @@ function findAuroraFeatureReport(device: HIDDevice): { reportId: number; bytes: 
   if (!preferred) return null;
   const preferredBytes = featureReportByteLength(preferred);
   const maxBytes = maxFeatureReportBytes(device);
+  // Prefer the descriptor size (often 63 on Windows). Forcing 64 here made
+  // the first probe framing wrong and burned reconnect time.
   return {
     reportId: preferred.reportId,
-    // Prefer the Windows max size when known; otherwise Aurora's 64-byte command buffer.
-    bytes: Math.max(preferredBytes, maxBytes, LAMZU_AURORA_FEATURE_BYTES),
+    bytes: preferredBytes || maxBytes || LAMZU_AURORA_FEATURE_BYTES,
   };
 }
 
@@ -382,17 +383,21 @@ export class LamzuHidClient {
 
   private auroraFramings(): Array<{ reportId: number; size: number }> {
     const descriptorMax = maxFeatureReportBytes(this.device);
+    const preferredSize = this.auroraReportBytes > 0 ? this.auroraReportBytes : descriptorMax;
+    // Keep this short — each framing can cost a USB round-trip, and connect
+    // must not stall the Reconnecting… UI for minutes.
     const sizes = [...new Set([
-      this.auroraReportBytes,
+      preferredSize,
       descriptorMax,
-      LAMZU_AURORA_FEATURE_BYTES,
       63,
-      65,
-      32,
+      LAMZU_AURORA_FEATURE_BYTES,
     ].filter((size) => size > 0))];
-    // Official Aurora webdriver always uses report ID 0 + 64-byte buffers.
-    // Windows WebHID for Maya PID 0xfa09 often exposes feature report 0x06 @ 63 B.
-    const reportIds = [...new Set([0, this.auroraReportId, 0x06])];
+    // Windows Maya dongles usually need report 0x06 @ 63 B; Aurora webdriver uses 0 @ 64 B.
+    const reportIds = [...new Set([
+      this.auroraReportId || 0x06,
+      0x06,
+      0,
+    ])];
     const framings: Array<{ reportId: number; size: number }> = [];
     for (const reportId of reportIds) {
       for (const size of sizes) framings.push({ reportId, size });
@@ -403,11 +408,19 @@ export class LamzuHidClient {
   private async sendAuroraFeature(reportId: number, size: number, request: Uint8Array): Promise<void> {
     const payload = new Uint8Array(size);
     payload.set(request.subarray(0, Math.min(request.length, size)));
-    await this.device.sendFeatureReport(reportId, payload);
+    await this.withHidTimeout(
+      this.device.sendFeatureReport(reportId, payload),
+      800,
+      `sendFeatureReport(0x${reportId.toString(16)}, ${size} B)`,
+    );
   }
 
   private async receiveAuroraFeature(reportId: number): Promise<Uint8Array<ArrayBuffer>> {
-    const view = await this.device.receiveFeatureReport(reportId);
+    const view = await this.withHidTimeout(
+      this.device.receiveFeatureReport(reportId),
+      800,
+      `receiveFeatureReport(0x${reportId.toString(16)})`,
+    );
     const bytes = new Uint8Array(view.byteLength);
     for (let index = 0; index < view.byteLength; index += 1) bytes[index] = view.getUint8(index);
     // Some Windows stacks prefix the report ID; strip it when the payload still looks Aurora-shaped.
@@ -422,29 +435,54 @@ export class LamzuHidClient {
     return bytes;
   }
 
+  private async withHidTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timer = 0;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = window.setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        }),
+      ]);
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
   private auroraStatus(response: Uint8Array): number {
     return response[auroraStatusIndex(this.auroraHidIndex)] ?? 0;
   }
 
+  private responseLooksAlive(response: Uint8Array): boolean {
+    const status = this.auroraStatus(response);
+    return status === LAMZU_AURORA_STATUS_OK
+      || status === 2
+      || response[6] === 129
+      || response[5] === 129
+      || parseAuroraBattery(response) !== null;
+  }
+
   /**
-   * Mirrors Lamzu Aurora `retrySetGet`: status 0 means "not ready yet" — keep
-   * polling receiveFeatureReport before assuming failure.
+   * Bounded cousin of Lamzu Aurora `retrySetGet`.
+   * Status 0 means "not ready yet" — poll briefly before giving up.
+   * Keep polls short so a bad framing cannot freeze reconnect for minutes.
    */
   private async retryAuroraSetGet(
     reportId: number,
     request: Uint8Array,
     size: number,
     initial: Uint8Array<ArrayBuffer>,
+    options?: { maxAttempts?: number; maxPolls?: number },
   ): Promise<Uint8Array<ArrayBuffer>> {
+    const maxAttempts = options?.maxAttempts ?? 3;
+    const maxPolls = options?.maxPolls ?? 8;
     let response: Uint8Array<ArrayBuffer> = initial;
     this.noteAuroraHidIndex(response);
-    if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK || this.auroraStatus(response) === 2) {
-      return response;
-    }
+    if (this.responseLooksAlive(response)) return response;
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const status = this.auroraStatus(response);
-      if (status === LAMZU_AURORA_STATUS_OK || status === 2) return response;
+      if (this.responseLooksAlive(response)) return response;
 
       if (status > LAMZU_AURORA_STATUS_OK) {
         await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
@@ -460,12 +498,12 @@ export class LamzuHidClient {
           response = new Uint8Array(0);
         }
         this.noteAuroraHidIndex(response);
-        if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK) return response;
+        if (this.responseLooksAlive(response)) return response;
         continue;
       }
 
       // status < 0xA1 (including 0): poll reads only, then one resend.
-      for (let poll = 0; poll < 30; poll += 1) {
+      for (let poll = 0; poll < maxPolls; poll += 1) {
         await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
         try {
           response = await this.receiveAuroraFeature(reportId);
@@ -473,11 +511,10 @@ export class LamzuHidClient {
           response = new Uint8Array(0);
         }
         this.noteAuroraHidIndex(response);
-        if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK) return response;
+        if (this.responseLooksAlive(response)) return response;
       }
-      if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK || this.auroraStatus(response) === 2) {
-        return response;
-      }
+      if (this.responseLooksAlive(response)) return response;
+
       await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
       try {
         await this.sendAuroraFeature(reportId, size, request);
@@ -491,15 +528,14 @@ export class LamzuHidClient {
         response = new Uint8Array(0);
       }
       this.noteAuroraHidIndex(response);
-      if (this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK) return response;
+      if (this.responseLooksAlive(response)) return response;
     }
     return response;
   }
 
   /**
-   * Find a report ID + buffer length where a real Aurora command returns 0xA1.
-   * A bare sendFeatureReport success is not enough — Windows often accepts the
-   * write while the device still returns an empty status-0 payload.
+   * Fast framing discovery. Do NOT run the full retry loop here — a failed
+   * framing often returns status 0 forever and would block Reconnecting… for minutes.
    */
   private async probeAuroraLink(): Promise<void> {
     const probes: Uint8Array[] = [
@@ -517,20 +553,27 @@ export class LamzuHidClient {
       }),
     ];
 
+    const deadline = Date.now() + 2_500;
+
     for (const probe of probes) {
       for (const { reportId, size } of this.auroraFramings()) {
+        if (Date.now() > deadline) {
+          this.auroraWriteReady = false;
+          return;
+        }
         try {
           await this.sendAuroraFeature(reportId, size, probe);
-          await this.sleep(100);
+          await this.sleep(40);
           let response = await this.receiveAuroraFeature(reportId);
-          response = await this.retryAuroraSetGet(reportId, probe, size, response);
-          const status = this.auroraStatus(response);
-          const accepted = status === LAMZU_AURORA_STATUS_OK
-            || status === 2
-            || response[6] === 129
-            || response[5] === 129
-            || parseAuroraBattery(response) !== null;
-          if (!accepted) continue;
+          // One short retry burst only — enough for a sleepy wireless dongle.
+          if (!this.responseLooksAlive(response)) {
+            response = await this.retryAuroraSetGet(reportId, probe, size, response, {
+              maxAttempts: 1,
+              maxPolls: 4,
+            });
+          }
+          if (!this.responseLooksAlive(response)) continue;
+
           this.auroraReportId = reportId;
           this.auroraReportBytes = size;
           this.auroraWriteReady = true;
@@ -590,6 +633,27 @@ export class LamzuHidClient {
   }
 
   private async readAuroraStatus(): Promise<MouseStatus> {
+    // Soft-connect: never block the UI if Aurora framing is not ready yet.
+    if (!this.auroraWriteReady) {
+      return this.buildStatus({
+        dpi: 800,
+        pollingRateHz: 1000,
+        lod: "Medium",
+        batteryPercent: null,
+        batteryVoltageMv: null,
+        activeProfile: this.auroraProfile + 1,
+        debounceMs: null,
+        motionSync: false,
+        sleepTimeout: null,
+        angleSnapping: false,
+        rippleControl: false,
+        performanceMode: null,
+        firmware: ["Firmware version unavailable"],
+        protocolLabel: `Aurora writes blocked (reports: ${describeFeatureReports(this.device)}; trying ${this.auroraReportBytes} B)`,
+        settingsReady: false,
+      });
+    }
+
     // Never fail the whole connect on a single Aurora getter — the sidebar
     // otherwise stays on "Available" with a grey idle indicator.
     const firmware = await this.readAuroraFirmware().catch(() => "Firmware version unavailable");
@@ -617,10 +681,8 @@ export class LamzuHidClient {
       rippleControl,
       performanceMode: null,
       firmware: [firmware],
-      protocolLabel: this.auroraWriteReady
-        ? `Aurora feature report 0x${this.auroraReportId.toString(16)} (${this.auroraReportBytes} B)`
-        : `Aurora writes blocked (reports: ${describeFeatureReports(this.device)}; trying ${this.auroraReportBytes} B)`,
-      settingsReady: this.auroraWriteReady,
+      protocolLabel: `Aurora feature report 0x${this.auroraReportId.toString(16)} (${this.auroraReportBytes} B)`,
+      settingsReady: true,
     });
   }
 
@@ -759,8 +821,8 @@ export class LamzuHidClient {
 
   private async readAuroraBattery(): Promise<{ charging: boolean; percent: number } | null> {
     const request = createAuroraCommand(LAMZU_AURORA_CMD.getBattery, { isNewProtocol: false });
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      if (attempt > 0) await this.sleep(500);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt > 0) await this.sleep(300);
       const response = await this.auroraExchange(request, { allowEmpty: true });
       const parsed = parseAuroraBattery(response);
       if (parsed && (parsed.percent > 0 || parsed.charging || this.auroraStatus(response) === LAMZU_AURORA_STATUS_OK)) {
@@ -817,48 +879,32 @@ export class LamzuHidClient {
         );
       }
 
-      let lastResponse = new Uint8Array(0);
-      let lastError: unknown = null;
-      const preferred = [
-        { reportId: this.auroraReportId, size: this.auroraReportBytes },
-        ...this.auroraFramings(),
-      ];
-      const seen = new Set<string>();
-
-      for (const { reportId, size } of preferred) {
-        const key = `${reportId}:${size}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        try {
-          await this.sendAuroraFeature(reportId, size, request);
-          await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
-          let response = await this.receiveAuroraFeature(reportId);
-          response = await this.retryAuroraSetGet(reportId, request, size, response);
-          lastResponse = response;
-          this.noteAuroraHidIndex(response);
-          const status = this.auroraStatus(response);
-          if (status === LAMZU_AURORA_STATUS_OK || status === 2) {
-            this.auroraReportId = reportId;
-            this.auroraReportBytes = size;
-            this.auroraWriteReady = true;
-            return response;
-          }
-          if (options?.allowEmpty && response.some((value) => value !== 0)) {
-            this.auroraReportId = reportId;
-            this.auroraReportBytes = size;
-            return response;
-          }
-        } catch (error) {
-          lastError = error;
+      const reportId = this.auroraReportId;
+      const size = this.auroraReportBytes;
+      try {
+        await this.sendAuroraFeature(reportId, size, request);
+        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+        let response = await this.receiveAuroraFeature(reportId);
+        response = await this.retryAuroraSetGet(reportId, request, size, response, {
+          maxAttempts: 3,
+          maxPolls: 8,
+        });
+        this.noteAuroraHidIndex(response);
+        const status = this.auroraStatus(response);
+        if (status === LAMZU_AURORA_STATUS_OK || status === 2 || this.responseLooksAlive(response)) {
+          return response;
         }
+        if (options?.allowEmpty && response.some((value) => value !== 0)) return response;
+        throw new Error(
+          `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status ${status || "none"}).`,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith("Lamzu Aurora command failed")) throw error;
+        const detail = error instanceof Error ? ` ${error.message}` : "";
+        throw new Error(
+          `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status none).${detail}`,
+        );
       }
-
-      const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
-      throw new Error(
-        `Lamzu Aurora command failed (report 0x${this.auroraReportId.toString(16)}, ${this.auroraReportBytes} B, status ${
-          this.auroraStatus(lastResponse) || "none"
-        }).${detail}`,
-      );
     });
   }
 
