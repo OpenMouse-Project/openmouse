@@ -26,6 +26,7 @@ import type { EggButtonAction, EggButtonActionKey, EggOp1Status } from "./egg-op
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
 import { SUPPORTED_HID_FILTERS } from "./vendors";
+import { VgnF2HidClient } from "./vgn-f2-hid.ts";
 import { WLMouseHidClient } from "./wlmouse-hid";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
@@ -49,6 +50,7 @@ let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeVgnClient: VgnF2HidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -60,10 +62,10 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let reconnectInFlight = false;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
+type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | VgnF2HidClient;
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient ?? activeVgnClient;
 }
 
 function hasActiveClient(): boolean {
@@ -661,6 +663,7 @@ function showStatus(status: MouseStatus): void {
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
   const isWLMouse = ui?.family === "wlmouse" || activeWLMouseClient !== null;
+  const isVgn = ui?.family === "vgn-f2" || activeVgnClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -696,11 +699,11 @@ function showStatus(status: MouseStatus): void {
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || isWLMouse);
+      && (status.brand === "Pulsar" || isWLMouse || isVgn);
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
-  if (signalSettings) signalSettings.hidden = isEgg || isWLMouse;
+  if (signalSettings) signalSettings.hidden = isEgg || isWLMouse || isVgn;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
     const hidePerformanceMode = isEgg || isWLMouse;
@@ -735,7 +738,7 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse;
+    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse || isVgn;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -753,6 +756,15 @@ function showStatus(status: MouseStatus): void {
     setToggleValue("#motion-sync-toggle", status.motionSync);
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
+  }
+  if (isVgn) {
+    fillSleepOptions(PULSAR_SLEEP_OPTIONS);
+    setControlValue("#debounce-select", status.debounceMs);
+    setControlValue("#sleep-select", status.sleepTimeout);
+    setToggleValue("#motion-sync-toggle", status.motionSync);
+    setToggleValue("#angle-snapping-toggle", status.angleSnapping);
+    setToggleValue("#ripple-control-toggle", status.rippleControl);
+    setToggleValue("#performance-mode-toggle", status.performanceMode);
   }
   if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
@@ -977,6 +989,7 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
   if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
+  if (VgnF2HidClient.isSupported(device)) return new VgnF2HidClient(device);
   return null;
 }
 
@@ -984,6 +997,7 @@ function deviceBrand(client: SupportedClient): string {
   if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
   if (client instanceof WLMouseHidClient) return "WLMouse";
+  if (client instanceof VgnF2HidClient) return "VGN";
   return "Pulsar";
 }
 
@@ -1062,9 +1076,17 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeVgnClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient) {
+  if (client instanceof VgnF2HidClient) {
+    activeVgnClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof WLMouseHidClient) {
     activeWLMouseClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
@@ -1117,6 +1139,7 @@ function showDisconnectedState(): void {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeVgnClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   resetDeviceSpecificPanels();
@@ -1242,6 +1265,7 @@ function clientSupportScore(device: HIDDevice): number {
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
   if (LogitechHidppClient.isSupported(device)) return 6;
+  if (VgnF2HidClient.isSupported(device)) return device.productId === 0xfb57 ? 12 : 9;
   return 0;
 }
 
@@ -1278,6 +1302,8 @@ async function connect(): Promise<void> {
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
     activeEggWeClient = null;
+    await activeVgnClient?.close().catch(() => undefined);
+    activeVgnClient = null;
     setText("#device-status", "Connection failed");
     setText("#connection-banner", message);
     setText("#read-status", message);
@@ -1527,7 +1553,7 @@ async function toggleDongleLed(): Promise<void> {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient;
+  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient ?? activeVgnClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
@@ -1535,8 +1561,9 @@ async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean)
     if (setting === "motionSync") await client.setMotionSync(enabled);
     if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
     if (setting === "rippleControl") await client.setRippleControl(enabled);
-    if (setting === "performanceMode" && !activePulsarClient) throw new Error("Performance mode is not exposed by this device's protocol.");
+    if (setting === "performanceMode" && !activePulsarClient && !activeVgnClient) throw new Error("Performance mode is not exposed by this device's protocol.");
     if (setting === "performanceMode" && activePulsarClient) await activePulsarClient.setPerformanceMode(enabled);
+    if (setting === "performanceMode" && activeVgnClient) await activeVgnClient.setPerformanceMode(enabled);
     showStatus(await client.readStatus());
   } catch (error) {
     const status = await client.readStatus().catch(() => null);
@@ -1846,7 +1873,7 @@ async function applyEggChange(label: string, change: (client: EggOp1HidClient) =
 }
 
 async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const client = activePulsarClient ?? activeWLMouseClient;
+  const client = activePulsarClient ?? activeWLMouseClient ?? activeVgnClient;
   if (!client || settingInProgress) return;
   settingInProgress = true;
   setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
@@ -1925,6 +1952,7 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
   void activeEggWeClient?.close();
   void activeWLMouseClient?.close();
+  void activeVgnClient?.close();
 });
 
 renderControl();
