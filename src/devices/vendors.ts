@@ -10,12 +10,13 @@ export const VENDOR_ID = {
 } as const;
 
 // Logitech products that expose an HID++ control interface (usage page 0xff00).
-// Receivers use HID++ device index 0x01; direct-wired mice use 0xff.
+// Device index 0x01: Lightspeed/Bolt receivers and Superstrike USB (0xc0a8).
+// Device index 0xff: G900 Chaos Spectrum wired USB (0xc081).
 // 0xc54d: Bolt / newer Lightspeed receiver
-// 0xc539: Lightspeed receiver for G502 LIGHTSPEED, G Pro Wireless, and other
-//         HERO-era wireless mice
+// 0xc539: HERO-era Lightspeed receiver (G502 Lightspeed, G Pro Wireless, …)
+// 0xc0a8: PRO X 2 Superstrike USB interface
 // 0xc081: G900 Chaos Spectrum (wired USB)
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539] as const;
+export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8] as const;
 export const LOGITECH_WIRED_PRODUCT_IDS = [0xc081] as const;
 export const LOGITECH_PRODUCT_IDS = [
   ...LOGITECH_RECEIVER_PRODUCT_IDS,

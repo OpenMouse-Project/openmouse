@@ -33,6 +33,13 @@ export interface MouseStatus {
   dpi: number;
   dpiY?: number;
   supportsSeparateDpiAxes?: boolean;
+  /** Hall-effect primary-button tuning exposed by Logitech's 0x1B0C HID++ feature. */
+  analogButtonTuning?: {
+    maxActuation: number;
+    maxRapidTrigger: number;
+    maxHaptics: number;
+    buttons: Array<{ actuation: number; rapidTrigger: number; haptics: number }>;
+  };
   pollingRateHz: number;
   supportedPollingRates?: number[];
   activeProfile: number | null;
@@ -68,5 +75,7 @@ export interface MouseStatus {
   dpiLedBrightness?: number | null;
   dpiLedSpeed?: number | null;
   liftOffDistance: "Low" | "Medium" | "High" | null;
+  /** Explicit LOD choices when a mouse does not support all three common levels. */
+  supportedLiftOffDistances?: Array<NonNullable<MouseStatus["liftOffDistance"]>>;
   firmware: string[];
 }

@@ -1,3 +1,10 @@
+function superstrikeSteps(id: string, min: number, max: number): string {
+  return `<div class="superstrike-steps" role="group" aria-label="${id.replace("logitech-", "").replaceAll("-", " ")}"><input id="${id}" type="hidden" /><div>${Array.from({ length: max - min + 1 }, (_, index) => {
+    const value = min + index;
+    return `<button type="button" data-superstrike-input="${id}" data-superstrike-value="${value}" aria-pressed="false">${value}</button>`;
+  }).join("")}</div></div>`;
+}
+
 export function controlTemplate(buildLabel: string): string {
   return `
     <div class="control-shell is-empty">
@@ -19,7 +26,7 @@ export function controlTemplate(buildLabel: string): string {
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
+        <div class="preview-banner"><button id="sidebar-menu-toggle" class="sidebar-menu-toggle" type="button" aria-label="Toggle sidebar" aria-pressed="false" title="Toggle sidebar"><i></i><i></i><i></i></button><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
@@ -43,6 +50,9 @@ export function controlTemplate(buildLabel: string): string {
         </section>
         <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
           <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
+        </section>
+        <section id="logitech-analog-button-settings" class="device-data" aria-label="HITS tuning settings" style="display:none">
+          <article class="setting-card superstrike-tuning-card"><div class="setting-heading superstrike-tuning-heading"><div><h2>HITS Tuning</h2></div></div><div class="superstrike-tabs" role="tablist" aria-label="HITS tuning mode"><button type="button" role="tab" aria-selected="true" data-superstrike-tab="both">Both buttons</button><button type="button" role="tab" aria-selected="false" data-superstrike-tab="independent">Independent</button></div><div class="superstrike-tuning-panels" data-superstrike-mode="both"><div class="superstrike-tuning-grid superstrike-independent-panel"><fieldset class="superstrike-button-card"><legend><span class="superstrike-button-dot"></span>Left button</legend><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-left-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-left-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-left-haptics", 0, 5)}</div><button id="apply-logitech-left-button" class="superstrike-apply-button" type="button">Apply left</button></fieldset><fieldset class="superstrike-button-card"><legend><span class="superstrike-button-dot"></span>Right button</legend><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-right-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-right-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-right-haptics", 0, 5)}</div><button id="apply-logitech-right-button" class="superstrike-apply-button" type="button">Apply right</button></fieldset></div><fieldset class="superstrike-button-card superstrike-both-panel"><legend><span class="superstrike-button-dot"></span>Both primary buttons</legend><p>Apply the same values to the left and right buttons.</p><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-both-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-both-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-both-haptics", 0, 5)}</div><button id="apply-logitech-both-buttons" class="superstrike-apply-button" type="button">Apply to both buttons</button></fieldset></div></article>
         </section>
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>

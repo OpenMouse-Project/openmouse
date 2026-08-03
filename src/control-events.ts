@@ -14,11 +14,15 @@ export interface ControlEventHandlers {
   setReducedMotion(enabled: boolean): void;
   setExpandSections(enabled: boolean): void;
   setShowExperimental(enabled: boolean): void;
+  toggleSidebar(): void;
   resetInterfacePreferences(): void;
   copyDiagnostics(): Promise<void>;
   chooseCustomDpi(): Promise<void>;
   finishCustomDpiEditing(): void;
   applyLogitechAxisDpi(): Promise<void>;
+  applyLogitechAnalogButton(button: 0 | 1): Promise<void>;
+  applyLogitechAnalogButtons(): Promise<void>;
+  setSuperstrikeTuningMode(mode: "independent" | "both"): void;
   toggleDongleLed(): Promise<void>;
   applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void>;
   toggleSleep(enabled: boolean): Promise<void>;
@@ -62,10 +66,27 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   document.querySelector<HTMLInputElement>("#interface-show-experimental")?.addEventListener("change", (event) => {
     handlers.setShowExperimental((event.target as HTMLInputElement).checked);
   });
+  onClick("#sidebar-menu-toggle", handlers.toggleSidebar);
   onClick("#reset-interface-settings", handlers.resetInterfacePreferences);
   onClick("#copy-diagnostics", () => void handlers.copyDiagnostics());
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
+  onClick("#apply-logitech-left-button", () => void handlers.applyLogitechAnalogButton(0));
+  onClick("#apply-logitech-right-button", () => void handlers.applyLogitechAnalogButton(1));
+  onClick("#apply-logitech-both-buttons", () => void handlers.applyLogitechAnalogButtons());
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-tab]").forEach((button) => {
+    button.addEventListener("click", () => handlers.setSuperstrikeTuningMode(button.dataset.superstrikeTab as "independent" | "both"));
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-input]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = document.querySelector<HTMLInputElement>(`#${button.dataset.superstrikeInput}`);
+      if (!input || !button.dataset.superstrikeValue) return;
+      input.value = button.dataset.superstrikeValue;
+      document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+        option.setAttribute("aria-pressed", String(option === button));
+      });
+    });
+  });
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
