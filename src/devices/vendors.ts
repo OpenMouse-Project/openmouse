@@ -9,9 +9,10 @@ export const VENDOR_ID = {
   orbital: 0x1915,
 } as const;
 
-// Logitech HID++ control interfaces. 0xc54d is Bolt/newer Lightspeed, 0xc539
-// is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8] as const;
+// Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
+// receivers, 0xc539 is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2
+// Superstrike USB interface.
+export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
 
 export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_RECEIVER_PRODUCT_IDS.map(
   (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
