@@ -105,6 +105,15 @@ export class AtkHidClient {
     return /^atk/i.test(name) ? name : `ATK ${name}`;
   }
 
+  /**
+   * A wired A9 still reports a battery level, so the receiver is identified by
+   * its own product string instead: "ATK Nearlink Mouse Dongle" against the
+   * mouse's own "ATK A9 PLUS 2.0 NK".
+   */
+  isWireless(): boolean {
+    return /receiver|dongle/i.test(this.device.productName || "");
+  }
+
   maxDpi(): number {
     return DPI_MAX;
   }
@@ -167,8 +176,8 @@ export class AtkHidClient {
       pollingRateHz: this.decodePollingRate(system[0]),
       supportedPollingRates: this.getSupportedPollingRates(),
       activeProfile: null,
-      connectionType: battery === null ? "Wired" : "Wireless",
-      connectionDetail: battery === null ? "Wired USB" : "2.4 GHz receiver",
+      connectionType: this.isWireless() ? "Wireless" : "Wired",
+      connectionDetail: this.isWireless() ? "2.4 GHz receiver" : "Wired USB",
       debounceMs: advanced[0],
       motionSync: advanced[2] === 1,
       sleepTimeout: advanced[4] * SLEEP_STEP_SECONDS || null,
