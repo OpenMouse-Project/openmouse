@@ -302,7 +302,7 @@ function renderControl(): void {
         </section>
         <section class="device-overview device-data" aria-label="Device status">
           <div class="mouse-stage" id="overview-mouse-stage" hidden>
-            <img class="mouse-image" id="overview-mouse-image" src="/maya-x-top.png?v=3" alt="Top view of a Lamzu Maya X gaming mouse" />
+            <img class="mouse-image" id="overview-mouse-image" src="/maya-x-top.png?v=4" alt="Top view of a Lamzu Maya X gaming mouse" />
             <span class="model-caption" id="overview-model-caption">MAYA X</span>
           </div>
           <div class="quick-stats">
@@ -714,7 +714,7 @@ function showStatus(status: MouseStatus): void {
       }
       const mouseImage = document.querySelector<HTMLImageElement>("#overview-mouse-image");
       if (mouseImage) {
-        mouseImage.src = "/maya-x-top.png?v=3";
+        mouseImage.src = "/maya-x-top.png?v=4";
         mouseImage.alt = `Top view of ${status.name}`;
       }
     } else {
