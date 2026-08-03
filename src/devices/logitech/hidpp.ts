@@ -74,6 +74,7 @@ export class LogitechHidppClient {
   private rateFeatureResolved: ResolvedFeature | null = null;
   private reportRateFeatureIndex: number | null = null;
   private livePollingRateHz: number | null = null;
+  private isSuperstrikeDevice = false;
   private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
   private readonly onInputReport = (event: HIDInputReportEvent): void => {
     if (event.reportId !== SHORT_REPORT_ID && event.reportId !== LONG_REPORT_ID) {
@@ -203,6 +204,9 @@ export class LogitechHidppClient {
     const analogButtonTuning = analogButtonsFeature.index
       ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
       : undefined;
+    const isSuperstrike = this.isSuperstrike(identity);
+    this.isSuperstrikeDevice = isSuperstrike;
+    const wired = this.device.productId === 0xc0a8;
 
     return {
       brand: "Logitech",
@@ -215,8 +219,14 @@ export class LogitechHidppClient {
       supportsSeparateDpiAxes,
       analogButtonTuning,
       liftOffDistance: dpiState.liftOffDistance,
-      pollingRateHz,
-      supportedPollingRates,
+      // The USB connection exposes the Superstrike as a 1 kHz device. Its
+      // Lightspeed receiver can use the higher rates advertised by HID++.
+      pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
+      supportedPollingRates: isSuperstrike && wired
+        ? supportedPollingRates.filter((rate) => rate <= 1000)
+        : supportedPollingRates,
+      supportedLiftOffDistances: isSuperstrike ? ["Low", "High"] : undefined,
+      connectionType: wired ? "Wired" : "Wireless",
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,
@@ -234,6 +244,9 @@ export class LogitechHidppClient {
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
+    if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
+      throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
+    }
     const resolved = await this.resolveReportRateFeature();
     if (resolved.legacy) {
       return this.setLegacyReportRate(resolved.index, pollingRateHz);
@@ -332,8 +345,11 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
-    if (liftOffDistance === "Low") {
+    if (liftOffDistance === "Low" && !this.isSuperstrikeDevice) {
       throw new Error("This mouse does not support a Low lift-off distance.");
+    }
+    if (liftOffDistance === "Medium" && this.isSuperstrikeDevice) {
+      throw new Error("The Superstrike supports only Low and High lift-off distance.");
     }
     const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
     await this.ensureHostControl();
@@ -720,6 +736,10 @@ export class LogitechHidppClient {
       }
     }
     return { unitId: unitId === "00000000" ? null : unitId, modelId, transportIds };
+  }
+
+  private isSuperstrike(identity: DeviceIdentity): boolean {
+    return this.device.productId === 0xc0a8 || identity.modelId?.startsWith("40BD") === true;
   }
 
   private async ensureHostControl(): Promise<void> {

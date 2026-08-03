@@ -616,11 +616,16 @@ function showStatus(status: MouseStatus): void {
     button.disabled = hide || settingsPending;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
+    const supportedLods = status.supportedLiftOffDistances;
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
-    button.hidden = hideLow;
-    button.disabled = hideLow || settingsPending
-      || (status.brand === "Logitech" && button.dataset.lod === "Low");
+    const unsupported = Array.isArray(supportedLods)
+      && !supportedLods.includes(button.dataset.lod as NonNullable<MouseStatus["liftOffDistance"]>);
+    const legacyLogitechLow = status.brand === "Logitech"
+      && !Array.isArray(supportedLods)
+      && button.dataset.lod === "Low";
+    button.hidden = hideLow || unsupported;
+    button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
@@ -1139,6 +1144,8 @@ async function applyLogitechAnalogButton(button: 0 | 1): Promise<void> {
     Number(document.querySelector<HTMLInputElement>(`#logitech-${side}-${setting}`)?.value);
   const tuning = { actuation: read("actuation"), rapidTrigger: read("rapid-trigger"), haptics: read("haptics") };
   settingInProgress = true;
+  const controls = document.querySelectorAll<HTMLInputElement | HTMLButtonElement>("#logitech-analog-button-settings input, #logitech-analog-button-settings button");
+  controls.forEach((control) => { control.disabled = true; });
   setText("#read-status", `Setting ${side} hall-effect button tuning…`);
   recordDiagnosticCommand(`Set ${side} hall-effect button tuning`);
   try {
@@ -1150,6 +1157,7 @@ async function applyLogitechAnalogButton(button: 0 | 1): Promise<void> {
     setText("#read-status", error instanceof Error ? error.message : "Unable to set hall-effect button tuning.");
   } finally {
     settingInProgress = false;
+    controls.forEach((control) => { control.disabled = false; });
   }
 }
 

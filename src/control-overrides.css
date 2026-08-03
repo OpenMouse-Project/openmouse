@@ -121,6 +121,24 @@
 .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
 #logitech-device-details { flex:0 0 auto }
 #logitech-device-details .setting-card { min-height:0 }
+#logitech-analog-button-settings { flex:0 0 auto;margin-top:.65rem }
+#logitech-analog-button-settings .superstrike-tuning-card { min-height:0;padding:.9rem;border-color:color-mix(in srgb,var(--ui-accent) 24%,#29292d);background:linear-gradient(135deg,color-mix(in srgb,var(--ui-accent) 7%,#141416),#121214 56%) }
+#logitech-analog-button-settings .superstrike-tuning-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.35rem }
+#logitech-analog-button-settings .superstrike-tuning-heading > span { padding:.24rem .42rem;border:1px solid color-mix(in srgb,var(--ui-accent) 42%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",monospace;font-size:.5rem;font-weight:700;letter-spacing:.08em }
+#logitech-analog-button-settings .superstrike-tuning-description { max-width:540px;margin:.15rem 0 0;color:#99999e;line-height:1.45 }
+#logitech-analog-button-settings .superstrike-tuning-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.8rem }
+#logitech-analog-button-settings .superstrike-button-card { min-width:0;margin:0;padding:.7rem;border:1px solid #303035;border-radius:9px;background:rgb(10 10 12 / 58%) }
+#logitech-analog-button-settings .superstrike-button-card legend { display:flex;align-items:center;gap:.38rem;padding:0 .1rem;color:#dfdfe3;font-size:.68rem;font-weight:700 }
+#logitech-analog-button-settings .superstrike-button-dot { width:.42rem;height:.42rem;border-radius:50%;background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
+#logitech-analog-button-settings .superstrike-control-row { display:grid;grid-template-columns:minmax(0,1fr) 3.7rem;align-items:center;gap:.6rem;padding:.48rem 0;border-bottom:1px solid #29292d }
+#logitech-analog-button-settings .superstrike-control-row:first-of-type { margin-top:.22rem }
+#logitech-analog-button-settings .superstrike-control-row label { min-width:0;color:#c7c7cb;font-size:.65rem;font-weight:600 }
+#logitech-analog-button-settings .superstrike-control-row label small { display:block;margin-top:.08rem;color:#77777c;font-size:.54rem;font-weight:500 }
+#logitech-analog-button-settings .superstrike-control-row input { width:100%;box-sizing:border-box;padding:.4rem .3rem;border:1px solid #3b3b40;border-radius:6px;outline:none;background:#171719;color:#f1f1f3;font:600 .66rem "JetBrains Mono",monospace;text-align:center }
+#logitech-analog-button-settings .superstrike-control-row input:focus { border-color:var(--ui-accent);box-shadow:0 0 0 2px var(--ui-accent-soft) }
+#logitech-analog-button-settings .superstrike-apply-button { width:100%;margin-top:.65rem;padding:.46rem .62rem;border:1px solid var(--ui-accent);border-radius:6px;background:var(--ui-accent);color:var(--ui-accent-ink);font-size:.62rem;font-weight:750;transition:filter .18s ease,transform .18s ease }
+#logitech-analog-button-settings .superstrike-apply-button:hover { filter:brightness(1.08);transform:translateY(-1px) }
+#logitech-analog-button-settings .superstrike-apply-button:disabled, #logitech-analog-button-settings .superstrike-control-row input:disabled { cursor:wait;opacity:.5 }
 #device-debug-details { flex:0 0 auto }
 .device-debug-card { min-height:0 !important }
 .device-debug-overview { display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.5rem }
@@ -138,4 +156,5 @@
 @media (min-width:900px) {
   .control-shell .settings-grid.has-logitech-axis-controls { grid-template-rows:minmax(330px,auto) }
 }
+@media (max-width:720px) { #logitech-analog-button-settings .superstrike-tuning-grid { grid-template-columns:1fr } }
 @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }

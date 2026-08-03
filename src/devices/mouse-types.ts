@@ -75,5 +75,7 @@ export interface MouseStatus {
   dpiLedBrightness?: number | null;
   dpiLedSpeed?: number | null;
   liftOffDistance: "Low" | "Medium" | "High" | null;
+  /** Explicit LOD choices when a mouse does not support all three common levels. */
+  supportedLiftOffDistances?: Array<NonNullable<MouseStatus["liftOffDistance"]>>;
   firmware: string[];
 }
