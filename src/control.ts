@@ -692,9 +692,10 @@ function showStatus(status: MouseStatus): void {
     pollingCard.hidden = false;
     pollingCard.style.display = "";
   }
-  for (const selector of ["#signal-settings", "#sleep-settings"]) {
-    const element = document.querySelector<HTMLElement>(selector);
-    if (element) element.hidden = isEgg;
+  const sleepSettings = document.querySelector<HTMLElement>("#sleep-settings");
+  if (sleepSettings) {
+    sleepSettings.hidden = isEgg
+      || (isLamzu && (status.sleepTimeout === null || status.sleepTimeout === undefined));
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
@@ -706,7 +707,8 @@ function showStatus(status: MouseStatus): void {
   if (signalSettings) signalSettings.hidden = isEgg || isWLMouse || isLamzu;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isWLMouse;
+    const hidePerformanceMode = isEgg || isWLMouse
+      || (isLamzu && (status.performanceMode === null || status.performanceMode === undefined));
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }

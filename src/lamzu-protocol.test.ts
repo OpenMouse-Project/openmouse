@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  auroraStatusIndex,
+  auroraValueIndex,
   batteryPercentFromMillivolts,
   createLamzuPacket,
+  decodeLamzuAuroraPollingRate,
   decodeLamzuDpi,
   decodeLamzuLod,
   decodeLamzuPollingRate,
+  encodeLamzuAuroraPollingRate,
   encodeLamzuDpi,
   encodeLamzuLod,
   encodeLamzuPollingRate,
@@ -57,6 +61,24 @@ test("DPI encodes as (dpi / 50) - 1 for both axes", () => {
   assert.equal(encodeLamzuDpi(1601), null);
   assert.equal(encodeLamzuDpi(40), null);
   assert.equal(encodeLamzuDpi(12_850), null);
+});
+
+test("Aurora polling rates use the shifted high-rate encoding", () => {
+  assert.equal(encodeLamzuAuroraPollingRate(1000), 1);
+  assert.equal(encodeLamzuAuroraPollingRate(2000), 32);
+  assert.equal(encodeLamzuAuroraPollingRate(4000), 64);
+  assert.equal(encodeLamzuAuroraPollingRate(8000), 128);
+  assert.equal(decodeLamzuAuroraPollingRate(32), 2000);
+  assert.equal(decodeLamzuAuroraPollingRate(16), 1000); // Aurora aliases 16 → 1000
+  assert.equal(decodeLamzuAuroraPollingRate(64), 4000);
+});
+
+test("Aurora response indexes follow hidIndex / protocol flags", () => {
+  assert.equal(auroraStatusIndex(0), 1);
+  assert.equal(auroraStatusIndex(1), 0);
+  assert.equal(auroraValueIndex(0, true), 8);
+  assert.equal(auroraValueIndex(1, true), 7);
+  assert.equal(auroraValueIndex(0, false), 7);
 });
 
 test("LOD maps 1 mm / 2 mm onto Medium / High", () => {

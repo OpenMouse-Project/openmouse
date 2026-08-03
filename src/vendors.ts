@@ -13,12 +13,15 @@ export const LAMZU_PRODUCTS: ReadonlyMap<number, { name: string; wireless: boole
   [0xf50f, { name: "Maya", wireless: false }],
   [0xf510, { name: "Maya", wireless: true }],
   [0xf50d, { name: "Maya 1K receiver", wireless: true }],
+  /** Common Compx 2.4G receiver used with Maya (Aurora feature-report protocol). */
+  [0xfa09, { name: "Maya", wireless: true }],
 ]);
 
 export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
   [0xf50f, 1000],
   [0xf50d, 1000],
   [0xf510, 8000],
+  [0xfa09, 8000],
 ]);
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {

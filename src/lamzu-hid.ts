@@ -1,15 +1,23 @@
 import type { MouseStatus } from "./mouse-types";
 import {
+  auroraStatusIndex,
+  auroraValueIndex,
   batteryPercentFromMillivolts,
+  createAuroraCommand,
   createLamzuPacket,
+  decodeLamzuAuroraPollingRate,
   decodeLamzuDpi,
   decodeLamzuLod,
   decodeLamzuPollingRate,
   dpiOptionsForLamzu,
+  encodeLamzuAuroraPollingRate,
   encodeLamzuDpi,
   encodeLamzuLod,
   encodeLamzuPollingRate,
   finalizeLamzuPacket,
+  LAMZU_AURORA_CMD,
+  LAMZU_AURORA_FEATURE_BYTES,
+  LAMZU_AURORA_STATUS_OK,
   LAMZU_COMMAND,
   LAMZU_FLASH,
   LAMZU_MAX_RESOLUTION_STAGES,
@@ -23,7 +31,37 @@ import {
   VENDOR_ID,
 } from "./vendors";
 
+type LamzuTransport = "classic" | "aurora";
+
+function featureReportByteLength(report: HIDReportInfo): number {
+  return report.items.reduce((total, item) => total + item.reportSize * item.reportCount, 0) / 8;
+}
+
+function findAuroraFeatureReport(device: HIDDevice): { reportId: number; bytes: number } | null {
+  for (const collection of device.collections) {
+    for (const report of collection.featureReports) {
+      const bytes = featureReportByteLength(report);
+      // Aurora looks for reportCount === 64 on an 8-bit item (64-byte feature report).
+      if (bytes >= 64 || report.items.some((item) => item.reportCount === 64 && item.reportSize === 8)) {
+        return { reportId: report.reportId, bytes: Math.max(bytes, LAMZU_AURORA_FEATURE_BYTES) };
+      }
+    }
+  }
+  return null;
+}
+
+function hasClassicConfigReports(device: HIDDevice): boolean {
+  return device.collections.some((collection) =>
+    collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID)
+    && collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
+}
+
 export class LamzuHidClient {
+  private transport: LamzuTransport | null = null;
+  private auroraReportId = 0;
+  private auroraHidIndex = 0;
+  private auroraIsNewProtocol = true;
+  private auroraProfile = 0;
   private responseWaiter: {
     command: number;
     resolve: (bytes: Uint8Array) => void;
@@ -45,14 +83,14 @@ export class LamzuHidClient {
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID.lamzu
-      && device.collections.some((collection) =>
-        collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID)
-        && collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
+      && (hasClassicConfigReports(device) || findAuroraFeatureReport(device) !== null);
   }
 
   async open(): Promise<void> {
     if (!this.device.opened) await this.device.open();
-    this.device.addEventListener("inputreport", this.onInputReport);
+    if (this.transport === "classic") {
+      this.device.addEventListener("inputreport", this.onInputReport);
+    }
   }
 
   displayName(): string {
@@ -70,67 +108,17 @@ export class LamzuHidClient {
   }
 
   connectionType(): "Wired" | "Wireless" {
-    return LAMZU_PRODUCTS.get(this.device.productId)?.wireless === false ? "Wired" : "Wireless";
+    const known = LAMZU_PRODUCTS.get(this.device.productId);
+    if (known) return known.wireless ? "Wireless" : "Wired";
+    // Unknown Compx receivers are almost always dongles.
+    return "Wireless";
   }
 
   async readStatus(): Promise<MouseStatus> {
-    await this.open();
-    const flash = await this.readFlash(LAMZU_FLASH.pollRate, LAMZU_FLASH.peakPerformanceTime + 2);
-    const batteryResponse = await this.query(LAMZU_COMMAND.batteryVoltage).catch(() => null);
-    const profileResponse = await this.query(LAMZU_COMMAND.readActiveProfile).catch(() => null);
-    const versionResponse = await this.query(LAMZU_COMMAND.readVersionId).catch(() => null);
-
-    const stageIndex = Math.min(flash[LAMZU_FLASH.resolutionIndex] ?? 0, LAMZU_MAX_RESOLUTION_STAGES - 1);
-    const dpi = decodeLamzuDpi(
-      flash.slice(
-        LAMZU_FLASH.resolutions + stageIndex * 4,
-        LAMZU_FLASH.resolutions + stageIndex * 4 + 3,
-      ),
-    );
-    const pollingEncoded = flash[LAMZU_FLASH.pollRate] ?? 1;
-    const pollingRateHz = decodeLamzuPollingRate(pollingEncoded) ?? 1000;
-    const lod = decodeLamzuLod(flash[LAMZU_FLASH.liftOffDistance] ?? 0);
-    const batteryMv = batteryResponse ? parseBatteryMillivolts(batteryResponse) : null;
-    const maxHz = this.maxPollingRateHz();
-    const supportedPollingRates = [125, 250, 500, 1000, 2000, 4000, 8000].filter((hz) => hz <= maxHz);
-
-    return {
-      brand: "Lamzu",
-      name: this.displayName(),
-      ui: {
-        family: "lamzu",
-        hideLodLow: true,
-        hideUnsupportedPollingRates: true,
-        forceShowBattery: this.connectionType() === "Wireless",
-        pollingNote: maxHz >= 8000
-          ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
-          : maxHz >= 4000
-            ? "This Lamzu receiver supports up to 4,000 Hz."
-            : "This Lamzu connection supports up to 1,000 Hz.",
-        defaultDisplayName: this.displayName(),
-      },
-      batteryPercent: batteryMv === null ? null : batteryPercentFromMillivolts(batteryMv),
-      batteryVoltageMv: batteryMv,
-      batteryState: "Discharging",
-      dpi,
-      pollingRateHz,
-      supportedPollingRates,
-      activeProfile: profileResponse && profileResponse[1] === 0
-        ? (profileResponse[5] ?? 0) + 1
-        : null,
-      connectionType: this.connectionType(),
-      connectionDetail: `VID 0x${this.device.vendorId.toString(16)} · PID 0x${this.device.productId.toString(16).padStart(4, "0")}`,
-      debounceMs: flash[LAMZU_FLASH.debounceMs] ?? null,
-      motionSync: flash[LAMZU_FLASH.motionSync] === 1,
-      sleepTimeout: flash[LAMZU_FLASH.sleepTime] ?? null,
-      angleSnapping: flash[LAMZU_FLASH.angleSnapping] === 1,
-      rippleControl: flash[LAMZU_FLASH.rippleControl] === 1,
-      performanceMode: flash[LAMZU_FLASH.peakPerformance] === 1,
-      liftOffDistance: lod,
-      firmware: [
-        this.decodeVersionOptional(versionResponse) ?? "Firmware version unavailable",
-      ],
-    };
+    await this.ensureTransport();
+    return this.transport === "aurora"
+      ? await this.readAuroraStatus()
+      : await this.readClassicStatus();
   }
 
   getDpiOptions(): number[] {
@@ -138,6 +126,20 @@ export class LamzuHidClient {
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") {
+      const encoded = encodeLamzuAuroraPollingRate(pollingRateHz);
+      if (encoded === null || pollingRateHz > this.maxPollingRateHz()) {
+        throw new Error("Unsupported Lamzu polling rate.");
+      }
+      await this.auroraSet(LAMZU_AURORA_CMD.setPolling, encoded);
+      const confirmed = await this.getPollingRate();
+      if (confirmed !== pollingRateHz) {
+        throw new Error(`The mouse kept ${confirmed} Hz instead of ${pollingRateHz} Hz.`);
+      }
+      return confirmed;
+    }
+
     const encoded = encodeLamzuPollingRate(pollingRateHz);
     if (encoded === null || pollingRateHz > this.maxPollingRateHz()) {
       throw new Error("Unsupported Lamzu polling rate.");
@@ -151,6 +153,9 @@ export class LamzuHidClient {
   }
 
   async setDpi(dpi: number): Promise<number> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") return await this.setAuroraDpi(dpi);
+
     const encoded = encodeLamzuDpi(dpi);
     if (!encoded) throw new Error(`${dpi} DPI is not supported by this Lamzu sensor encoding.`);
     const stageIndex = Math.min(
@@ -167,10 +172,19 @@ export class LamzuHidClient {
   async setLiftOffDistance(
     liftOffDistance: NonNullable<MouseStatus["liftOffDistance"]>,
   ): Promise<NonNullable<MouseStatus["liftOffDistance"]>> {
+    await this.ensureTransport();
     if (liftOffDistance === "Low") {
       throw new Error("Lamzu Maya supports 1 mm and 2 mm lift-off only.");
     }
     const encoded = encodeLamzuLod(liftOffDistance);
+    if (this.transport === "aurora") {
+      await this.auroraSet(LAMZU_AURORA_CMD.setLod, encoded);
+      const confirmed = decodeLamzuLod(await this.auroraGetValue(LAMZU_AURORA_CMD.getLod));
+      if (confirmed !== liftOffDistance) {
+        throw new Error(`The mouse kept ${confirmed ?? "an unknown LOD"} instead of ${liftOffDistance}.`);
+      }
+      return confirmed;
+    }
     await this.writeCheckedByte(LAMZU_FLASH.liftOffDistance, encoded);
     const confirmed = decodeLamzuLod((await this.readFlash(LAMZU_FLASH.liftOffDistance, 2))[0] ?? 0);
     if (confirmed !== liftOffDistance) {
@@ -180,31 +194,67 @@ export class LamzuHidClient {
   }
 
   async setMotionSync(enabled: boolean): Promise<boolean> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") {
+      await this.auroraSet(LAMZU_AURORA_CMD.setMotionSync, enabled ? 1 : 0);
+      return (await this.auroraGetValue(LAMZU_AURORA_CMD.getMotionSync)) === 1;
+    }
     return await this.setVerifiedBoolean(LAMZU_FLASH.motionSync, enabled, "Motion Sync");
   }
 
   async setAngleSnapping(enabled: boolean): Promise<boolean> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") {
+      await this.auroraSet(LAMZU_AURORA_CMD.setAngleSnap, enabled ? 1 : 0);
+      return (await this.auroraGetValue(LAMZU_AURORA_CMD.getAngleSnap)) === 1;
+    }
     return await this.setVerifiedBoolean(LAMZU_FLASH.angleSnapping, enabled, "angle snapping");
   }
 
   async setRippleControl(enabled: boolean): Promise<boolean> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") {
+      await this.auroraSet(LAMZU_AURORA_CMD.setRipple, enabled ? 1 : 0);
+      return (await this.auroraGetValue(LAMZU_AURORA_CMD.getRipple)) === 1;
+    }
     return await this.setVerifiedBoolean(LAMZU_FLASH.rippleControl, enabled, "ripple control");
   }
 
   async setPerformanceMode(enabled: boolean): Promise<boolean> {
+    await this.ensureTransport();
+    if (this.transport === "aurora") {
+      throw new Error("Performance mode is not exposed on this Aurora receiver protocol.");
+    }
     return await this.setVerifiedBoolean(LAMZU_FLASH.peakPerformance, enabled, "performance mode");
   }
 
   async setDebounceTime(debounceMs: number): Promise<number> {
+    await this.ensureTransport();
     if (!Number.isInteger(debounceMs) || debounceMs < 0 || debounceMs > 15) {
       throw new Error("Lamzu Maya supports a debounce time from 0 to 15 ms.");
+    }
+    if (this.transport === "aurora") {
+      const request = createAuroraCommand(LAMZU_AURORA_CMD.setDebounce, {
+        profile: this.auroraProfile,
+        value: debounceMs,
+        isNewProtocol: true,
+      });
+      // Debounce always carries profile then value in Aurora's encoding.
+      request[6] = this.auroraProfile;
+      request[7] = debounceMs;
+      await this.auroraExchange(request);
+      return await this.auroraGetValue(LAMZU_AURORA_CMD.getDebounce);
     }
     return await this.setVerifiedByte(LAMZU_FLASH.debounceMs, debounceMs, "debounce time");
   }
 
   async setSleepTimeout(timeout: number): Promise<number> {
+    await this.ensureTransport();
     if (![1, 3, 6, 12, 30, 60, 180].includes(timeout)) {
       throw new Error("Unsupported Lamzu sleep timeout.");
+    }
+    if (this.transport === "aurora") {
+      throw new Error("Auto-sleep is not writable on this Aurora receiver yet.");
     }
     await this.writeCheckedByte(LAMZU_FLASH.sleepTime, timeout);
     await this.writeCheckedByte(LAMZU_FLASH.peakPerformanceTime, timeout);
@@ -221,6 +271,295 @@ export class LamzuHidClient {
     this.responseWaiter?.reject(new Error("The Lamzu device was closed."));
     this.responseWaiter = null;
     if (this.device.opened) await this.device.close();
+  }
+
+  private async ensureTransport(): Promise<void> {
+    if (this.transport) {
+      await this.open();
+      return;
+    }
+    const aurora = findAuroraFeatureReport(this.device);
+    if (aurora) {
+      this.transport = "aurora";
+      this.auroraReportId = aurora.reportId;
+      this.auroraIsNewProtocol = true;
+    } else if (hasClassicConfigReports(this.device)) {
+      this.transport = "classic";
+    } else {
+      throw new Error("No supported Lamzu control interface was found on this device.");
+    }
+    await this.open();
+  }
+
+  private async readClassicStatus(): Promise<MouseStatus> {
+    const flash = await this.readFlash(LAMZU_FLASH.pollRate, LAMZU_FLASH.peakPerformanceTime + 2);
+    const batteryResponse = await this.query(LAMZU_COMMAND.batteryVoltage).catch(() => null);
+    const profileResponse = await this.query(LAMZU_COMMAND.readActiveProfile).catch(() => null);
+    const versionResponse = await this.query(LAMZU_COMMAND.readVersionId).catch(() => null);
+
+    const stageIndex = Math.min(flash[LAMZU_FLASH.resolutionIndex] ?? 0, LAMZU_MAX_RESOLUTION_STAGES - 1);
+    const dpi = decodeLamzuDpi(
+      flash.slice(
+        LAMZU_FLASH.resolutions + stageIndex * 4,
+        LAMZU_FLASH.resolutions + stageIndex * 4 + 3,
+      ),
+    );
+    const pollingRateHz = decodeLamzuPollingRate(flash[LAMZU_FLASH.pollRate] ?? 1) ?? 1000;
+    const lod = decodeLamzuLod(flash[LAMZU_FLASH.liftOffDistance] ?? 0);
+    const batteryMv = batteryResponse ? parseBatteryMillivolts(batteryResponse) : null;
+    return this.buildStatus({
+      dpi,
+      pollingRateHz,
+      lod,
+      batteryPercent: batteryMv === null ? null : batteryPercentFromMillivolts(batteryMv),
+      batteryVoltageMv: batteryMv,
+      activeProfile: profileResponse && profileResponse[1] === 0
+        ? (profileResponse[5] ?? 0) + 1
+        : null,
+      debounceMs: flash[LAMZU_FLASH.debounceMs] ?? null,
+      motionSync: flash[LAMZU_FLASH.motionSync] === 1,
+      sleepTimeout: flash[LAMZU_FLASH.sleepTime] ?? null,
+      angleSnapping: flash[LAMZU_FLASH.angleSnapping] === 1,
+      rippleControl: flash[LAMZU_FLASH.rippleControl] === 1,
+      performanceMode: flash[LAMZU_FLASH.peakPerformance] === 1,
+      firmware: [this.decodeVersionOptional(versionResponse) ?? "Firmware version unavailable"],
+      protocolLabel: "Compx report 8",
+    });
+  }
+
+  private async readAuroraStatus(): Promise<MouseStatus> {
+    const pollingRateHz = await this.getPollingRate();
+    const lodRaw = await this.auroraGetValue(LAMZU_AURORA_CMD.getLod).catch(() => 1);
+    const motionSync = (await this.auroraGetValue(LAMZU_AURORA_CMD.getMotionSync).catch(() => 0)) === 1;
+    const angleSnapping = (await this.auroraGetValue(LAMZU_AURORA_CMD.getAngleSnap).catch(() => 0)) === 1;
+    const rippleControl = (await this.auroraGetValue(LAMZU_AURORA_CMD.getRipple).catch(() => 0)) === 1;
+    const debounceMs = await this.auroraGetValue(LAMZU_AURORA_CMD.getDebounce).catch(() => null);
+    const dpi = await this.readAuroraDpi().catch(() => 800);
+    const firmware = await this.readAuroraFirmware().catch(() => "Firmware version unavailable");
+
+    return this.buildStatus({
+      dpi,
+      pollingRateHz,
+      lod: decodeLamzuLod(lodRaw),
+      batteryPercent: null,
+      batteryVoltageMv: null,
+      activeProfile: this.auroraProfile + 1,
+      debounceMs,
+      motionSync,
+      sleepTimeout: null,
+      angleSnapping,
+      rippleControl,
+      performanceMode: null,
+      firmware: [firmware],
+      protocolLabel: `Aurora feature report 0x${this.auroraReportId.toString(16)}`,
+    });
+  }
+
+  private buildStatus(input: {
+    dpi: number;
+    pollingRateHz: number;
+    lod: MouseStatus["liftOffDistance"];
+    batteryPercent: number | null;
+    batteryVoltageMv: number | null;
+    activeProfile: number | null;
+    debounceMs: number | null;
+    motionSync: boolean | null;
+    sleepTimeout: number | null;
+    angleSnapping: boolean | null;
+    rippleControl: boolean | null;
+    performanceMode: boolean | null;
+    firmware: string[];
+    protocolLabel: string;
+  }): MouseStatus {
+    const maxHz = this.maxPollingRateHz();
+    const supportedPollingRates = [125, 250, 500, 1000, 2000, 4000, 8000].filter((hz) => hz <= maxHz);
+    return {
+      brand: "Lamzu",
+      name: this.displayName(),
+      ui: {
+        family: "lamzu",
+        hideLodLow: true,
+        hideUnsupportedPollingRates: true,
+        forceShowBattery: this.connectionType() === "Wireless",
+        hideProcessingCard: false,
+        pollingNote: maxHz >= 8000
+          ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
+          : maxHz >= 4000
+            ? "This Lamzu receiver supports up to 4,000 Hz."
+            : "This Lamzu connection supports up to 1,000 Hz.",
+        defaultDisplayName: this.displayName(),
+      },
+      batteryPercent: input.batteryPercent,
+      batteryVoltageMv: input.batteryVoltageMv,
+      batteryState: "Discharging",
+      dpi: input.dpi,
+      pollingRateHz: input.pollingRateHz,
+      supportedPollingRates,
+      activeProfile: input.activeProfile,
+      connectionType: this.connectionType(),
+      connectionDetail: `${input.protocolLabel} · PID 0x${this.device.productId.toString(16).padStart(4, "0")}`,
+      debounceMs: input.debounceMs,
+      motionSync: input.motionSync,
+      sleepTimeout: input.sleepTimeout,
+      angleSnapping: input.angleSnapping,
+      rippleControl: input.rippleControl,
+      performanceMode: input.performanceMode,
+      liftOffDistance: input.lod,
+      firmware: input.firmware,
+    };
+  }
+
+  private async getPollingRate(): Promise<number> {
+    const encoded = await this.auroraGetValue(LAMZU_AURORA_CMD.getPolling);
+    return decodeLamzuAuroraPollingRate(encoded) ?? 1000;
+  }
+
+  private async readAuroraDpi(): Promise<number> {
+    const stage = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
+    const request = createAuroraCommand(LAMZU_AURORA_CMD.getDpiStages, {
+      profile: this.auroraProfile,
+      isNewProtocol: true,
+    });
+    request[6] = this.auroraProfile;
+    request[7] = 6;
+    const response = await this.auroraExchange(request);
+    const countIndex = auroraValueIndex(this.auroraHidIndex, true);
+    const count = response[countIndex] ?? 0;
+    if (count <= 0 || stage >= count) return 800;
+    const base = countIndex + 1 + stage * 4;
+    return ((response[base] ?? 0) << 8) | (response[base + 1] ?? 0);
+  }
+
+  private async setAuroraDpi(dpi: number): Promise<number> {
+    if (!this.getDpiOptions().includes(dpi)) {
+      throw new Error(`${dpi} DPI is not supported by this Lamzu sensor encoding.`);
+    }
+    const stage = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
+    const readRequest = createAuroraCommand(LAMZU_AURORA_CMD.getDpiStages, {
+      profile: this.auroraProfile,
+      isNewProtocol: true,
+    });
+    readRequest[6] = this.auroraProfile;
+    readRequest[7] = 6;
+    const current = await this.auroraExchange(readRequest);
+    const countIndex = auroraValueIndex(this.auroraHidIndex, true);
+    const count = current[countIndex] ?? 0;
+    if (count <= 0) throw new Error("The mouse did not report any DPI stages.");
+
+    const write = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
+    write[2] = LAMZU_AURORA_CMD.setDpiStages[0];
+    write[3] = LAMZU_AURORA_CMD.setDpiStages[1];
+    write[4] = LAMZU_AURORA_CMD.setDpiStages[2];
+    write[5] = LAMZU_AURORA_CMD.setDpiStages[3];
+    write[6] = this.auroraProfile;
+    write[7] = count;
+    for (let index = 0; index < count * 4; index += 1) {
+      write[8 + index] = current[countIndex + 1 + index] ?? 0;
+    }
+    const offset = 8 + stage * 4;
+    write[offset] = (dpi >> 8) & 0xff;
+    write[offset + 1] = dpi & 0xff;
+    write[offset + 2] = (dpi >> 8) & 0xff;
+    write[offset + 3] = dpi & 0xff;
+    await this.auroraExchange(write);
+
+    const confirmed = await this.readAuroraDpi();
+    if (confirmed !== dpi) throw new Error(`The mouse kept ${confirmed} DPI instead of ${dpi} DPI.`);
+    return confirmed;
+  }
+
+  private async readAuroraFirmware(): Promise<string> {
+    const request = createAuroraCommand(LAMZU_AURORA_CMD.getFirmware, { isNewProtocol: false });
+    request[2] = 2;
+    request[3] = 16;
+    request[5] = 129;
+    const response = await this.auroraExchange(request);
+    if (response[6] === 129) {
+      this.auroraHidIndex = 0;
+      return `Mouse v${response[7] ?? 0}.${response[8] ?? 0}.${response[9] ?? 0}.${response[10] ?? 0}`;
+    }
+    if (response[5] === 129) {
+      this.auroraHidIndex = 1;
+      return `Mouse v${response[6] ?? 0}.${response[7] ?? 0}.${response[8] ?? 0}.${response[9] ?? 0}`;
+    }
+    return "Firmware version unavailable";
+  }
+
+  private async auroraSet(
+    cmd: readonly [number, number, number, number],
+    value: number,
+  ): Promise<void> {
+    const request = createAuroraCommand(cmd, {
+      profile: this.auroraProfile,
+      value,
+      isNewProtocol: this.auroraIsNewProtocol,
+    });
+    await this.auroraExchange(request);
+  }
+
+  private async auroraGetValue(cmd: readonly [number, number, number, number]): Promise<number> {
+    const request = createAuroraCommand(cmd, {
+      profile: this.auroraProfile,
+      isNewProtocol: this.auroraIsNewProtocol,
+    });
+    const response = await this.auroraExchange(request);
+    return response[auroraValueIndex(this.auroraHidIndex, this.auroraIsNewProtocol)] ?? 0;
+  }
+
+  private async auroraExchange(request: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+    await this.open();
+    const payload = request.length === LAMZU_AURORA_FEATURE_BYTES
+      ? request
+      : (() => {
+        const full = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
+        full.set(request.subarray(0, Math.min(request.length, LAMZU_AURORA_FEATURE_BYTES)));
+        return full;
+      })();
+
+    let response = new Uint8Array(0);
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        await this.device.sendFeatureReport(this.auroraReportId, payload);
+      } catch (error) {
+        lastError = error;
+        // Aurora's own webdriver always uses report ID 0; some stacks accept that.
+        if (this.auroraReportId !== 0) {
+          try {
+            await this.device.sendFeatureReport(0, payload);
+            this.auroraReportId = 0;
+          } catch (fallbackError) {
+            lastError = fallbackError;
+            continue;
+          }
+        } else {
+          continue;
+        }
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 40));
+      try {
+        const view = await this.device.receiveFeatureReport(this.auroraReportId);
+        response = Uint8Array.from(
+          { length: view.byteLength },
+          (_, index) => view.getUint8(index),
+        );
+      } catch (error) {
+        lastError = error;
+        continue;
+      }
+      if ((response[0] ?? 0) === LAMZU_AURORA_STATUS_OK) this.auroraHidIndex = 1;
+      else if ((response[1] ?? 0) === LAMZU_AURORA_STATUS_OK) this.auroraHidIndex = 0;
+      else if ((response[0] ?? 0) >= 160) this.auroraHidIndex = 1;
+      else this.auroraHidIndex = 0;
+      const status = response[auroraStatusIndex(this.auroraHidIndex)] ?? 0;
+      if (status === LAMZU_AURORA_STATUS_OK || status === 2) return response;
+    }
+    const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
+    throw new Error(
+      `Lamzu Aurora command failed (report 0x${this.auroraReportId.toString(16)}, status ${
+        response[auroraStatusIndex(this.auroraHidIndex)] ?? "none"
+      }).${detail}`,
+    );
   }
 
   private async readFlash(address: number, length: number): Promise<Uint8Array> {
