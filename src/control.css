@@ -68,7 +68,9 @@
   .control-shell .device-overview .summary-stat small { margin-top: .1rem; }
   .control-shell .device-overview .summary-stat > span, .control-shell .setting-heading p { margin-bottom: .3rem; }
   .control-shell .device-overview .meter { margin-top: .4rem; }
-  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-template-rows: 176px; gap: .65rem; margin-top: .65rem; }
+  /* Cards grow past the shared row height when a driver adds a third preset
+     row, e.g. a mouse sitting on a custom DPI gets a seventh preset button. */
+  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-template-rows: minmax(176px, auto); gap: .65rem; margin-top: .65rem; }
   .control-shell .setting-card { min-height: 176px; padding: .85rem; }
   .control-shell .dpi-card { grid-row: auto; }
   .control-shell .setting-heading { margin-bottom: .75rem; }
