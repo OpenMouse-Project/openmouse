@@ -545,10 +545,15 @@ export class LamzuHidClient {
 
     // 3) Real Aurora feature-report path (64 B / reportCount 64 — Maya X, etc.).
     const aurora = findAuroraFeatureReport(this.device);
-    if (aurora) {
+    if (aurora || this.device.vendorId === VENDOR_ID.lamzuNative) {
       this.transport = "aurora";
-      this.auroraReportId = aurora.reportId;
-      this.auroraReportBytes = aurora.bytes >= 32 ? aurora.bytes : LAMZU_AURORA_FEATURE_BYTES;
+      if (this.device.vendorId === VENDOR_ID.lamzuNative) {
+        this.auroraReportId = 0;
+        this.auroraReportBytes = LAMZU_AURORA_FEATURE_BYTES;
+      } else {
+        this.auroraReportId = aurora!.reportId;
+        this.auroraReportBytes = aurora!.bytes >= 32 ? aurora!.bytes : LAMZU_AURORA_FEATURE_BYTES;
+      }
       this.auroraIsNewProtocol = true;
       await this.open();
       await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
@@ -651,19 +656,21 @@ export class LamzuHidClient {
   }
 
   private auroraFramings(): Array<{ reportId: number; size: number }> {
+    // Official Aurora (`dm`) always uses sendFeatureReport(0, Uint8Array(64)).
+    // Maya X (VID 0x373e) is that path — do not probe 63/0x06 on it.
+    if (this.device.vendorId === VENDOR_ID.lamzuNative) {
+      return [{ reportId: 0, size: LAMZU_AURORA_FEATURE_BYTES }];
+    }
+
     const descriptorMax = maxFeatureReportBytes(this.device);
     const featureIds = listFeatureReports(this.device).map((report) => report.reportId);
-    // Official Aurora (`dm`) uses report 0 @ 64 B. Compx variants often use 0x06.
-    // Windows item sums can understate; still try 63/64 before tiny sizes.
     const sizes = [...new Set([
       LAMZU_AURORA_FEATURE_BYTES,
       63,
-      65,
       descriptorMax >= 32 ? descriptorMax : 0,
       this.auroraReportBytes >= 32 ? this.auroraReportBytes : 0,
       descriptorMax > 0 && descriptorMax < 32 ? descriptorMax : 0,
       7,
-      8,
     ].filter((size) => size > 0))];
     const reportIds = [...new Set([
       0,
@@ -678,36 +685,56 @@ export class LamzuHidClient {
     return framings;
   }
 
+  /**
+   * Official driver always sends exactly `size` bytes and swallows write errors.
+   * Never race-timeout these — abandoning an in-flight WebHID write leaves the
+   * device busy and the next call throws "Failed to write the feature report".
+   */
   private async sendAuroraFeature(
     reportId: number,
     size: number,
     request: Uint8Array,
-    timeoutMs = 400,
   ): Promise<void> {
     const payload = new Uint8Array(size);
     payload.set(request.subarray(0, Math.min(request.length, size)));
-    await this.withHidTimeout(
-      this.device.sendFeatureReport(reportId, payload),
-      timeoutMs,
-      `sendFeatureReport(0x${reportId.toString(16)}, ${size} B)`,
-    );
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        if (!this.device.opened) await this.device.open();
+        await this.device.sendFeatureReport(reportId, payload);
+        return;
+      } catch (error) {
+        lastError = error;
+        // Match lamzu.net: brief pause then retry; Chrome often fails when busy.
+        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS * (attempt + 1));
+      }
+    }
+    if (lastError instanceof Error) throw lastError;
+    throw new Error(`sendFeatureReport(0x${reportId.toString(16)}, ${size} B) failed.`);
   }
 
-  private async receiveAuroraFeature(reportId: number, timeoutMs = 400): Promise<Uint8Array<ArrayBuffer>> {
-    const view = await this.withHidTimeout(
-      this.device.receiveFeatureReport(reportId),
-      timeoutMs,
-      `receiveFeatureReport(0x${reportId.toString(16)})`,
-    );
-    const bytes = new Uint8Array(view.byteLength);
+  private async receiveAuroraFeature(reportId: number): Promise<Uint8Array<ArrayBuffer>> {
+    if (!this.device.opened) await this.device.open();
+    const view = await this.device.receiveFeatureReport(reportId);
+    // Copy only the DataView window — not view.buffer (may include unrelated bytes).
+    let bytes = new Uint8Array(view.byteLength);
     for (let index = 0; index < view.byteLength; index += 1) bytes[index] = view.getUint8(index);
+
+    // Some stacks prefix report ID 0 as a leading 0x00 before the Aurora payload.
     if (
+      reportId === 0
+      && bytes.length > 1
+      && bytes[0] === 0
+      && (bytes[1] === LAMZU_AURORA_STATUS_OK || bytes[1] === 2)
+    ) {
+      bytes = new Uint8Array(bytes.subarray(1));
+    } else if (
       bytes.length > 1
       && bytes[0] === reportId
       && reportId !== 0
       && (bytes[1] === LAMZU_AURORA_STATUS_OK || bytes[1] === 2 || bytes[1]! > 0)
     ) {
-      return new Uint8Array(bytes.subarray(1));
+      bytes = new Uint8Array(bytes.subarray(1));
     }
     return bytes;
   }
@@ -841,9 +868,9 @@ export class LamzuHidClient {
       for (const { reportId, size } of this.auroraFramings()) {
         if (Date.now() > deadline) break;
         try {
-          await this.sendAuroraFeature(reportId, size, probe, 120);
-          await this.sleep(20);
-          let response = await this.receiveAuroraFeature(reportId, 120);
+          await this.sendAuroraFeature(reportId, size, probe);
+          await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+          let response = await this.receiveAuroraFeature(reportId);
           if (!this.responseLooksAlive(response)) {
             response = await this.retryAuroraSetGet(reportId, probe, size, response, {
               maxAttempts: 1,
@@ -874,13 +901,9 @@ export class LamzuHidClient {
             const framed = new Uint8Array(size + 1);
             framed[0] = reportId;
             framed.set(probe.subarray(0, size), 1);
-            await this.withHidTimeout(
-              this.device.sendFeatureReport(0, framed),
-              120,
-              `sendFeatureReport(0, framed ${size + 1} B)`,
-            );
-            await this.sleep(20);
-            const response = await this.receiveAuroraFeature(0, 120);
+            await this.sendAuroraFeature(0, size + 1, framed);
+            await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+            const response = await this.receiveAuroraFeature(0);
             if (!this.responseLooksAlive(response)) continue;
             this.auroraReportId = 0;
             this.auroraReportBytes = size + 1;
@@ -1081,12 +1104,21 @@ export class LamzuHidClient {
     });
     request[6] = this.auroraProfile;
     request[7] = 6;
+    // Official getDPIStageInfo waits ~100ms before reading the stage table.
+    await this.sleep(100);
     const response = await this.auroraExchange(request);
-    const countIndex = auroraValueIndex(this.auroraHidIndex, true);
+    const status = this.auroraStatus(response);
+    const cmdEcho = response[6 - this.auroraHidIndex] ?? 0;
+    if (status !== LAMZU_AURORA_STATUS_OK || cmdEcho !== 129) {
+      return 800;
+    }
+    const countIndex = 8 - this.auroraHidIndex;
     const count = response[countIndex] ?? 0;
-    if (count <= 0 || stage >= count) return 800;
-    const base = countIndex + 1 + stage * 4;
-    return ((response[base] ?? 0) << 8) | (response[base + 1] ?? 0);
+    if (count <= 0 || stage < 0 || stage >= count) return 800;
+    const base = 9 - this.auroraHidIndex + stage * 4;
+    const dpi = ((response[base] ?? 0) << 8) | (response[base + 1] ?? 0);
+    // Uninitialized stage slots read as 0 — treat as unset rather than "0 DPI".
+    return dpi > 0 ? dpi : 800;
   }
 
   private async setAuroraDpi(dpi: number): Promise<number> {
@@ -1100,22 +1132,39 @@ export class LamzuHidClient {
     });
     readRequest[6] = this.auroraProfile;
     readRequest[7] = 6;
+    await this.sleep(100);
     const current = await this.auroraExchange(readRequest);
-    const countIndex = auroraValueIndex(this.auroraHidIndex, true);
+    const countIndex = 8 - this.auroraHidIndex;
     const count = current[countIndex] ?? 0;
     if (count <= 0) throw new Error("The mouse did not report any DPI stages.");
 
+    const stageCount = Math.max(count, 6);
     const write = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
     write[2] = LAMZU_AURORA_CMD.setDpiStages[0];
     write[3] = LAMZU_AURORA_CMD.setDpiStages[1];
     write[4] = LAMZU_AURORA_CMD.setDpiStages[2];
     write[5] = LAMZU_AURORA_CMD.setDpiStages[3];
     write[6] = this.auroraProfile;
-    write[7] = count;
-    for (let index = 0; index < count * 4; index += 1) {
-      write[8 + index] = current[countIndex + 1 + index] ?? 0;
+    write[7] = stageCount;
+    // Official always packs stage bytes at offset 8 (not hidIndex-shifted).
+    for (let index = 0; index < stageCount * 4; index += 1) {
+      write[8 + index] = current[9 - this.auroraHidIndex + index] ?? 0;
     }
-    const offset = 8 + stage * 4;
+    // Fill empty slots with defaults like lamzu.net setDPIStageNum.
+    const defaults = [400, 800, 1600, 3200, 6400, dpi];
+    for (let slot = 0; slot < stageCount; slot += 1) {
+      const offset = 8 + slot * 4;
+      const existing = ((write[offset] ?? 0) << 8) | (write[offset + 1] ?? 0);
+      if (existing === 0) {
+        const fill = defaults[Math.min(slot, defaults.length - 1)] ?? 800;
+        write[offset] = (fill >> 8) & 0xff;
+        write[offset + 1] = fill & 0xff;
+        write[offset + 2] = (fill >> 8) & 0xff;
+        write[offset + 3] = fill & 0xff;
+      }
+    }
+    const activeStage = Math.min(Math.max(stage, 0), stageCount - 1);
+    const offset = 8 + activeStage * 4;
     write[offset] = (dpi >> 8) & 0xff;
     write[offset + 1] = dpi & 0xff;
     write[offset + 2] = (dpi >> 8) & 0xff;
@@ -1207,13 +1256,17 @@ export class LamzuHidClient {
         );
       }
 
-      const attempts = [
-        { reportId: this.auroraReportId, size: this.auroraReportBytes },
-        { reportId: 0, size: 64 },
-        { reportId: 0x06, size: 63 },
-        { reportId: 0x06, size: 64 },
-        { reportId: 0, size: 63 },
-      ];
+      // Once framing is known, stick to it. Falling through to 63 B / report 0x06
+      // throws Chrome’s “Failed to write the feature report” on Maya X.
+      const attempts = this.device.vendorId === VENDOR_ID.lamzuNative
+        || (this.auroraReportId === 0 && this.auroraReportBytes === LAMZU_AURORA_FEATURE_BYTES)
+        ? [{ reportId: this.auroraReportId, size: this.auroraReportBytes }]
+        : [
+          { reportId: this.auroraReportId, size: this.auroraReportBytes },
+          { reportId: 0, size: 64 },
+          { reportId: 0x06, size: 64 },
+        ];
+
       const seen = new Set<string>();
       let lastError: unknown = null;
 
@@ -1223,12 +1276,18 @@ export class LamzuHidClient {
         if (seen.has(key)) continue;
         seen.add(key);
         try {
-          await this.sendAuroraFeature(reportId, size, request, 400);
+          // Official setReport swallows write failures then still receives.
+          try {
+            await this.sendAuroraFeature(reportId, size, request);
+          } catch (error) {
+            lastError = error;
+            // Soft-fail write (lamzu.net style) and still attempt receive.
+          }
           await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
-          let response = await this.receiveAuroraFeature(reportId, 400);
+          let response = await this.receiveAuroraFeature(reportId);
           response = await this.retryAuroraSetGet(reportId, request, size, response, {
-            maxAttempts: 2,
-            maxPolls: 6,
+            maxAttempts: 3,
+            maxPolls: 12,
           });
           this.noteAuroraHidIndex(response);
           const status = this.auroraStatus(response);
@@ -1251,7 +1310,16 @@ export class LamzuHidClient {
         }
       }
 
-      if (lastError instanceof Error) throw lastError;
+      if (lastError instanceof Error) {
+        const message = lastError.message;
+        if (/Failed to write the feature report/i.test(message)) {
+          throw new Error(
+            "Chrome could not write the Lamzu Aurora feature report (device busy or wrong buffer). "
+              + "Keep the mouse awake, wait a second, and try again. If it keeps failing, reconnect the dongle.",
+          );
+        }
+        throw lastError;
+      }
       throw new Error(
         `Lamzu Aurora command failed (report 0x${this.auroraReportId.toString(16)}, ${this.auroraReportBytes} B, status none).`,
       );

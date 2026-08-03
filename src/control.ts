@@ -1467,7 +1467,9 @@ function configureDpiControl(currentDpi: number): void {
   const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (!presets || !custom || dpiOptions.length === 0) return;
   const common = [400, 800, 1600, 3200, 6400, 8000].filter((dpi) => dpiOptions.includes(dpi));
-  const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
+  const values = currentDpi > 0 && !common.includes(currentDpi)
+    ? [...common, currentDpi].sort((a, b) => a - b)
+    : common;
   presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
   presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.addEventListener("click", () => void applyDpiValue(Number(button.dataset.dpi)));
