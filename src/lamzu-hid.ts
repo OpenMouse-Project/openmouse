@@ -496,7 +496,7 @@ export class LamzuHidClient {
 
   /**
    * Try Compx report-8 even when the WebHID descriptor does not list it.
-   * Some Windows receivers still accept sendReport(8) on the vendor handle.
+   * Keep this fast — a long classic miss made “Reading…” feel stuck.
    */
   private async probeClassicLink(): Promise<boolean> {
     if (!this.device.opened) {
@@ -508,25 +508,19 @@ export class LamzuHidClient {
     }
 
     this.device.addEventListener("inputreport", this.onInputReport);
-    const reportIds = [...new Set([
-      LAMZU_REPORT_ID,
-      ...walkCollections(this.device.collections).flatMap((collection) => [
-        ...collection.outputReports.map((report) => report.reportId),
-        ...collection.inputReports.map((report) => report.reportId),
-      ]),
-    ])];
-
-    for (const reportId of reportIds) {
+    // Only probe report 8 (and 0 as a long shot). Enumerating every report ID
+    // made connect take many seconds on this dongle.
+    for (const reportId of [LAMZU_REPORT_ID, 0]) {
       const packet = createLamzuPacket(LAMZU_COMMAND.readVersionId);
       finalizeLamzuPacket(packet);
       try {
-        const response = await this.exchangeOnReport(reportId, packet, 500);
+        const response = await this.exchangeOnReport(reportId, packet, 200);
         if (response[1] === 0 || response[0] === LAMZU_COMMAND.readVersionId) {
-          this.classicReportId = reportId;
+          this.classicReportId = reportId || LAMZU_REPORT_ID;
           return true;
         }
       } catch {
-        /* try next report id */
+        /* try next */
       }
     }
 
@@ -556,25 +550,25 @@ export class LamzuHidClient {
   private auroraFramings(): Array<{ reportId: number; size: number }> {
     const descriptorMax = maxFeatureReportBytes(this.device);
     const featureIds = listFeatureReports(this.device).map((report) => report.reportId);
-    // Exact Windows size first (often 7 on this Maya dongle). Oversized 63/64
-    // probes can hang the HID stack and burn the whole probe deadline.
+    // Windows item sums often say 7 B for this Maya dongle, but sendFeatureReport
+    // of 63/64 may still be accepted (Chrome pads / uses caps length). Always try
+    // Aurora-sized buffers — 7 B cannot carry DPI stage writes.
     const sizes = [...new Set([
-      descriptorMax,
-      this.auroraReportBytes,
-      7,
-      8,
-      9,
-      16,
-      32,
       63,
       LAMZU_AURORA_FEATURE_BYTES,
       65,
+      descriptorMax >= 32 ? descriptorMax : 0,
+      this.auroraReportBytes >= 32 ? this.auroraReportBytes : 0,
+      // Keep tiny sizes last as a last-resort probe only (never lock settings on them).
+      descriptorMax > 0 && descriptorMax < 32 ? descriptorMax : 0,
+      7,
+      8,
     ].filter((size) => size > 0))];
     const reportIds = [...new Set([
-      ...featureIds,
-      this.auroraReportId || 0x06,
-      0x06,
       0,
+      0x06,
+      this.auroraReportId || 0x06,
+      ...featureIds,
     ])];
     const framings: Array<{ reportId: number; size: number }> = [];
     for (const reportId of reportIds) {
@@ -587,7 +581,7 @@ export class LamzuHidClient {
     reportId: number,
     size: number,
     request: Uint8Array,
-    timeoutMs = 800,
+    timeoutMs = 400,
   ): Promise<void> {
     const payload = new Uint8Array(size);
     payload.set(request.subarray(0, Math.min(request.length, size)));
@@ -598,7 +592,7 @@ export class LamzuHidClient {
     );
   }
 
-  private async receiveAuroraFeature(reportId: number, timeoutMs = 800): Promise<Uint8Array<ArrayBuffer>> {
+  private async receiveAuroraFeature(reportId: number, timeoutMs = 400): Promise<Uint8Array<ArrayBuffer>> {
     const view = await this.withHidTimeout(
       this.device.receiveFeatureReport(reportId),
       timeoutMs,
@@ -606,7 +600,6 @@ export class LamzuHidClient {
     );
     const bytes = new Uint8Array(view.byteLength);
     for (let index = 0; index < view.byteLength; index += 1) bytes[index] = view.getUint8(index);
-    // Some Windows stacks prefix the report ID; strip it when the payload still looks Aurora-shaped.
     if (
       bytes.length > 1
       && bytes[0] === reportId
@@ -642,9 +635,12 @@ export class LamzuHidClient {
     if (status === LAMZU_AURORA_STATUS_OK || status === 2) return true;
     if (response[6] === 129 || response[5] === 129) return true;
     if (parseAuroraBattery(response) !== null) return true;
-    // Short Windows feature reports (7 B) may only return a leading status byte.
-    if (response.length <= 16 && response.some((value) => value === LAMZU_AURORA_STATUS_OK)) return true;
     return false;
+  }
+
+  /** Only full-size Aurora buffers can carry DPI stage payloads. */
+  private framingCanCarrySettings(size: number): boolean {
+    return size >= 32;
   }
 
   /**
@@ -719,9 +715,8 @@ export class LamzuHidClient {
   }
 
   /**
-   * Fast framing discovery. Try the descriptor-exact size first with short
-   * HID timeouts — oversized probes on a 7-byte Windows feature report hang
-   * and previously burned the whole deadline before size 7 was tried.
+   * Fast framing discovery. Prefer 63/64-byte Aurora buffers — a 7 B Windows
+   * item sum cannot carry DPI stage writes even if short probes look alive.
    */
   private async probeAuroraLink(): Promise<void> {
     const firmware = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
@@ -729,15 +724,8 @@ export class LamzuHidClient {
     firmware[3] = 16;
     firmware[5] = 129;
 
-    const firmwarePacked = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
-    // Compact layout for tiny feature reports: command starts at byte 0.
-    firmwarePacked[0] = 2;
-    firmwarePacked[1] = 16;
-    firmwarePacked[3] = 129;
-
     const probes: Uint8Array[] = [
       firmware,
-      firmwarePacked,
       createAuroraCommand(LAMZU_AURORA_CMD.getBattery, { isNewProtocol: false }),
       createAuroraCommand(LAMZU_AURORA_CMD.getPolling, {
         profile: this.auroraProfile,
@@ -745,29 +733,28 @@ export class LamzuHidClient {
       }),
     ];
 
-    const deadline = Date.now() + 4_000;
-    const descriptorMax = maxFeatureReportBytes(this.device);
+    const deadline = Date.now() + 1_800;
+    let sawTinyAlive = false;
 
     for (const probe of probes) {
       for (const { reportId, size } of this.auroraFramings()) {
-        if (Date.now() > deadline) {
-          this.auroraWriteReady = false;
-          return;
-        }
-        // Skip obviously oversized writes when Windows advertised a tiny max.
-        if (descriptorMax > 0 && descriptorMax < 32 && size > descriptorMax + 1) continue;
-
+        if (Date.now() > deadline) break;
         try {
-          await this.sendAuroraFeature(reportId, size, probe, 200);
-          await this.sleep(30);
-          let response = await this.receiveAuroraFeature(reportId, 200);
+          await this.sendAuroraFeature(reportId, size, probe, 120);
+          await this.sleep(20);
+          let response = await this.receiveAuroraFeature(reportId, 120);
           if (!this.responseLooksAlive(response)) {
             response = await this.retryAuroraSetGet(reportId, probe, size, response, {
               maxAttempts: 1,
-              maxPolls: 3,
+              maxPolls: 2,
             });
           }
           if (!this.responseLooksAlive(response)) continue;
+
+          if (!this.framingCanCarrySettings(size)) {
+            sawTinyAlive = true;
+            continue;
+          }
 
           this.auroraReportId = reportId;
           this.auroraReportBytes = size;
@@ -781,19 +768,18 @@ export class LamzuHidClient {
           /* try next framing */
         }
 
-        // Windows WriteFile-style: report ID as first payload byte with reportId 0.
-        if (reportId !== 0 && size + 1 <= 256) {
+        if (reportId !== 0 && size >= 32 && size + 1 <= 256) {
           try {
             const framed = new Uint8Array(size + 1);
             framed[0] = reportId;
             framed.set(probe.subarray(0, size), 1);
             await this.withHidTimeout(
               this.device.sendFeatureReport(0, framed),
-              200,
+              120,
               `sendFeatureReport(0, framed ${size + 1} B)`,
             );
-            await this.sleep(30);
-            const response = await this.receiveAuroraFeature(0, 200);
+            await this.sleep(20);
+            const response = await this.receiveAuroraFeature(0, 120);
             if (!this.responseLooksAlive(response)) continue;
             this.auroraReportId = 0;
             this.auroraReportBytes = size + 1;
@@ -809,6 +795,11 @@ export class LamzuHidClient {
     }
 
     this.auroraWriteReady = false;
+    if (sawTinyAlive) {
+      // Remember that the tiny report answers, but settings need a larger buffer.
+      this.auroraReportBytes = Math.max(this.auroraReportBytes, 7);
+      this.blockedReason = "tiny-feature-report";
+    }
   }
 
   private noteAuroraHidIndex(response: Uint8Array): void {
@@ -856,11 +847,11 @@ export class LamzuHidClient {
   private async readAuroraStatus(): Promise<MouseStatus> {
     // Soft-connect: never block the UI if Aurora framing is not ready yet.
     if (!this.auroraWriteReady) {
-      const wrongInterface = this.blockedReason === "wrong-interface"
-        || describeFeatureReports(this.device).includes("/7B");
-      const protocolLabel = wrongInterface
-        ? `Wrong HID interface (${describeFeatureReports(this.device) || describeLamzuCollections(this.device)})`
-        : `Aurora writes blocked (reports: ${describeFeatureReports(this.device)}; trying ${this.auroraReportBytes} B)`;
+      const reports = describeFeatureReports(this.device) || describeLamzuCollections(this.device);
+      const tiny = this.blockedReason === "tiny-feature-report" || reports.includes("/7B");
+      const protocolLabel = tiny
+        ? `Feature report too small for settings (${reports})`
+        : `Aurora writes blocked (${reports}; trying ${this.auroraReportBytes} B)`;
       return this.buildStatus({
         dpi: 800,
         pollingRateHz: 1000,
@@ -877,8 +868,8 @@ export class LamzuHidClient {
         firmware: ["Firmware version unavailable"],
         protocolLabel,
         settingsReady: false,
-        blockedHint: wrongInterface
-          ? "This receiver’s WebHID interface did not answer configuration commands yet. Keep the mouse awake, replug the dongle, hard-refresh, then Add device → select 2.4G Wireless Receiver → Connect."
+        blockedHint: tiny
+          ? "Windows only exposed a 7-byte feature report. OpenMouse needs a 63/64-byte Aurora buffer for DPI. Keep the mouse awake, replug the dongle, hard-refresh, then reconnect. If this persists, Chrome may be blocking the full Compx control interface."
           : "Lamzu settings link is not ready. Keep the mouse awake, replug the dongle, then reconnect.",
       });
     }
@@ -1101,44 +1092,67 @@ export class LamzuHidClient {
   ): Promise<Uint8Array> {
     return await this.withAuroraLock(async () => {
       await this.open();
-      if (!this.auroraWriteReady) await this.probeAuroraLink();
-      if (!this.auroraWriteReady) {
+      if (!this.auroraWriteReady || !this.framingCanCarrySettings(this.auroraReportBytes)) {
+        await this.probeAuroraLink();
+      }
+      if (!this.auroraWriteReady || !this.framingCanCarrySettings(this.auroraReportBytes)) {
         throw new Error(
-          this.blockedReason === "wrong-interface"
-            ? "This Lamzu HID interface cannot configure the mouse. "
-              + "Click Add device and choose the Compx/vendor interface with report ID 8 "
-              + "(not the usage 0xff04 utility interface)."
-            : "Chrome blocked Lamzu feature-report writes. "
-              + "Replug the receiver, then use Add device and pick the Compx report-8 control interface.",
+          this.blockedReason === "tiny-feature-report"
+            ? "This Lamzu interface only accepts a 7-byte feature report, which cannot carry DPI/polling settings. "
+              + "Replug the dongle with the mouse awake and reconnect. "
+              + "If Chrome still exposes 7 B only, the full Compx control interface is not available to WebHID on this PC."
+            : "Lamzu settings link is not ready. Keep the mouse awake, replug the dongle, then reconnect.",
         );
       }
 
-      const reportId = this.auroraReportId;
-      const size = this.auroraReportBytes;
-      try {
-        await this.sendAuroraFeature(reportId, size, request);
-        await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
-        let response = await this.receiveAuroraFeature(reportId);
-        response = await this.retryAuroraSetGet(reportId, request, size, response, {
-          maxAttempts: 3,
-          maxPolls: 8,
-        });
-        this.noteAuroraHidIndex(response);
-        const status = this.auroraStatus(response);
-        if (status === LAMZU_AURORA_STATUS_OK || status === 2 || this.responseLooksAlive(response)) {
-          return response;
+      const attempts = [
+        { reportId: this.auroraReportId, size: this.auroraReportBytes },
+        { reportId: 0, size: 64 },
+        { reportId: 0x06, size: 63 },
+        { reportId: 0x06, size: 64 },
+        { reportId: 0, size: 63 },
+      ];
+      const seen = new Set<string>();
+      let lastError: unknown = null;
+
+      for (const { reportId, size } of attempts) {
+        if (!this.framingCanCarrySettings(size)) continue;
+        const key = `${reportId}:${size}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        try {
+          await this.sendAuroraFeature(reportId, size, request, 400);
+          await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
+          let response = await this.receiveAuroraFeature(reportId, 400);
+          response = await this.retryAuroraSetGet(reportId, request, size, response, {
+            maxAttempts: 2,
+            maxPolls: 6,
+          });
+          this.noteAuroraHidIndex(response);
+          const status = this.auroraStatus(response);
+          if (status === LAMZU_AURORA_STATUS_OK || status === 2 || this.responseLooksAlive(response)) {
+            this.auroraReportId = reportId;
+            this.auroraReportBytes = size;
+            this.auroraWriteReady = true;
+            return response;
+          }
+          if (options?.allowEmpty && response.some((value) => value !== 0)) {
+            this.auroraReportId = reportId;
+            this.auroraReportBytes = size;
+            return response;
+          }
+          lastError = new Error(
+            `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status ${status || "none"}).`,
+          );
+        } catch (error) {
+          lastError = error;
         }
-        if (options?.allowEmpty && response.some((value) => value !== 0)) return response;
-        throw new Error(
-          `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status ${status || "none"}).`,
-        );
-      } catch (error) {
-        if (error instanceof Error && error.message.startsWith("Lamzu Aurora command failed")) throw error;
-        const detail = error instanceof Error ? ` ${error.message}` : "";
-        throw new Error(
-          `Lamzu Aurora command failed (report 0x${reportId.toString(16)}, ${size} B, status none).${detail}`,
-        );
       }
+
+      if (lastError instanceof Error) throw lastError;
+      throw new Error(
+        `Lamzu Aurora command failed (report 0x${this.auroraReportId.toString(16)}, ${this.auroraReportBytes} B, status none).`,
+      );
     });
   }
 
