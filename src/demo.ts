@@ -8,12 +8,19 @@ if (!demoApp) {
 
 const mobileNavigator = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
 const isMobileDevice = mobileNavigator.userAgentData?.mobile === true
-  || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 const DEMO_SETTINGS_KEY = "openmouse-demo-settings-v1";
 
 if (isMobileDevice) {
   document.documentElement.classList.add("blocked-device");
 }
+
+// Inject tooltip styles
+const styleElement = document.createElement('style');
+styleElement.textContent = `
+  
+`;
+document.head.appendChild(styleElement);
 
 demoApp.innerHTML = `
   <section class="small-screen-blocker" aria-labelledby="desktop-required-title">
@@ -86,10 +93,24 @@ demoApp.innerHTML = `
           </div>
         </article>
 
-        <article class="setting-card">
+        <article class="setting-card polling-card">
           <div class="setting-heading">
             <div><p>POLLING RATE</p><h2>Report frequency</h2></div>
-            <span class="info">?</span>
+            <div class="polling-tooltip-wrapper">
+              <span class="info" id="polling-info-btn" role="button" tabindex="0" aria-label="What is polling rate?">?</span>
+              <!-- Polling Rate Tooltip -->
+              <div class="polling-tooltip" id="polling-tooltip" role="dialog" aria-label="Polling rate explanation">
+                <button class="tooltip-close" id="polling-tooltip-close" aria-label="Close explanation">✕</button>
+                <h4>What is Polling Rate?</h4>
+                <p>Polling rate is how often your mouse tells your computer where it is.</p>
+                <ul>
+                  <li><strong>Measured in Hz</strong> — times per second</li>
+                  <li><strong>1000 Hz</strong> = 1,000 updates per second</li>
+                  <li><strong>Higher = smoother</strong>more responsive cursor</li>
+                  <li>Higher rates can use <strong>more battery</strong></li>
+                </ul>
+              </div>
+            </div>
           </div>
           <div class="segmented" data-control="polling">
             <button type="button">125</button>
@@ -132,6 +153,113 @@ const saveButton = document.querySelector<HTMLButtonElement>("#save-button");
 const saveStatus = document.querySelector<HTMLSpanElement>("#save-status");
 const previewMessage = document.querySelector<HTMLParagraphElement>("#preview-message");
 const navItems = document.querySelectorAll<HTMLButtonElement>(".nav-item");
+
+// ─── Polling Tooltip Elements ──────────────────────────────────────────
+
+const infoBtn = document.querySelector<HTMLSpanElement>("#polling-info-btn");
+const tooltip = document.getElementById("polling-tooltip") as HTMLDivElement | null;
+const tooltipClose = document.getElementById("polling-tooltip-close") as HTMLButtonElement | null;
+
+// ─── Polling Tooltip Functions ─────────────────────────────────────────
+
+let hoverTimeout: number | null = null;
+
+function showTooltip(): void {
+  if (!tooltip || !infoBtn) return;
+  // Clear any pending hide timeout
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+  tooltip.classList.add("visible");
+  infoBtn.classList.add("active");
+}
+
+function hideTooltip(): void {
+  if (!tooltip || !infoBtn) return;
+  // Add small delay before hiding to prevent accidental dismissal
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout);
+  }
+  hoverTimeout = window.setTimeout(() => {
+    tooltip.classList.remove("visible");
+    infoBtn.classList.remove("active");
+    hoverTimeout = null;
+  }, 100);
+}
+
+function toggleTooltip(): void {
+  if (!tooltip) return;
+  if (tooltip.classList.contains("visible")) {
+    hideTooltip();
+  } else {
+    showTooltip();
+  }
+}
+
+// ─── Polling Tooltip Event Listeners ──────────────────────────────────
+
+// Hover events for desktop
+const wrapper = document.querySelector<HTMLDivElement>(".polling-tooltip-wrapper");
+
+wrapper?.addEventListener("mouseenter", () => {
+  showTooltip();
+});
+
+wrapper?.addEventListener("mouseleave", () => {
+  hideTooltip();
+});
+
+// Also hover on the tooltip itself to keep it open
+tooltip?.addEventListener("mouseenter", () => {
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+});
+
+tooltip?.addEventListener("mouseleave", () => {
+  hideTooltip();
+});
+
+// Click events for mobile (fallback)
+infoBtn?.addEventListener("click", (e: MouseEvent) => {
+  e.stopPropagation();
+  toggleTooltip();
+});
+
+// Keyboard support: Enter/Space on the "?"
+infoBtn?.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    toggleTooltip();
+  }
+});
+
+// Close button inside tooltip (for mobile)
+tooltipClose?.addEventListener("click", (e: MouseEvent) => {
+  e.stopPropagation();
+  hideTooltip();
+});
+
+// Click outside closes tooltip (for mobile)
+document.addEventListener("click", (e: MouseEvent) => {
+  if (!tooltip || !infoBtn || !wrapper) return;
+  const target = e.target as Node;
+  const isInside = wrapper.contains(target) || tooltip.contains(target);
+  if (!isInside && tooltip.classList.contains("visible")) {
+    hideTooltip();
+  }
+});
+
+// Close on Escape key
+document.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Escape" && tooltip?.classList.contains("visible")) {
+    hideTooltip();
+  }
+});
+
+// ─── Existing Functions ────────────────────────────────────────────────
 
 function markChanged(): void {
   if (saveStatus) saveStatus.textContent = "Preview settings have unsaved changes.";
@@ -187,6 +315,9 @@ document.querySelector<HTMLInputElement>(".toggle-row input")?.addEventListener(
 
 navItems.forEach((item) => {
   item.addEventListener("click", () => {
+    // Close tooltip when switching panels
+    hideTooltip();
+
     navItems.forEach((navItem) => {
       const isActive = navItem === item;
       navItem.classList.toggle("active", isActive);
@@ -194,13 +325,13 @@ navItems.forEach((item) => {
     });
     const plannedPanel = item.dataset.panel === "buttons" || item.dataset.panel === "profiles";
     const target = item.dataset.panel === "overview"
-      ? document.querySelector(".device-overview")
-      : document.querySelector(".settings-grid");
+        ? document.querySelector(".device-overview")
+        : document.querySelector(".settings-grid");
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (previewMessage) {
       previewMessage.textContent = plannedPanel
-        ? `${item.textContent} controls are planned for a future device profile.`
-        : "This demo does not connect to or change a real device.";
+          ? `${item.textContent} controls are planned for a future device profile.`
+          : "This demo does not connect to or change a real device.";
     }
   });
 });

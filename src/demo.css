@@ -106,6 +106,155 @@ input[type="range"] { width: 100%; accent-color: #f7f7f7; }
 .small-screen-blocker > p:not(.blocker-label) { max-width: 440px; margin: 1.5rem 0 2rem; color: #99999e; line-height: 1.6; }
 .small-screen-blocker a { padding: .8rem 1rem; border-radius: 8px; background: #f7f7f7; color: #09090b; font-size: .8rem; font-weight: 600; }
 
+/* Polling Rate Tooltip Styles */
+.polling-card {
+  position: relative;
+}
+
+.polling-tooltip-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.polling-tooltip {
+  position: absolute;
+  z-index: 100;
+  background: #1b212e;
+  border: 1px solid #2e3a52;
+  border-radius: 16px;
+  padding: 18px 22px 20px;
+  width: 300px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  color: #e8edf2;
+  transition: opacity 0.15s, transform 0.15s;
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  pointer-events: none;
+  top: calc(100% + 8px);
+  right: 0;
+}
+
+.polling-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.polling-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid #1b212e;
+}
+
+.polling-tooltip h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+  letter-spacing: -0.2px;
+}
+
+.polling-tooltip p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #b8c2dd;
+  margin-bottom: 10px;
+}
+
+.polling-tooltip ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.polling-tooltip ul li {
+  font-size: 13px;
+  padding: 3px 0;
+  color: #a8b2cc;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.polling-tooltip ul li::before {
+  content: '•';
+  color: #4f8cff;
+  font-weight: 700;
+}
+
+.polling-tooltip ul li strong {
+  color: #e8edf2;
+}
+
+.polling-tooltip .tooltip-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: #5e6a82;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: 0.15s;
+  font-family: inherit;
+  display: none; /* Hide close button on hover */
+}
+
+.polling-tooltip .tooltip-close:hover {
+  color: #e8edf2;
+}
+
+.info.active {
+  background: #1f2940 !important;
+  color: #4f8cff !important;
+  border-color: #4f8cff !important;
+}
+
+.setting-heading {
+  position: relative;
+}
+
+/* Hover delay for better UX */
+.polling-tooltip-wrapper {
+  cursor: help;
+}
+
+@media (max-width: 920px) {
+  .polling-tooltip {
+    width: 260px;
+    right: -10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .polling-tooltip {
+    width: 220px;
+    right: -20px;
+    padding: 14px 16px 16px;
+  }
+  .polling-tooltip h4 {
+    font-size: 13px;
+  }
+  .polling-tooltip p {
+    font-size: 12.5px;
+  }
+  .polling-tooltip ul li {
+    font-size: 12px;
+  }
+  .polling-tooltip .tooltip-close {
+    display: block; /* Show close button on mobile */
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
