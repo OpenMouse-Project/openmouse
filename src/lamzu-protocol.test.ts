@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   auroraStatusIndex,
   auroraValueIndex,
+  auroraStageSlotIndex,
   batteryPercentFromMillivolts,
   createLamzuPacket,
   decodeLamzuAuroraPollingRate,

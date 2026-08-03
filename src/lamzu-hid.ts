@@ -1,6 +1,7 @@
 import type { MouseStatus } from "./mouse-types";
 import {
   auroraStatusIndex,
+  auroraStageSlotIndex,
   auroraValueIndex,
   batteryPercentFromMillivolts,
   createAuroraCommand,
@@ -1103,7 +1104,7 @@ export class LamzuHidClient {
   }
 
   private async readAuroraDpi(): Promise<number> {
-    const stage = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
+    const stageRaw = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
     const request = createAuroraCommand(LAMZU_AURORA_CMD.getDpiStages, {
       profile: this.auroraProfile,
       isNewProtocol: true,
@@ -1118,20 +1119,28 @@ export class LamzuHidClient {
     if (status !== LAMZU_AURORA_STATUS_OK || cmdEcho !== 129) {
       return 800;
     }
-    const countIndex = 8 - this.auroraHidIndex;
-    const count = response[countIndex] ?? 0;
-    if (count <= 0 || stage < 0 || stage >= count) return 800;
-    const base = 9 - this.auroraHidIndex + stage * 4;
+    const count = response[8 - this.auroraHidIndex] ?? 0;
+    if (count <= 0) return 800;
+    // Aurora stage index is 1-based (lamzu.net setActiveDPIValue uses `r - 1`).
+    const stageIndex = this.auroraStageIndex(stageRaw, count);
+    const base = 9 - this.auroraHidIndex + stageIndex * 4;
     const dpi = ((response[base] ?? 0) << 8) | (response[base + 1] ?? 0);
     // Uninitialized stage slots read as 0 — treat as unset rather than "0 DPI".
     return dpi > 0 ? dpi : 800;
+  }
+
+  /** Convert device stage (1-based) to a 0-based slot index. */
+  private auroraStageIndex(stageRaw: number, count: number): number {
+    return auroraStageSlotIndex(stageRaw, count);
   }
 
   private async setAuroraDpi(dpi: number): Promise<number> {
     if (!this.getDpiOptions().includes(dpi)) {
       throw new Error(`${dpi} DPI is not supported by this Lamzu sensor encoding.`);
     }
-    const stage = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
+
+    // Match lamzu.net setActiveDPIValue(profile, stage, dpiX, dpiY).
+    const stageRaw = await this.auroraGetValue(LAMZU_AURORA_CMD.getActiveDpi);
     const readRequest = createAuroraCommand(LAMZU_AURORA_CMD.getDpiStages, {
       profile: this.auroraProfile,
       isNewProtocol: true,
@@ -1139,45 +1148,32 @@ export class LamzuHidClient {
     readRequest[6] = this.auroraProfile;
     readRequest[7] = 6;
     await this.sleep(100);
-    const current = await this.auroraExchange(readRequest);
-    const countIndex = 8 - this.auroraHidIndex;
-    const count = current[countIndex] ?? 0;
+    const current = await this.auroraExchange(readRequest, { acceptBusyRetry: true });
+    const count = current[8 - this.auroraHidIndex] ?? 0;
     if (count <= 0) throw new Error("The mouse did not report any DPI stages.");
 
-    const stageCount = Math.max(count, 6);
+    const stageOneBased = stageRaw >= 1 ? stageRaw : 1;
+    const stageIndex = this.auroraStageIndex(stageOneBased, count);
+
     const write = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
     write[2] = LAMZU_AURORA_CMD.setDpiStages[0];
     write[3] = LAMZU_AURORA_CMD.setDpiStages[1];
     write[4] = LAMZU_AURORA_CMD.setDpiStages[2];
     write[5] = LAMZU_AURORA_CMD.setDpiStages[3];
     write[6] = this.auroraProfile;
-    write[7] = stageCount;
-    // Official always packs stage bytes at offset 8 (not hidIndex-shifted).
-    for (let index = 0; index < stageCount * 4; index += 1) {
+    write[7] = count;
+    // Official packs stage bytes at offset 8 (not hidIndex-shifted).
+    for (let index = 0; index < count * 4; index += 1) {
       write[8 + index] = current[9 - this.auroraHidIndex + index] ?? 0;
     }
-    // Fill empty slots with defaults like lamzu.net setDPIStageNum.
-    const defaults = [400, 800, 1600, 3200, 6400, dpi];
-    for (let slot = 0; slot < stageCount; slot += 1) {
-      const offset = 8 + slot * 4;
-      const existing = ((write[offset] ?? 0) << 8) | (write[offset + 1] ?? 0);
-      if (existing === 0) {
-        const fill = defaults[Math.min(slot, defaults.length - 1)] ?? 800;
-        write[offset] = (fill >> 8) & 0xff;
-        write[offset + 1] = fill & 0xff;
-        write[offset + 2] = (fill >> 8) & 0xff;
-        write[offset + 3] = fill & 0xff;
-      }
-    }
-    const activeStage = Math.min(Math.max(stage, 0), stageCount - 1);
-    const offset = 8 + activeStage * 4;
+    const offset = 8 + stageIndex * 4;
     write[offset] = (dpi >> 8) & 0xff;
     write[offset + 1] = dpi & 0xff;
     write[offset + 2] = (dpi >> 8) & 0xff;
     write[offset + 3] = dpi & 0xff;
+
     let writeResponse = await this.auroraExchange(write, { acceptBusyRetry: true });
     if (this.auroraStatus(writeResponse) > LAMZU_AURORA_STATUS_OK) {
-      // Retry once after a short settle — Maya X often returns 0xA2 while busy.
       await this.sleep(50);
       writeResponse = await this.auroraExchange(write, { acceptBusyRetry: true });
     }
@@ -1189,6 +1185,10 @@ export class LamzuHidClient {
         `Lamzu Aurora DPI write failed (status ${this.auroraStatus(writeResponse) || "none"}).`,
       );
     }
+
+    // Re-select the active stage so the sensor reloads the updated value.
+    await this.auroraSet(LAMZU_AURORA_CMD.setActiveDpi, stageOneBased);
+    await this.sleep(LAMZU_AURORA_COMMON_DELAY_MS);
 
     const confirmed = await this.readAuroraDpi();
     if (confirmed !== dpi) throw new Error(`The mouse kept ${confirmed} DPI instead of ${dpi} DPI.`);

@@ -147,6 +147,16 @@ export function auroraValueIndex(hidIndex: number, isNewProtocol: boolean): numb
   return (isNewProtocol ? 8 : 7) - hidIndex;
 }
 
+/**
+ * Aurora active-DPI stage from the device is 1-based (lamzu.net
+ * `setActiveDPIValue` writes at `8 + (stage - 1) * 4`).
+ */
+export function auroraStageSlotIndex(stageRaw: number, stageCount: number): number {
+  if (stageCount <= 0) return 0;
+  const oneBased = stageRaw >= 1 ? stageRaw : 1;
+  return Math.min(Math.max(oneBased - 1, 0), stageCount - 1);
+}
+
 export function createAuroraCommand(
   cmd: readonly [number, number, number, number],
   options: { profile?: number; value?: number; isNewProtocol?: boolean } = {},
