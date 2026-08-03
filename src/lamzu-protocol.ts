@@ -81,7 +81,11 @@ export const LAMZU_AURORA_CMD = {
   getDpiStages: [2, 10, 1, 129] as const,
   setDpiStages: [2, 26, 1, 1] as const,
   getFirmware: [2, 16, 0, 129] as const,
+  /** Battery percent (+ charging flag). Byte 4 stays 0 in the official Aurora driver. */
+  getBattery: [2, 2, 0, 131] as const,
 } as const;
+
+export const LAMZU_AURORA_COMMON_DELAY_MS = 20;
 
 export const LAMZU_DPI_MIN = 50;
 export const LAMZU_DPI_MAX = 26_000;
@@ -198,6 +202,23 @@ export function batteryPercentFromMillivolts(mv: number): number {
 export function parseBatteryMillivolts(response: Uint8Array): number | null {
   if (response.length < 9 || response[1] !== 0) return null;
   return ((response[7] ?? 0) << 8) | (response[8] ?? 0);
+}
+
+/**
+ * Aurora getBattery response: `[chargingFlag, percent]`.
+ * Layout shifts by one byte when the stack prefixes a report-ID / hidIndex.
+ */
+export function parseAuroraBattery(
+  response: Uint8Array,
+): { charging: boolean; percent: number } | null {
+  const ok = LAMZU_AURORA_STATUS_OK;
+  if (response[1] === ok && response[4] === 2 && response[6] === 131) {
+    return { charging: (response[7] ?? 0) === 1, percent: response[8] ?? 0 };
+  }
+  if (response[0] === ok && response[3] === 2 && response[5] === 131) {
+    return { charging: (response[6] ?? 0) === 1, percent: response[7] ?? 0 };
+  }
+  return null;
 }
 
 export function createLamzuPacket(command: number): Uint8Array<ArrayBuffer> {

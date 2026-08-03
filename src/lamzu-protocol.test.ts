@@ -19,6 +19,7 @@ import {
   LAMZU_REPORT_ID,
   lamzuDataChecksum,
   lamzuPacketChecksum,
+  parseAuroraBattery,
   parseBatteryMillivolts,
 } from "./lamzu-protocol.ts";
 
@@ -102,4 +103,23 @@ test("battery millivolts decode from command 0x04 responses", () => {
 
   response[1] = 1;
   assert.equal(parseBatteryMillivolts(response), null);
+});
+
+test("Aurora battery responses decode charging flag + percent", () => {
+  const hidIndex0 = new Uint8Array(16);
+  hidIndex0[1] = 0xa1;
+  hidIndex0[4] = 2;
+  hidIndex0[6] = 131;
+  hidIndex0[7] = 1;
+  hidIndex0[8] = 87;
+  assert.deepEqual(parseAuroraBattery(hidIndex0), { charging: true, percent: 87 });
+
+  const hidIndex1 = new Uint8Array(16);
+  hidIndex1[0] = 0xa1;
+  hidIndex1[3] = 2;
+  hidIndex1[5] = 131;
+  hidIndex1[6] = 0;
+  hidIndex1[7] = 42;
+  assert.deepEqual(parseAuroraBattery(hidIndex1), { charging: false, percent: 42 });
+  assert.equal(parseAuroraBattery(new Uint8Array(16)), null);
 });
