@@ -68,6 +68,10 @@ export const LAMZU_AURORA_CMD = {
   getPolling: [2, 2, 1, 128] as const,
   setLod: [2, 2, 1, 8] as const,
   getLod: [2, 2, 1, 136] as const,
+  setSleep: [2, 3, 0, 7] as const,
+  getSleep: [2, 3, 0, 135] as const,
+  setAngleTune: [2, 2, 1, 20] as const,
+  getAngleTune: [2, 2, 1, 148] as const,
   setMotionSync: [2, 2, 1, 9] as const,
   getMotionSync: [2, 2, 1, 137] as const,
   setAngleSnap: [2, 2, 1, 4] as const,
@@ -201,7 +205,7 @@ export function decodeLamzuDpi(data: Uint8Array): number {
   return decodeLamzuDpiAxis(data[0] ?? 0);
 }
 
-/** Lamzu LOD is 1 mm / 2 mm only (no 0.7 mm). */
+/** Classic Compx LOD is 1 mm / 2 mm only. */
 export function encodeLamzuLod(lod: "Medium" | "High"): number {
   return lod === "Medium" ? 1 : 2;
 }
@@ -210,6 +214,41 @@ export function decodeLamzuLod(raw: number): "Medium" | "High" | null {
   if (raw === 1) return "Medium";
   if (raw === 2) return "High";
   return null;
+}
+
+/**
+ * Aurora / Maya X LOD wire values (lamzu.net setLOD):
+ * - 0.7 mm → `(0.7 * 10) | 0x80` = 135
+ * - 1 mm → 1
+ * - 2 mm → 2
+ */
+export function encodeLamzuAuroraLod(lod: "Low" | "Medium" | "High"): number {
+  if (lod === "Low") return (7) | 0x80;
+  if (lod === "Medium") return 1;
+  return 2;
+}
+
+export function decodeLamzuAuroraLod(raw: number): "Low" | "Medium" | "High" | null {
+  if ((raw & 0x80) !== 0 && (raw & 0x7f) === 7) return "Low";
+  if (raw === 1) return "Medium";
+  if (raw === 2) return "High";
+  return null;
+}
+
+/** Official Maya X sleep timeouts in seconds. */
+export const LAMZU_AURORA_SLEEP_SECONDS: readonly number[] = [10, 30, 60, 300, 600, 1800];
+
+/** Angle tune: positive as-is; negative as `255 - abs(r) + 1` (lamzu.net). */
+export function encodeLamzuAuroraAngleTune(degrees: number): number | null {
+  if (!Number.isInteger(degrees) || degrees < -30 || degrees > 30) return null;
+  if (degrees > 0) return degrees;
+  if (degrees === 0) return 0;
+  return (255 - Math.abs(degrees) + 1) & 0xff;
+}
+
+export function decodeLamzuAuroraAngleTune(raw: number): number {
+  if (raw <= 30) return raw;
+  return raw - 256;
 }
 
 export function batteryPercentFromMillivolts(mv: number): number {

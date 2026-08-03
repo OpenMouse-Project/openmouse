@@ -20,6 +20,10 @@ export interface MouseUiHints {
   pollingNote?: string;
   /** Sidebar name before first status read. */
   defaultDisplayName?: string;
+  /** Lamzu Aurora sleep timeouts are real seconds (10..1800), not Compx codes. */
+  auroraSleepSeconds?: boolean;
+  /** Show Angle tune control (-30°..30°). */
+  showAngleTune?: boolean;
 }
 
 export interface MouseStatus {

@@ -6,11 +6,15 @@ import {
   batteryPercentFromMillivolts,
   createAuroraCommand,
   createLamzuPacket,
+  decodeLamzuAuroraLod,
+  decodeLamzuAuroraAngleTune,
   decodeLamzuAuroraPollingRate,
   decodeLamzuDpi,
   decodeLamzuLod,
   decodeLamzuPollingRate,
   dpiOptionsForLamzu,
+  encodeLamzuAuroraAngleTune,
+  encodeLamzuAuroraLod,
   encodeLamzuAuroraPollingRate,
   encodeLamzuDpi,
   encodeLamzuLod,
@@ -19,6 +23,7 @@ import {
   LAMZU_AURORA_CMD,
   LAMZU_AURORA_COMMON_DELAY_MS,
   LAMZU_AURORA_FEATURE_BYTES,
+  LAMZU_AURORA_SLEEP_SECONDS,
   LAMZU_AURORA_STATUS_OK,
   LAMZU_COMMAND,
   LAMZU_FLASH,
@@ -401,18 +406,19 @@ export class LamzuHidClient {
     liftOffDistance: NonNullable<MouseStatus["liftOffDistance"]>,
   ): Promise<NonNullable<MouseStatus["liftOffDistance"]>> {
     await this.ensureTransport();
-    if (liftOffDistance === "Low") {
-      throw new Error("Lamzu Maya supports 1 mm and 2 mm lift-off only.");
-    }
-    const encoded = encodeLamzuLod(liftOffDistance);
     if (this.transport === "aurora") {
+      const encoded = encodeLamzuAuroraLod(liftOffDistance);
       await this.auroraSet(LAMZU_AURORA_CMD.setLod, encoded);
-      const confirmed = decodeLamzuLod(await this.auroraGetValue(LAMZU_AURORA_CMD.getLod));
+      const confirmed = decodeLamzuAuroraLod(await this.auroraGetValue(LAMZU_AURORA_CMD.getLod));
       if (confirmed !== liftOffDistance) {
         throw new Error(`The mouse kept ${confirmed ?? "an unknown LOD"} instead of ${liftOffDistance}.`);
       }
       return confirmed;
     }
+    if (liftOffDistance === "Low") {
+      throw new Error("Lamzu Maya supports 1 mm and 2 mm lift-off only on this connection.");
+    }
+    const encoded = encodeLamzuLod(liftOffDistance);
     await this.writeCheckedByte(LAMZU_FLASH.liftOffDistance, encoded);
     const confirmed = decodeLamzuLod((await this.readFlash(LAMZU_FLASH.liftOffDistance, 2))[0] ?? 0);
     if (confirmed !== liftOffDistance) {
@@ -478,11 +484,31 @@ export class LamzuHidClient {
 
   async setSleepTimeout(timeout: number): Promise<number> {
     await this.ensureTransport();
+    if (this.transport === "aurora") {
+      if (!LAMZU_AURORA_SLEEP_SECONDS.includes(timeout)) {
+        throw new Error("Unsupported Lamzu sleep timeout.");
+      }
+      const request = createAuroraCommand(LAMZU_AURORA_CMD.setSleep, {
+        profile: this.auroraProfile,
+        isNewProtocol: this.auroraIsNewProtocol,
+      });
+      if (this.auroraIsNewProtocol) {
+        request[6] = this.auroraProfile;
+        request[7] = (timeout >> 8) & 0xff;
+        request[8] = timeout & 0xff;
+      } else {
+        request[6] = (timeout >> 8) & 0xff;
+        request[7] = timeout & 0xff;
+      }
+      await this.auroraExchange(request, { acceptBusyRetry: true });
+      const confirmed = await this.readAuroraSleepSeconds();
+      if (confirmed !== timeout) {
+        throw new Error(`The mouse kept a ${confirmed}s sleep timeout instead of ${timeout}s.`);
+      }
+      return confirmed;
+    }
     if (![1, 3, 6, 12, 30, 60, 180].includes(timeout)) {
       throw new Error("Unsupported Lamzu sleep timeout.");
-    }
-    if (this.transport === "aurora") {
-      throw new Error("Auto-sleep is not writable on this Aurora receiver yet.");
     }
     await this.writeCheckedByte(LAMZU_FLASH.sleepTime, timeout);
     await this.writeCheckedByte(LAMZU_FLASH.peakPerformanceTime, timeout);
@@ -492,6 +518,25 @@ export class LamzuHidClient {
       throw new Error("The mouse did not confirm the requested sleep timeout.");
     }
     return sleepConfirmed;
+  }
+
+  async setAngleTuning(degrees: number): Promise<number> {
+    await this.ensureTransport();
+    if (this.transport !== "aurora") {
+      throw new Error("Angle tune is only available on Aurora / Maya X connections.");
+    }
+    const encoded = encodeLamzuAuroraAngleTune(degrees);
+    if (encoded === null) {
+      throw new Error("Angle tune must be a whole number from -30° to 30°.");
+    }
+    await this.auroraSet(LAMZU_AURORA_CMD.setAngleTune, encoded);
+    const confirmed = decodeLamzuAuroraAngleTune(
+      await this.auroraGetValue(LAMZU_AURORA_CMD.getAngleTune),
+    );
+    if (confirmed !== degrees) {
+      throw new Error(`The mouse kept ${confirmed}° angle tune instead of ${degrees}°.`);
+    }
+    return confirmed;
   }
 
   async close(): Promise<void> {
@@ -1018,21 +1063,24 @@ export class LamzuHidClient {
     const rippleControl = (await this.auroraGetValue(LAMZU_AURORA_CMD.getRipple).catch(() => 0)) === 1;
     const debounceMs = await this.auroraGetValue(LAMZU_AURORA_CMD.getDebounce).catch(() => null);
     const dpi = await this.readAuroraDpi().catch(() => 800);
+    const sleepTimeout = await this.readAuroraSleepSeconds().catch(() => null);
+    const angleTuning = await this.readAuroraAngleTune().catch(() => 0);
 
     return this.buildStatus({
       dpi,
       pollingRateHz,
-      lod: decodeLamzuLod(lodRaw) ?? "Medium",
+      lod: decodeLamzuAuroraLod(lodRaw) ?? "Medium",
       batteryPercent: battery?.percent ?? null,
       batteryVoltageMv: null,
       batteryState: battery?.charging ? "Charging" : "Discharging",
       activeProfile: this.auroraProfile + 1,
       debounceMs,
       motionSync,
-      sleepTimeout: null,
+      sleepTimeout,
       angleSnapping,
       rippleControl,
       performanceMode: null,
+      angleTuning,
       firmware: [firmware],
       protocolLabel: `Aurora feature report 0x${this.auroraReportId.toString(16)} (${this.auroraReportBytes} B)`,
       settingsReady: true,
@@ -1053,6 +1101,7 @@ export class LamzuHidClient {
     angleSnapping: boolean | null;
     rippleControl: boolean | null;
     performanceMode: boolean | null;
+    angleTuning?: number | null;
     firmware: string[];
     protocolLabel: string;
     settingsReady?: boolean;
@@ -1060,16 +1109,19 @@ export class LamzuHidClient {
   }): MouseStatus {
     const maxHz = this.maxPollingRateHz();
     const supportedPollingRates = [125, 250, 500, 1000, 2000, 4000, 8000].filter((hz) => hz <= maxHz);
+    const aurora = this.transport === "aurora";
     return {
       brand: "Lamzu",
       name: this.displayName(),
       ui: {
         family: "lamzu",
         settingsReady: input.settingsReady ?? true,
-        hideLodLow: true,
+        hideLodLow: !aurora,
         hideUnsupportedPollingRates: true,
         forceShowBattery: this.connectionType() === "Wireless",
         hideProcessingCard: false,
+        auroraSleepSeconds: aurora,
+        showAngleTune: aurora,
         pollingNote: input.blockedHint
           ?? (maxHz >= 8000
             ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
@@ -1093,6 +1145,7 @@ export class LamzuHidClient {
       angleSnapping: input.angleSnapping,
       rippleControl: input.rippleControl,
       performanceMode: input.performanceMode,
+      angleTuning: input.angleTuning ?? null,
       liftOffDistance: input.lod,
       firmware: input.firmware,
     };
@@ -1101,6 +1154,21 @@ export class LamzuHidClient {
   private async getPollingRate(): Promise<number> {
     const encoded = await this.auroraGetValue(LAMZU_AURORA_CMD.getPolling);
     return decodeLamzuAuroraPollingRate(encoded) ?? 1000;
+  }
+
+  private async readAuroraSleepSeconds(): Promise<number> {
+    const request = createAuroraCommand(LAMZU_AURORA_CMD.getSleep, {
+      profile: this.auroraProfile,
+      isNewProtocol: this.auroraIsNewProtocol,
+    });
+    const response = await this.auroraExchange(request, { acceptBusyRetry: true });
+    const index = auroraValueIndex(this.auroraHidIndex, this.auroraIsNewProtocol);
+    return ((response[index] ?? 0) << 8) | (response[index + 1] ?? 0);
+  }
+
+  private async readAuroraAngleTune(): Promise<number> {
+    const raw = await this.auroraGetValue(LAMZU_AURORA_CMD.getAngleTune);
+    return decodeLamzuAuroraAngleTune(raw);
   }
 
   private async readAuroraDpi(): Promise<number> {

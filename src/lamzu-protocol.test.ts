@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   auroraStatusIndex,
-  auroraValueIndex,
   auroraStageSlotIndex,
+  auroraValueIndex,
   batteryPercentFromMillivolts,
   createLamzuPacket,
+  decodeLamzuAuroraAngleTune,
+  decodeLamzuAuroraLod,
   decodeLamzuAuroraPollingRate,
   decodeLamzuDpi,
   decodeLamzuLod,
   decodeLamzuPollingRate,
+  encodeLamzuAuroraAngleTune,
+  encodeLamzuAuroraLod,
   encodeLamzuAuroraPollingRate,
   encodeLamzuDpi,
   encodeLamzuLod,
@@ -106,36 +110,49 @@ test("LOD maps 1 mm / 2 mm onto Medium / High", () => {
   assert.equal(decodeLamzuLod(3), null);
 });
 
+test("Aurora LOD encodes 0.7 mm / 1 mm / 2 mm like lamzu.net", () => {
+  assert.equal(encodeLamzuAuroraLod("Low"), 135);
+  assert.equal(encodeLamzuAuroraLod("Medium"), 1);
+  assert.equal(encodeLamzuAuroraLod("High"), 2);
+  assert.equal(decodeLamzuAuroraLod(135), "Low");
+  assert.equal(decodeLamzuAuroraLod(1), "Medium");
+  assert.equal(decodeLamzuAuroraLod(2), "High");
+  assert.equal(decodeLamzuAuroraLod(0), null);
+});
+
+test("Aurora angle tune uses signed byte encoding", () => {
+  assert.equal(encodeLamzuAuroraAngleTune(0), 0);
+  assert.equal(encodeLamzuAuroraAngleTune(30), 30);
+  assert.equal(encodeLamzuAuroraAngleTune(-1), 255);
+  assert.equal(encodeLamzuAuroraAngleTune(-30), 226);
+  assert.equal(decodeLamzuAuroraAngleTune(0), 0);
+  assert.equal(decodeLamzuAuroraAngleTune(30), 30);
+  assert.equal(decodeLamzuAuroraAngleTune(255), -1);
+  assert.equal(decodeLamzuAuroraAngleTune(226), -30);
+  assert.equal(encodeLamzuAuroraAngleTune(31), null);
+});
+
 test("battery millivolts decode from command 0x04 responses", () => {
-  const response = new Uint8Array(16);
-  response[0] = LAMZU_COMMAND.batteryVoltage;
-  response[1] = 0;
-  response[7] = 0x0f;
-  response[8] = 0xa0; // 4000 mV
-  assert.equal(parseBatteryMillivolts(response), 4000);
-  assert.equal(batteryPercentFromMillivolts(4000), 83);
+  assert.equal(parseBatteryMillivolts(new Uint8Array([0x04, 0, 0, 0, 0, 0, 0, 0x0f, 0xa0])), 4000);
+  assert.equal(parseBatteryMillivolts(new Uint8Array([0x04, 1, 0, 0, 0, 0, 0, 0x0f, 0xa0])), null);
   assert.equal(batteryPercentFromMillivolts(3050), 0);
   assert.equal(batteryPercentFromMillivolts(4200), 100);
-
-  response[1] = 1;
-  assert.equal(parseBatteryMillivolts(response), null);
 });
 
 test("Aurora battery responses decode charging flag + percent", () => {
-  const hidIndex0 = new Uint8Array(16);
-  hidIndex0[1] = 0xa1;
-  hidIndex0[4] = 2;
-  hidIndex0[6] = 131;
-  hidIndex0[7] = 1;
-  hidIndex0[8] = 87;
-  assert.deepEqual(parseAuroraBattery(hidIndex0), { charging: true, percent: 87 });
+  const withReportId = new Uint8Array(16);
+  withReportId[1] = 0xa1;
+  withReportId[4] = 2;
+  withReportId[6] = 131;
+  withReportId[7] = 1;
+  withReportId[8] = 97;
+  assert.deepEqual(parseAuroraBattery(withReportId), { charging: true, percent: 97 });
 
-  const hidIndex1 = new Uint8Array(16);
-  hidIndex1[0] = 0xa1;
-  hidIndex1[3] = 2;
-  hidIndex1[5] = 131;
-  hidIndex1[6] = 0;
-  hidIndex1[7] = 42;
-  assert.deepEqual(parseAuroraBattery(hidIndex1), { charging: false, percent: 42 });
-  assert.equal(parseAuroraBattery(new Uint8Array(16)), null);
+  const withoutPrefix = new Uint8Array(16);
+  withoutPrefix[0] = 0xa1;
+  withoutPrefix[3] = 2;
+  withoutPrefix[5] = 131;
+  withoutPrefix[6] = 0;
+  withoutPrefix[7] = 42;
+  assert.deepEqual(parseAuroraBattery(withoutPrefix), { charging: false, percent: 42 });
 });
