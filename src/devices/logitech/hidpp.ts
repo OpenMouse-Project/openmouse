@@ -1,4 +1,12 @@
 import type { MouseStatus } from "../mouse-types";
+import {
+  MODE_STATUS,
+  buildModeStatusWrite,
+  decodeModeStatus,
+  type GamingSurfaceMode,
+  type LightforceSwitchMode,
+  type ModeStatusField,
+} from "./mode-status";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
@@ -38,45 +46,6 @@ interface ResolvedFeature {
 }
 
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
-
-export type GamingSurfaceMode = NonNullable<MouseStatus["gamingSurfaceMode"]>;
-export type LightforceSwitchMode = NonNullable<MouseStatus["lightforceSwitchMode"]>;
-
-/**
- * G HUB's "Gaming surface" and LightForce switch mode both live in feature
- * 0x8090 (Mode Status).
- * 
- * setModeStatus takes four one-byte fields: modeStatus0, modeStatus1,
- * changeMask0, changeMask1. Both settings sit in modeStatus1, so a write is
- * `00 <value> 00 <mask>`. Confirmed on hardware: the two-byte-field form and a
- * bare value/mask pair are both rejected with INVALID_ARGUMENT.
- *
- * The change mask means a write only touches the bits it names, so bits 3-7
- * (always 0 in every capture, purpose unknown) survive untouched.
- */
-const MODE_STATUS = {
-  get: 0x00,
-  set: 0x10,
-  gamingSurface: {
-    mask: 0b0000_0110,
-    shift: 1,
-    values: { Auto: 0, On: 1, Off: 2 } as Record<GamingSurfaceMode, number>,
-  },
-  lightforce: {
-    mask: 0b0000_0001,
-    shift: 0,
-    values: { Optical: 0, Hybrid: 1 } as Record<LightforceSwitchMode, number>,
-  },
-} as const;
-
-function decodeModeStatus<T extends string>(
-  statusByte: number,
-  field: { mask: number; shift: number; values: Record<T, number> },
-): T | null {
-  const encoded = (statusByte & field.mask) >> field.shift;
-  const entry = (Object.entries(field.values) as Array<[T, number]>).find(([, value]) => value === encoded);
-  return entry?.[0] ?? null;
-}
 
 export type LogitechMouseStatus = MouseStatus;
 
@@ -478,7 +447,7 @@ export class LogitechHidppClient {
    * Reading first keeps this correct if a future field spans bits we do not know about.
    */
   private async setModeStatusField<T extends string>(
-    field: { mask: number; shift: number; values: Record<T, number> },
+    field: ModeStatusField<T>,
     mode: T,
     label: string,
   ): Promise<T> {
@@ -491,8 +460,7 @@ export class LogitechHidppClient {
     if (current === null) {
       throw new Error(`The mouse did not report its current ${label}.`);
     }
-    const updated = (current & ~field.mask) | (field.values[mode] << field.shift);
-    await this.requestLong(feature.index, MODE_STATUS.set, [0x00, updated, 0x00, field.mask]);
+    await this.requestLong(feature.index, MODE_STATUS.set, buildModeStatusWrite(current, field, mode));
 
     const readBack = await this.readModeStatus(feature.index);
     const confirmed = readBack === null ? null : decodeModeStatus(readBack, field);
