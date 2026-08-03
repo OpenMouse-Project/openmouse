@@ -132,39 +132,6 @@ function findTinyFeatureReport(device: HIDDevice): { reportId: number; bytes: nu
     : null;
 }
 
-function describeFeatureReports(device: HIDDevice): string {
-  const parts: string[] = [];
-  for (const collection of walkCollections(device.collections)) {
-    for (const report of collection.featureReports) {
-      const bytes = featureReportByteLength(report);
-      parts.push(
-        `0x${report.reportId.toString(16)}@${collection.usagePage.toString(16)}:${collection.usage.toString(16)}/${bytes || "?"}B`,
-      );
-    }
-  }
-  return parts.join(", ") || "none";
-}
-
-function describeAllReports(device: HIDDevice): string {
-  const parts: string[] = [];
-  for (const collection of walkCollections(device.collections)) {
-    const usage = `0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)}`;
-    for (const report of collection.inputReports) {
-      const bytes = featureReportByteLength(report);
-      parts.push(`in:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
-    }
-    for (const report of collection.outputReports) {
-      const bytes = featureReportByteLength(report);
-      parts.push(`out:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
-    }
-    for (const report of collection.featureReports) {
-      const bytes = featureReportByteLength(report);
-      parts.push(`feat:0x${report.reportId.toString(16)}@${usage}/${bytes || "?"}B`);
-    }
-  }
-  return parts.join(", ") || "none";
-}
-
 function hasClassicConfigReports(device: HIDDevice): boolean {
   return walkCollections(device.collections).some((collection) => {
     const hasInput = collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID);
@@ -716,7 +683,6 @@ export class LamzuHidClient {
       descriptorMax >= 32 ? descriptorMax : 0,
       this.auroraReportBytes >= 32 ? this.auroraReportBytes : 0,
       descriptorMax > 0 && descriptorMax < 32 ? descriptorMax : 0,
-      7,
     ].filter((size) => size > 0))];
     const reportIds = [...new Set([
       0,
@@ -913,7 +879,6 @@ export class LamzuHidClient {
     ];
 
     const deadline = Date.now() + 1_800;
-    let sawTinyAlive = false;
 
     for (const probe of probes) {
       for (const { reportId, size } of this.auroraFramings()) {
@@ -929,11 +894,7 @@ export class LamzuHidClient {
             });
           }
           if (!this.responseLooksAlive(response)) continue;
-
-          if (!this.framingCanCarrySettings(size)) {
-            sawTinyAlive = true;
-            continue;
-          }
+          if (!this.framingCanCarrySettings(size)) continue;
 
           this.auroraReportId = reportId;
           this.auroraReportBytes = size;
@@ -970,9 +931,7 @@ export class LamzuHidClient {
     }
 
     this.auroraWriteReady = false;
-    if (sawTinyAlive) {
-      // Remember that the tiny report answers, but settings need a larger buffer.
-      this.auroraReportBytes = Math.max(this.auroraReportBytes, 7);
+    if (findTinyFeatureReport(this.device) && !hasClassicVendorIO(this.device) && !findAuroraFeatureReport(this.device)) {
       this.blockedReason = "tiny-feature-report";
     }
   }
@@ -1015,20 +974,13 @@ export class LamzuHidClient {
       rippleControl: flash[LAMZU_FLASH.rippleControl] === 1,
       performanceMode: flash[LAMZU_FLASH.peakPerformance] === 1,
       firmware: [this.decodeVersionOptional(versionResponse) ?? "Firmware version unavailable"],
-      protocolLabel: `Compx report 0x${this.classicReportId.toString(16)}`,
     });
   }
 
   private async readAuroraStatus(): Promise<MouseStatus> {
     // Soft-connect: never block the UI if Aurora framing is not ready yet.
     if (!this.auroraWriteReady) {
-      const allReports = describeAllReports(this.device);
-      const featureReports = describeFeatureReports(this.device);
-      const tiny = this.blockedReason === "tiny-feature-report"
-        || (/feat:0x6@[^/]+\/7B/.test(allReports) && !hasClassicVendorIO(this.device));
-      const protocolLabel = tiny
-        ? `Feature report too small for settings (${featureReports}) · reports: ${allReports}`
-        : `Settings link not ready (${featureReports || "no feature reports"}; ${allReports})`;
+      const tiny = this.blockedReason === "tiny-feature-report";
       return this.buildStatus({
         dpi: 800,
         pollingRateHz: 1000,
@@ -1043,11 +995,10 @@ export class LamzuHidClient {
         rippleControl: false,
         performanceMode: null,
         firmware: ["Firmware version unavailable"],
-        protocolLabel,
         settingsReady: false,
         blockedHint: tiny
-          ? "This Compx “2.4G Wireless Receiver” only exposes a 7-byte utility feature — it cannot configure Maya X. Forget this site under chrome://settings/content/hidDevices, then Add device again and pick “LAMZU MAYA X” or “Maya X 8K Dongle” (VID 0x373e). Keep the mouse awake; wired USB also works for first-time setup."
-          : "Lamzu settings link is not ready. Keep the mouse awake, replug the dongle, then reconnect. For Maya X, select “LAMZU MAYA X” / the 8K dongle — not a generic Compx 2.4G receiver.",
+          ? "This receiver cannot change mouse settings. Forget it under chrome://settings/content/hidDevices, then connect LAMZU MAYA X or the Maya X 8K dongle."
+          : "Lamzu settings are not ready. Keep the mouse awake, then reconnect. Prefer LAMZU MAYA X / the 8K dongle over a generic 2.4G receiver.",
       });
     }
 
@@ -1082,7 +1033,6 @@ export class LamzuHidClient {
       performanceMode: null,
       angleTuning,
       firmware: [firmware],
-      protocolLabel: `Aurora feature report 0x${this.auroraReportId.toString(16)} (${this.auroraReportBytes} B)`,
       settingsReady: true,
     });
   }
@@ -1103,13 +1053,13 @@ export class LamzuHidClient {
     performanceMode: boolean | null;
     angleTuning?: number | null;
     firmware: string[];
-    protocolLabel: string;
     settingsReady?: boolean;
     blockedHint?: string;
   }): MouseStatus {
     const maxHz = this.maxPollingRateHz();
     const supportedPollingRates = [125, 250, 500, 1000, 2000, 4000, 8000].filter((hz) => hz <= maxHz);
     const aurora = this.transport === "aurora";
+    const connectionType = this.connectionType();
     return {
       brand: "Lamzu",
       name: this.displayName(),
@@ -1118,13 +1068,13 @@ export class LamzuHidClient {
         settingsReady: input.settingsReady ?? true,
         hideLodLow: !aurora,
         hideUnsupportedPollingRates: true,
-        forceShowBattery: this.connectionType() === "Wireless",
+        forceShowBattery: connectionType === "Wireless",
         hideProcessingCard: false,
         auroraSleepSeconds: aurora,
         showAngleTune: aurora,
         pollingNote: input.blockedHint
           ?? (maxHz >= 8000
-            ? "Maya receivers support up to 8,000 Hz when the paired dongle allows it."
+            ? "Higher rates update cursor movement more often, but use more battery."
             : maxHz >= 4000
               ? "This Lamzu receiver supports up to 4,000 Hz."
               : "This Lamzu connection supports up to 1,000 Hz."),
@@ -1137,8 +1087,8 @@ export class LamzuHidClient {
       pollingRateHz: input.pollingRateHz,
       supportedPollingRates,
       activeProfile: input.activeProfile,
-      connectionType: this.connectionType(),
-      connectionDetail: `${input.protocolLabel} · PID 0x${this.device.productId.toString(16).padStart(4, "0")}`,
+      connectionType,
+      connectionDetail: connectionType === "Wireless" ? "2.4 GHz receiver" : "USB cable",
       debounceMs: input.debounceMs,
       motionSync: input.motionSync,
       sleepTimeout: input.sleepTimeout,

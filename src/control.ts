@@ -25,7 +25,7 @@ import type { MouseStatus } from "./mouse-types";
 import type { EggButtonAction, EggButtonActionKey, EggOp1Status } from "./egg-op1-protocol";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
-import { isLamzuVendor, SUPPORTED_HID_FILTERS } from "./vendors";
+import { isLamzuVendor, SUPPORTED_HID_FILTERS, VENDOR_ID } from "./vendors";
 import { LamzuHidClient } from "./lamzu-hid";
 import { WLMouseHidClient } from "./wlmouse-hid";
 
@@ -707,7 +707,9 @@ function showStatus(status: MouseStatus): void {
   const overview = document.querySelector<HTMLElement>(".device-overview");
   const mouseStage = document.querySelector<HTMLElement>("#overview-mouse-stage");
   if (overview) {
-    const useHeroOverview = isLamzu;
+    const useHeroOverview = isLamzu
+      && (activeLamzuClient?.device.vendorId === VENDOR_ID.lamzuNative
+        || /maya\s*x/i.test(status.name));
     overview.classList.toggle("is-hero", useHeroOverview);
     if (mouseStage) {
       mouseStage.hidden = !useHeroOverview;
@@ -776,10 +778,8 @@ function showStatus(status: MouseStatus): void {
       ? (isLamzu ? "Up to date" : "Firmware reported by mouse")
       : "Not reported");
   setText("#connection-value", status.connectionType ?? "Wireless");
-  setText("#connection-detail", isLamzu && status.connectionType === "Wireless"
-    ? "2.4 GHz receiver"
-    : (status.connectionDetail
-      ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver")));
+  setText("#connection-detail", status.connectionDetail
+    ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver"));
   const dongleLedButton = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
   if (dongleLedButton) {
     const supported = status.brand === "Pulsar" && status.dongleLedEnabled !== null && status.dongleLedEnabled !== undefined;
@@ -796,8 +796,7 @@ function showStatus(status: MouseStatus): void {
   }
   const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
   if (settingsGrid) {
-    // Keep Lamzu controls visible (disabled) so a wrong-interface connect still
-    // shows DPI / polling / LOD instead of an empty Sensor panel.
+    // Keep Lamzu controls visible so a wrong-interface connect can still re-probe.
     settingsGrid.style.display = settingsPending && !isLamzu ? "none" : "";
   }
 
@@ -1413,11 +1412,9 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     return best.client;
   }
 
-  const details = devices.map((device) => describeHidDevice(device)).join(" · ");
   throw new Error(
-    `Selected device is not a supported control interface (${details}). `
-    + "For Lamzu Maya X, pick “LAMZU MAYA X” or the Maya X 8K dongle (VID 0x373e). "
-    + "For original Maya, pick the Compx/vendor interface — not a plain boot mouse.",
+    "Selected device is not a supported control interface. "
+    + "For Lamzu, choose LAMZU MAYA X / the Maya X 8K dongle, or the Compx control interface for original Maya.",
   );
 }
 
@@ -1432,22 +1429,12 @@ function clientSupportScore(device: HIDDevice): number {
   return 0;
 }
 
-function describeHidDevice(device: HIDDevice): string {
-  const name = device.productName || "unknown";
-  const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
-  const collections = device.collections.map((collection) => {
-    const features = collection.featureReports.map((report) => `0x${report.reportId.toString(16)}`).join(",") || "none";
-    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} feat[${features}]`;
-  }).join(" | ") || "no collections";
-  return `${name} (${ids}; ${collections})`;
-}
-
 async function connect(): Promise<void> {
   const button = document.querySelector<HTMLButtonElement>("#connect-button");
   if (!button) return;
   setConnectionButtons(true, "Connecting…");
   setText("#device-status", "Requesting permission");
-  setText("#read-status", "Select “LAMZU MAYA X” or “Maya X 8K Dongle” in the browser prompt (not a generic Compx 2.4G receiver), then click Connect.");
+  setText("#read-status", "Choose a supported mouse in the browser prompt, then click Connect.");
 
   try {
     const client = await requestSupportedClient();

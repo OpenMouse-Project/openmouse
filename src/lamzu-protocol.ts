@@ -14,13 +14,11 @@ export const LAMZU_COMMAND = {
   writeFlash: 0x07,
   readFlash: 0x08,
   readActiveProfile: 0x0e,
-  writeActiveProfile: 0x0f,
   readVersionId: 0x12,
 } as const;
 
 export const LAMZU_FLASH = {
   pollRate: 0,
-  resolutionCount: 2,
   resolutionIndex: 4,
   liftOffDistance: 10,
   resolutions: 12,
@@ -34,7 +32,7 @@ export const LAMZU_FLASH = {
 } as const;
 
 /** Polling-rate wire values used by Compx / Lamzu Maya receivers. */
-export const LAMZU_POLL_RATE_MAP: ReadonlyArray<readonly [number, number]> = [
+const LAMZU_POLL_RATE_MAP: ReadonlyArray<readonly [number, number]> = [
   [1000, 1],
   [500, 2],
   [250, 4],
@@ -49,7 +47,7 @@ export const LAMZU_POLL_RATE_MAP: ReadonlyArray<readonly [number, number]> = [
  * high-rate encoding (2000→32, 4000→64, 8000→128). Aurora also treats wire
  * value 16 as an alias for 1000 Hz when reading.
  */
-export const LAMZU_AURORA_POLL_RATE_MAP: ReadonlyArray<readonly [number, number]> = [
+const LAMZU_AURORA_POLL_RATE_MAP: ReadonlyArray<readonly [number, number]> = [
   [1000, 1],
   [500, 2],
   [250, 4],
@@ -183,14 +181,14 @@ export function createAuroraCommand(
   return packet;
 }
 
-export function encodeLamzuDpiAxis(dpi: number): number | null {
+function encodeLamzuDpiAxis(dpi: number): number | null {
   if (!Number.isInteger(dpi) || dpi < LAMZU_DPI_MIN || dpi > LAMZU_CLASSIC_DPI_MAX || dpi % LAMZU_DPI_STEP !== 0) {
     return null;
   }
   return dpi / LAMZU_DPI_STEP - 1;
 }
 
-export function decodeLamzuDpiAxis(raw: number): number {
+function decodeLamzuDpiAxis(raw: number): number {
   return (raw + 1) * LAMZU_DPI_STEP;
 }
 
