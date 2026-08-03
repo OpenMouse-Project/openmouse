@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 export interface DevicePanelStat {
   value: string;
   detail: string;
@@ -52,13 +51,12 @@ export function devicePanel(data: DevicePanelData): string {
             <article><span>CONNECTION</span><strong id="connection-value">${data.connection.value}</strong><small id="connection-detail">${data.connection.detail}</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
           </div>
         </section>`;
-=======
-function superstrikeSteps(id: string, min: number, max: number): string {
+}
+export function superstrikeSteps(id: string, min: number, max: number): string {
   return `<div class="superstrike-steps" role="group" aria-label="${id.replace("logitech-", "").replaceAll("-", " ")}"><input id="${id}" type="hidden" /><div>${Array.from({ length: max - min + 1 }, (_, index) => {
     const value = min + index;
     return `<button type="button" data-superstrike-input="${id}" data-superstrike-value="${value}" aria-pressed="false">${value}</button>`;
   }).join("")}</div></div>`;
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 }
 
 export function controlTemplate(buildLabel: string): string {
@@ -82,15 +80,12 @@ export function controlTemplate(buildLabel: string): string {
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
-<<<<<<< HEAD
         ${devicePanel(PLACEHOLDER_DEVICE)}
-=======
         <div class="preview-banner"><button id="sidebar-menu-toggle" class="sidebar-menu-toggle" type="button" aria-label="Toggle sidebar" aria-pressed="false" title="Toggle sidebar"><i></i><i></i><i></i></button><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
         </header>
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
         <section class="empty-state" aria-labelledby="empty-state-title">
           <p class="overline">READY WHEN YOU ARE</p>
           <h2 id="empty-state-title">Connect a supported mouse.</h2>

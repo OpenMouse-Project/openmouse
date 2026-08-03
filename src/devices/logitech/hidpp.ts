@@ -2,15 +2,10 @@ import type { LightingCapability, MouseStatus } from "../mouse-types";
 import { LOGITECH_PRODUCT_IDS } from "../vendors";
 
 const LOGITECH_VENDOR_ID = 0x046d;
-<<<<<<< HEAD
 // Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
 // Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
 // HERO-era wireless mice.
 LOGITECH_PRODUCT_IDS;
-=======
-// HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const SW_ID = 0x0a;
@@ -32,14 +27,11 @@ const FEATURE = {
   adjustableDpi: 0x2201,
   reportRate: 0x8060,
   onboardProfiles: 0x8100,
-<<<<<<< HEAD
   // RGB. 0x8071 is the newer RGB Effects feature; 0x8070 (Color LED Effects) is
   // what HERO-era mice expose. A mouse with neither has no controllable lighting.
   rgbEffects: 0x8071,
   colorLedEffects: 0x8070,
-=======
   analogButtons: 0x1b0c,
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 } as const;
 
 interface ResolvedFeature {
@@ -261,7 +253,6 @@ export class LogitechHidppClient {
       : undefined;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
-    const wired = this.device.productId === 0xc0a8;
 
     return {
       brand: "Logitech",
@@ -273,11 +264,8 @@ export class LogitechHidppClient {
       dpi: dpiState.dpi,
       dpiY: dpiState.dpiY,
       supportsSeparateDpiAxes,
-<<<<<<< HEAD
       lighting,
-=======
       analogButtonTuning,
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
       liftOffDistance: dpiState.liftOffDistance,
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
@@ -286,7 +274,6 @@ export class LogitechHidppClient {
         ? supportedPollingRates.filter((rate) => rate <= 1000)
         : supportedPollingRates,
       supportedLiftOffDistances: isSuperstrike ? ["Low", "High"] : undefined,
-      connectionType: wired ? "Wired" : "Wireless",
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,

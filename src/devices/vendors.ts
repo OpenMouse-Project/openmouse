@@ -9,7 +9,6 @@ export const VENDOR_ID = {
   orbital: 0x1915,
 } as const;
 
-<<<<<<< HEAD
 // Logitech wireless receivers that expose an HID++ control interface.
 // 0xc54d: Bolt / newer Lightspeed receiver; 0xc539: Lightspeed receiver used by
 // the G502 LIGHTSPEED, G Pro Wireless, and other HERO-era wireless mice.
@@ -18,13 +17,9 @@ export const LOGITECH_PRODUCT_IDS: ReadonlyMap<number, { wireless: boolean }> = 
   [0xc54d, { wireless: true }],
   [0xc547, { wireless: true }],
   [0xc539, { wireless: true }],
-  [0xc08b, { wireless: false }]
+  [0xc08b, { wireless: false }],
+  [0xc0a8, {wireless:true}]
 ])
-=======
-// Logitech HID++ control interfaces. 0xc54d is Bolt/newer Lightspeed, 0xc539
-// is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8] as const;
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 
 export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = Array.from(
   LOGITECH_PRODUCT_IDS,

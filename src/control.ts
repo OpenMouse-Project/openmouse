@@ -57,13 +57,11 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
-<<<<<<< HEAD
 let lightingColor = "#ffffff";
 let lightingBrightness = 100;
-=======
+
 const isSuperstrikePreview = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get("preview") === "superstrike";
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -189,12 +187,10 @@ function renderControl(): void {
   });
   populateInterfaceSettings();
   applyInterfacePreferences();
-<<<<<<< HEAD
   setLightingColor(lightingColor);
   navigator.hid?.addEventListener("connect", handleHidConnect);
   navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
   void reconnectAuthorizedDevice();
-=======
   if (!isSuperstrikePreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
@@ -242,7 +238,6 @@ function showSuperstrikePreview(): void {
   setConnectionButtons(true, "Preview mode");
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   setText("#read-status", "Current: 800 DPI · 4,000 Hz");
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 }
 
 /**
@@ -718,11 +713,9 @@ function showStatus(status: MouseStatus): void {
       : ({ Low: "0.7 mm", Medium: "1 mm", High: "2 mm" } as const)[lod];
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
-<<<<<<< HEAD
     button.hidden = hideLodCard || hideLow;
     button.disabled = hideLodCard || hideLow || settingsPending
       || (status.brand === "Logitech" && button.dataset.lod === "Low");
-=======
     const unsupported = Array.isArray(supportedLods)
       && !supportedLods.includes(button.dataset.lod as NonNullable<MouseStatus["liftOffDistance"]>);
     const legacyLogitechLow = status.brand === "Logitech"
@@ -730,7 +723,6 @@ function showStatus(status: MouseStatus): void {
       && button.dataset.lod === "Low";
     button.hidden = hideLow || unsupported;
     button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow;
->>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
   });
   // Lighting is gated on the capability itself, not a ui hint: `lighting` has one
   // meaning, so there is nothing here for the shell to misread.
