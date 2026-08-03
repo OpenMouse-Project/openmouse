@@ -90,6 +90,14 @@ test("Aurora response indexes follow hidIndex / protocol flags", () => {
   assert.equal(auroraValueIndex(0, false), 7);
 });
 
+test("Aurora DPI stage slots are 1-based like lamzu.net setActiveDPIValue", () => {
+  assert.equal(auroraStageSlotIndex(1, 6), 0);
+  assert.equal(auroraStageSlotIndex(2, 6), 1);
+  assert.equal(auroraStageSlotIndex(6, 6), 5);
+  assert.equal(auroraStageSlotIndex(0, 6), 0);
+  assert.equal(auroraStageSlotIndex(9, 6), 5);
+});
+
 test("LOD maps 1 mm / 2 mm onto Medium / High", () => {
   assert.equal(encodeLamzuLod("Medium"), 1);
   assert.equal(encodeLamzuLod("High"), 2);
