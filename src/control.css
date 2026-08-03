@@ -47,13 +47,13 @@
 .device-overview .summary-stat .meter { margin-top: .7rem; }
 .device-overview .mouse-stage { display: none; }
 .device-overview.is-hero {
-  grid-template-columns: 1.45fr 1fr;
-  min-height: 300px;
+  grid-template-columns: 1.15fr 1fr;
+  min-height: 260px;
 }
 .device-overview.is-hero .mouse-stage {
   position: relative;
   display: grid;
-  min-height: 300px;
+  min-height: 260px;
   place-items: center;
   overflow: hidden;
   background: radial-gradient(circle at 50% 45%, #29292d 0, #151517 40%, #101012 72%);
@@ -77,9 +77,9 @@
 .device-overview.is-hero .mouse-image {
   position: relative;
   z-index: 1;
-  width: min(240px, 58%);
+  width: min(168px, 38%);
   height: auto;
-  filter: drop-shadow(0 30px 28px rgb(0 0 0 / 70%));
+  filter: drop-shadow(0 22px 20px rgb(0 0 0 / 65%));
 }
 .device-overview.is-hero .model-caption {
   position: absolute;
@@ -186,8 +186,8 @@
   .control-shell .device-overview { flex: 0 0 104px; min-height: 104px; grid-template-columns: repeat(3, 1fr); }
   .control-shell .device-overview.is-hero {
     flex: 0 0 auto;
-    min-height: 300px;
-    grid-template-columns: 1.45fr 1fr;
+    min-height: 260px;
+    grid-template-columns: 1.15fr 1fr;
   }
   .control-shell .device-overview .summary-stat { padding: .65rem .9rem; }
   .control-shell .device-overview.is-hero .summary-stat { padding: 1.2rem 1.35rem; }
