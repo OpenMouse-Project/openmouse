@@ -5,6 +5,7 @@ export const VENDOR_ID = {
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
   logitech: 0x046d,
+  vgn: 0x3554,
 } as const;
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
@@ -48,6 +49,8 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
+  { vendorId: VENDOR_ID.vgn, productId: 0xfb56 },
+  { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
 ];
