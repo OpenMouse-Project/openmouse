@@ -166,6 +166,47 @@
 }
 .angle-tune-controls .range-labels { margin-top: .25rem; }
 .angle-tune-controls .setting-note { margin-top: .45rem; }
+.setting-heading .info {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid #37373b;
+  background: transparent;
+  cursor: help;
+}
+.setting-heading .has-tooltip {
+  position: relative;
+}
+.setting-heading .has-tooltip::after {
+  position: absolute;
+  top: calc(100% + .45rem);
+  right: 0;
+  z-index: 5;
+  width: max(220px, 100%);
+  max-width: 260px;
+  padding: .55rem .65rem;
+  border: 1px solid #343438;
+  border-radius: 8px;
+  background: #1a1a1d;
+  color: #c8c8cc;
+  content: attr(data-tooltip);
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: .68rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-align: left;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 45%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.setting-heading .has-tooltip:hover::after,
+.setting-heading .has-tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: #77777c; font-size: .65rem; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid #f7f7f7; border-radius: 6px; background: #f7f7f7; color: #09090b; font-size: .65rem; font-weight: 700; }
 .setting-action button:disabled { cursor: default; opacity: .45; }
