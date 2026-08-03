@@ -77,9 +77,9 @@
 .device-overview.is-hero .mouse-image {
   position: relative;
   z-index: 1;
-  width: min(168px, 38%);
+  width: min(112px, 26%);
   height: auto;
-  filter: drop-shadow(0 22px 20px rgb(0 0 0 / 65%));
+  filter: drop-shadow(0 16px 14px rgb(0 0 0 / 60%));
 }
 .device-overview.is-hero .model-caption {
   position: absolute;
