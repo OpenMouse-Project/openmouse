@@ -82,9 +82,9 @@ input[type="range"] { width: 100%; accent-color: #f7f7f7; }
 .toggle-row input:checked + i { background: #f7f7f7; }
 .toggle-row input:checked + i::after { background: #09090b; transform: translateX(.9rem); }
 
-.panel-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding: 1rem 0; color: #77777c; font-size: .72rem; }
-.panel-footer button { padding: .75rem 1rem; border: 0; border-radius: 8px; background: #f7f7f7; color: #09090b; font-size: .78rem; font-weight: 600; transition: transform .2s ease; }
-.panel-footer button:hover { transform: translateY(-2px); }
+.panel-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding: .85rem 1rem; border: 1px solid #29292d; border-radius: 9px; background: #101012; color: #96969b; font-size: .72rem; }
+.panel-footer button { padding: .7rem 1rem; border: 0; border-radius: 8px; background: #f7f7f7; color: #09090b; font-size: .78rem; font-weight: 600; transition: transform .2s ease; }
+.panel-footer button:hover { transform: translateY(-1px); }
 
 @media (max-width: 899px) {
   .demo-shell { display: none; }

@@ -117,7 +117,7 @@ demoApp.innerHTML = `
       </section>
 
       <footer class="panel-footer">
-        <span id="save-status">Preview settings have not been saved.</span>
+        <span id="save-status">Preview settings have unsaved changes.</span>
         <button id="save-button" type="button">Save changes</button>
       </footer>
     </main>

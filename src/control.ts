@@ -57,6 +57,7 @@ let dpiOptions: number[] = [];
 let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+let pendingSave: { message: string; apply: () => Promise<void> } | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
@@ -155,7 +156,7 @@ function renderControl(): void {
       .sidebar-device-list button.device-select { cursor:pointer;transition:border-color .18s ease,background .18s ease }
       .sidebar-device-list button.device-select:hover { border-color:#4a4a4f;background:#1b1b1e }
       .sidebar-device-list button.device-select.is-selected { border-color:#55555b;background:#202023 }
-      .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
+      .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle) { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
       .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
       .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
       .control-shell .dpi-header-actions button { padding:.38rem .6rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#b3b3b7;font-size:.62rem;font-weight:700;white-space:nowrap }
@@ -333,7 +334,10 @@ function renderControl(): void {
           <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:flex;align-items:center;gap:.4rem;margin:0 0 .65rem;color:#b3b3b7;font-size:.68rem"><input id="egg-left-handed" type="checkbox" /> Left-handed mode</label><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
-        <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
+        <footer class="panel-footer device-data">
+          <span id="read-status">Add a supported device from the sidebar to read its current status.</span>
+          <button id="save-button" type="button" disabled>Save changes</button>
+        </footer>
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
@@ -412,16 +416,20 @@ function renderControl(): void {
     document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.add(new Option(`${angle}°`, String(angle)));
   }
   document.querySelector<HTMLSelectElement>("#debounce-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("debounce", Number((event.target as HTMLSelectElement).value));
+    const value = Number((event.target as HTMLSelectElement).value);
+    setPendingSave("Settings have unsaved changes.", () => applyPulsarValue("debounce", value));
   });
   document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
+    const value = Number((event.target as HTMLSelectElement).value);
+    setPendingSave("Settings have unsaved changes.", () => applyPulsarValue("sleep", value));
   });
   document.querySelector<HTMLInputElement>("#lamzu-angle-tune")?.addEventListener("input", (event) => {
-    updateLamzuAngleTuneUi(Number((event.target as HTMLInputElement).value));
+    const degrees = Number((event.target as HTMLInputElement).value);
+    updateLamzuAngleTuneUi(degrees);
+    setPendingSave("Settings have unsaved changes.", () => applyLamzuAngleTune(degrees));
   });
-  document.querySelector<HTMLInputElement>("#lamzu-angle-tune")?.addEventListener("change", (event) => {
-    void applyLamzuAngleTune(Number((event.target as HTMLInputElement).value));
+  document.querySelector<HTMLButtonElement>("#save-button")?.addEventListener("click", () => {
+    void savePendingChanges();
   });
   document.querySelector<HTMLButtonElement>("#sleep-toggle")?.addEventListener("click", (event) => {
     const enabled = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
@@ -903,10 +911,12 @@ function showStatus(status: MouseStatus): void {
     ? ui.pollingNote
     : "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", ui?.pollingNote
-      ? "Settings link not ready — see the note above."
-      : (status.batteryPercent === null ? "Connected" : `Battery ${status.batteryPercent}%`));
-  } else {
+    if (!pendingSave) {
+      setText("#read-status", ui?.pollingNote
+        ? "Settings link not ready — see the note above."
+        : (status.batteryPercent === null ? "Connected" : `Battery ${status.batteryPercent}%`));
+    }
+  } else if (!pendingSave) {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
   }
   const meter = document.querySelector<HTMLElement>("#battery-meter");
@@ -1144,6 +1154,7 @@ function statusNameForClient(client: SupportedClient): string {
 
 async function activateClient(client: SupportedClient): Promise<void> {
   resetDeviceSpecificPanels();
+  clearPendingSave();
   activeClient = null;
   activePulsarClient = null;
   activeEggClient = null;
@@ -1231,6 +1242,7 @@ function showDisconnectedState(): void {
   activeDevice = null;
   lastRenderedStatusKey = null;
   resetDeviceSpecificPanels();
+  clearPendingSave();
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) advanced.style.display = "none";
   const overview = document.querySelector<HTMLElement>(".device-overview");
@@ -1248,6 +1260,26 @@ function showDisconnectedState(): void {
   setText("#connection-banner", "Connect a supported device to view and change its settings.");
   setText("#read-status", "Add a supported device from the sidebar to read its current status.");
   setConnectionButtons(false, "Add device");
+}
+
+function setPendingSave(message: string, apply: () => Promise<void>): void {
+  pendingSave = { message, apply };
+  setText("#read-status", message);
+  const button = document.querySelector<HTMLButtonElement>("#save-button");
+  if (button) button.disabled = false;
+}
+
+function clearPendingSave(): void {
+  pendingSave = null;
+  const button = document.querySelector<HTMLButtonElement>("#save-button");
+  if (button) button.disabled = true;
+}
+
+async function savePendingChanges(): Promise<void> {
+  if (!pendingSave || settingInProgress) return;
+  const { apply } = pendingSave;
+  clearPendingSave();
+  await apply();
 }
 
 function handleHidConnect(event: HIDConnectionEvent): void {
@@ -1549,6 +1581,9 @@ async function chooseCustomDpi(): Promise<void> {
     button.textContent = "Apply";
     input.focus();
     input.select();
+    setPendingSave("Settings have unsaved changes.", async () => {
+      await chooseCustomDpi();
+    });
     return;
   }
   const requestedDpi = Number(input.value.replace(/[^\d]/g, ""));
@@ -1578,6 +1613,7 @@ function finishCustomDpiEditing(dpi?: number): void {
   input.value = `${(dpi ?? fallback).toLocaleString()} DPI`;
   delete input.dataset.previousValue;
   button.textContent = "Custom";
+  clearPendingSave();
 }
 
 async function applyDpiValue(dpi: number): Promise<boolean> {
