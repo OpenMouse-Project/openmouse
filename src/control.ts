@@ -56,6 +56,8 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+const isSuperstrikePreview = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get("preview") === "superstrike";
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -75,6 +77,7 @@ let lastDiagnosticCommand: string | null = null;
 let lastDiagnosticError: string | null = null;
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
+let sidebarHidden = false;
 
 async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
   return activeDmClient && client === activeDmClient
@@ -102,6 +105,9 @@ function applyInterfacePreferences(): void {
   if (!shell) return;
   shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
   shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
+  shell.classList.toggle("sidebar-hidden", sidebarHidden);
+  const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
+  if (menuToggle) menuToggle.setAttribute("aria-pressed", String(!sidebarHidden));
   shell.dataset.interfaceTheme = interfacePreferences.theme.toLowerCase();
   document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
     details.open = interfacePreferences.expandSections;
@@ -144,6 +150,10 @@ function renderControl(): void {
       interfacePreferences.showExperimental = enabled;
       saveInterfacePreferences();
     },
+    toggleSidebar: () => {
+      sidebarHidden = !sidebarHidden;
+      applyInterfacePreferences();
+    },
     resetInterfacePreferences: () => {
       interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
       saveInterfacePreferences();
@@ -154,6 +164,8 @@ function renderControl(): void {
     finishCustomDpiEditing,
     applyLogitechAxisDpi,
     applyLogitechAnalogButton,
+    applyLogitechAnalogButtons,
+    setSuperstrikeTuningMode,
     toggleDongleLed,
     applyPulsarValue,
     toggleSleep: (enabled) => applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER),
@@ -169,9 +181,53 @@ function renderControl(): void {
   });
   populateInterfaceSettings();
   applyInterfacePreferences();
-  navigator.hid?.addEventListener("connect", handleHidConnect);
-  navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
-  void reconnectAuthorizedDevice();
+  if (!isSuperstrikePreview) {
+    navigator.hid?.addEventListener("connect", handleHidConnect);
+    navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
+    void reconnectAuthorizedDevice();
+  }
+}
+
+function showSuperstrikePreview(): void {
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 8000, 16000, 32000];
+  const status: MouseStatus = {
+    brand: "Logitech",
+    name: "PRO X 2 Superstrike",
+    batteryPercent: 87,
+    batteryVoltageMv: 3989,
+    batteryState: "Discharging",
+    dpi: 800,
+    dpiY: 800,
+    supportsSeparateDpiAxes: true,
+    analogButtonTuning: {
+      maxActuation: 10,
+      maxRapidTrigger: 5,
+      maxHaptics: 5,
+      buttons: [
+        { actuation: 3, rapidTrigger: 2, haptics: 3 },
+        { actuation: 3, rapidTrigger: 2, haptics: 3 },
+      ],
+    },
+    pollingRateHz: 4000,
+    supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+    liftOffDistance: "High",
+    supportedLiftOffDistances: ["Low", "High"],
+    activeProfile: 1,
+    deviceMode: "Onboard",
+    modelId: "40BDC0A80000",
+    transportIds: { USB: "C0A8", Wireless: "40BD" },
+    connectionType: "Wireless",
+    connectionDetail: "Lightspeed receiver",
+    firmware: ["MPM 42.00.B0011", "BL2 73.00.B0011"],
+  };
+  configureDpiControl(status.dpi);
+  showStatus(status);
+  document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>(
+    ".settings-grid input, .settings-grid button, #logitech-analog-button-settings input, #logitech-analog-button-settings .superstrike-apply-button",
+  ).forEach((control) => { control.disabled = true; });
+  setConnectionButtons(true, "Preview mode");
+  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
+  setText("#read-status", "Current: 800 DPI · 4,000 Hz");
 }
 
 function openInterfaceSettings(): void {
@@ -617,6 +673,14 @@ function showStatus(status: MouseStatus): void {
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const supportedLods = status.supportedLiftOffDistances;
+    const usesNamedLods = Array.isArray(supportedLods)
+      && supportedLods.includes("Low")
+      && supportedLods.includes("High")
+      && !supportedLods.includes("Medium");
+    const lod = button.dataset.lod as NonNullable<MouseStatus["liftOffDistance"]>;
+    button.textContent = usesNamedLods
+      ? lod
+      : ({ Low: "0.7 mm", Medium: "1 mm", High: "2 mm" } as const)[lod];
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
     const unsupported = Array.isArray(supportedLods)
@@ -669,9 +733,36 @@ function renderLogitechAnalogButtonSettings(status: MouseStatus): void {
       if (input) {
         input.value = String(value);
         input.max = String(max);
+        document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+          option.setAttribute("aria-pressed", String(Number(option.dataset.superstrikeValue) === value));
+        });
       }
     }
   }
+  const both = tuning.buttons[0];
+  for (const [setting, value, max] of [
+    ["actuation", both.actuation, tuning.maxActuation],
+    ["rapid-trigger", both.rapidTrigger, tuning.maxRapidTrigger],
+    ["haptics", both.haptics, tuning.maxHaptics],
+  ] as const) {
+    const input = document.querySelector<HTMLInputElement>(`#logitech-both-${setting}`);
+    if (input) {
+      input.value = String(value);
+      input.max = String(max);
+      document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+        option.setAttribute("aria-pressed", String(Number(option.dataset.superstrikeValue) === value));
+      });
+    }
+  }
+}
+
+function setSuperstrikeTuningMode(mode: "independent" | "both"): void {
+  const panels = document.querySelector<HTMLElement>(".superstrike-tuning-panels");
+  if (!panels) return;
+  panels.dataset.superstrikeMode = mode;
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-tab]").forEach((tab) => {
+    tab.setAttribute("aria-selected", String(tab.dataset.superstrikeTab === mode));
+  });
 }
 
 function renderLogitechDetails(status: MouseStatus): void {
@@ -1161,6 +1252,30 @@ async function applyLogitechAnalogButton(button: 0 | 1): Promise<void> {
   }
 }
 
+async function applyLogitechAnalogButtons(): Promise<void> {
+  if (!activeClient || refreshInProgress || settingInProgress) return;
+  const read = (setting: "actuation" | "rapid-trigger" | "haptics"): number =>
+    Number(document.querySelector<HTMLInputElement>(`#logitech-both-${setting}`)?.value);
+  const tuning = { actuation: read("actuation"), rapidTrigger: read("rapid-trigger"), haptics: read("haptics") };
+  settingInProgress = true;
+  const controls = document.querySelectorAll<HTMLInputElement | HTMLButtonElement>("#logitech-analog-button-settings input, #logitech-analog-button-settings button");
+  controls.forEach((control) => { control.disabled = true; });
+  setText("#read-status", "Setting both HITS button profiles…");
+  recordDiagnosticCommand("Set both HITS button profiles");
+  try {
+    await activeClient.setAnalogButtonTuning(0, tuning);
+    await activeClient.setAnalogButtonTuning(1, tuning);
+    showStatus(await activeClient.readStatus());
+    setText("#read-status", "Confirmed both HITS button profiles.");
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to set both HITS button profiles.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to set both HITS button profiles.");
+  } finally {
+    settingInProgress = false;
+    controls.forEach((control) => { control.disabled = false; });
+  }
+}
+
 async function applyPollingRate(rate: number): Promise<void> {
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress) return;
@@ -1436,3 +1551,4 @@ window.addEventListener("beforeunload", () => {
 });
 
 renderControl();
+if (isSuperstrikePreview) showSuperstrikePreview();
