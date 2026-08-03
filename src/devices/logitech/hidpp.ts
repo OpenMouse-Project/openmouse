@@ -2,10 +2,15 @@ import type { LightingCapability, MouseStatus } from "../mouse-types";
 import { LOGITECH_PRODUCT_IDS } from "../vendors";
 
 const LOGITECH_VENDOR_ID = 0x046d;
+<<<<<<< HEAD
 // Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
 // Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
 // HERO-era wireless mice.
 LOGITECH_PRODUCT_IDS;
+=======
+// HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
+>>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const SW_ID = 0x0a;
@@ -27,10 +32,14 @@ const FEATURE = {
   adjustableDpi: 0x2201,
   reportRate: 0x8060,
   onboardProfiles: 0x8100,
+<<<<<<< HEAD
   // RGB. 0x8071 is the newer RGB Effects feature; 0x8070 (Color LED Effects) is
   // what HERO-era mice expose. A mouse with neither has no controllable lighting.
   rgbEffects: 0x8071,
   colorLedEffects: 0x8070,
+=======
+  analogButtons: 0x1b0c,
+>>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
 } as const;
 
 interface ResolvedFeature {
@@ -67,6 +76,13 @@ interface DpiConfiguration {
   lod: number;
 }
 
+interface AnalogButtonTuning {
+  maxActuation: number;
+  maxRapidTrigger: number;
+  maxHaptics: number;
+  buttons: Array<{ actuation: number; rapidTrigger: number; haptics: number }>;
+}
+
 interface DeviceIdentity {
   unitId: string | null;
   modelId: string | null;
@@ -83,6 +99,7 @@ export class LogitechHidppClient {
   private lightingZoneCount: number | null = null;
   private reportRateFeatureIndex: number | null = null;
   private livePollingRateHz: number | null = null;
+  private isSuperstrikeDevice = false;
   private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
   
   private async ping(): Promise<boolean> {
@@ -205,6 +222,7 @@ export class LogitechHidppClient {
     const dpiFeature = await this.resolveDpiFeature();
     const reportRateFeature = await this.resolveReportRateFeature();
     const profilesFeature = await this.getFeature(FEATURE.onboardProfiles);
+    const analogButtonsFeature = await this.getFeature(FEATURE.analogButtons);
 
     // HID++ receivers expect one request at a time. Keeping the sequence serial
     // also makes every input report unambiguous to the WebHID event handler.
@@ -238,6 +256,12 @@ export class LogitechHidppClient {
     const profileState = await this.readProfileState(profilesFeature.index);
     const wired = this.deviceIndex === WIRED_DEVICE_INDEX;
     const firmware = await this.readFirmware(firmwareFeature.index);
+    const analogButtonTuning = analogButtonsFeature.index
+      ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
+      : undefined;
+    const isSuperstrike = this.isSuperstrike(identity);
+    this.isSuperstrikeDevice = isSuperstrike;
+    const wired = this.device.productId === 0xc0a8;
 
     return {
       brand: "Logitech",
@@ -249,10 +273,20 @@ export class LogitechHidppClient {
       dpi: dpiState.dpi,
       dpiY: dpiState.dpiY,
       supportsSeparateDpiAxes,
+<<<<<<< HEAD
       lighting,
+=======
+      analogButtonTuning,
+>>>>>>> db60a53cf9cc7f68f40360236de8cefa9a9be75c
       liftOffDistance: dpiState.liftOffDistance,
-      pollingRateHz,
-      supportedPollingRates,
+      // The USB connection exposes the Superstrike as a 1 kHz device. Its
+      // Lightspeed receiver can use the higher rates advertised by HID++.
+      pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
+      supportedPollingRates: isSuperstrike && wired
+        ? supportedPollingRates.filter((rate) => rate <= 1000)
+        : supportedPollingRates,
+      supportedLiftOffDistances: isSuperstrike ? ["Low", "High"] : undefined,
+      connectionType: wired ? "Wired" : "Wireless",
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,
@@ -275,6 +309,9 @@ export class LogitechHidppClient {
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
+    if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
+      throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
+    }
     const resolved = await this.resolveReportRateFeature();
     if (resolved.legacy) {
       return this.setLegacyReportRate(resolved.index, pollingRateHz);
@@ -399,8 +436,11 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
-    if (liftOffDistance === "Low") {
+    if (liftOffDistance === "Low" && !this.isSuperstrikeDevice) {
       throw new Error("This mouse does not support a Low lift-off distance.");
+    }
+    if (liftOffDistance === "Medium" && this.isSuperstrikeDevice) {
+      throw new Error("The Superstrike supports only Low and High lift-off distance.");
     }
     const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
     await this.ensureHostControl();
@@ -423,6 +463,37 @@ export class LogitechHidppClient {
       throw new Error(`The mouse kept ${result ?? "an unknown"} lift-off distance instead of ${liftOffDistance}.`);
     }
     return result;
+  }
+
+  async setAnalogButtonTuning(button: 0 | 1, tuning: { actuation: number; rapidTrigger: number; haptics: number }): Promise<void> {
+    const feature = await this.getFeature(FEATURE.analogButtons);
+    if (!feature.index) {
+      throw new Error("This Logitech mouse does not expose hall-effect button tuning.");
+    }
+    const current = await this.readAnalogButtonTuning(feature.index);
+    const capabilities = current.buttons[button];
+    if (!capabilities) {
+      throw new Error("This mouse does not expose tuning for that button.");
+    }
+    if (!Number.isInteger(tuning.actuation) || tuning.actuation < 1 || tuning.actuation > current.maxActuation
+      || !Number.isInteger(tuning.rapidTrigger) || tuning.rapidTrigger < 1 || tuning.rapidTrigger > current.maxRapidTrigger
+      || !Number.isInteger(tuning.haptics) || tuning.haptics < 0 || tuning.haptics > current.maxHaptics) {
+      throw new Error("One or more hall-effect button values are outside the mouse's supported range.");
+    }
+    // HID++ 0x1B0C stores logical values in bits 7..2. Bit 0 of rapid trigger
+    // is a firmware-managed sensitivity flag, so it must survive the write.
+    const currentWire = await this.request(feature.index, 0x20, button);
+    await this.requestLong(feature.index, 0x10, [
+      button,
+      tuning.actuation << 2,
+      (tuning.rapidTrigger << 2) | ((currentWire[5] ?? 0) & 0x01),
+      tuning.haptics << 2,
+    ]);
+    const confirmed = await this.readAnalogButtonTuning(feature.index);
+    const result = confirmed.buttons[button];
+    if (!result || result.actuation !== tuning.actuation || result.rapidTrigger !== tuning.rapidTrigger || result.haptics !== tuning.haptics) {
+      throw new Error("The mouse did not confirm the hall-effect button settings.");
+    }
   }
 
   private async open(): Promise<void> {
@@ -692,6 +763,27 @@ export class LogitechHidppClient {
     return { dpi, dpiY: configuration.y, liftOffDistance };
   }
 
+  private async readAnalogButtonTuning(featureIndex: number): Promise<AnalogButtonTuning> {
+    const capabilities = await this.request(featureIndex, 0x00);
+    const buttonCount = Math.min(capabilities[4] ?? 0, 2);
+    const maxActuation = (capabilities[5] ?? 0) >> 2;
+    const maxRapidTrigger = (capabilities[6] ?? 0) >> 2;
+    const maxHaptics = (capabilities[7] ?? 0) >> 2;
+    if (!buttonCount || !maxActuation || !maxRapidTrigger) {
+      throw new Error("The mouse returned invalid hall-effect button capabilities.");
+    }
+    const buttons: AnalogButtonTuning["buttons"] = [];
+    for (let button = 0; button < buttonCount; button += 1) {
+      const reply = await this.request(featureIndex, 0x20, button);
+      buttons.push({
+        actuation: (reply[4] ?? 0) >> 2,
+        rapidTrigger: (reply[5] ?? 0) >> 2,
+        haptics: (reply[6] ?? 0) >> 2,
+      });
+    }
+    return { maxActuation, maxRapidTrigger, maxHaptics, buttons };
+  }
+
   private async readDpiCapabilities(featureIndex: number): Promise<boolean> {
     if (!featureIndex) return false;
     const reply = await this.request(featureIndex, 0x10, 0x00);
@@ -781,6 +873,10 @@ export class LogitechHidppClient {
       }
     }
     return { unitId: unitId === "00000000" ? null : unitId, modelId, transportIds };
+  }
+
+  private isSuperstrike(identity: DeviceIdentity): boolean {
+    return this.device.productId === 0xc0a8 || identity.modelId?.startsWith("40BD") === true;
   }
 
   private async ensureHostControl(): Promise<void> {
