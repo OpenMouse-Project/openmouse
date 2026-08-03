@@ -96,9 +96,16 @@ export const LAMZU_MAX_RESOLUTION_STAGES = 8;
 export const LAMZU_BATTERY_MIN_MV = 3050;
 export const LAMZU_BATTERY_MAX_MV = 4200;
 
-/** Packet checksum over report ID + 15 payload bytes (byte 15 is the checksum). */
-export function lamzuPacketChecksum(packetWithoutReportId: Uint8Array): number {
-  let sum = 171 + LAMZU_REPORT_ID;
+/**
+ * Packet checksum over report ID + 15 payload bytes (byte 15 is the checksum).
+ * Official Compx driver: `t[15] = get_Crc(t) - reportID` with get_Crc = 0x55 - sum(t[0..14]).
+ * Some receivers use report ID 0x13 instead of 0x08 — pass the live report ID.
+ */
+export function lamzuPacketChecksum(
+  packetWithoutReportId: Uint8Array,
+  reportId: number = LAMZU_REPORT_ID,
+): number {
+  let sum = 171 + (reportId & 0xff);
   for (let index = 0; index < LAMZU_PACKET_LENGTH - 1; index += 1) {
     sum = (sum + (packetWithoutReportId[index] ?? 0)) & 0xff;
   }
@@ -227,8 +234,11 @@ export function createLamzuPacket(command: number): Uint8Array<ArrayBuffer> {
   return packet;
 }
 
-export function finalizeLamzuPacket(packet: Uint8Array): void {
-  packet[LAMZU_PACKET_LENGTH - 1] = lamzuPacketChecksum(packet);
+export function finalizeLamzuPacket(
+  packet: Uint8Array,
+  reportId: number = LAMZU_REPORT_ID,
+): void {
+  packet[LAMZU_PACKET_LENGTH - 1] = lamzuPacketChecksum(packet, reportId);
 }
 
 export function dpiOptionsForLamzu(): number[] {

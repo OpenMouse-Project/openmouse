@@ -38,6 +38,13 @@ test("packet checksum matches Compx / Lamzu report-8 formula", () => {
   assert.equal(packet[15], (0x55 - (sum & 0xff) - LAMZU_REPORT_ID) & 0xff);
 });
 
+test("packet checksum includes the live report ID (0x13 on some Maya dongles)", () => {
+  const packet = createLamzuPacket(LAMZU_COMMAND.readVersionId);
+  finalizeLamzuPacket(packet, 0x13);
+  assert.equal(packet[15], lamzuPacketChecksum(packet, 0x13));
+  assert.notEqual(packet[15], lamzuPacketChecksum(packet, LAMZU_REPORT_ID));
+});
+
 test("data checksum for a single flash byte matches 0x55 - value", () => {
   for (const value of [0, 1, 2, 15, 64, 128, 255]) {
     assert.equal(lamzuDataChecksum(new Uint8Array([value])), (0x55 - value) & 0xff);

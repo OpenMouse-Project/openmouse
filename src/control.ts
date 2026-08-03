@@ -25,8 +25,8 @@ import type { MouseStatus } from "./mouse-types";
 import type { EggButtonAction, EggButtonActionKey, EggOp1Status } from "./egg-op1-protocol";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
+import { isLamzuVendor, SUPPORTED_HID_FILTERS } from "./vendors";
 import { LamzuHidClient } from "./lamzu-hid";
-import { SUPPORTED_HID_FILTERS } from "./vendors";
 import { WLMouseHidClient } from "./wlmouse-hid";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
@@ -999,7 +999,7 @@ async function createSupportedClientFromPool(
   pool?: HIDDevice[],
 ): Promise<SupportedClient | null> {
   const devices = pool ?? await navigator.hid?.getDevices() ?? [];
-  if (selected.vendorId === 0x3554 || LamzuHidClient.isSupported(selected)) {
+  if (isLamzuVendor(selected.vendorId) || LamzuHidClient.isSupported(selected)) {
     const lamzu = LamzuHidClient.fromAuthorizedDevices(
       devices.length > 0 ? devices : [selected],
       selected,
@@ -1034,7 +1034,7 @@ function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
     all,
     (device) => createSupportedClient(device) !== null,
   );
-  const nonLamzu = merged.filter((device) => device.vendorId !== 0x3554);
+  const nonLamzu = merged.filter((device) => !isLamzuVendor(device.vendorId));
   const lamzu = LamzuHidClient.mergeLogicalDevices(merged);
   return [...nonLamzu, ...lamzu];
 }
@@ -1190,7 +1190,7 @@ function showDisconnectedState(): void {
 }
 
 function handleHidConnect(event: HIDConnectionEvent): void {
-  if (event.device.vendorId === 0x3554 || LamzuHidClient.isSupported(event.device)) {
+  if (isLamzuVendor(event.device.vendorId) || LamzuHidClient.isSupported(event.device)) {
     void (async () => {
       const all = await navigator.hid?.getDevices() ?? [];
       await renderDeviceSidebar(all);
@@ -1304,8 +1304,8 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const authorized = await navigator.hid.getDevices();
   const pool = [...new Map([...authorized, ...devices].map((device) => [device, device])).keys()];
 
-  // Lamzu Compx receivers expose multiple interfaces; prefer report ID 8.
-  if (devices.some((device) => device.vendorId === 0x3554 || LamzuHidClient.isSupported(device))) {
+  // Lamzu Compx / Maya X receivers expose multiple interfaces; prefer the control one.
+  if (devices.some((device) => isLamzuVendor(device.vendorId) || LamzuHidClient.isSupported(device))) {
     const lamzu = LamzuHidClient.fromAuthorizedDevices(pool, devices[0]);
     if (lamzu) return lamzu;
   }
@@ -1323,8 +1323,8 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
-    + "For Lamzu Maya, pick the Compx/vendor interface with report ID 8 "
-    + "(not the usage 0xff04 utility interface or a plain boot mouse).",
+    + "For Lamzu Maya X, pick “LAMZU MAYA X” or the Maya X 8K dongle (VID 0x373e). "
+    + "For original Maya, pick the Compx/vendor interface — not a plain boot mouse.",
   );
 }
 
@@ -1354,7 +1354,7 @@ async function connect(): Promise<void> {
   if (!button) return;
   setConnectionButtons(true, "Connecting…");
   setText("#device-status", "Requesting permission");
-  setText("#read-status", "Select “2.4G Wireless Receiver” in the browser prompt, then click Connect. One entry is normal for this dongle.");
+  setText("#read-status", "Select “LAMZU MAYA X” or “Maya X 8K Dongle” in the browser prompt (not a generic Compx 2.4G receiver), then click Connect.");
 
   try {
     const client = await requestSupportedClient();

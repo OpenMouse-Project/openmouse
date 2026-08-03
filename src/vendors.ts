@@ -5,16 +5,36 @@ export const VENDOR_ID = {
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
   logitech: 0x046d,
-  /** Compx ODM VID used by Lamzu Maya / Atlantis receivers. */
+  /** Compx ODM VID used by original Lamzu Maya / Atlantis receivers. */
   lamzu: 0x3554,
+  /** Lamzu-branded Aurora mice (Maya X, etc.). */
+  lamzuNative: 0x373e,
 } as const;
 
+/** Compx + Lamzu-native Aurora vendor IDs. */
+export const LAMZU_VENDOR_IDS: ReadonlySet<number> = new Set([
+  VENDOR_ID.lamzu,
+  VENDOR_ID.lamzuNative,
+]);
+
+export function isLamzuVendor(vendorId: number): boolean {
+  return LAMZU_VENDOR_IDS.has(vendorId);
+}
+
+/**
+ * Known Lamzu product IDs (matched together with {@link isLamzuVendor}).
+ * Compx Maya uses 0x3554; Maya X uses 0x373e.
+ */
 export const LAMZU_PRODUCTS: ReadonlyMap<number, { name: string; wireless: boolean }> = new Map([
+  // Compx / original Maya
   [0xf50f, { name: "Maya", wireless: false }],
   [0xf510, { name: "Maya", wireless: true }],
   [0xf50d, { name: "Maya 1K receiver", wireless: true }],
-  /** Common Compx 2.4G receiver used with Maya (Aurora feature-report protocol). */
+  /** Generic Compx 2.4G receiver sometimes paired with Maya. */
   [0xfa09, { name: "Maya", wireless: true }],
+  // Lamzu Maya X (VID 0x373e)
+  [0x001c, { name: "Maya X", wireless: false }],
+  [0x001e, { name: "Maya X", wireless: true }],
 ]);
 
 export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
@@ -22,11 +42,14 @@ export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
   [0xf50d, 1000],
   [0xf510, 8000],
   [0xfa09, 8000],
+  [0x001c, 8000],
+  [0x001e, 8000],
 ]);
 
-/** Prefer every Compx/Lamzu interface; ranking picks report-8 over usage 0xff04. */
+/** Prefer every Compx/Lamzu interface; ranking picks control over utility collections. */
 export const LAMZU_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.lamzu },
+  { vendorId: VENDOR_ID.lamzuNative },
 ];
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
