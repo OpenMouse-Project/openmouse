@@ -2,7 +2,7 @@ import type { MouseStatus } from "../mouse-types";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8,0xc547]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const DEVICE_INDEX = 0x01;
