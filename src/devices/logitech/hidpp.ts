@@ -1,5 +1,13 @@
 import type { MouseStatus } from "../mouse-types";
 import { withSoftwareId } from "./protocol";
+import {
+  MODE_STATUS,
+  buildModeStatusWrite,
+  decodeModeStatus,
+  type GamingSurfaceMode,
+  type LightforceSwitchMode,
+  type ModeStatusField,
+} from "./mode-status";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
@@ -7,7 +15,6 @@ const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const DEVICE_INDEX = 0x01;
-
 const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
@@ -16,6 +23,7 @@ const FEATURE = {
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
+  modeStatus: 0x8090,
   // Legacy features used by HERO-era mice (e.g. G502 HERO / LIGHTSPEED,
   // Proteus). Queried only when the extended equivalents are absent.
   adjustableDpi: 0x2201,
@@ -207,6 +215,8 @@ export class LogitechHidppClient {
     const analogButtonTuning = analogButtonsFeature.index
       ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
       : undefined;
+    const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
+    const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
     const wired = this.device.productId === 0xc0a8;
@@ -214,6 +224,11 @@ export class LogitechHidppClient {
     return {
       brand: "Logitech",
       name,
+      ui: {
+        family: "logitech-hidpp",
+        // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
+        lodRequiresSurface: true,
+      },
       batteryPercent: battery.percent,
       batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
@@ -222,6 +237,8 @@ export class LogitechHidppClient {
       supportsSeparateDpiAxes,
       analogButtonTuning,
       liftOffDistance: dpiState.liftOffDistance,
+      gamingSurfaceMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
+      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
       pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
@@ -406,6 +423,49 @@ export class LogitechHidppClient {
     if (!result || result.actuation !== tuning.actuation || result.rapidTrigger !== tuning.rapidTrigger || result.haptics !== tuning.haptics) {
       throw new Error("The mouse did not confirm the hall-effect button settings.");
     }
+  }
+
+  async setGamingSurfaceMode(mode: GamingSurfaceMode): Promise<GamingSurfaceMode> {
+    return this.setModeStatusField(MODE_STATUS.gamingSurface, mode, "gaming surface mode");
+  }
+
+  async setLightforceSwitchMode(mode: LightforceSwitchMode): Promise<LightforceSwitchMode> {
+    return this.setModeStatusField(MODE_STATUS.lightforce, mode, "LightForce switch mode");
+  }
+
+  /**
+   * Read-modify-write of one field of modeStatus1, then verify.
+   * The change mask stops the firmware touching other bits.
+   * Reading first keeps this correct if a future field spans bits we do not know about.
+   */
+  private async setModeStatusField<T extends string>(
+    field: ModeStatusField<T>,
+    mode: T,
+    label: string,
+  ): Promise<T> {
+    const feature = await this.getFeature(FEATURE.modeStatus);
+    if (!feature.index) {
+      throw new Error(`This mouse does not expose ${label} controls.`);
+    }
+
+    const current = await this.readModeStatus(feature.index);
+    if (current === null) {
+      throw new Error(`The mouse did not report its current ${label}.`);
+    }
+    await this.requestLong(feature.index, MODE_STATUS.set, buildModeStatusWrite(current, field, mode));
+
+    const readBack = await this.readModeStatus(feature.index);
+    const confirmed = readBack === null ? null : decodeModeStatus(readBack, field);
+    if (confirmed !== mode) {
+      throw new Error(`The mouse kept ${confirmed ?? "an unknown"} ${label} instead of ${mode}.`);
+    }
+    return confirmed;
+  }
+
+  /** Byte 4 of getModeStatus, carrying both the surface and LightForce fields. */
+  private async readModeStatus(featureIndex: number): Promise<number | null> {
+    const reply = await this.request(featureIndex, MODE_STATUS.get).catch(() => null);
+    return reply ? (reply[4] ?? 0) : null;
   }
 
   private async open(): Promise<void> {

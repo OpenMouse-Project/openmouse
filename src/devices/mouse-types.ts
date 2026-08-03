@@ -10,6 +10,8 @@ export interface MouseUiHints {
   settingsReady?: boolean;
   /** Hide 0.7 mm LOD option. */
   hideLodLow?: boolean;
+  /** Disable LOD controls while gamingSurfaceMode is "Off". */
+  lodRequiresSurface?: boolean;
   /** Hide poll rates not listed in supportedPollingRates. */
   hideUnsupportedPollingRates?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
@@ -77,5 +79,7 @@ export interface MouseStatus {
   liftOffDistance: "Low" | "Medium" | "High" | null;
   /** Explicit LOD choices when a mouse does not support all three common levels. */
   supportedLiftOffDistances?: Array<NonNullable<MouseStatus["liftOffDistance"]>>;
+  gamingSurfaceMode?: "On" | "Off" | "Auto" | null;
+  lightforceSwitchMode?: "Hybrid" | "Optical" | null;
   firmware: string[];
 }
