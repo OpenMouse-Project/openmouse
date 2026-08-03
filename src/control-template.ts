@@ -87,5 +87,21 @@ export function controlTemplate(buildLabel: string): string {
           <button id="reset-interface-settings" class="interface-reset" type="button">Reset interface preferences</button>
         </section>
       </main>
+
+      <div id="pending-changes-bar" class="pending-bar" role="region" aria-label="Unsaved changes" hidden>
+        <div class="pending-bar-inner">
+          <span class="pending-bar-progress" aria-hidden="true"></span>
+          <span class="pending-bar-dot" aria-hidden="true"></span>
+          <div class="pending-bar-copy">
+            <p class="overline">PENDING</p>
+            <strong id="pending-changes-count">1 unsaved change</strong>
+            <small id="pending-changes-summary" role="status" aria-live="polite"></small>
+          </div>
+          <div class="pending-bar-actions">
+            <button id="pending-revert" class="pending-revert" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h11a5.5 5.5 0 0 1 0 11H8" /><path d="M7.5 4 3 8.5 7.5 13" /></svg><span>Revert</span></button>
+            <button id="pending-flash" class="pending-flash" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" /></svg><i class="pending-spinner" aria-hidden="true"></i><span id="pending-flash-label">Flash</span></button>
+          </div>
+        </div>
+      </div>
     </div>`;
 }
