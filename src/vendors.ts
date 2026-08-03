@@ -24,6 +24,13 @@ export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
   [0xfa09, 8000],
 ]);
 
+/** Prefer the vendor control collection over boot-mouse interfaces in the picker. */
+export const LAMZU_HID_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.lamzu, usagePage: 0xff04 },
+  { vendorId: VENDOR_ID.lamzu, usagePage: 0xff02 },
+  { vendorId: VENDOR_ID.lamzu },
+];
+
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
   vendorId: VENDOR_ID.logitech,
   productId: 0xc54d,
@@ -65,7 +72,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
-  { vendorId: VENDOR_ID.lamzu },
+  ...LAMZU_HID_FILTERS,
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
 ];

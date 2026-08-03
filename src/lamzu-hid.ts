@@ -34,24 +34,48 @@ import {
 type LamzuTransport = "classic" | "aurora";
 
 function featureReportByteLength(report: HIDReportInfo): number {
+  if (!report.items?.length) return 0;
   return report.items.reduce((total, item) => total + item.reportSize * item.reportCount, 0) / 8;
 }
 
-function findAuroraFeatureReport(device: HIDDevice): { reportId: number; bytes: number } | null {
-  for (const collection of device.collections) {
-    for (const report of collection.featureReports) {
-      const bytes = featureReportByteLength(report);
-      // Aurora looks for reportCount === 64 on an 8-bit item (64-byte feature report).
-      if (bytes >= 64 || report.items.some((item) => item.reportCount === 64 && item.reportSize === 8)) {
-        return { reportId: report.reportId, bytes: Math.max(bytes, LAMZU_AURORA_FEATURE_BYTES) };
-      }
-    }
+function walkCollections(collections: readonly HIDCollectionInfo[]): HIDCollectionInfo[] {
+  const result: HIDCollectionInfo[] = [];
+  for (const collection of collections) {
+    result.push(collection);
+    if (collection.children?.length) result.push(...walkCollections(collection.children));
   }
-  return null;
+  return result;
+}
+
+/**
+ * Aurora receivers (including Maya PID 0xfa09) expose a vendor feature report.
+ * Chrome sometimes omits item sizes, so any Lamzu feature report is enough to
+ * select the interface — we still prefer report 0x06 / 64-byte payloads.
+ */
+function findAuroraFeatureReport(device: HIDDevice): { reportId: number; bytes: number } | null {
+  const reports: HIDReportInfo[] = [];
+  for (const collection of walkCollections(device.collections)) {
+    reports.push(...collection.featureReports);
+  }
+  if (reports.length === 0) return null;
+
+  const preferred = reports.find((report) => report.reportId === 0x06)
+    ?? reports.find((report) => {
+      const bytes = featureReportByteLength(report);
+      return bytes >= 64 || report.items?.some((item) => item.reportCount === 64);
+    })
+    ?? reports[0];
+
+  if (!preferred) return null;
+  const bytes = featureReportByteLength(preferred);
+  return {
+    reportId: preferred.reportId,
+    bytes: bytes > 0 ? bytes : LAMZU_AURORA_FEATURE_BYTES,
+  };
 }
 
 function hasClassicConfigReports(device: HIDDevice): boolean {
-  return device.collections.some((collection) =>
+  return walkCollections(device.collections).some((collection) =>
     collection.inputReports.some((report) => report.reportId === LAMZU_REPORT_ID)
     && collection.outputReports.some((report) => report.reportId === LAMZU_REPORT_ID));
 }
@@ -59,6 +83,7 @@ function hasClassicConfigReports(device: HIDDevice): boolean {
 export class LamzuHidClient {
   private transport: LamzuTransport | null = null;
   private auroraReportId = 0;
+  private auroraReportBytes = LAMZU_AURORA_FEATURE_BYTES;
   private auroraHidIndex = 0;
   private auroraIsNewProtocol = true;
   private auroraProfile = 0;
@@ -98,9 +123,11 @@ export class LamzuHidClient {
     if (known) return `Lamzu ${known.name}`;
     const product = this.device.productName?.trim();
     if (product) {
+      if (/maya/i.test(product)) return /lamzu/i.test(product) ? product : `Lamzu ${product}`;
+      if (/2\.4g|receiver|dongle/i.test(product)) return "Lamzu Maya";
       return /lamzu/i.test(product) ? product : `Lamzu ${product}`;
     }
-    return "Lamzu Mouse";
+    return "Lamzu Maya";
   }
 
   maxPollingRateHz(): number {
@@ -110,7 +137,9 @@ export class LamzuHidClient {
   connectionType(): "Wired" | "Wireless" {
     const known = LAMZU_PRODUCTS.get(this.device.productId);
     if (known) return known.wireless ? "Wireless" : "Wired";
-    // Unknown Compx receivers are almost always dongles.
+    const product = this.device.productName ?? "";
+    if (/receiver|dongle|2\.4g/i.test(product)) return "Wireless";
+    if (/cable|wired|usb/i.test(product)) return "Wired";
     return "Wireless";
   }
 
@@ -282,6 +311,7 @@ export class LamzuHidClient {
     if (aurora) {
       this.transport = "aurora";
       this.auroraReportId = aurora.reportId;
+      this.auroraReportBytes = Math.max(aurora.bytes, LAMZU_AURORA_FEATURE_BYTES);
       this.auroraIsNewProtocol = true;
     } else if (hasClassicConfigReports(this.device)) {
       this.transport = "classic";
@@ -508,13 +538,8 @@ export class LamzuHidClient {
 
   private async auroraExchange(request: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
     await this.open();
-    const payload = request.length === LAMZU_AURORA_FEATURE_BYTES
-      ? request
-      : (() => {
-        const full = new Uint8Array(LAMZU_AURORA_FEATURE_BYTES);
-        full.set(request.subarray(0, Math.min(request.length, LAMZU_AURORA_FEATURE_BYTES)));
-        return full;
-      })();
+    const payload = new Uint8Array(this.auroraReportBytes);
+    payload.set(request.subarray(0, Math.min(request.length, this.auroraReportBytes)));
 
     let response = new Uint8Array(0);
     let lastError: unknown = null;

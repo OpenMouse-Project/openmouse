@@ -1257,7 +1257,7 @@ function clientSupportScore(device: HIDDevice): number {
   if (eggWeIsSupported(device)) return eggWeSupportScore(device);
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
-  if (LamzuHidClient.isSupported(device)) return 7;
+  if (LamzuHidClient.isSupported(device)) return 9;
   if (LogitechHidppClient.isSupported(device)) return 6;
   if (WLMouseHidClient.isSupported(device)) return 5;
   return 0;
