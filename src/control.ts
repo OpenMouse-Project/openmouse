@@ -1318,9 +1318,7 @@ async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistanc
     setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
   } finally {
     settingInProgress = false;
-    buttons.forEach((button) => {
-      button.disabled = activeClient !== null && button.dataset.lod === "Low";
-    });
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 

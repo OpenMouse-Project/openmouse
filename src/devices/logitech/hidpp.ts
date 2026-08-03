@@ -1,11 +1,16 @@
 import type { MouseStatus } from "../mouse-types";
+import {
+  LOGITECH_DEVICE_PROFILES,
+  LOGITECH_VENDOR_ID,
+  decodeLiftOffDistance,
+  encodeLiftOffDistance,
+  logitechDeviceProfile,
+  type LogitechDeviceProfile,
+} from "./protocol";
 
-const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
-const DEVICE_INDEX = 0x01;
 
 const FEATURE = {
   deviceName: 0x0005,
@@ -69,6 +74,7 @@ interface DeviceIdentity {
 }
 
 export class LogitechHidppClient {
+  private readonly profile: LogitechDeviceProfile;
   private dpiOptionsCache: number[] | null = null;
   private dpiFeatureResolved: ResolvedFeature | null = null;
   private rateFeatureResolved: ResolvedFeature | null = null;
@@ -82,7 +88,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
-    if (report[0] === DEVICE_INDEX && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
+    if (report[0] === this.profile.deviceIndex && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
       const rate = REPORT_RATE_HZ[report[4] ?? -1];
       if (rate) {
         this.livePollingRateHz = rate;
@@ -92,7 +98,7 @@ export class LogitechHidppClient {
       }
     }
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
+      (waiter) => report[0] === this.profile.deviceIndex && report[1] === waiter.featureIndex && report[2] === waiter.functionId,
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
@@ -101,7 +107,7 @@ export class LogitechHidppClient {
 
     // HID++ can emit a status notification between a write acknowledgement and
     // the matching read response. Leave the pending request in place and wait.
-    if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
+    if (report[0] === this.profile.deviceIndex && report[1] === 0xff) {
       const failedIndex = this.waiters.findIndex(
         (waiter) => report[2] === waiter.featureIndex && report[3] === waiter.functionId,
       );
@@ -118,10 +124,14 @@ export class LogitechHidppClient {
     reject: (reason: Error) => void;
   }> = [];
 
-  constructor(readonly device: HIDDevice) {}
+  constructor(readonly device: HIDDevice) {
+    const profile = logitechDeviceProfile(device.vendorId, device.productId);
+    if (!profile) throw new Error("Unsupported Logitech HID++ device.");
+    this.profile = profile;
+  }
 
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId)) {
+    if (!logitechDeviceProfile(device.vendorId, device.productId)) {
       return false;
     }
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
@@ -137,7 +147,7 @@ export class LogitechHidppClient {
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [...LOGITECH_RECEIVER_PRODUCT_IDS].map((productId) => ({
+      filters: [...LOGITECH_DEVICE_PROFILES.keys()].map((productId) => ({
         vendorId: LOGITECH_VENDOR_ID,
         productId,
         usagePage: 0xff00,
@@ -175,6 +185,8 @@ export class LogitechHidppClient {
     // also makes every input report unambiguous to the WebHID event handler.
     const name = await this.readName(nameFeature.index);
     const identity = await this.readIdentity(firmwareFeature.index);
+    const isSuperstrike = this.isSuperstrike(identity);
+    this.isSuperstrikeDevice = isSuperstrike;
     const battery = batteryFeature.index
       ? await this.readBattery(batteryFeature.index)
       : batteryVoltageFeature.index
@@ -204,9 +216,7 @@ export class LogitechHidppClient {
     const analogButtonTuning = analogButtonsFeature.index
       ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
       : undefined;
-    const isSuperstrike = this.isSuperstrike(identity);
-    this.isSuperstrikeDevice = isSuperstrike;
-    const wired = this.device.productId === 0xc0a8;
+    const wired = this.profile.connectionType === "Wired";
 
     return {
       brand: "Logitech",
@@ -219,13 +229,15 @@ export class LogitechHidppClient {
       supportsSeparateDpiAxes,
       analogButtonTuning,
       liftOffDistance: dpiState.liftOffDistance,
+      supportedLiftOffDistances: dpiFeature.legacy
+        ? undefined
+        : isSuperstrike ? ["Low", "High"] : ["Low", "Medium", "High"],
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
       pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
       supportedPollingRates: isSuperstrike && wired
         ? supportedPollingRates.filter((rate) => rate <= 1000)
         : supportedPollingRates,
-      supportedLiftOffDistances: isSuperstrike ? ["Low", "High"] : undefined,
       connectionType: wired ? "Wired" : "Wireless",
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
@@ -261,10 +273,19 @@ export class LogitechHidppClient {
     if (!feature.index) {
       throw new Error("This mouse does not expose report-rate controls.");
     }
-    const confirmation = this.waitForRateChange(pollingRateHz);
+    if (!this.profile.confirmPollingRateByReadback) {
+      const confirmation = this.waitForRateChange(pollingRateHz);
+      await this.request(feature.index, 0x30, rateIndex);
+      await confirmation;
+      return pollingRateHz;
+    }
     await this.request(feature.index, 0x30, rateIndex);
-    await confirmation;
-    return pollingRateHz;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const confirmed = await this.readPollingRate(feature.index);
+      if (confirmed === pollingRateHz) return confirmed;
+      if (attempt < 4) await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+    }
+    throw new Error("The mouse acknowledged the rate write but kept a different active rate.");
   }
 
   async getDpiOptions(): Promise<number[]> {
@@ -345,13 +366,12 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
-    if (liftOffDistance === "Low" && !this.isSuperstrikeDevice) {
-      throw new Error("This mouse does not support a Low lift-off distance.");
-    }
     if (liftOffDistance === "Medium" && this.isSuperstrikeDevice) {
       throw new Error("The Superstrike supports only Low and High lift-off distance.");
     }
-    const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
+    const lod = this.isSuperstrikeDevice
+      ? ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance]
+      : encodeLiftOffDistance(liftOffDistance);
     await this.ensureHostControl();
     const feature = await this.getFeature(FEATURE.extendedDpi);
     if (!feature.index) {
@@ -367,7 +387,9 @@ export class LogitechHidppClient {
       lod,
     ]);
     const confirmed = await this.readDpiConfiguration(feature.index);
-    const result = confirmed.lod === 0 ? "Low" : confirmed.lod === 1 ? "Medium" : confirmed.lod === 2 ? "High" : null;
+    const result = this.isSuperstrikeDevice
+      ? confirmed.lod === 0 ? "Low" : confirmed.lod === 1 ? "Medium" : confirmed.lod === 2 ? "High" : null
+      : decodeLiftOffDistance(confirmed.lod);
     if (result !== liftOffDistance) {
       throw new Error(`The mouse kept ${result ?? "an unknown"} lift-off distance instead of ${liftOffDistance}.`);
     }
@@ -622,7 +644,9 @@ export class LogitechHidppClient {
     const configuration = await this.readDpiConfiguration(featureIndex);
     const dpi = configuration.x;
     const lod = configuration.lod;
-    const liftOffDistance = lod === 0 ? "Low" : lod === 1 ? "Medium" : lod === 2 ? "High" : null;
+    const liftOffDistance = this.isSuperstrikeDevice
+      ? lod === 0 ? "Low" : lod === 1 ? "Medium" : lod === 2 ? "High" : null
+      : decodeLiftOffDistance(lod);
     return { dpi, dpiY: configuration.y, liftOffDistance };
   }
 
@@ -672,12 +696,12 @@ export class LogitechHidppClient {
       throw new Error("This Logitech mouse does not expose extended report-rate controls.");
     }
 
-    const reply = await this.request(featureIndex, 0x20);
+    const reply = await this.request(featureIndex, 0x20, this.profile.reportRateConnectionType);
     const rate = REPORT_RATE_HZ[reply[3] ?? -1];
     if (!rate) {
       throw new Error("The mouse returned an unknown report-rate value.");
     }
-    return this.livePollingRateHz ?? rate;
+    return this.profile.confirmPollingRateByReadback ? rate : this.livePollingRateHz ?? rate;
   }
 
   private waitForRateChange(rate: number): Promise<void> {
@@ -780,7 +804,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array([
-      DEVICE_INDEX,
+      this.profile.deviceIndex,
       featureIndex,
       functionId,
       parameters[0] ?? 0,
@@ -801,7 +825,7 @@ export class LogitechHidppClient {
       throw new Error("HID++ long requests support at most 16 parameter bytes.");
     }
     const report = new Uint8Array(19);
-    report[0] = DEVICE_INDEX;
+    report[0] = this.profile.deviceIndex;
     report[1] = featureIndex;
     report[2] = functionId;
     report.set(parameters, 3);
