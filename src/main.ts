@@ -139,10 +139,10 @@ app.innerHTML = `
       <div class="brand-marquee" aria-label="Gaming mouse brands">
         <div class="brand-track">
           <div class="brand-group">
-            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
+            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Lamzu</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
           </div>
           <div class="brand-group" aria-hidden="true">
-            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
+            <span>Logitech</span><span>Razer</span><span>Pulsar</span><span>Lamzu</span><span>Endgame Gear</span><span>Ninjutso</span><span>and more</span>
           </div>
         </div>
       </div>

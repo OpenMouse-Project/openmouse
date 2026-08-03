@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/egg-we-protocol.test.ts src/egg-op1-protocol.test.ts",
+    "test": "node --test src/egg-we-protocol.test.ts src/egg-op1-protocol.test.ts src/lamzu-protocol.test.ts",
     "preview": "vite preview"
   },
   "devDependencies": {

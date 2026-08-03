@@ -5,7 +5,21 @@ export const VENDOR_ID = {
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
   logitech: 0x046d,
+  /** Compx ODM VID used by Lamzu Maya / Atlantis receivers. */
+  lamzu: 0x3554,
 } as const;
+
+export const LAMZU_PRODUCTS: ReadonlyMap<number, { name: string; wireless: boolean }> = new Map([
+  [0xf50f, { name: "Maya", wireless: false }],
+  [0xf510, { name: "Maya", wireless: true }],
+  [0xf50d, { name: "Maya 1K receiver", wireless: true }],
+]);
+
+export const LAMZU_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
+  [0xf50f, 1000],
+  [0xf50d, 1000],
+  [0xf510, 8000],
+]);
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
   vendorId: VENDOR_ID.logitech,
@@ -48,6 +62,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
+  { vendorId: VENDOR_ID.lamzu },
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
 ];
