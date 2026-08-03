@@ -850,8 +850,8 @@ function showStatus(status: MouseStatus): void {
     ? ui.pollingNote
     : "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", ui?.pollingNote?.includes("Add device")
-      ? "Waiting for the Compx report-8 control interface."
+    setText("#read-status", ui?.pollingNote
+      ? "Settings link not ready — see the note above."
       : (status.batteryPercent === null ? "Connected" : `Battery ${status.batteryPercent}%`));
   } else {
     setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
@@ -878,24 +878,26 @@ function showStatus(status: MouseStatus): void {
     const supportedRates = status.supportedPollingRates;
     const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
     const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
-    const hide = hideListed || settingsPending;
+    // Lamzu: keep controls visible/enabled so a click can re-probe the wireless link.
+    const block = settingsPending && !isLamzu;
+    const hide = hideListed || block;
     button.hidden = hide;
-    button.disabled = hide || settingsPending || eggStatus?.eggGlassMode === true;
+    button.disabled = hide || block || eggStatus?.eggGlassMode === true;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
     button.hidden = hideLow;
-    button.disabled = hideLow || settingsPending
+    button.disabled = hideLow || (settingsPending && !isLamzu)
       || (status.brand === "Logitech" && button.dataset.lod === "Low");
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
-    button.disabled = settingsPending;
+    button.disabled = settingsPending && !isLamzu;
   });
   const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
-  if (customDpi) customDpi.disabled = settingsPending;
-  if (dpiOutputField && settingsPending) {
+  if (customDpi) customDpi.disabled = settingsPending && !isLamzu;
+  if (dpiOutputField && settingsPending && !isLamzu) {
     dpiOutputField.value = "—";
     dpiOutputField.readOnly = true;
   }
