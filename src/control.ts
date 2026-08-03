@@ -142,7 +142,7 @@ function renderControl(): void {
       .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
       .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:4rem }
       .build-identity .demo-wordmark { margin-bottom:0 }
-      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
+      .build-meta { color:var(--muted);font-family:inherit;font-size:.52rem;font-weight:700;letter-spacing:-.15px;line-height:1;text-transform:uppercase;white-space:nowrap }
       .control-shell[data-interface-theme="violet"] { --ui-accent:#a78bfa;--ui-accent-ink:#130b25;--ui-accent-soft:rgb(167 139 250 / 17%) }
       .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
       .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
@@ -213,7 +213,7 @@ function renderControl(): void {
         #egg-cpi-stage-list, #egg-button-list { grid-template-columns:1fr !important }
       }
       .interface-settings-button::before { content:"⚙";font-size:.72rem }
-      .interface-settings-page { position:absolute;z-index:20;inset:0;display:none;padding:1rem 0 2rem;overflow:auto;background:#0b0b0d;scrollbar-width:none }
+      .interface-settings-page { position:absolute;z-index:20;inset:0;display:none;padding:1rem 0 2rem;overflow:auto;background:var(--background);scrollbar-width:none }
       .interface-settings-page::-webkit-scrollbar { display:none }
       .interface-settings-page.is-open { display:block }
       .interface-settings-header { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0 1.2rem;border-bottom:1px solid #29292d }
@@ -226,7 +226,7 @@ function renderControl(): void {
       .interface-setting-card p { margin:0 0 .8rem;color:#85858a;font-size:.68rem;line-height:1.45 }
       .interface-setting-card select { width:100%;padding:.52rem;border:1px solid #39393e;border-radius:7px;background:#18181b;color:#eee;color-scheme:dark }
       .theme-preview { display:flex;gap:.32rem;margin-top:.65rem }
-      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:var(--ui-accent);opacity:.2 }
+      .theme-preview i { width:1.25rem;height:2px;border-radius:0;background:var(--ui-accent);opacity:.2 }
       .theme-preview i:nth-child(2) { opacity:.35 }.theme-preview i:nth-child(3) { opacity:.55 }.theme-preview i:nth-child(4) { opacity:.75 }.theme-preview i:nth-child(5) { opacity:1 }
       .interface-switch-row { display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.7rem;color:#c5c5c9;font-size:.72rem }
       .interface-switch-row input {
@@ -236,7 +236,7 @@ function renderControl(): void {
         flex:0 0 auto;
         margin:0;
         border:1px solid #414147;
-        border-radius:999px;
+        border-radius:var(--radius-sm);
         outline:none;
         background-color:#242428;
         background-image:radial-gradient(circle at .56rem 50%,#a0a0a5 0 .34rem,transparent .36rem);
@@ -249,6 +249,11 @@ function renderControl(): void {
         background-image:radial-gradient(circle at calc(100% - .56rem) 50%,#07120b 0 .34rem,transparent .36rem);
       }
       .interface-switch-row input:focus-visible { box-shadow:0 0 0 3px var(--ui-accent-soft) }
+      .binary-setting-row { display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem }
+      .binary-switch { min-width:42px;padding:.28rem .5rem;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);font-size:.58rem }
+      .binary-switch[aria-checked="true"] { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
+      .binary-switch:disabled { border-color:var(--border);background:var(--surface-deep);color:#66666b }
+      .binary-switch:focus-visible { outline:2px solid var(--ui-accent);outline-offset:2px }
       .interface-reset { margin-top:.75rem;padding:.55rem .75rem;border:1px solid #4a3436;border-radius:7px;background:#1c1315;color:#e7a7aa;font-size:.68rem;font-weight:650 }
       .density-comfortable #pulsar-advanced.egg-advanced-layout { gap:.8rem !important }
       .density-comfortable #pulsar-advanced.egg-advanced-layout > .setting-card { padding:1rem !important }
@@ -269,7 +274,7 @@ function renderControl(): void {
       <aside class="sidebar">
         <div class="build-identity">
           <a class="demo-wordmark" href="/">OpenMouse</a>
-          <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
+          <span class="build-meta" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
         </div>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
@@ -283,7 +288,7 @@ function renderControl(): void {
         <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
       </aside>
 
-      <main class="control-panel" style="position:relative;overflow-y:auto">
+      <main class="control-panel control-scroll-region">
         <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
@@ -299,7 +304,7 @@ function renderControl(): void {
         <section class="device-overview device-data" aria-label="Device status">
           <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
+          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" class="compact-action" type="button" hidden disabled>Receiver LED</button></article>
         </section>
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
@@ -312,16 +317,31 @@ function renderControl(): void {
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
           <article id="debounce-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
-          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" type="button" role="switch" aria-checked="false" hidden style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
-          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
-          <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
-          <article id="egg-sensor-tuning" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PAW3950</p><h2>Sensor tuning</h2></div></div><div id="egg-glass-row" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Glass Mode</span><button id="egg-glass-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="egg-v2-sensor-controls"><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Force max Sensor FPS</span><button id="egg-max-fps-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Disable LED on lift-off</span><button id="egg-led-lift-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Sensor angle tuning<input id="egg-angle-tuning" type="number" min="-127" max="127" step="1" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label></div></article>
+          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" class="binary-switch" type="button" role="switch" aria-checked="false" hidden>Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
+          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem">
+            <div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div>
+            <div class="binary-setting-row"><span>Motion Sync</span><button id="motion-sync-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+            <div class="binary-setting-row"><span>Angle snapping</span><button id="angle-snapping-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+            <div class="binary-setting-row"><span>Ripple control</span><button id="ripple-control-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+            <div id="performance-mode-setting" class="binary-setting-row"><span>Performance mode</span><button id="performance-mode-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+          </article>
+          <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem">
+            <div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div>
+            <div class="binary-setting-row"><span>Slamclick filter</span><button id="slamclick-filter-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+            <div class="binary-setting-row"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+          </article>
+          <article id="egg-sensor-tuning" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PAW3950</p><h2>Sensor tuning</h2></div></div><div id="egg-glass-row" class="binary-setting-row"><span>Glass Mode</span><button id="egg-glass-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div><div id="egg-v2-sensor-controls"><div class="binary-setting-row"><span>Force max Sensor FPS</span><button id="egg-max-fps-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div><div class="binary-setting-row"><span>Disable LED on lift-off</span><button id="egg-led-lift-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Sensor angle tuning<input id="egg-angle-tuning" type="number" min="-127" max="127" step="1" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label></div></article>
           <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
           <article id="egg-device-actions" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>DEVICE</p><h2>Onboard settings</h2></div></div><button id="egg-reload" class="egg-action-button" type="button">Reload from mouse</button><button id="egg-factory-reset" class="egg-action-button" type="button" style="border-color:#6a373a;color:#e7a7aa">Factory reset</button></article>
           <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
           <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
           <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:flex;align-items:center;gap:.4rem;margin:0 0 .65rem;color:#b3b3b7;font-size:.68rem"><input id="egg-left-handed" type="checkbox" /> Left-handed mode</label><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
-          <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
+          <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem">
+            <div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div>
+            <div class="binary-setting-row"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" class="binary-switch" type="button" role="switch" aria-checked="false">Off</button></div>
+            <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label>
+            <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label>
+          </article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
@@ -916,7 +936,7 @@ function renderLogitechDetails(status: MouseStatus): void {
     ["DPI axes", status.supportsSeparateDpiAxes ? `X ${status.dpi} · Y ${status.dpiY ?? status.dpi}` : "Linked X/Y"],
   ];
   list.innerHTML = items.map(([label, value]) =>
-    `<div style="padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416"><small style="display:block;margin-bottom:.25rem;color:#77777c;font-size:.52rem;letter-spacing:.08em">${label.toUpperCase()}</small><span style="color:#d8d8dc;font:600 .67rem 'JetBrains Mono',monospace;overflow-wrap:anywhere">${value}</span></div>`).join("");
+    `<div class="device-detail-item"><small>${label.toUpperCase()}</small><span>${value}</span></div>`).join("");
 }
 
 function setControlValue(selector: string, value: number | string | null | undefined): void {
@@ -932,17 +952,12 @@ function setToggleValue(selector: string, value: boolean | null | undefined): vo
   if (!control) return;
   control.disabled = value === null || value === undefined;
   if (control.disabled) {
+    control.removeAttribute("aria-checked");
     control.textContent = "N/A";
-    control.style.background = "#202023";
-    control.style.borderColor = "#3a3a3f";
-    control.style.color = "#66666b";
     return;
   }
   control.setAttribute("aria-checked", String(value));
   control.textContent = value ? "On" : "Off";
-  control.style.background = value ? "var(--ui-accent)" : "#202023";
-  control.style.borderColor = value ? "var(--ui-accent)" : "#3a3a3f";
-  control.style.color = value ? "var(--ui-accent-ink)" : "#8b8b90";
 }
 
 function formatHex(value: number, width = 2): string {
@@ -1605,14 +1620,14 @@ function renderEggCpiStages(status: EggOp1Status): void {
   container.innerHTML = stages.slice(0, levels).map((stage, index) => {
     const split = stage.x !== stage.y;
     const step = stage.x <= 10_000 ? status.eggCpiStepLow : status.eggCpiStepHigh;
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <label style="display:flex;align-items:center;gap:.35rem;font-size:.7rem"><input data-active-cpi="${index}" name="egg-active-cpi" type="radio" ${status.eggActiveCpiStage === index ? "checked" : ""} /> Stage ${index + 1}${status.eggActiveCpiStage === index ? " - active" : ""}</label>
-      <label style="display:flex;align-items:center;gap:.35rem;margin:.4rem 0;color:#8b8b90;font-size:.62rem"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
-        <label style="color:#77777c;font-size:.58rem">X<input data-cpi-x="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" step="${step}" value="${stage.x}" style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
-        <label style="color:#77777c;font-size:.58rem">Y<input data-cpi-y="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" step="${step}" value="${stage.y}" ${split ? "" : "disabled"} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
+    return `<div class="device-field-card">
+      <label class="check-field"><input data-active-cpi="${index}" name="egg-active-cpi" type="radio" ${status.eggActiveCpiStage === index ? "checked" : ""} /> Stage ${index + 1}${status.eggActiveCpiStage === index ? " - active" : ""}</label>
+      <label class="check-field"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
+      <div class="paired-fields">
+        <label>X<input data-cpi-x="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" step="${step}" value="${stage.x}" /></label>
+        <label>Y<input data-cpi-y="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" step="${step}" value="${stage.y}" ${split ? "" : "disabled"} /></label>
       </div>
-      <button data-apply-cpi="${index}" type="button" style="margin-top:.4rem;padding:.3rem .5rem">Apply stage</button>
+      <button data-apply-cpi="${index}" type="button">Apply stage</button>
     </div>`;
   }).join("");
   container.querySelectorAll<HTMLInputElement>("[data-active-cpi]").forEach((radio) => {
@@ -1657,8 +1672,8 @@ function renderEggButtons(status: EggOp1Status): void {
     const fixedPrimary = (index === 0 && !status.eggLeftHanded) || (index === 1 && status.eggLeftHanded);
     const action = actions[index];
     const unsupported = action.key === "raw" ? `<option value="raw" selected disabled>${escapeHtml(mappings[index])}</option>` : "";
-    const multiclick = filters[index] === null || filters[index] === undefined ? "" : `<label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter
-        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" />
+    const multiclick = filters[index] === null || filters[index] === undefined ? "" : `<label>Multiclick filter
+        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} />
       </label>`;
     const keyboard = action.key === "keyboard"
       ? `<button data-capture-key="${index}" class="egg-action-button" type="button">${escapeHtml(mappings[index])} - change</button>`
@@ -1666,11 +1681,11 @@ function renderEggButtons(status: EggOp1Status): void {
     const fixedCpi = action.key === "fixed-cpi"
       ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-top:.35rem"><input data-fixed-x="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" value="${action.x}" aria-label="Fixed X CPI" /><input data-fixed-y="${index}" type="number" min="${status.eggCpiMin}" max="${status.eggCpiMax}" value="${action.y}" aria-label="Fixed Y CPI" /></div><button data-apply-fixed="${index}" class="egg-action-button" type="button">Apply fixed CPI</button>`
       : "";
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <strong style="font-size:.7rem">${name}</strong>
+    return `<div class="device-field-card">
+      <strong>${name}</strong>
       ${multiclick}
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Mapping
-        <select data-button-mapping="${index}" ${fixedPrimary ? "disabled" : ""} style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${groupedOptions}</select>
+      <label>Mapping
+        <select data-button-mapping="${index}" ${fixedPrimary ? "disabled" : ""}>${unsupported}${groupedOptions}</select>
       </label>
       ${fixedPrimary ? `<small style="display:block;margin-top:.3rem;color:#77777c">Fixed primary click</small>` : ""}
       ${keyboard}${fixedCpi}
