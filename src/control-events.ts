@@ -17,24 +17,26 @@ export interface ControlEventHandlers {
   toggleSidebar(): void;
   resetInterfacePreferences(): void;
   copyDiagnostics(): Promise<void>;
-  chooseCustomDpi(): Promise<void>;
+  chooseCustomDpi(): void;
   finishCustomDpiEditing(): void;
-  applyLogitechAxisDpi(): Promise<void>;
-  applyLogitechAnalogButton(button: 0 | 1): Promise<void>;
-  applyLogitechAnalogButtons(): Promise<void>;
+  applyLogitechAxisDpi(): void;
+  applyLogitechAnalogButton(button: 0 | 1): void;
+  applyLogitechAnalogButtons(): void;
   setSuperstrikeTuningMode(mode: "independent" | "both"): void;
-  toggleDongleLed(): Promise<void>;
-  applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void>;
-  toggleSleep(enabled: boolean): Promise<void>;
-  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void>;
-  applyEggFilter(setting: EggFilterSetting, enabled: boolean): Promise<void>;
-  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Promise<void>;
-  applyEggCpiLevels(levels: number): Promise<void>;
+  toggleDongleLed(): void;
+  applyPulsarValue(setting: "debounce" | "sleep", value: number): void;
+  toggleSleep(enabled: boolean): void;
+  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void;
+  applyEggFilter(setting: EggFilterSetting, enabled: boolean): void;
+  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): void;
+  applyEggCpiLevels(levels: number): void;
   updateCustomPollingPreview(): void;
-  applyEggPollingDivider(divider: number): Promise<void>;
-  applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void>;
-  applyPollingRate(rate: number): Promise<void>;
-  applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void>;
+  applyEggPollingDivider(divider: number): void;
+  applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): void;
+  applyPollingRate(rate: number): void;
+  applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): void;
+  flashPendingChanges(): Promise<void>;
+  revertPendingChanges(): void;
 }
 
 function onClick(selector: string, listener: () => void): void {
@@ -48,6 +50,8 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
     if (button) void handlers.selectAuthorizedDevice(Number(button.dataset.deviceIndex));
   });
+  onClick("#pending-flash", () => void handlers.flashPendingChanges());
+  onClick("#pending-revert", handlers.revertPendingChanges);
   onClick("#interface-settings-button", handlers.openInterfaceSettings);
   onClick("#close-interface-settings", handlers.closeInterfaceSettings);
 
