@@ -291,7 +291,7 @@ function renderControl(): void {
       <main class="control-panel" style="position:relative;overflow-y:auto">
         <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
-          <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
+          <div><p class="overline" id="device-brand">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
         </header>
         <section class="empty-state" aria-labelledby="empty-state-title">
@@ -548,6 +548,15 @@ function populateInterfaceSettings(): void {
 function setText(selector: string, value: string): void {
   const element = document.querySelector<HTMLElement>(selector);
   if (element) element.textContent = value;
+}
+
+/** Panel title is the product name without repeating the brand prefix. */
+function productTitleForStatus(status: MouseStatus): string {
+  const brand = status.brand.trim();
+  const name = status.name.trim();
+  if (!brand) return name || "Connected mouse";
+  const stripped = name.replace(new RegExp(`^${brand}\\s+`, "i"), "").trim();
+  return stripped || name || brand;
 }
 
 function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
@@ -899,7 +908,8 @@ function showStatus(status: MouseStatus): void {
       setControlValue("#profile-select", status.activeProfile);
     }
   }
-  setText("#device-title", status.name);
+  setText("#device-brand", status.brand.toUpperCase());
+  setText("#device-title", productTitleForStatus(status));
   if (activeDevice) {
     deviceStatuses.set(activeDevice, status);
     void renderDeviceSidebar();
@@ -1029,6 +1039,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   const device = client.device;
   setText("#connection-value", "Connected");
   setText("#connection-detail", "Reading Pulsar receiver identity");
+  setText("#device-brand", "PULSAR");
   setText("#device-title", device.productName || "Pulsar Mouse");
   setText("#device-status", "Connected");
   setText("#connection-banner", "Pulsar vendor HID connected. Reading verified settings.");
@@ -1254,6 +1265,7 @@ function showDisconnectedState(): void {
   }
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
+  setText("#device-brand", "DEVICE CONTROL");
   setText("#device-title", "Connect a mouse");
   setText("#device-status", "No device connected");
   setText("#connection-banner", "Connect a supported device to view and change its settings.");
