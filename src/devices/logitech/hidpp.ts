@@ -1,19 +1,30 @@
 import type { LightingCapability, MouseStatus } from "../mouse-types";
 import { LOGITECH_PRODUCT_IDS } from "../vendors";
+import { withSoftwareId } from "./protocol";
+import {
+  MODE_STATUS,
+  buildModeStatusWrite,
+  decodeModeStatus,
+  type GamingSurfaceMode,
+  type LightforceSwitchMode,
+  type ModeStatusField,
+} from "./mode-status";
 
-const LOGITECH_VENDOR_ID = 0x046d;
 // Receivers that expose an HID++ control interface. 0xc54d: Bolt / newer
 // Lightspeed. 0xc539: Lightspeed receiver for G502 LIGHTSPEED and other
 // HERO-era wireless mice.
 LOGITECH_PRODUCT_IDS;
-const SHORT_REPORT_ID = 0x10;
-const LONG_REPORT_ID = 0x11;
 const SW_ID = 0x0a;
 const WIRED_DEVICE_INDEX = 0xff;
 const DEVICE_INDEX_CANDIDATES = [0x01, WIRED_DEVICE_INDEX] as const;
 const REQUEST_TIMEOUT_MS = 6000;
 const PING_TIMEOUT_MS = 300
 
+
+
+const LOGITECH_VENDOR_ID = 0x046d;
+const SHORT_REPORT_ID = 0x10;
+const LONG_REPORT_ID = 0x11;
 const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
@@ -22,6 +33,7 @@ const FEATURE = {
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
   extendedReportRate: 0x8061,
+  modeStatus: 0x8090,
   // Legacy features used by HERO-era mice (e.g. G502 HERO / LIGHTSPEED,
   // Proteus). Queried only when the extended equivalents are absent.
   adjustableDpi: 0x2201,
@@ -134,7 +146,9 @@ export class LogitechHidppClient {
     }
 
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[1] === waiter.featureIndex && report[2] === (waiter.functionId | SW_ID),
+      (waiter) => 
+        report[1] === waiter.featureIndex
+        && report[2] === withSoftwareId(waiter.functionId | SW_ID),
     );
     if (matchingIndex >= 0) {
       this.waiters.splice(matchingIndex, 1)[0].resolve(report);
@@ -145,7 +159,7 @@ export class LogitechHidppClient {
     // feature index and function byte of the failed request at the same offsets.
     if (report[1] === 0xff || report[1] === 0x8f) {
       const failedIndex = this.waiters.findIndex(
-        (waiter) => report[2] === waiter.featureIndex && report[3] === (waiter.functionId | SW_ID),
+        (waiter) => report[2] === waiter.featureIndex && report[3] === withSoftwareId(waiter.functionId | SW_ID),
       );
       if (failedIndex >= 0) {
         const code = report[4] ?? 0;
@@ -251,13 +265,19 @@ export class LogitechHidppClient {
     const analogButtonTuning = analogButtonsFeature.index
       ? await this.readAnalogButtonTuning(analogButtonsFeature.index)
       : undefined;
+    const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
+    const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
 
     return {
       brand: "Logitech",
       name,
-      ui: { hideLodCard: dpiFeature.legacy || dpiState.liftOffDistance === null },
+      ui: {
+        family: "logitech-hidpp",
+        hideLodCard: dpiFeature.legacy || dpiState.liftOffDistance === null,
+        // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
+      },
       batteryPercent: battery.percent,
       batteryVoltageMv: battery.voltageMv ?? null,
       batteryState: battery.state,
@@ -267,6 +287,8 @@ export class LogitechHidppClient {
       lighting,
       analogButtonTuning,
       liftOffDistance: dpiState.liftOffDistance,
+      gamingSurfaceMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
+      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
       pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
@@ -481,6 +503,49 @@ export class LogitechHidppClient {
     if (!result || result.actuation !== tuning.actuation || result.rapidTrigger !== tuning.rapidTrigger || result.haptics !== tuning.haptics) {
       throw new Error("The mouse did not confirm the hall-effect button settings.");
     }
+  }
+
+  async setGamingSurfaceMode(mode: GamingSurfaceMode): Promise<GamingSurfaceMode> {
+    return this.setModeStatusField(MODE_STATUS.gamingSurface, mode, "gaming surface mode");
+  }
+
+  async setLightforceSwitchMode(mode: LightforceSwitchMode): Promise<LightforceSwitchMode> {
+    return this.setModeStatusField(MODE_STATUS.lightforce, mode, "LightForce switch mode");
+  }
+
+  /**
+   * Read-modify-write of one field of modeStatus1, then verify.
+   * The change mask stops the firmware touching other bits.
+   * Reading first keeps this correct if a future field spans bits we do not know about.
+   */
+  private async setModeStatusField<T extends string>(
+    field: ModeStatusField<T>,
+    mode: T,
+    label: string,
+  ): Promise<T> {
+    const feature = await this.getFeature(FEATURE.modeStatus);
+    if (!feature.index) {
+      throw new Error(`This mouse does not expose ${label} controls.`);
+    }
+
+    const current = await this.readModeStatus(feature.index);
+    if (current === null) {
+      throw new Error(`The mouse did not report its current ${label}.`);
+    }
+    await this.requestLong(feature.index, MODE_STATUS.set, buildModeStatusWrite(current, field, mode));
+
+    const readBack = await this.readModeStatus(feature.index);
+    const confirmed = readBack === null ? null : decodeModeStatus(readBack, field);
+    if (confirmed !== mode) {
+      throw new Error(`The mouse kept ${confirmed ?? "an unknown"} ${label} instead of ${mode}.`);
+    }
+    return confirmed;
+  }
+
+  /** Byte 4 of getModeStatus, carrying both the surface and LightForce fields. */
+  private async readModeStatus(featureIndex: number): Promise<number | null> {
+    const reply = await this.request(featureIndex, MODE_STATUS.get).catch(() => null);
+    return reply ? (reply[4] ?? 0) : null;
   }
 
   private async open(): Promise<void> {
@@ -909,7 +974,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array([
       this.deviceIndex,
       featureIndex,
-      functionId | SW_ID,
+      withSoftwareId(functionId | SW_ID),
       parameters[0] ?? 0,
       parameters[1] ?? 0,
       parameters[2] ?? 0,
@@ -929,7 +994,7 @@ export class LogitechHidppClient {
     const report = new Uint8Array(19);
     report[0] = this.deviceIndex;
     report[1] = featureIndex;
-    report[2] = functionId | SW_ID;
+    report[2] = withSoftwareId(functionId | SW_ID);
     report.set(parameters, 3);
     const response = this.waitForResponse(featureIndex, functionId, REQUEST_TIMEOUT_MS);
     void response.catch(() => undefined);

@@ -7,9 +7,9 @@ import {
 import type { MouseStatus } from "../mouse-types";
 
 export interface EggControlActions {
-  applyCpiStage(level: number, x: number, y: number): Promise<void>;
-  applyMulticlick(button: EggButtonIndex, value: number): Promise<void>;
-  applyButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): Promise<void>;
+  applyCpiStage(level: number, x: number, y: number): void;
+  applyMulticlick(button: EggButtonIndex, value: number): void;
+  applyButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): void;
 }
 
 export function renderEggControls(status: MouseStatus, actions: EggControlActions): void {

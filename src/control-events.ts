@@ -17,19 +17,19 @@ export interface ControlEventHandlers {
   toggleSidebar(): void;
   resetInterfacePreferences(): void;
   copyDiagnostics(): Promise<void>;
-  chooseCustomDpi(): Promise<void>;
+  chooseCustomDpi(): void;
   finishCustomDpiEditing(): void;
-  applyLogitechAxisDpi(): Promise<void>;
-  applyLogitechAnalogButton(button: 0 | 1): Promise<void>;
-  applyLogitechAnalogButtons(): Promise<void>;
+  applyLogitechAxisDpi(): void;
+  applyLogitechAnalogButton(button: 0 | 1): void;
+  applyLogitechAnalogButtons(): void;
   setSuperstrikeTuningMode(mode: "independent" | "both"): void;
-  toggleDongleLed(): Promise<void>;
-  applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void>;
-  toggleSleep(enabled: boolean): Promise<void>;
-  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void>;
-  applyEggFilter(setting: EggFilterSetting, enabled: boolean): Promise<void>;
-  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Promise<void>;
-  applyEggCpiLevels(levels: number): Promise<void>;
+  toggleDongleLed(): void;
+  applyPulsarValue(setting: "debounce" | "sleep", value: number): void;
+  toggleSleep(enabled: boolean): void;
+  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void;
+  applyEggFilter(setting: EggFilterSetting, enabled: boolean): void;
+  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): void;
+  applyEggCpiLevels(levels: number): void;
   updateCustomPollingPreview(): void;
   applyEggPollingDivider(divider: number): Promise<void>;
   applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void>;
@@ -37,6 +37,10 @@ export interface ControlEventHandlers {
   applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void>;
   applyLightingBrightness(percent: number): Promise<void>;
   pickLightingColor(clientX: number, clientY: number, commit: boolean): void;
+  flashPendingChanges(): Promise<void>;
+  revertPendingChanges(): void;
+  applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
+  applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
 }
 
 function onClick(selector: string, listener: () => void): void {
@@ -50,6 +54,8 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
     if (button) void handlers.selectAuthorizedDevice(Number(button.dataset.deviceIndex));
   });
+  onClick("#pending-flash", () => void handlers.flashPendingChanges());
+  onClick("#pending-revert", handlers.revertPendingChanges);
   onClick("#interface-settings-button", handlers.openInterfaceSettings);
   onClick("#close-interface-settings", handlers.closeInterfaceSettings);
 
@@ -178,6 +184,18 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
       handlers.pickLightingColor(event.clientX, event.clientY, true);
     });
   }
+  document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.gamingSurface as MouseStatus["gamingSurfaceMode"];
+      if (mode) void handlers.applyGamingSurfaceMode(mode);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.lightforce as MouseStatus["lightforceSwitchMode"];
+      if (mode) void handlers.applyLightforceSwitchMode(mode);
+    });
+  });
   const shell = document.querySelector<HTMLElement>(".control-shell");
   const panel = document.querySelector<HTMLElement>(".control-panel");
   shell?.addEventListener("wheel", (event) => {

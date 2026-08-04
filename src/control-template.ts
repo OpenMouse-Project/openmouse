@@ -94,6 +94,7 @@ export function controlTemplate(buildLabel: string): string {
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
           <article id="lod-settings" class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
           <article id="lighting-settings" class="setting-card" hidden><div class="setting-heading"><div><p>LIGHTING</p><h2>Color</h2></div><output id="lighting-swatch" class="lighting-swatch" aria-label="Selected color"></output></div><div class="lighting-picker"><div id="lighting-wheel" class="lighting-wheel" role="slider" tabindex="0" aria-label="Color wheel" aria-valuetext="Choose a color"><i id="lighting-thumb" class="lighting-thumb" aria-hidden="true"></i></div><input id="lighting-brightness" class="lighting-brightness" type="range" min="0" max="100" value="100" aria-label="Brightness" /></div><small id="lighting-note" class="setting-note">Drag on the wheel, then set brightness.</small></article>
+          <article id="lightforce-card" class="setting-card" hidden><div class="setting-heading"><div><p>SWITCHES</p><h2>LightForce</h2></div></div><div class="segmented"><button data-lightforce="Hybrid" disabled>Hybrid</button><button data-lightforce="Optical" disabled>Optical only</button></div><small class="setting-note">Hybrid saves power by using the mechanical contact and only waking the optical sensor when needed. Optical only is consistent but uses more battery.</small></article>
         </section>
         <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
           <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
@@ -133,5 +134,21 @@ export function controlTemplate(buildLabel: string): string {
           <button id="reset-interface-settings" class="interface-reset" type="button">Reset interface preferences</button>
         </section>
       </main>
+
+      <div id="pending-changes-bar" class="pending-bar" role="region" aria-label="Unsaved changes" hidden>
+        <div class="pending-bar-inner">
+          <span class="pending-bar-progress" aria-hidden="true"></span>
+          <span class="pending-bar-dot" aria-hidden="true"></span>
+          <div class="pending-bar-copy">
+            <p class="overline">PENDING</p>
+            <strong id="pending-changes-count">1 unsaved change</strong>
+            <small id="pending-changes-summary" role="status" aria-live="polite"></small>
+          </div>
+          <div class="pending-bar-actions">
+            <button id="pending-revert" class="pending-revert" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h11a5.5 5.5 0 0 1 0 11H8" /><path d="M7.5 4 3 8.5 7.5 13" /></svg><span>Revert</span></button>
+            <button id="pending-flash" class="pending-flash" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" /></svg><i class="pending-spinner" aria-hidden="true"></i><span id="pending-flash-label">Flash</span></button>
+          </div>
+        </div>
+      </div>
     </div>`;
 }
