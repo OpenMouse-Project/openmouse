@@ -8,12 +8,19 @@ export interface MouseUiHints {
   family?: string;
   /** When false, core settings grid stays hidden. Default true. */
   settingsReady?: boolean;
+  /**
+   * DPI and polling in this status were read from the mouse rather than filled
+   * in, so they are worth reporting even while `settingsReady` hides the grid.
+   */
+  valuesVerified?: boolean;
   /** Hide 0.7 mm LOD option. */
   hideLodLow?: boolean;
   /** Disable LOD controls while gamingSurfaceMode is "Off". */
   lodRequiresSurface?: boolean;
   /** Hide poll rates not listed in supportedPollingRates. */
   hideUnsupportedPollingRates?: boolean;
+  /** Show the polling rate the mouse reports, but refuse to stage a change. */
+  pollingReadOnly?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
   hideProcessingCard?: boolean;
   /** Always show battery column (even wired with null %). */
@@ -25,7 +32,7 @@ export interface MouseUiHints {
 }
 
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "ATK";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "Razer" | "Teevolution" | "ATK";
   name: string;
   /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
   ui?: MouseUiHints;

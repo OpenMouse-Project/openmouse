@@ -1,4 +1,5 @@
 import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control";
+import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -7,15 +8,36 @@ export const VENDOR_ID = {
   lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
+  razer: 0x1532,
+  teevolution: 0x3554,
   atk: 0x373b,
 } as const;
 
-// Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
-// receivers, 0xc539 is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2
-// Superstrike USB interface.
+// Razer does not declare its control channel in the HID descriptor; the
+// interface that answers it is the one whose only collection is Generic
+// Desktop Mouse, so the filter matches on that collection.
+export const RAZER_CONTROL_FILTER: HIDDeviceFilter = {
+  vendorId: VENDOR_ID.razer,
+  usagePage: 0x01,
+  usage: 0x02,
+};
+
+export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
+
+// Logitech HID++ control interfaces addressed through a receiver slot (HID++
+// device index 0x01). 0xc54d and 0xc547 are newer Lightspeed receivers, 0xc539
+// is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
 export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
 
-export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_RECEIVER_PRODUCT_IDS.map(
+// Every Logitech product with an HID++ control interface, receiver-addressed or
+// not. Direct-connect product IDs live in ./logitech/protocol so the driver and
+// these filters cannot disagree about which index a mouse answers on.
+export const LOGITECH_PRODUCT_IDS = [
+  ...LOGITECH_RECEIVER_PRODUCT_IDS,
+  ...LOGITECH_DIRECT_PRODUCT_IDS,
+] as const;
+
+export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_PRODUCT_IDS.map(
   (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
 );
 
@@ -58,6 +80,8 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.wlmouse },
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
+  ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
+  RAZER_CONTROL_FILTER,
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,

@@ -1,5 +1,12 @@
 import type { MouseStatus } from "../mouse-types";
-import { withSoftwareId } from "./protocol";
+import {
+  decodeReportRateBitmap,
+  hidppDeviceIndex,
+  hidppErrorMessage,
+  isDirectConnectProduct,
+  legacyDpiFallback,
+  withSoftwareId,
+} from "./protocol";
 import {
   MODE_STATUS,
   buildModeStatusWrite,
@@ -14,7 +21,6 @@ const LOGITECH_VENDOR_ID = 0x046d;
 const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
-const DEVICE_INDEX = 0x01;
 const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
@@ -91,7 +97,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
-    if (report[0] === DEVICE_INDEX && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
+    if (report[0] === this.deviceIndex && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
       const rate = REPORT_RATE_HZ[report[4] ?? -1];
       if (rate) {
         this.livePollingRateHz = rate;
@@ -101,7 +107,7 @@ export class LogitechHidppClient {
       }
     }
     const matchingIndex = this.waiters.findIndex(
-      (waiter) => report[0] === DEVICE_INDEX
+      (waiter) => report[0] === this.deviceIndex
         && report[1] === waiter.featureIndex
         && report[2] === withSoftwareId(waiter.functionId),
     );
@@ -112,12 +118,12 @@ export class LogitechHidppClient {
 
     // HID++ can emit a status notification between a write acknowledgement and
     // the matching read response. Leave the pending request in place and wait.
-    if (report[0] === DEVICE_INDEX && report[1] === 0xff) {
+    if (report[0] === this.deviceIndex && report[1] === 0xff) {
       const failedIndex = this.waiters.findIndex(
         (waiter) => report[2] === waiter.featureIndex && report[3] === withSoftwareId(waiter.functionId),
       );
       if (failedIndex >= 0) {
-        this.waiters.splice(failedIndex, 1)[0].reject(new Error("The mouse rejected that setting."));
+        this.waiters.splice(failedIndex, 1)[0].reject(new Error(hidppErrorMessage(report[4] ?? 0)));
       }
     }
   };
@@ -131,8 +137,23 @@ export class LogitechHidppClient {
 
   constructor(readonly device: HIDDevice) {}
 
+  /**
+   * True when the vendor interface belongs to the mouse itself (G402) instead
+   * of a receiver. Written as a getter because `useDefineForClassFields` runs
+   * field initializers before the `device` parameter property is assigned.
+   */
+  private get isDirectConnect(): boolean {
+    return isDirectConnectProduct(this.device.productId);
+  }
+
+  /** HID++ device index: the receiver's first slot, or the mouse itself. */
+  private get deviceIndex(): number {
+    return hidppDeviceIndex(this.device.productId);
+  }
+
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID || !LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId)) {
+    if (device.vendorId !== LOGITECH_VENDOR_ID
+      || !(LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId))) {
       return false;
     }
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
@@ -219,7 +240,7 @@ export class LogitechHidppClient {
     const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
-    const wired = this.device.productId === 0xc0a8;
+    const wired = this.device.productId === 0xc0a8 || this.isDirectConnect;
 
     return {
       brand: "Logitech",
@@ -228,6 +249,12 @@ export class LogitechHidppClient {
         family: "logitech-hidpp",
         // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
         lodRequiresSurface: true,
+        // Direct-connect mice report their rate but keep the writable copy in
+        // the onboard profile, so show it without offering to change it.
+        pollingReadOnly: this.isDirectConnect ? true : undefined,
+        pollingNote: this.isDirectConnect
+          ? "This mouse stores its polling rate in the onboard profile, so OpenMouse reads it without changing it."
+          : undefined,
       },
       batteryPercent: battery.percent,
       batteryVoltageMv: battery.voltageMv ?? null,
@@ -245,8 +272,14 @@ export class LogitechHidppClient {
       supportedPollingRates: isSuperstrike && wired
         ? supportedPollingRates.filter((rate) => rate <= 1000)
         : supportedPollingRates,
-      supportedLiftOffDistances: isSuperstrike ? ["Low", "High"] : undefined,
+      // Lift-off distance is only reachable through extended DPI (0x2202). On a
+      // mouse that exposes just legacy 0x2201 there is nothing to drive, so
+      // report an empty set rather than offering buttons that can only fail.
+      supportedLiftOffDistances: dpiFeature.legacy ? [] : isSuperstrike ? ["Low", "High"] : undefined,
       connectionType: wired ? "Wired" : "Wireless",
+      // Without this the shell falls back to its "2.4 GHz receiver" wording,
+      // which is wrong for a mouse plugged straight into USB.
+      connectionDetail: this.isDirectConnect ? "Wired USB" : undefined,
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,
@@ -264,6 +297,12 @@ export class LogitechHidppClient {
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
+    if (this.isDirectConnect) {
+      // 0x8060's setter rejects live writes on this generation (HID++ error
+      // 0x02). The persistent rate lives in the onboard profile, which needs a
+      // CRC-checked sector rewrite that is not implemented here.
+      throw new Error("This mouse stores its polling rate in the onboard profile. Change it in Logitech Gaming Software; OpenMouse can only read it.");
+    }
     if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
       throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
     }
@@ -296,7 +335,14 @@ export class LogitechHidppClient {
       throw new Error("This mouse does not expose DPI controls.");
     }
     if (resolved.legacy) {
-      this.dpiOptionsCache = await this.readLegacyDpiList(resolved.index);
+      const advertised = await this.readLegacyDpiList(resolved.index);
+      // A mouse that answers the DPI list with nothing usable would otherwise
+      // leave the panel with no DPI control at all. The G402's documented
+      // sensor range is a safe stand-in; every value is still verified by the
+      // read-back in setLegacyDpi.
+      this.dpiOptionsCache = advertised.length === 0 && this.isDirectConnect
+        ? legacyDpiFallback()
+        : advertised;
       return this.dpiOptionsCache;
     }
     const feature = { index: resolved.index };
@@ -542,8 +588,14 @@ export class LogitechHidppClient {
 
   private async setLegacyDpi(featureIndex: number, dpi: number): Promise<number> {
     await this.ensureHostControl();
-    // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo].
-    await this.requestLong(featureIndex, 0x30, [0x00, dpi >> 8, dpi & 0xff]);
+    // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo]. Three
+    // bytes fit a short request, which is the form the G402 was verified with;
+    // receiver-attached HERO mice have always been driven with the long form.
+    if (this.isDirectConnect) {
+      await this.request(featureIndex, 0x30, 0x00, dpi >> 8, dpi & 0xff);
+    } else {
+      await this.requestLong(featureIndex, 0x30, [0x00, dpi >> 8, dpi & 0xff]);
+    }
     const confirmed = await this.readLegacyDpi(featureIndex);
     if (confirmed.dpi !== dpi) {
       throw new Error(`The mouse kept ${confirmed.dpi} DPI instead of ${dpi} DPI.`);
@@ -558,12 +610,7 @@ export class LogitechHidppClient {
     if (!featureIndex) return [];
     // getReportRateList: reply data byte 0 is a bitmap where bit i => (i + 1) ms.
     const reply = await this.request(featureIndex, 0x00);
-    const bitflags = reply[3] ?? 0;
-    const rates: number[] = [];
-    for (let bit = 0; bit < 8; bit += 1) {
-      if ((bitflags & (1 << bit)) !== 0) rates.push(Math.round(1000 / (bit + 1)));
-    }
-    return rates.sort((left, right) => left - right);
+    return decodeReportRateBitmap(reply[3] ?? 0);
   }
 
   private async readLegacyReportRate(featureIndex: number): Promise<number> {
@@ -806,6 +853,11 @@ export class LogitechHidppClient {
   }
 
   private async ensureHostControl(): Promise<void> {
+    // Direct-connect mice accept live 0x2201 DPI writes while still in onboard
+    // mode. Switching them to host control is a persistent state change that
+    // would leave the onboard profile bypassed after the tab closes, so leave
+    // the mouse in whichever mode the user's own software left it in.
+    if (this.isDirectConnect) return;
     const profiles = await this.getFeature(FEATURE.onboardProfiles);
     if (!profiles.index) return;
     const mode = await this.request(profiles.index, 0x20);
@@ -843,7 +895,7 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array([
-      DEVICE_INDEX,
+      this.deviceIndex,
       featureIndex,
       withSoftwareId(functionId),
       parameters[0] ?? 0,
@@ -864,7 +916,7 @@ export class LogitechHidppClient {
       throw new Error("HID++ long requests support at most 16 parameter bytes.");
     }
     const report = new Uint8Array(19);
-    report[0] = DEVICE_INDEX;
+    report[0] = this.deviceIndex;
     report[1] = featureIndex;
     report[2] = withSoftwareId(functionId);
     report.set(parameters, 3);
@@ -881,7 +933,9 @@ export class LogitechHidppClient {
         if (index >= 0) {
           this.waiters.splice(index, 1);
         }
-        reject(new Error("The mouse did not answer. Move it or click a button, then try again."));
+        reject(new Error(this.isDirectConnect
+          ? "The mouse did not answer. Close Logitech G HUB or Logitech Gaming Software, then try again."
+          : "The mouse did not answer. Move it or click a button, then try again."));
       }, 6000);
 
       this.waiters.push({

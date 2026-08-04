@@ -11,6 +11,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
+import { closestDpiOption, dpiPresetValues } from "./dpi-presets";
 import { renderEggControls } from "./devices/endgame/egg-controls-view";
 import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import {
@@ -57,6 +58,8 @@ import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
+import { RazerHidClient } from "./devices/razer/hid";
+import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
@@ -77,6 +80,8 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
+let activeRazerClient: RazerHidClient | null = null;
+let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -101,7 +106,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeTeevolutionClient;
 }
 
 function hasActiveClient(): boolean {
@@ -112,6 +117,21 @@ function requireSettingsClient(): SupportedClient {
   const client = activeSettingsClient();
   if (!client) throw new Error("The mouse is no longer connected.");
   return client;
+}
+
+/**
+ * Drivers may confirm one write before another, so each setting is checked on
+ * its own. A driver that hides the settings grid never reaches these, which
+ * makes this a guard rather than a path the interface offers.
+ */
+function requireClientMethod<K extends string>(
+  method: K,
+  setting: string,
+): Extract<SupportedClient, Record<K, unknown>> {
+  const client = requireSettingsClient();
+  if (!(method in client)) throw new Error(`This mouse does not support changing ${setting} yet.`);
+  // `in` does not narrow through a generic key, so the union is filtered here.
+  return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
 /**
@@ -653,7 +673,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || isDmFamily);
+      && (status.brand === "Pulsar" || status.brand === "Teevolution" || isDmFamily);
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
@@ -692,7 +712,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isDmFamily;
+    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || isEgg8k || isDmFamily;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -714,7 +734,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
+  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "Endgame Gear") {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
     fillDebounceOptions(20);
     const strength = status.signalStrength;
@@ -770,9 +790,14 @@ function showStatus(deviceStatus: MouseStatus): void {
   // Same banner copy as other brands — no RE/debug messaging in the chrome.
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", deviceStatus.batteryPercent === null
+    // A driver may read more than it can write yet. Only drivers that read
+    // these values report them; the rest fall back to a placeholder here.
+    const battery = deviceStatus.batteryPercent === null
       ? "Connected"
-      : `Battery ${deviceStatus.batteryPercent}%`);
+      : `Battery ${deviceStatus.batteryPercent}%`;
+    setText("#read-status", ui?.valuesVerified
+      ? [battery, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      : battery);
   } else if (!hasPendingChanges()) {
     setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -790,7 +815,8 @@ function showStatus(deviceStatus: MouseStatus): void {
     const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
     const hide = unsupportedForEgg8k || hideListed || settingsPending;
     button.hidden = hide;
-    button.disabled = hide || settingsPending;
+    // A read-only rate still shows which one is active, it just cannot be staged.
+    button.disabled = hide || settingsPending || ui?.pollingReadOnly === true;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const supportedLods = status.supportedLiftOffDistances;
@@ -825,6 +851,15 @@ function showStatus(deviceStatus: MouseStatus): void {
     button.classList.toggle("selected", button.dataset.gamingSurface === status.gamingSurfaceMode);
     button.disabled = settingsPending || !status.gamingSurfaceMode;
   });
+  // A driver that reports no gaming surface and an explicitly empty lift-off
+  // list has nothing to put in the sensor card, so hide the card itself rather
+  // than leaving an empty heading behind.
+  const sensorCard = document.querySelector<HTMLElement>("#lod-note")?.closest<HTMLElement>(".setting-card");
+  if (sensorCard) {
+    sensorCard.hidden = !status.gamingSurfaceMode
+      && Array.isArray(status.supportedLiftOffDistances)
+      && status.supportedLiftOffDistances.length === 0;
+  }
   const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
   if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
   document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
@@ -991,6 +1026,8 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
+  activeTeevolutionClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1033,6 +1070,21 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof RazerHidClient) {
+    activeRazerClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof TeevolutionHidClient) {
+    activeTeevolutionClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1054,6 +1106,8 @@ function showDisconnectedState(): void {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
+  activeTeevolutionClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1290,7 +1344,7 @@ function configureDpiControl(currentDpi: number): void {
   const presets = document.querySelector<HTMLElement>("#dpi-presets");
   const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (!presets || !custom || dpiOptions.length === 0) return;
-  const common = [400, 800, 1600, 3200, 6400, 8000].filter((dpi) => dpiOptions.includes(dpi));
+  const common = dpiPresetValues(dpiOptions);
   const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
   presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
   presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
@@ -1314,7 +1368,12 @@ function chooseCustomDpi(): void {
   }
   const dpi = Number(input.value.replace(/[^\d]/g, ""));
   if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
-    setText("#read-status", "That DPI value is not supported by this mouse.");
+    // Naming the closest step saves guessing on mice whose grid does not land
+    // on round numbers, where every obvious value looks unsupported.
+    const closest = Number.isInteger(dpi) && dpi > 0 ? closestDpiOption(dpiOptions, dpi) : null;
+    setText("#read-status", closest === null
+      ? "That DPI value is not supported by this mouse."
+      : `This mouse cannot do ${dpi.toLocaleString()} DPI. The closest step it supports is ${closest.toLocaleString()}.`);
     input.focus();
     input.select();
     return;
@@ -1347,7 +1406,7 @@ function applyDpiValue(dpi: number): boolean {
       if (status.dpiY !== undefined) status.dpiY = dpi;
     },
     apply: async () => {
-      await requireSettingsClient().setDpi(dpi);
+      await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
   return true;
@@ -1425,7 +1484,7 @@ function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireSettingsClient().setPollingRate(rate);
+      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
 }
@@ -1441,7 +1500,7 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
       status.liftOffDistance = lod;
     },
     apply: async () => {
-      await requireSettingsClient().setLiftOffDistance(lod);
+      await requireClientMethod("setLiftOffDistance", "the lift-off distance").setLiftOffDistance(lod);
     },
   });
 }
@@ -1498,7 +1557,7 @@ function toggleDongleLed(): void {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
-  if (!(activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient)) return;
+  if (!(activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient)) return;
   stageChange({
     key: setting,
     label: `${settingLabel(setting)} ${enabled ? "on" : "off"}`,
@@ -1508,13 +1567,17 @@ function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void
       status[setting] = enabled;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient;
+      const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
       if (!client) throw new Error("The mouse is no longer connected.");
       if (setting === "motionSync") await client.setMotionSync(enabled);
       if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
       if (setting === "rippleControl") await client.setRippleControl(enabled);
-      if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient) throw new Error("Performance mode is not exposed by this device's protocol.");
-      if (setting === "performanceMode") await (activePulsarClient ?? activeOrbitalClient)!.setPerformanceMode(enabled);
+      if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient && !activeTeevolutionClient) {
+        throw new Error("Performance mode is not exposed by this device's protocol.");
+      }
+      if (setting === "performanceMode") {
+        await (activePulsarClient ?? activeOrbitalClient ?? activeTeevolutionClient)!.setPerformanceMode(enabled);
+      }
     },
   });
 }
@@ -1660,7 +1723,7 @@ function stageEggChange(options: {
 }
 
 function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient)) return;
+  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient)) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -1675,7 +1738,7 @@ function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
       else status.sleepTimeout = asleep ? value : null;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient;
+      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
       if (!client) throw new Error("The mouse is no longer connected.");
       if (setting === "debounce") await client.setDebounceTime(value);
       else await client.setSleepTimeout(value);
@@ -1758,6 +1821,8 @@ window.addEventListener("beforeunload", (event) => {
   void activeEggWeClient?.close();
   void activeDmClient?.close();
   void activeOrbitalClient?.close();
+  void activeRazerClient?.close();
+  void activeTeevolutionClient?.close();
 });
 
 renderControl();
