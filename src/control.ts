@@ -11,6 +11,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
+import { closestDpiOption, dpiPresetValues } from "./dpi-presets";
 import { renderEggControls } from "./devices/endgame/egg-controls-view";
 import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import {
@@ -1299,7 +1300,7 @@ function configureDpiControl(currentDpi: number): void {
   const presets = document.querySelector<HTMLElement>("#dpi-presets");
   const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (!presets || !custom || dpiOptions.length === 0) return;
-  const common = [400, 800, 1600, 3200, 6400, 8000].filter((dpi) => dpiOptions.includes(dpi));
+  const common = dpiPresetValues(dpiOptions);
   const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
   presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
   presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
@@ -1323,7 +1324,12 @@ function chooseCustomDpi(): void {
   }
   const dpi = Number(input.value.replace(/[^\d]/g, ""));
   if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
-    setText("#read-status", "That DPI value is not supported by this mouse.");
+    // Naming the closest step saves guessing on mice whose grid does not land
+    // on round numbers, where every obvious value looks unsupported.
+    const closest = Number.isInteger(dpi) && dpi > 0 ? closestDpiOption(dpiOptions, dpi) : null;
+    setText("#read-status", closest === null
+      ? "That DPI value is not supported by this mouse."
+      : `This mouse cannot do ${dpi.toLocaleString()} DPI. The closest step it supports is ${closest.toLocaleString()}.`);
     input.focus();
     input.select();
     return;

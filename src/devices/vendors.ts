@@ -1,4 +1,5 @@
 import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control";
+import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -9,12 +10,20 @@ export const VENDOR_ID = {
   orbital: 0x1915,
 } as const;
 
-// Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
-// receivers, 0xc539 is HERO-era Lightspeed, 0xc0a8 is the PRO X 2 Superstrike
-// USB interface, and 0xc07e is the wired G402 Hyperion Fury.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547, 0xc07e] as const;
+// Logitech HID++ control interfaces addressed through a receiver slot (HID++
+// device index 0x01). 0xc54d and 0xc547 are newer Lightspeed receivers, 0xc539
+// is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
+export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
 
-export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_RECEIVER_PRODUCT_IDS.map(
+// Every Logitech product with an HID++ control interface, receiver-addressed or
+// not. Direct-connect product IDs live in ./logitech/protocol so the driver and
+// these filters cannot disagree about which index a mouse answers on.
+export const LOGITECH_PRODUCT_IDS = [
+  ...LOGITECH_RECEIVER_PRODUCT_IDS,
+  ...LOGITECH_DIRECT_PRODUCT_IDS,
+] as const;
+
+export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_PRODUCT_IDS.map(
   (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
 );
 

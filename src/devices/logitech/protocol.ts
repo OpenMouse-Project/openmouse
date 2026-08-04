@@ -16,11 +16,16 @@ export const DEVICE_INDEX_DIRECT = 0xff;
  * Logitech mice whose vendor interface is the mouse itself rather than a
  * receiver. They answer HID++ on device index 0xFF and keep their writable
  * settings in an onboard profile. 0xc07e is the wired G402 / G402 Hyperion Fury.
+ *
+ * This module deliberately imports nothing, so both the driver and the WebHID
+ * filters in ../vendors can read it without a cycle.
  */
-export const LOGITECH_DIRECT_PRODUCT_IDS: ReadonlySet<number> = new Set([0xc07e]);
+export const LOGITECH_DIRECT_PRODUCT_IDS = [0xc07e] as const;
+
+const DIRECT_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_DIRECT_PRODUCT_IDS);
 
 export function isDirectConnectProduct(productId: number): boolean {
-  return LOGITECH_DIRECT_PRODUCT_IDS.has(productId);
+  return DIRECT_PRODUCT_ID_SET.has(productId);
 }
 
 export function hidppDeviceIndex(productId: number): number {
@@ -61,10 +66,12 @@ export function decodeReportRateBitmap(bitflags: number): number[] {
 }
 
 /**
- * The G402's documented sensor range, used only when the mouse answers the
- * legacy DPI-list request with nothing usable. Every value is still confirmed
- * by the read-back after a write.
+ * The G402's real sensor grid, used only when the mouse answers the legacy
+ * DPI-list request with nothing usable. Hardware advertises 252 to 4032 in
+ * steps of 84 — not the 240/80 quoted by vendor software, which rounds these
+ * to marketing numbers (2436 is displayed as 2400). Every value is still
+ * confirmed by the read-back after a write.
  */
 export function legacyDpiFallback(): number[] {
-  return Array.from({ length: 48 }, (_, step) => 240 + step * 80);
+  return Array.from({ length: 46 }, (_, step) => 252 + step * 84);
 }

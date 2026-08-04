@@ -62,11 +62,13 @@ test("an unrecognised HID++ error still reports its raw code", () => {
   assert.match(hidppErrorMessage(0x7f), /0x7f/);
 });
 
-test("the legacy DPI fallback covers the G402's documented sensor range", () => {
+test("the legacy DPI fallback matches the grid G402 hardware advertises", () => {
+  // Captured from hardware: getSensorDpiList replied 00 FC | E0 54 | 0F C0,
+  // meaning minimum 252, range step 84, maximum 4032.
   const options = legacyDpiFallback();
-  assert.equal(options[0], 240);
-  assert.equal(options.at(-1), 4000);
-  assert.equal(options.every((dpi, index) => index === 0 || dpi - options[index - 1] === 80), true);
-  // The presets the control panel offers must be reachable from the fallback.
-  for (const preset of [400, 800, 1600, 3200]) assert.equal(options.includes(preset), true);
+  assert.equal(options[0], 252);
+  assert.equal(options.at(-1), 4032);
+  assert.equal(options.every((dpi, index) => index === 0 || dpi - options[index - 1] === 84), true);
+  // The value the mouse reports while vendor software displays "2400".
+  assert.equal(options.includes(2436), true);
 });
