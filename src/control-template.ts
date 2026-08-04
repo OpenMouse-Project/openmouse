@@ -1,3 +1,10 @@
+function superstrikeSteps(id: string, min: number, max: number): string {
+  return `<div class="superstrike-steps" role="group" aria-label="${id.replace("logitech-", "").replaceAll("-", " ")}"><input id="${id}" type="hidden" /><div>${Array.from({ length: max - min + 1 }, (_, index) => {
+    const value = min + index;
+    return `<button type="button" data-superstrike-input="${id}" data-superstrike-value="${value}" aria-pressed="false">${value}</button>`;
+  }).join("")}</div></div>`;
+}
+
 export function controlTemplate(buildLabel: string): string {
   return `
     <div class="control-shell is-empty">
@@ -19,7 +26,7 @@ export function controlTemplate(buildLabel: string): string {
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
+        <div class="preview-banner"><button id="sidebar-menu-toggle" class="sidebar-menu-toggle" type="button" aria-label="Toggle sidebar" aria-pressed="false" title="Toggle sidebar"><i></i><i></i><i></i></button><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
         <header class="panel-header">
           <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
           <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
@@ -39,10 +46,14 @@ export function controlTemplate(buildLabel: string): string {
         <section class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
           <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+          <article class="setting-card"><div class="setting-heading" style="margin-bottom:.35rem"><div><p>SENSOR</p></div></div><div id="gaming-surface-row" hidden style="margin-bottom:.85rem"><div class="setting-heading"><div><h2>Gaming surface</h2></div></div><div class="segmented three"><button data-gaming-surface="On" disabled>On</button><button data-gaming-surface="Off" disabled>Off</button><button data-gaming-surface="Auto" disabled>Auto</button></div><small class="setting-note">Tunes the sensor for gaming mouse pads. Auto lets the mouse decide; turn it off if tracking misbehaves on a non-gaming surface.</small></div><div class="setting-heading"><div><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small id="lod-note" class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
+          <article id="lightforce-card" class="setting-card" hidden><div class="setting-heading"><div><p>SWITCHES</p><h2>LightForce</h2></div></div><div class="segmented"><button data-lightforce="Hybrid" disabled>Hybrid</button><button data-lightforce="Optical" disabled>Optical only</button></div><small class="setting-note">Hybrid saves power by using the mechanical contact and only waking the optical sensor when needed. Optical only is consistent but uses more battery.</small></article>
         </section>
         <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
           <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
+        </section>
+        <section id="logitech-analog-button-settings" class="device-data" aria-label="HITS tuning settings" style="display:none">
+          <article class="setting-card superstrike-tuning-card"><div class="setting-heading superstrike-tuning-heading"><div><h2>HITS Tuning</h2></div></div><div class="superstrike-tabs" role="tablist" aria-label="HITS tuning mode"><button type="button" role="tab" aria-selected="true" data-superstrike-tab="both">Both buttons</button><button type="button" role="tab" aria-selected="false" data-superstrike-tab="independent">Independent</button></div><div class="superstrike-tuning-panels" data-superstrike-mode="both"><div class="superstrike-tuning-grid superstrike-independent-panel"><fieldset class="superstrike-button-card"><legend><span class="superstrike-button-dot"></span>Left button</legend><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-left-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-left-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-left-haptics", 0, 5)}</div><button id="apply-logitech-left-button" class="superstrike-apply-button" type="button">Apply left</button></fieldset><fieldset class="superstrike-button-card"><legend><span class="superstrike-button-dot"></span>Right button</legend><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-right-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-right-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-right-haptics", 0, 5)}</div><button id="apply-logitech-right-button" class="superstrike-apply-button" type="button">Apply right</button></fieldset></div><fieldset class="superstrike-button-card superstrike-both-panel"><legend><span class="superstrike-button-dot"></span>Both primary buttons</legend><p>Apply the same values to the left and right buttons.</p><div class="superstrike-control-row"><label>Actuation Point <small>1 Short Click <span>10 Long Click</span></small></label>${superstrikeSteps("logitech-both-actuation", 1, 10)}</div><div class="superstrike-control-row"><label>Rapid Trigger <small>1 Fast <span>5 Slow</span></small></label>${superstrikeSteps("logitech-both-rapid-trigger", 1, 5)}</div><div class="superstrike-control-row"><label>Click Haptics <small>0 Off <span>5 Maximum feedback</span></small></label>${superstrikeSteps("logitech-both-haptics", 0, 5)}</div><button id="apply-logitech-both-buttons" class="superstrike-apply-button" type="button">Apply to both buttons</button></fieldset></div></article>
         </section>
         <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
           <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
@@ -76,5 +87,21 @@ export function controlTemplate(buildLabel: string): string {
           <button id="reset-interface-settings" class="interface-reset" type="button">Reset interface preferences</button>
         </section>
       </main>
+
+      <div id="pending-changes-bar" class="pending-bar" role="region" aria-label="Unsaved changes" hidden>
+        <div class="pending-bar-inner">
+          <span class="pending-bar-progress" aria-hidden="true"></span>
+          <span class="pending-bar-dot" aria-hidden="true"></span>
+          <div class="pending-bar-copy">
+            <p class="overline">PENDING</p>
+            <strong id="pending-changes-count">1 unsaved change</strong>
+            <small id="pending-changes-summary" role="status" aria-live="polite"></small>
+          </div>
+          <div class="pending-bar-actions">
+            <button id="pending-revert" class="pending-revert" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h11a5.5 5.5 0 0 1 0 11H8" /><path d="M7.5 4 3 8.5 7.5 13" /></svg><span>Revert</span></button>
+            <button id="pending-flash" class="pending-flash" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" /></svg><i class="pending-spinner" aria-hidden="true"></i><span id="pending-flash-label">Flash</span></button>
+          </div>
+        </div>
+      </div>
     </div>`;
 }

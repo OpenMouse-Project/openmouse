@@ -1,5 +1,6 @@
 node_modules/
 dist/
+/preview/
 CHANGELOG.md
 supabase/migrations/
 .DS_Store

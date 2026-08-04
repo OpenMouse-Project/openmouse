@@ -14,23 +14,31 @@ export interface ControlEventHandlers {
   setReducedMotion(enabled: boolean): void;
   setExpandSections(enabled: boolean): void;
   setShowExperimental(enabled: boolean): void;
+  toggleSidebar(): void;
   resetInterfacePreferences(): void;
   copyDiagnostics(): Promise<void>;
-  chooseCustomDpi(): Promise<void>;
+  chooseCustomDpi(): void;
   finishCustomDpiEditing(): void;
-  applyLogitechAxisDpi(): Promise<void>;
-  toggleDongleLed(): Promise<void>;
-  applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void>;
-  toggleSleep(enabled: boolean): Promise<void>;
-  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void>;
-  applyEggFilter(setting: EggFilterSetting, enabled: boolean): Promise<void>;
-  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Promise<void>;
-  applyEggCpiLevels(levels: number): Promise<void>;
+  applyLogitechAxisDpi(): void;
+  applyLogitechAnalogButton(button: 0 | 1): void;
+  applyLogitechAnalogButtons(): void;
+  setSuperstrikeTuningMode(mode: "independent" | "both"): void;
+  toggleDongleLed(): void;
+  applyPulsarValue(setting: "debounce" | "sleep", value: number): void;
+  toggleSleep(enabled: boolean): void;
+  applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void;
+  applyEggFilter(setting: EggFilterSetting, enabled: boolean): void;
+  applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): void;
+  applyEggCpiLevels(levels: number): void;
   updateCustomPollingPreview(): void;
-  applyEggPollingDivider(divider: number): Promise<void>;
-  applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void>;
-  applyPollingRate(rate: number): Promise<void>;
-  applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void>;
+  applyEggPollingDivider(divider: number): void;
+  applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): void;
+  applyPollingRate(rate: number): void;
+  applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): void;
+  applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
+  applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
+  flashPendingChanges(): Promise<void>;
+  revertPendingChanges(): void;
 }
 
 function onClick(selector: string, listener: () => void): void {
@@ -44,6 +52,8 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
     if (button) void handlers.selectAuthorizedDevice(Number(button.dataset.deviceIndex));
   });
+  onClick("#pending-flash", () => void handlers.flashPendingChanges());
+  onClick("#pending-revert", handlers.revertPendingChanges);
   onClick("#interface-settings-button", handlers.openInterfaceSettings);
   onClick("#close-interface-settings", handlers.closeInterfaceSettings);
 
@@ -62,10 +72,27 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   document.querySelector<HTMLInputElement>("#interface-show-experimental")?.addEventListener("change", (event) => {
     handlers.setShowExperimental((event.target as HTMLInputElement).checked);
   });
+  onClick("#sidebar-menu-toggle", handlers.toggleSidebar);
   onClick("#reset-interface-settings", handlers.resetInterfacePreferences);
   onClick("#copy-diagnostics", () => void handlers.copyDiagnostics());
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
+  onClick("#apply-logitech-left-button", () => void handlers.applyLogitechAnalogButton(0));
+  onClick("#apply-logitech-right-button", () => void handlers.applyLogitechAnalogButton(1));
+  onClick("#apply-logitech-both-buttons", () => void handlers.applyLogitechAnalogButtons());
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-tab]").forEach((button) => {
+    button.addEventListener("click", () => handlers.setSuperstrikeTuningMode(button.dataset.superstrikeTab as "independent" | "both"));
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-input]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = document.querySelector<HTMLInputElement>(`#${button.dataset.superstrikeInput}`);
+      if (!input || !button.dataset.superstrikeValue) return;
+      input.value = button.dataset.superstrikeValue;
+      document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+        option.setAttribute("aria-pressed", String(option === button));
+      });
+    });
+  });
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -132,6 +159,18 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     button.addEventListener("click", () => {
       const lod = button.dataset.lod as MouseStatus["liftOffDistance"];
       if (lod) void handlers.applyLiftOffDistance(lod);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.gamingSurface as MouseStatus["gamingSurfaceMode"];
+      if (mode) void handlers.applyGamingSurfaceMode(mode);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.lightforce as MouseStatus["lightforceSwitchMode"];
+      if (mode) void handlers.applyLightforceSwitchMode(mode);
     });
   });
   const shell = document.querySelector<HTMLElement>(".control-shell");
