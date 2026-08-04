@@ -64,7 +64,7 @@ demoApp.innerHTML = `
           <span class="model-caption">SUPERLIGHT 2C</span>
         </div>
         <div class="quick-stats">
-          <article><span>BATTERY</span><strong>82%</strong><div class="meter"><i class="demo-battery-meter"></i></div></article>
+          <article><span>BATTERY</span><strong>82%</strong><div class="meter"><i style="width:82%"></i></div></article>
           <article><span>FIRMWARE</span><strong>1.2.4</strong><small>Up to date</small></article>
           <article><span>CONNECTION</span><strong>Wireless</strong><small>2.4 GHz receiver</small></article>
         </div>

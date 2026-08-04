@@ -16,24 +16,25 @@ function escapeMarkup(value: string): string {
 
 function renderGate(message = ""): void {
   appRoot.innerHTML = `
-    <main class="access-shell">
-      <header class="access-header">
-        <a class="demo-wordmark" href="/" aria-label="Back to OpenMouse">OpenMouse</a>
-        <span class="build-meta">${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}</span>
-      </header>
-      <section class="access-gate" aria-labelledby="access-title">
-        <div class="access-mark" aria-hidden="true">OM</div>
-        <p class="overline">Private control panel</p>
-        <h1 id="access-title">Enter your license.</h1>
-        <p>Use your OpenMouse license code to unlock verified device controls in this browser.</p>
-        <form id="access-form" class="access-form">
-          <label for="license-key">License code</label>
-          <input id="license-key" type="text" autocomplete="off" spellcheck="false" autofocus required />
-          <button type="submit">Unlock control panel</button>
-          <output aria-live="polite">${escapeMarkup(message)}</output>
-        </form>
-      </section>
-      <p class="access-footnote">Your code is used only to validate access to the private control panel.</p>
+    <style>
+      .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:5rem }
+      .build-identity .demo-wordmark { margin-bottom:0 }
+      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid rgb(105 210 141 / 35%);border-radius:999px;background:rgb(105 210 141 / 9%);color:#8be3a9;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
+    </style>
+    <main class="access-gate">
+      <div class="build-identity">
+        <a class="demo-wordmark" href="/">OpenMouse</a>
+        <span class="build-badge">${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}</span>
+      </div>
+      <p class="overline">PRIVATE CONTROL PANEL</p>
+      <h1>Enter your license.</h1>
+      <p>Use your OpenMouse license code to unlock device control.</p>
+      <form id="access-form" class="access-form">
+        <label for="license-key">License code</label>
+        <input id="license-key" type="text" autocomplete="off" spellcheck="false" autofocus required />
+        <button type="submit">Unlock control panel</button>
+        <output aria-live="polite">${escapeMarkup(message)}</output>
+      </form>
     </main>`;
 
   document.querySelector<HTMLFormElement>("#access-form")?.addEventListener("submit", async (event) => {

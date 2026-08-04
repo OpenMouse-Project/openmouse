@@ -1,21 +1,24 @@
 @import "./demo.css";
 
-.access-shell { display: grid; width: min(calc(100% - 2rem), 760px); min-height: 100vh; margin: 0 auto; padding: 1.5rem 0; grid-template-rows: auto 1fr auto; }
-.access-header { display: flex; align-items: center; justify-content: space-between; min-height: 48px; }
-.access-header .demo-wordmark { margin: 0; }
-.build-meta { color: var(--muted); font-family: inherit; font-size: .58rem; font-weight: 600; letter-spacing: -0.15px; line-height: 1; text-transform: uppercase; white-space: nowrap; }
-.access-gate { align-self: center; width: min(100%, 540px); padding: clamp(2rem, 7vw, 4rem); border: 1px solid var(--border); border-radius: var(--radius-lg); background: radial-gradient(circle at 0 0, rgb(255 255 255 / 7%), transparent 38%), var(--surface-deep); box-shadow: 0 30px 80px rgb(0 0 0 / 32%); }
-.access-mark { display: grid; width: 42px; height: 42px; margin-bottom: 3.5rem; place-items: center; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: .68rem; font-weight: 600; }
-.access-gate h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 4.6rem); font-weight: 500; letter-spacing: -0.15px; line-height: .94; }
-.access-gate > p:not(.overline) { max-width: 420px; margin: 1.25rem 0 0; color: var(--muted); line-height: 1.65; }
-.access-form { display: grid; width: 100%; gap: .65rem; margin-top: 2rem; }
-.access-form label { color: var(--muted); font-size: .7rem; }
-.access-form input { min-height: 46px; padding: 0 .9rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); outline: none; background: var(--surface); color: var(--text); }
-.access-form input:focus { border-color: var(--text); box-shadow: 0 0 0 3px rgb(255 255 255 / 7%); }
-.access-form button { min-height: 46px; padding: 0 .9rem; border: 0; border-radius: var(--radius-sm); background: var(--text); color: var(--background); font-weight: 600; }
-.access-form button:disabled { cursor: wait; opacity: .65; }
-.access-form output { min-height: 1.2rem; color: var(--negative); font-size: .7rem; line-height: 1.5; }
-.access-footnote { align-self: end; margin: 1rem 0 0; color: var(--muted); font-size: .64rem; text-align: center; }
+.access-gate {
+  display: flex;
+  min-height: 100vh;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  width: min(100% - 3rem, 520px);
+  margin: 0 auto;
+}
+
+.access-gate .demo-wordmark { margin-bottom: 5rem; }
+.access-gate h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 4.6rem); font-weight: 500; letter-spacing: -.04em; line-height: .92; }
+.access-gate > p:not(.overline) { max-width: 420px; color: #96969b; line-height: 1.6; }
+.access-form { display: grid; width: min(100%, 360px); gap: .6rem; margin-top: 1.4rem; }
+.access-form label { color: #96969b; font-size: .72rem; }
+.access-form input { padding: .8rem .9rem; border: 1px solid #36363a; border-radius: 8px; outline: none; background: #161618; color: #f7f7f7; }
+.access-form input:focus { border-color: #f7f7f7; }
+.access-form button { padding: .8rem .9rem; border: 0; border-radius: 8px; background: #f7f7f7; color: #09090b; font-weight: 600; }
+.access-form output { min-height: 1.2rem; color: #ee8c85; font-size: .72rem; }
 .control-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
 .device-select { cursor: default; }
 .setting-card button:disabled { cursor: default; opacity: 1; }
@@ -89,97 +92,4 @@
   .control-shell .sidebar { position: static; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid #29292d; }
   .control-shell .sidebar-footer { display: none; }
   .control-shell .control-panel { width: min(100% - 2rem, 1180px); }
-}
-
-/* Neutral precision control surface */
-.control-shell { background: var(--background); color: var(--text); }
-.control-shell .sidebar { border-color: var(--border); background: var(--surface-deep); }
-.control-shell .device-select,
-.control-shell .preview-banner,
-.control-shell .setting-card,
-.control-shell .panel-footer,
-.control-shell .egg-collapsible,
-.control-shell .egg-experimental,
-.control-shell .interface-setting-card { border-color: var(--border); background: var(--surface-deep); }
-.control-shell .device-overview { border-color: var(--border); border-radius: var(--radius-lg); background: var(--surface-deep); }
-.control-shell .summary-stat,
-.control-shell .quick-stats,
-.control-shell .toggle-row,
-.control-shell .interface-settings-header,
-.control-shell .egg-collapsible-body,
-.control-shell .egg-experimental-body { border-color: var(--border) !important; }
-.control-shell .setting-card,
-.control-shell .egg-collapsible,
-.control-shell .egg-experimental,
-.control-shell .interface-setting-card { border-radius: var(--radius-md) !important; }
-.control-shell .preview-banner,
-.control-shell .panel-footer,
-.control-shell .sidebar-action,
-.control-shell .empty-connect-action,
-.control-shell .setting-action button,
-.control-shell .dpi-header-actions button,
-.control-shell .dpi-header-actions input,
-.control-shell .segmented button,
-.control-shell .egg-action-button,
-.control-shell [data-apply-cpi],
-.control-shell .interface-settings-back,
-.control-shell .interface-reset,
-.control-shell input:not([type="checkbox"]):not([type="range"]),
-.control-shell select { border-radius: var(--radius-sm) !important; }
-.control-shell .sidebar-action,
-.control-shell .dpi-header-actions button,
-.control-shell .dpi-header-actions input,
-.control-shell .segmented button,
-.control-shell .egg-action-button,
-.control-shell [data-apply-cpi],
-.control-shell .interface-settings-back,
-.control-shell input:not([type="checkbox"]):not([type="range"]),
-.control-shell select { border-color: var(--border-strong) !important; background: var(--surface) !important; color: var(--text) !important; }
-.control-shell .sidebar-action:hover,
-.control-shell .segmented button:hover,
-.control-shell .egg-action-button:hover,
-.control-shell [data-apply-cpi]:hover { background: var(--surface-hover) !important; }
-.control-shell .segmented button.selected,
-.control-shell .setting-action button:not(:disabled),
-.control-shell .dpi-header-actions button:not(:disabled) { border-color: var(--ui-accent) !important; background: var(--ui-accent) !important; color: var(--ui-accent-ink) !important; }
-.control-shell .device-label,
-.control-shell .overline,
-.control-shell .summary-stat > span,
-.control-shell .setting-heading p,
-.control-shell .setting-note,
-.control-shell .range-labels,
-.control-shell .sidebar-footer,
-.control-shell .panel-footer,
-.control-shell .interface-setting-card > span,
-.control-shell .interface-setting-card p { color: var(--muted); font-family: inherit; letter-spacing: -0.15px; }
-.control-shell .panel-header h1,
-.control-shell .empty-state h2,
-.control-shell .interface-settings-header h2 { letter-spacing: -0.15px; }
-.control-shell .interface-settings-page { background: var(--background); }
-.control-shell.is-empty .empty-state { border-color: var(--border); border-radius: var(--radius-lg); background: radial-gradient(circle at 76% 48%, var(--ui-accent-soft), transparent 23%), linear-gradient(135deg, var(--surface), var(--surface-deep) 68%); }
-.control-shell .device-dot.is-idle,
-.control-shell .status-dot.is-idle { background: var(--muted); }
-.control-shell .panel-footer #read-status,
-.control-shell .device-status,
-.control-shell .empty-state > p:not(.overline),
-.control-shell .empty-state small { color: var(--muted); }
-.control-scroll-region { position: relative; overflow-y: auto; }
-.compact-action { align-self: flex-start; min-height: 28px; margin-top: .45rem; padding: 0 .55rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: .61rem; font-weight: 600; }
-.device-detail-item,
-.device-field-card { min-width: 0; padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
-.device-detail-item small { display: block; margin-bottom: .25rem; color: var(--muted); font-size: .52rem; }
-.device-detail-item span { color: var(--text); font-size: .67rem; font-weight: 600; overflow-wrap: anywhere; }
-.device-field-card > strong { font-size: .7rem; }
-.device-field-card label { display: block; margin-top: .4rem; color: var(--muted); font-size: .58rem; }
-.device-field-card input:not([type="checkbox"]),
-.device-field-card select { width: 100%; min-height: 34px; box-sizing: border-box; margin-top: .18rem; padding: 0 .45rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-deep); color: var(--text); }
-.device-field-card .check-field { display: flex; align-items: center; gap: .35rem; font-size: .62rem; }
-.paired-fields { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
-.device-field-card [data-apply-cpi] { min-height: 30px; margin-top: .45rem; padding: 0 .55rem; }
-
-@media (max-width: 560px) {
-  .access-shell { padding-top: 1rem; }
-  .access-header { align-items: flex-start; gap: .75rem; }
-  .access-gate { padding: 1.5rem; }
-  .access-mark { margin-bottom: 2.5rem; }
 }

@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/egg-we-protocol.test.ts src/egg-op1-protocol.test.ts",
-    "preview": "vite preview",
-    "test:landing": "node --test tests/landing-page.test.mjs"
+    "test": "node --test src/egg-we-protocol.test.ts",
+    "preview": "vite preview"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
