@@ -56,6 +56,7 @@ import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
+import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
@@ -76,6 +77,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
+let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -100,7 +102,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
 }
 
 function hasActiveClient(): boolean {
@@ -652,7 +654,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || isDmFamily);
+      && (status.brand === "Pulsar" || status.brand === "Teevolution" || isDmFamily);
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
@@ -691,7 +693,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isDmFamily;
+    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || isEgg8k || isDmFamily;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -713,7 +715,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
+  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "Endgame Gear") {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
     fillDebounceOptions(20);
     const strength = status.signalStrength;
@@ -990,6 +992,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeTeevolutionClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1032,6 +1035,14 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof TeevolutionHidClient) {
+    activeTeevolutionClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1053,6 +1064,7 @@ function showDisconnectedState(): void {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeTeevolutionClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1497,7 +1509,7 @@ function toggleDongleLed(): void {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
-  if (!(activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient)) return;
+  if (!(activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient)) return;
   stageChange({
     key: setting,
     label: `${settingLabel(setting)} ${enabled ? "on" : "off"}`,
@@ -1507,13 +1519,17 @@ function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void
       status[setting] = enabled;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient;
+      const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
       if (!client) throw new Error("The mouse is no longer connected.");
       if (setting === "motionSync") await client.setMotionSync(enabled);
       if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
       if (setting === "rippleControl") await client.setRippleControl(enabled);
-      if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient) throw new Error("Performance mode is not exposed by this device's protocol.");
-      if (setting === "performanceMode") await (activePulsarClient ?? activeOrbitalClient)!.setPerformanceMode(enabled);
+      if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient && !activeTeevolutionClient) {
+        throw new Error("Performance mode is not exposed by this device's protocol.");
+      }
+      if (setting === "performanceMode") {
+        await (activePulsarClient ?? activeOrbitalClient ?? activeTeevolutionClient)!.setPerformanceMode(enabled);
+      }
     },
   });
 }
@@ -1659,7 +1675,7 @@ function stageEggChange(options: {
 }
 
 function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient)) return;
+  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient)) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -1674,7 +1690,7 @@ function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
       else status.sleepTimeout = asleep ? value : null;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient;
+      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
       if (!client) throw new Error("The mouse is no longer connected.");
       if (setting === "debounce") await client.setDebounceTime(value);
       else await client.setSleepTimeout(value);
@@ -1757,6 +1773,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeEggWeClient?.close();
   void activeDmClient?.close();
   void activeOrbitalClient?.close();
+  void activeTeevolutionClient?.close();
 });
 
 renderControl();

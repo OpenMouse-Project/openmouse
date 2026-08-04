@@ -5,10 +5,11 @@ import { LogitechHidppClient } from "./logitech/hidpp";
 import { OrbitalHidClient } from "./orbital/hid";
 import { PulsarHidClient } from "./pulsar/pulsar-hid";
 import { PulsarProHidClient } from "./pulsar/pulsar-pro-hid";
+import { TeevolutionHidClient } from "./teevolution/hid";
 import { WLMouseHidClient } from "./wlmouse/hid";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient;
+export type SupportedClient = LogitechHidppClient | PulsarClient | TeevolutionHidClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient;
 
 interface DeviceDriver {
   brand: string;
@@ -22,6 +23,7 @@ const DEVICE_DRIVERS: readonly DeviceDriver[] = [
   { brand: "Endgame Gear", supports: eggWeIsSupported, create: eggWeCreate, score: eggWeSupportScore },
   { brand: "Pulsar", supports: (device) => PulsarProHidClient.isSupported(device), create: (device) => new PulsarProHidClient(device), score: () => 8 },
   { brand: "Pulsar", supports: (device) => PulsarHidClient.isSupported(device), create: (device) => new PulsarHidClient(device), score: () => 7 },
+  { brand: "Teevolution", supports: (device) => TeevolutionHidClient.isSupported(device), create: (device) => new TeevolutionHidClient(device), score: () => 7 },
   { brand: "Logitech", supports: (device) => LogitechHidppClient.isSupported(device), create: (device) => new LogitechHidppClient(device), score: () => 6 },
   { brand: "WLMouse", supports: (device) => WLMouseHidClient.isSupported(device), create: (device) => new WLMouseHidClient(device), score: () => 5 },
   { brand: "Lamzu", supports: (device) => LamzuHidClient.isSupported(device), create: (device) => new LamzuHidClient(device), score: () => 5 },

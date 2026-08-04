@@ -24,8 +24,8 @@ The control panel is organized by responsibility: `control.ts` coordinates the
 application, while the template, events, DOM helpers, persisted preferences,
 battery history, and device-client selection live in focused modules under
 `src/`. Vendor drivers are grouped under `src/devices/`: `endgame/`,
-`logitech/`, `pulsar/`, and `wlmouse/`; shared device types and HID filters
-remain directly under `src/devices/`.
+`logitech/`, `pulsar/`, `wlmouse/`, `lamzu/`, `orbital/`, and `teevolution/`;
+shared device types and HID filters remain directly under `src/devices/`.
 
 ## Adding a vendor
 
