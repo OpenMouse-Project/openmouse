@@ -7,7 +7,10 @@ export const VENDOR_ID = {
   lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
+  teevolution: 0x3554,
 } as const;
+
+export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
 // Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
 // receivers, 0xc539 is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2
@@ -57,6 +60,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.wlmouse },
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
+  ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
