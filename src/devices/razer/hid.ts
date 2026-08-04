@@ -103,6 +103,7 @@ export class RazerHidClient {
         family: "razer",
         // Reads are verified; no write command has been confirmed yet.
         settingsReady: false,
+        valuesVerified: true,
         forceShowBattery: true,
         defaultDisplayName: this.profile()?.model,
       },
