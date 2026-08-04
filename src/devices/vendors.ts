@@ -7,7 +7,17 @@ export const VENDOR_ID = {
   lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
+  razer: 0x1532,
 } as const;
+
+// Razer does not declare its control channel in the HID descriptor; the
+// interface that answers it is the one whose only collection is Generic
+// Desktop Mouse, so the filter matches on that collection.
+export const RAZER_CONTROL_FILTER: HIDDeviceFilter = {
+  vendorId: VENDOR_ID.razer,
+  usagePage: 0x01,
+  usage: 0x02,
+};
 
 // Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
 // receivers, 0xc539 is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2
@@ -57,6 +67,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.wlmouse },
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
+  RAZER_CONTROL_FILTER,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];

@@ -56,6 +56,7 @@ import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
+import { RazerHidClient } from "./devices/razer/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
@@ -76,6 +77,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
+let activeRazerClient: RazerHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -100,7 +102,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient;
 }
 
 function hasActiveClient(): boolean {
@@ -110,6 +112,19 @@ function hasActiveClient(): boolean {
 function requireSettingsClient(): SupportedClient {
   const client = activeSettingsClient();
   if (!client) throw new Error("The mouse is no longer connected.");
+  return client;
+}
+
+/** Drivers that expose the shared write surface; read-only drivers are excluded. */
+type WritableClient = Extract<SupportedClient, { setDpi: unknown }>;
+
+/**
+ * Read-only drivers hide the settings grid through `settingsReady`, so this is
+ * a guard rather than a path the interface offers.
+ */
+function requireWritableClient(): WritableClient {
+  const client = requireSettingsClient();
+  if (!("setDpi" in client)) throw new Error("This mouse is supported for reading only.");
   return client;
 }
 
@@ -990,6 +1005,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1032,6 +1048,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof RazerHidClient) {
+    activeRazerClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1053,6 +1076,7 @@ function showDisconnectedState(): void {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1346,7 +1370,7 @@ function applyDpiValue(dpi: number): boolean {
       if (status.dpiY !== undefined) status.dpiY = dpi;
     },
     apply: async () => {
-      await requireSettingsClient().setDpi(dpi);
+      await requireWritableClient().setDpi(dpi);
     },
   });
   return true;
@@ -1424,7 +1448,7 @@ function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireSettingsClient().setPollingRate(rate);
+      await requireWritableClient().setPollingRate(rate);
     },
   });
 }
@@ -1440,7 +1464,7 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
       status.liftOffDistance = lod;
     },
     apply: async () => {
-      await requireSettingsClient().setLiftOffDistance(lod);
+      await requireWritableClient().setLiftOffDistance(lod);
     },
   });
 }
@@ -1757,6 +1781,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeEggWeClient?.close();
   void activeDmClient?.close();
   void activeOrbitalClient?.close();
+  void activeRazerClient?.close();
 });
 
 renderControl();
