@@ -73,6 +73,33 @@ and a 500 Hz write measured 499 Hz through `pointerrawupdate`.
 The cable is limited to 1000 Hz on this model, which is also the ceiling the
 legacy encoding can express, so no HyperPolling command is missing there.
 
+## Confirmed but not exposed
+
+| Setting | Read | Write | Encoding |
+| --- | --- | --- | --- |
+| Idle sleep | `0x07` / `0x83` | `0x07` / `0x03` | seconds, big-endian; 60–900 |
+| Low battery | `0x07` / `0x81` | `0x07` / `0x01` | level out of 255, so 77 is 30% |
+
+Both round-trip on hardware and agree with the vendor software. Neither is wired
+to the interface: the sleep and debounce controls are filled per brand rather
+than per capability, so exposing them means changing how the shell picks those
+controls rather than adding a driver method.
+
+Note the low-battery threshold shares the battery level's 0–255 scale. Reading
+it as a percentage gives the wrong number.
+
+## Lift-off distance
+
+Not found. Class `0x0b` answers at `0x80`, `0x85`, `0x8b`, `0x8e`, `0x90`–`0x92`,
+`0x94`, `0x95` and `0xa4`, and class `0x04` holds only DPI commands, but none
+carries the values the vendor software shows. `0x0b`/`0x85` tracks the
+asymmetric cut-off toggle in its third byte: `01` symmetric, `02` asymmetric.
+
+The vendor software exposes lift-off as a continuous slider, and asymmetric mode
+splits it into separate lift-off and landing values where landing cannot exceed
+lift-off. That does not fit the three-value `liftOffDistance` field, so this
+needs a richer type before it can be exposed even once the command is found.
+
 ## Unresolved
 
 - No lift-off distance command has been found, so no lift-off control is
