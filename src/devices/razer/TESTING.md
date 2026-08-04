@@ -21,6 +21,10 @@ a second interface carries a mouse collection alongside others. Both are named
 the first choice may be the interface that never answers. It is then skipped in
 the device list; add the device again and choose the other entry.
 
+The cable and the receiver are separate devices with separate product IDs, so
+each needs its own browser permission. Granting one does not grant the other,
+and switching between them the first time means adding the device again.
+
 This driver is read-only. It sends no write command, and the settings grid stays
 hidden through `settingsReady`.
 
