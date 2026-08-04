@@ -10,9 +10,9 @@ export const VENDOR_ID = {
 } as const;
 
 // Logitech HID++ control interfaces. 0xc54d and 0xc547 are newer Lightspeed
-// receivers, 0xc539 is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2
-// Superstrike USB interface.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
+// receivers, 0xc539 is HERO-era Lightspeed, 0xc0a8 is the PRO X 2 Superstrike
+// USB interface, and 0xc07e is the wired G402 Hyperion Fury.
+export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547, 0xc07e] as const;
 
 export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_RECEIVER_PRODUCT_IDS.map(
   (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),

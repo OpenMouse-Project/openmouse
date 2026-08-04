@@ -789,7 +789,8 @@ function showStatus(deviceStatus: MouseStatus): void {
     const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
     const hide = unsupportedForEgg8k || hideListed || settingsPending;
     button.hidden = hide;
-    button.disabled = hide || settingsPending;
+    // A read-only rate still shows which one is active, it just cannot be staged.
+    button.disabled = hide || settingsPending || ui?.pollingReadOnly === true;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const supportedLods = status.supportedLiftOffDistances;
@@ -824,6 +825,15 @@ function showStatus(deviceStatus: MouseStatus): void {
     button.classList.toggle("selected", button.dataset.gamingSurface === status.gamingSurfaceMode);
     button.disabled = settingsPending || !status.gamingSurfaceMode;
   });
+  // A driver that reports no gaming surface and an explicitly empty lift-off
+  // list has nothing to put in the sensor card, so hide the card itself rather
+  // than leaving an empty heading behind.
+  const sensorCard = document.querySelector<HTMLElement>("#lod-note")?.closest<HTMLElement>(".setting-card");
+  if (sensorCard) {
+    sensorCard.hidden = !status.gamingSurfaceMode
+      && Array.isArray(status.supportedLiftOffDistances)
+      && status.supportedLiftOffDistances.length === 0;
+  }
   const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
   if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
   document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {

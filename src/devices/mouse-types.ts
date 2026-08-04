@@ -14,6 +14,8 @@ export interface MouseUiHints {
   lodRequiresSurface?: boolean;
   /** Hide poll rates not listed in supportedPollingRates. */
   hideUnsupportedPollingRates?: boolean;
+  /** Show the polling rate the mouse reports, but refuse to stage a change. */
+  pollingReadOnly?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
   hideProcessingCard?: boolean;
   /** Always show battery column (even wired with null %). */
