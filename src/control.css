@@ -98,11 +98,16 @@
   .control-shell .quick-stats span, .control-shell .setting-heading p { margin-bottom: .3rem; }
   .control-shell .device-overview .meter { margin-top: .4rem; }
   /* Rows grow past 176px when a card needs it, so the picker cannot spill out. */
-  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; grid-auto-rows: minmax(176px, auto); gap: .65rem; margin-top: .65rem; }
+  .control-shell .settings-grid { flex: 0 0 auto; grid-template-columns: 1.2fr .9fr .9fr; gap: .65rem; margin-top: .65rem; }
   /* Column count follows how many cards are actually visible: 2 cards and 4 cards
      both want two columns, 3 cards wants three. Four wraps into a 2x2. */
-  .control-shell .settings-grid:has(#lod-settings[hidden]):has(#lighting-settings[hidden]) { grid-template-columns: 1.2fr .9fr; }
-  .control-shell .settings-grid:has(#lod-settings:not([hidden])):has(#lighting-settings:not([hidden])) { grid-template-columns: 1.2fr .9fr; }
+  /* Driven by data-cards so any combination of hideable cards balances: two and
+     four both want two columns, three wants three, five fills as 2 + 3. */
+  .control-shell .settings-grid[data-cards="3"] .dpi-card { grid-row: span 1; }
+  .control-shell .settings-grid[data-cards="2"],
+  .control-shell .settings-grid[data-cards="4"] { grid-template-columns: .9fr .9fr; }
+  .control-shell .settings-grid[data-cards="5"] { grid-template-columns: repeat(3, 1fr); }
+  .control-shell .settings-grid[data-cards="5"] .dpi-card { grid-column: span 2; }
   .control-shell .setting-card { min-height: 176px; padding: .85rem; }
   .control-shell .dpi-card { grid-row: auto; }
   .control-shell .setting-heading { margin-bottom: .75rem; }
@@ -124,6 +129,9 @@
 
 @media (max-width: 899px) {
   .control-shell { display: block; }
+  .control-shell .settings-grid[data-cards="2"],
+  .control-shell .settings-grid[data-cards="4"] { grid-template-columns: .9fr .9fr; }
+  .control-shell .settings-grid[data-cards="3"] { grid-template-columns: .9fr .9fr .9fr; }
   .control-shell .sidebar { position: static; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid #29292d; }
   .control-shell .sidebar-footer { display: none; }
   .control-shell .control-panel { width: min(100% - 2rem, 1180px); }

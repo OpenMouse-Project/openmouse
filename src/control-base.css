@@ -58,12 +58,10 @@ nav { display: grid; gap: .3rem; margin-top: 2.5rem; }
 
 .settings-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 1rem; margin-top: 1rem; scroll-margin-top: 1.5rem; }
 .setting-card { padding: 1.5rem; border: 1px solid #2b2b2f; border-radius: 12px; background: #111113; }
-.dpi-card { grid-row: span 2; }
-.settings-grid:has(#lod-settings[hidden]) .dpi-card { grid-row: auto; }
-
+/* Two columns here, so the DPI card only earns a second row at exactly three
+   cards — the one count where it would otherwise leave a hole beside it. */
+.dpi-card { grid-row: auto; }
 /* Four visible cards wrap to a 2x2 instead of a 3 + 1 orphan. */
-.settings-grid:has(#lod-settings:not([hidden])):has(#lighting-settings:not([hidden])) { grid-template-columns: 1.15fr .85fr; }
-.settings-grid:has(#lighting-settings:not([hidden])) .dpi-card { grid-row: auto; }
 .lighting-swatch { min-width: 5.2rem; padding: .3rem .5rem; border: 1px solid #2b2b2f; border-radius: 6px; color: #0b0b0c; font-family: "JetBrains Mono", monospace; font-size: .6rem; text-align: center; }
 .lighting-picker { display: flex; align-items: center; justify-content: space-between; gap: .9rem; margin-top: .2rem; }
 .lighting-wheel { position: relative; width: 104px; height: 104px; flex: 0 0 auto; border-radius: 50%; background: radial-gradient(circle closest-side, #fff, transparent), conic-gradient(red, magenta, blue, cyan, lime, yellow, red); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); cursor: crosshair; touch-action: none; }

@@ -870,6 +870,13 @@ function showStatus(deviceStatus: MouseStatus): void {
     lightingCard.hidden = !status.lighting;
     if (status.lighting?.color) setLightingColor(status.lighting.color);
   }
+  // Column count follows how many cards survived the gating above. Enumerating
+  // :has() combinations stopped scaling at three independently hideable cards.
+  const settingsCards = document.querySelector<HTMLElement>(".settings-grid.device-data");
+  if (settingsCards) {
+    settingsCards.dataset.cards = String([...settingsCards.querySelectorAll<HTMLElement>(":scope > .setting-card")]
+      .filter((card) => !card.hidden).length);
+  }
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
     button.disabled = settingsPending;
