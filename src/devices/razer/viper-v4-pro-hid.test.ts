@@ -1,0 +1,19 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { buildRazerReport, decodeDpiState, razerCrc } from "./viper-v4-pro-hid.ts";
+
+test("Viper V4 Pro Razer reports use the captured 90-byte framing and XOR CRC", () => {
+  const report = buildRazerReport(0x00, 0x40, new Uint8Array([1, 0x08]));
+  assert.equal(report.length, 90);
+  assert.deepEqual([...report.slice(0, 7)], [0, 0x1f, 0, 0, 2, 0, 0x40]);
+  assert.deepEqual([...report.slice(7, 9)], [1, 0x08]);
+  assert.equal(report[88], razerCrc(report));
+});
+
+test("Viper V4 Pro DPI stage responses preserve independent X/Y axes", () => {
+  const args = new Uint8Array([1, 2, 2, 1, 0x06, 0x40, 0x06, 0x40, 0, 0, 2, 0x30, 0x39, 0xc3, 0x50, 0, 0]);
+  assert.deepEqual(decodeDpiState(args), {
+    activeStage: 1,
+    stages: [{ x: 1600, y: 1600 }, { x: 12345, y: 50000 }],
+  });
+});

@@ -59,6 +59,7 @@ import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
 import { RazerHidClient } from "./devices/razer/hid";
+import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { VgnF2HidClient } from "./devices/vgn/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
@@ -84,6 +85,7 @@ let activeOrbitalClient: OrbitalHidClient | null = null;
 let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
+let activeViperClient: RazerViperV4ProHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -108,7 +110,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeTeevolutionClient ?? activeVgnClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
 }
 
 function hasActiveClient(): boolean {
@@ -640,6 +642,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
   const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || activeDmClient !== null;
+  const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -736,7 +739,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear") {
+  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear" || isViper) {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
     fillDebounceOptions(20);
     const strength = status.signalStrength;
@@ -1031,6 +1034,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeRazerClient = null;
   activeTeevolutionClient = null;
   activeVgnClient = null;
+  activeViperClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1080,6 +1084,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof RazerViperV4ProHidClient) {
+    activeViperClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else if (client instanceof TeevolutionHidClient) {
     activeTeevolutionClient = client;
     await client.open();
@@ -1120,6 +1131,7 @@ function showDisconnectedState(): void {
   activeRazerClient = null;
   activeTeevolutionClient = null;
   activeVgnClient = null;
+  activeViperClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1735,7 +1747,7 @@ function stageEggChange(options: {
 }
 
 function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
+  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -1750,7 +1762,7 @@ function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
       else status.sleepTimeout = asleep ? value : null;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient ?? activeVgnClient;
+      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
       if (!client) throw new Error("The mouse is no longer connected.");
       if (setting === "debounce") await client.setDebounceTime(value);
       else await client.setSleepTimeout(value);
@@ -1836,6 +1848,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeRazerClient?.close();
   void activeTeevolutionClient?.close();
   void activeVgnClient?.close();
+  void activeViperClient?.close();
 });
 
 renderControl();

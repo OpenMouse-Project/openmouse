@@ -7,12 +7,13 @@ import { OrbitalHidClient } from "./orbital/hid";
 import { PulsarHidClient } from "./pulsar/pulsar-hid";
 import { PulsarProHidClient } from "./pulsar/pulsar-pro-hid";
 import { RazerHidClient } from "./razer/hid";
+import { RazerViperV4ProHidClient } from "./razer/viper-v4-pro-hid";
 import { TeevolutionHidClient } from "./teevolution/hid";
 import { VgnF2HidClient } from "./vgn/hid";
 import { WLMouseHidClient } from "./wlmouse/hid";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
+export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
 
 interface DeviceDriver {
   brand: string;
@@ -34,6 +35,7 @@ const DEVICE_DRIVERS: readonly DeviceDriver[] = [
   { brand: "Orbital", supports: (device) => OrbitalHidClient.isSupported(device), create: (device) => new OrbitalHidClient(device), score: () => 6 },
   { brand: "Razer", supports: (device) => RazerHidClient.isSupported(device), create: (device) => new RazerHidClient(device), score: () => 6 },
   { brand: "ATK", supports: (device) => AtkHidClient.isSupported(device), create: (device) => new AtkHidClient(device), score: () => 5 },
+  { brand: "Razer", supports: (device) => RazerViperV4ProHidClient.isSupported(device), create: (device) => new RazerViperV4ProHidClient(device), score: () => 7 },
 ];
 
 function driverFor(device: HIDDevice): DeviceDriver | undefined {
