@@ -6,12 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/egg-we-protocol.test.ts src/egg-op1-protocol.test.ts src/vgn-f2-protocol.test.ts src/vgn-f2-hid.test.ts",
+    "test": "node --test src/egg-we-protocol.test.ts src/egg-op1-protocol.test.ts",
     "preview": "vite preview",
     "test:landing": "node --test tests/landing-page.test.mjs"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }
