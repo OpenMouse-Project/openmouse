@@ -16,7 +16,6 @@ export interface DevicePanelData {
 
 /** Device art lives in public/devices, named after the model exactly ("G502 SE.png"). */
 export function deviceImageSrc(name: string): string {
-  console.log(name)
   return `/devices/${encodeURIComponent(name)}.png`;
 }
 
