@@ -23,7 +23,7 @@ export interface MouseUiHints {
 }
 
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "VGN";
   name: string;
   /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
   ui?: MouseUiHints;
