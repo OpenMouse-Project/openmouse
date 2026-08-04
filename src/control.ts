@@ -784,9 +784,13 @@ function showStatus(deviceStatus: MouseStatus): void {
   // Same banner copy as other brands — no RE/debug messaging in the chrome.
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", deviceStatus.batteryPercent === null
-      ? "Connected"
-      : `Battery ${deviceStatus.batteryPercent}%`);
+    // A driver may read more than it can write yet, so report the values even
+    // though the grid that would edit them stays hidden.
+    setText("#read-status", [
+      deviceStatus.batteryPercent === null ? "Connected" : `Battery ${deviceStatus.batteryPercent}%`,
+      `${deviceStatus.dpi.toLocaleString()} DPI`,
+      `${deviceStatus.pollingRateHz.toLocaleString()} Hz`,
+    ].join(" · "));
   } else if (!hasPendingChanges()) {
     setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
   }
