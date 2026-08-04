@@ -6,6 +6,7 @@ import {
   RAZER_READ,
   RAZER_STATUS,
   RAZER_TRANSACTION_ID,
+  RAZER_WRITE,
   RazerProtocolError,
   decodeBatteryPercent,
   decodeCharging,
@@ -18,6 +19,7 @@ import {
   decodeSerial,
   encodeRazerRequest,
   razerChecksum,
+  razerSetDpiCommand,
 } from "./protocol.ts";
 
 /**
@@ -144,6 +146,28 @@ test("legacy polling decodes as a divisor of 1000", () => {
   const args = decodeRazerResponse(reply("02 1f 00 00 00 01 00 85 01"), RAZER_READ.pollingRate);
 
   assert.equal(decodeLegacyPollingRate(args), 1000);
+});
+
+test("a DPI write carries both axes big-endian after the storage byte", () => {
+  const packet = encodeRazerRequest(razerSetDpiCommand(1600, 800));
+
+  assert.equal(packet[5], 0x07);
+  assert.equal(packet[6], 0x04);
+  assert.equal(packet[7], 0x05);
+  assert.deepEqual([...packet.slice(8, 15)], [0x01, 0x06, 0x40, 0x03, 0x20, 0x00, 0x00]);
+  assert.equal(packet[88], razerChecksum(packet));
+});
+
+test("a DPI write clears the high bit of the matching read", () => {
+  assert.equal(RAZER_WRITE.dpi.commandClass, RAZER_READ.dpi.commandClass);
+  assert.equal(RAZER_WRITE.dpi.commandId, RAZER_READ.dpi.commandId & 0x7f);
+});
+
+test("a DPI write reads back through the same storage", () => {
+  const written = encodeRazerRequest(razerSetDpiCommand(1600, 1600));
+  const read = encodeRazerRequest(RAZER_READ.dpi);
+
+  assert.equal(written[8], read[8]);
 });
 
 test("extended polling decodes as a divisor of 8000", () => {

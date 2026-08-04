@@ -14,6 +14,7 @@ import {
   decodeRazerResponse,
   decodeSerial,
   encodeRazerRequest,
+  razerSetDpiCommand,
   type RazerCommand,
 } from "./protocol";
 
@@ -119,6 +120,21 @@ export class RazerHidClient {
       liftOffDistance: null,
       firmware: [`Mouse ${decodeFirmwareVersion(firmware)}`],
     };
+  }
+
+  async setDpi(dpi: number, dpiY: number = dpi): Promise<number> {
+    const ceiling = this.maxDpi();
+    for (const value of [dpi, dpiY]) {
+      if (!Number.isInteger(value) || value < DPI_STEP || value > ceiling || value % DPI_STEP !== 0) {
+        throw new Error(`${value.toLocaleString()} is not a supported DPI value.`);
+      }
+    }
+    await this.request(razerSetDpiCommand(dpi, dpiY));
+    const confirmed = decodeDpi(await this.request(RAZER_READ.dpi));
+    if (confirmed.x !== dpi || confirmed.y !== dpiY) {
+      throw new Error(`The mouse kept ${confirmed.x.toLocaleString()} DPI instead of ${dpi.toLocaleString()}.`);
+    }
+    return confirmed.x;
   }
 
   /**

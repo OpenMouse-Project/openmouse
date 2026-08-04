@@ -115,17 +115,19 @@ function requireSettingsClient(): SupportedClient {
   return client;
 }
 
-/** Drivers that expose the shared write surface; read-only drivers are excluded. */
-type WritableClient = Extract<SupportedClient, { setDpi: unknown }>;
-
 /**
- * Read-only drivers hide the settings grid through `settingsReady`, so this is
- * a guard rather than a path the interface offers.
+ * Drivers may confirm one write before another, so each setting is checked on
+ * its own. A driver that hides the settings grid never reaches these, which
+ * makes this a guard rather than a path the interface offers.
  */
-function requireWritableClient(): WritableClient {
+function requireClientMethod<K extends string>(
+  method: K,
+  setting: string,
+): Extract<SupportedClient, Record<K, unknown>> {
   const client = requireSettingsClient();
-  if (!("setDpi" in client)) throw new Error("This mouse is supported for reading only.");
-  return client;
+  if (!(method in client)) throw new Error(`This mouse does not support changing ${setting} yet.`);
+  // `in` does not narrow through a generic key, so the union is filtered here.
+  return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
 /**
@@ -1375,7 +1377,7 @@ function applyDpiValue(dpi: number): boolean {
       if (status.dpiY !== undefined) status.dpiY = dpi;
     },
     apply: async () => {
-      await requireWritableClient().setDpi(dpi);
+      await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
   return true;
@@ -1453,7 +1455,7 @@ function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireWritableClient().setPollingRate(rate);
+      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
 }
@@ -1469,7 +1471,7 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
       status.liftOffDistance = lod;
     },
     apply: async () => {
-      await requireWritableClient().setLiftOffDistance(lod);
+      await requireClientMethod("setLiftOffDistance", "the lift-off distance").setLiftOffDistance(lod);
     },
   });
 }

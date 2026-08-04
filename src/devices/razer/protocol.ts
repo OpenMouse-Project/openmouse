@@ -36,17 +36,43 @@ export interface RazerCommand {
   args?: readonly number[];
 }
 
+/**
+ * Razer selects a value store per command. Firmware 1.12 reports the same DPI
+ * from either store, and writes were confirmed against this one, so reads and
+ * writes both use it rather than risking a stale read from the other.
+ */
+const RAZER_STORAGE = 0x01;
+
 /** Read-only commands confirmed against Viper V3 Pro firmware 1.12. */
 export const RAZER_READ = {
   firmware: { commandClass: 0x00, commandId: 0x81, dataSize: 0x02 },
   serial: { commandClass: 0x00, commandId: 0x82, dataSize: 0x16 },
   battery: { commandClass: 0x07, commandId: 0x80, dataSize: 0x02 },
   charging: { commandClass: 0x07, commandId: 0x84, dataSize: 0x02 },
-  dpi: { commandClass: 0x04, commandId: 0x85, dataSize: 0x07, args: [0x00] },
+  dpi: { commandClass: 0x04, commandId: 0x85, dataSize: 0x07, args: [RAZER_STORAGE] },
   dpiStages: { commandClass: 0x04, commandId: 0x86, dataSize: 0x26, args: [0x00] },
   pollingRate: { commandClass: 0x00, commandId: 0x85, dataSize: 0x01 },
   pollingRateExtended: { commandClass: 0x00, commandId: 0xc0, dataSize: 0x02, args: [0x00] },
 } as const satisfies Record<string, RazerCommand>;
+
+/**
+ * Write commands confirmed against Viper V3 Pro firmware 1.12.
+ *
+ * Razer pairs each read with a write that clears the high bit of the command
+ * id. Only commands verified on hardware belong here — in particular the DPI
+ * stage table (`0x04`/`0x06`) is absent on purpose, because a wrong length
+ * there is the one realistic way to corrupt stored settings.
+ */
+export const RAZER_WRITE = {
+  dpi: { commandClass: 0x04, commandId: 0x05, dataSize: 0x07 },
+} as const satisfies Record<string, Omit<RazerCommand, "args">>;
+
+export function razerSetDpiCommand(x: number, y: number): RazerCommand {
+  return {
+    ...RAZER_WRITE.dpi,
+    args: [RAZER_STORAGE, (x >> 8) & 0xff, x & 0xff, (y >> 8) & 0xff, y & 0xff, 0x00, 0x00],
+  };
+}
 
 export class RazerProtocolError extends Error {
   readonly status: number | null;
