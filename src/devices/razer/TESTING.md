@@ -78,7 +78,9 @@ legacy encoding can express, so no HyperPolling command is missing there.
 - No lift-off distance command has been found, so no lift-off control is
   offered and `supportedLiftOffDistances` stays empty.
 - No sensor processing commands (motion sync, angle snapping, ripple control)
-  have been found, so that card stays hidden.
+  have been found, so that card stays hidden. The vendor software does not
+  expose them for this model either, so they are more likely absent from the
+  mouse than missing from this driver.
 - The 35000 DPI ceiling comes from the published sensor specification, not from
   the mouse; the stages read only proves the 400–6400 ladder. A write past the
   real ceiling fails its read-back and reports a mismatch rather than silently
