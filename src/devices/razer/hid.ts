@@ -36,7 +36,9 @@ const PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map([
   [0x00c1, { model: "Viper V3 Pro", wireless: true, pollingRates: RATES_RECEIVER }],
 ]);
 
-const DPI_STEP = 50;
+// The sensor takes any whole DPI in this range, per axis, and the vendor
+// software exposes the same bounds.
+const DPI_MIN = 100;
 const DPI_MAX = 35000;
 const RESPONSE_DELAY_MS = 100;
 const RESPONSE_ATTEMPTS = 6;
@@ -93,9 +95,10 @@ export class RazerHidClient {
     return [...(this.profile()?.pollingRates ?? RATES_WIRED)];
   }
 
+  /** Every whole value, because the control validates entries against this list. */
   getDpiOptions(): number[] {
     const options: number[] = [];
-    for (let dpi = DPI_STEP; dpi <= this.maxDpi(); dpi += DPI_STEP) options.push(dpi);
+    for (let dpi = DPI_MIN; dpi <= this.maxDpi(); dpi += 1) options.push(dpi);
     return options;
   }
 
@@ -127,6 +130,7 @@ export class RazerHidClient {
       batteryState: charging ? "Charging" : "Discharging",
       dpi: dpi.x,
       dpiY: dpi.y,
+      supportsSeparateDpiAxes: true,
       pollingRateHz,
       supportedPollingRates: this.getSupportedPollingRates(),
       activeProfile: null,
@@ -142,8 +146,8 @@ export class RazerHidClient {
   async setDpi(dpi: number, dpiY: number = dpi): Promise<number> {
     const ceiling = this.maxDpi();
     for (const value of [dpi, dpiY]) {
-      if (!Number.isInteger(value) || value < DPI_STEP || value > ceiling || value % DPI_STEP !== 0) {
-        throw new Error(`${value.toLocaleString()} is not a supported DPI value.`);
+      if (!Number.isInteger(value) || value < DPI_MIN || value > ceiling) {
+        throw new Error(`DPI must be a whole number between ${DPI_MIN} and ${ceiling.toLocaleString()}.`);
       }
     }
     await this.request(razerSetDpiCommand(dpi, dpiY));
