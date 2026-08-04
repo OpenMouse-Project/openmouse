@@ -80,12 +80,8 @@ export function controlTemplate(buildLabel: string): string {
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
-        ${devicePanel(PLACEHOLDER_DEVICE)}
         <div class="preview-banner"><button id="sidebar-menu-toggle" class="sidebar-menu-toggle" type="button" aria-label="Toggle sidebar" aria-pressed="false" title="Toggle sidebar"><i></i><i></i><i></i></button><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
-        <header class="panel-header">
-          <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
-          <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
-        </header>
+      ${devicePanel(PLACEHOLDER_DEVICE)}
         <section class="empty-state" aria-labelledby="empty-state-title">
           <p class="overline">READY WHEN YOU ARE</p>
           <h2 id="empty-state-title">Connect a supported mouse.</h2>
