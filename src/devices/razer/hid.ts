@@ -120,12 +120,18 @@ export class RazerHidClient {
     };
   }
 
-  /** Wireless answers only the extended command, wired only the legacy one. */
+  /**
+   * Wired answers only the legacy command and the receiver only the extended
+   * one, so ask for the expected one first and keep the other as a fallback.
+   * Asking in the wrong order costs a failed exchange on every refresh.
+   */
   private async readPollingRateHz(): Promise<number> {
-    const extended = await this.request(RAZER_READ.pollingRateExtended).catch(() => null);
-    if (extended) return decodeExtendedPollingRate(extended);
-    const legacy = await this.request(RAZER_READ.pollingRate).catch(() => null);
-    if (legacy) return decodeLegacyPollingRate(legacy);
+    const extended = [RAZER_READ.pollingRateExtended, decodeExtendedPollingRate] as const;
+    const legacy = [RAZER_READ.pollingRate, decodeLegacyPollingRate] as const;
+    for (const [command, decode] of this.isWireless() ? [extended, legacy] : [legacy, extended]) {
+      const reply = await this.request(command).catch(() => null);
+      if (reply) return decode(reply);
+    }
     throw new Error("The mouse did not report a polling rate.");
   }
 

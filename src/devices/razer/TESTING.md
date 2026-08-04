@@ -52,3 +52,7 @@ Transaction ID `0x1f` answered every command on both connections.
   advertising a range that has not been confirmed.
 - No write command has been verified. DPI, polling rate, and lift-off distance
   writes are out of scope until each is confirmed against hardware.
+- The 35000 DPI ceiling comes from the published sensor specification, not from
+  the mouse. The stages read only proves the 400–6400 ladder. Nothing consumes
+  the ceiling while the settings grid is hidden, but confirm it before the first
+  write lands.
