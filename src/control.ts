@@ -56,6 +56,7 @@ import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
+import { RazerHidClient } from "./devices/razer/hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
@@ -77,6 +78,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
+let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
@@ -102,7 +104,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeTeevolutionClient;
 }
 
 function hasActiveClient(): boolean {
@@ -113,6 +115,21 @@ function requireSettingsClient(): SupportedClient {
   const client = activeSettingsClient();
   if (!client) throw new Error("The mouse is no longer connected.");
   return client;
+}
+
+/**
+ * Drivers may confirm one write before another, so each setting is checked on
+ * its own. A driver that hides the settings grid never reaches these, which
+ * makes this a guard rather than a path the interface offers.
+ */
+function requireClientMethod<K extends string>(
+  method: K,
+  setting: string,
+): Extract<SupportedClient, Record<K, unknown>> {
+  const client = requireSettingsClient();
+  if (!(method in client)) throw new Error(`This mouse does not support changing ${setting} yet.`);
+  // `in` does not narrow through a generic key, so the union is filtered here.
+  return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
 /**
@@ -771,9 +788,14 @@ function showStatus(deviceStatus: MouseStatus): void {
   // Same banner copy as other brands — no RE/debug messaging in the chrome.
   setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", deviceStatus.batteryPercent === null
+    // A driver may read more than it can write yet. Only drivers that read
+    // these values report them; the rest fall back to a placeholder here.
+    const battery = deviceStatus.batteryPercent === null
       ? "Connected"
-      : `Battery ${deviceStatus.batteryPercent}%`);
+      : `Battery ${deviceStatus.batteryPercent}%`;
+    setText("#read-status", ui?.valuesVerified
+      ? [battery, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      : battery);
   } else if (!hasPendingChanges()) {
     setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
   }
@@ -992,6 +1014,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
   activeTeevolutionClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
@@ -1035,6 +1058,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof RazerHidClient) {
+    activeRazerClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else if (client instanceof TeevolutionHidClient) {
     activeTeevolutionClient = client;
     await client.open();
@@ -1064,6 +1094,7 @@ function showDisconnectedState(): void {
   activeEggWeClient = null;
   activeDmClient = null;
   activeOrbitalClient = null;
+  activeRazerClient = null;
   activeTeevolutionClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
@@ -1358,7 +1389,7 @@ function applyDpiValue(dpi: number): boolean {
       if (status.dpiY !== undefined) status.dpiY = dpi;
     },
     apply: async () => {
-      await requireSettingsClient().setDpi(dpi);
+      await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
   return true;
@@ -1436,7 +1467,7 @@ function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireSettingsClient().setPollingRate(rate);
+      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
 }
@@ -1452,7 +1483,7 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
       status.liftOffDistance = lod;
     },
     apply: async () => {
-      await requireSettingsClient().setLiftOffDistance(lod);
+      await requireClientMethod("setLiftOffDistance", "the lift-off distance").setLiftOffDistance(lod);
     },
   });
 }
@@ -1773,6 +1804,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeEggWeClient?.close();
   void activeDmClient?.close();
   void activeOrbitalClient?.close();
+  void activeRazerClient?.close();
   void activeTeevolutionClient?.close();
 });
 

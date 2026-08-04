@@ -8,6 +8,11 @@ export interface MouseUiHints {
   family?: string;
   /** When false, core settings grid stays hidden. Default true. */
   settingsReady?: boolean;
+  /**
+   * DPI and polling in this status were read from the mouse rather than filled
+   * in, so they are worth reporting even while `settingsReady` hides the grid.
+   */
+  valuesVerified?: boolean;
   /** Hide 0.7 mm LOD option. */
   hideLodLow?: boolean;
   /** Disable LOD controls while gamingSurfaceMode is "Off". */
@@ -25,7 +30,7 @@ export interface MouseUiHints {
 }
 
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "Teevolution";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "Razer" | "Teevolution";
   name: string;
   /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
   ui?: MouseUiHints;

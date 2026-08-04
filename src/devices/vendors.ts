@@ -7,8 +7,18 @@ export const VENDOR_ID = {
   lamzu: 0x373e,
   logitech: 0x046d,
   orbital: 0x1915,
+  razer: 0x1532,
   teevolution: 0x3554,
 } as const;
+
+// Razer does not declare its control channel in the HID descriptor; the
+// interface that answers it is the one whose only collection is Generic
+// Desktop Mouse, so the filter matches on that collection.
+export const RAZER_CONTROL_FILTER: HIDDeviceFilter = {
+  vendorId: VENDOR_ID.razer,
+  usagePage: 0x01,
+  usage: 0x02,
+};
 
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
@@ -61,6 +71,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
+  RAZER_CONTROL_FILTER,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
