@@ -20,6 +20,8 @@ import {
   encodeRazerRequest,
   razerChecksum,
   razerSetDpiCommand,
+  razerSetExtendedPollingCommand,
+  razerSetLegacyPollingCommand,
 } from "./protocol.ts";
 
 /**
@@ -168,6 +170,30 @@ test("a DPI write reads back through the same storage", () => {
   const read = encodeRazerRequest(RAZER_READ.dpi);
 
   assert.equal(written[8], read[8]);
+});
+
+test("polling writes encode the divisor each transport expects", () => {
+  const legacy = encodeRazerRequest(razerSetLegacyPollingCommand(500));
+  const extended = encodeRazerRequest(razerSetExtendedPollingCommand(500));
+
+  assert.deepEqual([legacy[6], legacy[7], legacy[8]], [0x00, 0x05, 2]);
+  assert.deepEqual([extended[6], extended[7], extended[8], extended[9]], [0x00, 0x40, 0x00, 16]);
+});
+
+test("polling writes round-trip through their matching decoder", () => {
+  for (const hz of [125, 500, 1000]) {
+    const request = encodeRazerRequest(razerSetLegacyPollingCommand(hz));
+    assert.equal(decodeLegacyPollingRate(request.slice(8)), hz);
+  }
+  for (const hz of [125, 500, 1000, 2000, 4000, 8000]) {
+    const request = encodeRazerRequest(razerSetExtendedPollingCommand(hz));
+    assert.equal(decodeExtendedPollingRate(request.slice(8)), hz);
+  }
+});
+
+test("a rate the encoding cannot express is rejected", () => {
+  assert.throws(() => razerSetLegacyPollingCommand(2000), RazerProtocolError);
+  assert.throws(() => razerSetExtendedPollingCommand(3000), RazerProtocolError);
 });
 
 test("extended polling decodes as a divisor of 8000", () => {

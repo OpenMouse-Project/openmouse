@@ -15,17 +15,25 @@ import {
   decodeSerial,
   encodeRazerRequest,
   razerSetDpiCommand,
+  razerSetExtendedPollingCommand,
+  razerSetLegacyPollingCommand,
   type RazerCommand,
 } from "./protocol";
 
 interface RazerProduct {
   model: string;
   wireless: boolean;
+  pollingRates: readonly number[];
 }
 
+// The cable tops out at 1000 Hz on this model, which is also the ceiling the
+// legacy polling command can encode. HyperPolling rates need the receiver.
+const RATES_WIRED: readonly number[] = [125, 500, 1000];
+const RATES_RECEIVER: readonly number[] = [125, 500, 1000, 2000, 4000, 8000];
+
 const PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map([
-  [0x00c0, { model: "Viper V3 Pro", wireless: false }],
-  [0x00c1, { model: "Viper V3 Pro", wireless: true }],
+  [0x00c0, { model: "Viper V3 Pro", wireless: false, pollingRates: RATES_WIRED }],
+  [0x00c1, { model: "Viper V3 Pro", wireless: true, pollingRates: RATES_RECEIVER }],
 ]);
 
 const DPI_STEP = 50;
@@ -81,6 +89,10 @@ export class RazerHidClient {
     return DPI_MAX;
   }
 
+  getSupportedPollingRates(): number[] {
+    return [...(this.profile()?.pollingRates ?? RATES_WIRED)];
+  }
+
   getDpiOptions(): number[] {
     const options: number[] = [];
     for (let dpi = DPI_STEP; dpi <= this.maxDpi(); dpi += DPI_STEP) options.push(dpi);
@@ -102,9 +114,12 @@ export class RazerHidClient {
       name: this.displayName(),
       ui: {
         family: "razer",
-        // Reads are verified; no write command has been confirmed yet.
-        settingsReady: false,
+        settingsReady: true,
         valuesVerified: true,
+        hideUnsupportedPollingRates: true,
+        // No lift-off or sensor-processing command is confirmed, so neither
+        // control is offered rather than offered and left inert.
+        hideProcessingCard: true,
         forceShowBattery: true,
         defaultDisplayName: this.profile()?.model,
       },
@@ -113,11 +128,13 @@ export class RazerHidClient {
       dpi: dpi.x,
       dpiY: dpi.y,
       pollingRateHz,
+      supportedPollingRates: this.getSupportedPollingRates(),
       activeProfile: null,
       connectionType: wireless ? "Wireless" : "Wired",
       connectionDetail: wireless ? "HyperSpeed receiver" : "Wired USB",
       unitId: serial ? decodeSerial(serial) : null,
       liftOffDistance: null,
+      supportedLiftOffDistances: [],
       firmware: [`Mouse ${decodeFirmwareVersion(firmware)}`],
     };
   }
@@ -135,6 +152,20 @@ export class RazerHidClient {
       throw new Error(`The mouse kept ${confirmed.x.toLocaleString()} DPI instead of ${dpi.toLocaleString()}.`);
     }
     return confirmed.x;
+  }
+
+  async setPollingRate(pollingRateHz: number): Promise<number> {
+    if (!this.getSupportedPollingRates().includes(pollingRateHz)) {
+      throw new Error(`This mouse does not support ${pollingRateHz.toLocaleString()} Hz on this connection.`);
+    }
+    await this.request(this.isWireless()
+      ? razerSetExtendedPollingCommand(pollingRateHz)
+      : razerSetLegacyPollingCommand(pollingRateHz));
+    const confirmed = await this.readPollingRateHz();
+    if (confirmed !== pollingRateHz) {
+      throw new Error(`The mouse kept ${confirmed.toLocaleString()} Hz instead of ${pollingRateHz.toLocaleString()} Hz.`);
+    }
+    return confirmed;
   }
 
   /**

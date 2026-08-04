@@ -25,8 +25,8 @@ The cable and the receiver are separate devices with separate product IDs, so
 each needs its own browser permission. Granting one does not grant the other,
 and switching between them the first time means adding the device again.
 
-This driver is read-only. It sends no write command, and the settings grid stays
-hidden through `settingsReady`.
+DPI and polling rate can be written. Every other control is withheld because no
+command for it has been confirmed.
 
 1. Connect the mouse over the cable and confirm the model, wired state, battery,
    charging state, DPI, and polling rate are correct.
@@ -34,9 +34,15 @@ hidden through `settingsReady`.
    should read false, and the polling rate should match Synapse.
 3. Confirm the reported polling rate tracks a change made in Synapse on both
    connections, including an 8000 Hz setting on the receiver.
-4. Leave the panel open for a few minutes and confirm the background refresh
+4. Change the DPI and confirm the pointer speed changes with it, then reload and
+   confirm the new value persisted.
+5. Change the polling rate on each connection and confirm it persists. The cable
+   offers 125/500/1000 and the receiver adds 2000/4000/8000; no other rate
+   should appear.
+6. Confirm no lift-off distance buttons and no sensor processing card appear.
+7. Leave the panel open for a few minutes and confirm the background refresh
    keeps reporting without stalling or throwing.
-5. Record the device identifier, firmware version, and any failing read in the
+8. Record the device identifier, firmware version, and any failing setting in the
    issue or pull request.
 
 ## Verified against firmware 1.12
@@ -52,17 +58,33 @@ hidden through `settingsReady`.
 | Polling, legacy | `0x00` / `0x85` | divisor of 1000; **wired only** |
 | Polling, extended | `0x00` / `0xc0` | divisor of 8000; **receiver only** |
 
-Transaction ID `0x1f` answered every command on both connections.
+Each write clears the high bit of the matching read.
+
+| Write | Class / ID | Notes |
+| --- | --- | --- |
+| DPI | `0x04` / `0x05` | storage byte, then big-endian X and Y |
+| Polling, legacy | `0x00` / `0x05` | divisor of 1000; **wired only** |
+| Polling, extended | `0x00` / `0x40` | leading `0x00`, then divisor of 8000 |
+
+Transaction ID `0x1f` answered every command on both connections. Writes were
+confirmed by effect, not only by read-back: a DPI change altered pointer speed,
+and a 500 Hz write measured 499 Hz through `pointerrawupdate`.
+
+The cable is limited to 1000 Hz on this model, which is also the ceiling the
+legacy encoding can express, so no HyperPolling command is missing there.
 
 ## Unresolved
 
-- Wired reports polling only through the legacy command, which cannot express
-  rates above 1000 Hz. The command the wired connection uses for HyperPolling
-  rates has not been found, so `supportedPollingRates` is left unset rather than
-  advertising a range that has not been confirmed.
-- No write command has been verified. DPI, polling rate, and lift-off distance
-  writes are out of scope until each is confirmed against hardware.
+- No lift-off distance command has been found, so no lift-off control is
+  offered and `supportedLiftOffDistances` stays empty.
+- No sensor processing commands (motion sync, angle snapping, ripple control)
+  have been found, so that card stays hidden.
 - The 35000 DPI ceiling comes from the published sensor specification, not from
-  the mouse. The stages read only proves the 400–6400 ladder. Nothing consumes
-  the ceiling while the settings grid is hidden, but confirm it before the first
-  write lands.
+  the mouse; the stages read only proves the 400–6400 ladder. A write past the
+  real ceiling fails its read-back and reports a mismatch rather than silently
+  misreporting, but the ceiling itself is still unconfirmed.
+- DPI step granularity is assumed to be 50. Values off that grid are rejected
+  before they reach the mouse, so a finer or coarser real step would only mean
+  the control offers the wrong choices.
+- The DPI stage table (`0x04`/`0x06`) is decoded and tested but never written.
+  A wrong length there is the one realistic way to corrupt stored settings.

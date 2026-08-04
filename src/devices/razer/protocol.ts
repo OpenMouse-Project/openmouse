@@ -65,6 +65,8 @@ export const RAZER_READ = {
  */
 export const RAZER_WRITE = {
   dpi: { commandClass: 0x04, commandId: 0x05, dataSize: 0x07 },
+  pollingRate: { commandClass: 0x00, commandId: 0x05, dataSize: 0x01 },
+  pollingRateExtended: { commandClass: 0x00, commandId: 0x40, dataSize: 0x02 },
 } as const satisfies Record<string, Omit<RazerCommand, "args">>;
 
 export function razerSetDpiCommand(x: number, y: number): RazerCommand {
@@ -72,6 +74,23 @@ export function razerSetDpiCommand(x: number, y: number): RazerCommand {
     ...RAZER_WRITE.dpi,
     args: [RAZER_STORAGE, (x >> 8) & 0xff, x & 0xff, (y >> 8) & 0xff, y & 0xff, 0x00, 0x00],
   };
+}
+
+function pollingDivisor(ceiling: number, pollingRateHz: number): number {
+  const divisor = ceiling / pollingRateHz;
+  if (!Number.isInteger(divisor) || divisor < 1 || divisor > 0xff) {
+    throw new RazerProtocolError(`${pollingRateHz} Hz is not a rate this mouse can encode.`);
+  }
+  return divisor;
+}
+
+export function razerSetLegacyPollingCommand(pollingRateHz: number): RazerCommand {
+  return { ...RAZER_WRITE.pollingRate, args: [pollingDivisor(1000, pollingRateHz)] };
+}
+
+/** The receiver takes the same leading argument its read echoes back. */
+export function razerSetExtendedPollingCommand(pollingRateHz: number): RazerCommand {
+  return { ...RAZER_WRITE.pollingRateExtended, args: [0x00, pollingDivisor(8000, pollingRateHz)] };
 }
 
 export class RazerProtocolError extends Error {
