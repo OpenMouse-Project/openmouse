@@ -10,6 +10,7 @@ export const VENDOR_ID = {
   orbital: 0x1915,
   razer: 0x1532,
   teevolution: 0x3554,
+  atk: 0x373b,
 } as const;
 
 // Razer does not declare its control channel in the HID descriptor; the
@@ -81,6 +82,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
   RAZER_CONTROL_FILTER,
+  { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];

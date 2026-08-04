@@ -1,3 +1,4 @@
+import { AtkHidClient } from "./atk/hid";
 import { EggOp1HidClient } from "./endgame/egg-op1-hid";
 import { eggWeCreate, eggWeIsSupported, eggWeSupportScore, isEggWeClient, type EggWeHidClient } from "./endgame/egg-we-control";
 import { LamzuHidClient } from "./lamzu/hid";
@@ -10,7 +11,7 @@ import { TeevolutionHidClient } from "./teevolution/hid";
 import { WLMouseHidClient } from "./wlmouse/hid";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | TeevolutionHidClient;
+export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | TeevolutionHidClient | AtkHidClient;
 
 interface DeviceDriver {
   brand: string;
@@ -30,6 +31,7 @@ const DEVICE_DRIVERS: readonly DeviceDriver[] = [
   { brand: "Lamzu", supports: (device) => LamzuHidClient.isSupported(device), create: (device) => new LamzuHidClient(device), score: () => 5 },
   { brand: "Orbital", supports: (device) => OrbitalHidClient.isSupported(device), create: (device) => new OrbitalHidClient(device), score: () => 6 },
   { brand: "Razer", supports: (device) => RazerHidClient.isSupported(device), create: (device) => new RazerHidClient(device), score: () => 6 },
+  { brand: "ATK", supports: (device) => AtkHidClient.isSupported(device), create: (device) => new AtkHidClient(device), score: () => 5 },
 ];
 
 function driverFor(device: HIDDevice): DeviceDriver | undefined {

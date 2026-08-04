@@ -52,6 +52,7 @@ import {
   isEggWeClient,
   type EggWeHidClient,
 } from "./devices/endgame/egg-we-control";
+import { AtkHidClient } from "./devices/atk/hid";
 import { LamzuHidClient } from "./devices/lamzu/hid";
 import { LogitechHidppClient } from "./devices/logitech/hidpp";
 import type { MouseStatus } from "./devices/mouse-types";
@@ -77,7 +78,7 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
-let activeDmClient: WLMouseHidClient | LamzuHidClient | null = null;
+let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
 let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
@@ -636,7 +637,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || activeDmClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || activeDmClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -1030,7 +1031,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient) {
+  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient || client instanceof AtkHidClient) {
     activeDmClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
