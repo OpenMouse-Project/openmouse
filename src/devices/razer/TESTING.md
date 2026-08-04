@@ -12,8 +12,14 @@ Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
 does not check report IDs against the descriptor. The interface that answers is
 the one whose **only** collection is Generic Desktop Mouse (`usagePage 0x01`,
-`usage 0x02`); the browser lists several other Razer interfaces that never
-answer, so pick that one when prompted.
+`usage 0x02`).
+
+The mouse presents four interfaces on each connection. The vendor filter
+narrows the picker to one of them when wired, and to two on the receiver, where
+a second interface carries a mouse collection alongside others. Both are named
+`Razer Viper V3 Pro` and cannot be told apart in the picker, so on the receiver
+the first choice may be the interface that never answers. It is then skipped in
+the device list; add the device again and choose the other entry.
 
 This driver is read-only. It sends no write command, and the settings grid stays
 hidden through `settingsReady`.
