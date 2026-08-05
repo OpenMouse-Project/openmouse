@@ -1,5 +1,6 @@
 import "./control.css";
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
+import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
 import { controlTemplate } from "./control-template";
 import { bindControlEvents } from "./control-events";
 import {
@@ -25,7 +26,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "./pending-changes";
-import { formatHex, setControlValue, setText, setToggleValue } from "./ui/dom";
+import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
 import { renderPendingBar, setPendingBarBusy, setPendingBarStatus } from "./ui/pending-bar";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
@@ -93,7 +94,7 @@ let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
-let latestDiagnosticsSnapshot = "";
+let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 // Last status read from the device, before staged changes are previewed over it
 let latestDeviceStatus: MouseStatus | null = null;
@@ -252,11 +253,18 @@ function applyInterfacePreferences(): void {
   }
 }
 
+function renderStagedMarkers(): void {
+  document.querySelectorAll<HTMLElement>("[data-pending-key]").forEach((element) => {
+    const staged = element.dataset.pendingKey!.split(" ").some(isPendingChange);
+    element.classList.toggle("is-staged", staged);
+  });
+}
+
 function renderControl(): void {
   startHidCapture();
   appRoot.innerHTML = controlTemplate(BUILD_LABEL);
   document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.addEventListener("toggle", () => {
-    if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+    renderDeviceDiagnostics(latestDiagnosticStatus);
   });
 
   bindControlEvents({
@@ -293,8 +301,9 @@ function renderControl(): void {
       saveInterfacePreferences();
       populateInterfaceSettings();
     },
-    copyDiagnostics,
+    downloadDiagnostics,
     chooseCustomDpi,
+    sanitizeCustomDpi,
     finishCustomDpiEditing,
     applyLogitechAxisDpi,
     applyLogitechAnalogButton,
@@ -318,7 +327,9 @@ function renderControl(): void {
     revertPendingChanges,
   });
   onPendingChanges(renderPendingBar);
+  onPendingChanges(renderStagedMarkers);
   renderPendingBar();
+  renderStagedMarkers();
   populateInterfaceSettings();
   applyInterfacePreferences();
   if (!isSuperstrikePreview) {
@@ -366,18 +377,23 @@ function showSuperstrikePreview(): void {
     ".settings-grid input, .settings-grid button, #logitech-analog-button-settings input, #logitech-analog-button-settings .superstrike-apply-button",
   ).forEach((control) => { control.disabled = true; });
   setConnectionButtons(true, "Preview mode");
-  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   setText("#read-status", "Current: 800 DPI · 4,000 Hz");
 }
 
-function openInterfaceSettings(): void {
-  populateInterfaceSettings();
-  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.add("is-open");
+function showInterfaceSettings(open: boolean): void {
+  if (open) populateInterfaceSettings();
+  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.toggle("is-open", open);
+  document.querySelector<HTMLElement>(".control-panel")?.classList.toggle("showing-settings", open);
+  document.querySelector<HTMLElement>("#interface-settings-button")?.setAttribute("aria-current", String(open));
   document.querySelector<HTMLElement>(".control-panel")?.scrollTo({ top: 0 });
 }
 
+function openInterfaceSettings(): void {
+  showInterfaceSettings(true);
+}
+
 function closeInterfaceSettings(): void {
-  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.remove("is-open");
+  showInterfaceSettings(false);
 }
 
 function populateInterfaceSettings(): void {
@@ -408,7 +424,7 @@ function batteryDetail(status: MouseStatus): string {
   const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? "until full" : "remaining";
-  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
+  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : status.batteryState);
 }
 
 const WLMOUSE_SLEEP_NEVER = 0xffff;
@@ -463,17 +479,17 @@ function recordDiagnosticCommand(command: string): void {
   lastDiagnosticCommand = command;
   markHidActivity(command);
   lastDiagnosticError = null;
-  if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+  renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
 function recordDiagnosticError(error: unknown, fallback: string): void {
   lastDiagnosticError = diagnosticErrorMessage(error, fallback);
   markHidActivity(lastDiagnosticError, { failed: true });
   renderReads();
-  if (latestDiagnosticStatus) renderDeviceDiagnostics(latestDiagnosticStatus);
+  renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
-function renderDeviceDiagnostics(status: MouseStatus): void {
+function renderDeviceDiagnostics(status: MouseStatus | null): void {
   const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
   if (!output || !diagnosticsOpen()) return;
 
@@ -487,12 +503,19 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
   });
 
   const device = activeDevice;
-  const driver = status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand;
+  if (!device && !status && !lastDiagnosticError) {
+    output.textContent = "Connect a mouse to collect diagnostics.";
+    return;
+  }
+  const driver = status
+    ? (status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand)
+    : "No driver read this device";
   const overview = document.querySelector<HTMLElement>("#device-debug-overview");
   if (overview) {
     const items: string[][] = [
       ["Driver", driver],
       ["VID / PID", device ? `0x${formatHex(device.vendorId, 4)} / 0x${formatHex(device.productId, 4)}` : "Not reported"],
+      ["Build", BUILD_LABEL],
       ["Last command", lastDiagnosticCommand ?? "None"],
     ];
     if (lastDiagnosticError) items.push(["Last error", lastDiagnosticError]);
@@ -507,9 +530,14 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
     }));
   }
   const snapshot = {
+    app: {
+      build: BUILD_LABEL,
+      userAgent: navigator.userAgent,
+    },
     driver: {
-      brand: status.brand,
-      family: status.ui?.family ?? null,
+      brand: status?.brand ?? null,
+      family: status?.ui?.family ?? null,
+      readOk: status !== null,
       description: device ? describeHidDevice(device) : null,
     },
     webhid: device ? {
@@ -519,16 +547,16 @@ function renderDeviceDiagnostics(status: MouseStatus): void {
       opened: device.opened,
       collections: device.collections.map(serializeCollection),
     } : null,
-    status: { ...status, unitId: status.unitId ? "(masked)" : status.unitId },
+    status: status ? { ...status, unitId: status.unitId ? "(masked)" : status.unitId } : null,
     diagnostics: {
       lastCommand: lastDiagnosticCommand,
       lastError: lastDiagnosticError,
     },
   };
-  latestDiagnosticsSnapshot = JSON.stringify(snapshot, null, 2);
-  output.textContent = latestDiagnosticsSnapshot;
-  const copyButton = document.querySelector<HTMLButtonElement>("#copy-diagnostics");
-  if (copyButton) copyButton.disabled = false;
+  latestDiagnosticsSnapshot = snapshot;
+  output.textContent = JSON.stringify(snapshot, null, 2);
+  const downloadButton = document.querySelector<HTMLButtonElement>("#download-diagnostics");
+  if (downloadButton) downloadButton.disabled = false;
   renderReads();
 }
 
@@ -564,11 +592,14 @@ function renderReadTable(): string {
   const rows = hidTraffic(activeDevice);
   if (!rows.length) return "Nothing yet. Change a setting to see what gets sent.";
 
-  const groups: { label: string; failed: boolean; items: HidTrafficEntry[] }[] = [];
+  const base = rows[0].at;
+  const stamp = (at: number): string => `t+${((at - base) / 1000).toFixed(1)}s`.padStart(9);
+
+  const groups: { label: string; failed: boolean; at: number; items: HidTrafficEntry[] }[] = [];
   for (const row of rows) {
-    if (isMark(row)) groups.push({ label: row.label, failed: row.failed, items: [] });
+    if (isMark(row)) groups.push({ label: row.label, failed: row.failed, at: row.at, items: [] });
     else {
-      if (!groups.length) groups.push({ label: BACKGROUND, failed: false, items: [] });
+      if (!groups.length) groups.push({ label: BACKGROUND, failed: false, at: row.at, items: [] });
       groups[groups.length - 1].items.push(row);
     }
   }
@@ -580,52 +611,57 @@ function renderReadTable(): string {
   if (hidden > 0) lines.push(`… ${hidden} earlier or background entries hidden`);
 
   for (const group of shown) {
-    lines.push(`${group.failed ? "!" : ">"} ${group.label}`);
+    lines.push(`${stamp(group.at)} ${group.failed ? "!" : ">"} ${group.label}`);
     for (const row of group.items) {
       const outcome = row.error ? `FAILED ${row.error}` : maskBytes(row.bytes);
-      lines.push(`    ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
+      lines.push(`${stamp(row.at)}     ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
     }
   }
   return lines.join("\n");
 }
 
-function diagnosticsMarkdown(): string {
-  const table = renderReadTable();
-  return [
-    "## Device",
-    "```",
-    activeDevice ? describeHidDevice(activeDevice) : "none",
-    "```",
-    ...(table ? ["", "## Reads", "```", table, "```"] : []),
-    "",
-    "## Snapshot",
-    "```json",
-    latestDiagnosticsSnapshot,
-    "```",
-  ].join("\n");
+function diagnosticsLog(): object[] {
+  const rows = hidTraffic(activeDevice);
+  if (rows.length === 0) return [];
+  const base = rows[0].at;
+  const seconds = (at: number): number => Number(((at - base) / 1000).toFixed(3));
+  return rows.map((row) => isMark(row)
+    ? { at: seconds(row.at), kind: "command", label: row.label, failed: row.failed }
+    : {
+      at: seconds(row.at),
+      kind: "report",
+      dir: row.dir,
+      reportId: row.reportId,
+      ms: row.ms,
+      bytes: maskBytes(row.bytes),
+      error: row.error,
+    });
 }
 
+function diagnosticsFileName(): string {
+  const device = activeDevice;
+  const ids = device ? `${formatHex(device.vendorId, 4)}-${formatHex(device.productId, 4)}` : "no-device";
+  const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  return `openmouse-${ids}-${stamp}.json`.toLowerCase();
+}
 
-async function copyDiagnostics(): Promise<void> {
-  const status = document.querySelector<HTMLElement>("#diagnostic-copy-status");
+function downloadDiagnostics(): void {
+  const status = document.querySelector<HTMLElement>("#diagnostic-download-status");
   if (!latestDiagnosticsSnapshot) return;
-  try {
-    if (!navigator.clipboard) throw new Error("Clipboard access is unavailable.");
-    await navigator.clipboard.writeText(diagnosticsMarkdown());
-    if (status) status.textContent = "Copied";
-  } catch {
-    const raw = document.querySelector<HTMLDetailsElement>("#device-debug-raw");
-    const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
-    if (raw) raw.open = true;
-    if (output) {
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(output);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-    }
-    if (status) status.textContent = "Snapshot selected — press ⌘C / Ctrl+C";
-  }
+  const name = diagnosticsFileName();
+  const rows = hidTraffic(activeDevice);
+  const report = JSON.stringify({
+    ...latestDiagnosticsSnapshot,
+    logStart: rows.length > 0 ? new Date(performance.timeOrigin + rows[0].at).toISOString() : null,
+    log: diagnosticsLog(),
+  }, null, 2);
+  const url = URL.createObjectURL(new Blob([report], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+  if (status) status.textContent = `Saved ${name}`;
 }
 
 function showStatus(deviceStatus: MouseStatus): void {
@@ -792,8 +828,6 @@ function showStatus(deviceStatus: MouseStatus): void {
     void renderDeviceSidebar();
   }
   setText("#device-status", "Connected");
-  // Same banner copy as other brands — no RE/debug messaging in the chrome.
-  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
     // A driver may read more than it can write yet. Only drivers that read
     // these values report them; the rest fall back to a placeholder here.
@@ -810,8 +844,8 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
-  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
+  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => setSelected(button, Number(button.dataset.rate) === status.pollingRateHz));
+  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => setSelected(button, button.dataset.lod === status.liftOffDistance));
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     const rate = Number(button.dataset.rate);
     const supportedRates = status.supportedPollingRates;
@@ -853,7 +887,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const gamingSurfaceRow = document.querySelector<HTMLElement>("#gaming-surface-row");
   if (gamingSurfaceRow) gamingSurfaceRow.hidden = !status.gamingSurfaceMode;
   document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
-    button.classList.toggle("selected", button.dataset.gamingSurface === status.gamingSurfaceMode);
+    setSelected(button, button.dataset.gamingSurface === status.gamingSurfaceMode);
     button.disabled = settingsPending || !status.gamingSurfaceMode;
   });
   // A driver that reports no gaming surface and an explicitly empty lift-off
@@ -868,11 +902,11 @@ function showStatus(deviceStatus: MouseStatus): void {
   const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
   if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
   document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
-    button.classList.toggle("selected", button.dataset.lightforce === status.lightforceSwitchMode);
+    setSelected(button, button.dataset.lightforce === status.lightforceSwitchMode);
     button.disabled = settingsPending || !status.lightforceSwitchMode;
   });
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
-    button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
+    setSelected(button, Number(button.dataset.dpi) === status.dpi);
     button.disabled = settingsPending;
   });
   const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
@@ -968,7 +1002,7 @@ function renderLogitechDetails(status: MouseStatus): void {
     ["DPI axes", status.supportsSeparateDpiAxes ? `X ${status.dpi} · Y ${status.dpiY ?? status.dpi}` : "Linked X/Y"],
   ];
   list.innerHTML = items.map(([label, value]) =>
-    `<div style="padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416"><small style="display:block;margin-bottom:.25rem;color:#77777c;font-size:.52rem;letter-spacing:.08em">${label.toUpperCase()}</small><span style="color:#d8d8dc;font:600 .67rem 'JetBrains Mono',monospace;overflow-wrap:anywhere">${value}</span></div>`).join("");
+    `<div><small>${label.toUpperCase()}</small><span>${value}</span></div>`).join("");
 }
 
 async function showPulsarExplorer(client: PulsarClient): Promise<void> {
@@ -978,7 +1012,6 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   setText("#connection-detail", "Reading Pulsar receiver identity");
   setText("#device-title", device.productName || "Pulsar Mouse");
   setText("#device-status", "Connected");
-  setText("#connection-banner", "Pulsar vendor HID connected. Reading verified settings.");
   setText("#read-status", client.describeCollections());
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
@@ -1143,7 +1176,6 @@ function showDisconnectedState(): void {
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
   setText("#device-title", "Connect a mouse");
   setText("#device-status", "No device connected");
-  setText("#connection-banner", "Connect a supported device to view and change its settings.");
   setText("#read-status", "Add a supported device from the sidebar to read its current status.");
   setConnectionButtons(false, "Add device");
 }
@@ -1278,7 +1310,6 @@ async function connect(): Promise<void> {
     await activeEggWeClient?.close().catch(() => undefined);
     activeEggWeClient = null;
     setText("#device-status", "Connection failed");
-    setText("#connection-banner", message);
     setText("#read-status", message);
   } finally {
     // Always clear the busy label — success used to leave "Connecting…" stuck.
@@ -1329,8 +1360,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     }
     if (!hasActiveClient()) {
       setText("#device-status", "Not connected");
-      if (lastError) setText("#connection-banner", lastError.message);
-      setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
+      setText("#read-status", lastError?.message ?? "Use Add device if the mouse does not reconnect automatically.");
     }
   } finally {
     reconnectInFlight = false;
@@ -1370,11 +1400,17 @@ function configureDpiControl(currentDpi: number): void {
   if (!presets || !custom || dpiOptions.length === 0) return;
   const common = dpiPresetValues(dpiOptions);
   const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
-  presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
+  presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" aria-pressed="${dpi === currentDpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
   presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.addEventListener("click", () => void applyDpiValue(Number(button.dataset.dpi)));
   });
   custom.disabled = false;
+  const min = Math.min(...dpiOptions);
+  const max = Math.max(...dpiOptions);
+  document.querySelectorAll<HTMLInputElement>("#logitech-dpi-x, #logitech-dpi-y").forEach((axis) => {
+    axis.min = String(min);
+    axis.max = String(max);
+  });
 }
 
 function chooseCustomDpi(): void {
@@ -1403,6 +1439,15 @@ function chooseCustomDpi(): void {
     return;
   }
   if (applyDpiValue(dpi)) finishCustomDpiEditing(dpi);
+}
+
+function sanitizeCustomDpi(): void {
+  const input = document.querySelector<HTMLInputElement>("#dpi-output");
+  if (!input || input.readOnly) return;
+  const digits = input.value.replace(/\D/g, "");
+  const max = dpiOptions.length > 0 ? Math.max(...dpiOptions) : null;
+  const next = max !== null && digits !== "" && Number(digits) > max ? String(max) : digits;
+  if (next !== input.value) input.value = next;
 }
 
 function finishCustomDpiEditing(dpi?: number): void {
@@ -1851,5 +1896,13 @@ window.addEventListener("beforeunload", (event) => {
   void activeViperClient?.close();
 });
 
-renderControl();
-if (isSuperstrikePreview) showSuperstrikePreview();
+const notice = unsupportedNotice({
+  touchPrimary: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
+  hasWebHid: Boolean(navigator.hid),
+});
+if (notice) {
+  appRoot.innerHTML = unsupportedTemplate(notice);
+} else {
+  renderControl();
+  if (isSuperstrikePreview) showSuperstrikePreview();
+}

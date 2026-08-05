@@ -24,14 +24,14 @@ function renderCpiStages(status: MouseStatus, applyCpiStage: EggControlActions["
   if (!container || !stages) return;
   container.innerHTML = stages.slice(0, levels).map((stage, index) => {
     const split = stage.x !== stage.y;
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <strong style="font-size:.7rem">Stage ${index + 1}</strong>
-      <label style="display:flex;align-items:center;gap:.35rem;margin:.4rem 0;color:#8b8b90;font-size:.62rem"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
-        <label style="color:#77777c;font-size:.58rem">X<input data-cpi-x="${index}" type="number" min="50" max="26000" step="50" value="${stage.x}" style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
-        <label style="color:#77777c;font-size:.58rem">Y<input data-cpi-y="${index}" type="number" min="50" max="26000" step="50" value="${stage.y}" ${split ? "" : "disabled"} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
+    return `<div>
+      <strong>Stage ${index + 1}</strong>
+      <label class="egg-split-toggle"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
+      <div class="egg-tile-pair">
+        <label class="egg-tile-label">X<input data-cpi-x="${index}" class="egg-tile-field" type="number" min="50" max="26000" step="50" value="${stage.x}" /></label>
+        <label class="egg-tile-label">Y<input data-cpi-y="${index}" class="egg-tile-field" type="number" min="50" max="26000" step="50" value="${stage.y}" ${split ? "" : "disabled"} /></label>
       </div>
-      <button data-apply-cpi="${index}" type="button" style="margin-top:.4rem;padding:.3rem .5rem">Apply stage</button>
+      <button data-apply-cpi="${index}" type="button">Apply stage</button>
     </div>`;
   }).join("");
   container.querySelectorAll<HTMLInputElement>("[data-cpi-split]").forEach((checkbox) => {
@@ -64,10 +64,10 @@ function renderButtons(
     const gxActive = index === 0 ? status.leftSpdtMode !== "Off" : index === 1 ? status.rightSpdtMode !== "Off" : false;
     const mappingOptions = EGG_BUTTON_MAPPINGS.map((mapping) => `<option ${mappings[index] === mapping ? "selected" : ""}>${mapping}</option>`).join("");
     const unsupported = EGG_BUTTON_MAPPINGS.includes(mappings[index] as EggButtonMapping) ? "" : `<option selected disabled>${mappings[index]}</option>`;
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <strong style="font-size:.7rem">${name}</strong>
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter<input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Mapping<select data-button-mapping="${index}" style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${mappingOptions}</select></label>
+    return `<div>
+      <strong>${name}</strong>
+      <label class="egg-tile-label stacked">Multiclick filter<input data-multiclick="${index}" class="egg-tile-field" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} /></label>
+      <label class="egg-tile-label stacked">Mapping<select data-button-mapping="${index}" class="egg-tile-field">${unsupported}${mappingOptions}</select></label>
     </div>`;
   }).join("");
   container.querySelectorAll<HTMLInputElement>("[data-multiclick]").forEach((input) => input.addEventListener("change", () => void applyMulticlick(Number(input.dataset.multiclick) as EggButtonIndex, Number(input.value))));
