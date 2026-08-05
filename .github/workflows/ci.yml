@@ -3,7 +3,10 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -23,6 +26,12 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Bundle size
+        run: npm run size
+
+      - name: Audit
+        run: npm audit --audit-level=high
 
       - name: No new dependencies
         run: |
