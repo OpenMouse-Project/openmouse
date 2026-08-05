@@ -26,6 +26,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "./pending-changes";
+import { deviceImage } from "./ui/device-images";
 import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
 import { renderPendingBar, setPendingBarBusy, setPendingBarStatus } from "./ui/pending-bar";
 import {
@@ -93,6 +94,8 @@ let dpiOptions: number[] = [];
 let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+/** Art whose file did not load, so repaints stop re-requesting it. */
+const unreachableImages = new Set<string>();
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
@@ -490,8 +493,10 @@ function resetDeviceSpecificPanels(): void {
     if (element) element.style.display = "none";
   }
   // Shown through the hidden attribute rather than display, and only ever set
-  // by the driver that owns it, so nothing else would clear it on a switch.
-  document.querySelector<HTMLElement>("#low-power-settings")?.setAttribute("hidden", "");
+  // by the driver that owns them, so nothing else would clear them on a switch.
+  for (const selector of ["#low-power-settings", "#device-thumbnail"]) {
+    document.querySelector<HTMLElement>(selector)?.setAttribute("hidden", "");
+  }
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
 }
 
@@ -722,7 +727,28 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (overview) {
     const showBatteryColumn = !isEgg8k
       && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
-    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    const stats = showBatteryColumn ? 3 : 2;
+    const artwork = deviceImage(activeDevice);
+    const thumbnail = document.querySelector<HTMLElement>("#device-thumbnail");
+    const thumbnailImage = document.querySelector<HTMLImageElement>("#device-thumbnail-image");
+    // Art is optional for every device, so the stat columns stay the layout and
+    // the thumbnail only ever prepends a column to it.
+    const showArtwork = artwork !== null && !unreachableImages.has(artwork);
+    const statColumns = `repeat(${stats}, 1fr)`;
+    if (thumbnail) thumbnail.hidden = !showArtwork;
+    overview.style.gridTemplateColumns = showArtwork ? `112px ${statColumns}` : statColumns;
+    if (thumbnailImage && artwork && showArtwork && thumbnailImage.dataset.source !== artwork) {
+      thumbnailImage.dataset.source = artwork;
+      // A file that never shipped alongside its mapping would otherwise leave an
+      // empty column. Recorded so later repaints stop asking for it.
+      thumbnailImage.onerror = () => {
+        unreachableImages.add(artwork);
+        thumbnail?.setAttribute("hidden", "");
+        overview.style.gridTemplateColumns = statColumns;
+      };
+      thumbnailImage.src = artwork;
+    }
+    if (thumbnailImage) thumbnailImage.alt = status.name;
   }
   setText("#polling-note", ui?.pollingNote
     ?? (isEgg8k

@@ -48,6 +48,7 @@ export function controlTemplate(buildLabel: string): string {
           <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
+          <article id="device-thumbnail" class="device-thumbnail" hidden><img id="device-thumbnail-image" alt="" /></article>
           <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
           <article class="summary-stat" data-pending-key="dongle-led"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" class="dongle-led-button" type="button" hidden disabled>Receiver LED</button></article>
