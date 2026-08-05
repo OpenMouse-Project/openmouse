@@ -1,5 +1,5 @@
 import "./host-protocol.js";
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 
 const VENDOR_ID = 0x1915;
 const PRODUCTS = new Map<number, { name: string; wireless: boolean }>([
@@ -28,7 +28,11 @@ export class OrbitalHidClient {
   private client: OrbitalProtocolClient | null = null;
   private settings: any = null;
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID

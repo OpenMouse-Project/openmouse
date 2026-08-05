@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 
 export const RAZER_VENDOR_ID = 0x1532;
 export const VIPER_V4_PRO_PRODUCTS = new Map<number, { wireless: boolean }>([

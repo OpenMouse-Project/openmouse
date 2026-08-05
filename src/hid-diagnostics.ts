@@ -20,6 +20,7 @@ export interface HidTrafficEntry {
 
 export interface HidMark {
   label: string;
+  detail: string | null;
   failed: boolean;
   transient: boolean;
   at: number;
@@ -29,7 +30,9 @@ export type HidLogEntry = HidTrafficEntry | HidMark;
 
 export const isMark = (entry: HidLogEntry): entry is HidMark => "label" in entry;
 
-const MAX_ENTRIES = 2000;
+// Keep enough history to cover permission, enumeration, first status read, and
+// a tester's follow-up setting changes in one downloadable session trace.
+const MAX_ENTRIES = 10_000;
 const entries: HidLogEntry[] = [];
 let capturing = false;
 
@@ -66,20 +69,42 @@ export function startHidCapture(): void {
 
   const proto = ctor.prototype;
   const rawOpen = proto.open;
+  const rawClose = proto.close;
   const rawSend = proto.sendReport;
   const rawSetFeature = proto.sendFeatureReport;
   const rawGetFeature = proto.receiveFeatureReport;
   const watched = new WeakSet<HIDDevice>();
 
   proto.open = async function (this: HIDDevice) {
-    const result = await rawOpen.call(this);
-    if (!watched.has(this)) {
-      watched.add(this);
-      this.addEventListener("inputreport", (event) => {
-        record(this, "IN", event.reportId, event.data, performance.now());
-      });
+    const started = performance.now();
+    try {
+      const result = await rawOpen.call(this);
+      markHidActivity(`WebHID open: ${describeHidDevice(this)}`);
+      if (!watched.has(this)) {
+        watched.add(this);
+        this.addEventListener("inputreport", (event) => {
+          record(this, "IN", event.reportId, event.data, performance.now());
+        });
+      }
+      return result;
+    } catch (error) {
+      record(this, "GET", 0, null, started, error);
+      markHidActivity(`WebHID open failed: ${describeHidDevice(this)}`, { failed: true });
+      throw error;
     }
-    return result;
+  };
+
+  proto.close = async function (this: HIDDevice) {
+    const started = performance.now();
+    try {
+      const result = await rawClose.call(this);
+      markHidActivity(`WebHID close: ${describeHidDevice(this)}`);
+      return result;
+    } catch (error) {
+      record(this, "GET", 0, null, started, error);
+      markHidActivity(`WebHID close failed: ${describeHidDevice(this)}`, { failed: true });
+      throw error;
+    }
   };
 
   proto.sendReport = async function (this: HIDDevice, reportId: number, data: BufferSource) {
@@ -117,6 +142,48 @@ export function startHidCapture(): void {
       throw error;
     }
   };
+
+  const hid = navigator.hid;
+  if (!hid) return;
+  const rawRequestDevice = hid.requestDevice.bind(hid);
+  const rawGetDevices = hid.getDevices.bind(hid);
+  const tracedRequestDevice: typeof hid.requestDevice = async (options) => {
+    markHidActivity("WebHID permission request", { detail: JSON.stringify(options.filters) });
+    try {
+      const devices = await rawRequestDevice(options);
+      markHidActivity("WebHID permission result", { detail: devices.map(describeHidDevice).join(" · ") || "No devices selected" });
+      return devices;
+    } catch (error) {
+      markHidActivity("WebHID permission request failed", {
+        failed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+  const tracedGetDevices: typeof hid.getDevices = async () => {
+    try {
+      const devices = await rawGetDevices();
+      markHidActivity("WebHID authorized-device scan", { detail: devices.map(describeHidDevice).join(" · ") || "No authorized devices" });
+      return devices;
+    } catch (error) {
+      markHidActivity("WebHID authorized-device scan failed", {
+        failed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+  // Older browsers may expose WebHID methods as non-writable host properties.
+  // Report traffic still works in that case; do not let diagnostics block HID.
+  try {
+    hid.requestDevice = tracedRequestDevice;
+    hid.getDevices = tracedGetDevices;
+  } catch {
+    markHidActivity("WebHID lifecycle interception is unavailable");
+  }
+  hid.addEventListener("connect", (event) => markHidActivity(`WebHID connect: ${describeHidDevice(event.device)}`));
+  hid.addEventListener("disconnect", (event) => markHidActivity(`WebHID disconnect: ${describeHidDevice(event.device)}`));
 }
 
 function dropTrailingTransient(): void {
@@ -130,11 +197,11 @@ function dropTrailingTransient(): void {
   if (mark.transient && !mark.failed) entries.splice(index);
 }
 
-export function markHidActivity(label: string, options: { failed?: boolean; transient?: boolean } = {}): void {
-  const { failed = false, transient = false } = options;
+export function markHidActivity(label: string, options: { failed?: boolean; transient?: boolean; detail?: string } = {}): void {
+  const { failed = false, transient = false, detail = null } = options;
   if (transient) dropTrailingTransient();
   if (entries.length >= MAX_ENTRIES) entries.shift();
-  entries.push({ label, failed, transient, at: performance.now() });
+  entries.push({ label, detail, failed, transient, at: performance.now() });
 }
 
 export function hidTraffic(device?: HIDDevice | null): HidLogEntry[] {
@@ -143,4 +210,3 @@ export function hidTraffic(device?: HIDDevice | null): HidLogEntry[] {
     || entry.device === device
     || (entry.device.vendorId === device.vendorId && entry.device.productId === device.productId));
 }
-

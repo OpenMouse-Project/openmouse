@@ -1,5 +1,5 @@
-import type { MouseStatus } from "../mouse-types";
-import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "../vendors";
+import type { MouseStatus } from "../mouse-types.ts";
+import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "../vendors.ts";
 
 export const WLMOUSE_VENDOR_ID = VENDOR_ID.wlmouse;
 
@@ -111,7 +111,11 @@ export class WLMouseHidClient {
   private notifier: HIDDevice | null = null;
   private notifyListener: ((event: HIDInputReportEvent) => void) | null = null;
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === WLMOUSE_VENDOR_ID

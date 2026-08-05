@@ -1,29 +1,29 @@
-import { AtkHidClient } from "./atk/hid";
-import { EggOp1HidClient } from "./endgame/egg-op1-hid";
-import { eggWeCreate, eggWeIsSupported, eggWeSupportScore, isEggWeClient, type EggWeHidClient } from "./endgame/egg-we-control";
-import { FinalmouseHidClient } from "./finalmouse/hid";
-import { LamzuHidClient } from "./lamzu/hid";
-import { LogitechHidppClient } from "./logitech/hidpp";
-import { OrbitalHidClient } from "./orbital/hid";
-import { PulsarHidClient } from "./pulsar/pulsar-hid";
-import { PulsarProHidClient } from "./pulsar/pulsar-pro-hid";
-import { RazerHidClient } from "./razer/hid";
-import { RazerViperV4ProHidClient } from "./razer/viper-v4-pro-hid";
-import { TeevolutionHidClient } from "./teevolution/hid";
-import { VgnF2HidClient } from "./vgn/hid";
-import { WLMouseHidClient } from "./wlmouse/hid";
+import { AtkHidClient } from "./atk/hid.ts";
+import { EggOp1HidClient } from "./endgame/egg-op1-hid.ts";
+import { eggWeCreate, eggWeIsSupported, eggWeSupportScore, isEggWeClient, type EggWeHidClient } from "./endgame/egg-we-control.ts";
+import { FinalmouseHidClient } from "./finalmouse/hid.ts";
+import { LamzuHidClient } from "./lamzu/hid.ts";
+import { LogitechHidppClient } from "./logitech/hidpp.ts";
+import { OrbitalHidClient } from "./orbital/hid.ts";
+import { PulsarHidClient } from "./pulsar/pulsar-hid.ts";
+import { PulsarProHidClient } from "./pulsar/pulsar-pro-hid.ts";
+import { RazerHidClient } from "./razer/hid.ts";
+import { RazerViperV4ProHidClient } from "./razer/viper-v4-pro-hid.ts";
+import { TeevolutionHidClient } from "./teevolution/hid.ts";
+import { VgnF2HidClient } from "./vgn/hid.ts";
+import { WLMouseHidClient } from "./wlmouse/hid.ts";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
 export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | FinalmouseHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
 
-interface DeviceDriver {
+export interface DeviceDriver {
   brand: string;
   supports(device: HIDDevice): boolean;
   create(device: HIDDevice): SupportedClient | null;
   score(device: HIDDevice): number;
 }
 
-const DEVICE_DRIVERS: readonly DeviceDriver[] = [
+export const DEVICE_DRIVERS: readonly DeviceDriver[] = [
   { brand: "Finalmouse", supports: (device) => FinalmouseHidClient.isSupported(device), create: (device) => new FinalmouseHidClient(device), score: () => 10 },
   { brand: "Endgame Gear", supports: (device) => EggOp1HidClient.isSupported(device), create: (device) => new EggOp1HidClient(device), score: () => 10 },
   { brand: "Endgame Gear", supports: eggWeIsSupported, create: eggWeCreate, score: eggWeSupportScore },

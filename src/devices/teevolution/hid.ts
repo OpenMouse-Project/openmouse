@@ -1,5 +1,5 @@
-import type { MouseStatus } from "../mouse-types";
-import { VENDOR_ID } from "../vendors";
+import type { MouseStatus } from "../mouse-types.ts";
+import { VENDOR_ID } from "../vendors.ts";
 
 const CONFIG_REPORT_ID = 0x08;
 const CONFIG_PACKET_LENGTH = 16;
@@ -72,7 +72,11 @@ export class TeevolutionHidClient {
     }
   };
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID.teevolution
