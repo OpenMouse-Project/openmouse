@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 import {
   WE_CMD_GET_POWER,
   WE_CMD_READ_EEPROM,
@@ -22,7 +22,7 @@ import {
   WE_POLLING_RATES,
   type WeLod,
   type WeProfile,
-} from "./egg-we-protocol";
+} from "./egg-we-protocol.ts";
 
 /**
  * Endgame Gear WE-series (OP1we).
@@ -85,7 +85,11 @@ export class EggWeHidClient {
     waiter.resolve(bytes);
   };
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static fromAuthorizedDevices(devices: readonly HIDDevice[]): EggWeHidClient | null {
     const primary = this.pickDevices(devices)[0];

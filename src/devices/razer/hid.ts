@@ -1,5 +1,5 @@
-import type { MouseStatus } from "../mouse-types";
-import { VENDOR_ID } from "../vendors";
+import type { MouseStatus } from "../mouse-types.ts";
+import { VENDOR_ID } from "../vendors.ts";
 import {
   RAZER_READ,
   RAZER_REPORT_ID,
@@ -18,7 +18,7 @@ import {
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
   type RazerCommand,
-} from "./protocol";
+} from "./protocol.ts";
 
 interface RazerProduct {
   model: string;
@@ -57,7 +57,11 @@ export class RazerHidClient {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly staticReads = new Map<string, Promise<Uint8Array | null>>();
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID.razer

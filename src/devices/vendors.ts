@@ -1,5 +1,5 @@
-import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control";
-import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol";
+import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
+import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol.ts";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,

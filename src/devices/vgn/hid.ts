@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 import {
   VGN_ADDRESS,
   VGN_COMMAND,
