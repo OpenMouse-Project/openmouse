@@ -22,6 +22,14 @@ export const RAZER_VIPER_V3_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00c0, 0x00c1
   (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
 );
 
+// Synapse Web exposes the V4 control interface through a single top-level
+// Generic Desktop or Consumer collection with Feature reports. Request both
+// pages so the browser offers that interface, then the driver rejects ordinary
+// mouse/keyboard interfaces that lack the required report.
+export const RAZER_VIPER_V4_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00e5, 0x00e6].flatMap(
+  (productId) => [0x01, 0x0c].map((usagePage) => ({ vendorId: VENDOR_ID.razer, productId, usagePage })),
+);
+
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
 // Logitech HID++ control interfaces addressed through a receiver slot (HID++
@@ -85,8 +93,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.vgn, productId: 0xfb56 },
   { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
-  { vendorId: VENDOR_ID.razer, productId: 0x00e5, usagePage: 0xff00 },
-  { vendorId: VENDOR_ID.razer, productId: 0x00e6, usagePage: 0xff00 },
+  ...RAZER_VIPER_V4_CONTROL_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];

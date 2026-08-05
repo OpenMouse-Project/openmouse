@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildRazerReport, decodeDpiState, razerCrc } from "./viper-v4-pro-hid.ts";
+import { RazerViperV4ProHidClient } from "./viper-v4-pro-hid.ts";
 
 test("Viper V4 Pro Razer reports use the captured 90-byte framing and XOR CRC", () => {
   const report = buildRazerReport(0x00, 0x40, new Uint8Array([1, 0x08]));
@@ -16,4 +17,18 @@ test("Viper V4 Pro DPI stage responses preserve independent X/Y axes", () => {
     activeStage: 1,
     stages: [{ x: 1600, y: 1600 }, { x: 12345, y: 50000 }],
   });
+});
+
+test("Viper V4 Pro accepts only Synapse-style feature-report control interfaces", () => {
+  const control = {
+    vendorId: 0x1532,
+    productId: 0x00e6,
+    collections: [{ usagePage: 0x01, featureReports: [{ reportId: 0 }], children: [] }],
+  } as unknown as HIDDevice;
+  const plainMouse = {
+    ...control,
+    collections: [{ usagePage: 0x01, featureReports: [], children: [] }],
+  } as HIDDevice;
+  assert.equal(RazerViperV4ProHidClient.isSupported(control), true);
+  assert.equal(RazerViperV4ProHidClient.isSupported(plainMouse), false);
 });

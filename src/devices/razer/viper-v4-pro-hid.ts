@@ -68,12 +68,13 @@ export class RazerViperV4ProHidClient {
   }
 
   static isSupported(device: HIDDevice): boolean {
-    const hasControlCollection = (collections: readonly HIDCollectionInfo[]): boolean => collections.some((collection) =>
-      (collection.usagePage === 0xff00 && collection.featureReports.some((report) => report.reportId === REPORT_ID))
-      || hasControlCollection(collection.children));
+    const [collection] = device.collections;
+    const hasControlCollection = device.collections.length === 1
+      && (collection?.usagePage === 0x01 || collection?.usagePage === 0x0c)
+      && collection.featureReports.some((report) => report.reportId === REPORT_ID);
     return device.vendorId === RAZER_VENDOR_ID
       && VIPER_V4_PRO_PRODUCTS.has(device.productId)
-      && hasControlCollection(device.collections);
+      && hasControlCollection;
   }
 
   async open(): Promise<void> {
