@@ -28,6 +28,11 @@ export function setToggleValue(selector: string, value: boolean | null | undefin
   control.style.color = value ? "var(--ui-accent-ink)" : "#8b8b90";
 }
 
+export function setSelected(button: HTMLButtonElement, selected: boolean): void {
+  button.classList.toggle("selected", selected);
+  button.setAttribute("aria-pressed", String(selected));
+}
+
 export function formatHex(value: number, width = 2): string {
   return value.toString(16).toUpperCase().padStart(width, "0");
 }

@@ -13,6 +13,7 @@ export interface HidTrafficEntry {
   reportId: number;
   bytes: Uint8Array;
   ms: number;
+  at: number;
   error: string | null;
   device: HIDDevice;
 }
@@ -21,6 +22,7 @@ export interface HidMark {
   label: string;
   failed: boolean;
   transient: boolean;
+  at: number;
 }
 
 export type HidLogEntry = HidTrafficEntry | HidMark;
@@ -51,6 +53,7 @@ function record(
     reportId,
     bytes: data ? toBytes(data) : new Uint8Array(),
     ms: Math.round(performance.now() - started),
+    at: started,
     error: error instanceof Error ? error.message : error ? String(error) : null,
     device,
   });
@@ -131,7 +134,7 @@ export function markHidActivity(label: string, options: { failed?: boolean; tran
   const { failed = false, transient = false } = options;
   if (transient) dropTrailingTransient();
   if (entries.length >= MAX_ENTRIES) entries.shift();
-  entries.push({ label, failed, transient });
+  entries.push({ label, failed, transient, at: performance.now() });
 }
 
 export function hidTraffic(device?: HIDDevice | null): HidLogEntry[] {

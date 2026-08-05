@@ -16,8 +16,9 @@ export interface ControlEventHandlers {
   setShowExperimental(enabled: boolean): void;
   toggleSidebar(): void;
   resetInterfacePreferences(): void;
-  copyDiagnostics(): Promise<void>;
+  downloadDiagnostics(): void;
   chooseCustomDpi(): void;
+  sanitizeCustomDpi(): void;
   finishCustomDpiEditing(): void;
   applyLogitechAxisDpi(): void;
   applyLogitechAnalogButton(button: 0 | 1): void;
@@ -46,11 +47,15 @@ function onClick(selector: string, listener: () => void): void {
 }
 
 export function bindControlEvents(handlers: ControlEventHandlers): void {
-  onClick("#connect-button", () => void handlers.connect());
-  onClick("#empty-connect-button", () => void handlers.connect());
+  const showDevice = (run: () => void) => () => {
+    handlers.closeInterfaceSettings();
+    run();
+  };
+  onClick("#connect-button", showDevice(() => void handlers.connect()));
+  onClick("#empty-connect-button", showDevice(() => void handlers.connect()));
   document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
-    if (button) void handlers.selectAuthorizedDevice(Number(button.dataset.deviceIndex));
+    if (button) showDevice(() => void handlers.selectAuthorizedDevice(Number(button.dataset.deviceIndex)))();
   });
   onClick("#pending-flash", () => void handlers.flashPendingChanges());
   onClick("#pending-revert", handlers.revertPendingChanges);
@@ -74,7 +79,7 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   });
   onClick("#sidebar-menu-toggle", handlers.toggleSidebar);
   onClick("#reset-interface-settings", handlers.resetInterfacePreferences);
-  onClick("#copy-diagnostics", () => void handlers.copyDiagnostics());
+  onClick("#download-diagnostics", handlers.downloadDiagnostics);
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
   onClick("#apply-logitech-left-button", () => void handlers.applyLogitechAnalogButton(0));
@@ -92,6 +97,10 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
         option.setAttribute("aria-pressed", String(option === button));
       });
     });
+  });
+  document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("input", handlers.sanitizeCustomDpi);
+  document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("click", (event) => {
+    if ((event.currentTarget as HTMLInputElement).readOnly) handlers.chooseCustomDpi();
   });
   document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
