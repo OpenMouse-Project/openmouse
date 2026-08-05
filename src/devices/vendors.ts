@@ -14,10 +14,14 @@ export const VENDOR_ID = {
   atk: 0x373b,
 } as const;
 
-// Viper V3 Pro exposes its control channel as a Generic Desktop Mouse
-// collection. Limit this broad collection filter to its two known PIDs so it
-// cannot also surface unrelated Razer keyboards or the Viper V4 Pro's ordinary
+// Viper V2/V3 Pro expose their control channel as a Generic Desktop Mouse
+// collection. Limit this broad collection filter to known PIDs so it cannot
+// also surface unrelated Razer keyboards or the Viper V4 Pro's ordinary
 // boot-mouse interfaces.
+export const RAZER_VIPER_V2_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00a5, 0x00a6].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
+);
+
 export const RAZER_VIPER_V3_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00c0, 0x00c1].map(
   (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
 );
@@ -89,6 +93,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
+  ...RAZER_VIPER_V2_CONTROL_FILTERS,
   ...RAZER_VIPER_V3_CONTROL_FILTERS,
   { vendorId: VENDOR_ID.vgn, productId: 0xfb56 },
   { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
