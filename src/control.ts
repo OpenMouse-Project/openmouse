@@ -595,11 +595,11 @@ function renderReadTable(): string {
   const base = rows[0].at;
   const stamp = (at: number): string => `t+${((at - base) / 1000).toFixed(1)}s`.padStart(9);
 
-  const groups: { label: string; failed: boolean; at: number; items: HidTrafficEntry[] }[] = [];
+  const groups: { label: string; detail: string | null; failed: boolean; at: number; items: HidTrafficEntry[] }[] = [];
   for (const row of rows) {
-    if (isMark(row)) groups.push({ label: row.label, failed: row.failed, at: row.at, items: [] });
+    if (isMark(row)) groups.push({ label: row.label, detail: row.detail, failed: row.failed, at: row.at, items: [] });
     else {
-      if (!groups.length) groups.push({ label: BACKGROUND, failed: false, at: row.at, items: [] });
+      if (!groups.length) groups.push({ label: BACKGROUND, detail: null, failed: false, at: row.at, items: [] });
       groups[groups.length - 1].items.push(row);
     }
   }
@@ -612,6 +612,7 @@ function renderReadTable(): string {
 
   for (const group of shown) {
     lines.push(`${stamp(group.at)} ${group.failed ? "!" : ">"} ${group.label}`);
+    if (group.detail) lines.push(`${stamp(group.at)}     ${group.detail}`);
     for (const row of group.items) {
       const outcome = row.error ? `FAILED ${row.error}` : maskBytes(row.bytes);
       lines.push(`${stamp(row.at)}     ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
@@ -626,7 +627,7 @@ function diagnosticsLog(): object[] {
   const base = rows[0].at;
   const seconds = (at: number): number => Number(((at - base) / 1000).toFixed(3));
   return rows.map((row) => isMark(row)
-    ? { at: seconds(row.at), kind: "command", label: row.label, failed: row.failed }
+    ? { at: seconds(row.at), kind: "event", label: row.label, detail: row.detail, failed: row.failed }
     : {
       at: seconds(row.at),
       kind: "report",
