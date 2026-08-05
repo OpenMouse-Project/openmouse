@@ -4,10 +4,10 @@ import { buildRazerReport, decodeDpiState, razerCrc } from "./viper-v4-pro-hid.t
 import { RazerViperV4ProHidClient } from "./viper-v4-pro-hid.ts";
 
 test("Viper V4 Pro Razer reports use the captured 90-byte framing and XOR CRC", () => {
-  const report = buildRazerReport(0x00, 0x40, new Uint8Array([1, 0x08]));
+  const report = buildRazerReport(0x00, 0x40, 2, new Uint8Array([1, 0x08]));
   assert.equal(report.length, 90);
-  assert.deepEqual([...report.slice(0, 7)], [0, 0x1f, 0, 0, 2, 0, 0x40]);
-  assert.deepEqual([...report.slice(7, 9)], [1, 0x08]);
+  assert.deepEqual([...report.slice(0, 8)], [0, 0x1f, 0, 0, 0, 2, 0, 0x40]);
+  assert.deepEqual([...report.slice(8, 10)], [1, 0x08]);
   assert.equal(report[88], razerCrc(report));
 });
 

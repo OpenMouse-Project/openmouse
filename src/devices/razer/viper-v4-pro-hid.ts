@@ -21,14 +21,15 @@ interface DpiState {
 }
 
 /** The standard 90-byte Razer feature report used by the Viper V4 Pro. */
-export function buildRazerReport(commandClass: number, commandId: number, args: Uint8Array = new Uint8Array()): Uint8Array {
+export function buildRazerReport(commandClass: number, commandId: number, dataSize: number, args: Uint8Array = new Uint8Array()): Uint8Array {
   if (args.length > 80) throw new Error("Razer command payload is too large.");
+  if (!Number.isInteger(dataSize) || dataSize < 0 || dataSize > 80) throw new Error("Razer command data size is invalid.");
   const report = new Uint8Array(REPORT_LENGTH);
   report[1] = 0x1f; // Host transaction id; accepted by both wired mouse and receiver.
-  report[4] = args.length;
-  report[5] = commandClass;
-  report[6] = commandId;
-  report.set(args, 7);
+  report[5] = dataSize;
+  report[6] = commandClass;
+  report[7] = commandId;
+  report.set(args, 8);
   report[88] = razerCrc(report);
   return report;
 }
@@ -98,11 +99,11 @@ export class RazerViperV4ProHidClient {
     // Feature reports share one control endpoint. Keep every request/response
     // pair in order so a busy response cannot be mistaken for another read.
     const dpi = await this.readDpi();
-    const polling = await this.command(0x00, 0xc0, new Uint8Array([1]));
-    const battery = await this.command(0x07, 0x80, new Uint8Array([0, 0]));
-    const charging = await this.command(0x07, 0x84, new Uint8Array([0, 0]));
-    const sleepTimeout = await this.command(0x07, 0x83);
-    const lowPower = await this.command(0x07, 0x81);
+    const polling = await this.command(0x00, 0xc0, 2, new Uint8Array([1]));
+    const battery = await this.command(0x07, 0x80, 2, new Uint8Array([0, 0]));
+    const charging = await this.command(0x07, 0x84, 2, new Uint8Array([0, 0]));
+    const sleepTimeout = await this.command(0x07, 0x83, 2);
+    const lowPower = await this.command(0x07, 0x81, 1);
     const current = dpi.stages[dpi.activeStage]!;
     const wireless = VIPER_V4_PRO_PRODUCTS.get(this.device.productId)?.wireless ?? false;
     return {
@@ -140,18 +141,18 @@ export class RazerViperV4ProHidClient {
   async setPollingRate(rate: number): Promise<number> {
     const code = POLLING_CODES.get(rate);
     if (code === undefined) throw new Error("Unsupported Viper V4 Pro polling rate.");
-    await this.command(0x00, 0x40, new Uint8Array([1, code]));
+    await this.command(0x00, 0x40, 2, new Uint8Array([1, code]));
     // Changing rate briefly reconfigures the wireless link.
     await sleep(150);
-    const confirmed = this.decodePollingCode((await this.command(0x00, 0xc0, new Uint8Array([1])))[1]);
+    const confirmed = this.decodePollingCode((await this.command(0x00, 0xc0, 2, new Uint8Array([1])))[1]);
     if (confirmed !== rate) throw new Error(`The Viper V4 Pro kept ${confirmed} Hz instead of ${rate} Hz.`);
     return confirmed;
   }
 
   async setSleepTimeout(seconds: number): Promise<number> {
     if (!this.getSleepOptions().includes(seconds)) throw new Error("Viper V4 Pro sleep timeout must be 1, 5, 10, or 15 minutes.");
-    await this.command(0x07, 0x03, new Uint8Array([seconds >> 8, seconds & 0xff]));
-    const confirmed = readU16BE(await this.command(0x07, 0x83), 0);
+    await this.command(0x07, 0x03, 2, new Uint8Array([seconds >> 8, seconds & 0xff]));
+    const confirmed = readU16BE(await this.command(0x07, 0x83, 2), 0);
     if (confirmed !== seconds) throw new Error(`The Viper V4 Pro kept a ${confirmed}-second sleep timeout.`);
     return confirmed;
   }
@@ -166,7 +167,7 @@ export class RazerViperV4ProHidClient {
   async setRippleControl(): Promise<never> { throw new Error("Ripple control is not mapped for the Viper V4 Pro yet."); }
 
   private async readDpi(): Promise<DpiState> {
-    return decodeDpiState(await this.command(0x04, 0x86));
+    return decodeDpiState(await this.command(0x04, 0x86, 80));
   }
 
   private async writeDpi(state: DpiState): Promise<void> {
@@ -182,7 +183,7 @@ export class RazerViperV4ProHidClient {
       args[offset + 3] = stage.y >> 8;
       args[offset + 4] = stage.y & 0xff;
     });
-    await this.command(0x04, 0x06, args);
+    await this.command(0x04, 0x06, args.length, args);
   }
 
   private decodePollingCode(code: number | undefined): number {
@@ -191,19 +192,19 @@ export class RazerViperV4ProHidClient {
     return rate;
   }
 
-  private async command(commandClass: number, commandId: number, args: Uint8Array = new Uint8Array()): Promise<Uint8Array> {
+  private async command(commandClass: number, commandId: number, dataSize: number, args: Uint8Array = new Uint8Array()): Promise<Uint8Array> {
     await this.open();
-    const request = buildRazerReport(commandClass, commandId, args);
+    const request = buildRazerReport(commandClass, commandId, dataSize, args);
     await this.device.sendFeatureReport(REPORT_ID, request.buffer as ArrayBuffer);
     for (let attempt = 0; attempt < RESPONSE_ATTEMPTS; attempt += 1) {
       const view = await this.device.receiveFeatureReport(REPORT_ID);
       const response = new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
       if (response.byteLength !== REPORT_LENGTH || response[88] !== razerCrc(response)) throw new Error("The Viper V4 Pro returned an invalid Razer control report.");
       if (response[0] === 0x02) {
-        if (response[5] !== commandClass || response[6] !== commandId) {
+        if (response[6] !== commandClass || response[7] !== commandId) {
           throw new Error("The Viper V4 Pro returned a response for a different command.");
         }
-        return response.slice(7, 7 + (response[4] ?? 0));
+        return response.slice(8, 8 + (response[5] ?? 0));
       }
       if (response[0] !== 0x01) throw new Error(`The Viper V4 Pro rejected command ${commandClass.toString(16)}/${commandId.toString(16)} (status 0x${response[0]?.toString(16)}).`);
       await sleep(RESPONSE_DELAY_MS);
