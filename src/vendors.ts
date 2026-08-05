@@ -5,7 +5,14 @@ export const VENDOR_ID = {
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
   logitech: 0x046d,
+  moddo: 0x2fe3,
 } as const;
+
+/** moddoMOUSE exposes its config interface on vendor usage 0xFF01 (legacy 0xFF02). */
+export const MODDO_HID_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.moddo, usagePage: 0xff, usage: 0x01 },
+  { vendorId: VENDOR_ID.moddo, usagePage: 0xff, usage: 0x02 },
+];
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
   vendorId: VENDOR_ID.logitech,
@@ -49,5 +56,6 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
   ...EGG_WE_HID_FILTERS,
+  ...MODDO_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
 ];

@@ -22,6 +22,7 @@ import {
   type EggWeHidClient,
 } from "./egg-we-control";
 import { LogitechHidppClient } from "./logitech-hidpp";
+import { ModdoHidClient } from "./moddo-hid";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
@@ -49,6 +50,7 @@ let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeModdoClient: ModdoHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -60,10 +62,17 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let reconnectInFlight = false;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
+type SupportedClient =
+  | LogitechHidppClient
+  | PulsarClient
+  | EggOp1HidClient
+  | EggWeHidClient
+  | WLMouseHidClient
+  | ModdoHidClient;
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient
+    ?? activeModdoClient;
 }
 
 function hasActiveClient(): boolean {
@@ -908,6 +917,7 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
   if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
+  if (ModdoHidClient.isSupported(device)) return new ModdoHidClient(device);
   return null;
 }
 
@@ -915,6 +925,7 @@ function deviceBrand(client: SupportedClient): string {
   if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
   if (client instanceof WLMouseHidClient) return "WLMouse";
+  if (client instanceof ModdoHidClient) return "moddoMOUSE";
   return "Pulsar";
 }
 
@@ -993,6 +1004,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeModdoClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
   if (client instanceof WLMouseHidClient) {
@@ -1027,6 +1039,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = await client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof ModdoHidClient) {
+    activeModdoClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1047,6 +1066,7 @@ function showDisconnectedState(): void {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeModdoClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   resetDeviceSpecificPanels();
@@ -1172,6 +1192,7 @@ function clientSupportScore(device: HIDDevice): number {
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
   if (LogitechHidppClient.isSupported(device)) return 6;
+  if (ModdoHidClient.isSupported(device)) return 5;
   return 0;
 }
 
@@ -1699,6 +1720,7 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
   void activeEggWeClient?.close();
   void activeWLMouseClient?.close();
+  void activeModdoClient?.close();
 });
 
 renderControl();
