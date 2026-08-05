@@ -63,6 +63,7 @@ import { RazerHidClient } from "./devices/razer/hid";
 import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { VgnF2HidClient } from "./devices/vgn/hid";
+import { KeychronHidClient } from "./devices/keychron/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 
@@ -87,6 +88,7 @@ let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
+let activeKeychronClient: KeychronHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -111,7 +113,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient ?? activeKeychronClient;
 }
 
 function hasActiveClient(): boolean {
@@ -1069,6 +1071,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeTeevolutionClient = null;
   activeVgnClient = null;
   activeViperClient = null;
+  activeKeychronClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1141,6 +1144,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof KeychronHidClient) {
+    activeKeychronClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1166,6 +1176,7 @@ function showDisconnectedState(): void {
   activeTeevolutionClient = null;
   activeVgnClient = null;
   activeViperClient = null;
+  activeKeychronClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1895,6 +1906,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeTeevolutionClient?.close();
   void activeVgnClient?.close();
   void activeViperClient?.close();
+  void activeKeychronClient?.close();
 });
 
 const notice = unsupportedNotice({

@@ -1,6 +1,7 @@
 import { AtkHidClient } from "./atk/hid";
 import { EggOp1HidClient } from "./endgame/egg-op1-hid";
 import { eggWeCreate, eggWeIsSupported, eggWeSupportScore, isEggWeClient, type EggWeHidClient } from "./endgame/egg-we-control";
+import { KeychronHidClient } from "./keychron/hid";
 import { LamzuHidClient } from "./lamzu/hid";
 import { LogitechHidppClient } from "./logitech/hidpp";
 import { OrbitalHidClient } from "./orbital/hid";
@@ -13,7 +14,7 @@ import { VgnF2HidClient } from "./vgn/hid";
 import { WLMouseHidClient } from "./wlmouse/hid";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
+export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient | KeychronHidClient;
 
 interface DeviceDriver {
   brand: string;
@@ -36,6 +37,7 @@ const DEVICE_DRIVERS: readonly DeviceDriver[] = [
   { brand: "Razer", supports: (device) => RazerHidClient.isSupported(device), create: (device) => new RazerHidClient(device), score: () => 6 },
   { brand: "ATK", supports: (device) => AtkHidClient.isSupported(device), create: (device) => new AtkHidClient(device), score: () => 5 },
   { brand: "Razer", supports: (device) => RazerViperV4ProHidClient.isSupported(device), create: (device) => new RazerViperV4ProHidClient(device), score: () => 7 },
+  { brand: "Keychron", supports: (device) => KeychronHidClient.isSupported(device), create: (device) => new KeychronHidClient(device), score: () => 6 },
 ];
 
 function driverFor(device: HIDDevice): DeviceDriver | undefined {
