@@ -23,6 +23,15 @@ export interface MouseUiHints {
   pollingReadOnly?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
   hideProcessingCard?: boolean;
+  /** Hide the receiver signal-strength card when no command reports link quality. */
+  hideSignalCard?: boolean;
+  /**
+   * Render the advanced settings section for a driver outside the brands that
+   * open it by default. The section is the only place the signal, debounce,
+   * sleep and processing cards live, so a driver that fills one of them stays
+   * invisible without this. Set it only when a card in there will show.
+   */
+  showAdvancedSection?: boolean;
   /** Always show battery column (even wired with null %). */
   forceShowBattery?: boolean;
   /** Override the polling-rate footnote. */

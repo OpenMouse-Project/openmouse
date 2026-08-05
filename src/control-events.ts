@@ -27,6 +27,7 @@ export interface ControlEventHandlers {
   toggleDongleLed(): void;
   applyPulsarValue(setting: "debounce" | "sleep", value: number): void;
   toggleSleep(enabled: boolean): void;
+  applyLowPowerThreshold(percent: number): void;
   applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void;
   applyEggFilter(setting: EggFilterSetting, enabled: boolean): void;
   applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): void;
@@ -122,6 +123,9 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   });
   document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
     void handlers.applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
+  });
+  document.querySelector<HTMLSelectElement>("#low-power-select")?.addEventListener("change", (event) => {
+    void handlers.applyLowPowerThreshold(Number((event.target as HTMLSelectElement).value));
   });
   document.querySelector<HTMLButtonElement>("#sleep-toggle")?.addEventListener("click", (event) => {
     const enabled = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
