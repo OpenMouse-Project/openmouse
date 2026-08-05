@@ -21,6 +21,7 @@ import {
   hasPendingChanges,
   isPendingChange,
   onPendingChanges,
+  pendingChangeBatches,
   pendingChanges,
   stagePendingChange,
   withPendingChanges,
@@ -55,7 +56,29 @@ import {
 } from "./devices/endgame/egg-we-control";
 import { AtkHidClient } from "./devices/atk/hid";
 import { LamzuHidClient } from "./devices/lamzu/hid";
-import { LogitechHidppClient } from "./devices/logitech/hidpp";
+import {
+  LogitechHidppClient,
+  NotAMouseError,
+  PROFILE_DPI_WRITES_ENABLED,
+  type OnboardProfile,
+} from "./devices/logitech/hidpp";
+import {
+  BUNNY_HOP_LIMITS,
+  PROFILE_STAGE_LOD,
+  capabilitiesForFormat,
+  clampDpi,
+  describeOffset,
+  reportRatesFor,
+  validateProfileName,
+  validateReportRate,
+  reproduceProfile,
+  stageLodLevel,
+  validateBunnyHoppingMs,
+  type DpiStageCapabilities,
+  type DpiStagePlan,
+} from "./devices/logitech/onboard-profiles";
+import { escapeHtml } from "./ui/dom";
+import { bindCapturePanel, setCaptureContext } from "./capture-panel";
 import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
@@ -76,8 +99,14 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
-const isSuperstrikePreview = import.meta.env.DEV
-  && new URLSearchParams(window.location.search).get("preview") === "superstrike";
+const previewMode = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get("preview")
+  : null;
+const isSuperstrikePreview = previewMode === "superstrike";
+/** Any `?preview=` value, so the HID listeners stay off in every preview. */
+const isAnyPreview = previewMode !== null;
+/** Dev-only: renders the profile list and slot editor without hardware. */
+const isSlotsPreview = previewMode === "slots";
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
@@ -88,11 +117,42 @@ let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
+/** Cached onboard profiles; a full read is far too slow for the refresh loop. */
+let onboardProfiles: OnboardProfile[] | null = null;
+let onboardProfilesLoading = false;
+let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
+let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
+
+const ICON_ENABLED = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9fe0b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.2-4 6-4 6 4 6 4-2.2 4-6 4-6-4-6-4Z"/><circle cx="8" cy="8" r="1.8"/></svg>`;
+/** Closed link: this slot's X and Y move together. */
+const ICON_LINKED = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6.5 9.5a2.6 2.6 0 0 0 3.7 0l2.3-2.3a2.6 2.6 0 0 0-3.7-3.7l-.7.7"/><path d="M9.5 6.5a2.6 2.6 0 0 0-3.7 0L3.5 8.8a2.6 2.6 0 0 0 3.7 3.7l.7-.7"/></svg>`;
+/** Broken link: this slot's X and Y are set separately. */
+const ICON_UNLINKED = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 4.4l1.1-1.1a2.6 2.6 0 0 1 3.7 3.7L10.7 8.1"/><path d="M9 11.6l-1.1 1.1a2.6 2.6 0 0 1-3.7-3.7L5.3 7.9"/><path d="M2.6 2.6l10.8 10.8"/></svg>`;
+/** Pencil: rename this profile. */
+const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8b8b90" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.2 2.6a1.7 1.7 0 0 1 2.4 2.4L5.4 13.2 2 14l.8-3.4Z"/></svg>`;
+/** Filled dot: the mouse is running this profile. */
+const ICON_RUNNING = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9fe0b6" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.4" fill="#9fe0b6" stroke="none"/></svg>`;
+/** Hollow dot: switching the mouse to this profile. */
+const ICON_ACTIVATE = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#77777c" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/></svg>`;
+const ICON_DISABLED = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#77777c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.2-4 6-4 6 4 6 4a10 10 0 0 1-1.7 1.9"/><path d="M6.3 11.7A7.6 7.6 0 0 0 8 12"/><path d="m2 2 12 12"/></svg>`;
 let activeFinalmouseClient: FinalmouseHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
+
+/**
+ * Clears the in-progress flag and repaints the controls that read it.
+ *
+ * Every control rendered during a write comes out disabled, so simply clearing
+ * the flag in a `finally` leaves them that way until something else happens to
+ * re-render. Anything that sets the flag must end through here.
+ */
+function endDeviceWrite(): void {
+  settingInProgress = false;
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+  renderOnboardProfiles();
+}
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
@@ -167,6 +227,9 @@ function stageChange(change: PendingChange): void {
 // True when previewing the change over the device status would leave it unchanged
 function matchesDeviceStatus(change: PendingChange): boolean {
   if (!latestDeviceStatus) return false;
+  // Without a preview the setting is not in MouseStatus, so there is nothing to
+  // compare and the caller has to decide for itself whether the value changed.
+  if (!change.preview) return false;
   const preview = structuredClone(latestDeviceStatus);
   change.preview(preview);
   return JSON.stringify(preview) === JSON.stringify(latestDeviceStatus);
@@ -191,24 +254,28 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 }
 
 async function flashPendingChanges(): Promise<void> {
-  const queued = pendingChanges();
-  if (queued.length === 0 || settingInProgress || refreshInProgress) return;
+  const batches = pendingChangeBatches();
+  if (batches.length === 0 || settingInProgress || refreshInProgress) return;
   settingInProgress = true;
   setPendingBarBusy(true);
   let written = 0;
   let failure: string | null = null;
   try {
-    for (const change of queued) {
-      setPendingBarStatus(`${change.progress} (${written + 1} of ${queued.length})`);
-      setText("#read-status", change.progress);
+    for (const batch of batches) {
+      // Grouped settings share a byte or sector, so the last change staged into
+      // the group carries the combined write and the rest ride along with it.
+      const writer = batch[batch.length - 1];
+      if (!writer) continue;
+      setPendingBarStatus(`${writer.progress} (${written + 1} of ${batches.length})`);
+      setText("#read-status", writer.progress);
       // Let the step render before the write blocks on HID traffic.
       await flashPause();
-      recordDiagnosticCommand(change.command);
-      await change.apply();
+      for (const change of batch) recordDiagnosticCommand(change.command);
+      await writer.apply();
       // Drop each change as it lands, so a later failure leaves only the
       // unwritten ones staged and the user can retry just those.
-      dropPendingChange(change.key);
-      written += 1;
+      for (const change of batch) dropPendingChange(change.key);
+      written += batch.length;
     }
   } catch (error) {
     recordDiagnosticError(error, "Unable to flash the staged changes.");
@@ -217,8 +284,10 @@ async function flashPendingChanges(): Promise<void> {
   await flashPause(FLASH_SETTLE_MS);
   const client = activeSettingsClient();
   const status = client ? await statusAfterWrite(client).catch(() => null) : null;
-  settingInProgress = false;
-  if (status) showStatus(status);
+  // statusAfterWrite may have failed, so re-render either way rather than
+  // leaving the controls disabled from the write.
+  if (status) latestDeviceStatus = status;
+  endDeviceWrite();
   setPendingBarBusy(false);
   if (failure) {
     setText("#read-status", failure);
@@ -269,6 +338,7 @@ function renderControl(): void {
     renderDeviceDiagnostics(latestDiagnosticStatus);
   });
 
+  bindCapturePanel();
   bindControlEvents({
     connect,
     selectAuthorizedDevice,
@@ -328,18 +398,147 @@ function renderControl(): void {
     applyLightforceSwitchMode,
     flashPendingChanges,
     revertPendingChanges,
+    applyOnboardMode,
+    applyBunnyHopMs,
+    setDpiSlotCount,
+    setDpiSlotAxis,
+    setDpiSlotLod,
+    setDpiSlotDefault,
+    setDpiAxisLock,
+    selectOnboardProfile,
+    openOnboardProfile: selectEditedProfile,
+    renameOnboardProfile,
+    toggleProfilesExpanded,
+    setProfileReportRate,
+    rateFromSlider,
+    previewRateSlider,
+    toggleOnboardProfileEnabled,
+    reloadOnboardProfiles,
   });
   onPendingChanges(renderPendingBar);
+  onPendingChanges(() => {
+    // Flashed or reverted: stop previewing and fall back to the device value.
+    if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
+    if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
+    if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
+    if (!isPendingChange(DPI_SLOTS_KEY)) {
+      // Flashed or reverted: reseed the editor from whatever the mouse holds.
+      syncDpiSlotPlan();
+      renderDpiSlots();
+    }
+    if (!isPendingChange("gaming-surface")) stagedGamingSurface = null;
+    if (!isPendingChange("lightforce-switch-mode")) stagedLightforce = null;
+    renderBunnyHop();
+  });
   onPendingChanges(renderStagedMarkers);
   renderPendingBar();
   renderStagedMarkers();
   populateInterfaceSettings();
   applyInterfacePreferences();
-  if (!isSuperstrikePreview) {
+  if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
     void reconnectAuthorizedDevice();
   }
+}
+
+/**
+ * Dev-only preview of a Pro X Superlight 2 with its onboard profiles loaded,
+ * so the profile list and the slot editor can be looked at without hardware.
+ */
+function showSlotsPreview(): void {
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 8000, 16000, 32000];
+  const stages = [
+    { x: 800, y: 800, lod: 1 },
+    { x: 1200, y: 1200, lod: 2 },
+    { x: 1600, y: 1600, lod: 2 },
+    { x: 2400, y: 2400, lod: 2 },
+    { x: 3200, y: 3200, lod: 3 },
+  ];
+  onboardProfiles = [1, 2, 3].map((index) => ({
+    sector: index,
+    enabled: index !== 3,
+    isCurrent: index === 1,
+    name: `Profile ${index}`,
+    dpiStages: stages.slice(0, index === 1 ? 5 : 2),
+    defaultDpiIndex: 0,
+    reportRateWireless: 8000,
+    reportRateWired: 1000,
+    angleSnapping: false,
+    powerSaveTimeoutSeconds: 60,
+    powerOffTimeoutSeconds: 300,
+    bunnyHoppingMs: 100,
+    crcValid: true,
+  } as OnboardProfile));
+  const status: MouseStatus = {
+    brand: "Logitech",
+    name: "PRO X SUPERLIGHT 2",
+    ui: { family: "logitech-hidpp", lodRequiresSurface: true },
+    batteryPercent: 72,
+    batteryState: "Discharging",
+    dpi: 800,
+    dpiY: 800,
+    supportsSeparateDpiAxes: true,
+    pollingRateHz: 8000,
+    supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+    liftOffDistance: "Low",
+    supportedLiftOffDistances: ["Low", "Medium", "High"],
+    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true },
+    gamingSurfaceMode: "Auto",
+    lightforceSwitchMode: "Hybrid",
+    activeProfile: 1,
+    deviceMode: "Onboard",
+    connectionType: "Wireless",
+    firmware: ["MPM 39.00.B0004"],
+  };
+  // Stand-in client so the staging paths run without hardware. Every write
+  // refuses: the preview is for looking at the UI, not pretending to flash.
+  const refuse = async (): Promise<never> => {
+    throw new Error("Preview mode: no mouse is connected, so nothing was written.");
+  };
+  activeClient = {
+    writeActiveProfile: refuse,
+    setBunnyHoppingMs: refuse,
+    setProfileDpiStages: refuse,
+    setModeStatus: refuse,
+    readOnboardProfiles: async () => onboardProfiles ?? [],
+  } as unknown as LogitechHidppClient;
+
+  configureDpiControl(status.dpi);
+  showStatus(status);
+  renderOnboardProfiles();
+  setConnectionButtons(true, "Preview mode");
+  setText("#read-status", "Preview: profile format 7 with five DPI slots.");
+}
+
+/**
+ * Renders one driver's fixture, or lists the available ones when the name is
+ * unknown. The shell decides what to show from MouseStatus alone, so this walks
+ * the same rendering path the real driver would.
+ */
+async function showFixturePreview(name: string): Promise<void> {
+  // Loaded on demand so the fixtures never reach a production bundle, where
+  // `previewMode` is always null and none of this is reachable.
+  const { PREVIEW_FIXTURES, PREVIEW_KEYS } = await import("./preview-fixtures");
+  const fixture = PREVIEW_FIXTURES[name];
+  if (!fixture) {
+    // `?preview=list` lands here on purpose: an index is more useful than an
+    // error when you cannot remember the driver's key.
+    const heading = document.querySelector<HTMLElement>("#empty-state-title");
+    if (heading) heading.textContent = "Driver previews";
+    const links = PREVIEW_KEYS
+      .map((key) => `<a href="?preview=${key}" style="color:var(--ui-accent)">${key}</a>`)
+      .join(" · ");
+    const blurb = heading?.nextElementSibling;
+    if (blurb) blurb.innerHTML = `Render any supported driver without its hardware: ${links}`;
+    setText("#read-status", name === "list" ? "Pick a driver preview." : `Unknown preview "${name}".`);
+    return;
+  }
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
+  configureDpiControl(fixture.status.dpi);
+  showStatus(fixture.status);
+  setConnectionButtons(true, "Preview mode");
+  setText("#read-status", `Preview: ${fixture.label}. Nothing is written.`);
 }
 
 function showSuperstrikePreview(): void {
@@ -399,7 +598,30 @@ function closeInterfaceSettings(): void {
   showInterfaceSettings(false);
 }
 
+/**
+ * Fills the driver-preview list in interface settings. Development only: the
+ * fixtures are a dynamic import so they never reach a production bundle, and
+ * the section stays hidden there.
+ */
+async function populatePreviewLauncher(): Promise<void> {
+  const section = document.querySelector<HTMLElement>("#preview-launcher");
+  const list = document.querySelector<HTMLElement>("#preview-launcher-list");
+  if (!section || !list || !import.meta.env.DEV || list.childElementCount > 0) return;
+
+  const { PREVIEW_FIXTURES } = await import("./preview-fixtures");
+  const entries: Array<[string, string]> = [
+    ["slots", "Logitech PRO X Superlight 2"],
+    ["superstrike", "Logitech PRO X 2 Superstrike"],
+    ...Object.entries(PREVIEW_FIXTURES).map(([key, fixture]) => [key, fixture.label] as [string, string]),
+  ];
+  list.innerHTML = entries
+    .map(([key, label]) => `<a class="preview-launcher-link${previewMode === key ? " is-active" : ""}" href="?preview=${key}">${escapeHtml(label)}<small>${key}</small></a>`)
+    .join("");
+  section.hidden = false;
+}
+
 function populateInterfaceSettings(): void {
+  void populatePreviewLauncher();
   setControlValue("#interface-density", interfacePreferences.density);
   setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
@@ -500,7 +722,53 @@ function recordDiagnosticError(error: unknown, fallback: string): void {
   renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
+function configureProfileCapture(status: MouseStatus | null): void {
+  // Capture must be reachable from the profile section even when the separate
+  // Diagnostics disclosure is closed.
+  const logitechClient = status?.brand === "Logitech" ? activeClient as LogitechHidppClient | null : null;
+  const formatId = status?.onboardProfileFormat?.id ?? null;
+  const captureOpen = document.querySelector<HTMLButtonElement>("#capture-open");
+  if (captureOpen) captureOpen.hidden = logitechClient === null || formatId === null;
+  setCaptureContext({
+    device: activeDevice ? describeHidDevice(activeDevice) : status?.name ?? null,
+    profileFormat: status?.onboardProfileFormat ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name}` : null,
+    profiles: logitechClient && formatId !== null
+      ? {
+        read: async () => (await logitechClient.readOnboardProfiles())
+          .map((profile) => ({ sector: profile.sector, bytes: profile.raw })),
+        readVerification: async () => {
+          const verification = await logitechClient.readOnboardProfileVerification();
+          return {
+            ...verification,
+            profiles: verification.profiles.map((profile) => ({
+              sector: profile.sector,
+              enabled: profile.enabled,
+              isCurrent: profile.isCurrent,
+              crcValid: profile.crcValid,
+              decoded: {
+                name: profile.name,
+                dpiStages: profile.dpiStages,
+                defaultDpiIndex: profile.defaultDpiIndex,
+                reportRateWireless: profile.reportRateWireless,
+                reportRateWired: profile.reportRateWired,
+                angleSnapping: profile.angleSnapping,
+                powerSaveTimeoutSeconds: profile.powerSaveTimeoutSeconds,
+                powerOffTimeoutSeconds: profile.powerOffTimeoutSeconds,
+                bunnyHoppingMs: profile.bunnyHoppingMs,
+              },
+              bytes: profile.raw,
+            })),
+          };
+        },
+        describeOffset: (offset) => describeOffset(formatId, offset),
+        reproduce: (before, after) => reproduceProfile(before, after, formatId),
+      }
+      : null,
+  });
+}
+
 function renderDeviceDiagnostics(status: MouseStatus | null): void {
+  configureProfileCapture(status);
   const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
   if (!output || !diagnosticsOpen()) return;
 
@@ -715,7 +983,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     ?? (isEgg8k
       ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
       : "Higher rates update cursor movement more often, but use more battery."));
-  const pollingCard = document.querySelector<HTMLElement>("[data-rate]")?.closest<HTMLElement>(".setting-card");
+  const pollingCard = document.querySelector<HTMLElement>("#polling-card");
   if (pollingCard) {
     pollingCard.hidden = false;
     pollingCard.style.display = "";
@@ -871,29 +1139,25 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => setSelected(button, Number(button.dataset.rate) === status.pollingRateHz));
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => setSelected(button, button.dataset.lod === status.liftOffDistance));
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    const rate = Number(button.dataset.rate);
-    const supportedRates = status.supportedPollingRates;
-    const unsupportedForEgg8k = isEgg8k && rate < 1000;
-    const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
-    const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
-    const hide = unsupportedForEgg8k || hideListed || settingsPending;
-    button.hidden = hide;
+  // The host rate is one stop per rate the mouse actually advertises, so an
+  // unsupported rate is simply not a stop rather than a hidden button.
+  const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
+    .filter((rate) => !(isEgg8k && rate < 1000))
+    .slice()
+    .sort((a, b) => a - b);
+  renderRateSlider(
+    document.querySelector<HTMLElement>("#host-rate-slider"),
+    advertisedRates,
+    status.pollingRateHz,
     // A read-only rate still shows which one is active, it just cannot be staged.
-    button.disabled = hide || settingsPending || ui?.pollingReadOnly === true;
-  });
+    { disabled: settingsPending || ui?.pollingReadOnly === true },
+  );
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
     const supportedLods = status.supportedLiftOffDistances;
-    const usesNamedLods = Array.isArray(supportedLods)
-      && supportedLods.includes("Low")
-      && supportedLods.includes("High")
-      && !supportedLods.includes("Medium");
-    const lod = button.dataset.lod as NonNullable<MouseStatus["liftOffDistance"]>;
-    button.textContent = usesNamedLods
-      ? lod
-      : ({ Low: "0.7 mm", Medium: "1 mm", High: "2 mm" } as const)[lod];
+    // Named levels rather than millimetres: the mouse reports a level, not a
+    // height, and the millimetre figures differed per brand anyway.
+    button.textContent = button.dataset.lod ?? "";
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
     const unsupported = Array.isArray(supportedLods)
@@ -905,6 +1169,10 @@ function showStatus(deviceStatus: MouseStatus): void {
     const lodNeedsSurface = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off";
     button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow || lodNeedsSurface;
   });
+  // Runs after the DPI controls above so the slot editor, when it is in charge,
+  // has the last word on which of them are visible.
+  renderDpiSlots();
+  renderProfileRates();
   const lodNote = document.querySelector<HTMLElement>("#lod-note");
   if (lodNote) {
     lodNote.textContent = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off"
@@ -926,6 +1194,20 @@ function showStatus(deviceStatus: MouseStatus): void {
       && Array.isArray(status.supportedLiftOffDistances)
       && status.supportedLiftOffDistances.length === 0;
   }
+  const onboardSection = document.querySelector<HTMLElement>("#logitech-onboard");
+  if (onboardSection) {
+    const supportsOnboard = status.brand === "Logitech" && status.deviceMode !== undefined && status.deviceMode !== "Unknown";
+    onboardSection.hidden = !supportsOnboard;
+    if (supportsOnboard) {
+      lastDeviceMode = status.deviceMode;
+      lastProfileFormat = status.onboardProfileFormat ?? null;
+      // Profiles stay in flash regardless of mode, so they are listed either
+      // way; only which entry is highlighted changes. Read once per device —
+      // the refresh loop must never trigger a full profile pass.
+      if (onboardProfiles === null && !onboardProfilesLoading) void reloadOnboardProfiles();
+      else renderOnboardProfiles();
+    }
+  }
   const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
   if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
   document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
@@ -943,7 +1225,9 @@ function showStatus(deviceStatus: MouseStatus): void {
     dpiOutputField.readOnly = true;
   }
   const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
-  const showSeparateDpiAxes = status.brand === "Logitech" && status.supportsSeparateDpiAxes === true;
+  const showSeparateDpiAxes = status.brand === "Logitech"
+    && status.supportsSeparateDpiAxes === true
+    && !dpiSlotsAvailable();
   if (axisControls) axisControls.style.display = showSeparateDpiAxes ? "block" : "none";
   const dpiLabel = (source: MouseStatus): string => showSeparateDpiAxes
     ? `X ${source.dpi.toLocaleString()} · Y ${(source.dpiY ?? source.dpi).toLocaleString()} DPI`
@@ -1022,6 +1306,9 @@ function renderLogitechDetails(status: MouseStatus): void {
   const items = [
     ["Mode", status.deviceMode ?? "Unknown"],
     ["Active profile", status.activeProfile === null ? "None in host mode" : `Profile ${status.activeProfile}`],
+    ["Profile format", status.onboardProfileFormat
+      ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name} (base ${status.onboardProfileFormat.base})`
+      : "Not reported"],
     ["Model ID", status.modelId ?? "Not reported"],
     ["Unit ID", status.unitId ?? "Not reported"],
     ["Transport IDs", transports],
@@ -1096,6 +1383,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeTeevolutionClient = null;
   activeVgnClient = null;
   activeViperClient = null;
+  if (activeDevice !== client.device) onboardProfiles = null;
   activeFinalmouseClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
@@ -1203,6 +1491,7 @@ function showDisconnectedState(): void {
   activeViperClient = null;
   activeFinalmouseClient = null;
   activeDevice = null;
+  onboardProfiles = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
   latestDeviceStatus = null;
@@ -1341,12 +1630,15 @@ async function connect(): Promise<void> {
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
-    recordDiagnosticError(error, message);
+    // Picking a keyboard or headset is a wrong choice, not a failure: say so,
+    // and do not file it as a device error in diagnostics.
+    const wrongDevice = error instanceof NotAMouseError;
+    if (!wrongDevice) recordDiagnosticError(error, message);
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
     activeEggWeClient = null;
-    setText("#device-status", "Connection failed");
+    setText("#device-status", wrongDevice ? "Not a mouse" : "Connection failed");
     setText("#read-status", message);
   } finally {
     // Always clear the busy label — success used to leave "Connecting…" stuck.
@@ -1572,6 +1864,899 @@ function applyLogitechAnalogButton(button: 0 | 1): void {
   stageAnalogButton(button, readAnalogTuning(button === 0 ? "left" : "right"));
 }
 
+async function applyOnboardMode(mode: "Onboard" | "Host"): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+  // Host mode opens the host layer, which discards profile edits the same way.
+  if (mode === "Host" && !confirmDiscardingProfileEdits("host")) return;
+  settingInProgress = true;
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboard-mode]");
+  buttons.forEach((button) => { button.disabled = true; });
+  setText("#read-status", `Switching to ${mode.toLowerCase()} mode…`);
+  recordDiagnosticCommand(`Set onboard mode to ${mode}`);
+  try {
+    await client.setOnboardMode(mode);
+    // Host has no stored profile to edit, so switching to it also opens it.
+    if (mode === "Host") selectEditedProfile("host");
+    showStatus(await statusAfterWrite(client));
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to change the onboard mode.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the onboard mode.");
+  } finally {
+    endDeviceWrite();
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+
+async function selectOnboardProfile(sector: number): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+  // Asked before the mouse is touched: switching profiles also opens the new
+  // one, so the edits would be gone by the time the prompt appeared.
+  if (!confirmDiscardingProfileEdits(sector)) return;
+  settingInProgress = true;
+  setText("#read-status", `Switching to profile ${sector}…`);
+  recordDiagnosticCommand(`Select onboard profile ${sector}`);
+  try {
+    if (lastDeviceMode !== "Onboard") await client.setOnboardMode("Onboard");
+    await client.setCurrentProfile(sector);
+    // Switching to a profile also opens it, which is what you would expect
+    // after asking the mouse to run it.
+    selectEditedProfile(sector);
+    showStatus(await statusAfterWrite(client));
+    await reloadOnboardProfiles();
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to select that profile.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to select that profile.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+/**
+ * Enabling or disabling a slot rewrites the directory sector, so it costs a
+ * flash erase/write cycle and uses a write sequence not yet proven on hardware.
+ * Confirm explicitly rather than treating the icon as a cheap toggle.
+ */
+async function toggleOnboardProfileEnabled(sector: number, enabled: boolean): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+
+  const confirmed = window.confirm(
+    `${enabled ? "Enable" : "Disable"} profile ${sector}?\n\n`
+    + "This writes to the mouse's flash memory — one write cycle per change. "
+    + "OpenMouse has not yet verified this write sequence on hardware; G HUB can restore the profiles if anything goes wrong.",
+  );
+  if (!confirmed) return;
+
+  settingInProgress = true;
+  setText("#onboard-status", `${enabled ? "Enabling" : "Disabling"} profile ${sector}…`);
+  recordDiagnosticCommand(`${enabled ? "Enable" : "Disable"} onboard profile ${sector}`);
+  try {
+    await client.setProfileEnabled(sector, enabled);
+    await reloadOnboardProfiles();
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to change the profile state.");
+    setText("#onboard-status", error instanceof Error ? error.message : "Unable to change the profile state.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+/**
+ * Bunny hop lives in the active onboard profile, so applying it writes flash.
+ * The encoding is confirmed on hardware but the write sequence is not, hence
+ * the confirmation.
+ */
+const BUNNY_HOP_KEY = "logitech-bunny-hop";
+/**
+ * Settings written into the active profile's sector. Flash is erased and
+ * rewritten a whole sector at a time, so two of these staged together must
+ * cost one erase cycle, not two.
+ */
+const PROFILE_SECTOR_GROUP = "logitech-profile-sector";
+const DPI_SLOTS_KEY = "logitech-dpi-slots";
+
+/**
+ * Writes every staged profile setting in one sector write. This is the apply
+ * for the whole profile-sector group, so it must send everything staged in it:
+ * the group runs once, and whichever change happened to be staged last is the
+ * one that carries it.
+ */
+async function writeStagedProfileSector(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  const entry = editedProfileEntry();
+  if (!entry) throw new Error("No profile is open for editing.");
+  const ratesStaged = isPendingChange(PROFILE_RATE_KEY);
+  await activeClient.writeActiveProfile({
+    // The open profile, which is not necessarily the one the mouse is running.
+    sector: entry.sector,
+    bunnyHoppingMs: isPendingChange(BUNNY_HOP_KEY) ? stagedBunnyHopMs : null,
+    dpiStages: isPendingChange(DPI_SLOTS_KEY) ? dpiSlotPlan : null,
+    reportRateWirelessHz: ratesStaged ? stagedProfileRates.wireless : null,
+    reportRateWiredHz: ratesStaged ? stagedProfileRates.wired : null,
+    name: isPendingChange(PROFILE_NAME_KEY) ? stagedProfileName : null,
+  });
+  // The write changed profile flash, so every cached read is stale.
+  onboardProfiles = null;
+  await reloadOnboardProfiles();
+}
+/**
+ * Staged bunny-hop value. It cannot ride on MouseStatus like the other staged
+ * settings because it lives in the onboard profile, not the status snapshot,
+ * so the pending value is mirrored here for rendering instead.
+ */
+let stagedBunnyHopMs: number | null = null;
+
+function applyBunnyHopMs(milliseconds: number): void {
+  if (!activeClient) return;
+
+  const invalid = validateBunnyHoppingMs(milliseconds);
+  if (invalid) {
+    setText("#bunny-hop-note", invalid);
+    return;
+  }
+
+  const stored = editedProfileEntry()?.bunnyHoppingMs ?? null;
+  if (stored === milliseconds) {
+    stagedBunnyHopMs = null;
+    dropPendingChange(BUNNY_HOP_KEY);
+    renderBunnyHop();
+    return;
+  }
+
+  stagedBunnyHopMs = milliseconds;
+  stageChange({
+    key: BUNNY_HOP_KEY,
+    // Everything stored in the active profile shares one sector, so a second
+    // profile setting must join this group rather than cost its own erase.
+    group: PROFILE_SECTOR_GROUP,
+    label: milliseconds === 0 ? "Bunny hop off" : `Bunny hop ${milliseconds} ms`,
+    command: `Set bunny hop to ${milliseconds} ms`,
+    progress: milliseconds === 0 ? "Turning bunny hop off…" : `Setting bunny hop to ${milliseconds} ms…`,
+    // No preview: the value lives in the onboard profile, not MouseStatus, so
+    // renderBunnyHop mirrors the staged value from stagedBunnyHopMs instead.
+    apply: writeStagedProfileSector,
+  });
+  renderBunnyHop();
+}
+
+
+function renderBunnyHop(): void {
+  const row = document.querySelector<HTMLElement>("#bunny-hop-row");
+  if (!row) return;
+  const active = editedProfileEntry();
+  // Support is a property of the format, not of the stored value: a profile
+  // that never had bunny hop written reads 0xff and decodes to null, which
+  // means off, not unsupported. Keying on the value hid the control entirely
+  // on any profile the setting had not been used on yet.
+  const supported = active !== null
+    && capabilitiesForFormat(lastProfileFormat?.id).bunnyHop;
+  row.hidden = !supported;
+  if (!supported || !active) return;
+
+  const locked = lastProfileFormat?.verified !== true;
+  // Show the staged value, so a background refresh cannot snap the control back
+  // to what is still on the device.
+  // A never-written byte counts as off, so the toggle starts in the off state
+  // rather than the control vanishing.
+  const value = stagedBunnyHopMs ?? active.bunnyHoppingMs ?? 0;
+  const enabled = value !== 0;
+
+  setToggleValue("#bunny-hop-enabled", enabled);
+  const toggle = document.querySelector<HTMLButtonElement>("#bunny-hop-enabled");
+  if (toggle) toggle.disabled = locked || settingInProgress;
+
+  const input = document.querySelector<HTMLInputElement>("#bunny-hop-input");
+  if (input) {
+    // Leave the field alone while it has focus, or typing gets overwritten.
+    // While off there is no stored time, so the field keeps the lowest value
+    // G HUB allows and turning it on applies that.
+    if (document.activeElement !== input) input.value = String(enabled ? value : BUNNY_HOP_LIMITS.minMs);
+    input.disabled = locked || settingInProgress || !enabled;
+  }
+
+  setText("#bunny-hop-note", locked
+    ? "This profile format has not been verified on hardware, so it is read-only."
+    : `Ignores repeat clicks that land within this window, so a switch that bounces during fast click spam only registers once. Longer times filter harder; shorter times let genuine fast clicks through. ${BUNNY_HOP_LIMITS.minMs}–${BUNNY_HOP_LIMITS.maxMs} ms in steps of ${BUNNY_HOP_LIMITS.stepMs}.`);
+}
+
+/**
+ * DPI slots live in the active profile's stage table. The plan is edited as a
+ * whole because the slot count is expressed by zeroing the stages that fall out
+ * of use, so a single slot cannot be written on its own.
+ */
+let dpiSlotPlan: DpiStagePlan | null = null;
+/**
+ * Per-slot axis lock: while a slot is locked, typing X mirrors into Y. Slots
+ * are independent because the choice is per slot — a sniper slot may want
+ * separate axes while the rest stay square.
+ */
+let dpiAxisLocks: boolean[] = [];
+
+function dpiAxisLockedAt(index: number): boolean {
+  return dpiAxisLocks[index] ?? true;
+}
+
+function dpiSlotLimits(): DpiStageCapabilities | null {
+  const format = lastProfileFormat;
+  return format ? capabilitiesForFormat(format.id).dpiStages : null;
+}
+
+/**
+ * True when the slot editor is driving DPI, which means the preset row and the
+ * single X/Y pair must give way: they write the host layer, the slots write the
+ * profile, and showing both would offer two DPI values that can disagree.
+ * Mice with no slot support keep the preset UI unchanged.
+ */
+function dpiSlotsAvailable(): boolean {
+  return editingStoredProfile() && dpiSlotLimits() !== null && dpiSlotPlan !== null;
+}
+
+/** True while the flash write sequence for stage tables is still unproven. */
+function dpiSlotsLocked(): boolean {
+  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.verified !== true;
+}
+
+/**
+ * Which profile the settings panels are editing. This is deliberately not the
+ * same as which profile the mouse is running: you can open any stored profile,
+ * change it and flash it without switching to it. "host" means the live layer
+ * rather than a stored profile.
+ */
+let editedProfile: number | "host" | null = null;
+
+function editedProfileEntry(): OnboardProfile | null {
+  if (editedProfile === "host" || editedProfile === null) return null;
+  return onboardProfiles?.find((profile) => profile.sector === editedProfile) ?? null;
+}
+
+/** True while a stored profile is open, so profile settings are in charge. */
+function editingStoredProfile(): boolean {
+  return editedProfileEntry() !== null;
+}
+
+function syncEditedProfile(): void {
+  if (!onboardProfiles) return;
+  // Follow the device on first load, and whenever the chosen profile is gone.
+  const stillThere = editedProfile !== "host"
+    && onboardProfiles.some((profile) => profile.sector === editedProfile);
+  if (stillThere) return;
+  if (editedProfile === "host") return;
+  editedProfile = lastDeviceMode === "Host"
+    ? "host"
+    : onboardProfiles.find((profile) => profile.isCurrent)?.sector ?? "host";
+}
+
+/**
+ * Changes staged against the profile currently open. They are built from that
+ * sector's bytes, so they cannot follow you to another profile.
+ */
+function stagedProfileEdits(): PendingChange[] {
+  return pendingChanges().filter((change) => change.group === PROFILE_SECTOR_GROUP);
+}
+
+/**
+ * Asks before throwing away unflashed edits. Switching profiles discards them,
+ * and losing a set of DPI slots to a stray click is not something to do
+ * silently. Returns false when the user chooses to stay.
+ */
+function confirmDiscardingProfileEdits(target: number | "host"): boolean {
+  const staged = stagedProfileEdits();
+  if (staged.length === 0 || target === editedProfile) return true;
+
+  const from = describeProfileEntry(editedProfileEntry()).name.replace(/ · .*$/, "");
+  const to = target === "host"
+    ? "Host"
+    : onboardProfiles?.find((profile) => profile.sector === target)?.name ?? `Profile ${target}`;
+  return window.confirm(
+    `${from} has ${staged.length} change${staged.length === 1 ? "" : "s"} you have not flashed:\n\n`
+    + `${staged.map((change) => `  • ${change.label}`).join("\n")}\n\n`
+    + `Opening ${to} discards ${staged.length === 1 ? "it" : "them"}. Continue?`,
+  );
+}
+
+function selectEditedProfile(sector: number | "host"): void {
+  if (!confirmDiscardingProfileEdits(sector)) return;
+  editedProfile = sector;
+  // Opening a different profile abandons edits staged against the old one:
+  // they were built from that sector's bytes and cannot carry over.
+  dropPendingChange(DPI_SLOTS_KEY);
+  dropPendingChange(BUNNY_HOP_KEY);
+  dropPendingChange(PROFILE_RATE_KEY);
+  dropPendingChange(PROFILE_NAME_KEY);
+  stagedBunnyHopMs = null;
+  stagedProfileRates = { wireless: null, wired: null };
+  stagedProfileName = null;
+  // The locks describe the slots of the profile that was open, not this one.
+  dpiAxisLocks = [];
+  syncDpiSlotPlan();
+  renderOnboardProfiles();
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+}
+
+function syncDpiSlotPlan(): void {
+  const limits = dpiSlotLimits();
+  const entry = editedProfileEntry();
+  // A reload in flight leaves onboardProfiles null for a moment. Clearing the
+  // plan there made the editor blink out and back, so the last one is kept
+  // until there is something to replace it with.
+  if (!onboardProfiles) return;
+  if (!entry || !limits || entry.dpiStages.length === 0) {
+    dpiSlotPlan = null;
+    return;
+  }
+  // A background refresh must not discard edits the user has staged but not
+  // flashed yet, so the device value only reseeds the plan when none is staged.
+  if (isPendingChange(DPI_SLOTS_KEY)) return;
+  dpiSlotPlan = {
+    stages: entry.dpiStages.slice(0, limits.maxStages).map((stage) => ({ ...stage })),
+    defaultIndex: Math.min(entry.defaultDpiIndex ?? 0, entry.dpiStages.length - 1),
+  };
+}
+
+function deviceDpiSlotPlan(): DpiStagePlan | null {
+  const entry = editedProfileEntry();
+  if (!entry || entry.dpiStages.length === 0) return null;
+  return {
+    stages: entry.dpiStages.map((stage) => ({ ...stage })),
+    defaultIndex: Math.min(entry.defaultDpiIndex ?? 0, entry.dpiStages.length - 1),
+  };
+}
+
+/**
+ * Stages the edited slot table, or drops the change once it matches the mouse
+ * again. The whole table is one change: the slot count is expressed by zeroing
+ * the stages that fall out of use, so slots cannot be written individually.
+ */
+function stageDpiSlots(): void {
+  // Render first: the edit already changed the plan, so bailing out below must
+  // not leave the controls showing the values from before it.
+  renderDpiSlots();
+  if (!activeClient || !dpiSlotPlan) return;
+  const stored = deviceDpiSlotPlan();
+  if (stored && JSON.stringify(stored) === JSON.stringify(dpiSlotPlan)) {
+    dropPendingChange(DPI_SLOTS_KEY);
+    renderDpiSlots();
+    return;
+  }
+
+  const count = dpiSlotPlan.stages.length;
+  stageChange({
+    key: DPI_SLOTS_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: count === 1 ? "1 DPI slot" : `${count} DPI slots`,
+    command: `Write ${count} DPI slot(s) to the active profile`,
+    progress: "Writing DPI slots to the profile…",
+    // No preview: the slot table is not part of MouseStatus, so renderDpiSlots
+    // shows the edited plan directly.
+    apply: writeStagedProfileSector,
+  });
+  renderDpiSlots();
+}
+
+function setDpiSlotCount(count: number): void {
+  const limits = dpiSlotLimits();
+  if (!dpiSlotPlan || !limits || dpiSlotsLocked()) return;
+  const wanted = Math.min(limits.maxStages, Math.max(1, Math.round(count)));
+  const stages = dpiSlotPlan.stages.slice(0, wanted);
+  // Growing reuses the last slot's values, so a new slot starts somewhere sane
+  // rather than at zero, which would read back as unused.
+  while (stages.length < wanted) {
+    const previous = stages[stages.length - 1] ?? { x: limits.minDpi, y: limits.minDpi, lod: 2 };
+    stages.push({ ...previous });
+  }
+  dpiSlotPlan = { stages, defaultIndex: Math.min(dpiSlotPlan.defaultIndex, stages.length - 1) };
+  stageDpiSlots();
+}
+
+function setDpiSlotAxis(index: number, axis: "x" | "y", value: number): void {
+  const limits = dpiSlotLimits();
+  const stage = dpiSlotPlan?.stages[index];
+  if (!stage || !limits || dpiSlotsLocked()) return;
+  const dpi = clampDpi(value, limits);
+  stage[axis] = dpi;
+  // With this slot's axes locked the pair moves together, whichever was typed.
+  if (dpiAxisLockedAt(index)) stage[axis === "x" ? "y" : "x"] = dpi;
+  stageDpiSlots();
+}
+
+function setDpiSlotLod(index: number, level: NonNullable<MouseStatus["liftOffDistance"]>): void {
+  const stage = dpiSlotPlan?.stages[index];
+  if (!stage || dpiSlotsLocked()) return;
+  stage.lod = PROFILE_STAGE_LOD[level];
+  stageDpiSlots();
+}
+
+function setDpiSlotDefault(index: number): void {
+  if (!dpiSlotPlan || dpiSlotsLocked()) return;
+  if (index < 0 || index >= dpiSlotPlan.stages.length) return;
+  dpiSlotPlan.defaultIndex = index;
+  stageDpiSlots();
+}
+
+function setDpiAxisLock(index: number, locked: boolean): void {
+  if (dpiSlotsLocked()) return;
+  dpiAxisLocks[index] = locked;
+  const stage = dpiSlotPlan?.stages[index];
+  // Locking pulls Y onto X straight away, so the state matches what is shown.
+  if (locked && stage && stage.y !== stage.x) {
+    stage.y = stage.x;
+    // Mirroring changes the table, so it is staged like any other edit.
+    stageDpiSlots();
+    return;
+  }
+  renderDpiSlots();
+}
+
+/** Fallback stops for a driver that does not advertise a rate list. */
+const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
+
+/** 125 → "125", 8000 → "8K": the scale has to fit under a narrow card. */
+function shortRate(hz: number): string {
+  return hz >= 1000 ? `${hz / 1000}K` : String(hz);
+}
+
+/**
+ * Renders a rate picker as a slider with one stop per supported rate.
+ *
+ * The slider runs over indices rather than hertz because the steps are not
+ * evenly spaced — 125 to 8000 doubles each time — so an index scale puts the
+ * stops at equal distances, which is what makes the dots line up.
+ */
+function renderRateSlider(
+  root: HTMLElement | null,
+  options: number[],
+  valueHz: number | null,
+  state: { label?: string; disabled: boolean },
+): void {
+  if (!root) return;
+  if (options.length === 0) {
+    root.innerHTML = "";
+    return;
+  }
+  // A stored rate can sit off the scale — another tool may have written one
+  // above this link's ceiling. Land on the nearest stop rather than falling
+  // back to index 0, which would read as the slowest rate rather than the
+  // fastest one available.
+  const exact = options.indexOf(valueHz ?? -1);
+  const index = exact >= 0
+    ? exact
+    : options.reduce(
+      (best, rate, step) =>
+        Math.abs(rate - (valueHz ?? options[0] ?? 0)) < Math.abs((options[best] ?? 0) - (valueHz ?? options[0] ?? 0))
+          ? step
+          : best,
+      0,
+    );
+  const last = Math.max(1, options.length - 1);
+  // The thumb centre travels between half a thumb in from each end, so the
+  // dots are inset by the same amount to sit under it.
+  const position = (step: number): string => `calc(7px + (100% - 14px) * ${step} / ${last})`;
+
+  const scale = options.map((rate, step) => {
+    const on = step <= index;
+    return `<i class="${on ? "is-on" : ""}" style="left:${position(step)}"></i>`
+      + `<span class="${step === index ? "is-on" : ""}" style="left:${position(step)}">${shortRate(rate)}</span>`;
+  }).join("");
+
+  root.innerHTML = `${state.label ? `<div class="rate-slider-head"><span>${escapeHtml(state.label)}</span><output>${options[index]?.toLocaleString() ?? "—"} Hz</output></div>` : ""}
+    <input type="range" class="rate-slider-input" min="0" max="${last}" step="1" value="${index}"${state.disabled ? " disabled" : ""} aria-label="${escapeHtml(state.label ?? "Report rate")}" aria-valuetext="${options[index] ?? 0} Hz" />
+    <div class="rate-slider-scale">${scale}</div>`;
+  // The index is only meaningful next to the list it came from.
+  root.dataset.rates = options.join(",");
+}
+
+/** Maps a slider index back to hertz using the list that produced it. */
+function rateFromSlider(selector: string, index: number): number | null {
+  const root = document.querySelector<HTMLElement>(selector);
+  if (!root) return null;
+  const rates = (root.dataset.rates ?? "").split(",").map(Number).filter((rate) => rate > 0);
+  return rates[index] ?? null;
+}
+
+/**
+ * Updates a slider's readout and lit dots as the thumb moves. Nothing is
+ * staged: the value only counts once the drag ends.
+ */
+function previewRateSlider(selector: string, index: number): void {
+  const root = document.querySelector<HTMLElement>(selector);
+  if (!root) return;
+  const hz = rateFromSlider(selector, index);
+  const output = root.querySelector("output");
+  if (output && hz !== null) output.textContent = `${hz.toLocaleString()} Hz`;
+  root.querySelectorAll<HTMLElement>(".rate-slider-scale i").forEach((dot, step) => {
+    dot.classList.toggle("is-on", step <= index);
+  });
+  root.querySelectorAll<HTMLElement>(".rate-slider-scale span").forEach((label, step) => {
+    label.classList.toggle("is-on", step === index);
+  });
+}
+
+const PROFILE_NAME_KEY = "logitech-profile-name";
+let stagedProfileName: string | null = null;
+
+function renameOnboardProfile(sector: number): void {
+  const entry = onboardProfiles?.find((profile) => profile.sector === sector);
+  if (!entry || !activeClient) return;
+  const maxLength = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
+  if (maxLength === null) {
+    setText("#onboard-status", "This profile format has no name field.");
+    return;
+  }
+  // Renaming a profile that is not open would stage against the wrong sector,
+  // so opening it first keeps the pending write pointed at what is on screen.
+  if (editedProfile !== sector) selectEditedProfile(sector);
+
+  const current = stagedProfileName ?? entry.name ?? "";
+  const input = window.prompt(`Profile name (up to ${maxLength} characters)`, current);
+  if (input === null) return;
+
+  const invalid = validateProfileName(input, maxLength);
+  if (invalid) {
+    setText("#onboard-status", invalid);
+    return;
+  }
+  const name = input.trim();
+  if (name === entry.name) {
+    stagedProfileName = null;
+    dropPendingChange(PROFILE_NAME_KEY);
+    renderOnboardProfiles();
+    return;
+  }
+
+  stagedProfileName = name;
+  stageChange({
+    key: PROFILE_NAME_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Rename to "${name}"`,
+    command: `Rename profile ${sector} to "${name}"`,
+    progress: "Writing the profile name…",
+    apply: writeStagedProfileSector,
+  });
+  renderOnboardProfiles();
+}
+
+/** Staged per-profile report rates, keyed by link. */
+let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
+const PROFILE_RATE_KEY = "logitech-profile-rate";
+
+function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
+  const entry = editedProfileEntry();
+  if (!entry || !activeClient) return;
+  const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
+  const invalid = validateReportRate(hz, rates, link);
+  if (invalid) {
+    setText("#polling-note", invalid);
+    return;
+  }
+  stagedProfileRates = { ...stagedProfileRates, [link]: hz };
+
+  const stored = { wireless: entry.reportRateWireless, wired: entry.reportRateWired };
+  const wanted = {
+    wireless: stagedProfileRates.wireless ?? stored.wireless,
+    wired: stagedProfileRates.wired ?? stored.wired,
+  };
+  if (wanted.wireless === stored.wireless && wanted.wired === stored.wired) {
+    stagedProfileRates = { wireless: null, wired: null };
+    dropPendingChange(PROFILE_RATE_KEY);
+    renderProfileRates();
+    return;
+  }
+
+  stageChange({
+    key: PROFILE_RATE_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: `${link === "wired" ? "Wired" : "Wireless"} ${hz.toLocaleString()} Hz`,
+    command: `Set profile ${link} report rate to ${hz} Hz`,
+    progress: "Writing the report rate to the profile…",
+    // No preview: profile rates are not part of MouseStatus.
+    apply: writeStagedProfileSector,
+  });
+  renderProfileRates();
+}
+
+function renderProfileRates(): void {
+  const rows = document.querySelector<HTMLElement>("#profile-rate-rows");
+  const rateButtons = document.querySelector<HTMLElement>("#host-rate-slider");
+  if (!rows) return;
+  const entry = editedProfileEntry();
+  const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
+  const available = entry !== null && rates !== null;
+
+  rows.hidden = !available;
+  // The host slider writes the host layer, so only one of the two is shown.
+  if (rateButtons) rateButtons.hidden = available;
+  const badge = document.querySelector<HTMLElement>("#rate-scope-badge");
+  if (badge) {
+    badge.hidden = editedProfile === null;
+    badge.textContent = available ? "Per-profile" : "Host";
+  }
+  if (!available || !entry || !rates) return;
+
+  const locked = lastProfileFormat?.verified !== true;
+  for (const link of ["wireless", "wired"] as const) {
+    const value = stagedProfileRates[link]
+      ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
+    renderRateSlider(
+      document.querySelector<HTMLElement>(`#profile-rate-${link}`),
+      reportRatesFor(rates, link),
+      value,
+      { label: link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
+    );
+  }
+
+  setText("#polling-note", `Stored in this profile, one rate per link. Up to ${
+    reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
+    reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
+}
+
+function renderDpiSlots(): void {
+  const section = document.querySelector<HTMLElement>("#logitech-dpi-slots");
+  if (!section) return;
+  const limits = dpiSlotLimits();
+  // No limits means the format's slot table was never established, so nothing
+  // is shown rather than guessing another format's numbers.
+  const available = dpiSlotsAvailable();
+  section.hidden = !available;
+  // One card, two sources: the badge says which one is on screen. Mice with no
+  // profile list have only one source, so it carries no badge at all.
+  const scopeBadge = document.querySelector<HTMLElement>("#dpi-scope-badge");
+  if (scopeBadge) {
+    scopeBadge.hidden = editedProfile === null;
+    scopeBadge.textContent = available ? "Per-profile" : "Host";
+  }
+  // The compact layout pins the settings grid to a fixed row height, which the
+  // slot editor overflows. Set here rather than in showStatus so the class
+  // tracks the editor however the render was reached.
+  document.querySelector<HTMLElement>(".settings-grid")?.classList.toggle("has-dpi-slots", available);
+  // The standalone lift-off control writes the host layer and forces the mouse
+  // into host mode, so it stands down while a stored profile is open — there
+  // lift-off belongs to each DPI slot instead. Toggled here rather than in
+  // showStatus, which runs before the open profile is known.
+  const hostLodRow = document.querySelector<HTMLElement>("#host-lod-row");
+  if (hostLodRow) hostLodRow.hidden = available;
+  // The host layer has no stored slots, so it keeps the preset row instead.
+  if (!available || limits === null || dpiSlotPlan === null) {
+    // No slots on this mouse or profile format, so the preset row stays in
+    // charge exactly as it did before slots existed.
+    const presetRow = document.querySelector<HTMLElement>("#dpi-presets");
+    if (presetRow) presetRow.hidden = false;
+    const customButton = document.querySelector<HTMLButtonElement>("#custom-dpi");
+    if (customButton) customButton.hidden = false;
+    return;
+  }
+
+  const locked = dpiSlotsLocked();
+  const levels = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).supportedLods : [];
+
+  // The preset row writes host DPI, so it stands down while slots are shown.
+  const presets = document.querySelector<HTMLElement>("#dpi-presets");
+  if (presets) presets.hidden = true;
+  const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (custom) custom.hidden = true;
+  const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
+  if (axisControls) axisControls.style.display = "none";
+
+  // A short row of stops reads faster than a dropdown and matches the other
+  // pickers on the page.
+  const count = document.querySelector<HTMLElement>("#dpi-slot-count");
+  if (count) {
+    count.innerHTML = Array.from({ length: limits.maxStages }, (_, step) => {
+      const value = step + 1;
+      const on = value === dpiSlotPlan?.stages.length;
+      return `<button type="button" data-dpi-slot-count="${value}"${locked ? " disabled" : ""} class="${on ? "selected" : ""}" aria-pressed="${on}">${value}</button>`;
+    }).join("");
+  }
+
+  const list = document.querySelector<HTMLElement>("#dpi-slot-list");
+  if (list) {
+    list.innerHTML = dpiSlotPlan.stages.map((stage, index) => {
+      const level = stageLodLevel(stage.lod);
+      // A native select cannot be styled or animated, so the menu is built by
+      // hand. It keeps listbox semantics so it still reads as a select.
+      const lodOptions = levels
+        .map((name) => `<li role="option" data-lod-value="${name}" aria-selected="${name === level}">${name}</li>`)
+        .join("");
+      const isDefault = index === dpiSlotPlan?.defaultIndex;
+      const axisLocked = dpiAxisLockedAt(index);
+      return `<div class="dpi-slot-row${isDefault ? " is-default" : ""}">
+        <button type="button" class="dpi-slot-index" data-dpi-slot-default="${index}"${locked ? " disabled" : ""} title="${isDefault ? "Starting slot" : "Make this the starting slot"}" aria-pressed="${isDefault}">${index + 1}</button>
+        <input type="number" data-dpi-slot="${index}" data-dpi-axis="x" aria-label="Slot ${index + 1} X DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.x}"${locked ? " disabled" : ""} />
+        <button type="button" class="dpi-axis-lock${axisLocked ? " is-locked" : ""}" data-dpi-axis-lock="${index}"${locked ? " disabled" : ""} title="${axisLocked ? "X and Y are linked — click to set them separately" : "X and Y are separate — click to link them"}" aria-label="Link X and Y for slot ${index + 1}" aria-pressed="${axisLocked}">${axisLocked ? ICON_LINKED : ICON_UNLINKED}</button>
+        <input type="number" data-dpi-slot="${index}" data-dpi-axis="y" aria-label="Slot ${index + 1} Y DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.y}"${locked || axisLocked ? " disabled" : ""} />
+        <div class="lod-select" data-lod-select="${index}">
+          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
+          <ul class="lod-select-menu" role="listbox" data-dpi-slot-lod="${index}" aria-label="Slot ${index + 1} lift-off">${lodOptions}</ul>
+        </div>
+      </div>`;
+    }).join("");
+    // Column headings once, rather than a label on every field: at this card
+    // width the repeated labels were squeezing the inputs they described.
+    list.insertAdjacentHTML("afterbegin",
+      `<div class="dpi-slot-row dpi-slot-head"><span></span><span>X</span><span></span><span>Y</span><span>Lift-off</span></div>`);
+  }
+
+  setText("#dpi-slot-note", locked
+    ? "Read-only: writing DPI slots to a profile is not enabled yet, because the flash write sequence has not been verified on hardware."
+    : `Each slot stores its own X/Y sensitivity and lift-off level. ${limits.minDpi}–${limits.maxDpi} DPI in steps of ${limits.stepDpi}. The highlighted slot is the one the mouse starts on.`);
+}
+
+async function reloadOnboardProfiles(): Promise<void> {
+  const client = activeClient;
+  if (!client || onboardProfilesLoading) return;
+  onboardProfilesLoading = true;
+  setText("#onboard-status", "Reading onboard profiles…");
+  try {
+    onboardProfiles = await client.readOnboardProfiles();
+    renderOnboardProfiles();
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to read onboard profiles.");
+    setText("#onboard-status", error instanceof Error ? error.message : "Unable to read onboard profiles.");
+  } finally {
+    onboardProfilesLoading = false;
+  }
+}
+
+/**
+ * Whether the profile list is expanded. Deliberately sticky: opening a profile
+ * to edit it does not collapse the list, so several can be compared or switched
+ * between without reopening it each time.
+ */
+let profilesExpanded = false;
+
+function toggleProfilesExpanded(): void {
+  profilesExpanded = !profilesExpanded;
+  renderProfileSummary();
+  syncDisclosureHeight();
+}
+
+/**
+ * Drives the open/close animation from the content's measured height.
+ *
+ * Called after the list is rendered, not before, so growing or shrinking the
+ * list while it is open animates to the new size instead of keeping a stale one.
+ */
+function syncDisclosureHeight(): void {
+  const body = document.querySelector<HTMLElement>("#profile-disclosure-body");
+  const inner = document.querySelector<HTMLElement>(".profile-disclosure-inner");
+  if (!body || !inner) return;
+  body.style.maxHeight = profilesExpanded ? `${inner.scrollHeight}px` : "0px";
+}
+
+/** Describes one entry the way the collapsed summary shows it. */
+function describeProfileEntry(entry: OnboardProfile | null): { name: string; detail: string } {
+  if (!entry) {
+    return {
+      name: `Host${lastDeviceMode === "Host" ? " · active" : ""}`,
+      detail: "Live settings, not stored on the mouse",
+    };
+  }
+  const dpi = entry.dpiStages.length > 0
+    ? `${entry.dpiStages.length} DPI slot${entry.dpiStages.length === 1 ? "" : "s"}`
+    : "no DPI slots";
+  const rate = entry.reportRateWireless ? `${entry.reportRateWireless.toLocaleString()} Hz` : "—";
+  return {
+    name: `${entry.name ?? `Profile ${entry.sector}`}${entry.isCurrent && lastDeviceMode !== "Host" ? " · active" : ""}`,
+    detail: [dpi, rate, entry.enabled ? null : "disabled"].filter(Boolean).join(" · "),
+  };
+}
+
+function renderProfileSummary(): void {
+  const section = document.querySelector<HTMLElement>("#logitech-onboard");
+  const toggle = document.querySelector<HTMLButtonElement>("#profile-disclosure-toggle");
+  if (!section || !toggle) return;
+  section.classList.toggle("is-open", profilesExpanded);
+  toggle.setAttribute("aria-expanded", String(profilesExpanded));
+
+  const { name, detail } = describeProfileEntry(editedProfileEntry());
+  setText("#profile-summary-name", name);
+  setText("#profile-summary-detail", detail);
+}
+
+function renderOnboardProfiles(): void {
+  // Runs first so the row hides itself when no profile is loaded.
+  syncEditedProfile();
+  renderBunnyHop();
+  syncDpiSlotPlan();
+  renderDpiSlots();
+  renderProfileRates();
+  renderProfileSummary();
+  const list = document.querySelector<HTMLElement>("#onboard-profile-list");
+  if (!list) return;
+  if (!onboardProfiles) {
+    list.innerHTML = "";
+    return;
+  }
+  if (onboardProfiles.length === 0) {
+    list.innerHTML = "";
+    setText("#onboard-status", "This mouse reported no onboard profiles.");
+    return;
+  }
+
+  // Two independent states: which entry is open for editing, and what the mouse
+  // is actually running. Opening host must not change what is marked active.
+  const hostOpened = editedProfile === "host";
+  const hostRunning = lastDeviceMode === "Host";
+  const profileLayoutVerified = lastProfileFormat?.verified === true;
+  const profileNameLimit = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
+  // Host is a live, volatile source rather than a stored profile, so it is
+  // listed apart from them rather than mixed in.
+  // Host gets the same split as a profile row: open it to see its settings,
+  // use the circle to actually put the mouse into host mode.
+  const hostTags = [hostRunning ? "active" : null, hostOpened ? "editing" : null].filter(Boolean).join(" · ");
+  const hostRow = `<div style="display:flex;gap:.55rem;align-items:center;padding:.45rem .6rem;border:1px solid ${hostOpened ? "#4a4a52" : "#26262a"};border-radius:7px;background:${hostOpened ? "#1b1b1f" : "#141416"}">
+      <button type="button" data-onboard-profile="host" title="Open host settings" style="display:flex;gap:.55rem;align-items:center;flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;cursor:pointer">
+        <span class="device-dot${hostRunning ? "" : " is-idle"}"></span>
+        <span class="profile-row-text" style="display:flex;flex-direction:column;min-width:0">
+          <strong style="font-size:.72rem;color:#e6e6ea">Host — live${hostTags ? ` · ${hostTags}` : ""}</strong>
+          <small style="color:#77777c;font-size:.62rem">Settings applied by software, not stored on the mouse. Lost on power-cycle.</small>
+        </span>
+      </button>
+      <button type="button" data-onboard-mode="Host" ${hostRunning ? "disabled" : ""} title="${hostRunning ? "The mouse is already in host mode" : "Switch the mouse to host mode"}" aria-label="Switch to host mode" aria-pressed="${hostRunning}" style="display:flex;padding:.3rem;border:1px solid ${hostRunning ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${hostRunning ? "not-allowed" : "pointer"}">
+        ${hostRunning ? ICON_RUNNING : ICON_ACTIVATE}
+      </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin:.15rem 0 .05rem"><span style="height:1px;flex:1;background:#26262a"></span><small style="color:#5c5c62;font-size:.58rem;letter-spacing:.04em">STORED ON THE MOUSE</small><span style="height:1px;flex:1;background:#26262a"></span></div>
+    <small style="display:block;margin:0 0 .2rem;color:#5c5c62;font-size:.58rem">Click a profile to edit it. Use the circle to switch the mouse to it.</small>`;
+
+  list.innerHTML = hostRow + onboardProfiles.map((profile) => {
+    const dpi = profile.dpiStages.length > 0
+      ? profile.dpiStages.map((stage) => (stage.x === stage.y ? `${stage.x}` : `${stage.x}/${stage.y}`)).join(" · ")
+      : "no DPI stages";
+    const rate = profile.reportRateWireless ? `${profile.reportRateWireless.toLocaleString()} Hz` : "—";
+    const detail = [
+      `${dpi} DPI`,
+      rate,
+      profile.enabled ? "enabled" : "disabled",
+      profile.crcValid ? null : "checksum mismatch",
+    ].filter(Boolean).join(" · ");
+    // An unverified layout may be decoding the wrong bytes entirely, so the
+    // values are shown but nothing may act on them.
+    const locked = !profileLayoutVerified;
+    // Being open for editing and being the profile the mouse runs are separate
+    // states: you can change any stored profile without switching to it.
+    const opened = editedProfile === profile.sector;
+    const nameable = profileNameLimit !== null;
+    const running = profile.isCurrent && !hostRunning;
+    const border = opened ? "#4a4a52" : "#26262a";
+    const tags = [running ? "active" : null, opened ? "editing" : null].filter(Boolean).join(" · ");
+    return `<div style="display:flex;gap:.55rem;align-items:center;padding:.45rem .6rem;border:1px solid ${border};border-radius:7px;background:${opened ? "#1b1b1f" : "#141416"};opacity:${profile.enabled ? "1" : ".55"}">
+      <button type="button" data-onboard-profile="${profile.sector}" ${locked ? "disabled" : ""} title="${locked ? "This profile layout has not been verified on hardware" : "Open this profile to edit it"}" style="display:flex;gap:.55rem;align-items:center;flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;cursor:${locked ? "not-allowed" : "pointer"}">
+        <span class="device-dot${running ? "" : " is-idle"}"></span>
+        <span class="profile-row-text" style="display:flex;flex-direction:column;min-width:0">
+          <strong style="font-size:.72rem;color:#e6e6ea">${escapeHtml((opened && stagedProfileName) || profile.name || `Profile ${profile.sector}`)}${tags ? ` · ${tags}` : ""}</strong>
+          <small style="color:#77777c;font-size:.62rem">${escapeHtml(detail)}</small>
+        </span>
+      </button>
+      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable ? "not-allowed" : "pointer"};opacity:${locked || !nameable ? ".4" : "1"}">
+        ${ICON_RENAME}
+      </button>
+      <button type="button" data-profile-activate="${profile.sector}" ${locked || running || !profile.enabled ? "disabled" : ""} title="${running ? "The mouse is running this profile" : !profile.enabled ? "Enable this profile before switching to it" : "Switch the mouse to this profile"}" aria-label="Switch to profile ${profile.sector}" aria-pressed="${running}" style="display:flex;padding:.3rem;border:1px solid ${running ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${locked || running || !profile.enabled ? "not-allowed" : "pointer"};opacity:${locked || !profile.enabled ? ".4" : "1"}">
+        ${running ? ICON_RUNNING : ICON_ACTIVATE}
+      </button>
+      <button type="button" data-profile-enabled="${profile.sector}" data-enabled="${profile.enabled}" ${locked ? "disabled" : ""} title="${locked ? "This profile layout has not been verified on hardware" : profile.enabled ? "Disable this profile" : "Enable this profile"}" aria-label="${profile.enabled ? "Disable" : "Enable"} profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked ? "not-allowed" : "pointer"};opacity:${locked ? ".4" : "1"}">
+        ${profile.enabled ? ICON_ENABLED : ICON_DISABLED}
+      </button>
+    </div>`;
+  }).join("");
+
+  if (!profileLayoutVerified) {
+    setText("#onboard-status", `Profile format ${lastProfileFormat?.id ?? "?"} has not been verified on hardware — shown for reference only, and locked. Send a capture so it can be confirmed.`);
+    syncDisclosureHeight();
+    return;
+  }
+  const active = onboardProfiles.find((profile) => profile.isCurrent);
+  setText("#onboard-status", hostOpened
+    ? "Running live from software. Stored profiles are unchanged."
+    : active
+      ? `Running from ${active.name ?? `slot ${active.sector}`}. Profile contents are read-only for now.`
+      : "Profile contents are read-only for now.");
+  // Last, so the animation measures the list that was just rendered.
+  syncDisclosureHeight();
+}
+
+
 function applyLogitechAnalogButtons(): void {
   if (!activeClient) return;
   const tuning = readAnalogTuning("both");
@@ -1611,33 +2796,48 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
   });
 }
 
+/**
+ * Gaming surface and LightForce are two fields of one 0x8090 byte, so they are
+ * staged as a group and written together. Each apply sends the whole group's
+ * staged state; whichever runs is the last one staged.
+ */
+const MODE_STATUS_GROUP = "logitech-mode-status";
+let stagedGamingSurface: MouseStatus["gamingSurfaceMode"] = null;
+let stagedLightforce: MouseStatus["lightforceSwitchMode"] = null;
+
+async function writeStagedModeStatus(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  await activeClient.setModeStatus({
+    gamingSurface: stagedGamingSurface,
+    lightforce: stagedLightforce,
+  });
+}
+
 function applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void {
   if (!activeClient) return;
+  stagedGamingSurface = mode;
   stageChange({
     key: "gaming-surface",
+    group: MODE_STATUS_GROUP,
     label: `Gaming surface ${mode.toLowerCase()}`,
     command: `Set gaming surface to ${mode}`,
     progress: `Setting gaming surface to ${mode.toLowerCase()}…`,
     preview: (status) => { status.gamingSurfaceMode = mode; },
-    apply: async () => {
-      if (!activeClient) throw new Error("The mouse is no longer connected.");
-      await activeClient.setGamingSurfaceMode(mode);
-    },
+    apply: writeStagedModeStatus,
   });
 }
 
 function applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void {
   if (!activeClient) return;
+  stagedLightforce = mode;
   stageChange({
     key: "lightforce-switch-mode",
+    group: MODE_STATUS_GROUP,
     label: `LightForce ${mode.toLowerCase()}`,
     command: `Set LightForce switches to ${mode}`,
     progress: `Setting LightForce switches to ${mode.toLowerCase()}…`,
     preview: (status) => { status.lightforceSwitchMode = mode; },
-    apply: async () => {
-      if (!activeClient) throw new Error("The mouse is no longer connected.");
-      await activeClient.setLightforceSwitchMode(mode);
-    },
+    apply: writeStagedModeStatus,
   });
 }
 
@@ -1977,4 +3177,6 @@ if (notice) {
 } else {
   renderControl();
   if (isSuperstrikePreview) showSuperstrikePreview();
+  else if (isSlotsPreview) showSlotsPreview();
+  else if (previewMode !== null) void showFixturePreview(previewMode);
 }

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   clearPendingChanges,
   hasPendingChanges,
+  pendingChangeBatches,
   pendingChanges,
   stagePendingChange,
   withPendingChanges,
@@ -32,6 +33,62 @@ test("staged changes replace earlier values for the same setting", () => {
 
   assert.equal(pendingChanges().length, 1);
   assert.equal(pendingChanges()[0]?.label, "DPI 1600");
+  clearPendingChanges();
+});
+
+test("a change with no preview still stages", () => {
+  // Settings that live outside MouseStatus (Logitech onboard profile values)
+  // omit preview and render themselves, so previewing must be a no-op rather
+  // than a reason to skip the change.
+  clearPendingChanges();
+  const deviceStatus = status();
+  stagePendingChange({ key: "bunny-hop", label: "Bunny hop 200 ms", command: "", progress: "", apply: async () => {} });
+
+  assert.equal(hasPendingChanges(), true);
+  assert.equal(pendingChanges()[0]?.label, "Bunny hop 200 ms");
+  assert.deepEqual(withPendingChanges(deviceStatus), deviceStatus);
+  clearPendingChanges();
+});
+
+test("changes sharing a group collapse into one write", () => {
+  clearPendingChanges();
+  const written: string[] = [];
+  const stage = (key: string, group?: string) => stagePendingChange({
+    key, group, label: key, command: "", progress: "",
+    apply: async () => { written.push(key); },
+  });
+
+  stage("gaming-surface", "mode-status");
+  stage("dpi");
+  stage("lightforce", "mode-status");
+
+  const batches = pendingChangeBatches();
+  assert.equal(batches.length, 2, "the two mode-status changes share a batch");
+  // The group keeps the position of its first member, so the flash order
+  // follows the order settings were touched.
+  assert.deepEqual(batches[0]?.map((change) => change.key), ["gaming-surface", "lightforce"]);
+  assert.deepEqual(batches[1]?.map((change) => change.key), ["dpi"]);
+
+  // A batch is written by its last member, which carries the combined value.
+  assert.equal(batches[0]?.at(-1)?.key, "lightforce");
+  clearPendingChanges();
+});
+
+test("restaging a grouped change does not split its group", () => {
+  clearPendingChanges();
+  const stage = (key: string, group: string) => stagePendingChange({
+    key, group, label: key, command: "", progress: "", apply: async () => {},
+  });
+
+  stage("gaming-surface", "mode-status");
+  stage("lightforce", "mode-status");
+  // Re-selecting a value re-inserts the key, which must not leave the group
+  // behind as a second batch and write the byte twice.
+  stage("gaming-surface", "mode-status");
+
+  const batches = pendingChangeBatches();
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0]?.length, 2);
   clearPendingChanges();
 });
 

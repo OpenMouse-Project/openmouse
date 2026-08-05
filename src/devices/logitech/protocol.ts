@@ -75,3 +75,38 @@ export function decodeReportRateBitmap(bitflags: number): number[] {
 export function legacyDpiFallback(): number[] {
   return Array.from({ length: 46 }, (_, step) => 252 + step * 84);
 }
+
+export type BatteryChargeState =
+  | "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
+
+/**
+ * 0x1004 UNIFIED_BATTERY chargingStatus.
+ *
+ * Deliberately separate from the 0x1000 mapping below: the two features number
+ * their states differently, and decoding one with the other's table reports a
+ * slow charge as "almost full".
+ */
+export function decodeUnifiedBatteryState(chargingStatus: number): BatteryChargeState {
+  switch (chargingStatus) {
+    case 0x00: return "Discharging";
+    case 0x01: return "Charging";
+    case 0x02: return "Charging slowly";
+    case 0x03: return "Full";
+    // 4 is a charging fault. There is no state for it, and calling it charging
+    // would be worse than admitting we do not know.
+    default: return "Unknown";
+  }
+}
+
+/** 0x1000 BATTERY_LEVEL_STATUS batteryStatus. */
+export function decodeBatteryLevelState(batteryStatus: number): BatteryChargeState {
+  switch (batteryStatus) {
+    case 0x00: return "Discharging";
+    case 0x01: return "Charging";
+    case 0x02: return "Almost full";
+    case 0x03: return "Full";
+    case 0x04: return "Charging slowly";
+    // 5 invalid battery, 6 thermal error, 7 other charging error.
+    default: return "Unknown";
+  }
+}

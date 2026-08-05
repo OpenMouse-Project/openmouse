@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   DEVICE_INDEX_DIRECT,
   DEVICE_INDEX_RECEIVER,
+  decodeBatteryLevelState,
   decodeReportRateBitmap,
+  decodeUnifiedBatteryState,
   hidppDeviceIndex,
   hidppErrorMessage,
   isDirectConnectProduct,
@@ -71,4 +73,29 @@ test("the legacy DPI fallback matches the grid G402 hardware advertises", () => 
   assert.equal(options.every((dpi, index) => index === 0 || dpi - options[index - 1] === 84), true);
   // The value the mouse reports while vendor software displays "2400".
   assert.equal(options.includes(2436), true);
+});
+
+test("the two battery features use different charging enums", () => {
+  // 0x1004 UNIFIED_BATTERY.
+  assert.equal(decodeUnifiedBatteryState(0x00), "Discharging");
+  assert.equal(decodeUnifiedBatteryState(0x01), "Charging");
+  assert.equal(decodeUnifiedBatteryState(0x02), "Charging slowly");
+  assert.equal(decodeUnifiedBatteryState(0x03), "Full");
+  // A charging fault is not any kind of charging.
+  assert.equal(decodeUnifiedBatteryState(0x04), "Unknown");
+
+  // 0x1000 BATTERY_LEVEL_STATUS numbers the same states differently.
+  assert.equal(decodeBatteryLevelState(0x00), "Discharging");
+  assert.equal(decodeBatteryLevelState(0x01), "Charging");
+  assert.equal(decodeBatteryLevelState(0x02), "Almost full");
+  assert.equal(decodeBatteryLevelState(0x03), "Full");
+  assert.equal(decodeBatteryLevelState(0x04), "Charging slowly");
+  // 5 invalid battery, 6 thermal error, 7 other charging error.
+  for (const code of [0x05, 0x06, 0x07]) {
+    assert.equal(decodeBatteryLevelState(code), "Unknown", `status ${code}`);
+  }
+
+  // The point of keeping them apart: 2 and 4 mean opposite things.
+  assert.notEqual(decodeUnifiedBatteryState(0x02), decodeBatteryLevelState(0x02));
+  assert.notEqual(decodeUnifiedBatteryState(0x04), decodeBatteryLevelState(0x04));
 });

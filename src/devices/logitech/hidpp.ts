@@ -1,6 +1,10 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import {
+  DEVICE_INDEX_DIRECT,
+  DEVICE_INDEX_RECEIVER,
+  decodeBatteryLevelState,
   decodeReportRateBitmap,
+  decodeUnifiedBatteryState,
   hidppDeviceIndex,
   hidppErrorMessage,
   isDirectConnectProduct,
@@ -9,12 +13,106 @@ import {
 } from "./protocol.ts";
 import {
   MODE_STATUS,
-  buildModeStatusWrite,
+  buildModeStatusWriteMany,
   decodeModeStatus,
   type GamingSurfaceMode,
   type LightforceSwitchMode,
   type ModeStatusField,
 } from "./mode-status.ts";
+import {
+  ONBOARD_MODE,
+  PROFILE_FN,
+  applyCrc,
+  capabilitiesForFormat,
+  decodeLiftOffLevel,
+  decodeOnboardProfile,
+  describeProfileFormat,
+  encodeDpiStages,
+  encodeProfileName,
+  encodeReportRate,
+  validateDpiStagePlan,
+  type DpiStagePlan,
+  layoutForFormat,
+  parseDirectory,
+  parseProfilesInfo,
+  profileCrc,
+  setDirectoryEnabled,
+  storedCrc,
+  validateBunnyHoppingMs,
+  type OnboardProfile,
+  type ProfileFormatCapabilities,
+} from "./onboard-profiles.ts";
+
+export type { OnboardProfile };
+
+/** Raw, read-only evidence used to confirm an onboard-profile format. */
+export interface OnboardProfileVerification {
+  info: ReturnType<typeof parseProfilesInfo>;
+  infoReply: Uint8Array;
+  mode: "Onboard" | "Host" | "Unknown";
+  modeValue: number;
+  modeReply: Uint8Array;
+  currentSector: number;
+  currentProfileReply: Uint8Array;
+  directory: Uint8Array;
+  directoryCrcValid: boolean;
+  profiles: OnboardProfile[];
+}
+
+/**
+ * Master switch for writing DPI slots into profile flash.
+ *
+ * Enabled after probeProfileWriteSequence passed on a Pro X Superlight 2
+ * (format 7): writing a changed byte to sector 0x0002 appeared on read-back,
+ * and restoring it appeared too, both with valid checksums. That proves the
+ * memoryAddrWrite/memoryWrite/memoryWriteEnd sequence lands rather than being
+ * silently dropped. Run the probe again before trusting a new format.
+ */
+export const PROFILE_DPI_WRITES_ENABLED = true;
+
+export interface ProfileWriteProbeMismatch {
+  offset: number;
+  expected: number;
+  actual: number;
+}
+
+export interface ProfileWriteProbeStep {
+  name: string;
+  ok: boolean;
+  checksumValid: boolean;
+  mismatches: ProfileWriteProbeMismatch[];
+}
+
+export interface ProfileWriteProbe {
+  sector: number;
+  sectorSize: number;
+  offset: number;
+  originalByte: number;
+  probeByte: number;
+  steps: ProfileWriteProbeStep[];
+  ok: boolean;
+  restored: boolean;
+}
+
+/**
+ * A Logitech device that speaks HID++ but exposes no sensor, so it is not a
+ * mouse. Its own type so the shell can report it as a wrong choice rather than
+ * as a device that failed to read.
+ */
+/** No reply within the request window — nothing is listening on this index. */
+class HidppTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HidppTimeoutError";
+  }
+}
+
+export class NotAMouseError extends Error {
+  constructor(name: string) {
+    super(`${name} is not a mouse — it speaks Logitech's protocol but has no sensor to configure. Pick your mouse, or its receiver, instead.`);
+    this.name = "NotAMouseError";
+  }
+}
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
@@ -25,6 +123,8 @@ const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
   unifiedBattery: 0x1004,
+  // Pre-unified battery reporting, still the only one on HERO-era mice.
+  batteryStatus: 0x1000,
   batteryVoltage: 0x1001,
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
@@ -89,7 +189,12 @@ export class LogitechHidppClient {
   private rateFeatureResolved: ResolvedFeature | null = null;
   private reportRateFeatureIndex: number | null = null;
   private livePollingRateHz: number | null = null;
+  /** Discovered by resolveDeviceIndex; null until the mouse has answered. */
+  private resolvedDeviceIndex: number | null = null;
   private isSuperstrikeDevice = false;
+  /** Lift-off levels this device advertised; the single source of truth for both UI and validation. */
+  private lodCapabilities: ProfileFormatCapabilities = capabilitiesForFormat(null);
+  private supportedLods: Array<NonNullable<LogitechMouseStatus["liftOffDistance"]>> = ["Medium", "High"];
   private readonly rateChangeWaiters: Array<{ rate: number; resolve: () => void; reject: (reason: Error) => void }> = [];
   private readonly onInputReport = (event: HIDInputReportEvent): void => {
     if (event.reportId !== SHORT_REPORT_ID && event.reportId !== LONG_REPORT_ID) {
@@ -152,19 +257,62 @@ export class LogitechHidppClient {
 
   /** HID++ device index: the receiver's first slot, or the mouse itself. */
   private get deviceIndex(): number {
-    return hidppDeviceIndex(this.device.productId);
+    return this.resolvedDeviceIndex ?? hidppDeviceIndex(this.device.productId);
   }
 
-  static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID
-      || !(LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId))) {
-      return false;
+  /**
+   * Finds which HID++ device index this connection answers on.
+   *
+   * A mouse reached through its receiver answers on the receiver's pairing slot
+   * (0x01); the same mouse plugged in by cable answers as itself (0xFF). That
+   * cannot be read from the descriptors, and deriving it from a list of product
+   * ids only works for the handful of ids on the list — every other mouse
+   * plugged in directly was addressed as a receiver and never replied.
+   *
+   * So ask. The root feature query is the cheapest request there is, and the
+   * wrong index simply times out.
+   */
+  private async resolveDeviceIndex(): Promise<void> {
+    if (this.resolvedDeviceIndex !== null) return;
+    // Start with whichever the product id suggests, so the common paths answer
+    // on the first try and only an unknown device pays for the second.
+    const first = hidppDeviceIndex(this.device.productId);
+    const candidates = first === DEVICE_INDEX_DIRECT
+      ? [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER]
+      : [DEVICE_INDEX_RECEIVER, DEVICE_INDEX_DIRECT];
+
+    for (const candidate of candidates) {
+      this.resolvedDeviceIndex = candidate;
+      // Any reply at all proves something is listening, including a HID++
+      // error reply. Only silence rules the index out.
+      const answered = await this.request(0x00, 0x00, FEATURE.firmware >> 8, FEATURE.firmware & 0xff)
+        .then(() => true)
+        .catch((error: unknown) => !(error instanceof HidppTimeoutError));
+      if (answered) return;
     }
+    this.resolvedDeviceIndex = null;
+    throw new Error("The mouse did not answer on any HID++ device index.");
+  }
+
+  /**
+   * Any Logitech device speaking HID++, not just the receivers we happen to
+   * have listed. Whether it is a *mouse* cannot be told from descriptors —
+   * keyboards and headsets use the same transport — so that is decided after
+   * connecting, by asking for a DPI feature. See readStatus.
+   */
+  static isSupported(device: HIDDevice): boolean {
+    if (device.vendorId !== LOGITECH_VENDOR_ID) return false;
     const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
       collections.some((collection) =>
         (collection.usagePage === 0xff00 && collection.usage === 0x0001)
         || hasHidppCollection(collection.children));
     return hasHidppCollection(device.collections);
+  }
+
+  /** Known receivers, kept as the fast path for the WebHID picker's filters. */
+  static isKnownReceiver(device: HIDDevice): boolean {
+    return device.vendorId === LOGITECH_VENDOR_ID
+      && (LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId));
   }
 
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
@@ -196,13 +344,23 @@ export class LogitechHidppClient {
 
   async readStatus(): Promise<LogitechMouseStatus> {
     await this.open();
+    // Which index answers depends on how the mouse is attached, not on which
+    // mouse it is, so it is discovered once per connection before anything else.
+    await this.resolveDeviceIndex();
 
     const nameFeature = await this.getFeature(FEATURE.deviceName);
     const firmwareFeature = await this.getFeature(FEATURE.firmware);
     const batteryFeature = await this.getFeature(FEATURE.unifiedBattery);
+    const batteryStatusFeature = await this.getFeature(FEATURE.batteryStatus);
     const batteryVoltageFeature = await this.getFeature(FEATURE.batteryVoltage);
     const adcMeasurementFeature = await this.getFeature(FEATURE.adcMeasurement);
     const dpiFeature = await this.resolveDpiFeature();
+    // Keyboards, headsets and receivers for other devices all speak HID++, so
+    // the picker cannot filter them out by descriptor. A sensor feature is what
+    // actually distinguishes a mouse, and it is only knowable once connected.
+    if (!dpiFeature.index) {
+      throw new NotAMouseError(this.device.productName || "That Logitech device");
+    }
     const reportRateFeature = await this.resolveReportRateFeature();
     const profilesFeature = await this.getFeature(FEATURE.onboardProfiles);
     const analogButtonsFeature = await this.getFeature(FEATURE.analogButtons);
@@ -212,12 +370,16 @@ export class LogitechHidppClient {
     const name = await this.readName(nameFeature.index);
     const identity = await this.readIdentity(firmwareFeature.index);
     const battery = batteryFeature.index
+      // Ordered by how directly each reports charge: 0x1004 and 0x1000 give a
+      // percentage outright, while the voltage features only allow an estimate.
       ? await this.readBattery(batteryFeature.index)
-      : batteryVoltageFeature.index
-        ? await this.readBatteryVoltage(batteryVoltageFeature.index)
-        : adcMeasurementFeature.index
-          ? await this.readAdcMeasurement(adcMeasurementFeature.index)
-        : { percent: null, state: "Unknown" as const, voltageMv: null };
+      : batteryStatusFeature.index
+        ? await this.readBatteryLevelStatus(batteryStatusFeature.index)
+        : batteryVoltageFeature.index
+          ? await this.readBatteryVoltage(batteryVoltageFeature.index)
+          : adcMeasurementFeature.index
+            ? await this.readAdcMeasurement(adcMeasurementFeature.index)
+            : { percent: null, state: "Unknown" as const, voltageMv: null };
     if (batteryVoltageFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readBatteryVoltage(batteryVoltageFeature.index)).voltageMv;
     } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
@@ -242,8 +404,18 @@ export class LogitechHidppClient {
       : undefined;
     const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
     const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
+    // One extra request; the layout it selects is worth surfacing in diagnostics.
+    const onboardProfileFormat = profilesFeature.index
+      ? await this.request(profilesFeature.index, PROFILE_FN.getInfo)
+        .then((reply) => describeProfileFormat(parseProfilesInfo(reply).profileFormatId))
+        .catch(() => null)
+      : null;
     const isSuperstrike = this.isSuperstrike(identity);
     this.isSuperstrikeDevice = isSuperstrike;
+    // Keyed on the reported profile format, not the model, so another mouse on
+    // the same format gets the same limits without being named here.
+    this.lodCapabilities = capabilitiesForFormat(onboardProfileFormat?.id);
+    this.supportedLods = [...this.lodCapabilities.supportedLods];
     const wired = this.device.productId === 0xc0a8 || this.isDirectConnect;
 
     return {
@@ -267,7 +439,8 @@ export class LogitechHidppClient {
       dpiY: dpiState.dpiY,
       supportsSeparateDpiAxes,
       analogButtonTuning,
-      liftOffDistance: dpiState.liftOffDistance,
+      liftOffDistance: decodeLiftOffLevel(dpiState.lod, this.lodCapabilities),
+      onboardProfileFormat,
       gamingSurfaceMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
       lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
@@ -279,7 +452,9 @@ export class LogitechHidppClient {
       // Lift-off distance is only reachable through extended DPI (0x2202). On a
       // mouse that exposes just legacy 0x2201 there is nothing to drive, so
       // report an empty set rather than offering buttons that can only fail.
-      supportedLiftOffDistances: dpiFeature.legacy ? [] : isSuperstrike ? ["Low", "High"] : undefined,
+      // Otherwise the levels come from the profile format, which is where the
+      // count and the byte encoding are both established.
+      supportedLiftOffDistances: dpiFeature.legacy ? [] : this.supportedLods,
       connectionType: wired ? "Wired" : "Wireless",
       // Without this the shell falls back to its "2.4 GHz receiver" wording,
       // which is wrong for a mouse plugged straight into USB.
@@ -415,13 +590,12 @@ export class LogitechHidppClient {
   }
 
   async setLiftOffDistance(liftOffDistance: NonNullable<LogitechMouseStatus["liftOffDistance"]>): Promise<NonNullable<LogitechMouseStatus["liftOffDistance"]>> {
-    if (liftOffDistance === "Low" && !this.isSuperstrikeDevice) {
-      throw new Error("This mouse does not support a Low lift-off distance.");
+    // Validate against the levels this device advertised, so adding a model
+    // means describing it in readStatus rather than editing this check.
+    if (!this.supportedLods.includes(liftOffDistance)) {
+      throw new Error(`This mouse supports only ${this.supportedLods.join(" and ")} lift-off distance.`);
     }
-    if (liftOffDistance === "Medium" && this.isSuperstrikeDevice) {
-      throw new Error("The Superstrike supports only Low and High lift-off distance.");
-    }
-    const lod = ({ Low: 0, Medium: 1, High: 2 } as const)[liftOffDistance];
+    const lod = this.lodCapabilities.lodEncoding[liftOffDistance];
     await this.ensureHostControl();
     const feature = await this.getFeature(FEATURE.extendedDpi);
     if (!feature.index) {
@@ -437,7 +611,7 @@ export class LogitechHidppClient {
       lod,
     ]);
     const confirmed = await this.readDpiConfiguration(feature.index);
-    const result = confirmed.lod === 0 ? "Low" : confirmed.lod === 1 ? "Medium" : confirmed.lod === 2 ? "High" : null;
+    const result = decodeLiftOffLevel(confirmed.lod, this.lodCapabilities);
     if (result !== liftOffDistance) {
       throw new Error(`The mouse kept ${result ?? "an unknown"} lift-off distance instead of ${liftOffDistance}.`);
     }
@@ -475,24 +649,428 @@ export class LogitechHidppClient {
     }
   }
 
-  async setGamingSurfaceMode(mode: GamingSurfaceMode): Promise<GamingSurfaceMode> {
-    return this.setModeStatusField(MODE_STATUS.gamingSurface, mode, "gaming surface mode");
+  /**
+   * Switches the mouse between running from profile flash and being driven live
+   * by software. This is what G HUB's "Onboard Memory Mode" toggle does.
+   */
+  async setOnboardMode(mode: "Onboard" | "Host"): Promise<"Onboard" | "Host"> {
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+    const target = mode === "Onboard" ? ONBOARD_MODE.onboard : ONBOARD_MODE.host;
+    await this.request(feature.index, PROFILE_FN.setMode, target);
+
+    const confirmed = (await this.request(feature.index, PROFILE_FN.getMode))[3];
+    if (confirmed !== target) {
+      throw new Error(`The mouse stayed in ${confirmed === ONBOARD_MODE.onboard ? "onboard" : "host"} mode.`);
+    }
+    return mode;
   }
 
-  async setLightforceSwitchMode(mode: LightforceSwitchMode): Promise<LightforceSwitchMode> {
-    return this.setModeStatusField(MODE_STATUS.lightforce, mode, "LightForce switch mode");
+  /** Switches which stored profile the mouse runs. Volatile — no flash write. */
+  async setCurrentProfile(sector: number): Promise<void> {
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+    await this.request(feature.index, PROFILE_FN.setCurrentProfile, (sector >> 8) & 0xff, sector & 0xff);
   }
 
   /**
-   * Read-modify-write of one field of modeStatus1, then verify.
-   * The change mask stops the firmware touching other bits.
+   * Enables or disables a profile slot.
+   *
+   * WRITES FLASH. The directory sector is read, one flag byte changed, the
+   * checksum recomputed and the whole sector written back — one erase/write
+   * cycle per call. See docs/logitech-onboard-profiles.md. The write sequence
+   * itself has not been verified on hardware; callers should confirm with the
+   * user first.
+   */
+  async setProfileEnabled(sector: number, enabled: boolean): Promise<void> {
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    const format = describeProfileFormat(info.profileFormatId);
+    if (!format.verified) {
+      throw new Error(`Profile format ${format.id} has not been verified on hardware; refusing to write.`);
+    }
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+
+    const directory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    if (profileCrc(directory) !== storedCrc(directory)) {
+      throw new Error("The profile directory failed its checksum; refusing to write.");
+    }
+    const updated = setDirectoryEnabled(directory, sector, enabled);
+    if (updated.every((byte, index) => byte === directory[index])) {
+      return; // already in the requested state: never spend a write cycle on a no-op
+    }
+
+    await this.writeProfileSector(feature.index, 0x0000, updated);
+
+    const confirmed = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    const entry = parseDirectory(confirmed).find((candidate) => candidate.sector === sector);
+    if (!entry || entry.enabled !== enabled) {
+      throw new Error("The mouse did not confirm the new profile state.");
+    }
+  }
+
+  /**
+   * Sets the bunny-hop timeout on the active profile.
+   *
+   * WRITES FLASH — one erase/write cycle. Stored as ms / 10, with 0 meaning
+   * off; G HUB's range is 100-1000 ms. The encoding is confirmed on hardware,
+   * but the write sequence itself is not, so callers should confirm first.
+   */
+  /**
+   * Reads the active profile and the context needed to write it back. Every
+   * profile write starts here so the format check, the checksum check and the
+   * sector-size fallback cannot drift apart between settings.
+   */
+  private async openActiveProfile(targetSector?: number): Promise<{
+    featureIndex: number;
+    sector: number;
+    sectorSize: number;
+    formatId: number;
+    profile: Uint8Array;
+  }> {
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    const format = describeProfileFormat(info.profileFormatId);
+    if (!format.verified) {
+      throw new Error(`Profile format ${format.id} has not been verified on hardware; refusing to write.`);
+    }
+
+    // A profile can be edited without the mouse being switched to it, so the
+    // caller names the sector; only the default follows the running profile.
+    let sector = targetSector;
+    if (sector === undefined) {
+      const active = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+      sector = ((active[3] ?? 0) << 8) | (active[4] ?? 0);
+    }
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+
+    const profile = await this.readProfileSector(feature.index, sector, sectorSize);
+    if (profileCrc(profile) !== storedCrc(profile)) {
+      throw new Error("The profile failed its checksum; refusing to write.");
+    }
+    return { featureIndex: feature.index, sector, sectorSize, formatId: format.id, profile };
+  }
+
+  /**
+   * Writes every changed setting of the active profile in one sector write.
+   *
+   * Flash is erased a whole sector at a time, so settings that share the sector
+   * must be applied together: writing them one at a time would cost an erase
+   * cycle each, and each write would be built from a read the previous one had
+   * already invalidated.
+   */
+  async writeActiveProfile(values: {
+    bunnyHoppingMs?: number | null;
+    dpiStages?: DpiStagePlan | null;
+    reportRateWirelessHz?: number | null;
+    reportRateWiredHz?: number | null;
+    name?: string | null;
+    /** Defaults to the running profile when omitted. */
+    sector?: number;
+  }): Promise<void> {
+    const { featureIndex, sector, sectorSize, formatId, profile } = await this.openActiveProfile(values.sector);
+    let updated: Uint8Array = profile.slice();
+
+    if (values.bunnyHoppingMs !== null && values.bunnyHoppingMs !== undefined) {
+      const invalid = validateBunnyHoppingMs(values.bunnyHoppingMs);
+      if (invalid) throw new Error(invalid);
+      const offset = layoutForFormat(formatId).bunnyHopping;
+      if (offset === null) {
+        throw new Error("This profile format has no bunny-hop setting.");
+      }
+      updated[offset] = values.bunnyHoppingMs / 10;
+    }
+
+    if (values.dpiStages) {
+      const invalid = validateDpiStagePlan(values.dpiStages, capabilitiesForFormat(formatId).dpiStages);
+      if (invalid) throw new Error(invalid);
+      updated = encodeDpiStages(updated, formatId, values.dpiStages);
+    }
+
+    // The two links are stored separately, so each is set on its own.
+    if (values.reportRateWirelessHz) {
+      updated = encodeReportRate(updated, formatId, "wireless", values.reportRateWirelessHz);
+    }
+    if (values.reportRateWiredHz) {
+      updated = encodeReportRate(updated, formatId, "wired", values.reportRateWiredHz);
+    }
+
+    if (values.name !== null && values.name !== undefined) {
+      updated = encodeProfileName(updated, formatId, values.name);
+    }
+
+    applyCrc(updated);
+    // Encoding is deterministic, so an identical result means nothing changed
+    // and the write cycle can be skipped entirely.
+    if (updated.every((byte, index) => byte === profile[index])) return;
+
+    await this.writeProfileSector(featureIndex, sector, updated);
+    const confirmed = await this.readProfileSector(featureIndex, sector, sectorSize);
+    if (!confirmed.every((byte, index) => byte === updated[index])) {
+      throw new Error("The mouse did not store the profile as written.");
+    }
+  }
+
+  async setBunnyHoppingMs(milliseconds: number): Promise<void> {
+    await this.writeActiveProfile({ bunnyHoppingMs: milliseconds });
+  }
+
+  async setProfileDpiStages(plan: DpiStagePlan): Promise<void> {
+    await this.writeActiveProfile({ dpiStages: plan });
+  }
+
+  /**
+   * memoryAddrWrite declares the destination and length, memoryWrite streams
+   * 16 bytes at a time, memoryWriteEnd commits and validates the checksum.
+   */
+  private async writeProfileSector(featureIndex: number, sector: number, bytes: Uint8Array): Promise<void> {
+    await this.requestLong(featureIndex, PROFILE_FN.memoryAddrWrite, [
+      (sector >> 8) & 0xff,
+      sector & 0xff,
+      0x00,
+      0x00,
+      (bytes.length >> 8) & 0xff,
+      bytes.length & 0xff,
+    ]);
+
+    for (let offset = 0; offset < bytes.length; offset += 16) {
+      const chunk = new Uint8Array(16).fill(0xff);
+      chunk.set(bytes.slice(offset, offset + 16));
+      await this.requestLong(featureIndex, PROFILE_FN.memoryWrite, [...chunk]);
+    }
+
+    await this.request(featureIndex, PROFILE_FN.memoryWriteEnd);
+  }
+
+  /**
+   * Proves the profile write sequence on hardware.
+   *
+   * A no-op rewrite would be useless: writing a sector's own bytes back reads
+   * identical whether the write landed or was silently ignored. So this flips
+   * one byte, checks the change actually appears, then restores it and checks
+   * the restore appears too. Both halves must pass.
+   *
+   * The target is an unused sector — disabled, and never the active profile —
+   * so nothing the user relies on is at risk, and the original bytes are held
+   * in memory for restore if a step fails midway. Cost is two erase cycles of
+   * roughly 100,000, on a sector that is not in use.
+   */
+  async probeProfileWriteSequence(): Promise<ProfileWriteProbe> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+
+    const active = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+    const currentSector = ((active[3] ?? 0) << 8) | (active[4] ?? 0);
+    const directory = parseDirectory(await this.readProfileSector(feature.index, 0x0000, sectorSize));
+    const target = directory.find((entry) => !entry.enabled && entry.sector !== currentSector);
+    if (!target) {
+      throw new Error(
+        "No spare profile to test on. Disable a profile you are not using, then run this again.",
+      );
+    }
+
+    const original = await this.readProfileSector(feature.index, target.sector, sectorSize);
+    if (profileCrc(original) !== storedCrc(original)) {
+      throw new Error("The spare profile failed its checksum; refusing to write to it.");
+    }
+
+    // Padding is the safest byte to disturb: it carries no setting, and if the
+    // restore fails the profile is disabled anyway.
+    let offset = -1;
+    for (let index = original.length - 3; index >= 0; index -= 1) {
+      if (original[index] === 0xff) { offset = index; break; }
+    }
+    if (offset < 0) offset = original.length - 3;
+    const originalByte = original[offset] ?? 0xff;
+    const probeByte = originalByte ^ 0x01;
+
+    const probe = original.slice();
+    probe[offset] = probeByte;
+    applyCrc(probe);
+
+    const steps: ProfileWriteProbeStep[] = [];
+    const runStep = async (name: string, expected: Uint8Array): Promise<boolean> => {
+      await this.writeProfileSector(feature.index, target.sector, expected);
+      const readBack = await this.readProfileSector(feature.index, target.sector, sectorSize);
+      const mismatches: ProfileWriteProbeMismatch[] = [];
+      for (let index = 0; index < expected.length; index += 1) {
+        const want = expected[index] ?? 0;
+        const got = readBack[index] ?? 0;
+        if (want !== got && mismatches.length < 16) mismatches.push({ offset: index, expected: want, actual: got });
+      }
+      const checksumValid = profileCrc(readBack) === storedCrc(readBack);
+      steps.push({ name, ok: mismatches.length === 0 && checksumValid, checksumValid, mismatches });
+      return mismatches.length === 0;
+    };
+
+    const changed = await runStep("write probe byte", probe);
+    const restored = await runStep("restore original", original);
+
+    return {
+      sector: target.sector,
+      sectorSize,
+      offset,
+      originalByte,
+      probeByte,
+      steps,
+      // Both halves matter: the first shows a write takes effect, the second
+      // shows it is repeatable and leaves the sector as it was found.
+      ok: changed && restored,
+      restored,
+    };
+  }
+
+  /**
+   * Reads and decodes every onboard profile. Deliberately not part of
+   * readStatus: a full pass is ~80 HID++ round trips, far too slow for the
+   * refresh loop, so the UI loads it on demand.
+   */
+  async readOnboardProfiles(): Promise<OnboardProfile[]> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) return [];
+
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    if (!info.profileFormatId) return [];
+
+    const active = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+    const currentSector = ((active[3] ?? 0) << 8) | (active[4] ?? 0);
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+
+    const directory = parseDirectory(await this.readProfileSector(feature.index, 0x0000, Math.min(sectorSize, 64)));
+    const profiles: OnboardProfile[] = [];
+    for (const entry of directory) {
+      const bytes = await this.readProfileSector(feature.index, entry.sector, sectorSize);
+      profiles.push(decodeOnboardProfile(bytes, info.profileFormatId, entry, entry.sector === currentSector));
+    }
+    return profiles;
+  }
+
+  /**
+   * Collects a self-contained, read-only dump for validating any profile
+   * format. Unlike readOnboardProfiles, this keeps the full directory and the
+   * raw protocol replies so a maintainer can verify geometry and parsing rather
+   * than trusting OpenMouse's current assumptions.
+   */
+  async readOnboardProfileVerification(): Promise<OnboardProfileVerification> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose onboard-profile controls.");
+    }
+
+    const infoReply = await this.request(feature.index, PROFILE_FN.getInfo);
+    const info = parseProfilesInfo(infoReply);
+    if (!info.profileFormatId) {
+      throw new Error("The mouse did not report an onboard-profile format.");
+    }
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+    const modeReply = await this.request(feature.index, PROFILE_FN.getMode);
+    const modeValue = modeReply[3] ?? 0;
+    const mode = modeValue === ONBOARD_MODE.onboard
+      ? "Onboard" as const
+      : modeValue === ONBOARD_MODE.host
+        ? "Host" as const
+        : "Unknown" as const;
+    const currentProfileReply = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+    const currentSector = ((currentProfileReply[3] ?? 0) << 8) | (currentProfileReply[4] ?? 0);
+
+    // The directory is evidence too: its flags establish which sectors exist,
+    // and its checksum confirms that the complete sector was read correctly.
+    const directory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    const entries = parseDirectory(directory);
+    const profiles: OnboardProfile[] = [];
+    for (const entry of entries) {
+      const bytes = await this.readProfileSector(feature.index, entry.sector, sectorSize);
+      profiles.push(decodeOnboardProfile(bytes, info.profileFormatId, entry, entry.sector === currentSector));
+    }
+
+    return {
+      info,
+      infoReply,
+      mode,
+      modeValue,
+      modeReply,
+      currentSector,
+      currentProfileReply,
+      directory,
+      directoryCrcValid: profileCrc(directory) === storedCrc(directory),
+      profiles,
+    };
+  }
+
+  /**
+   * memoryRead returns 16 bytes per call and rejects a read running past the
+   * end of the sector, so a sector length that is not a multiple of 16 needs its
+   * tail fetched from `length - 16`, overlapping the previous chunk.
+   */
+  private async readProfileSector(featureIndex: number, sector: number, length: number): Promise<Uint8Array> {
+    const buffer = new Uint8Array(length);
+    const readChunk = async (offset: number): Promise<void> => {
+      const reply = await this.requestLong(featureIndex, PROFILE_FN.memoryRead, [
+        (sector >> 8) & 0xff,
+        sector & 0xff,
+        (offset >> 8) & 0xff,
+        offset & 0xff,
+      ]);
+      buffer.set(reply.slice(3, 3 + Math.min(16, length - offset)), offset);
+    };
+
+    let offset = 0;
+    for (; offset + 16 <= length; offset += 16) {
+      await readChunk(offset);
+    }
+    if (offset < length) {
+      await readChunk(length - 16);
+    }
+    return buffer;
+  }
+
+  async setGamingSurfaceMode(mode: GamingSurfaceMode): Promise<GamingSurfaceMode> {
+    await this.setModeStatus({ gamingSurface: mode });
+    return mode;
+  }
+
+  async setLightforceSwitchMode(mode: LightforceSwitchMode): Promise<LightforceSwitchMode> {
+    await this.setModeStatus({ lightforce: mode });
+    return mode;
+  }
+
+  /**
+   * Read-modify-write of modeStatus1, then verify. Both fields share the byte,
+   * so passing them together writes once instead of twice; the change mask
+   * stops the firmware touching bits neither field names.
    * Reading first keeps this correct if a future field spans bits we do not know about.
    */
-  private async setModeStatusField<T extends string>(
-    field: ModeStatusField<T>,
-    mode: T,
-    label: string,
-  ): Promise<T> {
+  async setModeStatus(values: {
+    gamingSurface?: GamingSurfaceMode | null;
+    lightforce?: LightforceSwitchMode | null;
+  }): Promise<void> {
+    const requested: Array<{ field: ModeStatusField<string>; mode: string; label: string }> = [];
+    if (values.gamingSurface) {
+      requested.push({ field: MODE_STATUS.gamingSurface, mode: values.gamingSurface, label: "gaming surface mode" });
+    }
+    if (values.lightforce) {
+      requested.push({ field: MODE_STATUS.lightforce, mode: values.lightforce, label: "LightForce switch mode" });
+    }
+    if (requested.length === 0) return;
+
+    const label = requested[0]?.label ?? "mode status";
     const feature = await this.getFeature(FEATURE.modeStatus);
     if (!feature.index) {
       throw new Error(`This mouse does not expose ${label} controls.`);
@@ -502,14 +1080,20 @@ export class LogitechHidppClient {
     if (current === null) {
       throw new Error(`The mouse did not report its current ${label}.`);
     }
-    await this.requestLong(feature.index, MODE_STATUS.set, buildModeStatusWrite(current, field, mode));
+    // Where the firmware persists 0x8090 is unknown, so it may cost a write
+    // cycle. Re-selecting the current value is a no-op worth skipping.
+    const changes = requested.filter((update) => decodeModeStatus(current, update.field) !== update.mode);
+    if (changes.length === 0) return;
+
+    await this.requestLong(feature.index, MODE_STATUS.set, buildModeStatusWriteMany(current, changes));
 
     const readBack = await this.readModeStatus(feature.index);
-    const confirmed = readBack === null ? null : decodeModeStatus(readBack, field);
-    if (confirmed !== mode) {
-      throw new Error(`The mouse kept ${confirmed ?? "an unknown"} ${label} instead of ${mode}.`);
+    for (const update of changes) {
+      const confirmed = readBack === null ? null : decodeModeStatus(readBack, update.field);
+      if (confirmed !== update.mode) {
+        throw new Error(`The mouse kept ${confirmed ?? "an unknown"} ${update.label} instead of ${update.mode}.`);
+      }
     }
-    return confirmed;
   }
 
   /** Byte 4 of getModeStatus, carrying both the surface and LightForce fields. */
@@ -550,18 +1134,14 @@ export class LogitechHidppClient {
   // --- Legacy Adjustable DPI (0x2201) ---------------------------------------
   // These mice expose a single sensor and no adjustable lift-off distance.
 
-  private async readLegacyDpi(featureIndex: number): Promise<{
-    dpi: number;
-    dpiY: number;
-    liftOffDistance: LogitechMouseStatus["liftOffDistance"];
-  }> {
+  private async readLegacyDpi(featureIndex: number): Promise<{ dpi: number; dpiY: number; lod: number | null }> {
     if (!featureIndex) {
       throw new Error("This Logitech mouse does not expose DPI controls.");
     }
     // getSensorDpi(sensor 0): reply data = [sensorIdx, dpiHi, dpiLo, defaultHi, defaultLo].
     const reply = await this.request(featureIndex, 0x20, 0x00);
     const dpi = ((reply[4] ?? 0) << 8) | (reply[5] ?? 0);
-    return { dpi, dpiY: dpi, liftOffDistance: null };
+    return { dpi, dpiY: dpi, lod: null };
   }
 
   private async readLegacyDpiList(featureIndex: number): Promise<number[]> {
@@ -668,17 +1248,40 @@ export class LogitechHidppClient {
     return new TextDecoder().decode(new Uint8Array(fragments));
   }
 
+  /**
+   * 0x1004 UNIFIED_BATTERY getStatus: [stateOfCharge, batteryLevel,
+   * chargingStatus, externalPower].
+   *
+   * The charging enum here is NOT the one 0x1000 uses, which is what this
+   * previously decoded: on 0x1004, 2 means charging slowly and 4 means a
+   * charging fault, where on 0x1000 those are "almost full" and "charging
+   * slowly". A slow charge was therefore reported as almost full.
+   */
   private async readBattery(featureIndex: number): Promise<BatteryReading> {
     const reply = await this.request(featureIndex, 0x10);
     const percentage = reply[3];
-    const state = ({
-      0x00: "Discharging",
-      0x01: "Charging",
-      0x02: "Almost full",
-      0x03: "Full",
-      0x04: "Charging slowly",
-    } as const)[reply[5] ?? -1] ?? "Unknown";
-    return { percent: percentage <= 100 ? percentage : null, state };
+    return {
+      percent: percentage <= 100 ? percentage : null,
+      state: decodeUnifiedBatteryState(reply[5] ?? -1),
+    };
+  }
+
+  /**
+   * 0x1000 BATTERY_LEVEL_STATUS getBatteryLevelStatus:
+   * [dischargeLevel, nextLevel, batteryStatus].
+   *
+   * Older mice expose only this. Without it they reported no battery at all,
+   * because the driver probed 0x1004, 0x1001 and 0x1f20 and nothing else.
+   */
+  private async readBatteryLevelStatus(featureIndex: number): Promise<BatteryReading> {
+    const reply = await this.request(featureIndex, 0x00);
+    const percentage = reply[3] ?? 0xff;
+    // A mouse that reports level in coarse steps sends 0 with a status, which
+    // is a real reading; only an out-of-range value means "no percentage".
+    return {
+      percent: percentage <= 100 ? percentage : null,
+      state: decodeBatteryLevelState(reply[5] ?? -1),
+    };
   }
 
   private async readBatteryVoltage(featureIndex: number): Promise<BatteryReading> {
@@ -728,16 +1331,15 @@ export class LogitechHidppClient {
     return 0;
   }
 
-  private async readDpi(featureIndex: number): Promise<{ dpi: number; dpiY: number; liftOffDistance: LogitechMouseStatus["liftOffDistance"] }> {
+  private async readDpi(featureIndex: number): Promise<{ dpi: number; dpiY: number; lod: number | null }> {
     if (!featureIndex) {
       throw new Error("This Logitech mouse does not expose extended DPI controls.");
     }
 
     const configuration = await this.readDpiConfiguration(featureIndex);
-    const dpi = configuration.x;
-    const lod = configuration.lod;
-    const liftOffDistance = lod === 0 ? "Low" : lod === 1 ? "Medium" : lod === 2 ? "High" : null;
-    return { dpi, dpiY: configuration.y, liftOffDistance };
+    // The raw byte is returned rather than a level: which byte means which
+    // level depends on the profile format, which is read later in readStatus.
+    return { dpi: configuration.x, dpiY: configuration.y, lod: configuration.lod };
   }
 
   private async readAnalogButtonTuning(featureIndex: number): Promise<AnalogButtonTuning> {
@@ -937,7 +1539,7 @@ export class LogitechHidppClient {
         if (index >= 0) {
           this.waiters.splice(index, 1);
         }
-        reject(new Error(this.isDirectConnect
+        reject(new HidppTimeoutError(this.isDirectConnect
           ? "The mouse did not answer. Close Logitech G HUB or Logitech Gaming Software, then try again."
           : "The mouse did not answer. Move it or click a button, then try again."));
       }, 6000);
