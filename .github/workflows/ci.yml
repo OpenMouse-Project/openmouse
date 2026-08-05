@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check and build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: No new dependencies
+        run: |
+          if [ -s package.json ] && [ "$(node -p "Object.keys(require('./package.json').dependencies ?? {}).length")" != "0" ]; then
+            echo "OpenMouse ships with no runtime dependencies. Adding one needs a maintainer decision."
+            exit 1
+          fi
