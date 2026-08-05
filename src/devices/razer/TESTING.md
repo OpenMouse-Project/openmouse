@@ -7,6 +7,9 @@ Supported identifiers:
 
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
+- `1532:006e` — DeathAdder Essential, wired
+- `1532:0071` — DeathAdder Essential White Edition, wired
+- `1532:0098` — DeathAdder Essential (2021), wired
 
 Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
@@ -44,6 +47,51 @@ command for it has been confirmed.
    keeps reporting without stalling or throwing.
 8. Record the device identifier, firmware version, and any failing setting in the
    issue or pull request.
+
+## DeathAdder Essential — not yet hardware-tested
+
+This model shares the 90-byte protocol above, so it reuses the same commands.
+Three things differ, and each is the kind of thing that fails loudly rather
+than quietly:
+
+| Difference | Value | Why |
+| --- | --- | --- |
+| Transaction id | `0x3f`, not `0x1f` | OpenRazer uses the older id for this family. A wrong id means the mouse never replies at all, so this shows up as a timeout, not as a wrong setting. |
+| DPI ceiling | 6,400 | Officially published. Anything above is rejected before it reaches the mouse. |
+| Battery | none | The battery commands are skipped rather than sent and caught, because an unsupported reply would abort the whole status read. |
+
+The control interface is also less certain than on the Viper. That one always
+answers on the interface whose only collection is Generic Desktop Mouse; this
+family splits pointer and configuration across separate interfaces and the
+revisions disagree about which usage page carries the configuration one, so the
+driver accepts a vendor-defined collection as well. The picker will therefore
+offer more than one entry. If the first never answers, add the device again and
+choose another — the same situation as the Viper receiver.
+
+1. Confirm the picker offers the mouse at all. If Chrome grants only a single
+   Generic Desktop Mouse collection and the firmware read times out on every
+   entry, this platform does not expose the configuration interface and no
+   browser-side control is possible. Stop and record that.
+2. Confirm the model name, **Wired**, and a firmware version appear.
+3. Confirm no battery row appears.
+4. Confirm the DPI presets offer 400 / 800 / 1600 / 3200 / 6400, and no 8000.
+5. Confirm the polling buttons offer only 125 / 500 / 1000.
+6. Read DPI and compare against Synapse **before** writing anything.
+7. Change DPI, confirm the pointer speed changes, then reload and confirm it
+   persisted. Settings on this model may be volatile — if the value reverts
+   after a replug, that is a device trait, not a driver bug.
+8. Change the polling rate and verify it externally.
+9. Confirm no lift-off buttons and no sensor processing card appear.
+
+If step 6 returns an implausible DPI, the storage byte is the first thing to
+try: this driver uses `VARSTORE` (`0x01`) for both the read and the write,
+matching OpenRazer's generic path, but some older models expect `NOSTORE`
+(`0x00`). Change `RAZER_STORAGE` only after confirming it against a capture.
+
+Lighting is not implemented. The hardware is fixed-colour (green on the black
+edition, white on the white one), the panel has no Razer lighting controls, and
+the effect packets are unverified. Device mode (`0x00`/`0x04`) is never sent —
+driver mode changes button behaviour and would need restoring on disconnect.
 
 ## Verified against firmware 1.12
 
