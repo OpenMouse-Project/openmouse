@@ -17,6 +17,7 @@ import {
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
+  factoryProfileForFormat,
   reportRatesFor,
   validateBunnyHoppingMs,
   validateProfileName,
@@ -219,6 +220,22 @@ test("our encoders reproduce each observed transition byte for byte", () => {
     const after = sectorState(OBSERVED_STATES[index]);
     assert.deepEqual([...reproduceProfile(before, after, 7)], [...after], `transition ${index}`);
   }
+});
+
+test("factory reset image is exact, CRC-valid and limited to captured geometry", () => {
+  const factory = factoryProfileForFormat(7, 255);
+  assert.ok(factory);
+  assert.deepEqual([...factory], [...SECTOR_2]);
+  assert.equal(profileCrc(factory), storedCrc(factory));
+  assert.equal(factoryProfileForFormat(7, 256), null);
+  assert.equal(factoryProfileForFormat(8, 255), null);
+});
+
+test("factory reset reproduces erased name, bunny-hop and G-Shift regions", () => {
+  // Captured from G HUB/Onboard Memory Manager resetting every profile. The
+  // configured sector becomes byte-identical to an untouched factory sector.
+  const reproduced = reproduceProfile(SECTOR_3, SECTOR_2, 7);
+  assert.deepEqual([...reproduced], [...SECTOR_2]);
 });
 
 test("bunny-hop timeout decodes as milliseconds", () => {

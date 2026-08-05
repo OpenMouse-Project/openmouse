@@ -390,6 +390,41 @@ export function applyCrc(bytes: Uint8Array): Uint8Array {
 }
 
 /**
+ * Complete factory profile captured after G HUB/Onboard Memory Manager's
+ * "reset all profiles" action on profile format 7. This is intentionally an
+ * exact sector image rather than a list of guessed defaults: it resets button
+ * assignments, G-Shift, lighting and currently-undecoded fields as well as the
+ * settings OpenMouse exposes in the UI.
+ */
+const FACTORY_PROFILE_FORMAT_7 = `
+  03 03 00 00 20 03 20 03 02 b0 04 b0 04 02 40 06
+  40 06 02 60 09 60 09 02 80 0c 80 0c 02 00 00 00
+  00 ff 00 ff ff ff ff ff ff ff ff ff 3c 00 2c 01
+  80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+  80 01 00 10 ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  03 00 00 00 00 00 1f 40 00 00 00 03 00 00 00 00
+  00 1f 40 00 00 00 03 00 00 00 00 00 1f 40 32 00
+  00 03 00 00 00 00 00 1f 40 32 00 00 03 84 db
+`;
+
+/** Returns a fresh, CRC-valid factory sector only for a captured geometry. */
+export function factoryProfileForFormat(profileFormatId: number, sectorSize: number): Uint8Array | null {
+  if (profileFormatId !== 7 || sectorSize !== 255) return null;
+  return Uint8Array.from(
+    FACTORY_PROFILE_FORMAT_7.trim().split(/\s+/),
+    (byte) => Number.parseInt(byte, 16),
+  );
+}
+
+/**
  * Returns a copy of the directory sector with one profile's enabled flag
  * changed and the checksum recomputed. Every other byte is carried through
  * untouched, so unknown directory fields survive.
@@ -690,6 +725,8 @@ function writeUint16LE(bytes: Uint8Array, offset: number, value: number): void {
 export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileFormatId: number): Uint8Array {
   const layout = layoutForFormat(profileFormatId);
   const result = before.slice();
+  const isErased = (offset: number, size: number): boolean =>
+    after.slice(offset, offset + size).every((byte) => byte === 0xff);
 
   const copyRate = (offset: number | null): void => {
     if (offset === null) return;
@@ -722,6 +759,9 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
   if (layout.bunnyHopping !== null) {
     const milliseconds = decodeBunnyHoppingMs(after, layout.bunnyHopping);
     if (milliseconds !== null) result[layout.bunnyHopping] = Math.round(milliseconds / 10);
+    // Factory reset returns the optional component to erased flash rather than
+    // encoding "off" as zero. That distinction is visible in a vendor diff.
+    else if (after[layout.bunnyHopping] === 0xff) result[layout.bunnyHopping] = 0xff;
   }
 
   for (const offset of [layout.powerSaveTimeout, layout.powerOffTimeout]) {
@@ -740,6 +780,18 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
       encoded[index * 2 + 1] = (code >> 8) & 0xff;
     }
     result.set(encoded, layout.profileName);
+  } else if (isErased(layout.profileName, PROFILE_NAME_BYTES)) {
+    // An unnamed factory profile uses erased bytes, not a zero-filled empty
+    // UTF-16 string. Reproduce that representation exactly so its CRC matches.
+    result.fill(0xff, layout.profileName, layout.profileName + PROFILE_NAME_BYTES);
+  }
+
+  // Reset-to-factory erases the complete G-Shift assignment component. We do
+  // not claim to encode individual assignments yet, but an all-0xff target is
+  // unambiguous and safe to reproduce for capture verification.
+  const gShift = componentsForFormat(profileFormatId).find((component) => component.name === "g_shift_function");
+  if (gShift && isErased(gShift.offset, gShift.size)) {
+    result.fill(0xff, gShift.offset, gShift.offset + gShift.size);
   }
 
   return applyCrc(result);

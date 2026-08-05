@@ -63,6 +63,7 @@ export function controlTemplate(buildLabel: string): string {
               <i class="profile-summary-chevron" aria-hidden="true"></i>
             </button>
             <button id="onboard-refresh" class="icon-button" type="button" aria-label="Reload profiles" title="Reload profiles"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.6 6.6A6 6 0 1 0 14 8"/><path d="M14 2.4V6.6H9.8"/></svg></button>
+            <button id="reset-logitech-profiles" class="icon-button profile-delete-button" type="button" aria-label="Delete and reset every onboard profile" title="Delete all profiles and restore defaults" hidden disabled><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10"/><path d="M6 2.5h4l.6 2H5.4l.6-2Z"/><path d="m4.2 4.5.6 9h6.4l.6-9"/><path d="M6.5 7v4M9.5 7v4"/></svg></button>
           </div>
           <div id="profile-disclosure-body" class="profile-disclosure-body">
             <div class="profile-disclosure-inner">

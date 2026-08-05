@@ -374,6 +374,7 @@ function renderControl(): void {
       populateInterfaceSettings();
     },
     downloadDiagnostics,
+    resetLogitechProfiles,
     chooseCustomDpi,
     sanitizeCustomDpi,
     finishCustomDpiEditing,
@@ -729,6 +730,15 @@ function configureProfileCapture(status: MouseStatus | null): void {
   const formatId = status?.onboardProfileFormat?.id ?? null;
   const captureOpen = document.querySelector<HTMLButtonElement>("#capture-open");
   if (captureOpen) captureOpen.hidden = logitechClient === null || formatId === null;
+  const resetButton = document.querySelector<HTMLButtonElement>("#reset-logitech-profiles");
+  if (resetButton) {
+    resetButton.hidden = logitechClient === null || formatId === null;
+    const supported = formatId === 7;
+    resetButton.disabled = settingInProgress || !supported;
+    resetButton.title = supported
+      ? "Permanently restore every onboard profile to Logitech defaults"
+      : `Factory defaults have not been captured for profile format ${formatId ?? "unknown"}`;
+  }
   setCaptureContext({
     device: activeDevice ? describeHidDevice(activeDevice) : status?.name ?? null,
     profileFormat: status?.onboardProfileFormat ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name}` : null,
@@ -2595,6 +2605,52 @@ async function reloadOnboardProfiles(): Promise<void> {
     setText("#onboard-status", error instanceof Error ? error.message : "Unable to read onboard profiles.");
   } finally {
     onboardProfilesLoading = false;
+  }
+}
+
+async function resetLogitechProfiles(): Promise<void> {
+  const client = activeClient;
+  if (!client || settingInProgress || lastProfileFormat?.id !== 7) return;
+
+  const stagedWarning = hasPendingChanges()
+    ? "\n\nYour staged, unflashed changes will also be discarded."
+    : "";
+  const confirmed = window.confirm(
+    "Delete every onboard profile and restore Logitech defaults?\n\n"
+    + "This permanently erases all stored DPI stages, polling rates, lift-off distances, button assignments, G-Shift mappings, lighting, names, timeouts and every other byte in onboard profile memory. Fresh default profiles will be written back, with profile 1 as the only enabled profile. This cannot be undone in OpenMouse."
+    + stagedWarning,
+  );
+  if (!confirmed) return;
+
+  settingInProgress = true;
+  clearPendingChanges();
+  setText("#read-status", "Resetting every onboard profile…");
+  setText("#onboard-status", "Writing Logitech factory defaults…");
+  recordDiagnosticCommand("Reset every Logitech onboard profile to factory defaults");
+  configureProfileCapture(latestDeviceStatus);
+  try {
+    await client.resetAllOnboardProfiles();
+    onboardProfiles = await client.readOnboardProfiles();
+    editedProfile = onboardProfiles[0]?.sector ?? "host";
+    lastDeviceMode = "Onboard";
+    const status = await client.readStatus();
+    latestDeviceStatus = status;
+    deviceStatuses.set(client.device, status);
+    showStatus(status);
+    setText("#read-status", "All onboard profiles were reset to Logitech defaults.");
+    setText("#onboard-status", "Reset complete. Profile 1 is active; the other profiles are disabled.");
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to reset every onboard profile.");
+    const message = error instanceof Error ? error.message : "Unable to reset every onboard profile.";
+    setText("#read-status", message);
+    setText("#onboard-status", message);
+    // Some earlier sectors may already have been written. Re-read the device so
+    // the UI never pretends an interrupted destructive operation was atomic.
+    onboardProfiles = null;
+    await reloadOnboardProfiles();
+  } finally {
+    endDeviceWrite();
+    configureProfileCapture(latestDeviceStatus);
   }
 }
 

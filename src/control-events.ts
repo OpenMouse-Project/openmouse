@@ -27,6 +27,7 @@ export interface ControlEventHandlers {
   toggleSidebar(): void;
   resetInterfacePreferences(): void;
   downloadDiagnostics(): void;
+  resetLogitechProfiles(): Promise<void>;
   chooseCustomDpi(): void;
   sanitizeCustomDpi(): void;
   finishCustomDpiEditing(): void;
@@ -114,6 +115,7 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   onClick("#sidebar-menu-toggle", handlers.toggleSidebar);
   onClick("#reset-interface-settings", handlers.resetInterfacePreferences);
   onClick("#download-diagnostics", handlers.downloadDiagnostics);
+  onClick("#reset-logitech-profiles", () => void handlers.resetLogitechProfiles());
   onClick("#custom-dpi", () => void handlers.chooseCustomDpi());
   onClick("#apply-logitech-axes", () => void handlers.applyLogitechAxisDpi());
   onClick("#apply-logitech-left-button", () => void handlers.applyLogitechAnalogButton(0));

@@ -138,6 +138,8 @@
 .icon-button { display:inline-flex;align-items:center;justify-content:center;align-self:center;padding:.34rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#8b8b90;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease }
 .icon-button:hover:not(:disabled) { border-color:#66666b;background:#1f1f23;color:#e6e6ea }
 .icon-button:disabled { opacity:.45;cursor:not-allowed }
+.icon-button.profile-delete-button { border-color:#713038;background:#35171b;color:#ef8e96 }
+.icon-button.profile-delete-button:hover:not(:disabled) { border-color:#bd4650;background:#611f26;color:#fff1f2 }
 
 /* Bunny hop: a switch, a number and its unit on one line, sharing the shape of
    the DPI slot fields above them. */

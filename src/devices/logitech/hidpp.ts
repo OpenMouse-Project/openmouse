@@ -30,6 +30,7 @@ import {
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
+  factoryProfileForFormat,
   validateDpiStagePlan,
   type DpiStagePlan,
   layoutForFormat,
@@ -713,6 +714,88 @@ export class LogitechHidppClient {
     const entry = parseDirectory(confirmed).find((candidate) => candidate.sector === sector);
     if (!entry || entry.enabled !== enabled) {
       throw new Error("The mouse did not confirm the new profile state.");
+    }
+  }
+
+  /**
+   * Restores every onboard profile byte-for-byte to the vendor's captured
+   * defaults, then leaves only the first profile enabled and running.
+   *
+   * WRITES FLASH. Support is deliberately limited to a profile format and
+   * sector geometry for which a complete vendor reset was captured. Using a
+   * decoded subset here would leave unknown button or lighting settings behind.
+   */
+  async resetAllOnboardProfiles(): Promise<void> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This Logitech mouse does not expose onboard-profile controls.");
+    }
+
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+    const factoryProfile = factoryProfileForFormat(info.profileFormatId, sectorSize);
+    if (!factoryProfile) {
+      throw new Error(`A complete factory reset has not been captured for profile format ${info.profileFormatId}.`);
+    }
+    if (profileCrc(factoryProfile) !== storedCrc(factoryProfile)) {
+      throw new Error("The built-in factory profile failed its checksum; refusing to write.");
+    }
+
+    const directory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    if (profileCrc(directory) !== storedCrc(directory)) {
+      throw new Error("The profile directory failed its checksum; refusing to reset.");
+    }
+    const entries = parseDirectory(directory);
+    if (entries.length === 0) throw new Error("The mouse reported no onboard profiles to reset.");
+    const firstSector = entries[0].sector;
+
+    // Host mode keeps the mouse from loading a sector while it is being
+    // replaced. The operation deliberately finishes in the vendor-reset state:
+    // onboard mode, first sector current, and only that sector enabled.
+    await this.setOnboardMode("Host");
+    let finished = false;
+    try {
+      for (const entry of entries) {
+        const existing = await this.readProfileSector(feature.index, entry.sector, sectorSize);
+        if (!existing.every((byte, index) => byte === factoryProfile[index])) {
+          await this.writeProfileSector(feature.index, entry.sector, factoryProfile);
+        }
+        const confirmed = await this.readProfileSector(feature.index, entry.sector, sectorSize);
+        if (!confirmed.every((byte, index) => byte === factoryProfile[index])) {
+          throw new Error(`Profile ${entry.sector} did not confirm its factory reset.`);
+        }
+      }
+
+      // Make the future current profile selectable before disabling the others.
+      let updatedDirectory = setDirectoryEnabled(directory, firstSector, true);
+      if (!updatedDirectory.every((byte, index) => byte === directory[index])) {
+        await this.writeProfileSector(feature.index, 0x0000, updatedDirectory);
+      }
+      await this.request(feature.index, PROFILE_FN.setCurrentProfile, (firstSector >> 8) & 0xff, firstSector & 0xff);
+
+      for (const entry of entries) {
+        updatedDirectory = setDirectoryEnabled(updatedDirectory, entry.sector, entry.sector === firstSector);
+      }
+      if (!updatedDirectory.every((byte, index) => byte === directory[index])) {
+        await this.writeProfileSector(feature.index, 0x0000, updatedDirectory);
+      }
+      const confirmedDirectory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+      if (!confirmedDirectory.every((byte, index) => byte === updatedDirectory[index])) {
+        throw new Error("The mouse did not confirm the reset profile directory.");
+      }
+
+      await this.setOnboardMode("Onboard");
+      const current = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+      const currentSector = ((current[3] ?? 0) << 8) | (current[4] ?? 0);
+      if (currentSector !== firstSector) {
+        throw new Error("The profiles were reset, but the mouse did not select the first profile.");
+      }
+      finished = true;
+    } finally {
+      // A failed sector write must not strand the mouse in software-controlled
+      // host mode. Preserve the original error if recovery also fails.
+      if (!finished) await this.setOnboardMode("Onboard").catch(() => undefined);
     }
   }
 
