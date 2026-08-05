@@ -1897,9 +1897,19 @@ window.addEventListener("beforeunload", (event) => {
   void activeViperClient?.close();
 });
 
+function isChromium(): boolean {
+  const brands = (navigator as Navigator & {
+    userAgentData?: { brands?: { brand: string }[] };
+  }).userAgentData?.brands;
+  if (brands) return brands.some((entry) => /chromium/i.test(entry.brand));
+  return /Chrom(e|ium)\/|Edg\//.test(navigator.userAgent);
+}
+
 const notice = unsupportedNotice({
-  touchPrimary: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
   hasWebHid: Boolean(navigator.hid),
+  touchCapable: navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches,
+  secureContext: window.isSecureContext,
+  chromium: isChromium(),
 });
 if (notice) {
   appRoot.innerHTML = unsupportedTemplate(notice);
