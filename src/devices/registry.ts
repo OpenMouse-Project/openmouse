@@ -1,6 +1,7 @@
 import { AtkHidClient } from "./atk/hid";
 import { EggOp1HidClient } from "./endgame/egg-op1-hid";
 import { eggWeCreate, eggWeIsSupported, eggWeSupportScore, isEggWeClient, type EggWeHidClient } from "./endgame/egg-we-control";
+import { FinalmouseHidClient } from "./finalmouse/hid";
 import { LamzuHidClient } from "./lamzu/hid";
 import { LogitechHidppClient } from "./logitech/hidpp";
 import { OrbitalHidClient } from "./orbital/hid";
@@ -13,7 +14,7 @@ import { VgnF2HidClient } from "./vgn/hid";
 import { WLMouseHidClient } from "./wlmouse/hid";
 
 export type PulsarClient = PulsarHidClient | PulsarProHidClient;
-export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
+export type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | FinalmouseHidClient | WLMouseHidClient | LamzuHidClient | OrbitalHidClient | RazerHidClient | RazerViperV4ProHidClient | TeevolutionHidClient | AtkHidClient | VgnF2HidClient;
 
 interface DeviceDriver {
   brand: string;
@@ -23,6 +24,7 @@ interface DeviceDriver {
 }
 
 const DEVICE_DRIVERS: readonly DeviceDriver[] = [
+  { brand: "Finalmouse", supports: (device) => FinalmouseHidClient.isSupported(device), create: (device) => new FinalmouseHidClient(device), score: () => 10 },
   { brand: "Endgame Gear", supports: (device) => EggOp1HidClient.isSupported(device), create: (device) => new EggOp1HidClient(device), score: () => 10 },
   { brand: "Endgame Gear", supports: eggWeIsSupported, create: eggWeCreate, score: eggWeSupportScore },
   { brand: "Pulsar", supports: (device) => PulsarProHidClient.isSupported(device), create: (device) => new PulsarProHidClient(device), score: () => 8 },

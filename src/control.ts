@@ -61,6 +61,7 @@ import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
 import { RazerHidClient } from "./devices/razer/hid";
 import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
+import { FinalmouseHidClient } from "./devices/finalmouse/hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { VgnF2HidClient } from "./devices/vgn/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
@@ -87,6 +88,7 @@ let activeRazerClient: RazerHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
+let activeFinalmouseClient: FinalmouseHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -111,7 +113,7 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 }
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeFinalmouseClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
 }
 
 function hasActiveClient(): boolean {
@@ -319,6 +321,7 @@ function renderControl(): void {
     updateCustomPollingPreview,
     applyEggPollingDivider,
     applyProSetting,
+    applyFinalmouseSetting,
     applyPollingRate,
     applyLiftOffDistance,
     applyGamingSurfaceMode,
@@ -464,11 +467,19 @@ function resetDeviceSpecificPanels(): void {
     "#egg-button-settings",
     "#pulsar-pro-settings",
     "#logitech-analog-button-settings",
+    "#finalmouse-settings",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
   }
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
+  for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+    const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+    if (row) {
+      row.hidden = false;
+      row.style.display = "";
+    }
+  }
 }
 
 function diagnosticErrorMessage(error: unknown, fallback: string): string {
@@ -679,6 +690,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const isEgg = isEgg8k || isEggWe;
   const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || activeDmClient !== null;
   const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
+  const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -709,7 +721,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
-    if (element) element.hidden = isEgg;
+    if (element) element.hidden = isEgg || isFinalmouse;
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
@@ -718,10 +730,10 @@ function showStatus(deviceStatus: MouseStatus): void {
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
-  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily;
+  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isDmFamily;
+    const hidePerformanceMode = isEgg || isDmFamily || isFinalmouse;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
@@ -753,7 +765,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isEgg8k || isDmFamily;
+    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isEgg8k || isDmFamily || isFinalmouse;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -775,7 +787,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear" || isViper) {
+  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear" || isViper || isFinalmouse) {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
     fillDebounceOptions(20);
     const strength = status.signalStrength;
@@ -789,6 +801,13 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
     setToggleValue("#performance-mode-toggle", status.performanceMode);
+    for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+      const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+      if (row) {
+        row.hidden = isFinalmouse;
+        row.style.display = isFinalmouse ? "none" : "";
+      }
+    }
     const eggFilterSettings = document.querySelector<HTMLElement>("#egg-filter-settings");
     const eggSpdtSettings = document.querySelector<HTMLElement>("#egg-spdt-settings");
     const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
@@ -820,6 +839,13 @@ function showStatus(deviceStatus: MouseStatus): void {
       setToggleValue("#wheel-acceleration-toggle", status.wheelAcceleration);
       setControlValue("#angle-tuning-select", status.angleTuning);
       setControlValue("#profile-select", status.activeProfile);
+    }
+    const finalmouseSettings = document.querySelector<HTMLElement>("#finalmouse-settings");
+    if (finalmouseSettings) finalmouseSettings.style.display = isFinalmouse ? "block" : "none";
+    if (isFinalmouse) {
+      setControlValue("#finalmouse-dongle-led", status.finalmouseDongleLedMode);
+      setControlValue("#finalmouse-tournament-scroll", status.finalmouseTournamentScrollMode);
+      setControlValue("#finalmouse-tournament-timeout", status.finalmouseTournamentScrollTimeoutMs);
     }
   }
   setText("#device-title", status.name);
@@ -1050,6 +1076,7 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
 
 function statusNameForClient(client: SupportedClient): string {
   if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
+  if (client instanceof FinalmouseHidClient) return client.displayName();
   return client.device.productName || "the selected mouse";
 }
 
@@ -1068,6 +1095,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeTeevolutionClient = null;
   activeVgnClient = null;
   activeViperClient = null;
+  activeFinalmouseClient = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1124,6 +1152,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof FinalmouseHidClient) {
+    activeFinalmouseClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else if (client instanceof TeevolutionHidClient) {
     activeTeevolutionClient = client;
     await client.open();
@@ -1165,6 +1200,7 @@ function showDisconnectedState(): void {
   activeTeevolutionClient = null;
   activeVgnClient = null;
   activeViperClient = null;
+  activeFinalmouseClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   clearPendingChanges();
@@ -1219,7 +1255,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
   }
 
   setText("#device-status", "New device detected");
-  setText("#read-status", `Reading ${event.device.productName || "the connected mouse"}.`);
+  setText("#read-status", `Reading ${statusNameForClient(client)}.`);
   void activateClient(client).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
     setText("#device-status", "Connection failed");
@@ -1626,7 +1662,7 @@ function toggleDongleLed(): void {
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
 function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
-  if (!(activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
+  if (!hasActiveClient()) return;
   stageChange({
     key: setting,
     label: `${settingLabel(setting)} ${enabled ? "on" : "off"}`,
@@ -1636,17 +1672,10 @@ function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void
       status[setting] = enabled;
     },
     apply: async () => {
-      const client = activePulsarClient ?? activeEggClient ?? activeDmClient ?? activeOrbitalClient ?? activeTeevolutionClient ?? activeVgnClient;
-      if (!client) throw new Error("The mouse is no longer connected.");
-      if (setting === "motionSync") await client.setMotionSync(enabled);
-      if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
-      if (setting === "rippleControl") await client.setRippleControl(enabled);
-      if (setting === "performanceMode" && !activePulsarClient && !activeOrbitalClient && !activeTeevolutionClient && !activeVgnClient) {
-        throw new Error("Performance mode is not exposed by this device's protocol.");
-      }
-      if (setting === "performanceMode") {
-        await (activePulsarClient ?? activeOrbitalClient ?? activeTeevolutionClient ?? activeVgnClient)!.setPerformanceMode(enabled);
-      }
+      if (setting === "motionSync") await requireClientMethod("setMotionSync", "Motion Sync").setMotionSync(enabled);
+      if (setting === "angleSnapping") await requireClientMethod("setAngleSnapping", "angle snapping").setAngleSnapping(enabled);
+      if (setting === "rippleControl") await requireClientMethod("setRippleControl", "ripple control").setRippleControl(enabled);
+      if (setting === "performanceMode") await requireClientMethod("setPerformanceMode", "performance mode").setPerformanceMode(enabled);
     },
   });
 }
@@ -1839,6 +1868,37 @@ function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile
   });
 }
 
+function applyFinalmouseSetting(setting: "dongleLed" | "tournamentScroll" | "tournamentTimeout", value: number): void {
+  if (!activeFinalmouseClient) return;
+  const label = ({
+    dongleLed: "dongle LED mode",
+    tournamentScroll: "tournament scroll mode",
+    tournamentTimeout: "tournament scroll timeout",
+  } as const)[setting];
+  const key = ({
+    dongleLed: "finalmouse-dongle-led",
+    tournamentScroll: "finalmouse-tournament-scroll",
+    tournamentTimeout: "finalmouse-tournament-timeout",
+  } as const)[setting];
+  stageChange({
+    key,
+    label: `Finalmouse ${label}`,
+    command: `Change Finalmouse ${label}`,
+    progress: `Changing Finalmouse ${label}…`,
+    preview: (status) => {
+      if (setting === "dongleLed") status.finalmouseDongleLedMode = value;
+      if (setting === "tournamentScroll") status.finalmouseTournamentScrollMode = value;
+      if (setting === "tournamentTimeout") status.finalmouseTournamentScrollTimeoutMs = value;
+    },
+    apply: async () => {
+      if (!activeFinalmouseClient) throw new Error("The Finalmouse UltralightX is no longer connected.");
+      if (setting === "dongleLed") await activeFinalmouseClient.setDongleLedMode(value);
+      if (setting === "tournamentScroll") await activeFinalmouseClient.setTournamentScrollMode(value);
+      if (setting === "tournamentTimeout") await activeFinalmouseClient.setTournamentScrollTimeout(value);
+    },
+  });
+}
+
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   const client = activeSettingsClient();
@@ -1894,6 +1954,7 @@ window.addEventListener("beforeunload", (event) => {
   void activeTeevolutionClient?.close();
   void activeVgnClient?.close();
   void activeViperClient?.close();
+  void activeFinalmouseClient?.close();
 });
 
 const notice = unsupportedNotice({
