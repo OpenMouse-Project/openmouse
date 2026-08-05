@@ -324,6 +324,9 @@ function renderControl(): void {
     applyFinalmouseSetting,
     applyPollingRate,
     applyLiftOffDistance,
+    applyLiftOffMode,
+    applyAsymmetricLiftOff,
+    capLandingToLiftOff,
     applyGamingSurfaceMode,
     applyLightforceSwitchMode,
     flashPendingChanges,
@@ -905,6 +908,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     const lodNeedsSurface = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off";
     button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow || lodNeedsSurface;
   });
+  renderAsymmetricLiftOff(status, settingsPending);
   const lodNote = document.querySelector<HTMLElement>("#lod-note");
   if (lodNote) {
     lodNote.textContent = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off"
@@ -1604,9 +1608,103 @@ function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>):
     progress: `Setting ${lod.toLowerCase()} lift-off distance…`,
     preview: (status) => {
       status.liftOffDistance = lod;
+      // Writing a tracking level is also how a mouse with a pair leaves
+      // asymmetric mode, so the switch has to follow.
+      if (status.asymmetricLiftOff) status.asymmetricLiftOff = { ...status.asymmetricLiftOff, enabled: false };
     },
     apply: async () => {
       await requireClientMethod("setLiftOffDistance", "the lift-off distance").setLiftOffDistance(lod);
+    },
+  });
+}
+
+/**
+ * Mice that expose separate cut-off and re-engage heights get a mode switch, in
+ * the shape the vendor software uses: one control or the other, never both.
+ * Drivers that do not report the pair never see the switch and keep the plain
+ * three-stop control.
+ */
+function renderAsymmetricLiftOff(status: MouseStatus, settingsPending: boolean): void {
+  const pair = status.asymmetricLiftOff;
+  const modeRow = document.querySelector<HTMLElement>("#lod-mode-row");
+  const single = document.querySelector<HTMLElement>("#lod-single");
+  const asymmetric = document.querySelector<HTMLElement>("#lod-asymmetric");
+  if (!modeRow || !single || !asymmetric) return;
+  modeRow.hidden = !pair;
+  // A driver that cannot establish the mode leaves both buttons unselected
+  // rather than claiming one, and the single control stays visible. Choosing
+  // either mode writes it, so one click makes the display true.
+  const showPair = pair?.enabled === true;
+  single.hidden = Boolean(pair) && showPair;
+  asymmetric.hidden = !showPair;
+  document.querySelectorAll<HTMLButtonElement>("[data-lod-mode]").forEach((button) => {
+    const isPair = button.dataset.lodMode === "asymmetric";
+    setSelected(button, pair?.enabled === null ? false : isPair === showPair);
+    button.disabled = settingsPending || !pair;
+  });
+  if (!pair) return;
+  for (const [selector, value, range] of [
+    ["#lod-lift-off", pair.liftOff, pair.liftOffRange],
+    ["#lod-landing", pair.landing, pair.landingRange],
+  ] as const) {
+    const input = document.querySelector<HTMLInputElement>(selector);
+    if (!input) continue;
+    input.min = String(range.min);
+    input.max = String(range.max);
+    input.value = String(value);
+    input.disabled = settingsPending;
+  }
+  capLandingToLiftOff();
+}
+
+/**
+ * Landing is bounded by lift-off on the device, and the vendor software caps its
+ * own slider the same way. Enforcing it on the control means an invalid pair is
+ * not expressible, rather than accepted and then quietly altered — the firmware
+ * stores an inverted pair without complaint, so nothing downstream would catch
+ * it. The driver still caps as a backstop.
+ */
+export function capLandingToLiftOff(): void {
+  const liftOff = document.querySelector<HTMLInputElement>("#lod-lift-off");
+  const landing = document.querySelector<HTMLInputElement>("#lod-landing");
+  if (!liftOff || !landing) return;
+  // Clamp the value, never the range. A range input positions its thumb
+  // relative to its own bounds, so narrowing `max` to the ceiling made the
+  // thumb slide across the track whenever lift-off moved even though the
+  // number under it had not changed. Both sliders keep the device's full range,
+  // which also lines the two tracks up: they are the same 24 steps wide, offset
+  // by one, so a landing sitting just below its lift-off reads that way.
+  const ceiling = Math.max(Number(landing.min), Number(liftOff.value) - 1);
+  if (Number(landing.value) > ceiling) landing.value = String(ceiling);
+  setText("#lod-lift-off-value", liftOff.value);
+  setText("#lod-landing-value", landing.value);
+}
+
+/** Both modes are set by writing one, because the mouse honours the last write. */
+function applyLiftOffMode(mode: "single" | "asymmetric"): void {
+  const status = withPendingChanges(latestDeviceStatus ?? ({} as MouseStatus));
+  const pair = status.asymmetricLiftOff;
+  if (!latestDeviceStatus || !pair) return;
+  if (mode === "asymmetric") applyAsymmetricLiftOff(pair.liftOff, pair.landing);
+  else applyLiftOffDistance(status.liftOffDistance ?? "Medium");
+}
+
+function applyAsymmetricLiftOff(liftOff: number, requested: number): void {
+  if (!hasActiveClient()) return;
+  // Capped here too, so the staged label and the preview show what will actually
+  // be written rather than what was asked for.
+  const landing = Math.min(requested, liftOff - 1);
+  stageChange({
+    key: "lift-off-distance",
+    label: `Lift-off ${liftOff} / landing ${landing}`,
+    command: `Set lift-off to ${liftOff} and landing to ${landing}`,
+    progress: `Setting lift-off ${liftOff} and landing ${landing}…`,
+    preview: (status) => {
+      if (!status.asymmetricLiftOff) return;
+      status.asymmetricLiftOff = { ...status.asymmetricLiftOff, enabled: true, liftOff, landing };
+    },
+    apply: async () => {
+      await requireClientMethod("setLiftOff", "the lift-off distance").setLiftOff(liftOff, landing);
     },
   });
 }

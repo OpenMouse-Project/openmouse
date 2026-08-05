@@ -1,5 +1,10 @@
 @import "./control-devices.css";
 
+/* Any author-level `display` beats the browser's own `[hidden]` rule, so a
+   `hidden` property set from script silently does nothing on anything laid out
+   with grid or flex. Several controls are hidden that way. */
+[hidden] { display: none !important; }
+
 :root {
   --ink: #09090b;
   --sidebar: #0d0d0f;
@@ -139,6 +144,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 
 .segmented { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
 .segmented.two { grid-template-columns: repeat(2, 1fr); }
+.segmented.three { grid-template-columns: repeat(3, 1fr); }
 .segmented button { padding: .6rem .4rem; border: 1px solid #303034; border-radius: 7px; background: var(--input); color: var(--muted); font-size: .72rem; }
 .segmented button:hover { border-color: var(--ghost); color: #fff; }
 .segmented button.selected { border-color: var(--text); background: var(--text); color: var(--ink); }
@@ -165,6 +171,14 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .axis-grid input { width: 100%; box-sizing: border-box; margin-top: .2rem; padding: .42rem; border: 1px solid var(--line-strong); border-radius: 6px; background: #171719; color: #eee; }
 .axis-apply { padding: .45rem .6rem; border: 1px solid #45454a; border-radius: 6px; background: #202023; color: var(--bright); font-size: .62rem; }
 #gaming-surface-row { margin-bottom: .85rem; }
+.lod-mode { margin-bottom: .5rem; }
+/* Sliders rather than number fields, so a landing above the lift-off is not
+   expressible. The device stores an inverted pair without complaint. */
+.lod-sliders { display: grid; gap: .55rem; }
+.lod-sliders label { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: .1rem .5rem; color: var(--faint); font-size: .62rem; }
+.lod-sliders output { color: var(--bright); font-family: var(--font-mono); font-size: .72rem; }
+.lod-sliders input[type="range"] { grid-column: 1 / -1; width: 100%; margin: .1rem 0 0; accent-color: var(--ui-accent); }
+.lod-sliders input[type="range"]:disabled { opacity: .45; }
 
 .switch-button { min-width: 42px; padding: .2rem .45rem; border: 1px solid var(--edge); border-radius: 999px; background: #202023; color: #8b8b90; font-size: .58rem; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 0; color: var(--dim); font-size: .7rem; }
