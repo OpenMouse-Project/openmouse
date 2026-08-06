@@ -4,10 +4,16 @@ import test from "node:test";
 import {
   DEVICE_INDEX_DIRECT,
   DEVICE_INDEX_RECEIVER,
+  decodeBatteryLevelState,
   decodeReportRateBitmap,
+  decodeUnifiedBatteryState,
   hidppDeviceIndex,
+  hidpp10ErrorMessage,
+  hidppErrorForRequest,
   hidppErrorMessage,
+  isDirectConnection,
   isDirectConnectProduct,
+  OnboardOnlyError,
   legacyDpiFallback,
   withSoftwareId,
 } from "./protocol.ts";
@@ -39,6 +45,14 @@ test("receiver-attached and USB Superstrike devices keep index 0x01", () => {
   }
 });
 
+test("runtime probing classifies unknown wired mice as direct connections", () => {
+  const unknownG102ProductId = 0xc084;
+  assert.equal(isDirectConnectProduct(unknownG102ProductId), false);
+  assert.equal(isDirectConnection(unknownG102ProductId, DEVICE_INDEX_DIRECT), true);
+  assert.equal(isDirectConnection(unknownG102ProductId, DEVICE_INDEX_RECEIVER), false);
+  assert.equal(isDirectConnection(G402, null), true, "known PIDs still use the pre-probe fast path");
+});
+
 test("the legacy report-rate bitmap decodes the G402's advertised rates", () => {
   // 0x8b = bits 0, 1, 3 and 7 => 1, 2, 4 and 8 ms.
   assert.deepEqual(decodeReportRateBitmap(0x8b), [125, 250, 500, 1000]);
@@ -58,6 +72,19 @@ test("HID++ error responses are reported with their documented reason", () => {
   assert.match(hidppErrorMessage(0x09), /unsupported/);
 });
 
+test("HID++ 1.0 error 0x0a is request unavailable", () => {
+  assert.match(hidpp10ErrorMessage(0x0a), /HID\+\+ 1\.0: request unavailable/);
+  assert.match(hidppErrorMessage(0x0a), /HID\+\+ 2\.0 error 0x0a/);
+});
+
+test("error frames are decoded by protocol and matched to their request", () => {
+  const hidpp10 = new Uint8Array([0xff, 0x8f, 0x0d, withSoftwareId(0x10), 0x0a]);
+  const hidpp20 = new Uint8Array([0x01, 0xff, 0x0d, withSoftwareId(0x10), 0x09]);
+  assert.match(hidppErrorForRequest(hidpp10, 0x0d, 0x10) ?? "", /HID\+\+ 1\.0: request unavailable/);
+  assert.match(hidppErrorForRequest(hidpp20, 0x0d, 0x10) ?? "", /unsupported/);
+  assert.equal(hidppErrorForRequest(hidpp10, 0x0e, 0x10), null, "another request's error must be ignored");
+});
+
 test("an unrecognised HID++ error still reports its raw code", () => {
   assert.match(hidppErrorMessage(0x7f), /0x7f/);
 });
@@ -71,4 +98,39 @@ test("the legacy DPI fallback matches the grid G402 hardware advertises", () => 
   assert.equal(options.every((dpi, index) => index === 0 || dpi - options[index - 1] === 84), true);
   // The value the mouse reports while vendor software displays "2400".
   assert.equal(options.includes(2436), true);
+});
+
+test("the two battery features use different charging enums", () => {
+  // 0x1004 UNIFIED_BATTERY.
+  assert.equal(decodeUnifiedBatteryState(0x00), "Discharging");
+  assert.equal(decodeUnifiedBatteryState(0x01), "Charging");
+  assert.equal(decodeUnifiedBatteryState(0x02), "Charging slowly");
+  assert.equal(decodeUnifiedBatteryState(0x03), "Full");
+  // A charging fault is not any kind of charging.
+  assert.equal(decodeUnifiedBatteryState(0x04), "Unknown");
+
+  // 0x1000 BATTERY_LEVEL_STATUS numbers the same states differently.
+  assert.equal(decodeBatteryLevelState(0x00), "Discharging");
+  assert.equal(decodeBatteryLevelState(0x01), "Charging");
+  assert.equal(decodeBatteryLevelState(0x02), "Almost full");
+  assert.equal(decodeBatteryLevelState(0x03), "Full");
+  assert.equal(decodeBatteryLevelState(0x04), "Charging slowly");
+  // 5 invalid battery, 6 thermal error, 7 other charging error.
+  for (const code of [0x05, 0x06, 0x07]) {
+    assert.equal(decodeBatteryLevelState(code), "Unknown", `status ${code}`);
+  }
+
+  // The point of keeping them apart: 2 and 4 mean opposite things.
+  assert.notEqual(decodeUnifiedBatteryState(0x02), decodeBatteryLevelState(0x02));
+  assert.notEqual(decodeUnifiedBatteryState(0x04), decodeBatteryLevelState(0x04));
+});
+
+test("an onboard-only mouse is told how to get itself supported", () => {
+  const known = new OnboardOnlyError(6);
+  assert.match(known.message, /profile format 6/);
+  assert.match(known.message, /Copy verification data/);
+  // Never claim a format number we did not read.
+  const unknown = new OnboardOnlyError(null);
+  assert.doesNotMatch(unknown.message, /format (\d|null)/);
+  assert.match(unknown.message, /Copy verification data/);
 });

@@ -28,12 +28,22 @@ export function isDirectConnectProduct(productId: number): boolean {
   return DIRECT_PRODUCT_ID_SET.has(productId);
 }
 
+/**
+ * Whether this HID++ endpoint is the mouse itself rather than a receiver.
+ * Runtime probing is authoritative for unknown Logitech product IDs; the PID
+ * list is only the pre-probe fast path.
+ */
+export function isDirectConnection(productId: number, resolvedDeviceIndex: number | null): boolean {
+  return resolvedDeviceIndex === DEVICE_INDEX_DIRECT
+    || (resolvedDeviceIndex === null && isDirectConnectProduct(productId));
+}
+
 export function hidppDeviceIndex(productId: number): number {
   return isDirectConnectProduct(productId) ? DEVICE_INDEX_DIRECT : DEVICE_INDEX_RECEIVER;
 }
 
 /** HID++ 2.0 error codes, reported in byte 4 of a 0xFF error response. */
-const HIDPP_ERRORS: Readonly<Record<number, string>> = {
+const HIDPP20_ERRORS: Readonly<Record<number, string>> = {
   0x01: "unknown request",
   0x02: "invalid argument",
   0x03: "value out of range",
@@ -45,11 +55,51 @@ const HIDPP_ERRORS: Readonly<Record<number, string>> = {
   0x09: "unsupported",
 };
 
+/** HID++ 1.0 error codes, reported in byte 4 of a 0x8F error response. */
+const HIDPP10_ERRORS: Readonly<Record<number, string>> = {
+  0x01: "invalid command",
+  0x02: "invalid address",
+  0x03: "invalid value",
+  0x04: "connection request failed",
+  0x05: "too many devices",
+  0x06: "already exists",
+  0x07: "device busy",
+  0x08: "unknown device",
+  0x09: "resource error",
+  0x0a: "request unavailable",
+  0x0b: "unsupported parameter value",
+  0x0c: "wrong PIN code",
+};
+
 export function hidppErrorMessage(code: number): string {
-  const reason = HIDPP_ERRORS[code];
+  const reason = HIDPP20_ERRORS[code];
   return reason
     ? `The mouse rejected that setting (${reason}).`
-    : `The mouse rejected that setting (HID++ error 0x${code.toString(16).padStart(2, "0")}).`;
+    : `The mouse rejected that setting (HID++ 2.0 error 0x${code.toString(16).padStart(2, "0")}).`;
+}
+
+export function hidpp10ErrorMessage(code: number): string {
+  const reason = HIDPP10_ERRORS[code];
+  return reason
+    ? `The mouse rejected that setting (HID++ 1.0: ${reason}).`
+    : `The mouse rejected that setting (HID++ 1.0 error 0x${code.toString(16).padStart(2, "0")}).`;
+}
+
+/**
+ * Decodes an error only when it echoes the request being awaited.
+ *
+ * HID++ 1.0: [device, 0x8f, sub-id, address, error]
+ * HID++ 2.0: [device, 0xff, feature-index, function+software-id, error]
+ */
+export function hidppErrorForRequest(
+  report: Uint8Array,
+  requestFirstByte: number,
+  requestSecondByte: number,
+): string | null {
+  if (report[2] !== requestFirstByte || report[3] !== withSoftwareId(requestSecondByte)) return null;
+  if (report[1] === 0x8f) return hidpp10ErrorMessage(report[4] ?? 0);
+  if (report[1] === 0xff) return hidppErrorMessage(report[4] ?? 0);
+  return null;
 }
 
 /**
@@ -74,4 +124,62 @@ export function decodeReportRateBitmap(bitflags: number): number[] {
  */
 export function legacyDpiFallback(): number[] {
   return Array.from({ length: 46 }, (_, step) => 252 + step * 84);
+}
+
+export type BatteryChargeState =
+  | "Charging" | "Charging slowly" | "Almost full" | "Full" | "Discharging" | "Unknown";
+
+/**
+ * 0x1004 UNIFIED_BATTERY chargingStatus.
+ *
+ * Deliberately separate from the 0x1000 mapping below: the two features number
+ * their states differently, and decoding one with the other's table reports a
+ * slow charge as "almost full".
+ */
+export function decodeUnifiedBatteryState(chargingStatus: number): BatteryChargeState {
+  switch (chargingStatus) {
+    case 0x00: return "Discharging";
+    case 0x01: return "Charging";
+    case 0x02: return "Charging slowly";
+    case 0x03: return "Full";
+    // 4 is a charging fault. There is no state for it, and calling it charging
+    // would be worse than admitting we do not know.
+    default: return "Unknown";
+  }
+}
+
+/** 0x1000 BATTERY_LEVEL_STATUS batteryStatus. */
+export function decodeBatteryLevelState(batteryStatus: number): BatteryChargeState {
+  switch (batteryStatus) {
+    case 0x00: return "Discharging";
+    case 0x01: return "Charging";
+    case 0x02: return "Almost full";
+    case 0x03: return "Full";
+    case 0x04: return "Charging slowly";
+    // 5 invalid battery, 6 thermal error, 7 other charging error.
+    default: return "Unknown";
+  }
+}
+
+/**
+ * The mouse keeps its settings in onboard memory and will not hand control to
+ * software, so the only way to change anything is to write its profile — which
+ * needs a decoded layout for that profile format.
+ *
+ * Its own type because it is not a fault: it is a mouse that cannot be
+ * supported yet, and the way forward is a capture from whoever owns one.
+ */
+export class OnboardOnlyError extends Error {
+  readonly profileFormatId: number | null;
+
+  constructor(profileFormatId: number | null) {
+    super(
+      "This mouse keeps its settings in onboard memory and will not hand control to software. "
+      + `Writing ${profileFormatId === null ? "its profile format" : `profile format ${profileFormatId}`} `
+      + 'is not supported yet. Open Diagnostics, then HID++ capture, and use "Copy verification data" — '
+      + "sending that is what lets the layout be added.",
+    );
+    this.name = "OnboardOnlyError";
+    this.profileFormatId = profileFormatId;
+  }
 }

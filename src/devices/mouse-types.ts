@@ -13,7 +13,7 @@ export interface MouseUiHints {
    * in, so they are worth reporting even while `settingsReady` hides the grid.
    */
   valuesVerified?: boolean;
-  /** Hide 0.7 mm LOD option. */
+  /** Hide the Low LOD option. */
   hideLodLow?: boolean;
   /** Disable LOD controls while gamingSurfaceMode is "Off". */
   lodRequiresSurface?: boolean;
@@ -89,6 +89,15 @@ export interface MouseStatus {
   liftOffDistance: "Low" | "Medium" | "High" | null;
   /** Explicit LOD choices when a mouse does not support all three common levels. */
   supportedLiftOffDistances?: Array<NonNullable<MouseStatus["liftOffDistance"]>>;
+  /** Logitech onboard profile format (HID++ 0x8100), which selects the layout. */
+  onboardProfileFormat?: {
+    id: number;
+    name: string;
+    base: string;
+    supported: boolean;
+    /** False when the layout comes from vendor code but was never confirmed on hardware. */
+    verified: boolean;
+  } | null;
   gamingSurfaceMode?: "On" | "Off" | "Auto" | null;
   lightforceSwitchMode?: "Hybrid" | "Optical" | null;
   firmware: string[];

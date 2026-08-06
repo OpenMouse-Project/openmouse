@@ -3,7 +3,10 @@ import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 45_000,
-  ".js": 280_000,
+  // Raised from 280 kB for the production Logitech onboard-profile codec,
+  // guarded flash editor, verification exporter, and upstream Finalmouse
+  // driver merged in the same release. Preview fixtures remain dev-only.
+  ".js": 310_000,
 };
 
 const ASSETS = join("dist", "assets");
