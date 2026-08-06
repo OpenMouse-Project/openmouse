@@ -47,7 +47,7 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  * Add a format here only after a dump from that device decodes sensibly with a
  * matching CRC.
  */
-const VERIFIED_FORMATS = new Set([7]);
+const VERIFIED_FORMATS = new Set([3, 7]);
 
 export interface ProfileFormat {
   id: number;

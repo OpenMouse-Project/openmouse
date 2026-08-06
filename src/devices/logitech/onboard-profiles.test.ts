@@ -14,6 +14,7 @@ import {
   clampBunnyHopMs,
   clampDpi,
   decodeLiftOffLevel,
+  describeProfileFormat,
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
@@ -173,7 +174,7 @@ const G502_DIRECTORY = (() => {
   return sector;
 })();
 
-/** G502 LIGHTSPEED format-3 profile text exported read-only (PID 0xc08d). */
+/** G502 LIGHTSPEED format-3 sectors captured read-only (PID 0xc08d). */
 const G502_LIGHTSPEED_PROFILE_1 = bytes(`
   01 00 00 58 02 e8 03 dc 05 00 00 00 00 ff ff ff
   ff 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff
@@ -190,7 +191,7 @@ const G502_LIGHTSPEED_PROFILE_1 = bytes(`
   41 00 55 00 4c 00 54 00 00 00 00 00 00 00 00 00
   01 fd 76 00 00 00 00 00 00 00 00 01 fd 76 00 00
   00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff
-  ff ff ff ff ff ff ff ff ff ff ff ff ff 00 42 3b
+  ff ff ff ff ff ff ff ff ff ff ff ff 00 42 3b
 `);
 
 /** Profiles 2-5 were byte-identical in the same format-3 capture. */
@@ -425,9 +426,8 @@ test("decodes all captured G502 LIGHTSPEED format-3 profiles", () => {
     { sector: 1, enabled: true },
     true,
   );
-  // The supplied export prints 256 bytes for this profile despite reporting
-  // 255-byte sectors, so it is useful for layout decoding but not CRC proof.
-  assert.equal(G502_LIGHTSPEED_PROFILE_1.length, 256);
+  assert.equal(G502_LIGHTSPEED_PROFILE_1.length, 255);
+  assert.equal(configured.crcValid, true);
   assert.equal(configured.name, "PROFILE_NAME_DEFAULT");
   assert.equal(configured.defaultDpiIndex, 0);
   assert.deepEqual(
@@ -446,6 +446,7 @@ test("decodes all captured G502 LIGHTSPEED format-3 profiles", () => {
       false,
     );
     assert.equal(G502_LIGHTSPEED_FACTORY_PROFILE.length, 255);
+    assert.equal(profile.crcValid, true);
     assert.equal(profile.name, null);
     assert.equal(profile.defaultDpiIndex, 1);
     assert.deepEqual(
@@ -459,6 +460,7 @@ test("decodes all captured G502 LIGHTSPEED format-3 profiles", () => {
 });
 
 test("parses the captured G502 LIGHTSPEED format-3 geometry and directory", () => {
+  assert.equal(describeProfileFormat(3).verified, true);
   assert.deepEqual(parseProfilesInfo(G502_LIGHTSPEED_INFO_REPLY), {
     memoryModelId: 1,
     profileFormatId: 3,

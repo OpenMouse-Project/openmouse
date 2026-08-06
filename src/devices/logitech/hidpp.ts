@@ -60,6 +60,18 @@ export interface OnboardProfileVerification {
   directory: Uint8Array;
   directoryCrcValid: boolean;
   profiles: OnboardProfile[];
+  dpiCapabilities: VerificationCapability | null;
+  reportRateCapabilities: VerificationCapability | null;
+}
+
+export interface VerificationCapability {
+  featureId: number;
+  featureIndex: number;
+  featureVersion: number;
+  kind: "legacy" | "extended";
+  replies: Array<{ name: string; bytes: Uint8Array }>;
+  decodedValues: number[];
+  error: string | null;
 }
 
 /**
@@ -1128,6 +1140,9 @@ export class LogitechHidppClient {
       profiles.push(decodeOnboardProfile(bytes, info.profileFormatId, entry, entry.sector === currentSector));
     }
 
+    const dpiCapabilities = await this.readDpiVerificationCapability();
+    const reportRateCapabilities = await this.readReportRateVerificationCapability();
+
     return {
       info,
       infoReply,
@@ -1139,7 +1154,101 @@ export class LogitechHidppClient {
       directory,
       directoryCrcValid: profileCrc(directory) === storedCrc(directory),
       profiles,
+      dpiCapabilities,
+      reportRateCapabilities,
     };
+  }
+
+  private async verificationFeature(
+    extendedId: number,
+    legacyId: number,
+  ): Promise<VerificationCapability | null> {
+    for (const [featureId, kind] of [[extendedId, "extended"], [legacyId, "legacy"]] as const) {
+      try {
+        const featureReply = await this.request(0x00, 0x00, featureId >> 8, featureId & 0xff);
+        const featureIndex = featureReply[3] ?? 0;
+        if (!featureIndex) continue;
+        return {
+          featureId,
+          featureIndex,
+          featureVersion: featureReply[6] ?? 0,
+          kind,
+          replies: [{ name: "getFeature", bytes: featureReply }],
+          decodedValues: [],
+          error: null,
+        };
+      } catch {
+        // Missing optional features must not prevent the profile dump.
+      }
+    }
+    return null;
+  }
+
+  private async readDpiVerificationCapability(): Promise<VerificationCapability | null> {
+    const resolved = await this.verificationFeature(FEATURE.extendedDpi, FEATURE.adjustableDpi);
+    if (!resolved) return null;
+    const result = resolved;
+    try {
+      if (result.kind === "legacy") {
+        result.replies.push({
+          name: "getSensorDpiList",
+          bytes: await this.request(result.featureIndex, 0x10, 0x00),
+        });
+        result.replies.push({
+          name: "getSensorDpi",
+          bytes: await this.request(result.featureIndex, 0x20, 0x00),
+        });
+      } else {
+        result.replies.push({
+          name: "getSensorCapabilities",
+          bytes: await this.request(result.featureIndex, 0x10, 0x00),
+        });
+        const listBytes: number[] = [];
+        for (let page = 0; page < 32; page += 1) {
+          const reply = await this.request(result.featureIndex, 0x20, 0x00, 0x00, page);
+          result.replies.push({ name: `getSensorDpiList page ${page}`, bytes: reply });
+          listBytes.push(...reply.slice(6));
+          if (listBytes.some((value, index) => index > 0 && listBytes[index - 1] === 0 && value === 0)) break;
+        }
+        result.replies.push({
+          name: "getSensorDpi",
+          bytes: await this.request(result.featureIndex, 0x50),
+        });
+      }
+      result.decodedValues = await this.getDpiOptions();
+    } catch (error) {
+      result.error = error instanceof Error ? error.message : "Could not read DPI capabilities.";
+    }
+    return result;
+  }
+
+  private async readReportRateVerificationCapability(): Promise<VerificationCapability | null> {
+    const resolved = await this.verificationFeature(FEATURE.extendedReportRate, FEATURE.reportRate);
+    if (!resolved) return null;
+    const result = resolved;
+    try {
+      if (result.kind === "legacy") {
+        const listReply = await this.request(result.featureIndex, 0x00);
+        result.replies.push({ name: "getReportRateList", bytes: listReply });
+        result.replies.push({
+          name: "getReportRate",
+          bytes: await this.request(result.featureIndex, 0x10),
+        });
+        result.decodedValues = decodeReportRateBitmap(listReply[3] ?? 0);
+      } else {
+        const listReply = await this.request(result.featureIndex, 0x10);
+        result.replies.push({ name: "getSupportedReportRates", bytes: listReply });
+        result.replies.push({
+          name: "getReportRate",
+          bytes: await this.request(result.featureIndex, 0x20),
+        });
+        const flags = ((listReply[3] ?? 0) << 8) | (listReply[4] ?? 0);
+        result.decodedValues = REPORT_RATE_HZ.filter((_rate, index) => (flags & (1 << index)) !== 0);
+      }
+    } catch (error) {
+      result.error = error instanceof Error ? error.message : "Could not read report-rate capabilities.";
+    }
+    return result;
   }
 
   /**
