@@ -47,3 +47,19 @@ Persistent polling-rate and DPI-stage changes need a CRC-checked rewrite of the
 1024-byte profile sector and are intentionally not implemented. Record the
 device identifier, protocol version, and any failing setting in the issue or
 pull request. Do not use factory reset during initial testing.
+
+## G309 LIGHTSPEED (receiver-attached, Model ID `B03C40B10000`)
+
+The G309 exposes Extended Adjustable DPI `0x2202` and Mode Status `0x8090`, but
+only the power-mode half of Mode Status is meaningful: the status1 byte that
+would carry the gaming-surface and LightForce fields is reserved and reads 0.
+The `0x2202` sensor likewise reports lift-off level 0, the feature's "no
+lift-off control" value. OpenMouse treats both as absent, so those cards stay
+hidden.
+
+1. Confirm the model, battery, connection type, DPI, and polling rate are read
+   correctly.
+2. Confirm the sensor card (lift-off distance), the gaming-surface card, and
+   the LightForce switch are all hidden.
+3. Change the DPI and polling rate and confirm each write persists after a
+   reload.
