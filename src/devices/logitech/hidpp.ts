@@ -158,34 +158,6 @@ export class NotAMouseError extends Error {
 }
 
 const LOGITECH_VENDOR_ID = 0x046d;
-// HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
-
-/**
- * Models whose 0x8090 mode-status feature drives the power-mode switch only.
- * The status1 byte that carries the gaming-surface and LightForce fields is
- * reserved on them and reads 0, which would otherwise decode as "Auto" and
- * "Optical" and offer controls the mouse does not have. Keyed on the firmware
- * model id, like the Superstrike detection.
- */
-const MODE_STATUS_POWER_ONLY_MODEL_IDS: ReadonlySet<string> = new Set([
-  "B03C40B10000", // G309 LIGHTSPEED
-]);
-
-/** Whether 0x8090 on this model is the power-mode-only variant. */
-export function isPowerOnlyModeStatus(modelId: string | null | undefined): boolean {
-  return MODE_STATUS_POWER_ONLY_MODEL_IDS.has(modelId ?? "");
-}
-
-/**
- * Whether the mouse exposes lift-off levels it can drive: only extended DPI
- * (0x2202) carries one, and its byte 0 is the "no lift-off control" value, so
- * a legacy-DPI mouse or a sensor reporting 0 advertises no levels.
- */
-export function hasLiftOffControl(legacyDpi: boolean, lodByte: number | null): boolean {
-  return !legacyDpi && lodByte !== null && lodByte !== 0;
-}
-
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const FEATURE = {
@@ -215,6 +187,36 @@ interface ResolvedFeature {
 const REPORT_RATE_HZ = [125, 250, 500, 1000, 2000, 4000, 8000] as const;
 
 export type LogitechMouseStatus = MouseStatus;
+
+/**
+ * Extended DPI alone does not imply adjustable lift-off distance. Some mice,
+ * including the G309, expose 0x2202 but return the protocol's "no LOD control"
+ * value. Legacy DPI never carries LOD either.
+ */
+export function supportsLiveLiftOffControl(
+  legacyDpi: boolean,
+  liftOffDistance: LogitechMouseStatus["liftOffDistance"],
+): boolean {
+  return !legacyDpi && liftOffDistance !== null;
+}
+
+/**
+ * Resolves the active physical link from HID++ identity transport IDs. A
+ * receiver's USB PID does not match the paired mouse's Wireless transport ID;
+ * a mouse connected by cable matches its own USB transport ID. Direct-index
+ * probing remains the fallback for older devices that omit identity data.
+ */
+export function isWiredHidppConnection(
+  productId: number,
+  transportIds: Record<string, string>,
+  directIndex: boolean,
+): boolean {
+  const activeId = productId.toString(16).padStart(4, "0").toUpperCase();
+  const activeTransport = Object.entries(transportIds)
+    .find(([, transportId]) => transportId.toUpperCase() === activeId)?.[0];
+  if (activeTransport !== undefined) return activeTransport === "USB";
+  return directIndex;
+}
 
 interface BatteryReading {
   percent: number | null;
@@ -262,7 +264,7 @@ export class LogitechHidppClient {
   private resolvedDeviceIndex: number | null = null;
   /** Last format read from 0x8100, so a refusal can name it. */
   private profileFormatId: number | null = null;
-  private isSuperstrikeDevice = false;
+  private wiredConnection = false;
   /** Lift-off levels this device advertised; the single source of truth for both UI and validation. */
   private lodCapabilities: ProfileFormatCapabilities = capabilitiesForFormat(null);
   private supportedLods: Array<NonNullable<LogitechMouseStatus["liftOffDistance"]>> = ["Medium", "High"];
@@ -339,23 +341,13 @@ export class LogitechHidppClient {
    *
    * A mouse reached through its receiver answers on the receiver's pairing slot
    * (0x01); the same mouse plugged in by cable answers as itself (0xFF). That
-   * cannot be read from the descriptors, and deriving it from a list of product
-   * ids only works for the handful of ids on the list — every other mouse
-   * plugged in directly was addressed as a receiver and never replied.
-   *
-   * So ask. The root feature query is the cheapest request there is, and the
-   * wrong index simply times out.
+   * cannot be read from descriptors or safely derived from product IDs. Probe
+   * both indexes and choose the one that exposes a DPI sensor feature.
    */
   private async resolveDeviceIndex(): Promise<void> {
     if (this.resolvedDeviceIndex !== null) return;
-    // Only a receiver forwards to a pairing slot; anything else is the mouse's
-    // own endpoint and answers as itself. Ordering by "is this a known
-    // receiver" rather than by the direct-connect id list matters for mice that
-    // are on neither list — a wired G102 is its own endpoint, and asking it as
-    // though it were behind a receiver is what made it look mode-locked.
-    const candidates = LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId)
-      ? [DEVICE_INDEX_RECEIVER, DEVICE_INDEX_DIRECT]
-      : [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER];
+    const candidates = [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER];
+    let firstAnsweringIndex: number | null = null;
 
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
@@ -364,7 +356,22 @@ export class LogitechHidppClient {
       const answered = await this.request(0x00, 0x00, FEATURE.firmware >> 8, FEATURE.firmware & 0xff)
         .then(() => true)
         .catch((error: unknown) => !(error instanceof HidppTimeoutError));
-      if (answered) return;
+      if (!answered) continue;
+      firstAnsweringIndex ??= candidate;
+
+      // A receiver can answer root requests at 0xFF even though the paired
+      // mouse lives at 0x01. A sensor feature identifies the actual mouse
+      // index without a receiver or device PID list.
+      for (const sensorFeature of [FEATURE.extendedDpi, FEATURE.adjustableDpi]) {
+        const reply = await this.request(0x00, 0x00, sensorFeature >> 8, sensorFeature & 0xff).catch(() => null);
+        if ((reply?.[3] ?? 0) !== 0) return;
+      }
+    }
+    // Preserve the useful NotAMouseError path for a responding Logitech
+    // keyboard or headset; readStatus will find no DPI feature there.
+    if (firstAnsweringIndex !== null) {
+      this.resolvedDeviceIndex = firstAnsweringIndex;
+      return;
     }
     this.resolvedDeviceIndex = null;
     throw new Error("The mouse did not answer on any HID++ device index.");
@@ -385,24 +392,17 @@ export class LogitechHidppClient {
     return hasHidppCollection(device.collections);
   }
 
-  /** Known receivers, kept as the fast path for the WebHID picker's filters. */
-  static isKnownReceiver(device: HIDDevice): boolean {
-    return device.vendorId === LOGITECH_VENDOR_ID
-      && LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId);
-  }
-
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
     if (!navigator.hid) {
       throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
     }
 
     const devices = await navigator.hid.requestDevice({
-      filters: [...LOGITECH_RECEIVER_PRODUCT_IDS].map((productId) => ({
+      filters: [{
         vendorId: LOGITECH_VENDOR_ID,
-        productId,
         usagePage: 0xff00,
         usage: 0x0001,
-      })),
+      }],
     });
     const device = devices[0];
     return device ? new LogitechHidppClient(device) : null;
@@ -487,14 +487,19 @@ export class LogitechHidppClient {
         .then((reply) => describeProfileFormat(parseProfilesInfo(reply).profileFormatId))
         .catch(() => null)
       : null;
-    const isSuperstrike = this.isSuperstrike(identity);
-    this.isSuperstrikeDevice = isSuperstrike;
     // Keyed on the reported profile format, not the model, so another mouse on
     // the same format gets the same limits without being named here.
     this.profileFormatId = onboardProfileFormat?.id ?? null;
     this.lodCapabilities = capabilitiesForFormat(onboardProfileFormat?.id);
     this.supportedLods = [...this.lodCapabilities.supportedLods];
-    const wired = this.device.productId === 0xc0a8 || this.isDirectConnect;
+    const wired = isWiredHidppConnection(this.device.productId, identity.transportIds, this.isDirectConnect);
+    this.wiredConnection = wired;
+    const liftOffDistance = decodeLiftOffLevel(dpiState.lod, this.lodCapabilities);
+    const hasLiveLiftOffControl = supportsLiveLiftOffControl(dpiFeature.legacy, liftOffDistance);
+    const rateLimits = this.lodCapabilities.reportRates;
+    const connectionRateCeiling = rateLimits
+      ? (wired ? rateLimits.wiredMaxHz : rateLimits.wirelessMaxHz)
+      : null;
 
     return {
       brand: "Logitech",
@@ -517,33 +522,31 @@ export class LogitechHidppClient {
       dpiY: dpiState.dpiY,
       supportsSeparateDpiAxes,
       analogButtonTuning,
-      liftOffDistance: decodeLiftOffLevel(dpiState.lod, this.lodCapabilities),
+      liftOffDistance,
       onboardProfileFormat,
-      gamingSurfaceMode: modeStatus === null || !modeStatusCarriesControls
+      // 0x8090 may exist only for LIGHTFORCE. Its otherwise-unused surface
+      // bits read as zero, which decodes to Auto, so require an actual live LOD
+      // control before exposing the related gaming-surface setting.
+      gamingSurfaceMode: modeStatus === null || !hasLiveLiftOffControl
         ? null
         : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
-      lightforceSwitchMode: modeStatus === null || !modeStatusCarriesControls
-        ? null
-        : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
-      // The USB connection exposes the Superstrike as a 1 kHz device. Its
-      // Lightspeed receiver can use the higher rates advertised by HID++.
-      pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
-      supportedPollingRates: isSuperstrike && wired
-        ? supportedPollingRates.filter((rate) => rate <= 1000)
+      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
+      // Some profile formats have different wired and wireless ceilings. The
+      // active transport comes from HID++ identity rather than a USB PID.
+      pollingRateHz: connectionRateCeiling ? Math.min(pollingRateHz, connectionRateCeiling) : pollingRateHz,
+      supportedPollingRates: connectionRateCeiling
+        ? supportedPollingRates.filter((rate) => rate <= connectionRateCeiling)
         : supportedPollingRates,
       // Lift-off distance is only reachable through extended DPI (0x2202). On a
       // mouse that exposes just legacy 0x2201 there is nothing to drive, so
       // report an empty set rather than offering buttons that can only fail.
-      // The same applies when the sensor reports no lift-off level (byte 0 is
-      // the feature's "no lift-off control" value), which is how a 0x2202 mouse
-      // without LOD, like the G309, advertises its lack of one. Otherwise the
-      // levels come from the profile format, which is where the count and the
-      // byte encoding are both established.
-      supportedLiftOffDistances: hasLiftOffControl(dpiFeature.legacy, dpiState.lod) ? this.supportedLods : [],
+      // Otherwise the levels come from the profile format, which is where the
+      // count and the byte encoding are both established.
+      supportedLiftOffDistances: hasLiveLiftOffControl ? this.supportedLods : [],
       connectionType: wired ? "Wired" : "Wireless",
       // Without this the shell falls back to its "2.4 GHz receiver" wording,
       // which is wrong for a mouse plugged straight into USB.
-      connectionDetail: this.isDirectConnect ? "Wired USB" : undefined,
+      connectionDetail: wired ? "Wired USB" : undefined,
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,
@@ -567,8 +570,12 @@ export class LogitechHidppClient {
       // CRC-checked sector rewrite that is not implemented here.
       throw new Error("This mouse stores its polling rate in the onboard profile. Change it in Logitech's own software; OpenMouse can only read it.");
     }
-    if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
-      throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
+    const rateLimits = this.lodCapabilities.reportRates;
+    const connectionRateCeiling = rateLimits
+      ? (this.wiredConnection ? rateLimits.wiredMaxHz : rateLimits.wirelessMaxHz)
+      : null;
+    if (connectionRateCeiling !== null && pollingRateHz > connectionRateCeiling) {
+      throw new Error(`This connection supports up to ${connectionRateCeiling} Hz.`);
     }
     const resolved = await this.resolveReportRateFeature();
     if (resolved.legacy) {
@@ -1917,10 +1924,6 @@ export class LogitechHidppClient {
       }
     }
     return { unitId: unitId === "00000000" ? null : unitId, modelId, transportIds };
-  }
-
-  private isSuperstrike(identity: DeviceIdentity): boolean {
-    return this.device.productId === 0xc0a8 || identity.modelId?.startsWith("40BD") === true;
   }
 
   private async ensureHostControl(): Promise<void> {

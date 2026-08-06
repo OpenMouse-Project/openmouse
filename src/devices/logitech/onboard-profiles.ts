@@ -215,7 +215,9 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
     supportedLods: ["Low", "High"],
     lodEncoding: LOD_ENCODING,
     dpiStages: null,
-    reportRates: null,
+    // Captured behavior: the wireless link reaches 8 kHz while USB is capped
+    // at 1 kHz. Transport selection is resolved from HID++ identity data.
+    reportRates: { wirelessMaxHz: 8000, wiredMaxHz: 1000 },
     // The name region is part of base v6, which format 8 shares.
     maxNameLength: PROFILE_NAME_MAX_CHARS,
     bunnyHop: true,

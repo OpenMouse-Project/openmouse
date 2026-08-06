@@ -52,20 +52,9 @@ export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x
 
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
-// Logitech HID++ control interfaces addressed through a receiver slot (HID++
-// device index 0x01). 0xc54d and 0xc547 are newer Lightspeed receivers, 0xc539
-// is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
-
-// Known Logitech receiver/USB bridge products. The broad usage-page filter
-// below discovers direct-connect mice without a product-ID allowlist.
-export const LOGITECH_PRODUCT_IDS = [
-  ...LOGITECH_RECEIVER_PRODUCT_IDS,
-] as const;
-
 /**
- * Every Logitech HID++ control interface, not only the product ids listed
- * above: a mouse we have never seen should still be offered. The usage page
+ * Every Logitech HID++ control interface: a mouse we have never seen should
+ * still be offered. The usage page
  * keeps this to HID++ endpoints, but it cannot tell a mouse from a keyboard or
  * a headset — the driver decides that after connecting, by looking for a sensor
  * feature, and reports a clear message when there is none.

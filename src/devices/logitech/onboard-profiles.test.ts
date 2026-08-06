@@ -797,8 +797,11 @@ test("report-rate ceilings differ per link and per format", () => {
   assert.match(validateReportRate(8000, rates, "wired") ?? "", /Wired report rate/);
   assert.equal(validateReportRate(1000, rates, "wired"), null);
 
+  // Format 8 reports the same split; this replaces the old Superstrike PID
+  // exception with a format capability.
+  assert.deepEqual(capabilitiesForFormat(8).reportRates, { wirelessMaxHz: 8000, wiredMaxHz: 1000 });
   // Formats whose ceilings were never captured offer nothing.
-  assert.equal(capabilitiesForFormat(8).reportRates, null);
+  assert.equal(capabilitiesForFormat(6).reportRates, null);
   assert.deepEqual(reportRatesFor(null, "wireless"), []);
   assert.match(validateReportRate(1000, null, "wireless") ?? "", /not known/);
 });

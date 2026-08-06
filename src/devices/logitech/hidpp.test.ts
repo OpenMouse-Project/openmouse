@@ -14,6 +14,7 @@ import {
   OnboardOnlyError,
   withSoftwareId,
 } from "./protocol.ts";
+import { isWiredHidppConnection, supportsLiveLiftOffControl } from "./hidpp.ts";
 
 test("HID++ requests use a nonzero software ID", () => {
   assert.equal(withSoftwareId(0x00), 0x05);
@@ -29,6 +30,20 @@ test("runtime probing alone classifies direct and receiver connections", () => {
   assert.equal(isDirectConnection(DEVICE_INDEX_DIRECT), true);
   assert.equal(isDirectConnection(DEVICE_INDEX_RECEIVER), false);
   assert.equal(isDirectConnection(null), false);
+});
+
+test("extended DPI does not imply lift-off or gaming-surface controls", () => {
+  assert.equal(supportsLiveLiftOffControl(false, null), false, "0 means no LOD control");
+  assert.equal(supportsLiveLiftOffControl(true, "Medium"), false, "legacy DPI has no LOD field");
+  assert.equal(supportsLiveLiftOffControl(false, "Low"), true);
+});
+
+test("the active transport comes from HID++ identity instead of a product exception", () => {
+  const transports = { USB: "C0A8", Wireless: "40BD" };
+  assert.equal(isWiredHidppConnection(0xc0a8, transports, false), true);
+  assert.equal(isWiredHidppConnection(0x40bd, transports, false), false);
+  assert.equal(isWiredHidppConnection(0xc54d, transports, false), false, "receiver PID is not the mouse's USB transport");
+  assert.equal(isWiredHidppConnection(0xc07e, {}, true), true, "old direct devices use the probed-index fallback");
 });
 
 test("the legacy report-rate bitmap decodes the G402's advertised rates", () => {
