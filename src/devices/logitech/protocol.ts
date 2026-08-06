@@ -43,7 +43,7 @@ export function hidppDeviceIndex(productId: number): number {
 }
 
 /** HID++ 2.0 error codes, reported in byte 4 of a 0xFF error response. */
-const HIDPP_ERRORS: Readonly<Record<number, string>> = {
+const HIDPP20_ERRORS: Readonly<Record<number, string>> = {
   0x01: "unknown request",
   0x02: "invalid argument",
   0x03: "value out of range",
@@ -53,17 +53,53 @@ const HIDPP_ERRORS: Readonly<Record<number, string>> = {
   0x07: "invalid function",
   0x08: "device busy",
   0x09: "unsupported",
-  // Not in the HID++ 2.0 enum, which stops at 0x09. Older firmware answers a
-  // 2.0-shaped error with the 1.0 code REQUEST_UNAVAILABLE, which a G102
-  // returns when asked for something its current mode does not allow.
-  0x0a: "the mouse will not accept that request in its current mode",
+};
+
+/** HID++ 1.0 error codes, reported in byte 4 of a 0x8F error response. */
+const HIDPP10_ERRORS: Readonly<Record<number, string>> = {
+  0x01: "invalid command",
+  0x02: "invalid address",
+  0x03: "invalid value",
+  0x04: "connection request failed",
+  0x05: "too many devices",
+  0x06: "already exists",
+  0x07: "device busy",
+  0x08: "unknown device",
+  0x09: "resource error",
+  0x0a: "request unavailable",
+  0x0b: "unsupported parameter value",
+  0x0c: "wrong PIN code",
 };
 
 export function hidppErrorMessage(code: number): string {
-  const reason = HIDPP_ERRORS[code];
+  const reason = HIDPP20_ERRORS[code];
   return reason
     ? `The mouse rejected that setting (${reason}).`
-    : `The mouse rejected that setting (HID++ error 0x${code.toString(16).padStart(2, "0")}).`;
+    : `The mouse rejected that setting (HID++ 2.0 error 0x${code.toString(16).padStart(2, "0")}).`;
+}
+
+export function hidpp10ErrorMessage(code: number): string {
+  const reason = HIDPP10_ERRORS[code];
+  return reason
+    ? `The mouse rejected that setting (HID++ 1.0: ${reason}).`
+    : `The mouse rejected that setting (HID++ 1.0 error 0x${code.toString(16).padStart(2, "0")}).`;
+}
+
+/**
+ * Decodes an error only when it echoes the request being awaited.
+ *
+ * HID++ 1.0: [device, 0x8f, sub-id, address, error]
+ * HID++ 2.0: [device, 0xff, feature-index, function+software-id, error]
+ */
+export function hidppErrorForRequest(
+  report: Uint8Array,
+  requestFirstByte: number,
+  requestSecondByte: number,
+): string | null {
+  if (report[2] !== requestFirstByte || report[3] !== withSoftwareId(requestSecondByte)) return null;
+  if (report[1] === 0x8f) return hidpp10ErrorMessage(report[4] ?? 0);
+  if (report[1] === 0xff) return hidppErrorMessage(report[4] ?? 0);
+  return null;
 }
 
 /**

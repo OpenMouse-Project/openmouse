@@ -6,7 +6,7 @@ import {
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
-  hidppErrorMessage,
+  hidppErrorForRequest,
   isDirectConnection,
   isDirectConnectProduct,
   OnboardOnlyError,
@@ -228,13 +228,16 @@ export class LogitechHidppClient {
 
     // HID++ can emit a status notification between a write acknowledgement and
     // the matching read response. Leave the pending request in place and wait.
-    if (report[0] === this.deviceIndex && report[1] === 0xff) {
-      const failedIndex = this.waiters.findIndex(
-        (waiter) => report[2] === waiter.featureIndex && report[3] === withSoftwareId(waiter.functionId),
-      );
+    if (report[0] === this.deviceIndex && (report[1] === 0x8f || report[1] === 0xff)) {
+      let failure: string | null = null;
+      const failedIndex = this.waiters.findIndex((waiter) => {
+        failure = hidppErrorForRequest(report, waiter.featureIndex, waiter.functionId);
+        return failure !== null;
+      });
       if (failedIndex >= 0) {
-        this.waiters.splice(failedIndex, 1)[0].reject(new Error(hidppErrorMessage(report[4] ?? 0)));
+        this.waiters.splice(failedIndex, 1)[0].reject(new Error(failure ?? "The mouse rejected that request."));
       }
+      return;
     }
   };
 

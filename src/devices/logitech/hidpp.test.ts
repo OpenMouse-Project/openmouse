@@ -8,6 +8,8 @@ import {
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
+  hidpp10ErrorMessage,
+  hidppErrorForRequest,
   hidppErrorMessage,
   isDirectConnection,
   isDirectConnectProduct,
@@ -70,6 +72,19 @@ test("HID++ error responses are reported with their documented reason", () => {
   assert.match(hidppErrorMessage(0x09), /unsupported/);
 });
 
+test("HID++ 1.0 error 0x0a is request unavailable", () => {
+  assert.match(hidpp10ErrorMessage(0x0a), /HID\+\+ 1\.0: request unavailable/);
+  assert.match(hidppErrorMessage(0x0a), /HID\+\+ 2\.0 error 0x0a/);
+});
+
+test("error frames are decoded by protocol and matched to their request", () => {
+  const hidpp10 = new Uint8Array([0xff, 0x8f, 0x0d, withSoftwareId(0x10), 0x0a]);
+  const hidpp20 = new Uint8Array([0x01, 0xff, 0x0d, withSoftwareId(0x10), 0x09]);
+  assert.match(hidppErrorForRequest(hidpp10, 0x0d, 0x10) ?? "", /HID\+\+ 1\.0: request unavailable/);
+  assert.match(hidppErrorForRequest(hidpp20, 0x0d, 0x10) ?? "", /unsupported/);
+  assert.equal(hidppErrorForRequest(hidpp10, 0x0e, 0x10), null, "another request's error must be ignored");
+});
+
 test("an unrecognised HID++ error still reports its raw code", () => {
   assert.match(hidppErrorMessage(0x7f), /0x7f/);
 });
@@ -108,20 +123,6 @@ test("the two battery features use different charging enums", () => {
   // The point of keeping them apart: 2 and 4 mean opposite things.
   assert.notEqual(decodeUnifiedBatteryState(0x02), decodeBatteryLevelState(0x02));
   assert.notEqual(decodeUnifiedBatteryState(0x04), decodeBatteryLevelState(0x04));
-});
-
-test("error 0x0a is explained rather than shown as a raw code", () => {
-  // Not in the HID++ 2.0 enum, which stops at 0x09 — it is the 1.0 code
-  // REQUEST_UNAVAILABLE, which a G102 returns when its mode forbids the write.
-  const message = hidppErrorMessage(0x0a);
-  assert.doesNotMatch(message, /0x0a/, "should not fall back to the raw code");
-  assert.match(message, /current mode/);
-
-  // The documented 2.0 codes keep their own wording.
-  assert.match(hidppErrorMessage(0x09), /unsupported/);
-  assert.match(hidppErrorMessage(0x02), /invalid argument/);
-  // Anything genuinely unknown still reports its code rather than inventing one.
-  assert.match(hidppErrorMessage(0x7f), /0x7f/);
 });
 
 test("an onboard-only mouse is told how to get itself supported", () => {
