@@ -676,6 +676,15 @@ function downloadDiagnostics(): void {
   if (status) status.textContent = `Saved ${name}`;
 }
 
+/**
+ * An explicitly empty rate list means the mouse reports no polling rate at all,
+ * as opposed to `undefined`, which means the driver simply did not narrow the
+ * common set.
+ */
+function hasNoPollingRates(status: MouseStatus): boolean {
+  return Array.isArray(status.supportedPollingRates) && status.supportedPollingRates.length === 0;
+}
+
 function showStatus(deviceStatus: MouseStatus): void {
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
@@ -717,7 +726,10 @@ function showStatus(deviceStatus: MouseStatus): void {
       : "Higher rates update cursor movement more often, but use more battery."));
   const pollingCard = document.querySelector<HTMLElement>("[data-rate]")?.closest<HTMLElement>(".setting-card");
   if (pollingCard) {
-    pollingCard.hidden = false;
+    // An explicitly empty rate list means the mouse reports no polling rate at
+    // all, so hide the card rather than leaving an empty heading behind. This
+    // mirrors how the sensor card is hidden for an empty lift-off list.
+    pollingCard.hidden = hasNoPollingRates(status);
     pollingCard.style.display = "";
   }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
@@ -865,7 +877,9 @@ function showStatus(deviceStatus: MouseStatus): void {
       ? [battery, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
       : battery);
   } else if (!hasPendingChanges()) {
-    setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
+    const readings = [`${deviceStatus.dpi.toLocaleString()} DPI`];
+    if (!hasNoPollingRates(deviceStatus)) readings.push(`${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
+    setText("#read-status", `Current: ${readings.join(" · ")}`);
   }
   const meter = document.querySelector<HTMLElement>("#battery-meter");
   if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;

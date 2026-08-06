@@ -1,8 +1,13 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import {
+  HIDPP_BLUETOOTH_USAGE_PAGE,
+  HIDPP_USB_USAGE,
+  HIDPP_USB_USAGE_PAGE,
+  decodeBatteryLevelStatus,
   decodeReportRateBitmap,
   hidppDeviceIndex,
   hidppErrorMessage,
+  isBluetoothProduct,
   isDirectConnectProduct,
   legacyDpiFallback,
   withSoftwareId,
@@ -25,6 +30,8 @@ const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
   unifiedBattery: 0x1004,
+  // Battery Level Status, used by the AA/AAA-powered office mice.
+  batteryLevelStatus: 0x1000,
   batteryVoltage: 0x1001,
   adcMeasurement: 0x1f20,
   extendedDpi: 0x2202,
@@ -150,21 +157,41 @@ export class LogitechHidppClient {
     return isDirectConnectProduct(this.device.productId);
   }
 
+  /** True when the mouse is paired over Bluetooth instead of USB. */
+  private get isBluetooth(): boolean {
+    return isBluetoothProduct(this.device.productId);
+  }
+
+  /**
+   * Bluetooth HID++ defines only the long report, so every request goes out on
+   * 0x11 there. Sending a 0x10 short report would be rejected outright.
+   */
+  private get usesLongReportsOnly(): boolean {
+    return this.isBluetooth;
+  }
+
   /** HID++ device index: the receiver's first slot, or the mouse itself. */
   private get deviceIndex(): number {
     return hidppDeviceIndex(this.device.productId);
   }
 
   static isSupported(device: HIDDevice): boolean {
-    if (device.vendorId !== LOGITECH_VENDOR_ID
-      || !(LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId))) {
+    if (device.vendorId !== LOGITECH_VENDOR_ID) return false;
+    const hasCollection = (
+      collections: readonly HIDCollectionInfo[],
+      matches: (collection: HIDCollectionInfo) => boolean,
+    ): boolean =>
+      collections.some((collection) => matches(collection) || hasCollection(collection.children, matches));
+
+    if (isBluetoothProduct(device.productId)) {
+      return hasCollection(device.collections, (collection) =>
+        collection.usagePage === HIDPP_BLUETOOTH_USAGE_PAGE);
+    }
+    if (!(LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId))) {
       return false;
     }
-    const hasHidppCollection = (collections: readonly HIDCollectionInfo[]): boolean =>
-      collections.some((collection) =>
-        (collection.usagePage === 0xff00 && collection.usage === 0x0001)
-        || hasHidppCollection(collection.children));
-    return hasHidppCollection(device.collections);
+    return hasCollection(device.collections, (collection) =>
+      collection.usagePage === HIDPP_USB_USAGE_PAGE && collection.usage === HIDPP_USB_USAGE);
   }
 
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
@@ -200,6 +227,9 @@ export class LogitechHidppClient {
     const nameFeature = await this.getFeature(FEATURE.deviceName);
     const firmwareFeature = await this.getFeature(FEATURE.firmware);
     const batteryFeature = await this.getFeature(FEATURE.unifiedBattery);
+    const batteryLevelFeature = batteryFeature.index
+      ? { index: 0, version: 0 }
+      : await this.getFeature(FEATURE.batteryLevelStatus);
     const batteryVoltageFeature = await this.getFeature(FEATURE.batteryVoltage);
     const adcMeasurementFeature = await this.getFeature(FEATURE.adcMeasurement);
     const dpiFeature = await this.resolveDpiFeature();
@@ -213,28 +243,38 @@ export class LogitechHidppClient {
     const identity = await this.readIdentity(firmwareFeature.index);
     const battery = batteryFeature.index
       ? await this.readBattery(batteryFeature.index)
-      : batteryVoltageFeature.index
-        ? await this.readBatteryVoltage(batteryVoltageFeature.index)
-        : adcMeasurementFeature.index
-          ? await this.readAdcMeasurement(adcMeasurementFeature.index)
+      : batteryLevelFeature.index
+        ? await this.readBatteryLevel(batteryLevelFeature.index)
+        : batteryVoltageFeature.index
+          ? await this.readBatteryVoltage(batteryVoltageFeature.index)
+          : adcMeasurementFeature.index
+            ? await this.readAdcMeasurement(adcMeasurementFeature.index)
         : { percent: null, state: "Unknown" as const, voltageMv: null };
     if (batteryVoltageFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readBatteryVoltage(batteryVoltageFeature.index)).voltageMv;
     } else if (adcMeasurementFeature.index && battery.voltageMv === undefined) {
       battery.voltageMv = (await this.readAdcMeasurement(adcMeasurementFeature.index)).voltageMv;
     }
-    const dpiState = dpiFeature.legacy
-      ? await this.readLegacyDpi(dpiFeature.index)
-      : await this.readDpi(dpiFeature.index);
+    // An office mouse exposes neither DPI nor report-rate features. Report what
+    // is missing instead of failing the whole read on its behalf.
+    const hasDpi = dpiFeature.index !== 0;
+    const hasReportRate = reportRateFeature.index !== 0;
+    const dpiState = !hasDpi
+      ? { dpi: 0, dpiY: 0, liftOffDistance: null }
+      : dpiFeature.legacy
+        ? await this.readLegacyDpi(dpiFeature.index)
+        : await this.readDpi(dpiFeature.index);
     const supportsSeparateDpiAxes = dpiFeature.legacy
       ? false
       : await this.readDpiCapabilities(dpiFeature.index);
     const supportedPollingRates = reportRateFeature.legacy
       ? await this.readLegacyReportRates(reportRateFeature.index)
       : await this.readSupportedPollingRates(reportRateFeature.index);
-    const pollingRateHz = reportRateFeature.legacy
-      ? await this.readLegacyReportRate(reportRateFeature.index)
-      : await this.readPollingRate(reportRateFeature.index);
+    const pollingRateHz = !hasReportRate
+      ? 0
+      : reportRateFeature.legacy
+        ? await this.readLegacyReportRate(reportRateFeature.index)
+        : await this.readPollingRate(reportRateFeature.index);
     const profileState = await this.readProfileState(profilesFeature.index);
     const firmware = await this.readFirmware(firmwareFeature.index);
     const analogButtonTuning = analogButtonsFeature.index
@@ -251,6 +291,9 @@ export class LogitechHidppClient {
       name,
       ui: {
         family: "logitech-hidpp",
+        // Nothing in the settings grid is adjustable on a mouse that exposes
+        // neither DPI nor report rate, so the shell shows the status only.
+        settingsReady: hasDpi || hasReportRate,
         // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
         lodRequiresSurface: true,
         // Direct-connect mice report their rate but keep the writable copy in
@@ -282,8 +325,13 @@ export class LogitechHidppClient {
       supportedLiftOffDistances: dpiFeature.legacy ? [] : isSuperstrike ? ["Low", "High"] : undefined,
       connectionType: wired ? "Wired" : "Wireless",
       // Without this the shell falls back to its "2.4 GHz receiver" wording,
-      // which is wrong for a mouse plugged straight into USB.
-      connectionDetail: this.isDirectConnect ? "Wired USB" : undefined,
+      // which is wrong for a mouse plugged straight into USB or paired over
+      // Bluetooth.
+      connectionDetail: this.isDirectConnect
+        ? "Wired USB"
+        : this.isBluetooth
+          ? "Bluetooth"
+          : undefined,
       activeProfile: profileState.activeProfile,
       deviceMode: profileState.deviceMode,
       unitId: identity.unitId,
@@ -336,7 +384,10 @@ export class LogitechHidppClient {
     }
     const resolved = await this.resolveDpiFeature();
     if (!resolved.index) {
-      throw new Error("This mouse does not expose DPI controls.");
+      // An office mouse has no sensitivity control at all. The shell asks every
+      // client for its options while connecting, so answer "none" rather than
+      // failing the connection.
+      return (this.dpiOptionsCache = []);
     }
     if (resolved.legacy) {
       const advertised = await this.readLegacyDpiList(resolved.index);
@@ -681,6 +732,17 @@ export class LogitechHidppClient {
     return { percent: percentage <= 100 ? percentage : null, state };
   }
 
+  /**
+   * Battery Level Status (0x1000) function 0: reply data is
+   * [dischargeLevel, dischargeNextLevel, status]. Mice on a replaceable cell
+   * report a coarse level here and have no voltage feature to fall back on.
+   */
+  private async readBatteryLevel(featureIndex: number): Promise<BatteryReading> {
+    const reply = await this.request(featureIndex, 0x00);
+    const { percent, state } = decodeBatteryLevelStatus(reply[3] ?? 0, reply[5] ?? -1);
+    return { percent, state, voltageMv: null };
+  }
+
   private async readBatteryVoltage(featureIndex: number): Promise<BatteryReading> {
     const reply = await this.request(featureIndex, 0x00);
     const voltageMv = ((reply[3] ?? 0) << 8) | (reply[4] ?? 0);
@@ -896,6 +958,9 @@ export class LogitechHidppClient {
   private async request(featureIndex: number, functionId: number, ...parameters: number[]): Promise<Uint8Array> {
     if (parameters.length > 3) {
       throw new Error("This WebHID client only sends short, read-only HID++ requests.");
+    }
+    if (this.usesLongReportsOnly) {
+      return this.requestLong(featureIndex, functionId, parameters);
     }
 
     const report = new Uint8Array([

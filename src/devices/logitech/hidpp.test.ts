@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   DEVICE_INDEX_DIRECT,
   DEVICE_INDEX_RECEIVER,
+  decodeBatteryLevelStatus,
   decodeReportRateBitmap,
   hidppDeviceIndex,
   hidppErrorMessage,
+  isBluetoothProduct,
   isDirectConnectProduct,
   legacyDpiFallback,
   withSoftwareId,
@@ -15,6 +17,7 @@ import {
 const G402 = 0xc07e;
 const LIGHTSPEED_RECEIVER = 0xc54d;
 const SUPERSTRIKE_USB = 0xc0a8;
+const PEBBLE_M350S = 0xb036;
 
 test("HID++ requests use a nonzero software ID", () => {
   assert.equal(withSoftwareId(0x00), 0x05);
@@ -60,6 +63,39 @@ test("HID++ error responses are reported with their documented reason", () => {
 
 test("an unrecognised HID++ error still reports its raw code", () => {
   assert.match(hidppErrorMessage(0x7f), /0x7f/);
+});
+
+test("a Bluetooth mouse is addressed as the mouse itself", () => {
+  assert.equal(isBluetoothProduct(PEBBLE_M350S), true);
+  assert.equal(hidppDeviceIndex(PEBBLE_M350S), DEVICE_INDEX_DIRECT);
+});
+
+test("a Bluetooth mouse is not treated as a direct-connect USB mouse", () => {
+  // isDirectConnectProduct also gates the G402's read-only polling rate and its
+  // "close Logitech Gaming Software" timeout message, neither of which applies
+  // to a Bluetooth mouse.
+  assert.equal(isDirectConnectProduct(PEBBLE_M350S), false);
+});
+
+test("receiver product ids stay off the Bluetooth path", () => {
+  for (const productId of [LIGHTSPEED_RECEIVER, 0xc539, 0xc547, SUPERSTRIKE_USB, G402]) {
+    assert.equal(isBluetoothProduct(productId), false);
+  }
+});
+
+test("battery level status reports a coarse percentage and its state", () => {
+  assert.deepEqual(decodeBatteryLevelStatus(90, 0x00), { percent: 90, state: "Discharging" });
+  assert.deepEqual(decodeBatteryLevelStatus(50, 0x01), { percent: 50, state: "Charging" });
+  assert.deepEqual(decodeBatteryLevelStatus(100, 0x03), { percent: 100, state: "Full" });
+});
+
+test("a battery level of 0 means unmeasurable, not empty", () => {
+  assert.equal(decodeBatteryLevelStatus(0, 0x00).percent, null);
+  assert.equal(decodeBatteryLevelStatus(0x7f, 0x00).percent, null);
+});
+
+test("an unknown battery status code is reported as unknown", () => {
+  assert.equal(decodeBatteryLevelStatus(90, 0x07).state, "Unknown");
 });
 
 test("the legacy DPI fallback matches the grid G402 hardware advertises", () => {

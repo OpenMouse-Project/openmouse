@@ -28,8 +28,66 @@ export function isDirectConnectProduct(productId: number): boolean {
   return DIRECT_PRODUCT_ID_SET.has(productId);
 }
 
+/** USB HID++ control interface: vendor page 0xFF00, usage 0x0001. */
+export const HIDPP_USB_USAGE_PAGE = 0xff00;
+export const HIDPP_USB_USAGE = 0x0001;
+/**
+ * Over Bluetooth the same protocol moves to a vendor page of its own, and only
+ * the long report (0x11) exists — there is no 0x10 short report to send on.
+ */
+export const HIDPP_BLUETOOTH_USAGE_PAGE = 0xff43;
+
+/**
+ * Logitech mice paired over Bluetooth rather than through a receiver. Like the
+ * direct-connect USB mice they answer HID++ on device index 0xFF, but they are
+ * listed separately because they do not share the onboard-profile behaviour
+ * that makes the G402's polling rate read-only.
+ *
+ * 0xb036 is the Pebble M350s.
+ */
+export const LOGITECH_BLUETOOTH_PRODUCT_IDS = [0xb036] as const;
+
+const BLUETOOTH_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_BLUETOOTH_PRODUCT_IDS);
+
+export function isBluetoothProduct(productId: number): boolean {
+  return BLUETOOTH_PRODUCT_ID_SET.has(productId);
+}
+
 export function hidppDeviceIndex(productId: number): number {
-  return isDirectConnectProduct(productId) ? DEVICE_INDEX_DIRECT : DEVICE_INDEX_RECEIVER;
+  return isDirectConnectProduct(productId) || isBluetoothProduct(productId)
+    ? DEVICE_INDEX_DIRECT
+    : DEVICE_INDEX_RECEIVER;
+}
+
+/** HID++ 2.0 battery states, shared by 0x1000 and 0x1004. */
+const BATTERY_STATES = {
+  0x00: "Discharging",
+  0x01: "Charging",
+  0x02: "Almost full",
+  0x03: "Full",
+  0x04: "Charging slowly",
+} as const;
+
+export type HidppBatteryState = (typeof BATTERY_STATES)[keyof typeof BATTERY_STATES] | "Unknown";
+
+export function decodeBatteryState(status: number): HidppBatteryState {
+  return BATTERY_STATES[status as keyof typeof BATTERY_STATES] ?? "Unknown";
+}
+
+/**
+ * Decode Battery Level Status (0x1000), the feature Logitech's AA/AAA-powered
+ * mice expose instead of the rechargeable-pack features. The level is a coarse
+ * percentage — these mice report a handful of discrete steps, not a continuous
+ * reading — and a device that cannot measure at all answers 0.
+ */
+export function decodeBatteryLevelStatus(level: number, status: number): {
+  percent: number | null;
+  state: HidppBatteryState;
+} {
+  return {
+    percent: level > 0 && level <= 100 ? level : null,
+    state: decodeBatteryState(status),
+  };
 }
 
 /** HID++ 2.0 error codes, reported in byte 4 of a 0xFF error response. */

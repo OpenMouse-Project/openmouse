@@ -1,5 +1,9 @@
 import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
-import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol.ts";
+import {
+  HIDPP_BLUETOOTH_USAGE_PAGE,
+  LOGITECH_BLUETOOTH_PRODUCT_IDS,
+  LOGITECH_DIRECT_PRODUCT_IDS,
+} from "./logitech/protocol.ts";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -53,6 +57,12 @@ export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_PRODUCT_IDS
 // Retained for existing imports; points at the first supported receiver.
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = LOGITECH_RECEIVER_FILTERS[0];
 
+// Bluetooth mice carry HID++ on their own vendor page. The pointer collection
+// they also expose is protected, so the browser only ever offers this one.
+export const LOGITECH_BLUETOOTH_FILTERS: HIDDeviceFilter[] = LOGITECH_BLUETOOTH_PRODUCT_IDS.map(
+  (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: HIDPP_BLUETOOTH_USAGE_PAGE }),
+);
+
 export const WLMOUSE_PRODUCTS: ReadonlyMap<number, { name: string; wireless: boolean }> = new Map([
   [0xa860, { name: "Beast G", wireless: true }],
   [0xa861, { name: "Beast G", wireless: false }],
@@ -98,4 +108,5 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   ...RAZER_VIPER_V4_CONTROL_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
+  ...LOGITECH_BLUETOOTH_FILTERS,
 ];
