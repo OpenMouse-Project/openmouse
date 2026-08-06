@@ -1257,8 +1257,10 @@ export class LogitechHidppClient {
           && profileCrc(readBack) === storedCrc(readBack);
         if (!step.storedExactly) throw new Error("The temporary sector did not read back exactly.");
         if (candidate.confirmLive) {
-          await this.setCurrentProfile(backup.sector);
+          // Legacy devices reject setCurrentProfile while host mode is active.
+          // Enter onboard mode first, matching the normal profile selector.
           await this.setOnboardMode("Onboard");
+          await this.setCurrentProfile(backup.sector);
           step.liveConfirmed = await candidate.confirmLive();
           if (!step.liveConfirmed) throw new Error("The live HID++ value did not match the temporary profile value.");
         }
@@ -1281,8 +1283,12 @@ export class LogitechHidppClient {
 
     let modeRestored = false;
     try {
+      // setCurrentProfile is an onboard-mode operation on legacy hardware. If
+      // the mouse started in host mode, briefly select its original sector in
+      // onboard mode and only then return it to host mode.
+      await this.setOnboardMode("Onboard");
       if (backup.originalCurrentSector > 0) await this.setCurrentProfile(backup.originalCurrentSector);
-      await this.setOnboardMode(backup.originalMode);
+      if (backup.originalMode === "Host") await this.setOnboardMode("Host");
       const mode = await this.request(feature.index, PROFILE_FN.getMode);
       modeRestored = mode[3] === (backup.originalMode === "Onboard" ? ONBOARD_MODE.onboard : ONBOARD_MODE.host);
     } catch {
