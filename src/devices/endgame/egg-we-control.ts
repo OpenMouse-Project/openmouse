@@ -4,7 +4,7 @@
  * Keeps multi-collection HID discovery, peer bind, and connect coalescing out
  * of control.ts so other brand PRs do not touch WE-specific paths.
  */
-import { EggWeHidClient } from "./egg-we-hid";
+import { EggWeHidClient } from "./egg-we-hid.ts";
 
 export type { EggWeHidClient };
 

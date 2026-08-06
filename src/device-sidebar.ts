@@ -1,5 +1,6 @@
 import { createSupportedClient, deviceBrand, listLogicalDevices } from "./device-clients";
 import { EGG_WE_DISPLAY_NAME, isEggWeClient } from "./devices/endgame/egg-we-control";
+import { FinalmouseHidClient } from "./devices/finalmouse/hid";
 import { escapeHtml } from "./ui/dom";
 import type { MouseStatus } from "./devices/mouse-types";
 
@@ -21,7 +22,11 @@ export function renderDeviceSidebar(
     const selected = device === activeDevice;
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
-      ?? (isEggWeClient(client) ? EGG_WE_DISPLAY_NAME : (device.productName ?? `${deviceBrand(client)} mouse`));
+      ?? (isEggWeClient(client)
+        ? EGG_WE_DISPLAY_NAME
+        : client instanceof FinalmouseHidClient
+          ? client.displayName()
+          : (device.productName ?? `${deviceBrand(client)} mouse`));
     const detail = status
       ? `${status.brand} · ${status.connectionType ?? "Connected"}`
       : `${deviceBrand(client)} · Available`;

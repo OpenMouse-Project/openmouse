@@ -3,8 +3,8 @@ import {
   EGG_BUTTON_NAMES,
   type EggButtonIndex,
   type EggButtonMapping,
-} from "./egg-op1-hid";
-import type { MouseStatus } from "../mouse-types";
+} from "./egg-op1-hid.ts";
+import type { MouseStatus } from "../mouse-types.ts";
 
 export interface EggControlActions {
   applyCpiStage(level: number, x: number, y: number): void;

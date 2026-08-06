@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 import {
   decodeReportRateBitmap,
   hidppDeviceIndex,
@@ -6,7 +6,7 @@ import {
   isDirectConnectProduct,
   legacyDpiFallback,
   withSoftwareId,
-} from "./protocol";
+} from "./protocol.ts";
 import {
   MODE_STATUS,
   buildModeStatusWrite,
@@ -14,7 +14,7 @@ import {
   type GamingSurfaceMode,
   type LightforceSwitchMode,
   type ModeStatusField,
-} from "./mode-status";
+} from "./mode-status.ts";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
@@ -135,7 +135,11 @@ export class LogitechHidppClient {
     reject: (reason: Error) => void;
   }> = [];
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   /**
    * True when the vendor interface belongs to the mouse itself (G402, G403

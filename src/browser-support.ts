@@ -1,6 +1,8 @@
 export interface BrowserEnvironment {
-  touchPrimary: boolean;
   hasWebHid: boolean;
+  touchCapable: boolean;
+  secureContext: boolean;
+  chromium: boolean;
 }
 
 export interface UnsupportedNotice {
@@ -9,19 +11,29 @@ export interface UnsupportedNotice {
 }
 
 export function unsupportedNotice(env: BrowserEnvironment): UnsupportedNotice | null {
-  if (env.touchPrimary) {
+  if (env.hasWebHid) return null;
+  if (env.touchCapable) {
     return {
       headline: "Use a desktop.",
       detail: "OpenMouse cannot reach your mouse from a phone or tablet.",
     };
   }
-  if (!env.hasWebHid) {
+  if (!env.chromium) {
     return {
       headline: "Use a Chromium browser.",
       detail: "OpenMouse needs WebHID. Try Chrome, Edge, or Helium.",
     };
   }
-  return null;
+  if (!env.secureContext) {
+    return {
+      headline: "Open this page over HTTPS.",
+      detail: "WebHID is only available on a secure connection. Use an https:// address or localhost.",
+    };
+  }
+  return {
+    headline: "Update your browser.",
+    detail: "OpenMouse needs WebHID, added in Chrome and Edge 89. Update to the latest version.",
+  };
 }
 
 export function unsupportedTemplate(notice: UnsupportedNotice): string {
