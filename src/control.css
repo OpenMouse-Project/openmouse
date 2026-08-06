@@ -1,4 +1,5 @@
 @import "./control-devices.css";
+@import "./control-profiles.css";
 
 :root {
   --ink: #09090b;

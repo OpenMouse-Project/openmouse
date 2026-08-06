@@ -56,9 +56,16 @@ export const LOGITECH_PRODUCT_IDS = [
   ...LOGITECH_DIRECT_PRODUCT_IDS,
 ] as const;
 
-export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_PRODUCT_IDS.map(
-  (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
-);
+/**
+ * Every Logitech HID++ control interface, not only the product ids listed
+ * above: a mouse we have never seen should still be offered. The usage page
+ * keeps this to HID++ endpoints, but it cannot tell a mouse from a keyboard or
+ * a headset — the driver decides that after connecting, by looking for a sensor
+ * feature, and reports a clear message when there is none.
+ */
+export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.logitech, usagePage: 0xff00, usage: 0x0001 },
+];
 
 // Retained for existing imports; points at the first supported receiver.
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = LOGITECH_RECEIVER_FILTERS[0];
