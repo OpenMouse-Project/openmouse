@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 
 export type GamingSurfaceMode = NonNullable<MouseStatus["gamingSurfaceMode"]>;
 export type LightforceSwitchMode = NonNullable<MouseStatus["lightforceSwitchMode"]>;

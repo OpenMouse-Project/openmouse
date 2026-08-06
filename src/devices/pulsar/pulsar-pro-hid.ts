@@ -1,5 +1,5 @@
-import type { MouseStatus } from "../mouse-types";
-import type { PulsarDeviceInfo } from "./pulsar-hid";
+import type { MouseStatus } from "../mouse-types.ts";
+import type { PulsarDeviceInfo } from "./pulsar-hid.ts";
 
 const VENDOR_ID = 0x3710;
 const PRO_DONGLE_PRODUCT_ID = 0x5405;
@@ -45,7 +45,11 @@ export class PulsarProHidClient {
     waiter.resolve(data);
   };
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID

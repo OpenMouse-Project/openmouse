@@ -1,5 +1,5 @@
-import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control";
-import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol";
+import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
+import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol.ts";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -12,6 +12,7 @@ export const VENDOR_ID = {
   teevolution: 0x3554,
   vgn: 0x3554,
   atk: 0x373b,
+  finalmouse: 0x361d,
 } as const;
 
 // Viper V3 Pro exposes its control channel as a Generic Desktop Mouse
@@ -83,6 +84,7 @@ export const WLMOUSE_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
 ]);
 
 export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.finalmouse, productId: 0x0100, usagePage: 0xff00, usage: 0x0001 },
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },

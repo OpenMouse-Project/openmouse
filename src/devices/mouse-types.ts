@@ -41,7 +41,7 @@ export interface MouseUiHints {
 }
 
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "Razer" | "Teevolution" | "ATK" | "VGN";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "Lamzu" | "Orbital" | "Razer" | "Teevolution" | "ATK" | "VGN" | "Finalmouse";
   name: string;
   /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
   ui?: MouseUiHints;
@@ -68,6 +68,9 @@ export interface MouseStatus {
   connectionType?: "Wired" | "Wireless";
   connectionDetail?: string;
   dongleLedEnabled?: boolean | null;
+  finalmouseDongleLedMode?: number | null;
+  finalmouseTournamentScrollMode?: number | null;
+  finalmouseTournamentScrollTimeoutMs?: number | null;
   signalStrength?: number | null;
   motionSync?: boolean | null;
   debounceMs?: number | null;

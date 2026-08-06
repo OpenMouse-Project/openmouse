@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 import {
   EGG_BUTTON_ACTION_OPTIONS,
   EGG_COMMAND_SIZE,
@@ -27,7 +27,7 @@ import {
   type EggButtonAction,
   type EggDeviceProfile,
   type EggOp1Status,
-} from "./egg-op1-protocol";
+} from "./egg-op1-protocol.ts";
 
 const STATUS_OK = 0x01;
 const STATUS_BUSY = 0x03;
@@ -72,7 +72,10 @@ export class EggOp1HidClient {
     if (type === 0x02 || type === 0x06) this.onDeviceChange?.();
   };
 
-  constructor(readonly device: HIDDevice) {
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
     this.profile = eggProfileForPid(device.productId);
   }
 

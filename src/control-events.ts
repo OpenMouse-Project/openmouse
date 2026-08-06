@@ -35,6 +35,7 @@ export interface ControlEventHandlers {
   updateCustomPollingPreview(): void;
   applyEggPollingDivider(divider: number): void;
   applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): void;
+  applyFinalmouseSetting(setting: "dongleLed" | "tournamentScroll" | "tournamentTimeout", value: number): void;
   applyPollingRate(rate: number): void;
   applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): void;
   applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
@@ -165,6 +166,15 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   document.querySelector<HTMLSelectElement>("#profile-select")?.addEventListener("change", (event) => {
     void handlers.applyProSetting("profile", Number((event.target as HTMLSelectElement).value));
   });
+  for (const [selector, setting] of [
+    ["#finalmouse-dongle-led", "dongleLed"],
+    ["#finalmouse-tournament-scroll", "tournamentScroll"],
+    ["#finalmouse-tournament-timeout", "tournamentTimeout"],
+  ] as const) {
+    document.querySelector<HTMLSelectElement>(selector)?.addEventListener("change", (event) => {
+      handlers.applyFinalmouseSetting(setting, Number((event.target as HTMLSelectElement).value));
+    });
+  }
   document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => void handlers.applyPollingRate(Number(button.dataset.rate)));
   });

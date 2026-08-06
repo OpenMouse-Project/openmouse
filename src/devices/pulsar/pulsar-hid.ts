@@ -1,4 +1,4 @@
-import type { MouseStatus } from "../mouse-types";
+import type { MouseStatus } from "../mouse-types.ts";
 
 const PULSAR_VENDOR_ID = 0x3710;
 const CONFIG_REPORT_ID = 0x08;
@@ -68,7 +68,11 @@ export class PulsarHidClient {
     }
   };
 
-  constructor(readonly device: HIDDevice) {}
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === PULSAR_VENDOR_ID
