@@ -172,6 +172,12 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .field-label { display: block; color: var(--faint); font-size: .62rem; }
 .field-label.spaced { margin-top: .35rem; }
 
+.game-mode-install { margin-top: .5rem; }
+.game-mode-steps { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--dim); font-size: .68rem; line-height: 1.5; }
+.game-mode-steps li + li { margin-top: .35rem; }
+.game-mode-steps a { color: var(--ui-accent); }
+#game-mode-controls select { width: 100%; box-sizing: border-box; margin-top: .2rem; padding: .42rem; border: 1px solid var(--line-strong); border-radius: 6px; background: #171719; color: #eee; }
+
 .egg-collapsible, .egg-experimental { overflow: hidden; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--card); }
 .egg-collapsible summary, .egg-experimental summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #d8d8dc; font-weight: 650; list-style: none; }
 .egg-collapsible summary { padding: .72rem .85rem; font-size: .74rem; }

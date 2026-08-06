@@ -90,6 +90,9 @@ import { VgnF2HidClient } from "./devices/vgn/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
 import { parsePreviewMode, type PreviewMode } from "./preview-modes";
+import { isGameModeSupported } from "./game-mode/support";
+import { initGameMode, refreshGameModeCard, setActiveClientRefProvider } from "./game-mode/ui";
+import type { PollingRateClient } from "./game-mode/capture";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -437,6 +440,16 @@ function renderControl(): void {
   renderStagedMarkers();
   populateInterfaceSettings();
   applyInterfacePreferences();
+  setActiveClientRefProvider(() => {
+    const client = activeSettingsClient();
+    if (!client || !isGameModeSupported(client)) return null;
+    return {
+      client: client as unknown as PollingRateClient,
+      brand: latestDeviceStatus?.brand ?? "",
+      name: latestDeviceStatus?.name ?? "",
+    };
+  });
+  initGameMode();
   if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
@@ -1002,6 +1015,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     pollingCard.hidden = false;
     pollingCard.style.display = "";
   }
+  refreshGameModeCard(status, isGameModeSupported(activeSettingsClient()), activeDevice);
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.hidden = isEgg || isFinalmouse;
