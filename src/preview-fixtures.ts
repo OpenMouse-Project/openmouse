@@ -1,4 +1,7 @@
 import type { MouseStatus } from "./devices/mouse-types";
+import { PREVIEW_KEYS, type FixturePreviewMode } from "./preview-modes";
+
+export { PREVIEW_KEYS };
 
 /**
  * Dev-only stand-in statuses, one per supported driver.
@@ -299,7 +302,7 @@ const LOGITECH_LEGACY: MouseStatus = {
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
  */
-export const PREVIEW_FIXTURES: Record<string, PreviewFixture> = {
+export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   pulsar: { label: "Pulsar X2H Mini", status: PULSAR },
   "pulsar-pro": { label: "Pulsar X2H Mini Pro", status: PULSAR_PRO },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
@@ -315,6 +318,3 @@ export const PREVIEW_FIXTURES: Record<string, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };
-
-/** Every `?preview=` value, including the two with their own setup. */
-export const PREVIEW_KEYS = ["slots", "superstrike", ...Object.keys(PREVIEW_FIXTURES)];

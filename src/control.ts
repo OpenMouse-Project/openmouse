@@ -89,6 +89,7 @@ import { TeevolutionHidClient } from "./devices/teevolution/hid";
 import { VgnF2HidClient } from "./devices/vgn/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
 import { WLMouseHidClient } from "./devices/wlmouse/hid";
+import { parsePreviewMode, type PreviewMode } from "./preview-modes";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -100,7 +101,7 @@ const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 const previewMode = import.meta.env.DEV
-  ? new URLSearchParams(window.location.search).get("preview")
+  ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
   : null;
 const isSuperstrikePreview = previewMode === "superstrike";
 /** Any `?preview=` value, so the HID listeners stay off in every preview. */
@@ -436,10 +437,6 @@ function renderControl(): void {
   renderStagedMarkers();
   populateInterfaceSettings();
   applyInterfacePreferences();
-  // Preview selection is intentionally URL-driven in development. This is not
-  // an authorization check: it only keeps fixture pages isolated from real
-  // hardware, while production builds force `previewMode` to null.
-  // codeql[js/user-controlled-bypass]
   if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
@@ -521,17 +518,20 @@ function showSlotsPreview(): void {
  * unknown. The shell decides what to show from MouseStatus alone, so this walks
  * the same rendering path the real driver would.
  */
-async function showFixturePreview(name: string): Promise<void> {
+async function showFixturePreview(name: PreviewMode): Promise<void> {
   // Loaded on demand so the fixtures never reach a production bundle, where
   // `previewMode` is always null and none of this is reachable.
   const { PREVIEW_FIXTURES, PREVIEW_KEYS } = await import("./preview-fixtures");
-  const fixture = PREVIEW_FIXTURES[name];
+  const fixture = name === "list" || name === "slots" || name === "superstrike"
+    ? undefined
+    : PREVIEW_FIXTURES[name];
   if (!fixture) {
     // `?preview=list` lands here on purpose: an index is more useful than an
     // error when you cannot remember the driver's key.
     const heading = document.querySelector<HTMLElement>("#empty-state-title");
     if (heading) heading.textContent = "Driver previews";
     const links = PREVIEW_KEYS
+      .filter((key) => key !== "list")
       .map((key) => `<a href="?preview=${key}" style="color:var(--ui-accent)">${key}</a>`)
       .join(" · ");
     const blurb = heading?.nextElementSibling;
