@@ -272,7 +272,8 @@ interface ProfileLayout {
 }
 
 const LAYOUT_V1: ProfileLayout = {
-  reportRateWireless: null,
+  // Formats 1-5 store one shared report interval, regardless of transport.
+  reportRateWireless: 0x00,
   reportRateWired: 0x00,
   dpi: 0x01,
   angleSnapping: 0x11,
@@ -488,7 +489,7 @@ function decodeDpi(bytes: Uint8Array, offset: number): { stages: DpiStage[]; def
 }
 
 /** Formats 1-5 store one little-endian DPI value per slot, without X/Y or LOD. */
-function decodeDpiV1(bytes: Uint8Array, offset: number): { stages: DpiStage[]; defaultIndex: number | null } {
+function decodeLegacyDpi(bytes: Uint8Array, offset: number): { stages: DpiStage[]; defaultIndex: number | null } {
   const rawDefaultIndex = bytes[offset];
   const stages: DpiStage[] = [];
   for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
@@ -509,7 +510,7 @@ function decodeReportRate(bytes: Uint8Array, offset: number | null): number | nu
 }
 
 /** Formats 1-5 store the USB polling interval in milliseconds. */
-function decodeReportRateV1(bytes: Uint8Array, offset: number | null): number | null {
+function decodeLegacyReportRate(bytes: Uint8Array, offset: number | null): number | null {
   if (offset === null) return null;
   const intervalMs = bytes[offset];
   if (intervalMs === undefined || intervalMs === 0xff || intervalMs === 0) return null;
@@ -769,7 +770,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
 
   const copyRate = (offset: number | null): void => {
     if (offset === null) return;
-    const hz = legacyLayout ? decodeReportRateV1(after, offset) : decodeReportRate(after, offset);
+    const hz = legacyLayout ? decodeLegacyReportRate(after, offset) : decodeReportRate(after, offset);
     if (hz === null) return;
     if (legacyLayout) result[offset] = 1000 / hz;
     else {
@@ -781,7 +782,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
   copyRate(layout.reportRateWired);
 
   if (layout.dpi !== null) {
-    const dpi = legacyLayout ? decodeDpiV1(after, layout.dpi) : decodeDpi(after, layout.dpi);
+    const dpi = legacyLayout ? decodeLegacyDpi(after, layout.dpi) : decodeDpi(after, layout.dpi);
     if (dpi.defaultIndex !== null) result[layout.dpi] = dpi.defaultIndex;
     result[layout.dpi + 1] = after[layout.dpi + 1];
     // Stages are re-encoded from decoded values, not copied, so their
@@ -815,7 +816,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
     if (seconds !== null) writeUint16LE(result, offset, seconds);
   }
 
-  const name = legacyLayout ? null : decodeName(after, layout.profileName);
+  const name = profileFormatId === 1 ? null : decodeName(after, layout.profileName);
   if (name !== null) {
     const encoded = new Uint8Array(0x30);
     encoded.set(after.slice(layout.profileName, layout.profileName + 0x30).map(() => 0));
@@ -852,7 +853,7 @@ export function decodeOnboardProfile(
   const legacyLayout = profileFormatId < 6;
   const dpi = layout.dpi === null
     ? { stages: [], defaultIndex: null }
-    : legacyLayout ? decodeDpiV1(bytes, layout.dpi) : decodeDpi(bytes, layout.dpi);
+    : legacyLayout ? decodeLegacyDpi(bytes, layout.dpi) : decodeDpi(bytes, layout.dpi);
   const angleSnappingByte = bytes[layout.angleSnapping];
 
   return {
@@ -861,14 +862,14 @@ export function decodeOnboardProfile(
     isCurrent,
     // The v1 region is byte text, not UTF-16. This G402 capture contains
     // non-text device data there, so do not manufacture a mojibake name.
-    name: legacyLayout ? null : decodeName(bytes, layout.profileName),
+    name: profileFormatId === 1 ? null : decodeName(bytes, layout.profileName),
     dpiStages: dpi.stages,
     defaultDpiIndex: dpi.defaultIndex,
     reportRateWireless: legacyLayout
-      ? decodeReportRateV1(bytes, layout.reportRateWireless)
+      ? decodeLegacyReportRate(bytes, layout.reportRateWireless)
       : decodeReportRate(bytes, layout.reportRateWireless),
     reportRateWired: legacyLayout
-      ? decodeReportRateV1(bytes, layout.reportRateWired)
+      ? decodeLegacyReportRate(bytes, layout.reportRateWired)
       : decodeReportRate(bytes, layout.reportRateWired),
     angleSnapping: angleSnappingByte === undefined || angleSnappingByte === 0xff
       ? null
