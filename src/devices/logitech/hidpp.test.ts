@@ -9,7 +9,9 @@ import {
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
   hidppErrorMessage,
+  isDirectConnection,
   isDirectConnectProduct,
+  OnboardOnlyError,
   legacyDpiFallback,
   withSoftwareId,
 } from "./protocol.ts";
@@ -39,6 +41,14 @@ test("receiver-attached and USB Superstrike devices keep index 0x01", () => {
     assert.equal(isDirectConnectProduct(productId), false);
     assert.equal(hidppDeviceIndex(productId), DEVICE_INDEX_RECEIVER);
   }
+});
+
+test("runtime probing classifies unknown wired mice as direct connections", () => {
+  const unknownG102ProductId = 0xc084;
+  assert.equal(isDirectConnectProduct(unknownG102ProductId), false);
+  assert.equal(isDirectConnection(unknownG102ProductId, DEVICE_INDEX_DIRECT), true);
+  assert.equal(isDirectConnection(unknownG102ProductId, DEVICE_INDEX_RECEIVER), false);
+  assert.equal(isDirectConnection(G402, null), true, "known PIDs still use the pre-probe fast path");
 });
 
 test("the legacy report-rate bitmap decodes the G402's advertised rates", () => {
@@ -98,4 +108,28 @@ test("the two battery features use different charging enums", () => {
   // The point of keeping them apart: 2 and 4 mean opposite things.
   assert.notEqual(decodeUnifiedBatteryState(0x02), decodeBatteryLevelState(0x02));
   assert.notEqual(decodeUnifiedBatteryState(0x04), decodeBatteryLevelState(0x04));
+});
+
+test("error 0x0a is explained rather than shown as a raw code", () => {
+  // Not in the HID++ 2.0 enum, which stops at 0x09 — it is the 1.0 code
+  // REQUEST_UNAVAILABLE, which a G102 returns when its mode forbids the write.
+  const message = hidppErrorMessage(0x0a);
+  assert.doesNotMatch(message, /0x0a/, "should not fall back to the raw code");
+  assert.match(message, /current mode/);
+
+  // The documented 2.0 codes keep their own wording.
+  assert.match(hidppErrorMessage(0x09), /unsupported/);
+  assert.match(hidppErrorMessage(0x02), /invalid argument/);
+  // Anything genuinely unknown still reports its code rather than inventing one.
+  assert.match(hidppErrorMessage(0x7f), /0x7f/);
+});
+
+test("an onboard-only mouse is told how to get itself supported", () => {
+  const known = new OnboardOnlyError(6);
+  assert.match(known.message, /profile format 6/);
+  assert.match(known.message, /Copy verification data/);
+  // Never claim a format number we did not read.
+  const unknown = new OnboardOnlyError(null);
+  assert.doesNotMatch(unknown.message, /format (\d|null)/);
+  assert.match(unknown.message, /Copy verification data/);
 });

@@ -28,6 +28,16 @@ export function isDirectConnectProduct(productId: number): boolean {
   return DIRECT_PRODUCT_ID_SET.has(productId);
 }
 
+/**
+ * Whether this HID++ endpoint is the mouse itself rather than a receiver.
+ * Runtime probing is authoritative for unknown Logitech product IDs; the PID
+ * list is only the pre-probe fast path.
+ */
+export function isDirectConnection(productId: number, resolvedDeviceIndex: number | null): boolean {
+  return resolvedDeviceIndex === DEVICE_INDEX_DIRECT
+    || (resolvedDeviceIndex === null && isDirectConnectProduct(productId));
+}
+
 export function hidppDeviceIndex(productId: number): number {
   return isDirectConnectProduct(productId) ? DEVICE_INDEX_DIRECT : DEVICE_INDEX_RECEIVER;
 }
@@ -43,6 +53,10 @@ const HIDPP_ERRORS: Readonly<Record<number, string>> = {
   0x07: "invalid function",
   0x08: "device busy",
   0x09: "unsupported",
+  // Not in the HID++ 2.0 enum, which stops at 0x09. Older firmware answers a
+  // 2.0-shaped error with the 1.0 code REQUEST_UNAVAILABLE, which a G102
+  // returns when asked for something its current mode does not allow.
+  0x0a: "the mouse will not accept that request in its current mode",
 };
 
 export function hidppErrorMessage(code: number): string {
@@ -108,5 +122,28 @@ export function decodeBatteryLevelState(batteryStatus: number): BatteryChargeSta
     case 0x04: return "Charging slowly";
     // 5 invalid battery, 6 thermal error, 7 other charging error.
     default: return "Unknown";
+  }
+}
+
+/**
+ * The mouse keeps its settings in onboard memory and will not hand control to
+ * software, so the only way to change anything is to write its profile — which
+ * needs a decoded layout for that profile format.
+ *
+ * Its own type because it is not a fault: it is a mouse that cannot be
+ * supported yet, and the way forward is a capture from whoever owns one.
+ */
+export class OnboardOnlyError extends Error {
+  readonly profileFormatId: number | null;
+
+  constructor(profileFormatId: number | null) {
+    super(
+      "This mouse keeps its settings in onboard memory and will not hand control to software. "
+      + `Writing ${profileFormatId === null ? "its profile format" : `profile format ${profileFormatId}`} `
+      + 'is not supported yet. Open Diagnostics, then HID++ capture, and use "Copy verification data" — '
+      + "sending that is what lets the layout be added.",
+    );
+    this.name = "OnboardOnlyError";
+    this.profileFormatId = profileFormatId;
   }
 }

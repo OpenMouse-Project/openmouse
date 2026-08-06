@@ -7,7 +7,9 @@ import {
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
   hidppErrorMessage,
+  isDirectConnection,
   isDirectConnectProduct,
+  OnboardOnlyError,
   legacyDpiFallback,
   withSoftwareId,
 } from "./protocol.ts";
@@ -192,6 +194,8 @@ export class LogitechHidppClient {
   private livePollingRateHz: number | null = null;
   /** Discovered by resolveDeviceIndex; null until the mouse has answered. */
   private resolvedDeviceIndex: number | null = null;
+  /** Last format read from 0x8100, so a refusal can name it. */
+  private profileFormatId: number | null = null;
   private isSuperstrikeDevice = false;
   /** Lift-off levels this device advertised; the single source of truth for both UI and validation. */
   private lodCapabilities: ProfileFormatCapabilities = capabilitiesForFormat(null);
@@ -253,7 +257,7 @@ export class LogitechHidppClient {
    * field initializers before the `device` parameter property is assigned.
    */
   private get isDirectConnect(): boolean {
-    return isDirectConnectProduct(this.device.productId);
+    return isDirectConnection(this.device.productId, this.resolvedDeviceIndex);
   }
 
   /** HID++ device index: the receiver's first slot, or the mouse itself. */
@@ -275,12 +279,14 @@ export class LogitechHidppClient {
    */
   private async resolveDeviceIndex(): Promise<void> {
     if (this.resolvedDeviceIndex !== null) return;
-    // Start with whichever the product id suggests, so the common paths answer
-    // on the first try and only an unknown device pays for the second.
-    const first = hidppDeviceIndex(this.device.productId);
-    const candidates = first === DEVICE_INDEX_DIRECT
-      ? [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER]
-      : [DEVICE_INDEX_RECEIVER, DEVICE_INDEX_DIRECT];
+    // Only a receiver forwards to a pairing slot; anything else is the mouse's
+    // own endpoint and answers as itself. Ordering by "is this a known
+    // receiver" rather than by the direct-connect id list matters for mice that
+    // are on neither list — a wired G102 is its own endpoint, and asking it as
+    // though it were behind a receiver is what made it look mode-locked.
+    const candidates = LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId)
+      ? [DEVICE_INDEX_RECEIVER, DEVICE_INDEX_DIRECT]
+      : [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER];
 
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
@@ -415,6 +421,7 @@ export class LogitechHidppClient {
     this.isSuperstrikeDevice = isSuperstrike;
     // Keyed on the reported profile format, not the model, so another mouse on
     // the same format gets the same limits without being named here.
+    this.profileFormatId = onboardProfileFormat?.id ?? null;
     this.lodCapabilities = capabilitiesForFormat(onboardProfileFormat?.id);
     this.supportedLods = [...this.lodCapabilities.supportedLods];
     const wired = this.device.productId === 0xc0a8 || this.isDirectConnect;
@@ -1551,10 +1558,16 @@ export class LogitechHidppClient {
     if (!profiles.index) return;
     const mode = await this.request(profiles.index, 0x20);
     if (mode[3] === 0x02) return;
-    await this.request(profiles.index, 0x10, 0x02);
-    const confirmed = await this.request(profiles.index, 0x20);
-    if (confirmed[3] !== 0x02) {
-      throw new Error("The mouse did not enter host-control mode.");
+
+    // Some mice refuse to hand control to software at all — a G102 answers this
+    // with "request unavailable". Writing anyway is not the answer: the setting
+    // would land in an onboard profile whose layout we have not decoded, so we
+    // would be changing bytes we do not understand. Stop, and say what would
+    // make it work.
+    const refused = await this.request(profiles.index, 0x10, 0x02).then(() => false, () => true);
+    const confirmed = refused ? null : await this.request(profiles.index, 0x20).catch(() => null);
+    if (refused || confirmed?.[3] !== 0x02) {
+      throw new OnboardOnlyError(this.profileFormatId);
     }
   }
 
