@@ -7,6 +7,8 @@ import {
   diffSectors,
   formatCaptureMarkdown,
   formatProfileVerificationMarkdown,
+  formatProfileWriteProbeBackupMarkdown,
+  formatProfileWriteProbeReportMarkdown,
   type CaptureExport,
 } from "./capture-format.ts";
 
@@ -177,4 +179,41 @@ test("verification formatting accepts every recovered profile format", () => {
     });
     assert.match(markdown, new RegExp(`Profile format: ${profileFormatId} · test`));
   }
+});
+
+test("write-probe reports embed the recovery backup and restoration verdict", () => {
+  const backup = {
+    formatId: 4,
+    sector: 1,
+    sectorSize: 8,
+    originalMode: "Host" as const,
+    originalCurrentSector: 0,
+    directory: new Uint8Array([0, 1, 1, 0, 0, 0, 0xaa, 0xbb]),
+    profile: new Uint8Array([1, 1, 0, 0, 0, 0, 0x12, 0x34]),
+    dpiOptions: [50, 100, 150],
+    reportRates: [125, 250, 500, 1000],
+  };
+  const recovery = formatProfileWriteProbeBackupMarkdown(backup);
+  assert.match(recovery, /profile-write probe recovery backup/);
+  assert.match(recovery, /Original profile sector 0x0001/);
+  assert.match(recovery, /01 01 00 00 00 00 12 34/);
+
+  const report = formatProfileWriteProbeReportMarkdown({
+    backup,
+    steps: [{
+      setting: "dpi",
+      intended: "1000 DPI",
+      storedExactly: true,
+      liveConfirmed: true,
+      restored: true,
+      error: null,
+    }],
+    restored: true,
+    modeRestored: true,
+    ok: true,
+  });
+  assert.match(report, /profile-write verification — PASSED/);
+  assert.match(report, /Live value confirmed: true/);
+  assert.match(report, /Final profile restored: true/);
+  assert.match(report, /profile-write probe recovery backup/);
 });

@@ -122,6 +122,8 @@ export interface MouseStatus {
     supported: boolean;
     /** False when the layout comes from vendor code but was never confirmed on hardware. */
     verified: boolean;
+    /** False until profile-content writes were applied and restored on hardware. */
+    writable: boolean;
   } | null;
   gamingSurfaceMode?: "On" | "Off" | "Auto" | null;
   lightforceSwitchMode?: "Hybrid" | "Optical" | null;

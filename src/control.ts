@@ -493,7 +493,7 @@ function showSlotsPreview(): void {
     supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
     liftOffDistance: "Low",
     supportedLiftOffDistances: ["Low", "Medium", "High"],
-    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true },
+    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true, writable: true },
     gamingSurfaceMode: "Auto",
     lightforceSwitchMode: "Hybrid",
     activeProfile: 1,
@@ -809,6 +809,11 @@ function configureProfileCapture(status: MouseStatus | null): void {
         },
         describeOffset: (offset) => describeOffset(formatId, offset),
         reproduce: (before, after) => reproduceProfile(before, after, formatId),
+        ...([2, 3, 4].includes(formatId) ? {
+          prepareWriteProbe: () => logitechClient.prepareProfileContentWriteProbe(),
+          runWriteProbe: (backup: Parameters<LogitechHidppClient["runProfileContentWriteProbe"]>[0]) =>
+            logitechClient.runProfileContentWriteProbe(backup),
+        } : {}),
       }
       : null,
   });
@@ -2135,7 +2140,7 @@ function renderBunnyHop(): void {
   row.hidden = !supported;
   if (!supported || !active) return;
 
-  const locked = lastProfileFormat?.verified !== true;
+  const locked = lastProfileFormat?.writable !== true;
   // Show the staged value, so a background refresh cannot snap the control back
   // to what is still on the device.
   // A never-written byte counts as off, so the toggle starts in the off state
@@ -2195,7 +2200,7 @@ function dpiSlotsAvailable(): boolean {
 
 /** True while the flash write sequence for stage tables is still unproven. */
 function dpiSlotsLocked(): boolean {
-  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.verified !== true;
+  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.writable !== true;
 }
 
 /**
@@ -2574,7 +2579,7 @@ function renderProfileRates(): void {
   }
   if (!available || !entry || !rates) return;
 
-  const locked = lastProfileFormat?.verified !== true;
+  const locked = lastProfileFormat?.writable !== true;
   for (const link of ["wireless", "wired"] as const) {
     const value = stagedProfileRates[link]
       ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
@@ -2825,6 +2830,7 @@ function renderOnboardProfiles(): void {
   const hostOpened = editedProfile === "host";
   const hostRunning = lastDeviceMode === "Host";
   const profileLayoutVerified = lastProfileFormat?.verified === true;
+  const profileContentsWritable = lastProfileFormat?.writable === true;
   const profileNameLimit = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
   // Host is a live, volatile source rather than a stored profile, so it is
   // listed apart from them rather than mixed in.
@@ -2875,7 +2881,7 @@ function renderOnboardProfiles(): void {
           <small style="color:#77777c;font-size:.62rem">${escapeHtml(detail)}</small>
         </span>
       </button>
-      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable ? "not-allowed" : "pointer"};opacity:${locked || !nameable ? ".4" : "1"}">
+      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable || !profileContentsWritable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : !profileContentsWritable ? "Profile-content writes have not been verified on hardware" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable || !profileContentsWritable ? "not-allowed" : "pointer"};opacity:${locked || !nameable || !profileContentsWritable ? ".4" : "1"}">
         ${ICON_RENAME}
       </button>
       <button type="button" data-profile-activate="${profile.sector}" ${locked || running || !profile.enabled ? "disabled" : ""} title="${running ? "The mouse is running this profile" : !profile.enabled ? "Enable this profile before switching to it" : "Switch the mouse to this profile"}" aria-label="Switch to profile ${profile.sector}" aria-pressed="${running}" style="display:flex;padding:.3rem;border:1px solid ${running ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${locked || running || !profile.enabled ? "not-allowed" : "pointer"};opacity:${locked || !profile.enabled ? ".4" : "1"}">

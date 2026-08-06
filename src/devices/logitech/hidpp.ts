@@ -24,6 +24,7 @@ import {
 import {
   ONBOARD_MODE,
   PROFILE_FN,
+  PROFILE_NAME_MAX_CHARS,
   applyCrc,
   capabilitiesForFormat,
   decodeLiftOffLevel,
@@ -107,6 +108,35 @@ export interface ProfileWriteProbe {
   steps: ProfileWriteProbeStep[];
   ok: boolean;
   restored: boolean;
+}
+
+export interface ProfileContentWriteProbeBackup {
+  formatId: number;
+  sector: number;
+  sectorSize: number;
+  originalMode: "Onboard" | "Host";
+  originalCurrentSector: number;
+  directory: Uint8Array;
+  profile: Uint8Array;
+  dpiOptions: number[];
+  reportRates: number[];
+}
+
+export interface ProfileContentWriteProbeStep {
+  setting: "name" | "dpi" | "polling";
+  intended: string;
+  storedExactly: boolean;
+  liveConfirmed: boolean | null;
+  restored: boolean;
+  error: string | null;
+}
+
+export interface ProfileContentWriteProbeReport {
+  backup: ProfileContentWriteProbeBackup;
+  steps: ProfileContentWriteProbeStep[];
+  restored: boolean;
+  modeRestored: boolean;
+  ok: boolean;
 }
 
 /**
@@ -881,8 +911,8 @@ export class LogitechHidppClient {
     }
     const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
     const format = describeProfileFormat(info.profileFormatId);
-    if (!format.verified) {
-      throw new Error(`Profile format ${format.id} has not been verified on hardware; refusing to write.`);
+    if (!format.writable) {
+      throw new Error(`Profile format ${format.id} profile-content writes have not been verified on hardware.`);
     }
 
     // A profile can be edited without the mouse being switched to it, so the
@@ -932,7 +962,11 @@ export class LogitechHidppClient {
     }
 
     if (values.dpiStages) {
-      const invalid = validateDpiStagePlan(values.dpiStages, capabilitiesForFormat(formatId).dpiStages);
+      const invalid = validateDpiStagePlan(
+        values.dpiStages,
+        capabilitiesForFormat(formatId).dpiStages,
+        formatId < 6,
+      );
       if (invalid) throw new Error(invalid);
       updated = encodeDpiStages(updated, formatId, values.dpiStages);
     }
@@ -1073,6 +1107,196 @@ export class LogitechHidppClient {
       ok: changed && restored,
       restored,
     };
+  }
+
+  /**
+   * Reads and retains everything required to recover a legacy format-2/3/4 profile before
+   * the semantic write probe starts. The UI copies this object first.
+   */
+  async prepareProfileContentWriteProbe(): Promise<ProfileContentWriteProbeBackup> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) throw new Error("This mouse does not expose onboard-profile controls.");
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    if (![2, 3, 4].includes(info.profileFormatId)) {
+      throw new Error(`The guided content probe currently supports profile formats 2, 3, and 4, not ${info.profileFormatId}.`);
+    }
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+    const modeReply = await this.request(feature.index, PROFILE_FN.getMode);
+    const originalMode = modeReply[3] === ONBOARD_MODE.onboard ? "Onboard" : "Host";
+    const currentReply = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+    const originalCurrentSector = ((currentReply[3] ?? 0) << 8) | (currentReply[4] ?? 0);
+    const directory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    if (profileCrc(directory) !== storedCrc(directory)) throw new Error("The profile directory checksum is invalid.");
+    const target = parseDirectory(directory).find((entry) => entry.enabled) ?? parseDirectory(directory)[0];
+    if (!target) throw new Error("The mouse reported no profile to test.");
+    const profile = await this.readProfileSector(feature.index, target.sector, sectorSize);
+    if (profileCrc(profile) !== storedCrc(profile)) throw new Error("The profile checksum is invalid.");
+
+    const dpiFeature = await this.resolveDpiFeature();
+    const rateFeature = await this.resolveReportRateFeature();
+    if (!dpiFeature.index || !dpiFeature.legacy || !rateFeature.index || !rateFeature.legacy) {
+      throw new Error("Format-4 verification requires legacy DPI and report-rate features.");
+    }
+    return {
+      formatId: info.profileFormatId,
+      sector: target.sector,
+      sectorSize,
+      originalMode,
+      originalCurrentSector,
+      directory,
+      profile,
+      dpiOptions: await this.getDpiOptions(),
+      reportRates: await this.readLegacyReportRates(rateFeature.index),
+    };
+  }
+
+  /**
+   * Applies temporary format-2/3/4 name, DPI and rate values, confirms each sector
+   * read-back, confirms live DPI/rate, and restores the original after every
+   * step. The caller must copy the backup before invoking this method.
+   */
+  async runProfileContentWriteProbe(
+    backup: ProfileContentWriteProbeBackup,
+  ): Promise<ProfileContentWriteProbeReport> {
+    await this.open();
+    if (![2, 3, 4].includes(backup.formatId)) {
+      throw new Error("Only profile formats 2, 3, and 4 are supported by this probe.");
+    }
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) throw new Error("This mouse does not expose onboard-profile controls.");
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    if (info.profileFormatId !== backup.formatId || info.sectorSize !== backup.sectorSize) {
+      throw new Error("The connected mouse no longer matches the copied backup.");
+    }
+    const sameBytes = (left: Uint8Array, right: Uint8Array): boolean =>
+      left.length === right.length && left.every((byte, index) => byte === right[index]);
+    const currentDirectory = await this.readProfileSector(feature.index, 0x0000, backup.sectorSize);
+    const currentProfile = await this.readProfileSector(feature.index, backup.sector, backup.sectorSize);
+    if (!sameBytes(currentDirectory, backup.directory) || !sameBytes(currentProfile, backup.profile)) {
+      throw new Error("The profile changed after the recovery backup was copied; take a new backup.");
+    }
+
+    const dpiFeature = await this.resolveDpiFeature();
+    const rateFeature = await this.resolveReportRateFeature();
+    if (!dpiFeature.index || !dpiFeature.legacy || !rateFeature.index || !rateFeature.legacy) {
+      throw new Error("The required legacy DPI or report-rate feature disappeared.");
+    }
+
+    const original = decodeOnboardProfile(
+      backup.profile,
+      backup.formatId,
+      { sector: backup.sector, enabled: true },
+      false,
+    );
+    const temporaryName = original.name === "OM_VERIFY" ? "OM_VERIFY_2" : "OM_VERIFY";
+    const currentDpi = original.dpiStages[original.defaultDpiIndex ?? 0]?.x;
+    const temporaryDpi = backup.dpiOptions.includes(1000) && currentDpi !== 1000
+      ? 1000
+      : backup.dpiOptions.find((dpi) => dpi !== currentDpi);
+    const currentRate = original.reportRateWired;
+    const temporaryRate = backup.reportRates.includes(500) && currentRate !== 500
+      ? 500
+      : backup.reportRates.find((rate) => rate !== currentRate);
+    if (!temporaryDpi || !temporaryRate || original.defaultDpiIndex === null || original.dpiStages.length === 0) {
+      throw new Error("The mouse did not advertise an alternate safe DPI and polling rate.");
+    }
+
+    const dpiStages = original.dpiStages.map((stage) => ({ ...stage }));
+    dpiStages[original.defaultDpiIndex] = { x: temporaryDpi, y: temporaryDpi, lod: 0 };
+    const runtimeDpiLimits = {
+      maxStages: 5,
+      minDpi: Math.min(...backup.dpiOptions),
+      maxDpi: Math.max(...backup.dpiOptions),
+      // The selected probe value is checked against the exact advertised list
+      // above. A unit step avoids pretending a sparse device list is uniform.
+      stepDpi: 1,
+    };
+    const maximumRate = Math.max(...backup.reportRates);
+    const runtimeRateLimits = { wirelessMaxHz: maximumRate, wiredMaxHz: maximumRate };
+    const candidates = [
+      {
+        setting: "name" as const,
+        intended: temporaryName,
+        bytes: encodeProfileName(backup.profile, backup.formatId, temporaryName, PROFILE_NAME_MAX_CHARS),
+        confirmLive: null,
+      },
+      {
+        setting: "dpi" as const,
+        intended: `${temporaryDpi} DPI`,
+        bytes: encodeDpiStages(
+          backup.profile,
+          backup.formatId,
+          { stages: dpiStages, defaultIndex: original.defaultDpiIndex },
+          runtimeDpiLimits,
+        ),
+        confirmLive: async () => (await this.readLegacyDpi(dpiFeature.index)).dpi === temporaryDpi,
+      },
+      {
+        setting: "polling" as const,
+        intended: `${temporaryRate} Hz`,
+        bytes: encodeReportRate(backup.profile, backup.formatId, "wired", temporaryRate, runtimeRateLimits),
+        confirmLive: async () => (await this.readLegacyReportRate(rateFeature.index)) === temporaryRate,
+      },
+    ];
+
+    const steps: ProfileContentWriteProbeStep[] = [];
+    for (const candidate of candidates) {
+      const step: ProfileContentWriteProbeStep = {
+        setting: candidate.setting,
+        intended: candidate.intended,
+        storedExactly: false,
+        liveConfirmed: null,
+        restored: false,
+        error: null,
+      };
+      try {
+        await this.setOnboardMode("Host");
+        await this.writeProfileSector(feature.index, backup.sector, candidate.bytes);
+        const readBack = await this.readProfileSector(feature.index, backup.sector, backup.sectorSize);
+        step.storedExactly = sameBytes(readBack, candidate.bytes)
+          && profileCrc(readBack) === storedCrc(readBack);
+        if (!step.storedExactly) throw new Error("The temporary sector did not read back exactly.");
+        if (candidate.confirmLive) {
+          await this.setCurrentProfile(backup.sector);
+          await this.setOnboardMode("Onboard");
+          step.liveConfirmed = await candidate.confirmLive();
+          if (!step.liveConfirmed) throw new Error("The live HID++ value did not match the temporary profile value.");
+        }
+      } catch (error) {
+        step.error = error instanceof Error ? error.message : "The verification step failed.";
+      } finally {
+        await this.setOnboardMode("Host").catch(() => undefined);
+        try {
+          await this.writeProfileSector(feature.index, backup.sector, backup.profile);
+          const restored = await this.readProfileSector(feature.index, backup.sector, backup.sectorSize);
+          step.restored = sameBytes(restored, backup.profile)
+            && profileCrc(restored) === storedCrc(restored);
+        } catch (error) {
+          step.error ??= error instanceof Error ? error.message : "Could not restore the original profile.";
+        }
+      }
+      steps.push(step);
+      if (!step.restored) break;
+    }
+
+    let modeRestored = false;
+    try {
+      if (backup.originalCurrentSector > 0) await this.setCurrentProfile(backup.originalCurrentSector);
+      await this.setOnboardMode(backup.originalMode);
+      const mode = await this.request(feature.index, PROFILE_FN.getMode);
+      modeRestored = mode[3] === (backup.originalMode === "Onboard" ? ONBOARD_MODE.onboard : ONBOARD_MODE.host);
+    } catch {
+      modeRestored = false;
+    }
+    const finalProfile = await this.readProfileSector(feature.index, backup.sector, backup.sectorSize).catch(() => null);
+    const restored = finalProfile !== null && sameBytes(finalProfile, backup.profile)
+      && profileCrc(finalProfile) === storedCrc(finalProfile);
+    const ok = steps.length === candidates.length
+      && steps.every((step) => step.storedExactly && step.restored && step.error === null
+        && (step.liveConfirmed === null || step.liveConfirmed))
+      && restored && modeRestored;
+    return { backup, steps, restored, modeRestored, ok };
   }
 
   /**

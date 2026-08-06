@@ -1,3 +1,8 @@
+import type {
+  ProfileContentWriteProbeBackup,
+  ProfileContentWriteProbeReport,
+} from "./devices/logitech/hidpp";
+
 /**
  * Export format for profile-layout confirmations.
  *
@@ -157,6 +162,57 @@ function capabilityLines(
     lines.push(`- ${label} ${reply.name}: \`${[...reply.bytes].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}\``);
   }
   return lines;
+}
+
+/** Recovery bundle copied before the first destructive verification write. */
+export function formatProfileWriteProbeBackupMarkdown(backup: ProfileContentWriteProbeBackup): string {
+  return [
+    "## OpenMouse profile-write probe recovery backup",
+    "",
+    `- Profile format: ${backup.formatId}`,
+    `- Sector: ${hexWord(backup.sector)}`,
+    `- Sector size: ${backup.sectorSize} bytes`,
+    `- Original mode: ${backup.originalMode}`,
+    `- Original current sector: ${hexWord(backup.originalCurrentSector)}`,
+    `- DPI options: ${backup.dpiOptions.join(", ")}`,
+    `- Report rates: ${backup.reportRates.join(", ")} Hz`,
+    "",
+    "### Original directory sector",
+    "",
+    "```",
+    hexBlock(backup.directory),
+    "```",
+    "",
+    `### Original profile sector ${hexWord(backup.sector)}`,
+    "",
+    "```",
+    hexBlock(backup.profile),
+    "```",
+    "",
+    "Keep this text until OpenMouse reports that the original profile and mode were restored.",
+  ].join("\n");
+}
+
+export function formatProfileWriteProbeReportMarkdown(report: ProfileContentWriteProbeReport): string {
+  const verdict = report.ok ? "PASSED" : "FAILED";
+  return [
+    `## OpenMouse profile-write verification — ${verdict}`,
+    "",
+    ...report.steps.flatMap((step) => [
+      `### ${step.setting}`,
+      "",
+      `- Intended value: ${step.intended}`,
+      `- Stored exactly: ${step.storedExactly}`,
+      `- Live value confirmed: ${step.liveConfirmed === null ? "not applicable" : step.liveConfirmed}`,
+      `- Original restored: ${step.restored}`,
+      ...(step.error ? [`- Error: ${step.error}`] : []),
+      "",
+    ]),
+    `- Final profile restored: ${report.restored}`,
+    `- Original mode restored: ${report.modeRestored}`,
+    "",
+    formatProfileWriteProbeBackupMarkdown(report.backup),
+  ].join("\n");
 }
 
 /** Markdown verification bundle suitable for an issue or a test fixture. */

@@ -3,10 +3,16 @@ import {
   diffSectors,
   formatCaptureMarkdown,
   formatProfileVerificationMarkdown,
+  formatProfileWriteProbeBackupMarkdown,
+  formatProfileWriteProbeReportMarkdown,
   type ProfileVerificationExport,
   type SectorBytes,
   type SectorDiff,
 } from "./capture-format";
+import type {
+  ProfileContentWriteProbeBackup,
+  ProfileContentWriteProbeReport,
+} from "./devices/logitech/hidpp";
 import { escapeHtml } from "./ui/dom";
 
 /**
@@ -26,6 +32,8 @@ export interface CaptureProfileSource {
   describeOffset(offset: number): string | null;
   /** Applies the change with OpenMouse's own encoders, for verification. */
   reproduce(before: Uint8Array, after: Uint8Array): Uint8Array;
+  prepareWriteProbe?(): Promise<ProfileContentWriteProbeBackup>;
+  runWriteProbe?(backup: ProfileContentWriteProbeBackup): Promise<ProfileContentWriteProbeReport>;
 }
 
 interface CaptureContext {
@@ -97,6 +105,8 @@ function setCaptureMessage(message: string): void {
 export function refreshCapturePanel(): void {
   renderActions();
   renderDiffs();
+  const probe = document.querySelector<HTMLButtonElement>("#capture-write-probe");
+  if (probe) probe.hidden = !context.profiles?.prepareWriteProbe || !context.profiles.runWriteProbe;
 }
 
 async function takeSnapshot(): Promise<void> {
@@ -206,6 +216,34 @@ export function bindCapturePanel(): void {
       setCaptureMessage(`Verification data copied (${verification.profiles.length} profiles, format ${verification.info.profileFormatId}).`);
     }).catch((error) => {
       setCaptureMessage(error instanceof Error ? error.message : "Could not collect profile verification data.");
+    }).finally(() => {
+      button.disabled = false;
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>("#capture-write-probe")?.addEventListener("click", (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const source = context.profiles;
+    if (!source?.prepareWriteProbe || !source.runWriteProbe) return;
+    button.disabled = true;
+    setCaptureMessage("Reading and copying the recovery backup…");
+    void source.prepareWriteProbe().then(async (backup) => {
+      await navigator.clipboard.writeText(formatProfileWriteProbeBackupMarkdown(backup));
+      const approved = window.confirm(
+        "Recovery backup copied. This test performs six profile-sector erase/write cycles, temporarily changes the profile name, DPI, and polling rate, then restores the exact original after every step. Do not disconnect or power off the mouse. Run the probe now?",
+      );
+      if (!approved) {
+        setCaptureMessage("Recovery backup copied. Write probe cancelled before any flash write.");
+        return;
+      }
+      setCaptureMessage("Running write probe. Do not disconnect or power off the mouse…");
+      const report = await source.runWriteProbe!(backup);
+      await navigator.clipboard.writeText(formatProfileWriteProbeReportMarkdown(report));
+      setCaptureMessage(report.ok
+        ? "Write probe passed and the original profile was restored. Report copied."
+        : `Write probe failed. Recovery report copied; profile restored: ${report.restored}, mode restored: ${report.modeRestored}.`);
+    }).catch((error) => {
+      setCaptureMessage(error instanceof Error ? error.message : "Could not run the profile write probe.");
     }).finally(() => {
       button.disabled = false;
     });

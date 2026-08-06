@@ -47,7 +47,8 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  * Add a format here only after a dump from that device decodes sensibly with a
  * matching CRC.
  */
-const VERIFIED_FORMATS = new Set([3, 7]);
+const VERIFIED_FORMATS = new Set([2, 3, 4, 7]);
+const WRITABLE_FORMATS = new Set([7]);
 
 export interface ProfileFormat {
   id: number;
@@ -58,6 +59,8 @@ export interface ProfileFormat {
   supported: boolean;
   /** The layout has been confirmed against real hardware. */
   verified: boolean;
+  /** Profile-content writes have been applied and restored on hardware. */
+  writable: boolean;
 }
 
 export function describeProfileFormat(profileFormatId: number): ProfileFormat {
@@ -67,6 +70,7 @@ export function describeProfileFormat(profileFormatId: number): ProfileFormat {
     base: profileFormatId >= 6 ? "v6" : "v1",
     supported: profileFormatId >= 1 && profileFormatId <= 8,
     verified: VERIFIED_FORMATS.has(profileFormatId),
+    writable: WRITABLE_FORMATS.has(profileFormatId),
   };
 }
 
@@ -161,6 +165,18 @@ const DEFAULT_FORMAT_CAPABILITIES: ProfileFormatCapabilities = {
 };
 
 const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
+  // A G102 LIGHTSYNC on format 4 reported five scalar slots, 50-8000 DPI in
+  // steps of 50, and 125/250/500/1000 Hz through the capability collector.
+  // The guided probe uses these reported limits, but the UI remains read-only
+  // until its DPI, rate, and name writes have been applied and restored.
+  4: {
+    supportedLods: [],
+    lodEncoding: LOD_ENCODING,
+    dpiStages: { maxStages: 5, minDpi: 50, maxDpi: 8000, stepDpi: 50 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+    maxNameLength: PROFILE_NAME_MAX_CHARS,
+    bunnyHop: false,
+  },
   // Pro X Superlight 2. Three levels, counted from one. Five slots, from the
   // 5x5 stage table in the registration and confirmed against a real profile.
   7: {
@@ -551,8 +567,11 @@ export function encodeReportRate(
   profileFormatId: number,
   link: "wireless" | "wired",
   hz: number,
+  capabilitiesOverride?: ReportRateCapabilities | null,
 ): Uint8Array {
-  const capabilities = capabilitiesForFormat(profileFormatId).reportRates;
+  const capabilities = capabilitiesOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).reportRates
+    : capabilitiesOverride;
   const invalid = validateReportRate(hz, capabilities, link);
   if (invalid) throw new Error(invalid);
   const layout = layoutForFormat(profileFormatId);
@@ -560,7 +579,9 @@ export function encodeReportRate(
   if (offset === null) throw new Error("This profile format has no report-rate setting.");
 
   const result = sector.slice();
-  result[offset] = REPORT_RATE_HZ.indexOf(hz as (typeof REPORT_RATE_HZ)[number]);
+  result[offset] = profileFormatId < 6
+    ? Math.round(1000 / hz)
+    : REPORT_RATE_HZ.indexOf(hz as (typeof REPORT_RATE_HZ)[number]);
   return applyCrc(result);
 }
 
@@ -587,8 +608,12 @@ export function encodeProfileName(
   sector: Uint8Array,
   profileFormatId: number,
   name: string,
+  maxLengthOverride?: number | null,
 ): Uint8Array {
-  const invalid = validateProfileName(name, capabilitiesForFormat(profileFormatId).maxNameLength);
+  const maxLength = maxLengthOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).maxNameLength
+    : maxLengthOverride;
+  const invalid = validateProfileName(name, maxLength);
   if (invalid) throw new Error(invalid);
   const offset = layoutForFormat(profileFormatId).profileName;
 
@@ -642,6 +667,7 @@ export interface DpiStagePlan {
 export function validateDpiStagePlan(
   plan: DpiStagePlan,
   capabilities: DpiStageCapabilities | null,
+  legacyScalar = false,
 ): string | null {
   if (capabilities === null) {
     return "DPI slots are not known for this profile format.";
@@ -662,8 +688,11 @@ export function validateDpiStagePlan(
         return `Slot ${index + 1} ${axis} DPI must be a multiple of ${stepDpi}.`;
       }
     }
-    // 0 is the "unused stage" marker, so an in-use slot cannot carry it.
-    if (!Number.isInteger(stage.lod) || stage.lod < 1 || stage.lod > 3) {
+    if (legacyScalar) {
+      if (stage.x !== stage.y) return `Slot ${index + 1} must use the same X and Y DPI.`;
+      if (stage.lod !== 0) return `Slot ${index + 1} cannot store lift-off distance.`;
+    } else if (!Number.isInteger(stage.lod) || stage.lod < 1 || stage.lod > 3) {
+      // 0 is the "unused stage" marker on formats with per-stage lift-off.
       return `Slot ${index + 1} has an invalid lift-off level.`;
     }
   }
@@ -699,8 +728,13 @@ export function encodeDpiStages(
   sector: Uint8Array,
   profileFormatId: number,
   plan: DpiStagePlan,
+  capabilitiesOverride?: DpiStageCapabilities | null,
 ): Uint8Array {
-  const invalid = validateDpiStagePlan(plan, capabilitiesForFormat(profileFormatId).dpiStages);
+  const legacyScalar = profileFormatId < 6;
+  const capabilities = capabilitiesOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).dpiStages
+    : capabilitiesOverride;
+  const invalid = validateDpiStagePlan(plan, capabilities, legacyScalar);
   if (invalid) throw new Error(invalid);
   const layout = layoutForFormat(profileFormatId);
   if (layout.dpi === null) throw new Error("This profile format has no DPI stages.");
@@ -711,6 +745,13 @@ export function encodeDpiStages(
   // slots in use, in which case it would select a zeroed stage.
   const gShift = result[layout.dpi + 1] ?? 0;
   if (gShift >= plan.stages.length) result[layout.dpi + 1] = plan.defaultIndex;
+
+  if (legacyScalar) {
+    for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
+      writeUint16LE(result, layout.dpi + 2 + stage * 2, plan.stages[stage]?.x ?? 0);
+    }
+    return applyCrc(result);
+  }
 
   for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
     const base = layout.dpi + 2 + stage * 5;
