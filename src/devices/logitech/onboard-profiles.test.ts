@@ -82,6 +82,31 @@ const SECTOR_2 = bytes(`
   00 03 00 00 00 00 00 1f 40 32 00 00 03 84 db
 `);
 
+/** G402 format-1 sector captured by OpenMouse; remaining bytes are erased. */
+const G402_SECTOR = (() => {
+  const sector = new Uint8Array(1024).fill(0xff);
+  sector.set(bytes(`
+    01 02 00 a4 01 48 03 3c 06 78 0c 00 00 ff ff ff
+    ff 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+    80 01 00 10 90 07 ff ff 90 04 ff ff 90 03 ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    01 01 01 ff ff ff 00 00 00 02 00 00 00 00 00 df
+    00 08 e1 d2 00 08 15 d3 00 08 01 00 00 02 00 00
+    00 00 14 df 00 08 25 d3 00 08 2d d3 00 08 03 00
+    00 02 00 00 00 00 28 df 00 08 51 d3 00 08 59 d3
+    00 08 05 00 00 03 00 00 00 00 3c df 00 08 67 d3
+    00 08 93 d3 00 08 7d d3 00 08 c1 00 00 02 00 ff
+  `), 0);
+  sector.set([0x4e, 0xba], sector.length - 2);
+  return sector;
+})();
+
 test("parses getOnboardProfilesInfo", () => {
   assert.deepEqual(parseProfilesInfo(INFO_REPLY), {
     memoryModelId: 1,
@@ -220,6 +245,20 @@ test("our encoders reproduce each observed transition byte for byte", () => {
     const after = sectorState(OBSERVED_STATES[index]);
     assert.deepEqual([...reproduceProfile(before, after, 7)], [...after], `transition ${index}`);
   }
+});
+
+test("decodes the captured G402 format-1 profile without v6 mojibake", () => {
+  const profile = decodeOnboardProfile(G402_SECTOR, 1, { sector: 1, enabled: true }, false);
+  assert.equal(G402_SECTOR.length, 1024);
+  assert.equal(profile.crcValid, true);
+  assert.equal(profile.name, null);
+  assert.equal(profile.defaultDpiIndex, 2);
+  assert.deepEqual(profile.dpiStages, [420, 840, 1596, 3192].map((dpi) => ({ x: dpi, y: dpi, lod: 0 })));
+  assert.equal(profile.reportRateWireless, null);
+  assert.equal(profile.reportRateWired, 1000);
+  assert.equal(profile.angleSnapping, false);
+  assert.equal(profile.powerSaveTimeoutSeconds, null);
+  assert.equal(profile.powerOffTimeoutSeconds, null);
 });
 
 test("factory reset image is exact, CRC-valid and limited to captured geometry", () => {
@@ -516,12 +555,20 @@ test("format 7 counts lift-off levels from one", () => {
   assert.equal(decodeLiftOffLevel(undefined, format7), null);
 });
 
-test("formats without a confirmed encoding still count from zero", () => {
-  const fallback = capabilitiesForFormat(null);
-  assert.deepEqual(fallback.lodEncoding, { Low: 0, Medium: 1, High: 2 });
-  assert.equal(decodeLiftOffLevel(1, fallback), "Medium");
-  assert.equal(decodeLiftOffLevel(2, fallback), "High");
-  assert.equal(decodeLiftOffLevel(3, fallback), null);
+test("every format counts lift-off levels from one", () => {
+  // 0x2202's enum belongs to the feature, not to a profile format, so the
+  // fallback and format 8 use the same numbering format 7 was confirmed on.
+  // Counting from zero made "Low" write 0 — the feature's "not supported"
+  // value — and reported every level one step too high.
+  for (const format of [null, 8, 1, 99]) {
+    const capabilities = capabilitiesForFormat(format);
+    assert.deepEqual(capabilities.lodEncoding, { Low: 1, Medium: 2, High: 3 }, `format ${format}`);
+    assert.equal(decodeLiftOffLevel(1, capabilities), "Low");
+    assert.equal(decodeLiftOffLevel(2, capabilities), "Medium");
+    assert.equal(decodeLiftOffLevel(3, capabilities), "High");
+    // 0 means the sensor has no lift-off control, so it is not a level.
+    assert.equal(decodeLiftOffLevel(0, capabilities), null);
+  }
 });
 
 test("typed bunny-hop times are snapped into range and onto the step", () => {

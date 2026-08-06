@@ -250,11 +250,25 @@ The Pro X Superlight 2 offers three levels in G HUB and its profile bytes count
 from one, so format 7 now uses `{ Low: 1, Medium: 2, High: 3 }` and advertises
 all three.
 
-**Still open:** whether other formats share it. 0x2202 and profile flash remain
-different transports, and format 8's two levels were never rechecked against the
-encoding, so every other format keeps counting from zero until someone captures
-the same diff on one. `capabilitiesForFormat` holds the encoding per format for
-that reason.
+**Settled for every format.** The remaining doubt was whether 0x2202 shared the
+profile's numbering, since they are different transports. It does:
+[OpenLogi](https://github.com/AprilNEA/OpenLogi) implements 0x2202 with
+
+```rust
+pub enum Lod { NotSupported = 0, Low = 1, Medium = 2, High = 3 }
+```
+
+which is the same count-from-one scheme, arrived at independently. So `0` is
+the feature's "this sensor has no lift-off control" value rather than a level,
+and the driver now uses one encoding everywhere instead of keeping a
+count-from-zero fallback for unrecognised formats.
+
+What stays per format is which *levels* a device offers — a genuine hardware
+difference — not how they are numbered.
+
+OpenLogi's `DpiParameters` field order (`sensor_index, dpi_x, default_dpi_x,
+dpi_y, default_dpi_y, lod`) also confirms this repo's byte offsets: with the
+3-byte header, x at `[4..5]`, y at `[8..9]`, lod at `[12]`.
 
 ## Profile layouts
 

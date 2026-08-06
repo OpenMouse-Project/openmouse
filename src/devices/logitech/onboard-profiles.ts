@@ -101,7 +101,11 @@ export interface ReportRateCapabilities {
 
 export interface ProfileFormatCapabilities {
   supportedLods: LiftOffLevel[];
-  /** Byte feature 0x2202 uses for each level. Not the same on every format. */
+  /**
+   * Byte feature 0x2202 uses for each level. The same on every device — it is
+   * the feature's enum, not the format's — but kept here so a format that ever
+   * turns out to differ has somewhere to say so.
+   */
   lodEncoding: Record<LiftOffLevel, number>;
   dpiStages: DpiStageCapabilities | null;
   reportRates: ReportRateCapabilities | null;
@@ -120,28 +124,34 @@ export interface ProfileFormatCapabilities {
 const PROFILE_NAME_BYTES = 0x30;
 export const PROFILE_NAME_MAX_CHARS = PROFILE_NAME_BYTES / 2 - 1;
 
-/** The encoding the driver has always used: levels counted from zero. */
-const LOD_FROM_ZERO: Record<LiftOffLevel, number> = { Low: 0, Medium: 1, High: 2 };
-
 /**
- * Levels counted from one, matching the profile layout where 0 means "stage
- * unused" rather than a level. Confirmed on a Pro X Superlight 2 (format 7),
- * which offers three levels while only two are reachable counting from zero —
- * writing 0 is rejected, so the third level was invisible.
+ * Feature 0x2202's lift-off enum: 0 means the sensor has no lift-off control,
+ * and the levels count from one. This belongs to the feature, not to a profile
+ * format — every device that exposes 0x2202 uses the same numbering.
+ *
+ * Confirmed twice over: captured from G HUB writing a Pro X Superlight 2
+ * profile (02 -> 01 for medium to low, 01 -> 03 for low to high), and matching
+ * OpenLogi's Lod enum { NotSupported = 0, Low = 1, Medium = 2, High = 3 }.
+ *
+ * The driver previously counted from zero, which made "Low" write 0 — a value
+ * meaning "unsupported" that the mouse rejects — and reported every level one
+ * step too high.
  */
-const LOD_FROM_ONE: Record<LiftOffLevel, number> = { Low: 1, Medium: 2, High: 3 };
+const LOD_ENCODING: Record<LiftOffLevel, number> = { Low: 1, Medium: 2, High: 3 };
 
 /**
  * Applied when the mouse does not report a format, or reports one whose limits
- * were never established: the behaviour the driver had before the limits were
- * split per format. Suspected to be the same off-by-one as format 7, but that
- * is unproven per format, so it is left alone rather than changed blind.
+ * were never established.
+ *
+ * Only two levels are offered because no third was ever confirmed on such a
+ * device — not because Low is unreachable. That was the old off-by-one talking:
+ * Low used to write 0, which means "no lift-off control", so it always failed.
  */
 const DEFAULT_FORMAT_CAPABILITIES: ProfileFormatCapabilities = {
   supportedLods: ["Medium", "High"],
-  lodEncoding: LOD_FROM_ZERO,
-  // Base v1 has no DPI stage table at all, and the range a v6 format allows
-  // depends on the sensor, so an unrecognised format offers no slots.
+  lodEncoding: LOD_ENCODING,
+  // Base v1 has a scalar DPI table, but its sensor-specific conversion and
+  // writable range are not verified. Unknown formats therefore offer no edits.
   dpiStages: null,
   // Ceilings are a property of the radio and the USB interface, so they cannot
   // be carried over from another mouse.
@@ -155,7 +165,7 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
   // 5x5 stage table in the registration and confirmed against a real profile.
   7: {
     supportedLods: ["Low", "Medium", "High"],
-    lodEncoding: LOD_FROM_ONE,
+    lodEncoding: LOD_ENCODING,
     dpiStages: { maxStages: 5, minDpi: 100, maxDpi: 32000, stepDpi: 50 },
     // Reported on hardware: the Lightspeed link runs to 8 kHz, the USB cable
     // is a 1 kHz charging connection rather than a full-rate wired mode.
@@ -164,12 +174,13 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
     bunnyHop: true,
   },
   // Format 8 carries the analog-button block, so it is the PRO X 2 Superstrike
-  // format. Its two levels predate the format table and were never rechecked
-  // against the encoding, and its sensor range was never captured, so slots
-  // stay unavailable rather than being assumed to match format 7.
+  // format. Its two levels are what the driver has always offered and were
+  // never checked against a real device; its sensor range was never captured
+  // either, so slots stay unavailable rather than being assumed to match
+  // format 7.
   8: {
     supportedLods: ["Low", "High"],
-    lodEncoding: LOD_FROM_ZERO,
+    lodEncoding: LOD_ENCODING,
     dpiStages: null,
     reportRates: null,
     // The name region is part of base v6, which format 8 shares.
@@ -191,8 +202,9 @@ export function decodeLiftOffLevel(
   if (raw === null || raw === undefined) return null;
   const level = (Object.keys(capabilities.lodEncoding) as LiftOffLevel[])
     .find((name) => capabilities.lodEncoding[name] === raw);
-  // An unmapped byte is reported as unknown rather than guessed at: on a
-  // count-from-one format 0 means the stage is unused.
+  // 0 is the feature's "not supported" value, and anything else unmapped is
+  // simply unknown. Either way it is reported as no level rather than guessed
+  // at — reading 0 as "Low" is how the off-by-one used to hide itself.
   return level ?? null;
 }
 
@@ -261,11 +273,11 @@ interface ProfileLayout {
 
 const LAYOUT_V1: ProfileLayout = {
   reportRateWireless: null,
-  reportRateWired: null,
-  dpi: null,
+  reportRateWired: 0x00,
+  dpi: 0x01,
   angleSnapping: 0x11,
-  powerSaveTimeout: null,
-  powerOffTimeout: null,
+  powerSaveTimeout: 0x1c,
+  powerOffTimeout: 0x1e,
   profileName: 0xa0,
   bunnyHopping: null,
 };
@@ -294,10 +306,12 @@ export interface ComponentSpec {
 
 const COMPONENTS_V1: ComponentSpec[] = [
   { offset: 0x00, size: 1, name: "report_rate" },
-  { offset: 0x01, size: 0x0a, name: "dpi_v1" },
+  { offset: 0x01, size: 0x0c, name: "dpi_v1" },
   { offset: 0x0d, size: 3, name: "color" },
   { offset: 0x10, size: 1, name: "power_mode" },
   { offset: 0x11, size: 1, name: "angle_snapping" },
+  { offset: 0x1c, size: 2, name: "power_save_timeout" },
+  { offset: 0x1e, size: 2, name: "power_off_timeout" },
   { offset: 0x20, size: 0x40, name: "button_functions" },
   { offset: 0x60, size: 0x40, name: "g_shift_function" },
   { offset: 0xa0, size: 0x30, name: "profile_name" },
@@ -473,10 +487,34 @@ function decodeDpi(bytes: Uint8Array, offset: number): { stages: DpiStage[]; def
   return { stages, defaultIndex: defaultIndex === 0xff ? null : defaultIndex };
 }
 
+/** Formats 1-5 store one little-endian DPI value per slot, without X/Y or LOD. */
+function decodeDpiV1(bytes: Uint8Array, offset: number): { stages: DpiStage[]; defaultIndex: number | null } {
+  const rawDefaultIndex = bytes[offset];
+  const stages: DpiStage[] = [];
+  for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
+    const dpi = readUint16LE(bytes, offset + 2 + stage * 2);
+    if (dpi === null || dpi === 0) continue;
+    stages.push({ x: dpi, y: dpi, lod: 0 });
+  }
+  return {
+    stages,
+    defaultIndex: rawDefaultIndex === undefined || rawDefaultIndex === 0xff ? null : rawDefaultIndex,
+  };
+}
+
 function decodeReportRate(bytes: Uint8Array, offset: number | null): number | null {
   if (offset === null) return null;
   const raw = bytes[offset];
   return raw === undefined || raw === 0xff ? null : REPORT_RATE_HZ[raw] ?? null;
+}
+
+/** Formats 1-5 store the USB polling interval in milliseconds. */
+function decodeReportRateV1(bytes: Uint8Array, offset: number | null): number | null {
+  if (offset === null) return null;
+  const intervalMs = bytes[offset];
+  if (intervalMs === undefined || intervalMs === 0xff || intervalMs === 0) return null;
+  const hz = 1000 / intervalMs;
+  return Number.isInteger(hz) ? hz : null;
 }
 
 /** Rates the byte can index, filtered to the ceiling for that connection. */
@@ -725,30 +763,37 @@ function writeUint16LE(bytes: Uint8Array, offset: number, value: number): void {
 export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileFormatId: number): Uint8Array {
   const layout = layoutForFormat(profileFormatId);
   const result = before.slice();
+  const legacyLayout = profileFormatId < 6;
   const isErased = (offset: number, size: number): boolean =>
     after.slice(offset, offset + size).every((byte) => byte === 0xff);
 
   const copyRate = (offset: number | null): void => {
     if (offset === null) return;
-    const hz = decodeReportRate(after, offset);
-    const index = hz === null ? null : REPORT_RATE_HZ.indexOf(hz as (typeof REPORT_RATE_HZ)[number]);
-    if (index !== null && index >= 0) result[offset] = index;
+    const hz = legacyLayout ? decodeReportRateV1(after, offset) : decodeReportRate(after, offset);
+    if (hz === null) return;
+    if (legacyLayout) result[offset] = 1000 / hz;
+    else {
+      const index = REPORT_RATE_HZ.indexOf(hz as (typeof REPORT_RATE_HZ)[number]);
+      if (index >= 0) result[offset] = index;
+    }
   };
   copyRate(layout.reportRateWireless);
   copyRate(layout.reportRateWired);
 
   if (layout.dpi !== null) {
-    const dpi = decodeDpi(after, layout.dpi);
+    const dpi = legacyLayout ? decodeDpiV1(after, layout.dpi) : decodeDpi(after, layout.dpi);
     if (dpi.defaultIndex !== null) result[layout.dpi] = dpi.defaultIndex;
     result[layout.dpi + 1] = after[layout.dpi + 1];
-    // Stages are re-encoded from decoded values, not copied, so the little
-    // endian x/y/lod encoding is what is actually under test.
+    // Stages are re-encoded from decoded values, not copied, so their
+    // little-endian representation is what is actually under test.
     let stage = 0;
     for (const { x, y, lod } of dpi.stages) {
-      const base = layout.dpi + 2 + stage * 5;
+      const base = layout.dpi + 2 + stage * (legacyLayout ? 2 : 5);
       writeUint16LE(result, base, x);
-      writeUint16LE(result, base + 2, y);
-      result[base + 4] = lod;
+      if (!legacyLayout) {
+        writeUint16LE(result, base + 2, y);
+        result[base + 4] = lod;
+      }
       stage += 1;
     }
   }
@@ -770,7 +815,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
     if (seconds !== null) writeUint16LE(result, offset, seconds);
   }
 
-  const name = decodeName(after, layout.profileName);
+  const name = legacyLayout ? null : decodeName(after, layout.profileName);
   if (name !== null) {
     const encoded = new Uint8Array(0x30);
     encoded.set(after.slice(layout.profileName, layout.profileName + 0x30).map(() => 0));
@@ -804,20 +849,27 @@ export function decodeOnboardProfile(
   isCurrent: boolean,
 ): OnboardProfile {
   const layout = layoutForFormat(profileFormatId);
+  const legacyLayout = profileFormatId < 6;
   const dpi = layout.dpi === null
     ? { stages: [], defaultIndex: null }
-    : decodeDpi(bytes, layout.dpi);
+    : legacyLayout ? decodeDpiV1(bytes, layout.dpi) : decodeDpi(bytes, layout.dpi);
   const angleSnappingByte = bytes[layout.angleSnapping];
 
   return {
     sector: entry.sector,
     enabled: entry.enabled,
     isCurrent,
-    name: decodeName(bytes, layout.profileName),
+    // The v1 region is byte text, not UTF-16. This G402 capture contains
+    // non-text device data there, so do not manufacture a mojibake name.
+    name: legacyLayout ? null : decodeName(bytes, layout.profileName),
     dpiStages: dpi.stages,
     defaultDpiIndex: dpi.defaultIndex,
-    reportRateWireless: decodeReportRate(bytes, layout.reportRateWireless),
-    reportRateWired: decodeReportRate(bytes, layout.reportRateWired),
+    reportRateWireless: legacyLayout
+      ? decodeReportRateV1(bytes, layout.reportRateWireless)
+      : decodeReportRate(bytes, layout.reportRateWireless),
+    reportRateWired: legacyLayout
+      ? decodeReportRateV1(bytes, layout.reportRateWired)
+      : decodeReportRate(bytes, layout.reportRateWired),
     angleSnapping: angleSnappingByte === undefined || angleSnappingByte === 0xff
       ? null
       : angleSnappingByte !== 0,
