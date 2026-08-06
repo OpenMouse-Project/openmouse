@@ -436,6 +436,10 @@ function renderControl(): void {
   renderStagedMarkers();
   populateInterfaceSettings();
   applyInterfacePreferences();
+  // Preview selection is intentionally URL-driven in development. This is not
+  // an authorization check: it only keeps fixture pages isolated from real
+  // hardware, while production builds force `previewMode` to null.
+  // codeql[js/user-controlled-bypass]
   if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
