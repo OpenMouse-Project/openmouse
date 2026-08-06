@@ -406,6 +406,15 @@ test("decodes the captured G402 format-1 profile without v6 mojibake", () => {
   assert.equal(profile.angleSnapping, false);
   assert.equal(profile.powerSaveTimeoutSeconds, null);
   assert.equal(profile.powerOffTimeoutSeconds, null);
+
+  const limits = capabilitiesForFormat(1).dpiStages;
+  assert.deepEqual(limits, { maxStages: 5, minDpi: 252, maxDpi: 4032, stepDpi: 84 });
+  assert.ok(limits);
+  const grid = Array.from(
+    { length: Math.floor((limits.maxDpi - limits.minDpi) / limits.stepDpi) + 1 },
+    (_, step) => limits.minDpi + step * limits.stepDpi,
+  );
+  assert.equal(grid.includes(2436), true, "the format grid includes the value shown as 2400 by vendor UI");
 });
 
 test("decodes all captured G502 format-2 profiles", () => {
@@ -850,10 +859,15 @@ test("DPI slot limits are per format, not global", () => {
   const format7 = capabilitiesForFormat(7).dpiStages;
   assert.deepEqual(format7, { maxStages: 5, minDpi: 100, maxDpi: 32000, stepDpi: 50 });
 
-  // Base v1 has no stage table, and no other format's range was ever captured,
-  // so slots must not be offered rather than borrowing format 7's numbers.
+  // Format 1 uses the grid captured from the G402. Uncaptured formats must not
+  // borrow either it or format 7's limits.
+  assert.deepEqual(capabilitiesForFormat(1).dpiStages, {
+    maxStages: 5,
+    minDpi: 252,
+    maxDpi: 4032,
+    stepDpi: 84,
+  });
   assert.equal(capabilitiesForFormat(8).dpiStages, null);
-  assert.equal(capabilitiesForFormat(1).dpiStages, null);
   assert.equal(capabilitiesForFormat(6).dpiStages, null);
   assert.equal(capabilitiesForFormat(null).dpiStages, null);
 
@@ -899,8 +913,8 @@ test("lift-off limits come from the profile format, not the model", () => {
   // Format 8 carries the analog-button block, so it is the Superstrike format.
   assert.deepEqual(capabilitiesForFormat(8).supportedLods, ["Low", "High"]);
 
-  // Anything else keeps what the driver assumed before limits were per format.
-  assert.deepEqual(capabilitiesForFormat(1).supportedLods, ["Medium", "High"]);
+  // The G402 capture did not expose a lift-off setting for format 1.
+  assert.deepEqual(capabilitiesForFormat(1).supportedLods, []);
 
   // getInfo is allowed to fail, so an absent format must not throw.
   assert.deepEqual(capabilitiesForFormat(null).supportedLods, ["Medium", "High"]);

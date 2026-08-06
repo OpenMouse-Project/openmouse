@@ -1,5 +1,4 @@
 import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
-import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol.ts";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -58,12 +57,10 @@ export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const
 // is HERO-era Lightspeed, and 0xc0a8 is the PRO X 2 Superstrike USB interface.
 export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547] as const;
 
-// Every Logitech product with an HID++ control interface, receiver-addressed or
-// not. Direct-connect product IDs live in ./logitech/protocol so the driver and
-// these filters cannot disagree about which index a mouse answers on.
+// Known Logitech receiver/USB bridge products. The broad usage-page filter
+// below discovers direct-connect mice without a product-ID allowlist.
 export const LOGITECH_PRODUCT_IDS = [
   ...LOGITECH_RECEIVER_PRODUCT_IDS,
-  ...LOGITECH_DIRECT_PRODUCT_IDS,
 ] as const;
 
 /**

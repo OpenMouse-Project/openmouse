@@ -73,6 +73,7 @@ import {
   validateProfileName,
   validateReportRate,
   reproduceProfile,
+  supportsProfileWriteProbe,
   stageLodLevel,
   validateBunnyHoppingMs,
   type DpiStageCapabilities,
@@ -766,7 +767,7 @@ function configureProfileCapture(status: MouseStatus | null): void {
   const logitechClient = status?.brand === "Logitech" ? activeClient as LogitechHidppClient | null : null;
   const formatId = status?.onboardProfileFormat?.id ?? null;
   const captureOpen = document.querySelector<HTMLButtonElement>("#capture-open");
-  if (captureOpen) captureOpen.hidden = logitechClient === null || formatId === null;
+  if (captureOpen) captureOpen.hidden = logitechClient === null;
   const resetButton = document.querySelector<HTMLButtonElement>("#reset-logitech-profiles");
   if (resetButton) {
     resetButton.hidden = logitechClient === null || formatId === null;
@@ -809,13 +810,24 @@ function configureProfileCapture(status: MouseStatus | null): void {
         },
         describeOffset: (offset) => describeOffset(formatId, offset),
         reproduce: (before, after) => reproduceProfile(before, after, formatId),
-        ...([2, 3, 4].includes(formatId) ? {
-          prepareWriteProbe: () => logitechClient.prepareProfileContentWriteProbe(),
-          runWriteProbe: (backup: Parameters<LogitechHidppClient["runProfileContentWriteProbe"]>[0]) =>
-            logitechClient.runProfileContentWriteProbe(backup),
-        } : {}),
       }
       : null,
+    writeProbe: logitechClient === null
+      ? null
+      : supportsProfileWriteProbe(formatId)
+        ? {
+          supported: true,
+          reason: `Run the guarded write probe for profile format ${formatId}`,
+          prepare: () => logitechClient.prepareProfileContentWriteProbe(),
+          run: (backup: Parameters<LogitechHidppClient["runProfileContentWriteProbe"]>[0]) =>
+            logitechClient.runProfileContentWriteProbe(backup),
+        }
+        : {
+          supported: false,
+          reason: formatId === null
+            ? "This Logitech mouse does not report an onboard-profile format"
+            : `The guarded write probe does not support profile format ${formatId}`,
+        },
   });
 }
 

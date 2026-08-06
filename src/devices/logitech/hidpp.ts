@@ -5,12 +5,9 @@ import {
   decodeBatteryLevelState,
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
-  hidppDeviceIndex,
   hidppErrorForRequest,
   isDirectConnection,
-  isDirectConnectProduct,
   OnboardOnlyError,
-  legacyDpiFallback,
   withSoftwareId,
 } from "./protocol.ts";
 import {
@@ -42,6 +39,7 @@ import {
   profileCrc,
   setDirectoryEnabled,
   storedCrc,
+  supportsProfileWriteProbe,
   validateBunnyHoppingMs,
   type OnboardProfile,
   type ProfileFormatCapabilities,
@@ -323,18 +321,17 @@ export class LogitechHidppClient {
   }
 
   /**
-   * True when the vendor interface belongs to the mouse itself (G402, G403
-   * HERO) instead of a receiver. Written as a getter because
-   * `useDefineForClassFields` runs field initializers before the `device`
-   * parameter property is assigned.
+   * True when the vendor interface belongs to the mouse itself instead of a
+   * receiver. Written as a getter because `useDefineForClassFields` runs
+   * field initializers before the `device` parameter property is assigned.
    */
   private get isDirectConnect(): boolean {
-    return isDirectConnection(this.device.productId, this.resolvedDeviceIndex);
+    return isDirectConnection(this.resolvedDeviceIndex);
   }
 
   /** HID++ device index: the receiver's first slot, or the mouse itself. */
   private get deviceIndex(): number {
-    return this.resolvedDeviceIndex ?? hidppDeviceIndex(this.device.productId);
+    return this.resolvedDeviceIndex ?? DEVICE_INDEX_DIRECT;
   }
 
   /**
@@ -391,7 +388,7 @@ export class LogitechHidppClient {
   /** Known receivers, kept as the fast path for the WebHID picker's filters. */
   static isKnownReceiver(device: HIDDevice): boolean {
     return device.vendorId === LOGITECH_VENDOR_ID
-      && (LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId) || isDirectConnectProduct(device.productId));
+      && LOGITECH_RECEIVER_PRODUCT_IDS.has(device.productId);
   }
 
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
@@ -603,12 +600,14 @@ export class LogitechHidppClient {
     }
     if (resolved.legacy) {
       const advertised = await this.readLegacyDpiList(resolved.index);
-      // A mouse that answers the DPI list with nothing usable would otherwise
-      // leave the panel with no DPI control at all. Its documented sensor range
-      // is a safe stand-in; every value is still verified by the read-back in
-      // setLegacyDpi.
-      this.dpiOptionsCache = advertised.length === 0
-        ? legacyDpiFallback(this.device.productId)
+      const formatLimits = capabilitiesForFormat(this.profileFormatId).dpiStages;
+      // Empty legacy lists fall back to the profile format's captured grid,
+      // never to a model/PID-specific table.
+      this.dpiOptionsCache = advertised.length === 0 && formatLimits
+        ? Array.from(
+          { length: Math.floor((formatLimits.maxDpi - formatLimits.minDpi) / formatLimits.stepDpi) + 1 },
+          (_, step) => formatLimits.minDpi + step * formatLimits.stepDpi,
+        )
         : advertised;
       return this.dpiOptionsCache;
     }
@@ -1118,7 +1117,7 @@ export class LogitechHidppClient {
     const feature = await this.getFeature(FEATURE.onboardProfiles);
     if (!feature.index) throw new Error("This mouse does not expose onboard-profile controls.");
     const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
-    if (![2, 3, 4].includes(info.profileFormatId)) {
+    if (!supportsProfileWriteProbe(info.profileFormatId)) {
       throw new Error(`The guided content probe currently supports profile formats 2, 3, and 4, not ${info.profileFormatId}.`);
     }
     const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
@@ -1160,7 +1159,7 @@ export class LogitechHidppClient {
     backup: ProfileContentWriteProbeBackup,
   ): Promise<ProfileContentWriteProbeReport> {
     await this.open();
-    if (![2, 3, 4].includes(backup.formatId)) {
+    if (!supportsProfileWriteProbe(backup.formatId)) {
       throw new Error("Only profile formats 2, 3, and 4 are supported by this probe.");
     }
     const feature = await this.getFeature(FEATURE.onboardProfiles);
@@ -1634,9 +1633,7 @@ export class LogitechHidppClient {
   private async setLegacyDpi(featureIndex: number, dpi: number): Promise<number> {
     await this.ensureHostControl();
     // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo]. Three
-    // bytes fit a short request, which is the form direct-connect mice were
-    // verified with; receiver-attached HERO mice have always been driven with
-    // the long form.
+    // Direct endpoints use the short form; receiver-attached mice use long.
     if (this.isDirectConnect) {
       await this.request(featureIndex, 0x30, 0x00, dpi >> 8, dpi & 0xff);
     } else {

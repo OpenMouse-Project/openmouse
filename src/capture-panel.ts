@@ -32,17 +32,24 @@ export interface CaptureProfileSource {
   describeOffset(offset: number): string | null;
   /** Applies the change with OpenMouse's own encoders, for verification. */
   reproduce(before: Uint8Array, after: Uint8Array): Uint8Array;
-  prepareWriteProbe?(): Promise<ProfileContentWriteProbeBackup>;
-  runWriteProbe?(backup: ProfileContentWriteProbeBackup): Promise<ProfileContentWriteProbeReport>;
+}
+
+interface CaptureWriteProbe {
+  supported: boolean;
+  reason: string;
+  prepare?(): Promise<ProfileContentWriteProbeBackup>;
+  run?(backup: ProfileContentWriteProbeBackup): Promise<ProfileContentWriteProbeReport>;
 }
 
 interface CaptureContext {
   device: string | null;
   profileFormat: string | null;
   profiles: CaptureProfileSource | null;
+  /** Null outside Logitech; otherwise the button remains visible. */
+  writeProbe: CaptureWriteProbe | null;
 }
 
-let context: CaptureContext = { device: null, profileFormat: null, profiles: null };
+let context: CaptureContext = { device: null, profileFormat: null, profiles: null, writeProbe: null };
 /** Sector -> bytes, taken before the vendor-app change. */
 let snapshot: Map<number, Uint8Array> | null = null;
 let diffs: SectorDiff[] = [];
@@ -106,7 +113,11 @@ export function refreshCapturePanel(): void {
   renderActions();
   renderDiffs();
   const probe = document.querySelector<HTMLButtonElement>("#capture-write-probe");
-  if (probe) probe.hidden = !context.profiles?.prepareWriteProbe || !context.profiles.runWriteProbe;
+  if (probe) {
+    probe.hidden = context.writeProbe === null;
+    probe.disabled = context.writeProbe?.supported !== true;
+    probe.title = context.writeProbe?.reason ?? "";
+  }
 }
 
 async function takeSnapshot(): Promise<void> {
@@ -223,11 +234,11 @@ export function bindCapturePanel(): void {
 
   document.querySelector<HTMLButtonElement>("#capture-write-probe")?.addEventListener("click", (event) => {
     const button = event.currentTarget as HTMLButtonElement;
-    const source = context.profiles;
-    if (!source?.prepareWriteProbe || !source.runWriteProbe) return;
+    const source = context.writeProbe;
+    if (!source?.supported || !source.prepare || !source.run) return;
     button.disabled = true;
     setCaptureMessage("Reading and copying the recovery backup…");
-    void source.prepareWriteProbe().then(async (backup) => {
+    void source.prepare().then(async (backup) => {
       await navigator.clipboard.writeText(formatProfileWriteProbeBackupMarkdown(backup));
       const approved = window.confirm(
         "Recovery backup copied. This test performs six profile-sector erase/write cycles, temporarily changes the profile name, DPI, and polling rate, then restores the exact original after every step. Do not disconnect or power off the mouse. Run the probe now?",
@@ -237,7 +248,7 @@ export function bindCapturePanel(): void {
         return;
       }
       setCaptureMessage("Running write probe. Do not disconnect or power off the mouse…");
-      const report = await source.runWriteProbe!(backup);
+      const report = await source.run!(backup);
       await navigator.clipboard.writeText(formatProfileWriteProbeReportMarkdown(report));
       setCaptureMessage(report.ok
         ? "Write probe passed and the original profile was restored. Report copied."

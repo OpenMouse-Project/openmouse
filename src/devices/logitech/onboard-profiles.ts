@@ -49,6 +49,14 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  */
 const VERIFIED_FORMATS = new Set([2, 3, 4, 7]);
 const WRITABLE_FORMATS = new Set([7]);
+const PROFILE_WRITE_PROBE_FORMATS = new Set([2, 3, 4]);
+
+/** Whether this format has a reversible guided write probe. */
+export function supportsProfileWriteProbe(profileFormatId: number | null | undefined): boolean {
+  return profileFormatId !== null
+    && profileFormatId !== undefined
+    && PROFILE_WRITE_PROBE_FORMATS.has(profileFormatId);
+}
 
 export interface ProfileFormat {
   id: number;
@@ -165,6 +173,15 @@ const DEFAULT_FORMAT_CAPABILITIES: ProfileFormatCapabilities = {
 };
 
 const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
+  // Format 1 capture: five scalar slots on a 252-4032 grid in steps of 84.
+  1: {
+    supportedLods: [],
+    lodEncoding: LOD_ENCODING,
+    dpiStages: { maxStages: 5, minDpi: 252, maxDpi: 4032, stepDpi: 84 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+    maxNameLength: null,
+    bunnyHop: false,
+  },
   // A G102 LIGHTSYNC on format 4 reported five scalar slots, 50-8000 DPI in
   // steps of 50, and 125/250/500/1000 Hz through the capability collector.
   // The guided probe uses these reported limits, but the UI remains read-only

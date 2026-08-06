@@ -13,36 +13,11 @@ export const DEVICE_INDEX_RECEIVER = 0x01;
 export const DEVICE_INDEX_DIRECT = 0xff;
 
 /**
- * Logitech mice whose vendor interface is the mouse itself rather than a
- * receiver. They answer HID++ on device index 0xFF and keep their writable
- * settings in an onboard profile.
- *
- * - 0xc07e — G402 / G402 Hyperion Fury (wired)
- * - 0xc08f — G403 HERO (wired)
- *
- * This module deliberately imports nothing, so both the driver and the WebHID
- * filters in ../vendors can read it without a cycle.
- */
-export const LOGITECH_DIRECT_PRODUCT_IDS = [0xc07e, 0xc08f] as const;
-
-const DIRECT_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_DIRECT_PRODUCT_IDS);
-
-export function isDirectConnectProduct(productId: number): boolean {
-  return DIRECT_PRODUCT_ID_SET.has(productId);
-}
-
-/**
  * Whether this HID++ endpoint is the mouse itself rather than a receiver.
- * Runtime probing is authoritative for unknown Logitech product IDs; the PID
- * list is only the pre-probe fast path.
+ * Runtime device-index probing is authoritative; product IDs do not decide it.
  */
-export function isDirectConnection(productId: number, resolvedDeviceIndex: number | null): boolean {
-  return resolvedDeviceIndex === DEVICE_INDEX_DIRECT
-    || (resolvedDeviceIndex === null && isDirectConnectProduct(productId));
-}
-
-export function hidppDeviceIndex(productId: number): number {
-  return isDirectConnectProduct(productId) ? DEVICE_INDEX_DIRECT : DEVICE_INDEX_RECEIVER;
+export function isDirectConnection(resolvedDeviceIndex: number | null): boolean {
+  return resolvedDeviceIndex === DEVICE_INDEX_DIRECT;
 }
 
 /** HID++ 2.0 error codes, reported in byte 4 of a 0xFF error response. */
@@ -116,30 +91,6 @@ export function decodeReportRateBitmap(bitflags: number): number[] {
     if ((bitflags & (1 << bit)) !== 0) rates.push(Math.round(1000 / (bit + 1)));
   }
   return rates.sort((left, right) => left - right);
-}
-
-/**
- * Sensor grids for direct-connect mice, used only when one answers the legacy
- * DPI-list request with nothing usable. Every value is still confirmed by the
- * read-back after a write, so a wrong entry surfaces as a rejected change
- * rather than a silently wrong setting.
- */
-const LEGACY_DPI_GRIDS: ReadonlyMap<number, { min: number; step: number; max: number }> = new Map([
-  // G402: hardware advertises 252 to 4032 in steps of 84 — not the 240/80
-  // quoted by vendor software, which rounds these to marketing numbers (2436
-  // is displayed as "2400"). Captured from a getSensorDpiList reply of
-  // 00 FC | E0 54 | 0F C0.
-  [0xc07e, { min: 252, step: 84, max: 4032 }],
-  // G403 HERO: the HERO sensor's documented 100-25,600 range in steps of 50.
-  [0xc08f, { min: 100, step: 50, max: 25600 }],
-]);
-
-export function legacyDpiFallback(productId: number): number[] {
-  const grid = LEGACY_DPI_GRIDS.get(productId);
-  if (!grid) return [];
-  const options: number[] = [];
-  for (let dpi = grid.min; dpi <= grid.max; dpi += grid.step) options.push(dpi);
-  return options;
 }
 
 export type BatteryChargeState =
