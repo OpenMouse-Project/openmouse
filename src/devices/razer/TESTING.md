@@ -7,6 +7,7 @@ Supported identifiers:
 
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
+- `1532:008a` — Viper Mini, wired
 
 Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
@@ -117,3 +118,39 @@ needs a richer type before it can be exposed even once the command is found.
   the control offers the wrong choices.
 - The DPI stage table (`0x04`/`0x06`) is decoded and tested but never written.
   A wrong length there is the one realistic way to corrupt stored settings.
+
+## Viper Mini (not yet verified on hardware)
+
+The Viper Mini shares the 90-byte report and command ids above, but belongs to
+openrazer's legacy transaction group: every command is sent with transaction id
+`0xff` rather than `0x1f`, and the DPI read uses the no-store byte (`0x00`)
+where the V3 Pro reads with the storage byte. Commands and the transaction id
+below come from openrazer's kernel driver and daemon, not from this app's own
+hardware captures. Confirm each on the device before trusting it:
+
+1. Connect the mouse over USB and confirm the model and wired state appear, with
+   no battery column (the Viper Mini is wired-only and answers no battery query).
+2. Confirm DPI reads correctly and that the control offers 100–8500 DPI.
+3. Change the DPI and confirm the pointer speed changes, then reload and confirm
+   persistence. This also confirms the write-then-read-back pairing of storage
+   (`0x01`) and no-store (`0x00`) works on this model.
+4. Confirm the polling rate reads 125/500/1000 Hz and tracks a Synapse change,
+   then change it and confirm it persists.
+5. Confirm no lift-off distance buttons and no sensor processing card appear.
+6. Record the device identifier, firmware version, and any failing setting in
+   the issue or pull request.
+
+| Read | Class / ID | Notes |
+| --- | --- | --- |
+| Firmware | `0x00` / `0x81` | transaction id `0xff` |
+| Serial | `0x00` / `0x82` | ASCII, null terminated; transaction id `0xff` |
+| DPI | `0x04` / `0x85` | no-store byte, then big-endian X and Y |
+| Polling | `0x00` / `0x85` | divisor of 1000; wired only |
+
+| Write | Class / ID | Notes |
+| --- | --- | --- |
+| DPI | `0x04` / `0x05` | storage byte, then big-endian X and Y |
+| Polling | `0x00` / `0x05` | divisor of 1000 |
+
+The Viper Mini's 8500 DPI ceiling comes from the openrazer daemon class. The
+DPI step granularity is assumed to be whole values, matching the V3 Pro driver.
