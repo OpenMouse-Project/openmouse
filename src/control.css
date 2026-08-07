@@ -92,14 +92,14 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .background-service-nav::before { margin-right: .5rem; color: var(--ui-accent); content: "⟲"; font-size: .72rem; }
 .nav-badge { display: inline-flex; align-items: center; margin-left: .4rem; padding: .08rem .35rem; border-radius: 999px; background: var(--ui-accent-soft); color: var(--ui-accent); font-family: var(--font-mono); font-size: .5rem; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
 
-.background-service-page .interface-settings-header h2 { display: flex; align-items: center; gap: .6rem; }
+.background-service-page .interface-settings-header h2 { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
 .background-service-badge { display: inline-flex; align-items: center; padding: .22rem .55rem; border-radius: 999px; font-family: var(--font-mono); font-size: .58rem; font-weight: 700; letter-spacing: .05em; }
 .background-service-badge.is-disconnected, .background-service-badge.is-denied { background: rgba(239, 68, 68, .15); color: #f87171; }
 .background-service-badge.is-connecting { background: rgba(250, 204, 21, .15); color: #facc15; }
 .background-service-badge.is-connected { background: var(--ui-accent-soft); color: var(--ui-accent); }
 .background-service-description { max-width: 640px; margin: .9rem 0 1.3rem; color: var(--dim); font-size: .82rem; line-height: 1.55; }
 .background-service-step { max-width: 640px; margin-bottom: .9rem; padding: 1.1rem 1.2rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); }
-.background-service-step-heading { display: flex; align-items: center; gap: .55rem; margin-bottom: .5rem; }
+.background-service-step-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-bottom: .5rem; }
 .background-service-step-number { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: .7rem; font-weight: 700; }
 .background-service-step-heading h3 { margin: 0; font-size: .95rem; font-weight: 600; }
 .background-service-required { margin-left: .5rem; padding: .12rem .4rem; border-radius: 999px; background: rgba(239, 68, 68, .15); color: #f87171; font-family: var(--font-mono); font-size: .53rem; font-weight: 700; letter-spacing: .05em; }
@@ -107,6 +107,39 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .background-service-step p:last-child { margin-bottom: 0; }
 .background-service-download { display: inline-flex; padding: .55rem .9rem; border-radius: 7px; background: var(--ui-accent); color: var(--ui-accent-ink); font-size: .74rem; font-weight: 700; }
 .background-service-footnote { display: block; margin-top: .5rem; color: var(--faint); font-size: .68rem; }
+.background-service-connected { max-width: 640px; }
+.background-service-section { padding: 1.55rem 0; border-top: 1px solid var(--line); }
+.background-service-section h3 { margin: 0; color: var(--bright); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.background-service-section p { max-width: 580px; margin: .55rem 0 .85rem; color: var(--dim); font-size: .74rem; line-height: 1.5; }
+.background-service-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+.background-service-meta-badge, .background-service-access-state { display: inline-flex; align-items: center; min-height: 1.15rem; padding: .14rem .42rem; border-radius: 999px; font-family: var(--font-mono); font-size: .5rem; font-weight: 700; letter-spacing: .05em; }
+.background-service-meta-badge.is-checking { background: rgb(250 204 21 / 15%); color: #facc15; }
+.background-service-meta-badge.is-current { background: var(--ui-accent-soft); color: var(--ui-accent); }
+.background-service-meta-badge.is-update { background: rgb(250 204 21 / 15%); color: #facc15; }
+.background-service-meta-badge.is-error { background: rgb(239 68 68 / 15%); color: #f87171; }
+.background-service-meta-badge.is-recommended { background: rgb(250 204 21 / 15%); color: #facc15; }
+.background-service-primary-action, .background-service-secondary-action { min-height: 2rem; padding: .46rem .72rem; border-radius: 7px; font-size: .68rem; font-weight: 700; }
+.background-service-primary-action { border: 1px solid var(--ui-accent); background: var(--ui-accent); color: var(--ui-accent-ink); }
+.background-service-primary-action:disabled { cursor: wait; opacity: .65; }
+.background-service-secondary-action { border: 1px solid var(--edge); background: var(--control); color: var(--bright); }
+.background-service-secondary-action:hover { border-color: #737378; background: var(--hover); }
+.background-service-data-list { display: grid; gap: .45rem; margin: .9rem 0 .7rem; }
+.background-service-data-row { display: flex; min-height: 4.2rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem .85rem; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--raised); }
+.background-service-data-row strong, .background-service-data-row small { display: block; }
+.background-service-data-row strong { color: var(--bright); font-size: .76rem; font-weight: 600; }
+.background-service-data-row small { margin-top: .16rem; color: var(--dim); font-size: .68rem; line-height: 1.35; }
+.background-service-access-state { flex: 0 0 auto; background: var(--ui-accent-soft); color: var(--ui-accent); }
+.background-service-game-mode { margin: 0 0 1.55rem; }
+.background-service-setting { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.background-service-setting > div { min-width: 0; }
+.background-service-setting p { margin-bottom: 0; }
+.background-service-switch { position: relative; display: inline-flex; width: 2.55rem; height: 1.4rem; flex: 0 0 auto; cursor: pointer; }
+.background-service-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.background-service-switch i { width: 100%; height: 100%; border: 1px solid #4a4a50; border-radius: 999px; background: #242428; transition: border-color .18s ease, background .18s ease; }
+.background-service-switch i::after { display: block; width: .82rem; height: .82rem; margin: .23rem; border-radius: 50%; background: #8a8a90; content: ""; transition: background .18s ease, transform .18s ease; }
+.background-service-switch input:checked + i { border-color: var(--ui-accent); background: var(--ui-accent); }
+.background-service-switch input:checked + i::after { background: var(--ui-accent-ink); transform: translateX(1.12rem); }
+.background-service-switch input:focus-visible + i { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 .sidebar-footer { display: grid; gap: .45rem; margin-top: auto; color: var(--ghost); font-size: .7rem; }
 
 .panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 4rem 0 2rem; }

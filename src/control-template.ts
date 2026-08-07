@@ -126,24 +126,69 @@ export function controlTemplate(buildLabel: string): string {
         </section>
         <section id="background-service-page" class="interface-settings-page background-service-page" aria-labelledby="background-service-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="background-service-title">Background Service<span id="background-service-badge" class="background-service-badge is-disconnected">DISCONNECTED</span></h2></div><button id="close-background-service" class="interface-settings-back" type="button">Back to device</button></header>
-          <p class="background-service-description">OpenMouse Companion is a lightweight app that runs continuously in the background. It handles automatic polling-rate switching, changing your mouse's report rate the instant a game launches.</p>
-          <article class="background-service-step">
-            <div class="background-service-step-heading"><span class="background-service-step-number">1</span><h3>Download and install</h3></div>
-            <p>Download the installer using the button below, then run the file and follow the simple setup steps. Once installation is complete, launch OpenMouse Companion.</p>
-            <a id="background-service-download" class="background-service-download" href="https://github.com/xBambooz/OpenMouseCompanion/releases/latest" target="_blank" rel="noopener">Download</a>
-          </article>
-          <article class="background-service-step">
-            <div class="background-service-step-heading"><span class="background-service-step-number">2</span><h3>Allow access to apps on your device<span class="background-service-required">REQUIRED</span></h3></div>
-            <p>This permission is required for Background Service to work. Click the icon in your browser's address bar to open site permissions, find <strong>Local network access</strong>, and toggle it on.</p>
-          </article>
-          <article class="background-service-step" id="game-mode-config" data-pending-key="game-mode-enabled game-mode-idle-rate game-mode-gaming-rate">
-            <div class="background-service-step-heading"><h3>Game Mode</h3><button id="game-mode-toggle" class="${TOGGLE}" type="button" role="switch" aria-checked="false" disabled>Off</button></div>
-            <p>Pick the rate your mouse idles at and the rate it jumps to the instant a game launches.</p>
-            <div id="game-mode-idle-slider" class="rate-slider"></div>
-            <div id="game-mode-gaming-slider" class="rate-slider"></div>
-            <small id="game-mode-status" class="setting-note">Connect a supported mouse to enable Game Mode.</small>
-          </article>
-          <small class="background-service-footnote" id="background-service-footnote">Not connecting? Make sure OpenMouse Companion is installed and running, then reload this page.</small>
+          <p class="background-service-description">OpenMouse Background Service is a lightweight app that runs continuously in the background. It handles automatic polling-rate switching, changing your mouse's report rate the instant a game launches.</p>
+          <div id="background-service-setup">
+            <article class="background-service-step">
+              <div class="background-service-step-heading"><span class="background-service-step-number">1</span><h3>Download and install</h3></div>
+              <p>Download the installer, run it, and launch OpenMouse Background Service.</p>
+              <a id="background-service-download" class="background-service-download" href="https://github.com/xBambooz/OpenMouseCompanion/releases/latest/download/OpenMouseCompanion-Setup.exe">Download</a>
+            </article>
+            <article class="background-service-step">
+              <div class="background-service-step-heading"><span class="background-service-step-number">2</span><h3>Allow access to apps on your device<span class="background-service-required">REQUIRED</span></h3></div>
+              <p>Click the icon in your browser's address bar, open site permissions, and allow <strong>Local network access</strong>. OpenMouse uses it only to connect to the service on this computer.</p>
+            </article>
+            <small class="background-service-footnote" id="background-service-footnote">Not connecting? Make sure OpenMouse Background Service is installed and running, then reload this page.</small>
+          </div>
+          <div id="background-service-connected" class="background-service-connected" hidden>
+            <section class="background-service-section" aria-labelledby="background-service-version-title">
+              <div class="background-service-section-heading">
+                <h3 id="background-service-version-title">Current version <span id="background-service-version"></span></h3>
+                <span id="background-service-update-badge" class="background-service-meta-badge is-checking" aria-live="polite">CHECKING</span>
+              </div>
+              <button id="background-service-update" class="background-service-primary-action" type="button">Check for updates</button>
+            </section>
+            <section class="background-service-section" aria-labelledby="background-service-data-title">
+              <h3 id="background-service-data-title">Data access</h3>
+              <p>Choose what OpenMouse Background Service can access.</p>
+              <div class="background-service-data-list">
+                <div class="background-service-data-row">
+                  <span><strong>App detection</strong><small>Fullscreen windows and process names from your game list</small></span>
+                  <label class="background-service-switch"><input id="service-detection-enabled" type="checkbox" aria-label="Allow app detection" /><i></i></label>
+                </div>
+                <div class="background-service-data-row">
+                  <span><strong>Paired mice</strong><small>Approved polling-rate recipes for your mice</small></span>
+                  <span id="service-paired-device-count" class="background-service-access-state">NONE</span>
+                </div>
+              </div>
+              <button id="background-service-open-game-list" class="background-service-secondary-action" type="button">Open game list</button>
+            </section>
+            <article class="background-service-step background-service-game-mode" id="game-mode-config" data-pending-key="game-mode-enabled game-mode-idle-rate game-mode-gaming-rate">
+              <div class="background-service-step-heading"><h3>Game Mode</h3><button id="game-mode-toggle" class="${TOGGLE}" type="button" role="switch" aria-checked="false" disabled>Off</button></div>
+              <p>Pick the rate your mouse idles at and the rate it jumps to when a game launches.</p>
+              <div id="game-mode-idle-slider" class="rate-slider"></div>
+              <div id="game-mode-gaming-slider" class="rate-slider"></div>
+              <small id="game-mode-status" class="setting-note">Connect a supported mouse to enable Game Mode.</small>
+            </article>
+            <section class="background-service-section background-service-setting" aria-labelledby="background-service-start-title">
+              <div>
+                <div class="background-service-section-heading"><h3 id="background-service-start-title">Start with computer</h3><span class="background-service-meta-badge is-recommended">RECOMMENDED</span></div>
+                <p>Launch OpenMouse Background Service automatically when your computer starts.</p>
+              </div>
+              <label class="background-service-switch"><input id="service-start-with-windows" type="checkbox" aria-label="Start with computer" /><i></i></label>
+            </section>
+            <section class="background-service-section background-service-setting" aria-labelledby="background-service-notifications-title">
+              <div>
+                <h3 id="background-service-notifications-title">Game switch notifications</h3>
+                <p>Show a Windows notification when your mouse changes between idle and gaming rates.</p>
+              </div>
+              <label class="background-service-switch"><input id="service-notifications-enabled" type="checkbox" aria-label="Game switch notifications" /><i></i></label>
+            </section>
+            <section class="background-service-section" aria-labelledby="background-service-troubleshooting-title">
+              <h3 id="background-service-troubleshooting-title">Troubleshooting</h3>
+              <p>Open the service logs when Game Mode or device switching is not working.</p>
+              <button id="background-service-open-logs" class="background-service-secondary-action" type="button">Open log folder</button>
+            </section>
+          </div>
         </section>
       </main>
 

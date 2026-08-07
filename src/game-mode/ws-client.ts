@@ -1,4 +1,4 @@
-import type { EnrollDeviceMessage, StatusMessage } from "./types";
+import type { EnrollDeviceMessage, StatusMessage, UpdateStatusMessage } from "./types";
 
 const PORT = 47823;
 const TOKEN_KEY = "openmouse-companion-token-v1";
@@ -8,6 +8,7 @@ export type ConnectionState = "disconnected" | "connecting" | "connected" | "den
 export interface GameModeClientEvents {
   onStateChange?(state: ConnectionState): void;
   onStatus?(status: StatusMessage): void;
+  onUpdateStatus?(status: UpdateStatusMessage): void;
   onEnrollResult?(ok: boolean, deviceKey: string, error?: string): void;
 }
 
@@ -31,6 +32,7 @@ export class GameModeClient {
 
   connect(): void {
     this.stopped = false;
+    this.setState("connecting");
     this.open();
   }
 
@@ -52,12 +54,32 @@ export class GameModeClient {
     this.send({ type: "removeDevice", deviceKey });
   }
 
+  setServicePreferences(preferences: {
+    detectionEnabled?: boolean;
+    notificationsEnabled?: boolean;
+    startWithWindows?: boolean;
+  }): void {
+    this.send({ type: "setServicePreferences", ...preferences });
+  }
+
+  openServicePath(path: "logs" | "gameList"): void {
+    this.send({ type: "openServicePath", path });
+  }
+
+  checkForUpdates(): void {
+    this.send({ type: "checkForUpdates" });
+  }
+
+  installUpdate(): void {
+    this.send({ type: "installUpdate" });
+  }
+
   private open(): void {
-    this.setState("connecting");
     let socket: WebSocket;
     try {
       socket = new WebSocket(`ws://127.0.0.1:${PORT}/`);
     } catch {
+      this.setState("disconnected");
       this.scheduleReconnect();
       return;
     }
@@ -108,6 +130,9 @@ export class GameModeClient {
         break;
       case "enrollResult":
         this.events.onEnrollResult?.(Boolean(message.ok), String(message.deviceKey ?? ""), message.error as string | undefined);
+        break;
+      case "updateStatus":
+        this.events.onUpdateStatus?.(message as unknown as UpdateStatusMessage);
         break;
     }
   }

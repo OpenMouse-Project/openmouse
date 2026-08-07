@@ -60,7 +60,20 @@ export interface DeviceStatus {
 
 export interface StatusMessage {
   type: "status";
+  serviceVersion: string;
+  startWithWindows: boolean;
+  detectionEnabled: boolean;
+  notificationsEnabled: boolean;
   isGaming: boolean;
   reason: string;
   devices: DeviceStatus[];
+}
+
+export type UpdateState = "checking" | "upToDate" | "updateAvailable" | "downloading" | "installing" | "error";
+
+export interface UpdateStatusMessage {
+  type: "updateStatus";
+  state: UpdateState;
+  latestVersion?: string;
+  error?: string;
 }
