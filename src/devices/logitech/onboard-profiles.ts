@@ -48,14 +48,22 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  * matching CRC.
  */
 const VERIFIED_FORMATS = new Set([2, 3, 4, 7]);
-const WRITABLE_FORMATS = new Set([7]);
+const WRITABLE_FORMATS = new Set([4, 7]);
 const PROFILE_WRITE_PROBE_FORMATS = new Set([2, 3, 4]);
+const FACTORY_RESET_FORMATS = new Set([7]);
 
 /** Whether this format has a reversible guided write probe. */
 export function supportsProfileWriteProbe(profileFormatId: number | null | undefined): boolean {
   return profileFormatId !== null
     && profileFormatId !== undefined
     && PROFILE_WRITE_PROBE_FORMATS.has(profileFormatId);
+}
+
+/** Whether a complete, byte-for-byte reset image exists for this format. */
+export function supportsFactoryReset(profileFormatId: number | null | undefined): boolean {
+  return profileFormatId !== null
+    && profileFormatId !== undefined
+    && FACTORY_RESET_FORMATS.has(profileFormatId);
 }
 
 export interface ProfileFormat {
@@ -467,7 +475,7 @@ const FACTORY_PROFILE_FORMAT_7 = `
 
 /** Returns a fresh, CRC-valid factory sector only for a captured geometry. */
 export function factoryProfileForFormat(profileFormatId: number, sectorSize: number): Uint8Array | null {
-  if (profileFormatId !== 7 || sectorSize !== 255) return null;
+  if (!supportsFactoryReset(profileFormatId) || sectorSize !== 255) return null;
   return Uint8Array.from(
     FACTORY_PROFILE_FORMAT_7.trim().split(/\s+/),
     (byte) => Number.parseInt(byte, 16),

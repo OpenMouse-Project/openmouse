@@ -32,7 +32,7 @@ test("runtime probing alone classifies direct and receiver connections", () => {
   assert.equal(isDirectConnection(null), false);
 });
 
-test("extended DPI does not imply lift-off or gaming-surface controls", () => {
+test("extended DPI does not imply lift-off or mode-status controls", () => {
   assert.equal(supportsLiveLiftOffControl(false, null), false, "0 means no LOD control");
   assert.equal(supportsLiveLiftOffControl(true, "Medium"), false, "legacy DPI has no LOD field");
   assert.equal(supportsLiveLiftOffControl(false, "Low"), true);

@@ -73,6 +73,7 @@ import {
   validateProfileName,
   validateReportRate,
   reproduceProfile,
+  supportsFactoryReset,
   supportsProfileWriteProbe,
   stageLodLevel,
   validateBunnyHoppingMs,
@@ -770,12 +771,12 @@ function configureProfileCapture(status: MouseStatus | null): void {
   if (captureOpen) captureOpen.hidden = logitechClient === null;
   const resetButton = document.querySelector<HTMLButtonElement>("#reset-logitech-profiles");
   if (resetButton) {
-    resetButton.hidden = logitechClient === null || formatId === null;
-    const supported = formatId === 7;
-    resetButton.disabled = settingInProgress || !supported;
+    const supported = logitechClient !== null && supportsFactoryReset(formatId);
+    resetButton.hidden = !supported;
+    resetButton.disabled = settingInProgress;
     resetButton.title = supported
       ? "Permanently restore every onboard profile to Logitech defaults"
-      : `Factory defaults have not been captured for profile format ${formatId ?? "unknown"}`;
+      : "";
   }
   setCaptureContext({
     device: activeDevice ? describeHidDevice(activeDevice) : status?.name ?? null,
@@ -2646,6 +2647,7 @@ function renderDpiSlots(): void {
 
   const locked = dpiSlotsLocked();
   const levels = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).supportedLods : [];
+  const profileHasLod = levels.length > 0;
 
   // The preset row writes host DPI, so it stands down while slots are shown.
   const presets = document.querySelector<HTMLElement>("#dpi-presets");
@@ -2683,7 +2685,7 @@ function renderDpiSlots(): void {
         <button type="button" class="dpi-axis-lock${axisLocked ? " is-locked" : ""}" data-dpi-axis-lock="${index}"${locked ? " disabled" : ""} title="${axisLocked ? "X and Y are linked — click to set them separately" : "X and Y are separate — click to link them"}" aria-label="Link X and Y for slot ${index + 1}" aria-pressed="${axisLocked}">${axisLocked ? ICON_LINKED : ICON_UNLINKED}</button>
         <input type="number" data-dpi-slot="${index}" data-dpi-axis="y" aria-label="Slot ${index + 1} Y DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.y}"${locked || axisLocked ? " disabled" : ""} />
         <div class="lod-select" data-lod-select="${index}">
-          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
+          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked || !profileHasLod ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off" title="${profileHasLod ? "Set lift-off distance" : "This profile format has no lift-off setting"}"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
           <ul class="lod-select-menu" role="listbox" data-dpi-slot-lod="${index}" aria-label="Slot ${index + 1} lift-off">${lodOptions}</ul>
         </div>
       </div>`;
@@ -2717,7 +2719,7 @@ async function reloadOnboardProfiles(): Promise<void> {
 
 async function resetLogitechProfiles(): Promise<void> {
   const client = activeClient;
-  if (!client || settingInProgress || lastProfileFormat?.id !== 7) return;
+  if (!client || settingInProgress || !supportsFactoryReset(lastProfileFormat?.id)) return;
 
   const stagedWarning = hasPendingChanges()
     ? "\n\nYour staged, unflashed changes will also be discarded."

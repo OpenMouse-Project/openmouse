@@ -19,6 +19,7 @@ import {
   encodeProfileName,
   encodeReportRate,
   factoryProfileForFormat,
+  supportsFactoryReset,
   reportRatesFor,
   validateBunnyHoppingMs,
   validateProfileName,
@@ -600,7 +601,7 @@ test("decodes the captured G102 LIGHTSYNC format-4 profile", () => {
 test("parses the captured G102 LIGHTSYNC format-4 geometry and directory", () => {
   assert.deepEqual(
     { verified: describeProfileFormat(4).verified, writable: describeProfileFormat(4).writable },
-    { verified: true, writable: false },
+    { verified: true, writable: true },
   );
   assert.deepEqual(parseProfilesInfo(G102_LIGHTSYNC_INFO_REPLY), {
     memoryModelId: 1,
@@ -640,6 +641,10 @@ test("format-4 encoders prepare reversible scalar DPI, shared-rate and name prob
 });
 
 test("factory reset image is exact, CRC-valid and limited to captured geometry", () => {
+  assert.equal(supportsFactoryReset(7), true);
+  for (const format of [1, 2, 3, 4, 5, 6, 8, null, undefined]) {
+    assert.equal(supportsFactoryReset(format), false, `format ${format ?? "missing"}`);
+  }
   const factory = factoryProfileForFormat(7, 255);
   assert.ok(factory);
   assert.deepEqual([...factory], [...SECTOR_2]);

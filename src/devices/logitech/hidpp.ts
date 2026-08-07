@@ -524,13 +524,17 @@ export class LogitechHidppClient {
       analogButtonTuning,
       liftOffDistance,
       onboardProfileFormat,
-      // 0x8090 may exist only for LIGHTFORCE. Its otherwise-unused surface
-      // bits read as zero, which decodes to Auto, so require an actual live LOD
-      // control before exposing the related gaming-surface setting.
+      // HID++ exposes no per-field support mask for status1. A power-only
+      // variant can leave it reserved at zero, which would falsely decode as
+      // Surface Auto and LightForce Optical. Only expose that control bank when
+      // the sensor positively reports the related live LOD capability; this is
+      // deliberately conservative and avoids a product/model exception.
       gamingSurfaceMode: modeStatus === null || !hasLiveLiftOffControl
         ? null
         : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
-      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
+      lightforceSwitchMode: modeStatus === null || !hasLiveLiftOffControl
+        ? null
+        : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // Some profile formats have different wired and wireless ceilings. The
       // active transport comes from HID++ identity rather than a USB PID.
       pollingRateHz: connectionRateCeiling ? Math.min(pollingRateHz, connectionRateCeiling) : pollingRateHz,
