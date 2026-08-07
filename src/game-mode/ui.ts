@@ -3,116 +3,120 @@ import { buildFingerprint } from "./fingerprint";
 import type { DeviceStatus, StatusMessage } from "./types";
 import { GameModeClient, type ConnectionState } from "./ws-client";
 import type { MouseStatus } from "../devices/mouse-types";
+import { RATE_STEPS_HZ, previewRateSlider, rateFromSlider, renderRateSlider } from "../ui/rate-slider";
 
-const DEFAULT_RATES = [125, 500, 1000, 2000, 4000, 8000];
+const DEFAULT_IDLE_HZ = 1000;
+const DEFAULT_GAMING_HZ = 4000;
 
 let latestStatusMessage: StatusMessage | null = null;
 let currentDeviceKey: string | null = null;
+let currentRates: number[] = RATE_STEPS_HZ;
+let idleRateHz = DEFAULT_IDLE_HZ;
+let gamingRateHz = DEFAULT_GAMING_HZ;
+let companionState: ConnectionState = "disconnected";
+let deviceReady = false; // a supported device is connected on the control page
 let capturing = false;
 
 const client = new GameModeClient({
-  onStateChange: (state) => refreshConnectionUi(state),
-  onStatus: (status) => {
-    latestStatusMessage = status;
-    refreshDeviceUi();
-  },
+  onStateChange: (state) => { companionState = state; if (state !== "connected") currentDeviceKey = null; render(); },
+  onStatus: (status) => { latestStatusMessage = status; applyStoredRatesIfKnown(); render(); },
   onEnrollResult: (ok, deviceKey) => {
     if (deviceKey !== currentDeviceKey) return;
     capturing = false;
     if (!ok) setToggleChecked(false);
-    refreshDeviceUi();
+    render();
   },
 });
 
-/** Called once at startup — independent of any device being connected yet. */
+/** Called once at startup, independent of any device being connected yet. */
 export function initGameMode(): void {
-  const toggle = document.querySelector<HTMLButtonElement>("#game-mode-toggle");
-  const idleSelect = document.querySelector<HTMLSelectElement>("#game-mode-idle-rate");
-  const gamingSelect = document.querySelector<HTMLSelectElement>("#game-mode-gaming-rate");
+  document.querySelector<HTMLButtonElement>("#game-mode-toggle")?.addEventListener("click", () => void onToggleClick());
 
-  toggle?.addEventListener("click", () => void onToggleClick());
-  idleSelect?.addEventListener("change", () => void reapplyIfEnabled());
-  gamingSelect?.addEventListener("change", () => void reapplyIfEnabled());
+  bindSlider("#game-mode-idle-slider", (hz) => { idleRateHz = hz; void reapplyIfEnabled(); });
+  bindSlider("#game-mode-gaming-slider", (hz) => { gamingRateHz = hz; void reapplyIfEnabled(); });
 
   client.connect();
 }
 
-/** Called from control.ts's showStatus() whenever the active device/status changes. supported comes from support.ts's isGameModeSupported() against the real SupportedClient union, which this module intentionally doesn't import (it only needs the narrower PollingRateClient shape). */
-export function refreshGameModeCard(status: MouseStatus, supported: boolean, device: HIDDevice | null): void {
-  const card = document.querySelector<HTMLElement>("#game-mode-card");
-  if (!card) return;
-
-  card.hidden = !supported || !device;
-  if (!supported || !device) {
-    currentDeviceKey = null;
-    return;
-  }
-
-  populateRateSelect("#game-mode-idle-rate", status, status.pollingRateHz);
-  const rates = status.supportedPollingRates?.length ? status.supportedPollingRates : DEFAULT_RATES;
-  populateRateSelect("#game-mode-gaming-rate", status, Math.max(...rates));
-
-  void computeDeviceKey(device.vendorId, device.productId, buildFingerprint(device)).then((key) => {
-    currentDeviceKey = key;
-    refreshDeviceUi();
+function bindSlider(selector: string, onCommit: (hz: number) => void): void {
+  const root = document.querySelector<HTMLElement>(selector);
+  root?.addEventListener("input", (event) => {
+    previewRateSlider(selector, Number((event.target as HTMLInputElement).value));
+  });
+  root?.addEventListener("change", (event) => {
+    const hz = rateFromSlider(selector, Number((event.target as HTMLInputElement).value));
+    if (hz !== null) onCommit(hz);
   });
 }
 
-function populateRateSelect(selector: string, status: MouseStatus, defaultValue: number): void {
-  const select = document.querySelector<HTMLSelectElement>(selector);
-  if (!select || select.dataset.filled === String(status.pollingRateHz)) return;
-  const rates = status.supportedPollingRates?.length ? status.supportedPollingRates : DEFAULT_RATES;
-  select.innerHTML = "";
-  for (const rate of rates) {
-    const option = new Option(rate >= 1000 ? `${rate / 1000}K Hz` : `${rate} Hz`, String(rate));
-    select.add(option);
+/** Called from control.ts's showStatus() whenever the active device/status changes. supported comes from support.ts's isGameModeSupported() against the real SupportedClient union, which this module intentionally doesn't import (it only needs the narrower PollingRateClient shape). */
+export function refreshGameModeCard(status: MouseStatus, supported: boolean, device: HIDDevice | null): void {
+  deviceReady = supported && device !== null;
+
+  if (!deviceReady || !device) {
+    currentDeviceKey = null;
+    currentRates = RATE_STEPS_HZ;
+    render();
+    return;
   }
-  select.value = String(defaultValue);
+
+  currentRates = (status.supportedPollingRates?.length ? status.supportedPollingRates : RATE_STEPS_HZ).slice().sort((a, b) => a - b);
+
+  void computeDeviceKey(device.vendorId, device.productId, buildFingerprint(device)).then((key) => {
+    currentDeviceKey = key;
+    applyStoredRatesIfKnown();
+    render();
+  });
+
+  render();
 }
 
-function refreshConnectionUi(state: ConnectionState): void {
-  const status = document.querySelector<HTMLElement>("#game-mode-status");
-  const install = document.querySelector<HTMLElement>("#game-mode-install");
-  const controls = document.querySelector<HTMLElement>("#game-mode-controls");
-  const toggle = document.querySelector<HTMLButtonElement>("#game-mode-toggle");
-
-  const connected = state === "connected";
-  if (install) install.hidden = connected;
-  if (controls) controls.hidden = !connected;
-  if (toggle) toggle.disabled = !connected || capturing;
-
-  if (status) {
-    status.textContent = {
-      disconnected: "Companion: not connected. Install and launch it, then this page will pair automatically.",
-      connecting: "Companion: connecting…",
-      denied: "Companion: connection was blocked. Approve it in the Companion app, then reload this page.",
-      connected: "Companion: connected.",
-    }[state];
-  }
-
-  if (!connected) currentDeviceKey = null;
-  refreshDeviceUi();
-}
-
-function refreshDeviceUi(): void {
-  const toggle = document.querySelector<HTMLButtonElement>("#game-mode-toggle");
-  if (!toggle || !currentDeviceKey) return;
-
-  const entry = findDeviceEntry(currentDeviceKey);
-  if (entry) {
-    setToggleChecked(entry.gameModeEnabled);
-    if (entry.idleRateHz) setSelectValue("#game-mode-idle-rate", entry.idleRateHz);
-    if (entry.gamingRateHz) setSelectValue("#game-mode-gaming-rate", entry.gamingRateHz);
-  }
+/** Once a deviceKey and the paired-device list are both known, adopt any already-saved rates instead of the defaults. */
+function applyStoredRatesIfKnown(): void {
+  const entry = currentDeviceKey ? findDeviceEntry(currentDeviceKey) : undefined;
+  if (!entry) return;
+  setToggleChecked(entry.gameModeEnabled);
+  if (entry.idleRateHz) idleRateHz = entry.idleRateHz;
+  if (entry.gamingRateHz) gamingRateHz = entry.gamingRateHz;
 }
 
 function findDeviceEntry(deviceKey: string): DeviceStatus | undefined {
   return latestStatusMessage?.devices.find((d) => d.deviceKey === deviceKey);
 }
 
-function setSelectValue(selector: string, value: number): void {
-  const select = document.querySelector<HTMLSelectElement>(selector);
-  if (select) select.value = String(value);
+const BADGE_TEXT: Record<ConnectionState, string> = {
+  disconnected: "DISCONNECTED",
+  connecting: "CONNECTING",
+  denied: "BLOCKED",
+  connected: "CONNECTED",
+};
+
+/** Renders the whole Game Mode section from current module state: connection status, both sliders, and the toggle. */
+function render(): void {
+  const badge = document.querySelector<HTMLElement>("#background-service-badge");
+  if (badge) {
+    badge.textContent = BADGE_TEXT[companionState];
+    badge.className = `background-service-badge is-${companionState}`;
+  }
+
+  const ready = companionState === "connected" && deviceReady;
+
+  renderRateSlider(document.querySelector<HTMLElement>("#game-mode-idle-slider"), currentRates, idleRateHz, { label: "Idle rate", disabled: !ready });
+  renderRateSlider(document.querySelector<HTMLElement>("#game-mode-gaming-slider"), currentRates, gamingRateHz, { label: "Gaming rate", disabled: !ready });
+
+  const toggle = document.querySelector<HTMLButtonElement>("#game-mode-toggle");
+  if (toggle) toggle.disabled = !ready || capturing;
+
+  const status = document.querySelector<HTMLElement>("#game-mode-status");
+  if (status) status.textContent = statusNote();
+}
+
+function statusNote(): string {
+  if (companionState === "connecting") return "Connecting to Background Service…";
+  if (companionState === "denied") return "Connection blocked. Approve OpenMouse Companion in its tray popup, then reload this page.";
+  if (companionState === "disconnected") return "Complete the steps above, then reload this page.";
+  if (!deviceReady) return "Connect a supported mouse to enable Game Mode.";
+  return "";
 }
 
 function setToggleChecked(checked: boolean): void {
@@ -146,10 +150,6 @@ async function captureAndEnroll(): Promise<void> {
   const activeClientRef = getActiveClientRef();
   if (!activeClientRef || !currentDeviceKey) return;
 
-  const idleRate = Number(document.querySelector<HTMLSelectElement>("#game-mode-idle-rate")?.value);
-  const gamingRate = Number(document.querySelector<HTMLSelectElement>("#game-mode-gaming-rate")?.value);
-  if (!idleRate || !gamingRate) return;
-
   capturing = true;
   const toggle = document.querySelector<HTMLButtonElement>("#game-mode-toggle");
   if (toggle) { toggle.disabled = true; toggle.textContent = "Applying…"; }
@@ -162,11 +162,11 @@ async function captureAndEnroll(): Promise<void> {
       activeClient.device.productId,
       brand,
       name,
-      idleRate,
-      gamingRate,
+      idleRateHz,
+      gamingRateHz,
     );
     client.enrollDevice(message);
-    setToggleChecked(true); // optimistic — onEnrollResult reverts on denial/error
+    setToggleChecked(true); // optimistic, onEnrollResult reverts on denial/error
   } catch {
     capturing = false;
     setToggleChecked(false);

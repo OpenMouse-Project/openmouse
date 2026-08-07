@@ -3,7 +3,7 @@
  * for field. The companion's WebSocket layer serializes with camelCase
  * properties and camelCase string enums (System.Text.Json Web defaults +
  * JsonStringEnumConverter), so these types line up with the wire format
- * directly — no translation layer on either side.
+ * directly, no translation layer on either side.
  */
 
 export type RecipeStepKind = "write" | "delay" | "readExpect";
@@ -14,7 +14,7 @@ export interface RecipeStep {
   kind: RecipeStepKind;
   reportKind?: HidReportKind;
   reportId?: number;
-  /** base64 — matches System.Text.Json's default byte[] wire format. */
+  /** base64, matches System.Text.Json's default byte[] wire format. */
   payload?: string;
   fromInputReport?: boolean;
   expectMask?: string;

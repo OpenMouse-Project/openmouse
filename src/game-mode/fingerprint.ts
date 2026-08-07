@@ -7,7 +7,7 @@ import type { CollectionFingerprint, ReportFingerprint, ReportFingerprintKind } 
  * find the exact same physical HID interface again later without a Windows
  * device path (which WebHID never exposes).
  *
- * Report byte length is computed and included for diagnostics only — it is
+ * Report byte length is computed and included for diagnostics only. It is
  * NOT used for matching (see HidDeviceMatcher.cs): re-deriving a byte length
  * from WebHID's bit-sized report items that's guaranteed to agree with
  * HidSharp's own Report.Length units isn't verifiable without hardware in

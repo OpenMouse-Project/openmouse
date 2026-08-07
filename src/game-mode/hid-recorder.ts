@@ -4,7 +4,7 @@ import type { RecipeStep } from "./types";
 /**
  * Temporarily monkey-patches the real, already-open HIDDevice's four
  * transport methods so the ALREADY-INITIALIZED vendor client (the one the
- * rest of the page is using — not a freshly constructed one, which could be
+ * rest of the page is using, not a freshly constructed one, which could be
  * missing cached state a driver's readStatus() populated) can be called
  * exactly as normal while every call is transcribed. Restored via stop().
  *
@@ -16,7 +16,7 @@ import type { RecipeStep } from "./types";
  * ponytail: capture does not try to infer *why* a busy-poll loop stopped
  * (which bytes the vendor's own JS compared to decide "not busy anymore").
  * It just records that a read happened and replays the same read, at the
- * same recorded delay, without a pass/fail condition — faithful to exactly
+ * same recorded delay, without a pass/fail condition, faithful to exactly
  * what the browser did during capture, and enough to apply the rate
  * correctly, but it won't adapt if one specific unit's confirmation timing
  * varies call to call. Add real expectMask/expectValue capture if that

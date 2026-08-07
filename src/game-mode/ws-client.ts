@@ -12,7 +12,7 @@ export interface GameModeClientEvents {
 }
 
 /**
- * Talks to OpenMouseCompanion over ws://127.0.0.1 — a loopback target, so
+ * Talks to OpenMouseCompanion over ws://127.0.0.1, a loopback target, so
  * browsers exempt it from the mixed-content block that would otherwise stop
  * an https:// page from opening a plain ws:// connection. Reconnects with
  * backoff on its own, EXCEPT after an explicit pairDenied: retrying that
@@ -99,7 +99,7 @@ export class GameModeClient {
         break;
       case "pairDenied":
         localStorage.removeItem(TOKEN_KEY);
-        this.stopped = true; // don't auto-retry a denial — see class doc
+        this.stopped = true; // don't auto-retry a denial, see class doc
         this.setState("denied");
         break;
       case "status":

@@ -89,6 +89,24 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .nav-item:hover { background: #1b1b1e; color: #fff; }
 .control-shell .nav-item[aria-current="true"] { background: var(--ui-accent-soft); color: var(--ui-accent); }
 .interface-settings-button::before { margin-right: .5rem; color: var(--ui-accent); content: "⚙"; font-size: .72rem; }
+.background-service-nav::before { margin-right: .5rem; color: var(--ui-accent); content: "⟲"; font-size: .72rem; }
+.nav-badge { display: inline-flex; align-items: center; margin-left: .4rem; padding: .08rem .35rem; border-radius: 999px; background: var(--ui-accent-soft); color: var(--ui-accent); font-family: var(--font-mono); font-size: .5rem; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
+
+.background-service-page .interface-settings-header h2 { display: flex; align-items: center; gap: .6rem; }
+.background-service-badge { display: inline-flex; align-items: center; padding: .22rem .55rem; border-radius: 999px; font-family: var(--font-mono); font-size: .58rem; font-weight: 700; letter-spacing: .05em; }
+.background-service-badge.is-disconnected, .background-service-badge.is-denied { background: rgba(239, 68, 68, .15); color: #f87171; }
+.background-service-badge.is-connecting { background: rgba(250, 204, 21, .15); color: #facc15; }
+.background-service-badge.is-connected { background: var(--ui-accent-soft); color: var(--ui-accent); }
+.background-service-description { max-width: 640px; margin: .9rem 0 1.3rem; color: var(--dim); font-size: .82rem; line-height: 1.55; }
+.background-service-step { max-width: 640px; margin-bottom: .9rem; padding: 1.1rem 1.2rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); }
+.background-service-step-heading { display: flex; align-items: center; gap: .55rem; margin-bottom: .5rem; }
+.background-service-step-number { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: .7rem; font-weight: 700; }
+.background-service-step-heading h3 { margin: 0; font-size: .95rem; font-weight: 600; }
+.background-service-required { margin-left: .5rem; padding: .12rem .4rem; border-radius: 999px; background: rgba(239, 68, 68, .15); color: #f87171; font-family: var(--font-mono); font-size: .53rem; font-weight: 700; letter-spacing: .05em; }
+.background-service-step p { margin: 0 0 .7rem; color: var(--muted); font-size: .74rem; line-height: 1.5; }
+.background-service-step p:last-child { margin-bottom: 0; }
+.background-service-download { display: inline-flex; padding: .55rem .9rem; border-radius: 7px; background: var(--ui-accent); color: var(--ui-accent-ink); font-size: .74rem; font-weight: 700; }
+.background-service-footnote { display: block; margin-top: .5rem; color: var(--faint); font-size: .68rem; }
 .sidebar-footer { display: grid; gap: .45rem; margin-top: auto; color: var(--ghost); font-size: .7rem; }
 
 .panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 4rem 0 2rem; }
@@ -199,7 +217,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .egg-action-button, #egg-cpi-stage-list [data-apply-cpi] { margin-top: .5rem; padding: .42rem .62rem; border: 1px solid #45454a; border-radius: 6px; background: #202023; color: var(--bright); font-size: .62rem; font-weight: 650; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 .egg-action-button:hover, #egg-cpi-stage-list [data-apply-cpi]:hover { border-color: var(--faint); background: var(--line); transform: translateY(-1px); }
 
-.control-panel.showing-settings > :not(#interface-settings-page):not(.panel-top) { display: none !important; }
+.control-panel.showing-settings > :not(#interface-settings-page):not(#background-service-page):not(.panel-top) { display: none !important; }
 .control-panel.showing-settings .panel-top > :not(.panel-header),
 .control-panel.showing-settings .panel-header > :not(.panel-title),
 .control-panel.showing-settings .panel-title > :not(#sidebar-menu-toggle) { display: none; }

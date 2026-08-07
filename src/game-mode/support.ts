@@ -11,12 +11,12 @@ import type { SupportedClient } from "../devices/registry";
 
 /**
  * Game Mode v1 only covers vendors whose polling-rate write is a
- * self-contained HID transaction — it never reads and rewrites unrelated
+ * self-contained HID transaction. It never reads and rewrites unrelated
  * live device state (DPI, sensor tuning, sleep timeout, ...) the way
  * Orbital and EGG's full-settings-blob protocols do, and never needs
  * runtime HID++ feature-index resolution the way Logitech does. Recording a
  * byte-for-byte transcript and blindly replaying it natively is only safe
- * for the vendors below — see the companion app's RecipeEngine for the
+ * for the vendors below. See the companion app's RecipeEngine for the
  * replay side.
  */
 const GAME_MODE_SUPPORTED_CLASSES = [
