@@ -2,11 +2,16 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  ".css": 45_000,
+  // Raised from 45 kB for the Background Service page: its own sidebar route,
+  // the install and local-network-permission onboarding steps, and the Game
+  // Mode card with two rate sliders.
+  ".css": 58_000,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, and upstream Finalmouse
   // driver merged in the same release. Preview fixtures remain dev-only.
-  ".js": 310_000,
+  // Raised again from 310 kB for Game Mode: the companion WebSocket client,
+  // HID transcript recorder, and collection fingerprinting.
+  ".js": 340_000,
 };
 
 const ASSETS = join("dist", "assets");
