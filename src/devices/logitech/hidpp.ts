@@ -281,9 +281,10 @@ export class LogitechHidppClient {
   }
 
   /**
-   * True when the vendor interface belongs to the mouse itself (G402) instead
-   * of a receiver. Written as a getter because `useDefineForClassFields` runs
-   * field initializers before the `device` parameter property is assigned.
+   * True when the vendor interface belongs to the mouse itself (G402, G403
+   * HERO) instead of a receiver. Written as a getter because
+   * `useDefineForClassFields` runs field initializers before the `device`
+   * parameter property is assigned.
    */
   private get isDirectConnect(): boolean {
     return isDirectConnection(this.device.productId, this.resolvedDeviceIndex);
@@ -525,7 +526,7 @@ export class LogitechHidppClient {
       // 0x8060's setter rejects live writes on this generation (HID++ error
       // 0x02). The persistent rate lives in the onboard profile, which needs a
       // CRC-checked sector rewrite that is not implemented here.
-      throw new Error("This mouse stores its polling rate in the onboard profile. Change it in Logitech Gaming Software; OpenMouse can only read it.");
+      throw new Error("This mouse stores its polling rate in the onboard profile. Change it in Logitech's own software; OpenMouse can only read it.");
     }
     if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
       throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
@@ -561,11 +562,11 @@ export class LogitechHidppClient {
     if (resolved.legacy) {
       const advertised = await this.readLegacyDpiList(resolved.index);
       // A mouse that answers the DPI list with nothing usable would otherwise
-      // leave the panel with no DPI control at all. The G402's documented
-      // sensor range is a safe stand-in; every value is still verified by the
-      // read-back in setLegacyDpi.
-      this.dpiOptionsCache = advertised.length === 0 && this.isDirectConnect
-        ? legacyDpiFallback()
+      // leave the panel with no DPI control at all. Its documented sensor range
+      // is a safe stand-in; every value is still verified by the read-back in
+      // setLegacyDpi.
+      this.dpiOptionsCache = advertised.length === 0
+        ? legacyDpiFallback(this.device.productId)
         : advertised;
       return this.dpiOptionsCache;
     }
@@ -1300,8 +1301,9 @@ export class LogitechHidppClient {
   private async setLegacyDpi(featureIndex: number, dpi: number): Promise<number> {
     await this.ensureHostControl();
     // setSensorDpi(sensor 0, dpi): params = [sensorIdx, dpiHi, dpiLo]. Three
-    // bytes fit a short request, which is the form the G402 was verified with;
-    // receiver-attached HERO mice have always been driven with the long form.
+    // bytes fit a short request, which is the form direct-connect mice were
+    // verified with; receiver-attached HERO mice have always been driven with
+    // the long form.
     if (this.isDirectConnect) {
       await this.request(featureIndex, 0x30, 0x00, dpi >> 8, dpi & 0xff);
     } else {

@@ -13,6 +13,13 @@ export const RAZER_PACKET_LENGTH = 90;
 /** Verified against Viper V3 Pro firmware 1.12 on both transports. */
 export const RAZER_TRANSACTION_ID = 0x1f;
 
+/**
+ * Razer's older configuration interfaces answer on a different transaction id,
+ * and a mismatch is silent: the mouse simply never replies. OpenRazer uses this
+ * one for the DeathAdder Essential family.
+ */
+export const RAZER_TRANSACTION_ID_LEGACY = 0x3f;
+
 const ARGS_OFFSET = 8;
 const CHECKSUM_INDEX = 88;
 const CHECKSUM_FIRST = 2;

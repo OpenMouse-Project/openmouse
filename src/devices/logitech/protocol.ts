@@ -15,12 +15,15 @@ export const DEVICE_INDEX_DIRECT = 0xff;
 /**
  * Logitech mice whose vendor interface is the mouse itself rather than a
  * receiver. They answer HID++ on device index 0xFF and keep their writable
- * settings in an onboard profile. 0xc07e is the wired G402 / G402 Hyperion Fury.
+ * settings in an onboard profile.
+ *
+ * - 0xc07e — G402 / G402 Hyperion Fury (wired)
+ * - 0xc08f — G403 HERO (wired)
  *
  * This module deliberately imports nothing, so both the driver and the WebHID
  * filters in ../vendors can read it without a cycle.
  */
-export const LOGITECH_DIRECT_PRODUCT_IDS = [0xc07e] as const;
+export const LOGITECH_DIRECT_PRODUCT_IDS = [0xc07e, 0xc08f] as const;
 
 const DIRECT_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_DIRECT_PRODUCT_IDS);
 
@@ -116,14 +119,27 @@ export function decodeReportRateBitmap(bitflags: number): number[] {
 }
 
 /**
- * The G402's real sensor grid, used only when the mouse answers the legacy
- * DPI-list request with nothing usable. Hardware advertises 252 to 4032 in
- * steps of 84 — not the 240/80 quoted by vendor software, which rounds these
- * to marketing numbers (2436 is displayed as 2400). Every value is still
- * confirmed by the read-back after a write.
+ * Sensor grids for direct-connect mice, used only when one answers the legacy
+ * DPI-list request with nothing usable. Every value is still confirmed by the
+ * read-back after a write, so a wrong entry surfaces as a rejected change
+ * rather than a silently wrong setting.
  */
-export function legacyDpiFallback(): number[] {
-  return Array.from({ length: 46 }, (_, step) => 252 + step * 84);
+const LEGACY_DPI_GRIDS: ReadonlyMap<number, { min: number; step: number; max: number }> = new Map([
+  // G402: hardware advertises 252 to 4032 in steps of 84 — not the 240/80
+  // quoted by vendor software, which rounds these to marketing numbers (2436
+  // is displayed as "2400"). Captured from a getSensorDpiList reply of
+  // 00 FC | E0 54 | 0F C0.
+  [0xc07e, { min: 252, step: 84, max: 4032 }],
+  // G403 HERO: the HERO sensor's documented 100-25,600 range in steps of 50.
+  [0xc08f, { min: 100, step: 50, max: 25600 }],
+]);
+
+export function legacyDpiFallback(productId: number): number[] {
+  const grid = LEGACY_DPI_GRIDS.get(productId);
+  if (!grid) return [];
+  const options: number[] = [];
+  for (let dpi = grid.min; dpi <= grid.max; dpi += grid.step) options.push(dpi);
+  return options;
 }
 
 export type BatteryChargeState =

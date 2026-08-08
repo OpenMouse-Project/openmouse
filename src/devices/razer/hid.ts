@@ -4,6 +4,8 @@ import {
   RAZER_READ,
   RAZER_REPORT_ID,
   RAZER_STATUS,
+  RAZER_TRANSACTION_ID,
+  RAZER_TRANSACTION_ID_LEGACY,
   RazerProtocolError,
   decodeBatteryPercent,
   decodeCharging,
@@ -28,8 +30,14 @@ interface RazerProduct {
   model: string;
   wireless: boolean;
   pollingRates: readonly number[];
-  // Defaults to DPI_MAX when omitted
-  maxDpi?: number;
+  /** Sensor ceiling, per axis. */
+  maxDpi: number;
+  /** Razer's per-generation transaction id; a mismatch means no reply at all. */
+  transactionId: number;
+  /** Battery commands only exist on models that have one. */
+  hasBattery: boolean;
+  /** Also accept a vendor-defined collection as the control interface. */
+  vendorControlInterface?: boolean;
 }
 
 // The cable tops out at 1000 Hz on this model, which is also the ceiling the
@@ -37,19 +45,36 @@ interface RazerProduct {
 const RATES_WIRED: readonly number[] = [125, 500, 1000];
 const RATES_RECEIVER: readonly number[] = [125, 500, 1000, 2000, 4000, 8000];
 
+// The DeathAdder Essential's officially published maximum, and the ceiling the
+// vendor software offers.
+const DEATHADDER_ESSENTIAL = {
+  wireless: false,
+  pollingRates: RATES_WIRED,
+  maxDpi: 6400,
+  transactionId: RAZER_TRANSACTION_ID_LEGACY,
+  hasBattery: false,
+  vendorControlInterface: true,
+} as const;
+
+const VIPER_V3_PRO = {
+  maxDpi: 35000,
+  transactionId: RAZER_TRANSACTION_ID,
+  hasBattery: true,
+} as const;
+
 const PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map([
   // Stock receiver, not 8K HyperPolling.
-  [0x00a5, { model: "Viper V2 Pro", wireless: false, pollingRates: RATES_WIRED, maxDpi: 30000 }],
-  [0x00a6, { model: "Viper V2 Pro", wireless: true, pollingRates: RATES_WIRED, maxDpi: 30000 }],
-
-  [0x00c0, { model: "Viper V3 Pro", wireless: false, pollingRates: RATES_WIRED }],
-  [0x00c1, { model: "Viper V3 Pro", wireless: true, pollingRates: RATES_RECEIVER }],
+  [0x00a5, { model: "Viper V2 Pro", wireless: false, pollingRates: RATES_WIRED, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, hasBattery: true }],
+  [0x00a6, { model: "Viper V2 Pro", wireless: true, pollingRates: RATES_WIRED, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, hasBattery: true }],
+  [0x00c0, { model: "Viper V3 Pro", wireless: false, pollingRates: RATES_WIRED, ...VIPER_V3_PRO }],
+  [0x00c1, { model: "Viper V3 Pro", wireless: true, pollingRates: RATES_RECEIVER, ...VIPER_V3_PRO }],
+  [0x006e, { model: "DeathAdder Essential", ...DEATHADDER_ESSENTIAL }],
+  [0x0071, { model: "DeathAdder Essential White Edition", ...DEATHADDER_ESSENTIAL }],
+  [0x0098, { model: "DeathAdder Essential (2021)", ...DEATHADDER_ESSENTIAL }],
 ]);
 
-// The sensor takes any whole DPI in this range, per axis, and the vendor
-// software exposes the same bounds.
+// The sensor takes any whole DPI from here up to the model's ceiling, per axis.
 const DPI_MIN = 100;
-const DPI_MAX = 35000;
 const RESPONSE_DELAY_MS = 100;
 const RESPONSE_ATTEMPTS = 6;
 
@@ -87,9 +112,18 @@ const LOW_POWER_MAX_POLLING_HZ = 1000;
  * Generic Desktop Mouse. Every other interface either belongs to a different
  * function or is a protected collection the browser will not talk to.
  */
-function isControlInterface(device: HIDDevice): boolean {
+function isMouseControlInterface(device: HIDDevice): boolean {
   const [collection, ...rest] = device.collections;
   return rest.length === 0 && collection?.usagePage === 0x01 && collection?.usage === 0x02;
+}
+
+/**
+ * Older Razer mice carry the configuration channel on a vendor-defined
+ * interface instead, and which one varies by hardware revision. Accepting both
+ * shapes means the picker can offer either without the driver refusing it.
+ */
+function hasVendorCollection(device: HIDDevice): boolean {
+  return device.collections.some((collection) => (collection.usagePage ?? 0) >= 0xff00);
 }
 
 export class RazerHidClient {
@@ -103,9 +137,10 @@ export class RazerHidClient {
   }
 
   static isSupported(device: HIDDevice): boolean {
-    return device.vendorId === VENDOR_ID.razer
-      && PRODUCTS.has(device.productId)
-      && isControlInterface(device);
+    const product = PRODUCTS.get(device.productId);
+    if (device.vendorId !== VENDOR_ID.razer || !product) return false;
+    return isMouseControlInterface(device)
+      || (product.vendorControlInterface === true && hasVendorCollection(device));
   }
 
   private profile(): RazerProduct | undefined {
@@ -131,7 +166,7 @@ export class RazerHidClient {
   }
 
   maxDpi(): number {
-    return this.profile()?.maxDpi ?? DPI_MAX;
+    return this.profile()?.maxDpi ?? 35000;
   }
 
   getSupportedPollingRates(): number[] {
@@ -166,13 +201,15 @@ export class RazerHidClient {
     const firmware = await this.once("firmware", () => this.request(RAZER_READ.firmware));
     if (!firmware) throw new Error("The mouse did not report a firmware version.");
     const serial = await this.once("serial", () => this.request(RAZER_READ.serial).catch(() => null));
-    const battery = await this.request(RAZER_READ.battery);
-    const charging = decodeCharging(await this.request(RAZER_READ.charging));
+    // A wired mouse with no cell answers battery and power-management commands
+    // as unsupported, which would otherwise abort the whole status read.
+    const hasBattery = this.profile()?.hasBattery !== false;
+    const battery = hasBattery ? await this.readBattery() : null;
     // Both transports answer this, unlike polling. A transport that ever stops
     // reports no timeout and hides the control rather than failing the whole
     // read, which would take DPI and battery down with it.
-    const sleep = await this.request(RAZER_READ.sleepTimeout).catch(() => null);
-    const lowPower = await this.request(RAZER_READ.lowPowerThreshold).catch(() => null);
+    const sleep = hasBattery ? await this.request(RAZER_READ.sleepTimeout).catch(() => null) : null;
+    const lowPower = hasBattery ? await this.request(RAZER_READ.lowPowerThreshold).catch(() => null) : null;
     const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
     const pollingRateHz = await this.readPollingRateHz();
     return {
@@ -193,11 +230,11 @@ export class RazerHidClient {
         // Auto sleep is the only card this driver puts in that section, so the
         // section opens only when the mouse actually answered the sleep read.
         showAdvancedSection: sleep !== null,
-        forceShowBattery: true,
+        forceShowBattery: battery ? true : undefined,
         defaultDisplayName: this.profile()?.model,
       },
-      batteryPercent: decodeBatteryPercent(battery),
-      batteryState: charging ? "Charging" : "Discharging",
+      batteryPercent: battery?.percent ?? null,
+      batteryState: battery?.state ?? "Unknown",
       dpi: dpi.x,
       dpiY: dpi.y,
       supportsSeparateDpiAxes: true,
@@ -281,6 +318,12 @@ export class RazerHidClient {
     return confirmed;
   }
 
+  private async readBattery(): Promise<{ percent: number; state: MouseStatus["batteryState"] }> {
+    const level = await this.request(RAZER_READ.battery);
+    const charging = decodeCharging(await this.request(RAZER_READ.charging));
+    return { percent: decodeBatteryPercent(level), state: charging ? "Charging" : "Discharging" };
+  }
+
   /**
    * Wired answers only the legacy command and the receiver only the extended
    * one, so ask for the expected one first and keep the other as a fallback.
@@ -313,7 +356,8 @@ export class RazerHidClient {
 
   private async exchange(command: RazerCommand): Promise<Uint8Array> {
     await this.open();
-    await this.device.sendFeatureReport(RAZER_REPORT_ID, encodeRazerRequest(command));
+    const transactionId = this.profile()?.transactionId ?? RAZER_TRANSACTION_ID;
+    await this.device.sendFeatureReport(RAZER_REPORT_ID, encodeRazerRequest(command, transactionId));
     for (let attempt = 0; attempt < RESPONSE_ATTEMPTS; attempt += 1) {
       await this.delay(RESPONSE_DELAY_MS);
       const reply = this.copyDataView(await this.device.receiveFeatureReport(RAZER_REPORT_ID));

@@ -6,6 +6,7 @@ import {
   RAZER_READ,
   RAZER_STATUS,
   RAZER_TRANSACTION_ID,
+  RAZER_TRANSACTION_ID_LEGACY,
   RAZER_WRITE,
   RazerProtocolError,
   decodeBatteryPercent,
@@ -56,6 +57,32 @@ test("requests carry the transaction id, command and checksum", () => {
   assert.equal(packet[7], 0x81);
   assert.equal(packet[88], 0x83);
   assert.equal(packet[88], razerChecksum(packet));
+});
+
+test("a request can carry the older transaction id the Essential family uses", () => {
+  const packet = encodeRazerRequest(RAZER_READ.firmware, RAZER_TRANSACTION_ID_LEGACY);
+
+  assert.equal(packet[1], 0x3f);
+  assert.equal(packet[5], 0x02);
+  assert.equal(packet[7], 0x81);
+  assert.equal(packet[88], razerChecksum(packet));
+});
+
+test("the transaction id sits outside the checksummed range", () => {
+  // OpenRazer checksums bytes 2..87, so the same command checksums identically
+  // on either transaction id. A mismatch here would mean the range is wrong.
+  const modern = encodeRazerRequest(RAZER_READ.dpi, RAZER_TRANSACTION_ID);
+  const legacy = encodeRazerRequest(RAZER_READ.dpi, RAZER_TRANSACTION_ID_LEGACY);
+
+  assert.notEqual(modern[1], legacy[1]);
+  assert.equal(modern[88], legacy[88]);
+});
+
+test("legacy polling divisors match the documented Essential rate codes", () => {
+  // 0x01 = 1000 Hz, 0x02 = 500 Hz, 0x08 = 125 Hz.
+  for (const [hz, code] of [[1000, 0x01], [500, 0x02], [125, 0x08]] as const) {
+    assert.equal(encodeRazerRequest(razerSetLegacyPollingCommand(hz))[8], code);
+  }
 });
 
 test("request arguments are placed after the header", () => {

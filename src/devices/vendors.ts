@@ -41,6 +41,16 @@ export const RAZER_VIPER_V4_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00e5, 0x00e6
   (productId) => [0x01, 0x0c].map((usagePage) => ({ vendorId: VENDOR_ID.razer, productId, usagePage })),
 );
 
+// The DeathAdder Essential family splits its pointer and configuration
+// channels across separate interfaces, and which usage page carries the
+// configuration one varies by hardware revision. Request the whole device so
+// the picker can offer every interface, then the driver rejects the ones that
+// cannot answer. 0x006e is the original, 0x0071 the White Edition, 0x0098 the
+// 2021 revision.
+export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x0071, 0x0098].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId }),
+);
+
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
 // Logitech HID++ control interfaces addressed through a receiver slot (HID++
@@ -115,6 +125,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...RAZER_VIPER_V4_CONTROL_FILTERS,
+  ...RAZER_DEATHADDER_ESSENTIAL_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
