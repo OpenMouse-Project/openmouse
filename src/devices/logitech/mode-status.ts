@@ -52,3 +52,24 @@ export function buildModeStatusWrite<T extends string>(
 ): number[] {
   return [0x00, encodeModeStatus(statusByte, field, mode), 0x00, field.mask];
 }
+
+export interface ModeStatusUpdate {
+  field: ModeStatusField<string>;
+  mode: string;
+}
+
+/**
+ * One write covering several fields of the byte, with the change mask naming
+ * every bit touched. Both settings here share modeStatus1, so writing them
+ * separately costs two writes to a byte whose persistence is unknown, and the
+ * second is built from a read the first already invalidated.
+ */
+export function buildModeStatusWriteMany(statusByte: number, updates: ModeStatusUpdate[]): number[] {
+  let value = statusByte;
+  let mask = 0;
+  for (const update of updates) {
+    value = encodeModeStatus(value, update.field, update.mode);
+    mask |= update.field.mask;
+  }
+  return [0x00, value, 0x00, mask];
+}

@@ -13,6 +13,13 @@ export const RAZER_PACKET_LENGTH = 90;
 /** Verified against Viper V3 Pro firmware 1.12 on both transports. */
 export const RAZER_TRANSACTION_ID = 0x1f;
 
+/**
+ * Razer's older configuration interfaces answer on a different transaction id,
+ * and a mismatch is silent: the mouse simply never replies. OpenRazer uses this
+ * one for the DeathAdder Essential family.
+ */
+export const RAZER_TRANSACTION_ID_LEGACY = 0x3f;
+
 const ARGS_OFFSET = 8;
 const CHECKSUM_INDEX = 88;
 const CHECKSUM_FIRST = 2;
@@ -49,6 +56,8 @@ export const RAZER_READ = {
   serial: { commandClass: 0x00, commandId: 0x82, dataSize: 0x16 },
   battery: { commandClass: 0x07, commandId: 0x80, dataSize: 0x02 },
   charging: { commandClass: 0x07, commandId: 0x84, dataSize: 0x02 },
+  sleepTimeout: { commandClass: 0x07, commandId: 0x83, dataSize: 0x02 },
+  lowPowerThreshold: { commandClass: 0x07, commandId: 0x81, dataSize: 0x02 },
   dpi: { commandClass: 0x04, commandId: 0x85, dataSize: 0x07, args: [RAZER_STORAGE] },
   dpiStages: { commandClass: 0x04, commandId: 0x86, dataSize: 0x26, args: [0x00] },
   pollingRate: { commandClass: 0x00, commandId: 0x85, dataSize: 0x01 },
@@ -70,6 +79,8 @@ export const RAZER_WRITE = {
   pollingRateExtended: { commandClass: 0x00, commandId: 0x40, dataSize: 0x02 },
   liftOff: { commandClass: 0x0b, commandId: 0x05, dataSize: 0x0a },
   sensorSetting: { commandClass: 0x0b, commandId: 0x0b, dataSize: 0x04 },
+  sleepTimeout: { commandClass: 0x07, commandId: 0x03, dataSize: 0x02 },
+  lowPowerThreshold: { commandClass: 0x07, commandId: 0x01, dataSize: 0x02 },
 } as const satisfies Record<string, Omit<RazerCommand, "args">>;
 
 export function razerSetDpiCommand(x: number, y: number): RazerCommand {
@@ -77,6 +88,20 @@ export function razerSetDpiCommand(x: number, y: number): RazerCommand {
     ...RAZER_WRITE.dpi,
     args: [RAZER_STORAGE, (x >> 8) & 0xff, x & 0xff, (y >> 8) & 0xff, y & 0xff, 0x00, 0x00],
   };
+}
+
+/** Seconds, big-endian, in the same encoding the matching read returns. */
+export function razerSetSleepTimeoutCommand(seconds: number): RazerCommand {
+  return { ...RAZER_WRITE.sleepTimeout, args: [(seconds >> 8) & 0xff, seconds & 0xff] };
+}
+
+/**
+ * The payload mirrors the matching read byte for byte: the level on the 0–255
+ * scale first, then a trailing zero. Confirmed on hardware by writing 85% and
+ * finding `d9 00` still held after a reload.
+ */
+export function razerSetLowPowerThresholdCommand(percent: number): RazerCommand {
+  return { ...RAZER_WRITE.lowPowerThreshold, args: [encodeBatteryLevel(percent), 0x00] };
 }
 
 function pollingDivisor(ceiling: number, pollingRateHz: number): number {
@@ -170,8 +195,34 @@ export function decodeBatteryPercent(args: Uint8Array): number {
   return Math.round((args[1] * 100) / BATTERY_SCALE);
 }
 
+/**
+ * The low-power threshold shares the battery level's 0–255 scale rather than
+ * being a percentage, so 0x4d is 30% and reading it as a percent is wrong by a
+ * factor of two and a half.
+ *
+ * It also sits in the *first* argument byte, where battery, charging and sleep
+ * all pad with a leading zero and answer in the second. The mouse replied
+ * `4d 00` where Synapse showed 30%, so the class is not consistent about this
+ * and the shared decoder cannot be reused.
+ */
+export function decodeLowPowerThreshold(args: Uint8Array): number {
+  return Math.round((args[0] * 100) / BATTERY_SCALE);
+}
+
+export function encodeBatteryLevel(percent: number): number {
+  return Math.round((percent * BATTERY_SCALE) / 100);
+}
+
 export function decodeCharging(args: Uint8Array): boolean {
   return args[1] === 1;
+}
+
+/**
+ * Idle sleep is a whole number of seconds, unlike battery and charging in the
+ * same class, which pad their one meaningful byte with a leading zero.
+ */
+export function decodeSleepTimeout(args: Uint8Array): number {
+  return (args[0] << 8) | args[1];
 }
 
 export interface RazerDpi {
@@ -362,4 +413,3 @@ export function decodeExtendedPollingRate(args: Uint8Array): number {
   if (!args[1]) throw new RazerProtocolError("The mouse reported an unknown polling rate.");
   return Math.round(8000 / args[1]);
 }
-

@@ -15,11 +15,21 @@ export const VENDOR_ID = {
   finalmouse: 0x361d,
 } as const;
 
-// Viper V3 Pro exposes its control channel as a Generic Desktop Mouse
-// collection. Limit this broad collection filter to its two known PIDs so it
-// cannot also surface unrelated Razer keyboards or the Viper V4 Pro's ordinary
+// Viper V2/V3 Pro expose their control channel as a Generic Desktop Mouse
+// collection. Limit this broad collection filter to known PIDs so it cannot
+// also surface unrelated Razer keyboards or the Viper V4 Pro's ordinary
 // boot-mouse interfaces.
+export const RAZER_VIPER_V2_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00a5, 0x00a6].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
+);
+
 export const RAZER_VIPER_V3_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00c0, 0x00c1].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
+);
+
+// The Viper Mini answers on the same kind of single Generic Desktop Mouse
+// control interface as the V3 Pro, so it gets the same narrow collection filter.
+export const RAZER_VIPER_MINI_CONTROL_FILTERS: HIDDeviceFilter[] = [0x008a].map(
   (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
 );
 
@@ -29,6 +39,16 @@ export const RAZER_VIPER_V3_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00c0, 0x00c1
 // mouse/keyboard interfaces that lack the required report.
 export const RAZER_VIPER_V4_CONTROL_FILTERS: HIDDeviceFilter[] = [0x00e5, 0x00e6].flatMap(
   (productId) => [0x01, 0x0c].map((usagePage) => ({ vendorId: VENDOR_ID.razer, productId, usagePage })),
+);
+
+// The DeathAdder Essential family splits its pointer and configuration
+// channels across separate interfaces, and which usage page carries the
+// configuration one varies by hardware revision. Request the whole device so
+// the picker can offer every interface, then the driver rejects the ones that
+// cannot answer. 0x006e is the original, 0x0071 the White Edition, 0x0098 the
+// 2021 revision.
+export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x0071, 0x0098].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId }),
 );
 
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
@@ -46,9 +66,16 @@ export const LOGITECH_PRODUCT_IDS = [
   ...LOGITECH_DIRECT_PRODUCT_IDS,
 ] as const;
 
-export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = LOGITECH_PRODUCT_IDS.map(
-  (productId) => ({ vendorId: VENDOR_ID.logitech, productId, usagePage: 0xff00, usage: 0x0001 }),
-);
+/**
+ * Every Logitech HID++ control interface, not only the product ids listed
+ * above: a mouse we have never seen should still be offered. The usage page
+ * keeps this to HID++ endpoints, but it cannot tell a mouse from a keyboard or
+ * a headset — the driver decides that after connecting, by looking for a sensor
+ * feature, and reports a clear message when there is none.
+ */
+export const LOGITECH_RECEIVER_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.logitech, usagePage: 0xff00, usage: 0x0001 },
+];
 
 // Retained for existing imports; points at the first supported receiver.
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = LOGITECH_RECEIVER_FILTERS[0];
@@ -91,11 +118,14 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.lamzu },
   { vendorId: VENDOR_ID.orbital, usagePage: 0xff0a, usage: 1 },
   ...TEEVOLUTION_PRODUCT_IDS.map((productId) => ({ vendorId: VENDOR_ID.teevolution, productId })),
+  ...RAZER_VIPER_V2_CONTROL_FILTERS,
   ...RAZER_VIPER_V3_CONTROL_FILTERS,
+  ...RAZER_VIPER_MINI_CONTROL_FILTERS,
   { vendorId: VENDOR_ID.vgn, productId: 0xfb56 },
   { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...RAZER_VIPER_V4_CONTROL_FILTERS,
+  ...RAZER_DEATHADDER_ESSENTIAL_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
