@@ -53,6 +53,10 @@ export function initGameMode(): void {
   document.querySelector<HTMLButtonElement>("#background-service-update")?.addEventListener("click", onUpdateClick);
   document.querySelector<HTMLButtonElement>("#background-service-open-logs")?.addEventListener("click", () => client.openServicePath("logs"));
   document.querySelector<HTMLButtonElement>("#background-service-open-game-list")?.addEventListener("click", () => client.openServicePath("gameList"));
+  // A denial stops the client's own reconnect loop on purpose, so without this
+  // the page stays refused until a manual reload even once the service is
+  // willing to talk again.
+  document.querySelector<HTMLButtonElement>("#background-service-retry")?.addEventListener("click", () => client.connect());
   bindPreferenceCheckbox("#service-detection-enabled", "detectionEnabled");
   bindPreferenceCheckbox("#service-start-with-windows", "startWithWindows");
   bindPreferenceCheckbox("#service-notifications-enabled", "notificationsEnabled");
@@ -172,7 +176,9 @@ function findDeviceEntry(deviceKey: string): DeviceStatus | undefined {
 const BADGE_TEXT: Record<ConnectionState, string> = {
   disconnected: "DISCONNECTED",
   connecting: "CONNECTING",
-  denied: "BLOCKED",
+  // Not "BLOCKED": nothing the user did is blocking anything, and it reads as
+  // a browser permission problem when it is the service declining this origin.
+  denied: "REFUSED",
   connected: "CONNECTED",
 };
 
@@ -185,11 +191,19 @@ function render(): void {
   }
 
   const connected = companionState === "connected";
+  const refused = companionState === "denied";
   const setup = document.querySelector<HTMLElement>("#background-service-setup");
   const connectedContent = document.querySelector<HTMLElement>("#background-service-connected");
-  if (setup) setup.hidden = connected;
+  const refusedContent = document.querySelector<HTMLElement>("#background-service-refused");
+  // A refused connection proves the service is installed and running, so the
+  // install-and-allow onboarding is actively misleading there. Show why it was
+  // turned away and a way to retry instead.
+  if (setup) setup.hidden = connected || refused;
   if (connectedContent) connectedContent.hidden = !connected;
-  renderPermissionGraphic(connected);
+  if (refusedContent) refusedContent.hidden = !refused;
+  const origin = document.querySelector<HTMLElement>("#background-service-refused-origin");
+  if (origin) origin.textContent = window.location.origin;
+  renderPermissionGraphic(connected || refused);
 
   const version = document.querySelector<HTMLElement>("#background-service-version");
   if (version) version.textContent = latestStatusMessage?.serviceVersion ? `v${latestStatusMessage.serviceVersion}` : "";
@@ -224,7 +238,7 @@ function renderPermissionGraphic(connected: boolean): void {
 
 function statusNote(): string {
   if (companionState === "connecting") return "Connecting to Background Service…";
-  if (companionState === "denied") return "Connection blocked. Approve OpenMouse Background Service in its tray popup, then reload this page.";
+  if (companionState === "denied") return "The Background Service does not accept connections from this site.";
   if (companionState === "disconnected") return "Complete the steps above, then reload this page.";
   if (latestStatusMessage && !latestStatusMessage.detectionEnabled) return "App detection is paused above.";
   if (deviceConnected && !deviceReady) return `Game Mode does not support ${deviceName || "this mouse"} yet.`;

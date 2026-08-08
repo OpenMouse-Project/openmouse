@@ -169,6 +169,13 @@ export function controlTemplate(buildLabel: string): string {
               <div class="service-permission-help"><span>i</span><small>Not connecting? Make sure OpenMouse Background Service is running.</small></div>
             </article>
           </div>
+          <div id="background-service-refused" class="background-service-refused" hidden>
+            <article class="background-service-step">
+              <div class="background-service-step-heading"><h3>The Background Service turned this site away</h3></div>
+              <p>It is running, but it does not accept connections from <span id="background-service-refused-origin" class="background-service-origin"></span>. Only the official OpenMouse site can control it. If you are running OpenMouse locally, use a debug build of the service.</p>
+              <button id="background-service-retry" class="background-service-primary-action" type="button">Try again</button>
+            </article>
+          </div>
           <div id="background-service-connected" class="background-service-connected" hidden>
             <section class="background-service-section" aria-labelledby="background-service-version-title">
               <div class="background-service-section-heading">

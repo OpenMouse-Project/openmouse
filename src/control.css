@@ -107,6 +107,8 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .background-service-step p { margin: 0 0 .7rem; color: var(--muted); font-size: .74rem; line-height: 1.5; }
 .background-service-step p:last-child { margin-bottom: 0; }
 .background-service-download { display: inline-flex; padding: .55rem .9rem; border-radius: 7px; background: var(--ui-accent); color: var(--ui-accent-ink); font-size: .74rem; font-weight: 700; }
+.background-service-refused p { margin: 0 0 .9rem; color: var(--dim); font-size: .84rem; line-height: 1.5; }
+.background-service-origin { font-family: var(--font-mono); font-size: .8rem; color: var(--bright); }
 .background-service-footnote { display: block; margin-top: .5rem; color: var(--faint); font-size: .68rem; }
 .background-service-permission-state[hidden] { display: none; }
 .service-permission-demo { display: flex; justify-content: center; margin-top: .8rem; padding: 2rem 1.25rem; overflow: hidden; border: 1px solid #232824; border-radius: 10px; background: #0e100f; }
