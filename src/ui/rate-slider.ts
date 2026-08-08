@@ -1,4 +1,5 @@
-import { escapeHtml } from "./dom";
+// Explicit extension so node --test can resolve this module (see rate-slider.test.ts).
+import { escapeHtml } from "./dom.ts";
 
 /** Fallback stops for a driver that does not advertise a rate list. */
 export const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
@@ -6,6 +7,17 @@ export const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
 /** 125 to "125", 8000 to "8K": the scale has to fit under a narrow card. */
 export function shortRate(hz: number): string {
   return hz >= 1000 ? `${hz / 1000}K` : String(hz);
+}
+
+/**
+ * The supported rate closest to a target, for picking a default against a
+ * mouse whose list does not contain it. Ties go to the lower rate, so a
+ * default never silently lands on the faster, more power-hungry option.
+ */
+export function nearestRate(options: readonly number[], targetHz: number): number | null {
+  if (options.length === 0) return null;
+  return options.reduce((best, hz) =>
+    Math.abs(hz - targetHz) < Math.abs(best - targetHz) ? hz : best);
 }
 
 /**

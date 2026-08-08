@@ -3,7 +3,8 @@ import { buildFingerprint } from "./fingerprint";
 import type { DeviceStatus, StatusMessage, UpdateStatusMessage } from "./types";
 import { GameModeClient, type ConnectionState } from "./ws-client";
 import type { MouseStatus } from "../devices/mouse-types";
-import { RATE_STEPS_HZ, previewRateSlider, rateFromSlider, renderRateSlider } from "../ui/rate-slider";
+import { RATE_STEPS_HZ, nearestRate, previewRateSlider, rateFromSlider, renderRateSlider } from "../ui/rate-slider";
+import { permissionGraphicFor, type LocalNetworkPermissionState } from "./permission-state";
 
 const DEFAULT_IDLE_HZ = 1000;
 const DEFAULT_GAMING_HZ = 4000;
@@ -15,9 +16,14 @@ let idleRateHz = DEFAULT_IDLE_HZ;
 let gamingRateHz = DEFAULT_GAMING_HZ;
 let companionState: ConnectionState = "disconnected";
 let deviceReady = false; // a supported device is connected on the control page
+let deviceConnected = false; // a device is connected, supported by Game Mode or not
+let deviceName = "";
 let capturing = false;
+/** Device keys already auto-enrolled this page load, so a failed attempt never retries in a loop. */
+const autoEnrolled = new Set<string>();
 let updateStatus: UpdateStatusMessage | null = null;
 let checkedServiceVersion: string | null = null;
+let localNetworkPermissionState: LocalNetworkPermissionState = "checking";
 
 const client = new GameModeClient({
   onStateChange: (state) => { companionState = state; if (state !== "connected") currentDeviceKey = null; render(); },
@@ -25,6 +31,8 @@ const client = new GameModeClient({
     latestStatusMessage = status;
     applyStoredRatesIfKnown();
     render();
+    // Also covers the mouse being connected before the service was running.
+    void enableByDefaultIfNew();
     if (checkedServiceVersion !== status.serviceVersion) {
       checkedServiceVersion = status.serviceVersion;
       client.checkForUpdates();
@@ -52,7 +60,32 @@ export function initGameMode(): void {
   bindSlider("#game-mode-idle-slider", (hz) => { idleRateHz = hz; void reapplyIfEnabled(); });
   bindSlider("#game-mode-gaming-slider", (hz) => { gamingRateHz = hz; void reapplyIfEnabled(); });
 
+  void watchLocalNetworkPermission();
   client.connect();
+}
+
+async function watchLocalNetworkPermission(): Promise<void> {
+  if (!navigator.permissions) {
+    localNetworkPermissionState = "unsupported";
+    render();
+    return;
+  }
+
+  for (const name of ["loopback-network", "local-network-access"]) {
+    try {
+      const status = await navigator.permissions.query({ name } as PermissionDescriptor);
+      const update = () => {
+        localNetworkPermissionState = status.state;
+        render();
+      };
+      status.addEventListener("change", update);
+      update();
+      return;
+    } catch { /* Try Chromium's compatibility alias next. */ }
+  }
+
+  localNetworkPermissionState = "unsupported";
+  render();
 }
 
 function bindPreferenceCheckbox(
@@ -78,6 +111,9 @@ function bindSlider(selector: string, onCommit: (hz: number) => void): void {
 /** Called from control.ts's showStatus() whenever the active device/status changes. supported comes from support.ts's isGameModeSupported() against the real SupportedClient union, which this module intentionally doesn't import (it only needs the narrower PollingRateClient shape). */
 export function refreshGameModeCard(status: MouseStatus, supported: boolean, device: HIDDevice | null): void {
   deviceReady = supported && device !== null;
+  deviceConnected = device !== null;
+  // Several drivers already include the brand in name ("Finalmouse UltralightX").
+  deviceName = status.name?.startsWith(status.brand) ? status.name : `${status.brand} ${status.name}`.trim();
 
   if (!deviceReady || !device) {
     currentDeviceKey = null;
@@ -88,10 +124,17 @@ export function refreshGameModeCard(status: MouseStatus, supported: boolean, dev
 
   currentRates = (status.supportedPollingRates?.length ? status.supportedPollingRates : RATE_STEPS_HZ).slice().sort((a, b) => a - b);
 
+  // Keep the defaults, but never offer a rate this mouse cannot do: auto
+  // enrollment would otherwise enroll an unsupported value. An already-valid
+  // rate (a default that fits, or one the user just picked) is left alone.
+  gamingRateHz = nearestRate(currentRates, gamingRateHz) ?? gamingRateHz;
+  idleRateHz = nearestRate(currentRates, idleRateHz) ?? idleRateHz;
+
   void computeDeviceKey(device.vendorId, device.productId, buildFingerprint(device)).then((key) => {
     currentDeviceKey = key;
     applyStoredRatesIfKnown();
     render();
+    void enableByDefaultIfNew();
   });
 
   render();
@@ -104,6 +147,22 @@ function applyStoredRatesIfKnown(): void {
   setToggleChecked(entry.gameModeEnabled);
   if (entry.idleRateHz) idleRateHz = entry.idleRateHz;
   if (entry.gamingRateHz) gamingRateHz = entry.gamingRateHz;
+}
+
+/**
+ * Game Mode is the entire reason the Background Service exists, so a
+ * supported mouse plus a running service enrolls itself instead of waiting
+ * for a click. Once per device key per page load: a device the user has
+ * explicitly switched off comes back as a status entry with
+ * gameModeEnabled=false and is left alone.
+ */
+async function enableByDefaultIfNew(): Promise<void> {
+  if (companionState !== "connected" || !deviceReady || capturing) return;
+  if (!currentDeviceKey || autoEnrolled.has(currentDeviceKey)) return;
+  if (findDeviceEntry(currentDeviceKey)) return; // already known to the service
+
+  autoEnrolled.add(currentDeviceKey);
+  await captureAndEnroll();
 }
 
 function findDeviceEntry(deviceKey: string): DeviceStatus | undefined {
@@ -130,6 +189,7 @@ function render(): void {
   const connectedContent = document.querySelector<HTMLElement>("#background-service-connected");
   if (setup) setup.hidden = connected;
   if (connectedContent) connectedContent.hidden = !connected;
+  renderPermissionGraphic(connected);
 
   const version = document.querySelector<HTMLElement>("#background-service-version");
   if (version) version.textContent = latestStatusMessage?.serviceVersion ? `v${latestStatusMessage.serviceVersion}` : "";
@@ -138,9 +198,6 @@ function render(): void {
   setCheckbox("#service-start-with-windows", latestStatusMessage?.startWithWindows ?? false, !connected);
   setCheckbox("#service-notifications-enabled", latestStatusMessage?.notificationsEnabled ?? false, !connected);
 
-  const pairedDeviceCount = latestStatusMessage?.devices.length ?? 0;
-  const accessState = document.querySelector<HTMLElement>("#service-paired-device-count");
-  if (accessState) accessState.textContent = pairedDeviceCount === 0 ? "NONE" : `${pairedDeviceCount} PAIRED`;
   renderUpdateStatus();
 
   const ready = connected && deviceReady;
@@ -155,11 +212,22 @@ function render(): void {
   if (status) status.textContent = statusNote();
 }
 
+function renderPermissionGraphic(connected: boolean): void {
+  const graphic = permissionGraphicFor(localNetworkPermissionState, connected);
+  const step = document.querySelector<HTMLElement>("#background-service-permission-step");
+  const prompt = document.querySelector<HTMLElement>("#background-service-permission-prompt");
+  const settings = document.querySelector<HTMLElement>("#background-service-permission-settings");
+  if (step) step.hidden = graphic === null;
+  if (prompt) prompt.hidden = graphic !== "prompt";
+  if (settings) settings.hidden = graphic !== "settings";
+}
+
 function statusNote(): string {
   if (companionState === "connecting") return "Connecting to Background Service…";
   if (companionState === "denied") return "Connection blocked. Approve OpenMouse Background Service in its tray popup, then reload this page.";
   if (companionState === "disconnected") return "Complete the steps above, then reload this page.";
   if (latestStatusMessage && !latestStatusMessage.detectionEnabled) return "App detection is paused above.";
+  if (deviceConnected && !deviceReady) return `Game Mode does not support ${deviceName || "this mouse"} yet.`;
   if (!deviceReady) return "Connect a supported mouse to enable Game Mode.";
   return "";
 }
