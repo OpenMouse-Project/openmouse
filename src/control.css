@@ -113,6 +113,9 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .empty-connect-action:disabled { cursor: wait; opacity: .6; transform: none; }
 
 .device-overview { display: grid; grid-template-columns: 1.45fr 1fr; min-height: 330px; overflow: hidden; scroll-margin-top: 1.5rem; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--card); }
+.device-overview .device-thumbnail { display: flex; overflow: hidden; align-items: center; justify-content: center; padding: .5rem; border-right: 1px solid var(--line-soft); background: radial-gradient(circle at 50% 45%, #232327 0, #141416 72%); }
+.device-overview .device-thumbnail[hidden] { display: none; }
+.device-overview .device-thumbnail img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 5px 9px rgb(0 0 0 / 60%)); }
 .device-overview .summary-stat { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 1.1rem 1.35rem; border-right: 1px solid var(--line-soft); }
 .device-overview .summary-stat:last-child { border-right: 0; }
 .device-overview .summary-stat > span { margin-bottom: .45rem; color: var(--faint); font-family: var(--font-mono); font-size: .6rem; letter-spacing: .09em; }

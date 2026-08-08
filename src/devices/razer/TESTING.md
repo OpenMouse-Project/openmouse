@@ -28,8 +28,8 @@ The cable and the receiver are separate devices with separate product IDs, so
 each needs its own browser permission. Granting one does not grant the other,
 and switching between them the first time means adding the device again.
 
-DPI and polling rate can be written. Every other control is withheld because no
-command for it has been confirmed.
+DPI, polling rate, idle sleep and the low power threshold can be written. Every
+other control is withheld because no command for it has been confirmed.
 
 1. Connect the mouse over the cable and confirm the model, wired state, battery,
    charging state, DPI, and polling rate are correct.
@@ -42,11 +42,23 @@ command for it has been confirmed.
 5. Change the polling rate on each connection and confirm it persists. The cable
    offers 125/500/1000 and the receiver adds 2000/4000/8000; no other rate
    should appear.
-6. Confirm no lift-off distance buttons and no sensor processing card appear.
-7. Leave the panel open for a few minutes and confirm the background refresh
-   keeps reporting without stalling or throwing.
-8. Record the device identifier, firmware version, and any failing setting in the
-   issue or pull request.
+6. Confirm no lift-off distance buttons, no sensor processing card and no
+   receiver signal card appear.
+7. Change the auto sleep timeout **on the cable and again on the receiver**,
+   reloading each time to confirm the new value persisted. Unlike polling, both
+   transports answer `0x07`/`0x83`, so the card belongs on both.
+8. Set an off-list timeout in Synapse (7 minutes, say) and confirm the dropdown
+   offers and selects it rather than falling back to a value the mouse is not
+   holding. Values outside 30 s–15 min are not added to the list, because the
+   driver would refuse to write them back.
+9. Confirm the low power percentage matches what Synapse shows **before**
+   changing it — the read is what proves the 0–255 scale is being decoded
+   correctly. Then change it, reload, and confirm it persisted. At 2000 Hz and
+   above the dropdown should be disabled with a note, not hidden.
+10. Leave the panel open for a few minutes and confirm the background refresh
+    keeps reporting without stalling or throwing.
+11. Record the device identifier, firmware version, and any failing setting in
+    the issue or pull request.
 
 ## Verified against firmware 1.12
 
@@ -56,6 +68,8 @@ command for it has been confirmed.
 | Serial | `0x00` / `0x82` | ASCII, null terminated |
 | Battery | `0x07` / `0x80` | level out of 255 |
 | Charging | `0x07` / `0x84` | |
+| Idle sleep | `0x07` / `0x83` | seconds, big-endian |
+| Low power | `0x07` / `0x81` | level out of 255 in the **first** byte, so 77 is 30% |
 | DPI | `0x04` / `0x85` | big-endian X and Y |
 | DPI stages | `0x04` / `0x86` | seven-byte records; decoded but not yet shown |
 | Polling, legacy | `0x00` / `0x85` | divisor of 1000; **wired only** |
@@ -68,6 +82,8 @@ Each write clears the high bit of the matching read.
 | DPI | `0x04` / `0x05` | storage byte, then big-endian X and Y |
 | Polling, legacy | `0x00` / `0x05` | divisor of 1000; **wired only** |
 | Polling, extended | `0x00` / `0x40` | leading `0x00`, then divisor of 8000 |
+| Idle sleep | `0x07` / `0x03` | seconds, big-endian |
+| Low power | `0x07` / `0x01` | level out of 255, then trailing `0x00` |
 
 Transaction ID `0x1f` answered every command on both connections. Writes were
 confirmed by effect, not only by read-back: a DPI change altered pointer speed,
@@ -76,20 +92,58 @@ and a 500 Hz write measured 499 Hz through `pointerrawupdate`.
 The cable is limited to 1000 Hz on this model, which is also the ceiling the
 legacy encoding can express, so no HyperPolling command is missing there.
 
-## Confirmed but not exposed
+## Idle sleep range
 
-| Setting | Read | Write | Encoding |
-| --- | --- | --- | --- |
-| Idle sleep | `0x07` / `0x83` | `0x07` / `0x03` | seconds, big-endian; 60–900 |
-| Low battery | `0x07` / `0x81` | `0x07` / `0x01` | level out of 255, so 77 is 30% |
+Synapse slides from **1 to 15 minutes** in whole minutes, so the dropdown offers
+one entry per minute across that range and nothing is interpolated.
 
-Both round-trip on hardware and agree with the vendor software. Neither is wired
-to the interface: the sleep and debounce controls are filled per brand rather
-than per capability, so exposing them means changing how the shell picks those
-controls rather than adding a driver method.
+The firmware is looser than the vendor software: 30 seconds round-tripped
+exactly, with status `0x02`, which is below even the 60 s floor OpenRazer
+documents. Neither bound describes what the mouse enforces. The driver follows
+Synapse anyway, because a value nothing else offers has no way to be checked
+against the vendor behaviour.
 
-Note the low-battery threshold shares the battery level's 0–255 scale. Reading
-it as a percentage gives the wrong number.
+A timeout outside 1–15 minutes — set by a sweep script, say — cannot be shown as
+a selected option without either rendering the dropdown blank or offering a
+value the driver would refuse to write. The card is hidden in that case rather
+than displaying a value the mouse is not holding.
+
+## Low power mode
+
+Synapse slides this from **5 to 100 percent**, so the dropdown offers every
+fifth percent across that range.
+
+The threshold is stored on the battery level's **0–255 scale, not as a
+percentage**: the mouse held `0x4d` — 77 out of 255 — while Synapse displayed
+30%. Reading it as a percentage is wrong by a factor of two and a half.
+
+It also answers in the **first** argument byte. Battery (`00 eb`), charging
+(`00 00`) and sleep (`00 78`) all pad with a leading zero and answer in the
+second, so this command is the exception in its own class — the captured reply
+is `4d 00`. Decoding it like its neighbours yields a constant zero, which then
+falls below the 5% floor and hides the card rather than showing a wrong number.
+Both facts are pinned in `protocol.test.ts`.
+
+The
+scale is coarser than whole percent, so every offered value is checked in
+`protocol.test.ts` to survive the round trip; one that did not would fail its
+read-back and reject a setting the panel had just offered.
+
+Synapse also states that **low power mode is unavailable at 2000 Hz and above**
+and greys the slider out there. The threshold still reads at any rate, so the
+driver disables the control and explains why rather than hiding it.
+
+The disabled control is not what enforces that rule. The panel repaints from a
+status that already includes staged changes, so staging a jump to 4000 Hz greys
+the dropdown while a threshold staged a moment earlier still sits in the queue.
+`setLowPowerThreshold` therefore reads the rate back from the mouse and refuses
+there, where a repaint cannot reach it.
+
+The write mirrors that payload — level first, then a trailing zero — and is
+confirmed on hardware: writing 85% left the mouse holding `d9 00`, which
+survived a reload and agreed with Synapse. `0xd9` is 217, and 85% encodes to 217
+only because 216.75 rounds up, so that capture pins the rounding in both
+directions rather than only the byte order.
 
 ## Lift-off distance
 
@@ -111,6 +165,12 @@ needs a richer type before it can be exposed even once the command is found.
   have been found, so that card stays hidden. The vendor software does not
   expose them for this model either, so they are more likely absent from the
   mouse than missing from this driver.
+- No command reports link quality, so the signal-strength card is hidden through
+  `ui.hideSignalCard` rather than left rendering its placeholder. This matters
+  because it shares a section with the sleep card, which this driver opens.
+- The sleep read is answered on both transports, unlike polling. A transport
+  that ever stops answering reports no timeout, and the card is hidden for that
+  connection instead of failing the whole status read.
 - The 35000 DPI ceiling comes from the published sensor specification, not from
   the mouse; the stages read only proves the 400–6400 ladder. A write past the
   real ceiling fails its read-back and reports a mismatch rather than silently

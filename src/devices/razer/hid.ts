@@ -11,12 +11,16 @@ import {
   decodeExtendedPollingRate,
   decodeFirmwareVersion,
   decodeLegacyPollingRate,
+  decodeLowPowerThreshold,
   decodeRazerResponse,
   decodeSerial,
+  decodeSleepTimeout,
   encodeRazerRequest,
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
+  razerSetLowPowerThresholdCommand,
+  razerSetSleepTimeoutCommand,
   type RazerCommand,
 } from "./protocol.ts";
 
@@ -48,6 +52,35 @@ const DPI_MIN = 100;
 const DPI_MAX = 35000;
 const RESPONSE_DELAY_MS = 100;
 const RESPONSE_ATTEMPTS = 6;
+
+// The vendor software slides from 1 to 15 minutes, so those are the bounds this
+// model is meant to hold. The firmware itself accepts less — 30 s round-tripped
+// exactly, below even the 60 s floor OpenRazer documents — but nothing offers
+// that, so it is not offered here either.
+const SLEEP_MIN_SECONDS = 60;
+const SLEEP_MAX_SECONDS = 900;
+const SLEEP_STEP_SECONDS = 60;
+// One entry per minute, matching the vendor slider exactly rather than sampling
+// it, so no offered value is an interpolation.
+const SLEEP_OPTIONS: readonly number[] = Array.from(
+  { length: SLEEP_MAX_SECONDS / SLEEP_STEP_SECONDS },
+  (_, index) => (index + 1) * SLEEP_STEP_SECONDS,
+);
+
+// Synapse slides this from 5 to 100 percent. The value is stored on the battery
+// reads' 0–255 scale, so the offered percentages are what round-trip cleanly
+// through it rather than every whole percent.
+const LOW_POWER_MIN_PERCENT = 5;
+const LOW_POWER_MAX_PERCENT = 100;
+const LOW_POWER_STEP_PERCENT = 5;
+const LOW_POWER_OPTIONS: readonly number[] = Array.from(
+  { length: (LOW_POWER_MAX_PERCENT - LOW_POWER_MIN_PERCENT) / LOW_POWER_STEP_PERCENT + 1 },
+  (_, index) => LOW_POWER_MIN_PERCENT + index * LOW_POWER_STEP_PERCENT,
+);
+// Synapse states low power mode is unavailable at 2000 Hz and above, and greys
+// the slider out there. The setting still reads, so this bounds the control
+// rather than the command.
+const LOW_POWER_MAX_POLLING_HZ = 1000;
 
 /**
  * Razer exposes its control channel on the interface whose only collection is
@@ -105,6 +138,21 @@ export class RazerHidClient {
     return [...(this.profile()?.pollingRates ?? RATES_WIRED)];
   }
 
+  /** Seconds, matching what the panel labels and what `setSleepTimeout` takes. */
+  getSleepOptions(): number[] {
+    return [...SLEEP_OPTIONS];
+  }
+
+  /** Whole percentages, matching the vendor slider. */
+  getLowPowerOptions(): number[] {
+    return [...LOW_POWER_OPTIONS];
+  }
+
+  /** The rate above which the vendor software refuses to arm low power mode. */
+  getLowPowerPollingCeiling(): number {
+    return LOW_POWER_MAX_POLLING_HZ;
+  }
+
   /** Every whole value, because the control validates entries against this list. */
   getDpiOptions(): number[] {
     const options: number[] = [];
@@ -120,6 +168,11 @@ export class RazerHidClient {
     const serial = await this.once("serial", () => this.request(RAZER_READ.serial).catch(() => null));
     const battery = await this.request(RAZER_READ.battery);
     const charging = decodeCharging(await this.request(RAZER_READ.charging));
+    // Both transports answer this, unlike polling. A transport that ever stops
+    // reports no timeout and hides the control rather than failing the whole
+    // read, which would take DPI and battery down with it.
+    const sleep = await this.request(RAZER_READ.sleepTimeout).catch(() => null);
+    const lowPower = await this.request(RAZER_READ.lowPowerThreshold).catch(() => null);
     const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
     const pollingRateHz = await this.readPollingRateHz();
     return {
@@ -133,6 +186,13 @@ export class RazerHidClient {
         // No lift-off or sensor-processing command is confirmed, so neither
         // control is offered rather than offered and left inert.
         hideProcessingCard: true,
+        // Nothing reports link quality on this model, and the section this card
+        // shares with sleep is opened below, so it would otherwise appear as a
+        // permanent "signal is unavailable" placeholder.
+        hideSignalCard: true,
+        // Auto sleep is the only card this driver puts in that section, so the
+        // section opens only when the mouse actually answered the sleep read.
+        showAdvancedSection: sleep !== null,
         forceShowBattery: true,
         defaultDisplayName: this.profile()?.model,
       },
@@ -146,6 +206,8 @@ export class RazerHidClient {
       activeProfile: null,
       connectionType: wireless ? "Wireless" : "Wired",
       connectionDetail: wireless ? "HyperSpeed receiver" : "Wired USB",
+      sleepTimeout: sleep ? decodeSleepTimeout(sleep) : null,
+      lowBatteryWarning: lowPower ? decodeLowPowerThreshold(lowPower) : null,
       unitId: serial ? decodeSerial(serial) : null,
       liftOffDistance: null,
       supportedLiftOffDistances: [],
@@ -166,6 +228,43 @@ export class RazerHidClient {
       throw new Error(`The mouse kept ${confirmed.x.toLocaleString()} DPI instead of ${dpi.toLocaleString()}.`);
     }
     return confirmed.x;
+  }
+
+  async setSleepTimeout(seconds: number): Promise<number> {
+    if (!Number.isInteger(seconds) || seconds < SLEEP_MIN_SECONDS || seconds > SLEEP_MAX_SECONDS) {
+      const minutes = SLEEP_MAX_SECONDS / SLEEP_STEP_SECONDS;
+      throw new Error(`Auto sleep must be between 1 and ${minutes} minutes.`);
+    }
+    await this.request(razerSetSleepTimeoutCommand(seconds));
+    const confirmed = decodeSleepTimeout(await this.request(RAZER_READ.sleepTimeout));
+    if (confirmed !== seconds) {
+      throw new Error(`The mouse kept ${confirmed} seconds instead of ${seconds}.`);
+    }
+    return confirmed;
+  }
+
+  async setLowPowerThreshold(percent: number): Promise<number> {
+    // A range rather than the offered list: the panel adds the mouse's own value
+    // when it sits off the five-point step, and that value must stay writable.
+    if (!Number.isInteger(percent) || percent < LOW_POWER_MIN_PERCENT || percent > LOW_POWER_MAX_PERCENT) {
+      throw new Error(`Low power mode must be between ${LOW_POWER_MIN_PERCENT}% and ${LOW_POWER_MAX_PERCENT}%.`);
+    }
+    // Asked of the mouse, not the panel. Staging a polling change repaints the
+    // control as disabled without withdrawing a threshold already queued behind
+    // it, so the disabled select cannot be what enforces this.
+    const pollingRateHz = await this.readPollingRateHz();
+    if (pollingRateHz > LOW_POWER_MAX_POLLING_HZ) {
+      throw new Error(
+        `Low power mode is unavailable at ${pollingRateHz.toLocaleString()} Hz.`
+        + ` Set the polling rate to ${LOW_POWER_MAX_POLLING_HZ.toLocaleString()} Hz or lower first.`,
+      );
+    }
+    await this.request(razerSetLowPowerThresholdCommand(percent));
+    const confirmed = decodeLowPowerThreshold(await this.request(RAZER_READ.lowPowerThreshold));
+    if (confirmed !== percent) {
+      throw new Error(`The mouse kept ${confirmed}% instead of ${percent}%.`);
+    }
+    return confirmed;
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {

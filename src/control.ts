@@ -27,6 +27,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "./pending-changes";
+import { deviceImage } from "./ui/device-images";
 import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
 import { renderPendingBar, setPendingBarBusy, setPendingBarStatus } from "./ui/pending-bar";
 import {
@@ -157,6 +158,8 @@ function endDeviceWrite(): void {
 }
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+/** Art whose file did not load, so repaints stop re-requesting it. */
+const unreachableImages = new Set<string>();
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
@@ -387,6 +390,7 @@ function renderControl(): void {
     toggleDongleLed,
     applyPulsarValue,
     toggleSleep: (enabled) => applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER),
+    applyLowPowerThreshold,
     applyPulsarToggle,
     applyEggFilter,
     applyEggSpdtMode,
@@ -679,6 +683,26 @@ function fillSleepOptions(options: ReadonlyArray<readonly [number, string]>): vo
   select.dataset.options = signature;
 }
 
+/**
+ * Stepped options for a setting the mouse stores continuously. The device's own
+ * value joins the list when it falls between the offered ones, because a value
+ * matching no option renders the select blank; a value outside them altogether
+ * returns null, since the panel can neither show it nor write it back.
+ */
+function selectableValues(offered: number[], current: number | null | undefined): number[] | null {
+  if (current === null || current === undefined) return null;
+  if (current < offered[0] || current > offered[offered.length - 1]) return null;
+  return offered.includes(current) ? offered : [...offered, current].sort((left, right) => left - right);
+}
+
+function fillPercentOptions(selector: string, values: readonly number[]): void {
+  const select = document.querySelector<HTMLSelectElement>(selector);
+  const signature = values.join(",");
+  if (!select || select.dataset.options === signature) return;
+  select.replaceChildren(...values.map((value) => new Option(`${value}%`, String(value))));
+  select.dataset.options = signature;
+}
+
 function fillDebounceOptions(maxMs: number): void {
   const select = document.querySelector<HTMLSelectElement>("#debounce-select");
   if (!select || select.dataset.max === String(maxMs)) return;
@@ -699,6 +723,11 @@ function resetDeviceSpecificPanels(): void {
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
+  }
+  // Shown through the hidden attribute rather than display, and only ever set
+  // by the driver that owns them, so nothing else would clear them on a switch.
+  for (const selector of ["#low-power-settings", "#device-thumbnail"]) {
+    document.querySelector<HTMLElement>(selector)?.setAttribute("hidden", "");
   }
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
   for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
@@ -974,6 +1003,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   const isEgg = isEgg8k || isEggWe;
   const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || activeDmClient !== null;
   const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
+  const isRazer = ui?.family === "razer" || activeRazerClient !== null;
   const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
@@ -992,7 +1022,28 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (overview) {
     const showBatteryColumn = !isEgg8k
       && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
-    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    const stats = showBatteryColumn ? 3 : 2;
+    const artwork = deviceImage(activeDevice);
+    const thumbnail = document.querySelector<HTMLElement>("#device-thumbnail");
+    const thumbnailImage = document.querySelector<HTMLImageElement>("#device-thumbnail-image");
+    // Art is optional for every device, so the stat columns stay the layout and
+    // the thumbnail only ever prepends a column to it.
+    const showArtwork = artwork !== null && !unreachableImages.has(artwork);
+    const statColumns = `repeat(${stats}, 1fr)`;
+    if (thumbnail) thumbnail.hidden = !showArtwork;
+    overview.style.gridTemplateColumns = showArtwork ? `112px ${statColumns}` : statColumns;
+    if (thumbnailImage && artwork && showArtwork && thumbnailImage.dataset.source !== artwork) {
+      thumbnailImage.dataset.source = artwork;
+      // A file that never shipped alongside its mapping would otherwise leave an
+      // empty column. Recorded so later repaints stop asking for it.
+      thumbnailImage.onerror = () => {
+        unreachableImages.add(artwork);
+        thumbnail?.setAttribute("hidden", "");
+        overview.style.gridTemplateColumns = statColumns;
+      };
+      thumbnailImage.src = artwork;
+    }
+    if (thumbnailImage) thumbnailImage.alt = status.name;
   }
   setText("#polling-note", ui?.pollingNote
     ?? (isEgg8k
@@ -1014,7 +1065,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
-  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse;
+  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse || ui?.hideSignalCard === true;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
     const hidePerformanceMode = isEgg || isDmFamily || isFinalmouse;
@@ -1049,7 +1100,8 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isEgg8k || isDmFamily || isFinalmouse;
+    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isEgg8k || isDmFamily || isFinalmouse
+      || ui?.showAdvancedSection === true;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -1070,6 +1122,33 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#motion-sync-toggle", status.motionSync);
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
+  }
+  if (isRazer && activeRazerClient) {
+    const seconds = selectableValues(activeRazerClient.getSleepOptions(), status.sleepTimeout);
+    const sleepSettings = document.querySelector<HTMLElement>("#sleep-settings");
+    if (sleepSettings) sleepSettings.hidden = seconds === null;
+    if (seconds) {
+      // Seconds throughout: sleepLabel, the staged command text and
+      // setSleepTimeout all read this as seconds, which Pulsar's options are not.
+      fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
+      setControlValue("#sleep-select", status.sleepTimeout);
+    }
+    const percentages = selectableValues(activeRazerClient.getLowPowerOptions(), status.lowBatteryWarning);
+    const lowPowerSettings = document.querySelector<HTMLElement>("#low-power-settings");
+    if (lowPowerSettings) lowPowerSettings.hidden = percentages === null;
+    if (percentages) {
+      fillPercentOptions("#low-power-select", percentages);
+      setControlValue("#low-power-select", status.lowBatteryWarning);
+      // The threshold still reads at any rate; the vendor software just refuses
+      // to arm it above this one, so the control is disabled rather than hidden.
+      const ceiling = activeRazerClient.getLowPowerPollingCeiling();
+      const tooFast = status.pollingRateHz > ceiling;
+      const lowPowerSelect = document.querySelector<HTMLSelectElement>("#low-power-select");
+      if (lowPowerSelect) lowPowerSelect.disabled = tooFast;
+      setText("#low-power-note", tooFast
+        ? `Unavailable above ${ceiling.toLocaleString()} Hz. Lower the polling rate to change it.`
+        : "Slows the mouse down to save battery below this level.");
+    }
   }
   if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear" || isViper || isFinalmouse) {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
@@ -3083,7 +3162,7 @@ function stageEggChange(options: {
 }
 
 function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
+  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3097,11 +3176,27 @@ function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
       // Drivers report a disabled sleep timer as null, so mirror that here.
       else status.sleepTimeout = asleep ? value : null;
     },
+    // Checked per setting rather than per client: a driver may confirm the sleep
+    // command without confirming a debounce one, and the Razer driver does.
     apply: async () => {
-      const client = activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient;
-      if (!client) throw new Error("The mouse is no longer connected.");
-      if (setting === "debounce") await client.setDebounceTime(value);
-      else await client.setSleepTimeout(value);
+      if (setting === "debounce") await requireClientMethod("setDebounceTime", "the debounce time").setDebounceTime(value);
+      else await requireClientMethod("setSleepTimeout", "auto sleep").setSleepTimeout(value);
+    },
+  });
+}
+
+function applyLowPowerThreshold(percent: number): void {
+  if (!activeRazerClient) return;
+  stageChange({
+    key: "low-power",
+    label: `Low power below ${percent}%`,
+    command: `Set low power mode to ${percent}%`,
+    progress: "Setting low power mode…",
+    preview: (status) => {
+      status.lowBatteryWarning = percent;
+    },
+    apply: async () => {
+      await requireClientMethod("setLowPowerThreshold", "low power mode").setLowPowerThreshold(percent);
     },
   });
 }
