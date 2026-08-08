@@ -24,6 +24,8 @@ interface RazerProduct {
   model: string;
   wireless: boolean;
   pollingRates: readonly number[];
+  // Defaults to DPI_MAX when omitted
+  maxDpi?: number;
 }
 
 // The cable tops out at 1000 Hz on this model, which is also the ceiling the
@@ -32,6 +34,10 @@ const RATES_WIRED: readonly number[] = [125, 500, 1000];
 const RATES_RECEIVER: readonly number[] = [125, 500, 1000, 2000, 4000, 8000];
 
 const PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map([
+  // Stock receiver, not 8K HyperPolling.
+  [0x00a5, { model: "Viper V2 Pro", wireless: false, pollingRates: RATES_WIRED, maxDpi: 30000 }],
+  [0x00a6, { model: "Viper V2 Pro", wireless: true, pollingRates: RATES_WIRED, maxDpi: 30000 }],
+
   [0x00c0, { model: "Viper V3 Pro", wireless: false, pollingRates: RATES_WIRED }],
   [0x00c1, { model: "Viper V3 Pro", wireless: true, pollingRates: RATES_RECEIVER }],
 ]);
@@ -92,7 +98,7 @@ export class RazerHidClient {
   }
 
   maxDpi(): number {
-    return DPI_MAX;
+    return this.profile()?.maxDpi ?? DPI_MAX;
   }
 
   getSupportedPollingRates(): number[] {

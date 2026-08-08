@@ -5,6 +5,8 @@ control interface open and reads then time out.
 
 Supported identifiers:
 
+- `1532:00a5` — Viper V2 Pro, wired
+- `1532:00a6` — Viper V2 Pro, Stock receiver
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
 
