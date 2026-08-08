@@ -51,6 +51,12 @@ export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x
   (productId) => ({ vendorId: VENDOR_ID.razer, productId }),
 );
 
+// The DeathAdder V2 keeps the Essential family's split interface layout, so it
+// needs the same whole-device request rather than a single-collection filter.
+export const RAZER_DEATHADDER_V2_FILTERS: HIDDeviceFilter[] = [0x0084].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId }),
+);
+
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
 // Logitech HID++ control interfaces addressed through a receiver slot (HID++
@@ -127,6 +133,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
   ...RAZER_VIPER_V4_CONTROL_FILTERS,
   ...RAZER_DEATHADDER_ESSENTIAL_FILTERS,
+  ...RAZER_DEATHADDER_V2_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,
 ];
