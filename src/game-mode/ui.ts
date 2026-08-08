@@ -5,6 +5,7 @@ import { GameModeClient, type ConnectionState } from "./ws-client";
 import type { MouseStatus } from "../devices/mouse-types";
 import { RATE_STEPS_HZ, nearestRate, previewRateSlider, rateFromSlider, renderRateSlider } from "../ui/rate-slider";
 import { permissionGraphicFor, type LocalNetworkPermissionState } from "./permission-state";
+import { isWindows } from "./platform";
 
 const DEFAULT_IDLE_HZ = 1000;
 const DEFAULT_GAMING_HZ = 4000;
@@ -49,6 +50,14 @@ const client = new GameModeClient({
 
 /** Called once at startup, independent of any device being connected yet. */
 export function initGameMode(): void {
+  // The service is a Windows executable. Elsewhere, hide its sidebar entry and
+  // do not open a socket to something that cannot be installed.
+  if (!isWindows(navigator)) {
+    const navItem = document.querySelector<HTMLElement>("#background-service-button");
+    if (navItem) navItem.hidden = true;
+    return;
+  }
+
   document.querySelector<HTMLButtonElement>("#game-mode-toggle")?.addEventListener("click", () => void onToggleClick());
   document.querySelector<HTMLButtonElement>("#background-service-update")?.addEventListener("click", onUpdateClick);
   document.querySelector<HTMLButtonElement>("#background-service-open-logs")?.addEventListener("click", () => client.openServicePath("logs"));
