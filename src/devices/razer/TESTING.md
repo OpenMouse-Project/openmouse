@@ -9,6 +9,7 @@ Supported identifiers:
 - `1532:00a6` — Viper V2 Pro, Stock receiver
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
+- `1532:008a` — Viper Mini, wired
 
 Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
@@ -119,3 +120,35 @@ needs a richer type before it can be exposed even once the command is found.
   the control offers the wrong choices.
 - The DPI stage table (`0x04`/`0x06`) is decoded and tested but never written.
   A wrong length there is the one realistic way to corrupt stored settings.
+
+## Viper Mini (verified on hardware)
+
+The Viper Mini shares the 90-byte report and command ids above, but belongs to
+openrazer's legacy transaction group: every command is answered with transaction
+id `0xff` rather than `0x1f`, and the DPI read uses the no-store byte (`0x00`)
+where the V3 Pro reads with the storage byte. The transaction id and the command
+table below were confirmed on hardware (`1532:008a`):
+
+1. The model and wired state appear, with no battery column (wired-only; the
+   mouse answers no battery query).
+2. DPI reads back correctly and the control offers 100–8500 DPI.
+3. A DPI change alters pointer speed and persists after reload, confirming the
+   write-with-storage (`0x01`) / read-with-no-store (`0x00`) pairing.
+4. Polling rate reads 125/500/1000 Hz, a 1000 Hz write round-trips with status
+   `0x02`, and the rate persists.
+5. No lift-off distance buttons and no sensor processing card appear.
+
+| Read | Class / ID | Notes |
+| --- | --- | --- |
+| Firmware | `0x00` / `0x81` | transaction id `0xff` |
+| Serial | `0x00` / `0x82` | ASCII, null terminated; transaction id `0xff` |
+| DPI | `0x04` / `0x85` | no-store byte `0x00`, then big-endian X and Y |
+| Polling | `0x00` / `0x85` | divisor of 1000; wired only |
+
+| Write | Class / ID | Notes |
+| --- | --- | --- |
+| DPI | `0x04` / `0x05` | storage byte `0x01`, then big-endian X and Y |
+| Polling | `0x00` / `0x05` | divisor of 1000 |
+
+The 8500 DPI ceiling comes from the openrazer daemon class. The DPI step
+granularity is assumed to be whole values, matching the V3 Pro driver.

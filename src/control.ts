@@ -83,6 +83,7 @@ import type { MouseStatus } from "./devices/mouse-types";
 import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "./devices/orbital/hid";
 import { RazerHidClient } from "./devices/razer/hid";
+import { RazerViperMiniHidClient } from "./devices/razer/viper-mini-hid";
 import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
 import { FinalmouseHidClient } from "./devices/finalmouse/hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
@@ -114,7 +115,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
-let activeRazerClient: RazerHidClient | null = null;
+let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
@@ -1441,7 +1442,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof RazerHidClient) {
+  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient) {
     activeRazerClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
