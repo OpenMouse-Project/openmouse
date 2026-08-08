@@ -1123,7 +1123,9 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (isRazer && activeRazerClient) {
+  // Sleep and low-power commands are supported by the Viper V3 protocol,
+  // but not by the legacy Viper Mini driver.
+  if (isRazer && activeRazerClient instanceof RazerHidClient) {
     const seconds = selectableValues(activeRazerClient.getSleepOptions(), status.sleepTimeout);
     const sleepSettings = document.querySelector<HTMLElement>("#sleep-settings");
     if (sleepSettings) sleepSettings.hidden = seconds === null;
