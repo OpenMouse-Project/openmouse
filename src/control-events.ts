@@ -86,6 +86,7 @@ function onClick(selector: string, listener: () => void): void {
 export function bindControlEvents(handlers: ControlEventHandlers): void {
   const showDevice = (run: () => void) => () => {
     handlers.closeInterfaceSettings();
+    handlers.closeBackgroundService();
     run();
   };
   onClick("#connect-button", showDevice(() => void handlers.connect()));

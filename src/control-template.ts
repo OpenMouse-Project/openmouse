@@ -126,18 +126,48 @@ export function controlTemplate(buildLabel: string): string {
         </section>
         <section id="background-service-page" class="interface-settings-page background-service-page" aria-labelledby="background-service-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="background-service-title">Background Service<span id="background-service-badge" class="background-service-badge is-disconnected">DISCONNECTED</span></h2></div><button id="close-background-service" class="interface-settings-back" type="button">Back to device</button></header>
-          <p class="background-service-description">OpenMouse Background Service is a lightweight app that runs continuously in the background. It handles automatic polling-rate switching, changing your mouse's report rate the instant a game launches.</p>
+          <p class="background-service-description">A small app that sits in your tray and drops the polling rate whenever you close a game, so the battery lasts longer.</p>
           <div id="background-service-setup">
             <article class="background-service-step">
               <div class="background-service-step-heading"><span class="background-service-step-number">1</span><h3>Download and install</h3></div>
               <p>Download the installer, run it, and launch OpenMouse Background Service.</p>
               <a id="background-service-download" class="background-service-download" href="https://github.com/xBambooz/OpenMouseCompanion/releases/latest/download/OpenMouseCompanion-Setup.exe">Download</a>
             </article>
-            <article class="background-service-step">
+            <article id="background-service-permission-step" class="background-service-step background-service-permission-step" hidden>
               <div class="background-service-step-heading"><span class="background-service-step-number">2</span><h3>Allow access to apps on your device<span class="background-service-required">REQUIRED</span></h3></div>
-              <p>Click the icon in your browser's address bar, open site permissions, and allow <strong>Local network access</strong>. OpenMouse uses it only to connect to the service on this computer.</p>
+              <div id="background-service-permission-prompt" class="background-service-permission-state" hidden>
+                <p>When your browser asks, choose <strong>Allow</strong> so OpenMouse can connect to the Background Service running on this computer.</p>
+                <div class="service-permission-demo" role="img" aria-label="Browser permission prompt with the Allow button highlighted">
+                  <div class="service-permission-browser">
+                    <div class="service-permission-address"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="8" x2="14.6" y2="8"></line><circle cx="18" cy="8" r="3.4"></circle><circle cx="6" cy="16" r="3.4"></circle><line x1="9.4" y1="16" x2="21" y2="16"></line></svg><span class="service-permission-origin">openmouse.app</span></div>
+                    <div class="service-permission-dialog">
+                      <strong><span class="service-permission-origin">openmouse.app</span> wants to</strong>
+                      <div class="service-permission-request"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg><span>Access other apps and services on this device</span></div>
+                      <div class="service-permission-actions"><span class="service-permission-allow">Allow<span class="service-permission-pointer"><i></i><svg viewBox="0 0 15 19" aria-hidden="true"><path d="M1.4 1.1 L1.4 14.9 L5.2 11.4 L7.6 17.2 L10.4 16 L8 10.4 L13.2 10.1 Z"></path></svg></span></span><span class="service-permission-block">Block</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="background-service-permission-settings" class="background-service-permission-state" hidden>
+                <p>This permission is blocked. Click the site controls icon in the address bar, then turn on <strong>Local network access</strong>.</p>
+                <div class="service-permission-demo" role="img" aria-label="Browser site controls with Local network access enabled">
+                  <div class="service-permission-browser is-settings">
+                    <div class="service-permission-address"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="8" x2="14.6" y2="8"></line><circle cx="18" cy="8" r="3.4"></circle><circle cx="6" cy="16" r="3.4"></circle><line x1="9.4" y1="16" x2="21" y2="16"></line></svg><span class="service-permission-origin">openmouse.app</span></div>
+                    <span class="service-permission-pointer is-address"><i></i><svg viewBox="0 0 15 19" aria-hidden="true"><path d="M1.4 1.1 L1.4 14.9 L5.2 11.4 L7.6 17.2 L10.4 16 L8 10.4 L13.2 10.1 Z"></path></svg></span><span class="service-permission-step-badge is-address">1</span>
+                    <div class="service-permission-settings-panel">
+                      <div class="service-permission-settings-header"><strong class="service-permission-origin">openmouse.app</strong><span>×</span></div>
+                      <div class="service-permission-settings-row"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10 V7 a4 4 0 0 1 8 0 v3"></path></svg><span>Connection is secure</span><small>›</small></div>
+                      <div class="service-permission-settings-row is-network"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="18" x2="21" y2="18"></line><line x1="7" y1="13" x2="17" y2="13"></line><line x1="10" y1="8" x2="14" y2="8"></line></svg><span>Local network access</span><i class="service-permission-mini-toggle"></i><span class="service-permission-pointer is-toggle"><i></i><svg viewBox="0 0 15 19" aria-hidden="true"><path d="M1.4 1.1 L1.4 14.9 L5.2 11.4 L7.6 17.2 L10.4 16 L8 10.4 L13.2 10.1 Z"></path></svg></span><span class="service-permission-step-badge is-toggle">2</span></div>
+                      <div class="service-permission-reset">Reset permission</div>
+                      <div class="service-permission-divider"></div>
+                      <div class="service-permission-settings-row"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle></svg><span>Cookies and site data</span><small>›</small></div>
+                      <div class="service-permission-settings-row is-muted"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><circle cx="12" cy="12" r="9"></circle></svg><span>Site settings</span><small>↗</small></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="service-permission-help"><span>i</span><small>Not connecting? Make sure OpenMouse Background Service is running.</small></div>
             </article>
-            <small class="background-service-footnote" id="background-service-footnote">Not connecting? Make sure OpenMouse Background Service is installed and running, then reload this page.</small>
           </div>
           <div id="background-service-connected" class="background-service-connected" hidden>
             <section class="background-service-section" aria-labelledby="background-service-version-title">
@@ -154,10 +184,6 @@ export function controlTemplate(buildLabel: string): string {
                 <div class="background-service-data-row">
                   <span><strong>App detection</strong><small>Fullscreen windows and process names from your game list</small></span>
                   <label class="background-service-switch"><input id="service-detection-enabled" type="checkbox" aria-label="Allow app detection" /><i></i></label>
-                </div>
-                <div class="background-service-data-row">
-                  <span><strong>Paired mice</strong><small>Approved polling-rate recipes for your mice</small></span>
-                  <span id="service-paired-device-count" class="background-service-access-state">NONE</span>
                 </div>
               </div>
               <button id="background-service-open-game-list" class="background-service-secondary-action" type="button">Open game list</button>

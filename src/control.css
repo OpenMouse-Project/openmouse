@@ -93,11 +93,12 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .nav-badge { display: inline-flex; align-items: center; margin-left: .4rem; padding: .08rem .35rem; border-radius: 999px; background: var(--ui-accent-soft); color: var(--ui-accent); font-family: var(--font-mono); font-size: .5rem; font-weight: 700; letter-spacing: .05em; vertical-align: middle; }
 
 .background-service-page .interface-settings-header h2 { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.background-service-page .interface-settings-header { padding-bottom: 0; border-bottom: 0; }
 .background-service-badge { display: inline-flex; align-items: center; padding: .22rem .55rem; border-radius: 999px; font-family: var(--font-mono); font-size: .58rem; font-weight: 700; letter-spacing: .05em; }
 .background-service-badge.is-disconnected, .background-service-badge.is-denied { background: rgba(239, 68, 68, .15); color: #f87171; }
 .background-service-badge.is-connecting { background: rgba(250, 204, 21, .15); color: #facc15; }
 .background-service-badge.is-connected { background: var(--ui-accent-soft); color: var(--ui-accent); }
-.background-service-description { max-width: 640px; margin: .9rem 0 1.3rem; color: var(--dim); font-size: .82rem; line-height: 1.55; }
+.background-service-description { max-width: 640px; margin: .7rem 0 1.3rem; color: var(--dim); font-size: .82rem; line-height: 1.55; }
 .background-service-step { max-width: 640px; margin-bottom: .9rem; padding: 1.1rem 1.2rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); }
 .background-service-step-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-bottom: .5rem; }
 .background-service-step-number { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: .7rem; font-weight: 700; }
@@ -107,8 +108,53 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .background-service-step p:last-child { margin-bottom: 0; }
 .background-service-download { display: inline-flex; padding: .55rem .9rem; border-radius: 7px; background: var(--ui-accent); color: var(--ui-accent-ink); font-size: .74rem; font-weight: 700; }
 .background-service-footnote { display: block; margin-top: .5rem; color: var(--faint); font-size: .68rem; }
+.background-service-permission-state[hidden] { display: none; }
+.service-permission-demo { display: flex; justify-content: center; margin-top: .8rem; padding: 2rem 1.25rem; overflow: hidden; border: 1px solid #232824; border-radius: 10px; background: #0e100f; }
+.service-permission-browser { position: relative; display: flex; width: 250px; flex-direction: column; }
+.service-permission-address { display: flex; width: 160px; align-items: center; align-self: flex-start; gap: 6px; margin-bottom: 8px; padding: 5px 8px; overflow: hidden; border-radius: 10px 5px 5px 10px; background: #1c201d; color: #c3ccc6; font-family: var(--font-mono); font-size: 9px; white-space: nowrap; mask-image: linear-gradient(to right, #000 55%, transparent 100%); }
+.service-permission-address svg { width: 11px; height: 11px; flex: none; fill: none; stroke: var(--ui-accent); stroke-width: 2.4; stroke-linecap: round; }
+.service-permission-origin { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-permission-dialog, .service-permission-settings-panel { margin-left: 18px; border: 1px solid #2e342f; border-radius: 8px; background: #1c201d; box-shadow: 0 20px 44px rgb(0 0 0 / 55%); }
+.service-permission-dialog { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
+.service-permission-dialog > strong { color: #e6ebe7; font-size: 12px; }
+.service-permission-request { display: flex; align-items: flex-start; gap: 10px; color: #8a938c; font-size: 11px; line-height: 1.45; }
+.service-permission-request svg, .service-permission-settings-row svg { width: 14px; height: 14px; flex: none; fill: none; stroke: #8a938c; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.service-permission-actions { display: flex; justify-content: flex-end; gap: 8px; font-size: 11px; font-weight: 600; }
+.service-permission-allow, .service-permission-block { position: relative; padding: 6px 14px; border-radius: 999px; }
+.service-permission-allow { background: var(--ui-accent); color: var(--ui-accent-ink); }
+.service-permission-block { background: #2a302c; color: #c3ccc6; }
+.service-permission-pointer { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.service-permission-pointer > i { position: absolute; left: -9px; top: -9px; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--ui-accent) 38%, transparent); animation: service-permission-ripple 2.6s ease-out infinite; }
+.service-permission-pointer > svg { position: absolute; left: 0; top: 0; width: 15px; height: 19px; overflow: visible; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 55%)); animation: service-permission-press 2.6s ease-out infinite; }
+.service-permission-pointer > svg path { fill: #f5f8f6; stroke: #0e100f; stroke-width: 1.1; stroke-linejoin: round; }
+.service-permission-pointer.is-address { left: 12px; top: 9px; }
+.service-permission-pointer.is-toggle { left: auto; right: 20px; top: 15px; }
+.service-permission-pointer.is-toggle > i, .service-permission-pointer.is-toggle > svg { animation-delay: .5s; }
+.service-permission-step-badge { position: absolute; display: flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 50%; background: var(--ui-accent); color: var(--ui-accent-ink); font-family: var(--font-mono); font-size: 10px; font-weight: 700; }
+.service-permission-step-badge.is-address { left: -4px; top: 30px; }
+.service-permission-step-badge.is-toggle { right: -9px; top: 30px; }
+.service-permission-settings-panel { position: relative; padding: 14px 0; }
+.service-permission-settings-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px 12px; color: #e6ebe7; font-size: 12px; }
+.service-permission-settings-header > span { color: #8a938c; font-size: 13px; }
+.service-permission-settings-row { position: relative; display: flex; min-height: 30px; align-items: center; gap: 9px; padding: 8px 14px; color: #c3ccc6; font-size: 11px; }
+.service-permission-settings-row svg { width: 12px; height: 12px; stroke-width: 2; }
+.service-permission-settings-row > span:not(.service-permission-pointer) { min-width: 0; flex: 1; }
+.service-permission-settings-row > small { color: #6d7a71; font-size: 11px; }
+.service-permission-settings-row.is-network { padding-top: 9px; padding-bottom: 9px; }
+.service-permission-settings-row.is-muted { opacity: .55; }
+.service-permission-mini-toggle { position: relative; width: 26px; height: 15px; flex: none; border-radius: 999px; background: var(--ui-accent); }
+.service-permission-mini-toggle::after { position: absolute; left: 13px; top: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--ui-accent-ink); content: ""; }
+.service-permission-reset { width: fit-content; margin: 6px auto 12px; padding: 5px 12px; border: 1px solid #3a413c; border-radius: 999px; color: #c3ccc6; font-size: 10px; }
+.service-permission-divider { height: 1px; background: #2a302c; }
+.service-permission-help { display: flex; align-items: center; gap: 12px; margin-top: .8rem; padding: 12px 14px; border: 1px solid #232824; border-radius: 10px; background: #171a18; }
+.service-permission-help > span { display: flex; width: 26px; height: 26px; flex: none; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--ui-accent) 35%, #232824); border-radius: 50%; background: var(--ui-accent-soft); color: var(--ui-accent); font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+.service-permission-help small { color: #8a938c; font-size: 13px; line-height: 1.4; }
+@keyframes service-permission-ripple { 0% { opacity: .55; transform: scale(.35); } 70%, 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes service-permission-press { 0%, 62%, 100% { transform: translate(0); } 68%, 80% { transform: translate(1px, 1px); } }
 .background-service-connected { max-width: 640px; }
 .background-service-section { padding: 1.55rem 0; border-top: 1px solid var(--line); }
+.background-service-connected > .background-service-section:first-child { padding-top: .2rem; border-top: 0; }
+.background-service-connected > .background-service-section:first-child .background-service-primary-action { margin-top: .9rem; }
 .background-service-section h3 { margin: 0; color: var(--bright); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
 .background-service-section p { max-width: 580px; margin: .55rem 0 .85rem; color: var(--dim); font-size: .74rem; line-height: 1.5; }
 .background-service-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
@@ -131,6 +177,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .background-service-access-state { flex: 0 0 auto; background: var(--ui-accent-soft); color: var(--ui-accent); }
 .background-service-game-mode { margin: 0 0 1.55rem; }
 .background-service-setting { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.background-service-setting + .background-service-setting { padding-top: 0; border-top: 0; }
 .background-service-setting > div { min-width: 0; }
 .background-service-setting p { margin-bottom: 0; }
 .background-service-switch { position: relative; display: inline-flex; width: 2.55rem; height: 1.4rem; flex: 0 0 auto; cursor: pointer; }
@@ -386,4 +433,5 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+  .service-permission-pointer > i, .service-permission-pointer > svg { animation: none !important; }
 }
