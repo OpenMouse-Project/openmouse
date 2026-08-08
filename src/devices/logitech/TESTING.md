@@ -9,6 +9,7 @@ Supported identifiers:
 
 - `046d:c54d`, `046d:c547` — Lightspeed receivers
 - `046d:c539` — HERO-era Lightspeed receiver
+- `046d:c53f`, `046d:c543` — Nano Lightspeed 1.1 / 1.2 receivers (G305)
 - `046d:c0a8` — PRO X 2 Superstrike (USB)
 - `046d:c07e` — G402 / G402 Hyperion Fury (wired)
 - `046d:c08f` — G403 HERO (wired)
