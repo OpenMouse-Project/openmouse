@@ -1,4 +1,5 @@
 import type { MouseStatus } from "../mouse-types.ts";
+import { openRazerDevice } from "./hid-open.ts";
 
 export const RAZER_VENDOR_ID = 0x1532;
 export const VIPER_V4_PRO_PRODUCTS = new Map<number, { wireless: boolean }>([
@@ -79,7 +80,7 @@ export class RazerViperV4ProHidClient {
   }
 
   async open(): Promise<void> {
-    if (!this.device.opened) await this.device.open();
+    await openRazerDevice(this.device);
   }
 
   async close(): Promise<void> {

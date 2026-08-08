@@ -1,5 +1,6 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
+import { openRazerDevice } from "./hid-open.ts";
 import {
   RAZER_READ,
   RAZER_REPORT_ID,
@@ -69,8 +70,9 @@ export class RazerViperMiniHidClient {
     // On Linux "Failed to open the device" means the hidraw node for 1532:008a
     // is root-owned or the razermouse kernel driver claimed the interface.
     // Fix: udev rule granting plugdev access to that vendor/product, then
-    // `sudo rmmod razermouse`.
-    if (!this.device.opened) await this.device.open();
+    // `sudo rmmod razermouse`. On macOS the same message means the browser
+    // lacks Input Monitoring permission — see `openRazerDevice`.
+    await openRazerDevice(this.device);
   }
 
   async close(): Promise<void> {

@@ -1,5 +1,6 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
+import { openRazerDevice } from "./hid-open.ts";
 import {
   RAZER_LANDING_MAX,
   RAZER_LANDING_MIN,
@@ -188,7 +189,7 @@ export class RazerHidClient {
   }
 
   async open(): Promise<void> {
-    if (!this.device.opened) await this.device.open();
+    await openRazerDevice(this.device);
   }
 
   async close(): Promise<void> {
