@@ -62,6 +62,7 @@ export const RAZER_READ = {
   dpiStages: { commandClass: 0x04, commandId: 0x86, dataSize: 0x26, args: [0x00] },
   pollingRate: { commandClass: 0x00, commandId: 0x85, dataSize: 0x01 },
   pollingRateExtended: { commandClass: 0x00, commandId: 0xc0, dataSize: 0x02, args: [0x00] },
+  liftOff: { commandClass: 0x0b, commandId: 0x85, dataSize: 0x05 },
 } as const satisfies Record<string, RazerCommand>;
 
 /**
@@ -76,6 +77,8 @@ export const RAZER_WRITE = {
   dpi: { commandClass: 0x04, commandId: 0x05, dataSize: 0x07 },
   pollingRate: { commandClass: 0x00, commandId: 0x05, dataSize: 0x01 },
   pollingRateExtended: { commandClass: 0x00, commandId: 0x40, dataSize: 0x02 },
+  liftOff: { commandClass: 0x0b, commandId: 0x05, dataSize: 0x0a },
+  sensorSetting: { commandClass: 0x0b, commandId: 0x0b, dataSize: 0x04 },
   sleepTimeout: { commandClass: 0x07, commandId: 0x03, dataSize: 0x02 },
   lowPowerThreshold: { commandClass: 0x07, commandId: 0x01, dataSize: 0x02 },
 } as const satisfies Record<string, Omit<RazerCommand, "args">>;
@@ -249,6 +252,147 @@ export function decodeDpiStages(args: Uint8Array): RazerDpiStages {
     });
   }
   return { active: args[1], stages };
+}
+
+/**
+ * Lift-off distance. The vendor software presents this as two different
+ * controls behind one checkbox, and the mouse stores both independently:
+ *
+ * - Asymmetric off: a single three-stop slider, "Tracking Distance".
+ * - Asymmetric on: two 26-step sliders, lift-off and landing.
+ *
+ * Switching modes leaves the other mode's stored value untouched, so neither
+ * reading destroys the other.
+ */
+export type RazerTrackingDistance = "Low" | "Medium" | "High";
+
+/** Indexed by the byte the mouse reports, so the order is the encoding. */
+export const RAZER_TRACKING_DISTANCES: readonly RazerTrackingDistance[] = ["Low", "Medium", "High"];
+
+/** Synapse's own numbering. Landing must stay strictly below lift-off. */
+export const RAZER_LIFT_OFF_MIN = 2;
+export const RAZER_LIFT_OFF_MAX = 26;
+export const RAZER_LANDING_MIN = 1;
+export const RAZER_LANDING_MAX = 25;
+
+/**
+ * Second argument of every class 0x0b write the vendor software was observed
+ * making. It reads as a feature selector — smart tracking — and the mouse
+ * rejects the packet without it.
+ */
+const RAZER_SENSOR_SELECTOR = 0x04;
+
+/**
+ * Third argument of `0x0b`/`0x0b`, choosing which setting the fourth carries.
+ * Both were read off the vendor software's own traffic and confirmed on
+ * hardware.
+ */
+const RAZER_SENSOR_SETTING = {
+  trackingDistance: 0x01,
+  asymmetric: 0x04,
+} as const;
+
+export interface RazerLiftOff {
+  /** Null when the mouse reports a level outside the three the slider offers. */
+  tracking: RazerTrackingDistance | null;
+  liftOff: number;
+  landing: number;
+}
+
+/**
+ * Both asymmetric levels are stored one below the number Synapse displays, so
+ * lift-off 26 is 0x19 and landing 25 is 0x18. Confirmed at 5/4, 16/11 and 26/25,
+ * with the middle reading predicted before it was measured.
+ *
+ * Byte[0] echoes whatever argument the request carried and byte[1] was zero in
+ * every capture, so neither is read here — arguments 0x00 through 0x07 all
+ * returned the same levels, which rules out a per-profile store.
+ */
+export function decodeLiftOff(args: Uint8Array): RazerLiftOff {
+  return {
+    tracking: RAZER_TRACKING_DISTANCES[args[2]] ?? null,
+    liftOff: args[3] + 1,
+    landing: args[4] + 1,
+  };
+}
+
+/**
+ * The highest landing a given lift-off permits: lift-off 10 allows 9, and so on
+ * down to the floor of 1.
+ *
+ * Landing is bounded by lift-off rather than locked to it — the vendor software
+ * caps its own slider the same way, and 16/11 is a perfectly ordinary pair. The
+ * firmware stores an inverted pair without complaint, and one session left the
+ * mouse holding lift-off 2 with landing 26, which the vendor software cannot
+ * even express. Nothing downstream catches that, so the rule is enforced here.
+ */
+export function razerMaxLanding(liftOff: number): number {
+  return Math.min(RAZER_LANDING_MAX, Math.max(RAZER_LANDING_MIN, liftOff - 1));
+}
+
+/**
+ * Selects the mouse's symmetric tracking distance, and by doing so switches it
+ * out of asymmetric mode.
+ *
+ * The mouse has no readable mode bit and no mode flag to set. It honours
+ * whichever of the two stores was written most recently, so writing a tracking
+ * level *is* the way to return to symmetric — confirmed by the asymmetric pair
+ * write being rejected immediately afterwards.
+ */
+export function razerSetTrackingDistanceCommand(distance: RazerTrackingDistance): RazerCommand {
+  const level = RAZER_TRACKING_DISTANCES.indexOf(distance);
+  if (level < 0) throw new RazerProtocolError(`${distance} is not a tracking distance this mouse offers.`);
+  return {
+    ...RAZER_WRITE.sensorSetting,
+    args: [0x00, RAZER_SENSOR_SELECTOR, RAZER_SENSOR_SETTING.trackingDistance, level],
+  };
+}
+
+/**
+ * Unlocks the asymmetric pair write, which the mouse rejects with status `0x03`
+ * in symmetric mode — and rejects while still moving what the read reports, so
+ * skipping this produces a driver that appears to work and never touches the
+ * sensor.
+ *
+ * There is no matching disable. Sending value `0x00` was accepted and changed
+ * nothing; the vendor software leaves asymmetric mode by writing a tracking
+ * level instead, which is what `razerSetTrackingDistanceCommand` does.
+ */
+export function razerEnableAsymmetricLiftOffCommand(): RazerCommand {
+  return {
+    ...RAZER_WRITE.sensorSetting,
+    args: [0x00, RAZER_SENSOR_SELECTOR, RAZER_SENSOR_SETTING.asymmetric, 0x01],
+  };
+}
+
+/**
+ * Lift-off write, transcribed from the vendor software's own packet rather than
+ * inferred: `dataSize 0x0a`, then `00 04` before the pair. It does NOT mirror
+ * the read's layout, which is what three earlier guesses assumed — each was
+ * answered `0x03` while still disturbing the stored values.
+ *
+ * Must be preceded by `razerEnableAsymmetricLiftOffCommand`.
+ *
+ * Confirmed on hardware: status `0x02`, read-back exact, and the change is
+ * felt at the sensor, which a read-back alone cannot establish.
+ */
+export function razerSetLiftOffCommand(liftOff: number, landing: number): RazerCommand {
+  if (!Number.isInteger(liftOff) || liftOff < RAZER_LIFT_OFF_MIN || liftOff > RAZER_LIFT_OFF_MAX) {
+    throw new RazerProtocolError(`Lift-off must be a whole number between ${RAZER_LIFT_OFF_MIN} and ${RAZER_LIFT_OFF_MAX}.`);
+  }
+  if (!Number.isInteger(landing) || landing < RAZER_LANDING_MIN || landing > RAZER_LANDING_MAX) {
+    throw new RazerProtocolError(`Landing must be a whole number between ${RAZER_LANDING_MIN} and ${RAZER_LANDING_MAX}.`);
+  }
+  // The firmware stores an inverted pair without complaint — a write of
+  // landing 26 against lift-off 2 round-tripped and left the mouse in a state
+  // the vendor software cannot express. Nothing downstream will catch this.
+  if (landing >= liftOff) {
+    throw new RazerProtocolError(`Landing (${landing}) must be below lift-off (${liftOff}).`);
+  }
+  return {
+    ...RAZER_WRITE.liftOff,
+    args: [0x00, RAZER_SENSOR_SELECTOR, liftOff - 1, landing - 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+  };
 }
 
 /**

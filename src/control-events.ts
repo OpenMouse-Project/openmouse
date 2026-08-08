@@ -49,6 +49,9 @@ export interface ControlEventHandlers {
   applyFinalmouseSetting(setting: "dongleLed" | "tournamentScroll" | "tournamentTimeout", value: number): void;
   applyPollingRate(rate: number): void;
   applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): void;
+  applyLiftOffMode(mode: "single" | "asymmetric"): void;
+  applyAsymmetricLiftOff(liftOff: number, landing: number): void;
+  capLandingToLiftOff(): void;
   applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
   applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
   // Mode and profile selection apply immediately: both are volatile navigation
@@ -226,6 +229,25 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
       if (lod) void handlers.applyLiftOffDistance(lod);
     });
   });
+  document.querySelectorAll<HTMLButtonElement>("[data-lod-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.lodMode;
+      if (mode === "single" || mode === "asymmetric") handlers.applyLiftOffMode(mode);
+    });
+  });
+  const liftOffSlider = document.querySelector<HTMLInputElement>("#lod-lift-off");
+  const landingSlider = document.querySelector<HTMLInputElement>("#lod-landing");
+  for (const slider of [liftOffSlider, landingSlider]) {
+    // `input` keeps the readout and the landing ceiling honest while dragging;
+    // `change` fires on release, so a drag stages one change rather than thirty.
+    slider?.addEventListener("input", () => handlers.capLandingToLiftOff());
+    slider?.addEventListener("change", () => {
+      handlers.capLandingToLiftOff();
+      const liftOff = Number(liftOffSlider?.value);
+      const landing = Number(landingSlider?.value);
+      if (Number.isFinite(liftOff) && Number.isFinite(landing)) handlers.applyAsymmetricLiftOff(liftOff, landing);
+    });
+  }
   document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
     button.addEventListener("click", () => {
       const mode = button.dataset.gamingSurface as MouseStatus["gamingSurfaceMode"];
