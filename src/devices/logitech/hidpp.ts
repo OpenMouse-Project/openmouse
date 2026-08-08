@@ -120,6 +120,32 @@ export class NotAMouseError extends Error {
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
 const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
+
+/**
+ * Models whose 0x8090 mode-status feature drives the power-mode switch only.
+ * The status1 byte that carries the gaming-surface and LightForce fields is
+ * reserved on them and reads 0, which would otherwise decode as "Auto" and
+ * "Optical" and offer controls the mouse does not have. Keyed on the firmware
+ * model id, like the Superstrike detection.
+ */
+const MODE_STATUS_POWER_ONLY_MODEL_IDS: ReadonlySet<string> = new Set([
+  "B03C40B10000", // G309 LIGHTSPEED
+]);
+
+/** Whether 0x8090 on this model is the power-mode-only variant. */
+export function isPowerOnlyModeStatus(modelId: string | null | undefined): boolean {
+  return MODE_STATUS_POWER_ONLY_MODEL_IDS.has(modelId ?? "");
+}
+
+/**
+ * Whether the mouse exposes lift-off levels it can drive: only extended DPI
+ * (0x2202) carries one, and its byte 0 is the "no lift-off control" value, so
+ * a legacy-DPI mouse or a sensor reporting 0 advertises no levels.
+ */
+export function hasLiftOffControl(legacyDpi: boolean, lodByte: number | null): boolean {
+  return !legacyDpi && lodByte !== null && lodByte !== 0;
+}
+
 const SHORT_REPORT_ID = 0x10;
 const LONG_REPORT_ID = 0x11;
 const FEATURE = {
@@ -414,6 +440,7 @@ export class LogitechHidppClient {
       : undefined;
     const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
     const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
+    const modeStatusCarriesControls = !isPowerOnlyModeStatus(identity.modelId);
     // One extra request; the layout it selects is worth surfacing in diagnostics.
     const onboardProfileFormat = profilesFeature.index
       ? await this.request(profilesFeature.index, PROFILE_FN.getInfo)
@@ -452,8 +479,12 @@ export class LogitechHidppClient {
       analogButtonTuning,
       liftOffDistance: decodeLiftOffLevel(dpiState.lod, this.lodCapabilities),
       onboardProfileFormat,
-      gamingSurfaceMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
-      lightforceSwitchMode: modeStatus === null ? null : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
+      gamingSurfaceMode: modeStatus === null || !modeStatusCarriesControls
+        ? null
+        : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
+      lightforceSwitchMode: modeStatus === null || !modeStatusCarriesControls
+        ? null
+        : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       // The USB connection exposes the Superstrike as a 1 kHz device. Its
       // Lightspeed receiver can use the higher rates advertised by HID++.
       pollingRateHz: isSuperstrike && wired ? Math.min(pollingRateHz, 1000) : pollingRateHz,
@@ -463,9 +494,12 @@ export class LogitechHidppClient {
       // Lift-off distance is only reachable through extended DPI (0x2202). On a
       // mouse that exposes just legacy 0x2201 there is nothing to drive, so
       // report an empty set rather than offering buttons that can only fail.
-      // Otherwise the levels come from the profile format, which is where the
-      // count and the byte encoding are both established.
-      supportedLiftOffDistances: dpiFeature.legacy ? [] : this.supportedLods,
+      // The same applies when the sensor reports no lift-off level (byte 0 is
+      // the feature's "no lift-off control" value), which is how a 0x2202 mouse
+      // without LOD, like the G309, advertises its lack of one. Otherwise the
+      // levels come from the profile format, which is where the count and the
+      // byte encoding are both established.
+      supportedLiftOffDistances: hasLiftOffControl(dpiFeature.legacy, dpiState.lod) ? this.supportedLods : [],
       connectionType: wired ? "Wired" : "Wireless",
       // Without this the shell falls back to its "2.4 GHz receiver" wording,
       // which is wrong for a mouse plugged straight into USB.
