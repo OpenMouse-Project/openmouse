@@ -162,6 +162,8 @@ test("an onboard-only mouse is told how to get itself supported", () => {
 test("the G309's mode status is power-only and exposes no surface or LightForce controls", () => {
   // Model id captured from hardware: 0x8090 V2 with only the power-mode half.
   assert.equal(isPowerOnlyModeStatus("B03C40B10000"), true);
+  // The G305 reports the same reserved status1 byte.
+  assert.equal(isPowerOnlyModeStatus("407400000000"), true);
   // Every other model keeps the status1 fields, and unknown/absent ids must
   // not be silently downgraded.
   assert.equal(isPowerOnlyModeStatus("B03C40B10001"), false);

@@ -91,3 +91,17 @@ hidden.
    the LightForce switch are all hidden.
 3. Change the DPI and polling rate and confirm each write persists after a
    reload.
+
+## G305 LIGHTSPEED (receiver-attached, Model ID `407400000000`)
+
+Like the G309, the G305 exposes Mode Status `0x8090` but only the power-mode
+half is meaningful: the status1 byte that would carry the gaming-surface and
+LightForce fields is reserved and reads 0. The G305 also has no lift-off
+control. OpenMouse treats all three as absent, so those cards stay hidden.
+
+1. Confirm the model, battery, connection type, DPI, and polling rate are read
+   correctly.
+2. Confirm the sensor card (lift-off distance), the gaming-surface card, and
+   the LightForce switch are all hidden.
+3. Change the DPI and polling rate and confirm each write persists after a
+   reload.
