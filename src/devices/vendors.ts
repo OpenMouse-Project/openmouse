@@ -33,6 +33,12 @@ export const RAZER_VIPER_MINI_CONTROL_FILTERS: HIDDeviceFilter[] = [0x008a].map(
   (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
 );
 
+// The original Viper exposes the same single Generic Desktop Mouse control
+// interface, so it gets the same narrow collection filter.
+export const RAZER_VIPER_CONTROL_FILTERS: HIDDeviceFilter[] = [0x0078].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId, usagePage: 0x01, usage: 0x02 }),
+);
+
 // Synapse Web exposes the V4 control interface through a single top-level
 // Generic Desktop or Consumer collection with Feature reports. Request both
 // pages so the browser offers that interface, then the driver rejects ordinary
@@ -121,6 +127,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   ...RAZER_VIPER_V2_CONTROL_FILTERS,
   ...RAZER_VIPER_V3_CONTROL_FILTERS,
   ...RAZER_VIPER_MINI_CONTROL_FILTERS,
+  ...RAZER_VIPER_CONTROL_FILTERS,
   { vendorId: VENDOR_ID.vgn, productId: 0xfb56 },
   { vendorId: VENDOR_ID.vgn, productId: 0xfb57 },
   { vendorId: VENDOR_ID.atk, usagePage: 0xff02, usage: 2 },
