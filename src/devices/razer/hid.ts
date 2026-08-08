@@ -7,6 +7,7 @@ import {
   RAZER_LIFT_OFF_MIN,
   RAZER_READ,
   RAZER_REPORT_ID,
+  RAZER_STORAGE,
   RAZER_STATUS,
   RAZER_TRACKING_DISTANCES,
   RAZER_TRANSACTION_ID,
@@ -24,6 +25,7 @@ import {
   decodeSerial,
   decodeSleepTimeout,
   encodeRazerRequest,
+  razerReadDpiCommand,
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
@@ -50,6 +52,8 @@ interface RazerProduct {
   hasBattery: boolean;
   /** Also accept a vendor-defined collection as the control interface. */
   vendorControlInterface?: boolean;
+  /** DPI store byte, for generations OpenRazer reads/writes through NOSTORE. */
+  dpiStorageByte?: number;
 }
 
 // The cable tops out at 1000 Hz on this model, which is also the ceiling the
@@ -68,6 +72,19 @@ const DEATHADDER_ESSENTIAL = {
   vendorControlInterface: true,
 } as const;
 
+// The V2 keeps the Essential family's legacy transaction id and interface
+// layout, but reads and writes DPI through the no-store byte. Both facts come
+// from OpenRazer's driver, which groups it with the V2 Pro and Mini.
+const DEATHADDER_V2 = {
+  wireless: false,
+  pollingRates: RATES_WIRED,
+  maxDpi: 20000,
+  transactionId: RAZER_TRANSACTION_ID_LEGACY,
+  hasBattery: false,
+  vendorControlInterface: true,
+  dpiStorageByte: 0x00,
+} as const;
+
 const VIPER_V3_PRO = {
   maxDpi: 35000,
   transactionId: RAZER_TRANSACTION_ID,
@@ -83,6 +100,7 @@ const PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map([
   [0x006e, { model: "DeathAdder Essential", ...DEATHADDER_ESSENTIAL }],
   [0x0071, { model: "DeathAdder Essential White Edition", ...DEATHADDER_ESSENTIAL }],
   [0x0098, { model: "DeathAdder Essential (2021)", ...DEATHADDER_ESSENTIAL }],
+  [0x0084, { model: "DeathAdder V2", ...DEATHADDER_V2 }],
 ]);
 
 // The sensor takes any whole DPI from here up to the model's ceiling, per axis.
@@ -164,6 +182,11 @@ export class RazerHidClient {
     return PRODUCTS.get(this.device.productId);
   }
 
+  /** DPI store byte; most models store, the V2 generation does not. */
+  private dpiStorageByte(): number {
+    return this.profile()?.dpiStorageByte ?? RAZER_STORAGE;
+  }
+
   async open(): Promise<void> {
     if (!this.device.opened) await this.device.open();
   }
@@ -228,7 +251,7 @@ export class RazerHidClient {
     // read, which would take DPI and battery down with it.
     const sleep = hasBattery ? await this.request(RAZER_READ.sleepTimeout).catch(() => null) : null;
     const lowPower = hasBattery ? await this.request(RAZER_READ.lowPowerThreshold).catch(() => null) : null;
-    const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
+    const dpi = decodeDpi(await this.request(razerReadDpiCommand(this.dpiStorageByte())));
     const pollingRateHz = await this.readPollingRateHz();
     const liftOff = await this.readLiftOff();
     return {
@@ -289,8 +312,8 @@ export class RazerHidClient {
         throw new Error(`DPI must be a whole number between ${DPI_MIN} and ${ceiling.toLocaleString()}.`);
       }
     }
-    await this.request(razerSetDpiCommand(dpi, dpiY));
-    const confirmed = decodeDpi(await this.request(RAZER_READ.dpi));
+    await this.request(razerSetDpiCommand(dpi, dpiY, this.dpiStorageByte()));
+    const confirmed = decodeDpi(await this.request(razerReadDpiCommand(this.dpiStorageByte())));
     if (confirmed.x !== dpi || confirmed.y !== dpiY) {
       throw new Error(`The mouse kept ${confirmed.x.toLocaleString()} DPI instead of ${dpi.toLocaleString()}.`);
     }

@@ -27,6 +27,7 @@ import {
   decodeSleepTimeout,
   encodeRazerRequest,
   razerChecksum,
+  razerReadDpiCommand,
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
@@ -318,6 +319,16 @@ test("a DPI write reads back through the same storage", () => {
   const read = encodeRazerRequest(RAZER_READ.dpi);
 
   assert.equal(written[8], read[8]);
+});
+
+test("the V2 generation writes and reads DPI through the no-store byte", () => {
+  // OpenRazer's driver groups the DeathAdder V2 family with the no-store DPI
+  // path, so both commands must carry 0x00 rather than the storage byte 0x01.
+  const write = encodeRazerRequest(razerSetDpiCommand(1600, 800, 0x00));
+  const read = encodeRazerRequest(razerReadDpiCommand(0x00));
+
+  assert.deepEqual([...write.slice(8, 15)], [0x00, 0x06, 0x40, 0x03, 0x20, 0x00, 0x00]);
+  assert.equal(read[8], 0x00);
 });
 
 test("polling writes encode the divisor each transport expects", () => {
