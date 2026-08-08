@@ -98,6 +98,22 @@ export interface MouseStatus {
   liftOffDistance: "Low" | "Medium" | "High" | null;
   /** Explicit LOD choices when a mouse does not support all three common levels. */
   supportedLiftOffDistances?: Array<NonNullable<MouseStatus["liftOffDistance"]>>;
+  /**
+   * Separate cut-off and re-engage heights, where a mouse offers them instead
+   * of the single three-stop `liftOffDistance`. Only drivers that have verified
+   * it on hardware populate this; everywhere else it stays undefined and the
+   * control does not appear.
+   *
+   * `enabled` is which of the two the mouse is actually using, and may be null
+   * when a driver cannot establish it.
+   */
+  asymmetricLiftOff?: {
+    enabled: boolean | null;
+    liftOff: number;
+    landing: number;
+    liftOffRange: { min: number; max: number };
+    landingRange: { min: number; max: number };
+  } | null;
   /** Logitech onboard profile format (HID++ 0x8100), which selects the layout. */
   onboardProfileFormat?: {
     id: number;

@@ -1,9 +1,14 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
 import {
+  RAZER_LANDING_MAX,
+  RAZER_LANDING_MIN,
+  RAZER_LIFT_OFF_MAX,
+  RAZER_LIFT_OFF_MIN,
   RAZER_READ,
   RAZER_REPORT_ID,
   RAZER_STATUS,
+  RAZER_TRACKING_DISTANCES,
   RAZER_TRANSACTION_ID,
   RAZER_TRANSACTION_ID_LEGACY,
   RazerProtocolError,
@@ -13,6 +18,7 @@ import {
   decodeExtendedPollingRate,
   decodeFirmwareVersion,
   decodeLegacyPollingRate,
+  decodeLiftOff,
   decodeLowPowerThreshold,
   decodeRazerResponse,
   decodeSerial,
@@ -21,9 +27,15 @@ import {
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
+  razerMaxLanding,
+  razerSetLiftOffCommand,
+  razerSetTrackingDistanceCommand,
+  razerEnableAsymmetricLiftOffCommand,
   razerSetLowPowerThresholdCommand,
   razerSetSleepTimeoutCommand,
   type RazerCommand,
+  type RazerLiftOff,
+  type RazerTrackingDistance,
 } from "./protocol.ts";
 
 interface RazerProduct {
@@ -129,6 +141,11 @@ function hasVendorCollection(device: HIDDevice): boolean {
 export class RazerHidClient {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly staticReads = new Map<string, Promise<Uint8Array | null>>();
+  // The mode probe is a write, so it runs once per connection rather than on
+  // every background refresh. Both setters know which mode they leave behind,
+  // so nothing after the first read needs to ask the mouse again.
+  private asymmetric: boolean | null = null;
+  private asymmetricKnown = false;
 
   readonly device: HIDDevice;
 
@@ -153,6 +170,7 @@ export class RazerHidClient {
 
   async close(): Promise<void> {
     this.staticReads.clear();
+    this.asymmetricKnown = false;
     if (this.device.opened) await this.device.close();
   }
 
@@ -212,6 +230,7 @@ export class RazerHidClient {
     const lowPower = hasBattery ? await this.request(RAZER_READ.lowPowerThreshold).catch(() => null) : null;
     const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
     const pollingRateHz = await this.readPollingRateHz();
+    const liftOff = await this.readLiftOff();
     return {
       brand: "Razer",
       name: this.displayName(),
@@ -220,8 +239,10 @@ export class RazerHidClient {
         settingsReady: true,
         valuesVerified: true,
         hideUnsupportedPollingRates: true,
-        // No lift-off or sensor-processing command is confirmed, so neither
-        // control is offered rather than offered and left inert.
+        // No sensor-processing command is confirmed, so that card is hidden
+        // rather than offered and left inert. Lift-off is confirmed and
+        // readable through `readLiftOff`, but `MouseStatus` cannot carry the
+        // asymmetric pair yet — see the note on `liftOffDistance` below.
         hideProcessingCard: true,
         // Nothing reports link quality on this model, and the section this card
         // shares with sleep is opened below, so it would otherwise appear as a
@@ -246,8 +267,17 @@ export class RazerHidClient {
       sleepTimeout: sleep ? decodeSleepTimeout(sleep) : null,
       lowBatteryWarning: lowPower ? decodeLowPowerThreshold(lowPower) : null,
       unitId: serial ? decodeSerial(serial) : null,
-      liftOffDistance: null,
-      supportedLiftOffDistances: [],
+      liftOffDistance: liftOff?.tracking ?? null,
+      // An empty list hides the control, which is what should happen on a
+      // transport that does not answer class 0x0b at all.
+      supportedLiftOffDistances: liftOff ? [...RAZER_TRACKING_DISTANCES] : [],
+      asymmetricLiftOff: liftOff && {
+        enabled: await this.asymmetricMode(liftOff),
+        liftOff: liftOff.liftOff,
+        landing: liftOff.landing,
+        liftOffRange: { min: RAZER_LIFT_OFF_MIN, max: RAZER_LIFT_OFF_MAX },
+        landingRange: { min: RAZER_LANDING_MIN, max: RAZER_LANDING_MAX },
+      },
       firmware: [`Mouse ${decodeFirmwareVersion(firmware)}`],
     };
   }
@@ -322,6 +352,113 @@ export class RazerHidClient {
     const level = await this.request(RAZER_READ.battery);
     const charging = decodeCharging(await this.request(RAZER_READ.charging));
     return { percent: decodeBatteryPercent(level), state: charging ? "Charging" : "Discharging" };
+  }
+
+  /**
+   * Reads the tracking level and the asymmetric lift-off/landing pair.
+   *
+   * Returns null when the mouse does not answer. Class `0x0b` has only ever
+   * been exercised on the receiver, so the cable may reject it, and a status
+   * read that throws takes the whole panel down rather than one control. The
+   * caller degrades instead.
+   */
+  async readLiftOff(): Promise<RazerLiftOff | null> {
+    const reply = await this.request(RAZER_READ.liftOff).catch(() => null);
+    return reply ? decodeLiftOff(reply) : null;
+  }
+
+  /**
+   * Reports whether the mouse is currently in asymmetric mode, or null when it
+   * cannot be established.
+   *
+   * Nothing readable carries the mode — two 47-command captures differing only
+   * by it were byte-identical, and a full sweep found nothing. What does report
+   * it is the pair write's own status: refused `0x03` in symmetric mode,
+   * accepted `0x02` in asymmetric.
+   *
+   * That makes this a probe rather than a read, so it is written to disturb
+   * nothing. Re-sending the values the mirror already holds is value-preserving
+   * either way, and mode-preserving too: a refusal cannot switch the mode, and
+   * an acceptance re-selects the mode the mouse was already in.
+   *
+   * Call it once per connection, not on every refresh — it is still a write.
+   */
+  async probeAsymmetric(current: RazerLiftOff): Promise<boolean | null> {
+    // The firmware stores an inverted pair without complaint, and one session
+    // left it holding lift-off 2 with landing 26. Probing with that would throw
+    // in the command builder, so report "unknown" rather than guessing.
+    if (current.landing >= current.liftOff) return null;
+    try {
+      await this.request(razerSetLiftOffCommand(current.liftOff, current.landing));
+      return true;
+    } catch (error) {
+      if (error instanceof RazerProtocolError && error.status === RAZER_STATUS.failure) return false;
+      return null;
+    }
+  }
+
+  /** Probes once, then trusts what the setters leave behind. */
+  private async asymmetricMode(current: RazerLiftOff): Promise<boolean | null> {
+    if (!this.asymmetricKnown) {
+      this.asymmetric = await this.probeAsymmetric(current);
+      this.asymmetricKnown = true;
+    }
+    return this.asymmetric;
+  }
+
+  /**
+   * Selects the symmetric tracking distance, which also takes the mouse out of
+   * asymmetric mode — it honours whichever store was written last, and there is
+   * no mode flag to clear.
+   *
+   * Named for the shell's driver contract rather than the vendor's wording; the
+   * vendor calls this the tracking distance.
+   */
+  async setLiftOffDistance(distance: RazerTrackingDistance): Promise<RazerTrackingDistance> {
+    await this.request(razerSetTrackingDistanceCommand(distance));
+    const confirmed = decodeLiftOff(await this.request(RAZER_READ.liftOff));
+    if (confirmed.tracking !== distance) {
+      throw new Error(`The mouse kept ${confirmed.tracking ?? "an unknown"} tracking distance instead of ${distance}.`);
+    }
+    this.asymmetric = false;
+    this.asymmetricKnown = true;
+    return distance;
+  }
+
+  /**
+   * Writes the asymmetric pair, and switches the mouse into asymmetric mode to
+   * do it. The tracking level shares the same reply but not the same write, so
+   * it is left as the mouse holds it.
+   *
+   * Landing is capped just below lift-off rather than rejected, because
+   * lowering lift-off past an already-set landing is ordinary use of a pair of
+   * controls and the vendor software caps its own slider the same way. The
+   * returned values are what the mouse ended up holding, not what was asked
+   * for, so a caller can render the cap rather than guess at it.
+   */
+  async setLiftOff(liftOff: number, landing: number): Promise<RazerLiftOff> {
+    const capped = Math.min(landing, razerMaxLanding(liftOff));
+    // Built before anything is sent, so a rejected value costs no device
+    // traffic and cannot leave the mouse switched into asymmetric mode over a
+    // write that never happened. `razerSetLiftOffCommand` validates lift-off
+    // before landing, so an out-of-range lift-off still reports itself rather
+    // than being masked by the landing it drags out of range here.
+    const command = razerSetLiftOffCommand(liftOff, capped);
+    // The pair write is refused in symmetric mode — and refused while still
+    // moving what the read reports, so skipping this yields a driver that looks
+    // like it works and never reaches the sensor.
+    await this.request(razerEnableAsymmetricLiftOffCommand());
+    await this.request(command);
+    // Rejected writes on this command still disturb the stored pair, so the
+    // read-back is a genuine check, not a formality. Tracking is excluded — it
+    // was never part of the write.
+    const confirmed = decodeLiftOff(await this.request(RAZER_READ.liftOff));
+    if (confirmed.liftOff !== liftOff || confirmed.landing !== capped) {
+      throw new Error(`The mouse kept lift-off ${confirmed.liftOff} and landing ${confirmed.landing} instead of ${liftOff} and ${capped}.`);
+    }
+    this.asymmetric = true;
+    this.asymmetricKnown = true;
+    return confirmed;
   }
 
   /**

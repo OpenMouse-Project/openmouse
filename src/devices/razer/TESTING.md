@@ -45,8 +45,9 @@ other control is withheld because no command for it has been confirmed.
 5. Change the polling rate on each connection and confirm it persists. The cable
    offers 125/500/1000 and the receiver adds 2000/4000/8000; no other rate
    should appear.
-6. Confirm no lift-off distance buttons, no sensor processing card and no
-   receiver signal card appear.
+6. On the receiver, confirm the lift-off card supports both Single and
+   Asymmetric modes; on the cable, confirm it stays hidden if class `0x0b` is
+   unsupported. Confirm no sensor processing card or receiver signal card appears.
 7. Change the auto sleep timeout **on the cable and again on the receiver**,
    reloading each time to confirm the new value persisted. Unlike polling, both
    transports answer `0x07`/`0x83`, so the card belongs on both.
