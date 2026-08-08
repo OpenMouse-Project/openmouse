@@ -258,6 +258,18 @@ table below were confirmed on hardware (`1532:008a`):
 | --- | --- | --- |
 | DPI | `0x04` / `0x05` | storage byte `0x01`, then big-endian X and Y |
 | Polling | `0x00` / `0x05` | divisor of 1000 |
+| Off / Static / Spectrum / Reactive / Breathing | `0x0f` / `0x02` | extended matrix effects, transaction id `0x3f` |
+
+Lighting goes through the extended-matrix effect family (`0x0f`/`0x02`) with the
+storage byte, the logo led (`0x04`), and the effect id in the first three
+argument bytes. The payloads are taken from openrazer's
+`razer_chroma_extended_matrix_effect_*` functions, which the Viper Mini driver
+dispatches every `*_common` mode write through, and match the daemon's
+`MATRIX_DIMS = [1, 1]` single-zone layout. Effect commands have no read back, so
+they are confirmed against the driver source rather than by read-back: the
+single-colour breathing payload places the colour count (`0x01`) at argument 3
+and a second `0x01` at argument 5, while dual puts `0x02` in both, and reactive
+carries its speed level between them.
 
 The 8500 DPI ceiling comes from the openrazer daemon class. The DPI step
 granularity is assumed to be whole values, matching the V3 Pro driver.
