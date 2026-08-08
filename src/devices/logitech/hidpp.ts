@@ -130,6 +130,7 @@ const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
  */
 const MODE_STATUS_POWER_ONLY_MODEL_IDS: ReadonlySet<string> = new Set([
   "B03C40B10000", // G309 LIGHTSPEED
+  "407400000000", // G305 LIGHTSPEED
 ]);
 
 /** Whether 0x8090 on this model is the power-mode-only variant. */
