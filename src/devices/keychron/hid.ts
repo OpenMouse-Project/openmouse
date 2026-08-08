@@ -51,6 +51,7 @@ export class KeychronHidClient {
   } | null = null;
 
   private napeVerified: boolean | null = null;
+  readonly device: HIDDevice;
 
   private readonly onInputReport = (event: HIDInputReportEvent): void => {
     const bytes = new Uint8Array(
@@ -62,8 +63,9 @@ export class KeychronHidClient {
     waiter.resolve(bytes);
   };
 
-  constructor(readonly device: HIDDevice) {}
-
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID.keychron
       && PRODUCT_IDS.has(device.productId)
