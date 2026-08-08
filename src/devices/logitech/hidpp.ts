@@ -27,6 +27,7 @@ import {
   decodeLiftOffLevel,
   decodeOnboardProfile,
   describeProfileFormat,
+  dpiStageCapabilitiesForOptions,
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
@@ -37,6 +38,7 @@ import {
   parseDirectory,
   parseProfilesInfo,
   profileCrc,
+  reportRatesForDevice,
   setDirectoryEnabled,
   storedCrc,
   supportsProfileWriteProbe,
@@ -259,6 +261,7 @@ export class LogitechHidppClient {
   private dpiFeatureResolved: ResolvedFeature | null = null;
   private rateFeatureResolved: ResolvedFeature | null = null;
   private reportRateFeatureIndex: number | null = null;
+  private supportedPollingRatesCache: number[] | null = null;
   private livePollingRateHz: number | null = null;
   /** Discovered by resolveDeviceIndex; null until the mouse has answered. */
   private resolvedDeviceIndex: number | null = null;
@@ -467,9 +470,7 @@ export class LogitechHidppClient {
     const supportsSeparateDpiAxes = dpiFeature.legacy
       ? false
       : await this.readDpiCapabilities(dpiFeature.index);
-    const supportedPollingRates = reportRateFeature.legacy
-      ? await this.readLegacyReportRates(reportRateFeature.index)
-      : await this.readSupportedPollingRates(reportRateFeature.index);
+    const supportedPollingRates = await this.getSupportedPollingRateOptions();
     const pollingRateHz = reportRateFeature.legacy
       ? await this.readLegacyReportRate(reportRateFeature.index)
       : await this.readPollingRate(reportRateFeature.index);
@@ -480,7 +481,6 @@ export class LogitechHidppClient {
       : undefined;
     const modeStatusFeature = await this.getFeature(FEATURE.modeStatus);
     const modeStatus = modeStatusFeature.index ? await this.readModeStatus(modeStatusFeature.index) : null;
-    const modeStatusCarriesControls = !isPowerOnlyModeStatus(identity.modelId);
     // One extra request; the layout it selects is worth surfacing in diagnostics.
     const onboardProfileFormat = profilesFeature.index
       ? await this.request(profilesFeature.index, PROFILE_FN.getInfo)
@@ -500,6 +500,9 @@ export class LogitechHidppClient {
     const connectionRateCeiling = rateLimits
       ? (wired ? rateLimits.wiredMaxHz : rateLimits.wirelessMaxHz)
       : null;
+    const effectiveSupportedPollingRates = connectionRateCeiling
+      ? supportedPollingRates.filter((rate) => rate <= connectionRateCeiling)
+      : supportedPollingRates;
 
     return {
       brand: "Logitech",
@@ -538,9 +541,7 @@ export class LogitechHidppClient {
       // Some profile formats have different wired and wireless ceilings. The
       // active transport comes from HID++ identity rather than a USB PID.
       pollingRateHz: connectionRateCeiling ? Math.min(pollingRateHz, connectionRateCeiling) : pollingRateHz,
-      supportedPollingRates: connectionRateCeiling
-        ? supportedPollingRates.filter((rate) => rate <= connectionRateCeiling)
-        : supportedPollingRates,
+      supportedPollingRates: effectiveSupportedPollingRates,
       // Lift-off distance is only reachable through extended DPI (0x2202). On a
       // mouse that exposes just legacy 0x2201 there is nothing to drive, so
       // report an empty set rather than offering buttons that can only fail.
@@ -972,20 +973,52 @@ export class LogitechHidppClient {
     }
 
     if (values.dpiStages) {
+      const liveDpiOptions = await this.getDpiOptions();
+      const dpiCapabilities = dpiStageCapabilitiesForOptions(
+        capabilitiesForFormat(formatId).dpiStages,
+        liveDpiOptions,
+      );
       const invalid = validateDpiStagePlan(
         values.dpiStages,
-        capabilitiesForFormat(formatId).dpiStages,
+        dpiCapabilities,
         formatId < 6,
       );
       if (invalid) throw new Error(invalid);
-      updated = encodeDpiStages(updated, formatId, values.dpiStages);
+      for (const [index, stage] of values.dpiStages.stages.entries()) {
+        if (!liveDpiOptions.includes(stage.x) || !liveDpiOptions.includes(stage.y)) {
+          throw new Error(`Slot ${index + 1} uses a DPI value the connected mouse did not advertise.`);
+        }
+      }
+      updated = encodeDpiStages(updated, formatId, values.dpiStages, dpiCapabilities);
     }
 
     // The two links are stored separately, so each is set on its own.
     if (values.reportRateWirelessHz) {
+      const liveRates = await this.getSupportedPollingRateOptions();
+      const allowed = reportRatesForDevice(
+        capabilitiesForFormat(formatId).reportRates,
+        "wireless",
+        liveRates,
+        this.wiredConnection ? "wired" : "wireless",
+        formatId < 6,
+      );
+      if (!allowed.includes(values.reportRateWirelessHz)) {
+        throw new Error("The connected mouse did not advertise that profile report rate.");
+      }
       updated = encodeReportRate(updated, formatId, "wireless", values.reportRateWirelessHz);
     }
     if (values.reportRateWiredHz) {
+      const liveRates = await this.getSupportedPollingRateOptions();
+      const allowed = reportRatesForDevice(
+        capabilitiesForFormat(formatId).reportRates,
+        "wired",
+        liveRates,
+        this.wiredConnection ? "wired" : "wireless",
+        formatId < 6,
+      );
+      if (!allowed.includes(values.reportRateWiredHz)) {
+        throw new Error("The connected mouse did not advertise that profile report rate.");
+      }
       updated = encodeReportRate(updated, formatId, "wired", values.reportRateWiredHz);
     }
 
@@ -1671,6 +1704,16 @@ export class LogitechHidppClient {
     // getReportRateList: reply data byte 0 is a bitmap where bit i => (i + 1) ms.
     const reply = await this.request(featureIndex, 0x00);
     return decodeReportRateBitmap(reply[3] ?? 0);
+  }
+
+  private async getSupportedPollingRateOptions(): Promise<number[]> {
+    if (this.supportedPollingRatesCache !== null) return this.supportedPollingRatesCache;
+    const feature = await this.resolveReportRateFeature();
+    const rates = feature.legacy
+      ? await this.readLegacyReportRates(feature.index)
+      : await this.readSupportedPollingRates(feature.index);
+    this.supportedPollingRatesCache = rates;
+    return rates;
   }
 
   private async readLegacyReportRate(featureIndex: number): Promise<number> {

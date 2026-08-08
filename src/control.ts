@@ -69,9 +69,10 @@ import {
   capabilitiesForFormat,
   clampDpi,
   describeOffset,
+  dpiStageCapabilitiesForOptions,
   reportRatesFor,
+  reportRatesForDevice,
   validateProfileName,
-  validateReportRate,
   reproduceProfile,
   supportsFactoryReset,
   supportsProfileWriteProbe,
@@ -2198,7 +2199,9 @@ function dpiAxisLockedAt(index: number): boolean {
 
 function dpiSlotLimits(): DpiStageCapabilities | null {
   const format = lastProfileFormat;
-  return format ? capabilitiesForFormat(format.id).dpiStages : null;
+  return format
+    ? dpiStageCapabilitiesForOptions(capabilitiesForFormat(format.id).dpiStages, dpiOptions)
+    : null;
 }
 
 /**
@@ -2539,16 +2542,31 @@ function renameOnboardProfile(sector: number): void {
 let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
 const PROFILE_RATE_KEY = "logitech-profile-rate";
 
+function profileReportRateOptions(link: "wireless" | "wired"): number[] {
+  const format = lastProfileFormat;
+  const rates = format ? capabilitiesForFormat(format.id).reportRates : null;
+  const activeLink = latestDeviceStatus?.connectionType === "Wireless" ? "wireless" : "wired";
+  return reportRatesForDevice(
+    rates,
+    link,
+    latestDeviceStatus?.supportedPollingRates ?? [],
+    activeLink,
+    (format?.id ?? 6) < 6,
+  );
+}
+
 function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
   const entry = editedProfileEntry();
   if (!entry || !activeClient) return;
-  const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
-  const invalid = validateReportRate(hz, rates, link);
-  if (invalid) {
-    setText("#polling-note", invalid);
+  // Formats 1-5 have one shared interval byte. Use the wired slot as the
+  // canonical staged value rather than pretending they store two rates.
+  const selectedLink = (lastProfileFormat?.id ?? 6) < 6 ? "wired" : link;
+  const allowed = profileReportRateOptions(selectedLink);
+  if (!allowed.includes(hz)) {
+    setText("#polling-note", `This mouse supports ${allowed.join(", ")} Hz for that profile link.`);
     return;
   }
-  stagedProfileRates = { ...stagedProfileRates, [link]: hz };
+  stagedProfileRates = { ...stagedProfileRates, [selectedLink]: hz };
 
   const stored = { wireless: entry.reportRateWireless, wired: entry.reportRateWired };
   const wanted = {
@@ -2565,8 +2583,8 @@ function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
   stageChange({
     key: PROFILE_RATE_KEY,
     group: PROFILE_SECTOR_GROUP,
-    label: `${link === "wired" ? "Wired" : "Wireless"} ${hz.toLocaleString()} Hz`,
-    command: `Set profile ${link} report rate to ${hz} Hz`,
+    label: `${selectedLink === "wired" && (lastProfileFormat?.id ?? 6) >= 6 ? "Wired " : selectedLink === "wireless" ? "Wireless " : ""}${hz.toLocaleString()} Hz`,
+    command: `Set profile ${selectedLink} report rate to ${hz} Hz`,
     progress: "Writing the report rate to the profile…",
     // No preview: profile rates are not part of MouseStatus.
     apply: writeStagedProfileSector,
@@ -2593,20 +2611,28 @@ function renderProfileRates(): void {
   if (!available || !entry || !rates) return;
 
   const locked = lastProfileFormat?.writable !== true;
-  for (const link of ["wireless", "wired"] as const) {
+  const shared = (lastProfileFormat?.id ?? 6) < 6;
+  const wirelessSlider = document.querySelector<HTMLElement>("#profile-rate-wireless");
+  const wiredSlider = document.querySelector<HTMLElement>("#profile-rate-wired");
+  if (wirelessSlider) wirelessSlider.hidden = shared;
+  if (wiredSlider) wiredSlider.hidden = false;
+  const links: Array<"wireless" | "wired"> = shared ? ["wired"] : ["wireless", "wired"];
+  for (const link of links) {
     const value = stagedProfileRates[link]
       ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
     renderRateSlider(
       document.querySelector<HTMLElement>(`#profile-rate-${link}`),
-      reportRatesFor(rates, link),
+      profileReportRateOptions(link),
       value,
-      { label: link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
+      { label: shared ? "All connections" : link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
     );
   }
 
-  setText("#polling-note", `Stored in this profile, one rate per link. Up to ${
-    reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
-    reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
+  setText("#polling-note", shared
+    ? `Stored in this profile as one shared interval, up to ${profileReportRateOptions("wired").at(-1)?.toLocaleString()} Hz.`
+    : `Stored in this profile, one rate per link. Up to ${
+      reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
+      reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
 }
 
 function renderDpiSlots(): void {

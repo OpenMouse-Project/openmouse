@@ -48,7 +48,7 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  * matching CRC.
  */
 const VERIFIED_FORMATS = new Set([2, 3, 4, 7]);
-const WRITABLE_FORMATS = new Set([4, 7]);
+const WRITABLE_FORMATS = new Set([2, 4, 7]);
 const PROFILE_WRITE_PROBE_FORMATS = new Set([2, 3, 4]);
 const FACTORY_RESET_FORMATS = new Set([7]);
 
@@ -190,10 +190,20 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
     maxNameLength: null,
     bunnyHop: false,
   },
+  // LOGAN is shared by G502 generations. The HERO capture advertises the
+  // widest observed grid; callers narrow it to the connected sensor's live
+  // DPI list so an older 12K G502 is never offered the HERO's 25.6K ceiling.
+  2: {
+    supportedLods: [],
+    lodEncoding: LOD_ENCODING,
+    dpiStages: { maxStages: 5, minDpi: 100, maxDpi: 25600, stepDpi: 50 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+    maxNameLength: PROFILE_NAME_MAX_CHARS,
+    bunnyHop: false,
+  },
   // A G102 LIGHTSYNC on format 4 reported five scalar slots, 50-8000 DPI in
   // steps of 50, and 125/250/500/1000 Hz through the capability collector.
-  // The guided probe uses these reported limits, but the UI remains read-only
-  // until its DPI, rate, and name writes have been applied and restored.
+  // Its DPI, rate, and name writes were applied, read back live, and restored.
   4: {
     supportedLods: [],
     lodEncoding: LOD_ENCODING,
@@ -231,6 +241,32 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
     bunnyHop: true,
   },
 };
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+  while (b !== 0) [a, b] = [b, a % b];
+  return a;
+}
+
+/** Narrows format storage limits to the DPI grid advertised by this sensor. */
+export function dpiStageCapabilitiesForOptions(
+  formatCapabilities: DpiStageCapabilities | null,
+  dpiOptions: readonly number[],
+): DpiStageCapabilities | null {
+  if (formatCapabilities === null || dpiOptions.length === 0) return formatCapabilities;
+  const values = [...new Set(dpiOptions)]
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .sort((left, right) => left - right);
+  if (values.length === 0) return formatCapabilities;
+  const stepDpi = values.reduce(greatestCommonDivisor);
+  return {
+    maxStages: formatCapabilities.maxStages,
+    minDpi: values[0],
+    maxDpi: values.at(-1)!,
+    stepDpi: stepDpi || formatCapabilities.stepDpi,
+  };
+}
 
 export function capabilitiesForFormat(profileFormatId: number | null | undefined): ProfileFormatCapabilities {
   if (profileFormatId === null || profileFormatId === undefined) return DEFAULT_FORMAT_CAPABILITIES;
@@ -569,6 +605,24 @@ export function reportRatesFor(
   if (!capabilities) return [];
   const ceiling = link === "wired" ? capabilities.wiredMaxHz : capabilities.wirelessMaxHz;
   return REPORT_RATE_HZ.filter((rate) => rate <= ceiling);
+}
+
+/**
+ * Intersects format storage support with the rates advertised by the active
+ * hardware link. Legacy formats share one interval byte, so their live list
+ * applies to the whole profile; v6 formats retain the captured limit for the
+ * inactive link because the mouse cannot advertise that link while disconnected.
+ */
+export function reportRatesForDevice(
+  capabilities: ReportRateCapabilities | null,
+  link: "wireless" | "wired",
+  liveRates: readonly number[],
+  activeLink: "wireless" | "wired",
+  sharedInterval: boolean,
+): number[] {
+  const storedRates = reportRatesFor(capabilities, link);
+  if (!sharedInterval && link !== activeLink) return storedRates;
+  return storedRates.filter((rate) => liveRates.includes(rate));
 }
 
 export function validateReportRate(

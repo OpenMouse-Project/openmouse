@@ -15,12 +15,14 @@ import {
   clampDpi,
   decodeLiftOffLevel,
   describeProfileFormat,
+  dpiStageCapabilitiesForOptions,
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
   factoryProfileForFormat,
   supportsFactoryReset,
   reportRatesFor,
+  reportRatesForDevice,
   validateBunnyHoppingMs,
   validateProfileName,
   validateReportRate,
@@ -168,6 +170,7 @@ const G502_SECTORS = [
 ];
 
 const G502_INFO_REPLY = bytes("ff 0e 05 01 02 01 03 03 0b 10 01 00 0a 01 00 00 00 00 00");
+const G502_HERO_INFO_REPLY = bytes("ff 0c 05 01 02 01 05 05 0b 10 01 00 0a 01 00 00 00 00 00");
 const G502_DIRECTORY = (() => {
   const sector = new Uint8Array(256).fill(0xff);
   sector.set(bytes("00 01 01 00 00 02 00 00 00 03 00 00 ff ff 00 00"));
@@ -446,12 +449,19 @@ test("decodes all captured G502 format-2 profiles", () => {
 test("parses the captured G502 format-2 geometry and directory", () => {
   assert.deepEqual(
     { verified: describeProfileFormat(2).verified, writable: describeProfileFormat(2).writable },
-    { verified: true, writable: false },
+    { verified: true, writable: true },
   );
   assert.deepEqual(parseProfilesInfo(G502_INFO_REPLY), {
     memoryModelId: 1,
     profileFormatId: 2,
     profileCount: 3,
+    sectorCount: 16,
+    sectorSize: 256,
+  });
+  assert.deepEqual(parseProfilesInfo(G502_HERO_INFO_REPLY), {
+    memoryModelId: 1,
+    profileFormatId: 2,
+    profileCount: 5,
     sectorCount: 16,
     sectorSize: 256,
   });
@@ -464,6 +474,13 @@ test("parses the captured G502 format-2 geometry and directory", () => {
 });
 
 test("format-2 probe encoders use limits collected live from the wired G502", () => {
+  const heroLimits = capabilitiesForFormat(2).dpiStages;
+  assert.deepEqual(heroLimits, { maxStages: 5, minDpi: 100, maxDpi: 25600, stepDpi: 50 });
+  assert.deepEqual(
+    dpiStageCapabilitiesForOptions(heroLimits, [100, 150, 200, 11950, 12000]),
+    { maxStages: 5, minDpi: 100, maxDpi: 12000, stepDpi: 50 },
+    "the older G502 is narrowed to its live 12K sensor grid",
+  );
   const original = decodeOnboardProfile(G502_SECTORS[0], 2, { sector: 1, enabled: true }, false);
   const stages = original.dpiStages.map((stage) => ({ ...stage }));
   stages[original.defaultDpiIndex!] = { x: 1000, y: 1000, lod: 0 };
@@ -801,6 +818,20 @@ test("report-rate ceilings differ per link and per format", () => {
   assert.equal(validateReportRate(8000, rates, "wireless"), null);
   assert.match(validateReportRate(8000, rates, "wired") ?? "", /Wired report rate/);
   assert.equal(validateReportRate(1000, rates, "wired"), null);
+  assert.deepEqual(
+    reportRatesForDevice(rates, "wireless", [125, 500, 1000, 2000], "wireless", false),
+    [125, 500, 1000, 2000],
+  );
+  assert.deepEqual(
+    reportRatesForDevice(rates, "wired", [125, 500, 1000, 2000], "wireless", false),
+    [125, 250, 500, 1000],
+    "the disconnected wired link keeps its captured format ceiling",
+  );
+  assert.deepEqual(
+    reportRatesForDevice({ wirelessMaxHz: 1000, wiredMaxHz: 1000 }, "wired", [125, 500, 1000], "wired", true),
+    [125, 500, 1000],
+    "a shared legacy interval uses the exact live bitmap",
+  );
 
   // Format 8 reports the same split; this replaces the old Superstrike PID
   // exception with a format capability.

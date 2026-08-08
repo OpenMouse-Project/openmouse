@@ -116,25 +116,3 @@ test("an onboard-only mouse is told how to get itself supported", () => {
   assert.doesNotMatch(unknown.message, /format (\d|null)/);
   assert.match(unknown.message, /Copy verification data/);
 });
-
-test("the G309's mode status is power-only and exposes no surface or LightForce controls", () => {
-  // Model id captured from hardware: 0x8090 V2 with only the power-mode half.
-  assert.equal(isPowerOnlyModeStatus("B03C40B10000"), true);
-  // Every other model keeps the status1 fields, and unknown/absent ids must
-  // not be silently downgraded.
-  assert.equal(isPowerOnlyModeStatus("B03C40B10001"), false);
-  assert.equal(isPowerOnlyModeStatus(""), false);
-  assert.equal(isPowerOnlyModeStatus(null), false);
-  assert.equal(isPowerOnlyModeStatus(undefined), false);
-});
-
-test("a sensor without lift-off control advertises no lift-off levels", () => {
-  // 0x2201 legacy DPI carries no lod byte at all.
-  assert.equal(hasLiftOffControl(true, null), false);
-  // 0x2202 byte 0 is the "no lift-off control" value, as on the G309.
-  assert.equal(hasLiftOffControl(false, 0), false);
-  assert.equal(hasLiftOffControl(false, null), false);
-  // The levels 1-4 (Low/Medium/High/Extra high) are driveable.
-  assert.equal(hasLiftOffControl(false, 1), true);
-  assert.equal(hasLiftOffControl(false, 2), true);
-});
