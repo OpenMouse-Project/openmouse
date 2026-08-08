@@ -188,6 +188,11 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 0; color: var(--dim); font-size: .7rem; }
 .field-label { display: block; color: var(--faint); font-size: .62rem; }
 .field-label.spaced { margin-top: .35rem; }
+.teevolution-dpi-light-controls { display: grid; gap: .55rem; margin-top: .55rem; }
+.teevolution-dpi-light-controls label { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: .1rem .5rem; color: var(--faint); font-size: .62rem; }
+.teevolution-dpi-light-controls output { color: var(--bright); font-family: var(--font-mono); font-size: .72rem; }
+.teevolution-dpi-light-controls input[type="range"] { grid-column: 1 / -1; width: 100%; margin: .1rem 0 0; accent-color: var(--ui-accent); }
+.teevolution-dpi-light-controls input[type="range"]:disabled { opacity: .45; }
 
 .egg-collapsible, .egg-experimental { overflow: hidden; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--card); }
 .egg-collapsible summary, .egg-experimental summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #d8d8dc; font-weight: 650; list-style: none; }
