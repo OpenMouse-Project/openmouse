@@ -1,6 +1,7 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
 import { RATES_1K, RAZER_PRODUCTS, type RazerProduct } from "./devices.ts";
+import { openRazerDevice } from "./hid-open.ts";
 import {
   RAZER_LANDING_MAX,
   RAZER_LANDING_MIN,
@@ -8,6 +9,7 @@ import {
   RAZER_LIFT_OFF_MIN,
   RAZER_READ,
   RAZER_REPORT_ID,
+  RAZER_STORAGE,
   RAZER_STATUS,
   RAZER_TRACKING_DISTANCES,
   RAZER_TRANSACTION_ID,
@@ -25,6 +27,7 @@ import {
   decodeSleepTimeout,
   encodeRazerRequest,
   isRazerGetter,
+  razerReadDpiCommand,
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
@@ -134,8 +137,13 @@ export class RazerHidClient {
     return this.profile()?.highRatePolling ?? this.isWireless();
   }
 
+  /** DPI store byte; most models store, the V2 generation does not. */
+  private dpiStorageByte(): number {
+    return this.profile()?.dpiStorageByte ?? RAZER_STORAGE;
+  }
+
   async open(): Promise<void> {
-    if (!this.device.opened) await this.device.open();
+    await openRazerDevice(this.device);
   }
 
   async close(): Promise<void> {
@@ -220,7 +228,7 @@ export class RazerHidClient {
     // read, which would take DPI and battery down with it.
     const sleep = hasBattery ? await this.request(RAZER_READ.sleepTimeout).catch(() => null) : null;
     const lowPower = hasBattery ? await this.request(RAZER_READ.lowPowerThreshold).catch(() => null) : null;
-    const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
+    const dpi = decodeDpi(await this.request(razerReadDpiCommand(this.dpiStorageByte())));
     const pollingRateHz = await this.readPollingRateHz();
     // Asked of the product, not of the mouse. A model without lift-off can
     // still answer this read — the Basilisk X HyperSpeed returns status 0x02
@@ -289,8 +297,8 @@ export class RazerHidClient {
         throw new Error(`DPI must be a whole number between ${DPI_MIN} and ${ceiling.toLocaleString()}.`);
       }
     }
-    await this.request(razerSetDpiCommand(dpi, dpiY));
-    const confirmed = decodeDpi(await this.request(RAZER_READ.dpi));
+    await this.request(razerSetDpiCommand(dpi, dpiY, this.dpiStorageByte()));
+    const confirmed = decodeDpi(await this.request(razerReadDpiCommand(this.dpiStorageByte())));
     if (confirmed.x !== dpi || confirmed.y !== dpiY) {
       throw new Error(`The mouse kept ${confirmed.x.toLocaleString()} DPI instead of ${dpi.toLocaleString()}.`);
     }

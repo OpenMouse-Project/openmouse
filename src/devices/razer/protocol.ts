@@ -60,9 +60,11 @@ export interface RazerCommand {
 /**
  * Razer selects a value store per command. Firmware 1.12 reports the same DPI
  * from either store, and writes were confirmed against this one, so reads and
- * writes both use it rather than risking a stale read from the other.
+ * writes both use it rather than risking a stale read from the other. The V2
+ * generation (DeathAdder V2 and its siblings) reads and writes through
+ * NOSTORE (`0x00`) instead, which OpenRazer's driver selects per device.
  */
-const RAZER_STORAGE = 0x01;
+export const RAZER_STORAGE = 0x01;
 
 /** The underglow's led id in openrazer's extended-matrix family. */
 const RAZER_LED_LOGO = 0x04;
@@ -100,11 +102,21 @@ export const RAZER_WRITE = {
   lowPowerThreshold: { commandClass: 0x07, commandId: 0x01, dataSize: 0x02 },
 } as const satisfies Record<string, Omit<RazerCommand, "args">>;
 
-export function razerSetDpiCommand(x: number, y: number): RazerCommand {
+export function razerSetDpiCommand(x: number, y: number, storageByte: number = RAZER_STORAGE): RazerCommand {
   return {
     ...RAZER_WRITE.dpi,
-    args: [RAZER_STORAGE, (x >> 8) & 0xff, x & 0xff, (y >> 8) & 0xff, y & 0xff, 0x00, 0x00],
+    args: [storageByte, (x >> 8) & 0xff, x & 0xff, (y >> 8) & 0xff, y & 0xff, 0x00, 0x00],
   };
+}
+
+/**
+ * The DPI read, parameterized by the store byte. The V3 family reads the
+ * storage byte (`0x01`), but the V2 generation reads the no-store byte (`0x00`)
+ * — OpenRazer's driver calls `get_dpi_xy(NOSTORE)` for them — so the shared
+ * `RAZER_READ.dpi` cannot be used verbatim.
+ */
+export function razerReadDpiCommand(storageByte: number = RAZER_STORAGE): RazerCommand {
+  return { ...RAZER_READ.dpi, args: [storageByte] };
 }
 
 /** Seconds, big-endian, in the same encoding the matching read returns. */

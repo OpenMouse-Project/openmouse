@@ -77,6 +77,8 @@ export interface RazerProduct {
   hasBattery: boolean;
   /** Also accept a vendor-defined collection as the control interface. */
   vendorControlInterface?: boolean;
+  /** DPI storage selector; some generations use the no-store command form. */
+  dpiStorageByte?: number;
   transport: RazerTransport;
   /**
    * Use the extended polling command (a divisor of 8000) rather than the legacy
@@ -391,7 +393,7 @@ const PRODUCT_DEFINITIONS: ReadonlyArray<[number, Omit<RazerProduct, "transactio
   [0x006a, { model: "Abyssus Elite (D.Va Edition)", ...STANDARD, maxDpi: 7200 }],
   [0x006b, { model: "Abyssus Essential", ...STANDARD, maxDpi: 7200 }],
   [0x006c, { model: "Mamba Elite", ...STANDARD }],
-  [0x0084, { model: "DeathAdder V2", ...STANDARD, maxDpi: DPI_FOCUS }],
+  [0x0084, { model: "DeathAdder V2", ...STANDARD, maxDpi: DPI_FOCUS, dpiStorageByte: 0x00 }],
   [0x0085, { model: "Basilisk V2", ...STANDARD, maxDpi: DPI_FOCUS }],
   [0x008c, { model: "DeathAdder V2 Mini", ...STANDARD, maxDpi: 8500 }],
   [0x008d, { model: "Naga Left-Handed Edition 2020", ...STANDARD, maxDpi: DPI_FOCUS }],

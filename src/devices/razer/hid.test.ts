@@ -28,6 +28,10 @@ interface FakeOptions {
   ignoreWrites?: boolean;
   /** Answer the next N sends with a reply whose checksum is wrong. */
   corruptSends?: number;
+  /** Product id the fake advertises, defaulting to the Viper V3 Pro. */
+  productId?: number;
+  /** DPI pair the fake reports, defaulting to 1600 × 1600. */
+  dpi?: [number, number];
 }
 
 function replyPacket(commandClass: number, commandId: number, dataSize: number, args: number[], status: number): Uint8Array {
@@ -51,9 +55,10 @@ function fakeMouse(state: FakeLiftOff, options: FakeOptions = {}) {
   const sent: Uint8Array[] = [];
   let pending = new Uint8Array(RAZER_PACKET_LENGTH);
   let corruptRemaining = options.corruptSends ?? 0;
+  let dpi = options.dpi ?? [1600, 1600];
   const device = {
     vendorId: 0x1532,
-    productId: 0x00c1,
+    productId: options.productId ?? 0x00c1,
     productName: "Razer Viper V3 Pro",
     opened: true,
     collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
@@ -64,6 +69,15 @@ function fakeMouse(state: FakeLiftOff, options: FakeOptions = {}) {
       const [commandClass, commandId] = [data[6], data[7]];
       if (options.liftOffUnsupported) {
         pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+        return;
+      }
+      // DPI write stores the pair; the read answers it. The store byte the
+      // request carried is echoed back so the reply mirrors a real one.
+      const dpiWrite = commandClass === 0x04 && commandId === 0x05;
+      const dpiRead = commandClass === 0x04 && commandId === 0x85;
+      if (dpiWrite && !options.ignoreWrites) dpi = [(data[9] << 8) | data[10], (data[11] << 8) | data[12]];
+      if (dpiWrite || dpiRead) {
+        pending = replyPacket(commandClass, commandId, data[5], [data[8], (dpi[0] >> 8) & 0xff, dpi[0] & 0xff, (dpi[1] >> 8) & 0xff, dpi[1] & 0xff, 0, 0], RAZER_STATUS.ok);
         return;
       }
       // Matched on class as well as id: polling shares both ids on class 0x00,
@@ -488,4 +502,50 @@ test("an out-of-range lift-off reports itself rather than the landing it drags d
   // switched into asymmetric mode over a write that never happened.
   assert.equal(sent.length, 0);
   await assert.rejects(() => client.setLiftOff(27, 25), /Lift-off must be/);
+});
+
+test("the DeathAdder V2 is accepted on either interface shape", () => {
+  // It shares the Essential family's split pointer/configuration layout, so
+  // both the single mouse collection and the vendor-defined one must qualify.
+  // Arrange
+  const control = {
+    vendorId: 0x1532,
+    productId: 0x0084,
+    collections: [{ usagePage: 0x01, usage: 0x02, featureReports: [], children: [] }],
+  } as unknown as HIDDevice;
+  const vendor = {
+    ...control,
+    collections: [{ usagePage: 0xffc0, usage: 0x01, featureReports: [], children: [] }],
+  } as unknown as HIDDevice;
+
+  // Act / Assert
+  assert.equal(RazerHidClient.isSupported(control), true);
+  assert.equal(RazerHidClient.isSupported(vendor), true);
+});
+
+test("the DeathAdder V2 caps DPI at 20000", () => {
+  // Arrange
+  const { client } = fakeMouse({ tracking: 0, liftOff: 16, landing: 11, asymmetric: false }, { productId: 0x0084 });
+
+  // Act / Assert
+  assert.equal(client.maxDpi(), 20000);
+});
+
+test("the DeathAdder V2 DPI write uses the legacy transaction id and no-store byte", async () => {
+  // The Essential family also answers `0x3f`, but the V2 reads and writes DPI
+  // through NOSTORE, so the packet must carry `0x00` where newer models use
+  // `0x01`.
+  // Arrange
+  const { client, sent } = fakeMouse({ tracking: 0, liftOff: 16, landing: 11, asymmetric: false }, { productId: 0x0084 });
+
+  // Act
+  await client.setDpi(1600, 800);
+
+  // Assert
+  const write = sent[0];
+  const confirm = sent[1];
+  assert.equal(write[1], 0x3f);
+  assert.equal(write[8], 0x00);
+  assert.equal(confirm[1], 0x3f);
+  assert.equal(confirm[8], 0x00);
 });

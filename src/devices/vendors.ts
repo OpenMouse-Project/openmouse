@@ -84,7 +84,7 @@ export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x
  * broad filter cannot quietly widen one that was deliberately narrowed.
  */
 const RAZER_NARROWED_PRODUCT_IDS: ReadonlySet<number> = new Set([
-  0x00a5, 0x00a6, 0x00c0, 0x00c1, 0x006e, 0x0071, 0x0098,
+  0x00a5, 0x00a6, 0x00c0, 0x00c1, 0x006e, 0x0071, 0x0098, 0x0084,
 ]);
 
 /**
@@ -97,6 +97,12 @@ const RAZER_NARROWED_PRODUCT_IDS: ReadonlySet<number> = new Set([
 export const RAZER_REGISTRY_FILTERS: HIDDeviceFilter[] = RAZER_PRODUCT_IDS
   .filter((productId) => !RAZER_NARROWED_PRODUCT_IDS.has(productId))
   .map((productId) => ({ vendorId: VENDOR_ID.razer, productId }));
+
+// The DeathAdder V2 keeps the Essential family's split interface layout, so it
+// needs the same whole-device request rather than a single-collection filter.
+export const RAZER_DEATHADDER_V2_FILTERS: HIDDeviceFilter[] = [0x0084].map(
+  (productId) => ({ vendorId: VENDOR_ID.razer, productId }),
+);
 
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
@@ -184,6 +190,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   ...RAZER_DEATHADDER_ESSENTIAL_FILTERS,
   ...KEYCHRON_HID_FILTERS,
   ...RAZER_REGISTRY_FILTERS,
+  ...RAZER_DEATHADDER_V2_FILTERS,
   ...EGG_WE_HID_FILTERS,
   ...MODDO_HID_FILTERS,
   ...LOGITECH_RECEIVER_FILTERS,

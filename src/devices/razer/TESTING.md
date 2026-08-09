@@ -3,6 +3,14 @@
 Test in Chrome or Edge over HTTPS. Quit Razer Synapse first — it holds the
 control interface open and reads then time out.
 
+On macOS the browser itself must be granted Input Monitoring permission
+(System Settings → Privacy & Security → Input Monitoring) **before** the first
+connection, and then quit and reopened. Razer's control interface is a Generic
+Desktop Mouse collection, which macOS reserves for its own input stack; without
+the permission the browser's `IOHIDDeviceOpen` call is refused and the app
+shows "Failed to open the device." while the device still appears in the
+picker. This is a system grant, not an app setting.
+
 Identifiers verified on hardware:
 
 - `1532:00a5` — Viper V2 Pro, wired
@@ -18,6 +26,7 @@ Claimed but never connected:
 - `1532:0071` — DeathAdder Essential White Edition, wired
 - `1532:0098` — DeathAdder Essential (2021), wired
 - 99 further products from the OpenRazer reference
+- `1532:0084` — DeathAdder V2, wired
 
 These three shipped with the driver long before the registry existed and were
 listed here as supported, but the section below has always described them as not
@@ -407,6 +416,52 @@ Lighting is not implemented. The hardware is fixed-colour (green on the black
 edition, white on the white one), the panel has no Razer lighting controls, and
 the effect packets are unverified. Device mode (`0x00`/`0x04`) is never sent —
 driver mode changes button behaviour and would need restoring on disconnect.
+
+## DeathAdder V2 — not yet hardware-tested
+
+This model shares the Essential family's transaction id (`0x3f`) and interface
+layout, so it reuses the same driver. Two things differ from the Essential:
+
+| Difference | Value | Why |
+| --- | --- | --- |
+| DPI ceiling | 20,000 | OpenRazer's `DPI_MAX` for this model. |
+| DPI store byte | `NOSTORE` (`0x00`) | OpenRazer groups this model with the V2 generation, which reads and writes DPI through the no-store byte rather than the storage byte (`0x01`) the Essential and the V3 Pro use. A wrong store reads back an implausible DPI, so this fails loudly, not quietly. |
+
+The control interface split is the same as the Essential's, so the same advice
+applies: the picker may offer more than one entry, and if the first never
+answers, add the device again and choose another.
+
+1. Confirm the picker offers the mouse at all. If Chrome grants only a single
+   Generic Desktop Mouse collection and the firmware read times out on every
+   entry, this platform does not expose the configuration interface and no
+   browser-side control is possible. Stop and record that.
+2. Confirm the model name, **Wired**, and a firmware version appear.
+3. Confirm no battery row appears.
+4. Confirm the DPI presets offer 100 through 20,000, and no 20,001.
+5. Confirm the polling buttons offer only 125 / 500 / 1000.
+6. Read DPI and compare against Synapse **before** writing anything. A value off
+   by a known factor — 0, or a wildly different DPI — means the store byte is
+   wrong; the read-before-write check is what separates a store problem from a
+   write problem.
+7. Change DPI, confirm the pointer speed changes, then reload and confirm it
+   persisted.
+8. Change the polling rate and verify it externally.
+9. Confirm no lift-off buttons and no sensor processing card appear.
+
+The V2 has RGB lighting, but like every other model the panel offers no Razer
+lighting controls and device mode is never sent.
+
+## DeathAdder V2 on macOS
+
+Confirmed on macOS: the mouse enumerates as four HID interfaces, the
+configuration channel sits on the Generic Desktop Mouse interface, and the
+browser is refused from opening it unless it holds the Input Monitoring
+permission. The device still shows up in the picker, so the failure looks like
+a driver bug: the sidebar lists the mouse as available, and connecting fails
+with `NotAllowedError: Failed to open the device.` before any feature report is
+exchanged — no Synapse installed. Granting the browser Input Monitoring
+(System Settings → Privacy & Security → Input Monitoring) and restarting it is
+the fix; the app now says exactly that when the open is refused on macOS.
 
 ## Verified against firmware 1.12
 
