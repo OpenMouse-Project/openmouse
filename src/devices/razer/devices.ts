@@ -337,7 +337,18 @@ export const RAZER_PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map<number,
   [0x007d, { model: "DeathAdder V2 Pro", ...VIPER_RECEIVER_WIRELESS }],
   [0x009e, { model: "Viper Mini Signature Edition (Wired)", ...VIPER_RECEIVER_WIRED, maxDpi: DPI_FOCUS_PRO }],
   [0x009f, { model: "Viper Mini Signature Edition", ...VIPER_RECEIVER_WIRELESS, maxDpi: DPI_FOCUS_PRO, pollingRates: RATES_8K }],
-  [0x00b8, { model: "Viper V3 HyperSpeed", ...VIPER_RECEIVER_WIRELESS, maxDpi: DPI_FOCUS_PRO }],
+  // Verified on hardware with the stock HyperSpeed receiver, and the first
+  // model to prove `highRatePolling` is genuinely per-PID rather than a
+  // property of the transport group or of being wireless: this receiver
+  // answers only the legacy divisor-of-1000 command and rejects the extended
+  // one (`0x00`/`0x40`) as unsupported. 125/500/1000 Hz were each written and
+  // read back.
+  //
+  // Do not "tidy" this back onto the group default. 0x00a6 is the standing
+  // counter-example in the other direction — a 1000 Hz receiver that does use
+  // the extended command — so neither the group nor the rate ceiling predicts
+  // this, and it can only be settled per product.
+  [0x00b8, { model: "Viper V3 HyperSpeed", ...VIPER_RECEIVER_WIRELESS, highRatePolling: false, maxDpi: DPI_FOCUS_PRO, verified: true }],
 
   // ---- new-receiver ---------------------------------------------------------
   [0x006f, { model: "Lancehead Wireless", ...LEGACY_RECEIVER, maxDpi: DPI_CHROMA }],

@@ -12,12 +12,23 @@ import {
 import { VIPER_MINI_PRODUCT_ID } from "./viper-mini-hid.ts";
 import { VIPER_V4_PRO_PRODUCTS } from "./viper-v4-pro-hid.ts";
 
+interface VerifiedProfile {
+  model: string;
+  wireless: boolean;
+  maxDpi: number;
+  transactionId: number;
+  rates: readonly number[];
+  highRate: boolean;
+}
+
 /**
- * Everything the driver treated as verified before the OpenRazer registry was
- * added. Their behaviour is pinned by `hid.test.ts` and `TESTING.md`, so the
- * table must not quietly change any of it.
+ * The models the driver already treated as verified before the OpenRazer
+ * registry was added. `highRatePolling` was read off `wireless` back then, so
+ * these seven also pin that the refactor changed no behaviour — see the
+ * separate test below, which is a claim about *these* products rather than
+ * about verified products in general.
  */
-const VERIFIED: ReadonlyArray<[number, { model: string; wireless: boolean; maxDpi: number; transactionId: number; rates: readonly number[]; highRate: boolean }]> = [
+const REFACTOR_BASELINE: ReadonlyArray<[number, VerifiedProfile]> = [
   [0x00a5, { model: "Viper V2 Pro", wireless: false, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: false }],
   [0x00a6, { model: "Viper V2 Pro", wireless: true, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: true }],
   [0x00c0, { model: "Viper V3 Pro", wireless: false, maxDpi: 35000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: false }],
@@ -27,9 +38,19 @@ const VERIFIED: ReadonlyArray<[number, { model: string; wireless: boolean; maxDp
   [0x0098, { model: "DeathAdder Essential (2021)", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_LEGACY, rates: RATES_1K, highRate: false }],
 ];
 
-test("the models verified on hardware keep exactly the profile they had", () => {
-  // The registry replaced a hand-written table. Every field the old one set is
-  // re-asserted here, because a silent change would only show up on hardware.
+/** Models promoted by a hardware report since. */
+const VERIFIED_SINCE: ReadonlyArray<[number, VerifiedProfile]> = [
+  // Reported against the stock HyperSpeed receiver: the extended polling
+  // command is refused as unsupported, and 125/500/1000 Hz each round-tripped
+  // on the legacy one.
+  [0x00b8, { model: "Viper V3 HyperSpeed", wireless: true, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: false }],
+];
+
+const VERIFIED = [...REFACTOR_BASELINE, ...VERIFIED_SINCE];
+
+test("the models verified on hardware keep exactly the profile they were given", () => {
+  // A silent change to any of these would only show up on hardware, which is
+  // the one place this project cannot re-run on demand.
   for (const [productId, expected] of VERIFIED) {
     const product = RAZER_PRODUCTS.get(productId);
     assert.ok(product, `0x${productId.toString(16)} is missing from the registry`);
@@ -38,11 +59,35 @@ test("the models verified on hardware keep exactly the profile they had", () => 
     assert.equal(product.maxDpi, expected.maxDpi);
     assert.equal(product.transactionId, expected.transactionId);
     assert.deepEqual([...product.pollingRates], [...expected.rates]);
-    assert.equal(product.verified, true);
-    // This used to be read off `wireless`; for these seven it must still agree.
     assert.equal(product.highRatePolling, expected.highRate);
-    assert.equal(product.highRatePolling, product.wireless);
+    assert.equal(product.verified, true);
   }
+});
+
+test("splitting the polling command off `wireless` changed nothing for the models that predate it", () => {
+  // The driver used to choose the polling command with `isWireless()`. For the
+  // seven products that existed then the two must still agree, or the refactor
+  // silently moved one of them onto the other encoding.
+  for (const [productId, expected] of REFACTOR_BASELINE) {
+    const product = RAZER_PRODUCTS.get(productId);
+    assert.equal(product?.highRatePolling, product?.wireless, `0x${productId.toString(16)}`);
+    assert.equal(product?.highRatePolling, expected.highRate);
+  }
+});
+
+test("a wireless model can still answer only the legacy polling command", () => {
+  // The reason the two are separate fields. 0x00b8 is wireless and refuses the
+  // extended command; 0x00a6 is wireless, tops out at 1000 Hz too, and accepts
+  // it. Neither the transport group nor the rate ceiling predicts which, so a
+  // rule inferred from either would be wrong about one of these two.
+  const hyperSpeed = RAZER_PRODUCTS.get(0x00b8);
+  const viperV2 = RAZER_PRODUCTS.get(0x00a6);
+  assert.equal(hyperSpeed?.wireless, true);
+  assert.equal(hyperSpeed?.highRatePolling, false);
+  assert.equal(viperV2?.wireless, true);
+  assert.equal(viperV2?.highRatePolling, true);
+  // Same ceiling, opposite encoding: the rate list cannot be what decides.
+  assert.deepEqual([...hyperSpeed?.pollingRates ?? []], [...viperV2?.pollingRates ?? []]);
 });
 
 test("only models connected by this project claim to be verified", () => {

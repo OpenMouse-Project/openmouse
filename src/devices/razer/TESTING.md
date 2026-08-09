@@ -13,8 +13,9 @@ Identifiers verified on hardware:
 - `1532:006e` — DeathAdder Essential, wired
 - `1532:0071` — DeathAdder Essential White Edition, wired
 - `1532:0098` — DeathAdder Essential (2021), wired
+- `1532:00b8` — Viper V3 HyperSpeed, stock HyperSpeed receiver
 
-A further 100 products are claimed from the OpenRazer reference and have never
+A further 99 products are claimed from the OpenRazer reference and have never
 been connected — see [Untested models](#untested-models) before testing one.
 
 Razer does not declare its control channel in the HID descriptor, so no
@@ -67,14 +68,46 @@ other control is withheld because no command for it has been confirmed.
 11. Record the device identifier, firmware version, and any failing setting in
     the issue or pull request.
 
+## Viper V3 HyperSpeed (`1532:00b8`) — verified on the stock receiver
+
+Battery, DPI read/write, lift-off distance and sleep timeout all behaved. One
+entry in the registry was wrong and is now corrected:
+
+**The stock HyperSpeed receiver rejects the extended polling command**
+(`0x00`/`0x40`, a divisor of 8000) as unsupported, and answers only the legacy
+divisor-of-1000 one. 125, 500 and 1000 Hz were each written and read back
+successfully after `highRatePolling` was set to `false`.
+
+This is the first product to show that `highRatePolling` is genuinely per-PID.
+It cannot be inferred from either of the obvious rules:
+
+| Rule you might infer | Counter-example |
+| --- | --- |
+| "wireless ⇒ extended command" | `0x00b8` is wireless and refuses it |
+| "1000 Hz ceiling ⇒ legacy command" | `0x00a6` tops out at 1000 Hz and uses the extended one |
+
+Both are wireless receivers advertising the same three rates, and they disagree,
+so this field has to be settled per product and must not be tidied onto a group
+default. `devices.test.ts` pins the pair against exactly that.
+
+Still untested on this model: the asymmetric lift-off pair. `asymmetricLiftOff`
+stays `false`, so the mode probe — which is a *write* — is never sent and the
+mouse keeps the plain three-stop tracking control. The reported lift-off
+behaviour is that control, not the pair.
+
 ## Untested models
 
-`devices.ts` claims 100 further products taken from OpenRazer's supported-device
+`devices.ts` claims 99 further products taken from OpenRazer's supported-device
 table. They reuse the commands verified above; what the table records per model
 is which of those commands are valid, which transaction id the mouse answers on,
 and what its sensor and radio can do. **None has been connected**, so each is a
 prediction until someone reports otherwise. The panel says so: the connection
 card reads `… · untested model`.
+
+The Viper V3 HyperSpeed result above is worth reading before testing one: the
+first model connected had a wrong `highRatePolling`, so expect that field to be
+the most likely thing to need correcting. It presents as the polling rate
+refusing to change while everything else works.
 
 Testing one is worth doing and is low-risk, because every failure mode here is
 loud rather than silent:
