@@ -203,8 +203,6 @@ test("a sensor without lift-off control advertises no lift-off levels", () => {
   clearTimeout,
 };
 
-const SHORT_REPORT_ID = 0x10;
-
 const successReply = (deviceIndex: number, featureIndex: number, functionId: number, data: number[] = []): Uint8Array =>
   new Uint8Array([deviceIndex, featureIndex, withSoftwareId(functionId), ...data]);
 
