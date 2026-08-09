@@ -1,11 +1,10 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import {
-  DEVICE_INDEX_DIRECT,
-  DEVICE_INDEX_RECEIVER,
   decodeBatteryLevelState,
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
+  hidppDeviceIndexCandidates,
   hidppErrorForRequest,
   isDirectConnection,
   isDirectConnectProduct,
@@ -305,6 +304,9 @@ export class LogitechHidppClient {
    * ids only works for the handful of ids on the list — every other mouse
    * plugged in directly was addressed as a receiver and never replied.
    *
+   * A G HUB merge can also push the mouse off slot 0x01, so receivers probe
+   * every pairing slot, not just the first.
+   *
    * So ask. The root feature query is the cheapest request there is, and the
    * wrong index simply times out.
    */
@@ -315,23 +317,45 @@ export class LogitechHidppClient {
     // receiver" rather than by the direct-connect id list matters for mice that
     // are on neither list — a wired G102 is its own endpoint, and asking it as
     // though it were behind a receiver is what made it look mode-locked.
-    const candidates = LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId)
-      ? [DEVICE_INDEX_RECEIVER, DEVICE_INDEX_DIRECT]
-      : [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER];
+    const receiverAttached = LOGITECH_RECEIVER_PRODUCT_IDS.has(this.device.productId);
+    const candidates = hidppDeviceIndexCandidates(receiverAttached);
 
+    // A merged receiver can carry a keyboard on a lower slot than the mouse.
+    // Keyboards answer the same HID++ queries, so an answering slot only counts
+    // once it proves it has a sensor; a direct connection has a single endpoint
+    // and is latched as before, with readStatus deciding whether it is a mouse.
+    let answeredWithoutSensor = false;
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
-      // Only a successful reply proves a HID++ 2.0 mouse is on this index. A
+      // Only a successful reply proves a HID++ 2.0 device is on this index. A
       // receiver answers the direct index with a HID++ 1.0 error reply, which
       // is not a mouse and must not count — else we latch onto it and every
       // later request fails with "invalid command".
       const answered = await this.request(0x00, 0x00, FEATURE.firmware >> 8, FEATURE.firmware & 0xff)
         .then(() => true)
         .catch(() => false);
-      if (answered) return;
+      if (!answered) continue;
+      if (!receiverAttached) return;
+      answeredWithoutSensor = true;
+      if (await this.hasDpiFeature()) return;
     }
     this.resolvedDeviceIndex = null;
+    if (answeredWithoutSensor) {
+      throw new NotAMouseError(this.device.productName || "That Logitech device");
+    }
     throw new Error("The mouse did not answer on any HID++ device index.");
+  }
+
+  /**
+   * Whether the slot currently probed exposes a DPI feature — the same sensor
+   * check readStatus uses, so a keyboard paired to a merged receiver is never
+   * mistaken for the mouse.
+   */
+  private async hasDpiFeature(): Promise<boolean> {
+    const extended = await this.getFeature(FEATURE.extendedDpi).catch(() => null);
+    if (extended?.index) return true;
+    const legacy = await this.getFeature(FEATURE.adjustableDpi).catch(() => null);
+    return (legacy?.index ?? 0) !== 0;
   }
 
   /**

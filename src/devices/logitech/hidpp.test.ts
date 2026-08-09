@@ -8,6 +8,7 @@ import {
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
   hidppDeviceIndex,
+  hidppDeviceIndexCandidates,
   hidpp10ErrorMessage,
   hidppErrorForRequest,
   hidppErrorMessage,
@@ -18,7 +19,7 @@ import {
   withSoftwareId,
 } from "./protocol.ts";
 
-import { hasLiftOffControl, isPowerOnlyModeStatus } from "./hidpp.ts";
+import { LogitechHidppClient, hasLiftOffControl, isPowerOnlyModeStatus } from "./hidpp.ts";
 
 const G402 = 0xc07e;
 const G403_HERO = 0xc08f;
@@ -48,6 +49,16 @@ test("receiver-attached and USB Superstrike devices keep index 0x01", () => {
     assert.equal(isDirectConnectProduct(productId), false);
     assert.equal(hidppDeviceIndex(productId), DEVICE_INDEX_RECEIVER);
   }
+});
+
+test("receiver probing covers every pairing slot before the direct index", () => {
+  // G HUB merging a keyboard onto the receiver can move the mouse off slot
+  // 0x01, so discovery probes all six slots before the direct index.
+  assert.deepEqual(hidppDeviceIndexCandidates(true), [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0xff]);
+});
+
+test("direct-connect probing tries the device itself before any receiver slot", () => {
+  assert.deepEqual(hidppDeviceIndexCandidates(false), [0xff, 0x01]);
 });
 
 test("runtime probing classifies unknown wired mice as direct connections", () => {
@@ -181,4 +192,147 @@ test("a sensor without lift-off control advertises no lift-off levels", () => {
   // The levels 1-4 (Low/Medium/High/Extra high) are driveable.
   assert.equal(hasLiftOffControl(false, 1), true);
   assert.equal(hasLiftOffControl(false, 2), true);
+});
+
+// --- Device-index discovery against a scripted HID endpoint -----------------
+// resolveDeviceIndex is exercised end to end against a fake device that answers
+// each HID++ request, so the merged-receiver probing is pinned down by tests.
+
+(globalThis as unknown as { window: { setTimeout: typeof setTimeout; clearTimeout: typeof clearTimeout } }).window = {
+  setTimeout,
+  clearTimeout,
+};
+
+const SHORT_REPORT_ID = 0x10;
+
+const successReply = (deviceIndex: number, featureIndex: number, functionId: number, data: number[] = []): Uint8Array =>
+  new Uint8Array([deviceIndex, featureIndex, withSoftwareId(functionId), ...data]);
+
+const hidpp10ErrorReply = (deviceIndex: number, featureIndex: number, functionId: number, code: number): Uint8Array =>
+  new Uint8Array([deviceIndex, 0x8f, featureIndex, withSoftwareId(functionId), code, 0]);
+
+/**
+ * Replies the way a real receiver does: an answering slot carries either a
+ * mouse (firmware plus a DPI feature) or a keyboard (firmware, no DPI feature),
+ * an empty slot answers with HID++ 1.0 "unknown device", and the direct index
+ * answers with HID++ 1.0 "invalid command" — all exactly as captured from a
+ * G HUB-merged G502 X PLUS receiver.
+ */
+function hidppResponder(roles: Record<number, "mouse" | "keyboard">) {
+  return (request: Uint8Array): Uint8Array | null => {
+    const deviceIndex = request[0];
+    const featureId = (request[3] << 8) | request[4];
+    const role = roles[deviceIndex];
+    if (role === undefined) {
+      return hidpp10ErrorReply(deviceIndex, request[1], 0x00, deviceIndex === 0xff ? 0x01 : 0x08);
+    }
+    if (request[1] === 0x00 && featureId === 0x0003) return successReply(deviceIndex, 0x00, 0x00, [0x01]);
+    if (featureId === 0x2202 || featureId === 0x2201) {
+      return successReply(deviceIndex, 0x00, 0x00, [role === "mouse" ? 0x01 : 0x00]);
+    }
+    return successReply(deviceIndex, 0x00, 0x00, [0x01]);
+  };
+}
+
+class FakeHidDevice {
+  readonly productId: number;
+  readonly productName: string;
+  opened = false;
+  readonly probed: Array<{ reportId: number; data: Uint8Array }> = [];
+  private listeners = new Map<string, (event: unknown) => void>();
+  onRequest: (request: Uint8Array) => Uint8Array | null = () => null;
+
+  constructor(productId: number, productName = "USB Receiver") {
+    this.productId = productId;
+    this.productName = productName;
+  }
+
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners.set(type, listener);
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    if (this.listeners.get(type) === listener) this.listeners.delete(type);
+  }
+
+  async open(): Promise<void> {
+    this.opened = true;
+  }
+
+  async close(): Promise<void> {}
+
+  async sendReport(reportId: number, data: Uint8Array): Promise<void> {
+    const request = data.slice();
+    this.probed.push({ reportId, data: request });
+    const reply = this.onRequest(request);
+    if (reply) {
+      queueMicrotask(() => {
+        this.listeners.get("inputreport")?.({
+          reportId,
+          data: new DataView(reply.buffer.slice(reply.byteOffset, reply.byteOffset + reply.byteLength)),
+        });
+      });
+    }
+  }
+}
+
+function harness(productId: number, roles: Record<number, "mouse" | "keyboard">): {
+  client: LogitechHidppClient;
+  device: FakeHidDevice;
+} {
+  const device = new FakeHidDevice(productId);
+  device.onRequest = hidppResponder(roles);
+  return { client: new LogitechHidppClient(device as unknown as HIDDevice), device };
+}
+
+async function resolveIndex(client: LogitechHidppClient): Promise<number | null> {
+  const driver = client as unknown as {
+    open(): Promise<void>;
+    resolveDeviceIndex(): Promise<void>;
+    readonly resolvedDeviceIndex: number | null;
+  };
+  await driver.open();
+  await driver.resolveDeviceIndex();
+  return driver.resolvedDeviceIndex;
+}
+
+test("a merged receiver's mouse is found past the empty first slot", async () => {
+  // The G502 X PLUS moves off slot 0x01 once G HUB merges the keyboard in.
+  const { client, device } = harness(0xc547, { 0x02: "mouse" });
+  assert.equal(await resolveIndex(client), 0x02);
+  // Only the empty first slot and the mouse's own slot are ever probed.
+  assert.deepEqual(
+    device.probed
+      .filter(({ data }) => data[1] === 0x00 && ((data[3] << 8) | data[4]) === 0x0003)
+      .map(({ data }) => data[0]),
+    [0x01, 0x02],
+  );
+});
+
+test("a keyboard on slot 0x01 does not shadow the mouse on a merged receiver", async () => {
+  const { client } = harness(0xc547, { 0x01: "keyboard", 0x02: "mouse" });
+  assert.equal(await resolveIndex(client), 0x02);
+});
+
+test("a mouse still on the first receiver slot resolves there", async () => {
+  const { client } = harness(0xc547, { 0x01: "mouse" });
+  assert.equal(await resolveIndex(client), 0x01);
+});
+
+test("a receiver with nothing paired is reported as no answer", async () => {
+  const { client } = harness(0xc547, {});
+  await assert.rejects(resolveIndex(client), /did not answer on any HID\+\+ device index/);
+});
+
+test("a receiver holding only a keyboard is reported as not a mouse", async () => {
+  const { client } = harness(0xc547, { 0x01: "keyboard" });
+  const error = await resolveIndex(client).catch((reason) => reason);
+  assert.equal((error as Error).name, "NotAMouseError");
+  assert.match((error as Error).message, /not a mouse/);
+});
+
+test("a direct-connect mouse is latched on its own index without a sensor probe", async () => {
+  const { client, device } = harness(G402, { 0xff: "mouse" });
+  assert.equal(await resolveIndex(client), 0xff);
+  assert.equal(device.probed.some(({ data }) => data[1] === 0x00 && ((data[3] << 8) | data[4]) === 0x2202), false);
 });
