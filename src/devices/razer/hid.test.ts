@@ -26,8 +26,6 @@ interface FakeOptions {
   liftOffUnsupported?: boolean;
   /** Accept the write and keep the old values, as a rejected write does. */
   ignoreWrites?: boolean;
-  /** Answer the next N sends with a reply whose checksum is wrong. */
-  corruptSends?: number;
   /** Product id the fake advertises, defaulting to the Viper V3 Pro. */
   productId?: number;
   /** DPI pair the fake reports, defaulting to 1600 × 1600. */
@@ -54,7 +52,6 @@ function replyPacket(commandClass: number, commandId: number, dataSize: number, 
 function fakeMouse(state: FakeLiftOff, options: FakeOptions = {}) {
   const sent: Uint8Array[] = [];
   let pending = new Uint8Array(RAZER_PACKET_LENGTH);
-  let corruptRemaining = options.corruptSends ?? 0;
   let dpi = options.dpi ?? [1600, 1600];
   const device = {
     vendorId: 0x1532,
