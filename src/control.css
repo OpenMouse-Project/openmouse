@@ -476,7 +476,7 @@ body { height: 100vh; overflow: hidden; }
 }
 
 .control-shell .device-overview {
-  order: 1;
+  order: 2;
   min-height: 94px;
   flex: 0 0 94px;
   grid-template-columns: repeat(3, 1fr);
@@ -497,7 +497,7 @@ body { height: 100vh; overflow: hidden; }
   position: sticky;
   top: -.9rem;
   z-index: 10;
-  order: 2;
+  order: 1;
   display: flex;
   flex: 0 0 auto;
   gap: 0;
@@ -520,8 +520,8 @@ body { height: 100vh; overflow: hidden; }
   font-weight: 550;
 }
 .workspace-tabs button:hover { background: #141619; color: #f4f4f5; }
-.workspace-tabs button[aria-current="page"] { color: #fff; }
-.workspace-tabs button[aria-current="page"]::after {
+.workspace-tabs button[aria-selected="true"] { color: #fff; }
+.workspace-tabs button[aria-selected="true"]::after {
   position: absolute;
   right: .9rem;
   bottom: .12rem;
@@ -530,6 +530,18 @@ body { height: 100vh; overflow: hidden; }
   background: #fff;
   content: "";
 }
+
+.workspace-tab-hidden { display: none !important; }
+.workspace-tab-empty {
+  order: 3;
+  padding: 3rem 1.25rem;
+  border: 1px solid #303338;
+  border-radius: 8px;
+  background: #0e1012;
+  text-align: center;
+}
+.workspace-tab-empty p { margin: 0; color: #e7e7e9; font-size: .86rem; }
+.workspace-tab-empty small { display: block; margin-top: .45rem; color: #777c82; font-size: .64rem; }
 
 #performance-settings { order: 3; }
 #logitech-onboard { order: 4; }

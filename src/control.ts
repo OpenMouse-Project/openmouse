@@ -361,31 +361,98 @@ function renderStagedMarkers(): void {
   });
 }
 
-const WORKSPACE_TAB_TARGETS: Record<string, readonly string[]> = {
-  overview: ["#device-overview"],
-  performance: ["#performance-settings"],
-  buttons: ["#logitech-analog-button-settings", "#egg-button-settings", "#lightforce-card"],
-  profiles: ["#logitech-onboard", "#pulsar-pro-settings"],
-  advanced: ["#pulsar-advanced", "#logitech-device-details", "#device-debug-details"],
-};
+type WorkspaceTab = "overview" | "performance" | "buttons" | "profiles" | "advanced";
 
-function bindWorkspaceTabs(): void {
-  document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const selectors = WORKSPACE_TAB_TARGETS[button.dataset.workspaceTab ?? ""] ?? [];
-      const target = selectors
-        .map((selector) => document.querySelector<HTMLElement>(selector))
-        .find((element) => element && !element.hidden && element.getClientRects().length > 0);
-      if (!target) {
-        setText("#read-status", `${button.textContent?.trim() ?? "That section"} is not available for this mouse.`);
-        return;
-      }
-      document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((tab) => {
-        tab.setAttribute("aria-current", tab === button ? "page" : "false");
-      });
-      target.scrollIntoView({ behavior: interfacePreferences.reducedMotion ? "auto" : "smooth", block: "start" });
+const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "buttons", "profiles", "advanced"];
+const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
+  overview: ["#device-overview"],
+  performance: [
+    "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
+    "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']", "#lighting-card",
+    "#pulsar-advanced", "#processing-settings", "#teevolution-dpi-lighting", "#egg-filter-settings",
+    "#egg-polling-settings", "#egg-cpi-settings",
+  ],
+  buttons: [
+    "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
+    "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
+  ],
+  profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
+  advanced: [
+    "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
+    "#low-power-settings", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+  ],
+};
+const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced"]);
+let activeWorkspaceTab: WorkspaceTab = "performance";
+
+function workspaceElements(selectors: readonly string[]): HTMLElement[] {
+  return selectors.flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)));
+}
+
+function applyWorkspaceTab(tab: WorkspaceTab, resetScroll = true): void {
+  activeWorkspaceTab = tab;
+  const selectedSelectors = new Set(WORKSPACE_TAB_CONTENT[tab]);
+  const allSelectors = new Set(Object.values(WORKSPACE_TAB_CONTENT).flat());
+  allSelectors.forEach((selector) => {
+    workspaceElements([selector]).forEach((element) => {
+      element.classList.toggle("workspace-tab-hidden", !selectedSelectors.has(selector));
     });
   });
+
+  // Mixed containers hold controls from several tabs. Suppress the container
+  // too when none of the selected controls inside it are available.
+  WORKSPACE_HOST_SELECTORS.forEach((hostSelector) => {
+    const host = document.querySelector<HTMLElement>(hostSelector);
+    if (!host || !selectedSelectors.has(hostSelector)) return;
+    const hasVisibleContent = [...selectedSelectors]
+      .filter((selector) => !WORKSPACE_HOST_SELECTORS.has(selector))
+      .flatMap((selector) => workspaceElements([selector]))
+      .some((element) => host.contains(element) && !element.hidden && element.style.display !== "none");
+    host.classList.toggle("workspace-tab-hidden", !hasVisibleContent);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
+    const selected = button.dataset.workspaceTab === tab;
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+
+  const hasVisiblePanel = workspaceElements([...selectedSelectors])
+    .filter((element) => !element.matches("[data-workspace-host]"))
+    .some((element) => element.getClientRects().length > 0);
+  const empty = document.querySelector<HTMLElement>("#workspace-tab-empty");
+  if (empty) {
+    empty.hidden = hasVisiblePanel;
+    setText("#workspace-tab-empty-title", `${tab[0].toUpperCase()}${tab.slice(1)} controls are not available for this mouse.`);
+  }
+
+  if (resetScroll) {
+    document.querySelector<HTMLElement>(".control-panel")?.scrollTo({
+      top: 0,
+      behavior: interfacePreferences.reducedMotion ? "auto" : "smooth",
+    });
+  }
+}
+
+function bindWorkspaceTabs(): void {
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]"));
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => applyWorkspaceTab(button.dataset.workspaceTab as WorkspaceTab));
+    button.addEventListener("keydown", (event) => {
+      const current = WORKSPACE_TAB_ORDER.indexOf(button.dataset.workspaceTab as WorkspaceTab);
+      let next = current;
+      if (event.key === "ArrowRight") next = (current + 1) % WORKSPACE_TAB_ORDER.length;
+      else if (event.key === "ArrowLeft") next = (current - 1 + WORKSPACE_TAB_ORDER.length) % WORKSPACE_TAB_ORDER.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = WORKSPACE_TAB_ORDER.length - 1;
+      else return;
+      event.preventDefault();
+      const nextTab = WORKSPACE_TAB_ORDER[next];
+      applyWorkspaceTab(nextTab);
+      tabs.find((candidate) => candidate.dataset.workspaceTab === nextTab)?.focus();
+    });
+  });
+  applyWorkspaceTab(activeWorkspaceTab, false);
 }
 
 function renderControl(): void {
@@ -1505,6 +1572,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (status.brand === "Logitech") renderLogitechDetails(status);
   renderLogitechAnalogButtonSettings(status);
   renderDeviceDiagnostics(deviceStatus);
+  applyWorkspaceTab(activeWorkspaceTab, false);
 }
 
 function renderLighting(status: MouseStatus, settingsPending: boolean): void {
