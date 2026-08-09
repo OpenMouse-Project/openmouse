@@ -12,6 +12,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Wired and receiver are separate product ids for the same mouse.
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
+  // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
+  ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
+  ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
+  ["3367:1978", "/devices/endgame-gear-op1-8k.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -22,5 +26,6 @@ function deviceKey(device: HIDDevice): string {
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string | null {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
-  return /superlight/i.test(displayName) ? "/devices/logitech-pro-x-superlight-2c.png" : null;
+  if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
+  return /\bop1\s*8k\b/i.test(displayName) ? "/devices/endgame-gear-op1-8k.png" : null;
 }
