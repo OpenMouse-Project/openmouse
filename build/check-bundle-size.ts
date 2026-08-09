@@ -8,9 +8,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
-  // asymmetric lift-off protocol and controls, and Keychron Nape Pro.
-  // Preview fixtures remain dev-only.
-  ".js": 335_000,
+  // asymmetric lift-off protocol and controls, Keychron Nape Pro, and the
+  // moddoMOUSE wired/wireless config driver. Preview fixtures remain dev-only.
+  ".js": 340_000,
 };
 
 const ASSETS = join("dist", "assets");
