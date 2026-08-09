@@ -43,6 +43,9 @@ import {
 const DPI_MIN = 100;
 const RESPONSE_DELAY_MS = 100;
 const RESPONSE_ATTEMPTS = 6;
+// How long a polling-rate change takes to re-establish the wireless link. The
+// Viper V4 Pro driver pauses 150 ms for the same reason.
+const POLLING_LINK_SETTLE_MS = 150;
 
 // The vendor software slides from 1 to 15 minutes, so those are the bounds this
 // model is meant to hold. The firmware itself accepts less — 30 s round-tripped
@@ -338,6 +341,11 @@ export class RazerHidClient {
     await this.request(this.usesHighRatePolling()
       ? razerSetExtendedPollingCommand(pollingRateHz)
       : razerSetLegacyPollingCommand(pollingRateHz));
+    // Changing the rate briefly reconfigures the wireless link, and exchanges
+    // sent into that window come back corrupt or unanswered — the Viper V4 Pro
+    // driver documents the same pause. Let it settle before the read-back; any
+    // stragglers are then caught by `exchange`'s own retry.
+    if (this.isWireless()) await this.delay(POLLING_LINK_SETTLE_MS);
     const confirmed = await this.readPollingRateHz();
     if (confirmed !== pollingRateHz) {
       throw new Error(`The mouse kept ${confirmed.toLocaleString()} Hz instead of ${pollingRateHz.toLocaleString()} Hz.`);
@@ -518,35 +526,46 @@ export class RazerHidClient {
     await this.open();
     const transactionId = this.profile()?.transactionId ?? RAZER_TRANSACTION_ID;
     const request = encodeRazerRequest(command, transactionId);
-    await this.device.sendFeatureReport(RAZER_REPORT_ID, request);
-    let last: unknown = new Error("The mouse stayed busy — it may be asleep or out of range.");
+    // A busy status means the mouse will answer this same request later, so the
+    // reads keep going without a re-send. A corrupt reply means the exchange
+    // itself was lost — the receiver can return garbage while it reconfigures
+    // the wireless link after a polling-rate change — so the send is retried
+    // from scratch. Retrying keeps one corrupt reply from failing the whole
+    // status read, which is what took the lift-off panel down after an 8,000 Hz
+    // switch.
     for (let attempt = 0; attempt < RESPONSE_ATTEMPTS; attempt += 1) {
+      await this.device.sendFeatureReport(RAZER_REPORT_ID, request);
+      const reply = await this.awaitReply(command);
+      if (reply) return reply;
+    }
+    throw new Error("The mouse stayed busy — it may be asleep or out of range.");
+  }
+
+  /**
+   * Reads up to the response budget for one send. Returns the decoded reply, or
+   * null when the reply was corrupt or the budget ran out on busy replies — the
+   * caller re-sends on null, since a corrupt reply is a lost exchange rather
+   * than a status the mouse owns.
+   */
+  private async awaitReply(command: RazerCommand): Promise<Uint8Array | null> {
+    for (let read = 0; read < RESPONSE_ATTEMPTS; read += 1) {
       await this.delay(RESPONSE_DELAY_MS);
       const reply = this.copyDataView(await this.device.receiveFeatureReport(RAZER_REPORT_ID));
       try {
         return decodeRazerResponse(reply, command);
       } catch (error) {
         if (!(error instanceof RazerProtocolError)) throw error;
-        // Busy means "ask again", and re-reading is enough: the mouse is
-        // already working on this command.
-        if (error.status === RAZER_STATUS.busy) {
-          last = error;
-          continue;
-        }
-        // A reply carrying an earlier command's id means the buffer is behind.
-        // Re-reading alone cannot fix that — nothing new arrives until the host
-        // asks again — so the request has to go out a second time. Only for a
-        // getter: repeating a write is the one retry the reference warns
-        // against, and every setter here confirms itself by read-back anyway.
-        if (error.stale && isRazerGetter(command)) {
-          last = error;
-          await this.device.sendFeatureReport(RAZER_REPORT_ID, request);
-          continue;
-        }
+        if (error.status === RAZER_STATUS.busy) continue;
+        // A bad checksum or wrong length carries no status, so it is transport
+        // corruption rather than an answer the mouse decided on.
+        if (error.status === null) return null;
+        // Repeating a getter is safe; setters confirm through a later read and
+        // must not be sent twice when an earlier reply is still buffered.
+        if (error.stale && isRazerGetter(command)) return null;
         throw error;
       }
     }
-    throw last;
+    return null;
   }
 
   private copyDataView(view: DataView): Uint8Array {
