@@ -53,7 +53,24 @@ const PROFILE_FORMAT_NAMES: Record<number, string> = {
  * hardware sanity check on a G502/G403-family device is still required before
  * release — see docs/logitech-onboard-profiles.md.
  */
-const VERIFIED_FORMATS = new Set([7, 2]);
+const VERIFIED_FORMATS = new Set([2, 3, 4, 7]);
+const WRITABLE_FORMATS = new Set([2, 4, 7]);
+const PROFILE_WRITE_PROBE_FORMATS = new Set([2, 3, 4]);
+const FACTORY_RESET_FORMATS = new Set([7]);
+
+/** Whether this format has a reversible guided write probe. */
+export function supportsProfileWriteProbe(profileFormatId: number | null | undefined): boolean {
+  return profileFormatId !== null
+    && profileFormatId !== undefined
+    && PROFILE_WRITE_PROBE_FORMATS.has(profileFormatId);
+}
+
+/** Whether a complete, byte-for-byte reset image exists for this format. */
+export function supportsFactoryReset(profileFormatId: number | null | undefined): boolean {
+  return profileFormatId !== null
+    && profileFormatId !== undefined
+    && FACTORY_RESET_FORMATS.has(profileFormatId);
+}
 
 export interface ProfileFormat {
   id: number;
@@ -64,6 +81,8 @@ export interface ProfileFormat {
   supported: boolean;
   /** The layout has been confirmed against real hardware. */
   verified: boolean;
+  /** Profile-content writes have been applied and restored on hardware. */
+  writable: boolean;
 }
 
 export function describeProfileFormat(profileFormatId: number): ProfileFormat {
@@ -73,6 +92,7 @@ export function describeProfileFormat(profileFormatId: number): ProfileFormat {
     base: profileFormatId >= 6 ? "v6" : "v1",
     supported: profileFormatId >= 1 && profileFormatId <= 8,
     verified: VERIFIED_FORMATS.has(profileFormatId),
+    writable: WRITABLE_FORMATS.has(profileFormatId),
   };
 }
 
@@ -167,17 +187,35 @@ const DEFAULT_FORMAT_CAPABILITIES: ProfileFormatCapabilities = {
 };
 
 const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
-  // Wired HERO-era mice (G403 HERO, G502 HERO family). Base v1 stores a single
-  // report-rate byte as the USB polling interval in milliseconds, so only the
-  // wired link is writable; there is no radio link, no DPI stage table, no name
-  // region text and no bunny hop on this format. The 1000 Hz ceiling is the
-  // shared USB cap of that generation.
-  2: {
-    supportedLods: ["Medium", "High"],
+  // Format 1 capture: five scalar slots on a 252-4032 grid in steps of 84.
+  1: {
+    supportedLods: [],
     lodEncoding: LOD_ENCODING,
-    dpiStages: null,
-    reportRates: { wirelessMaxHz: 0, wiredMaxHz: 1000 },
+    dpiStages: { maxStages: 5, minDpi: 252, maxDpi: 4032, stepDpi: 84 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
     maxNameLength: null,
+    bunnyHop: false,
+  },
+  // LOGAN is shared by G502 generations. The HERO capture advertises the
+  // widest observed grid; callers narrow it to the connected sensor's live
+  // DPI list so an older 12K G502 is never offered the HERO's 25.6K ceiling.
+  2: {
+    supportedLods: [],
+    lodEncoding: LOD_ENCODING,
+    dpiStages: { maxStages: 5, minDpi: 100, maxDpi: 25600, stepDpi: 50 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+    maxNameLength: PROFILE_NAME_MAX_CHARS,
+    bunnyHop: false,
+  },
+  // A G102 LIGHTSYNC on format 4 reported five scalar slots, 50-8000 DPI in
+  // steps of 50, and 125/250/500/1000 Hz through the capability collector.
+  // Its DPI, rate, and name writes were applied, read back live, and restored.
+  4: {
+    supportedLods: [],
+    lodEncoding: LOD_ENCODING,
+    dpiStages: { maxStages: 5, minDpi: 50, maxDpi: 8000, stepDpi: 50 },
+    reportRates: { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+    maxNameLength: PROFILE_NAME_MAX_CHARS,
     bunnyHop: false,
   },
   // Pro X Superlight 2. Three levels, counted from one. Five slots, from the
@@ -201,12 +239,40 @@ const FORMAT_CAPABILITIES: Record<number, ProfileFormatCapabilities> = {
     supportedLods: ["Low", "High"],
     lodEncoding: LOD_ENCODING,
     dpiStages: null,
-    reportRates: null,
+    // Captured behavior: the wireless link reaches 8 kHz while USB is capped
+    // at 1 kHz. Transport selection is resolved from HID++ identity data.
+    reportRates: { wirelessMaxHz: 8000, wiredMaxHz: 1000 },
     // The name region is part of base v6, which format 8 shares.
     maxNameLength: PROFILE_NAME_MAX_CHARS,
     bunnyHop: true,
   },
 };
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+  while (b !== 0) [a, b] = [b, a % b];
+  return a;
+}
+
+/** Narrows format storage limits to the DPI grid advertised by this sensor. */
+export function dpiStageCapabilitiesForOptions(
+  formatCapabilities: DpiStageCapabilities | null,
+  dpiOptions: readonly number[],
+): DpiStageCapabilities | null {
+  if (formatCapabilities === null || dpiOptions.length === 0) return formatCapabilities;
+  const values = [...new Set(dpiOptions)]
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .sort((left, right) => left - right);
+  if (values.length === 0) return formatCapabilities;
+  const stepDpi = values.reduce(greatestCommonDivisor);
+  return {
+    maxStages: formatCapabilities.maxStages,
+    minDpi: values[0],
+    maxDpi: values.at(-1)!,
+    stepDpi: stepDpi || formatCapabilities.stepDpi,
+  };
+}
 
 export function capabilitiesForFormat(profileFormatId: number | null | undefined): ProfileFormatCapabilities {
   if (profileFormatId === null || profileFormatId === undefined) return DEFAULT_FORMAT_CAPABILITIES;
@@ -291,7 +357,8 @@ interface ProfileLayout {
 }
 
 const LAYOUT_V1: ProfileLayout = {
-  reportRateWireless: null,
+  // Formats 1-5 store one shared report interval, regardless of transport.
+  reportRateWireless: 0x00,
   reportRateWired: 0x00,
   dpi: 0x01,
   angleSnapping: 0x11,
@@ -450,7 +517,7 @@ const FACTORY_PROFILE_FORMAT_7 = `
 
 /** Returns a fresh, CRC-valid factory sector only for a captured geometry. */
 export function factoryProfileForFormat(profileFormatId: number, sectorSize: number): Uint8Array | null {
-  if (profileFormatId !== 7 || sectorSize !== 255) return null;
+  if (!supportsFactoryReset(profileFormatId) || sectorSize !== 255) return null;
   return Uint8Array.from(
     FACTORY_PROFILE_FORMAT_7.trim().split(/\s+/),
     (byte) => Number.parseInt(byte, 16),
@@ -507,7 +574,7 @@ function decodeDpi(bytes: Uint8Array, offset: number): { stages: DpiStage[]; def
 }
 
 /** Formats 1-5 store one little-endian DPI value per slot, without X/Y or LOD. */
-function decodeDpiV1(bytes: Uint8Array, offset: number): { stages: DpiStage[]; defaultIndex: number | null } {
+function decodeLegacyDpi(bytes: Uint8Array, offset: number): { stages: DpiStage[]; defaultIndex: number | null } {
   const rawDefaultIndex = bytes[offset];
   const stages: DpiStage[] = [];
   for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
@@ -528,7 +595,7 @@ function decodeReportRate(bytes: Uint8Array, offset: number | null): number | nu
 }
 
 /** Formats 1-5 store the USB polling interval in milliseconds. */
-function decodeReportRateV1(bytes: Uint8Array, offset: number | null): number | null {
+function decodeLegacyReportRate(bytes: Uint8Array, offset: number | null): number | null {
   if (offset === null) return null;
   const intervalMs = bytes[offset];
   if (intervalMs === undefined || intervalMs === 0xff || intervalMs === 0) return null;
@@ -544,6 +611,24 @@ export function reportRatesFor(
   if (!capabilities) return [];
   const ceiling = link === "wired" ? capabilities.wiredMaxHz : capabilities.wirelessMaxHz;
   return REPORT_RATE_HZ.filter((rate) => rate <= ceiling);
+}
+
+/**
+ * Intersects format storage support with the rates advertised by the active
+ * hardware link. Legacy formats share one interval byte, so their live list
+ * applies to the whole profile; v6 formats retain the captured limit for the
+ * inactive link because the mouse cannot advertise that link while disconnected.
+ */
+export function reportRatesForDevice(
+  capabilities: ReportRateCapabilities | null,
+  link: "wireless" | "wired",
+  liveRates: readonly number[],
+  activeLink: "wireless" | "wired",
+  sharedInterval: boolean,
+): number[] {
+  const storedRates = reportRatesFor(capabilities, link);
+  if (!sharedInterval && link !== activeLink) return storedRates;
+  return storedRates.filter((rate) => liveRates.includes(rate));
 }
 
 export function validateReportRate(
@@ -569,8 +654,11 @@ export function encodeReportRate(
   profileFormatId: number,
   link: "wireless" | "wired",
   hz: number,
+  capabilitiesOverride?: ReportRateCapabilities | null,
 ): Uint8Array {
-  const capabilities = capabilitiesForFormat(profileFormatId).reportRates;
+  const capabilities = capabilitiesOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).reportRates
+    : capabilitiesOverride;
   const invalid = validateReportRate(hz, capabilities, link);
   if (invalid) throw new Error(invalid);
   const layout = layoutForFormat(profileFormatId);
@@ -610,8 +698,12 @@ export function encodeProfileName(
   sector: Uint8Array,
   profileFormatId: number,
   name: string,
+  maxLengthOverride?: number | null,
 ): Uint8Array {
-  const invalid = validateProfileName(name, capabilitiesForFormat(profileFormatId).maxNameLength);
+  const maxLength = maxLengthOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).maxNameLength
+    : maxLengthOverride;
+  const invalid = validateProfileName(name, maxLength);
   if (invalid) throw new Error(invalid);
   const offset = layoutForFormat(profileFormatId).profileName;
 
@@ -665,6 +757,7 @@ export interface DpiStagePlan {
 export function validateDpiStagePlan(
   plan: DpiStagePlan,
   capabilities: DpiStageCapabilities | null,
+  legacyScalar = false,
 ): string | null {
   if (capabilities === null) {
     return "DPI slots are not known for this profile format.";
@@ -685,8 +778,11 @@ export function validateDpiStagePlan(
         return `Slot ${index + 1} ${axis} DPI must be a multiple of ${stepDpi}.`;
       }
     }
-    // 0 is the "unused stage" marker, so an in-use slot cannot carry it.
-    if (!Number.isInteger(stage.lod) || stage.lod < 1 || stage.lod > 3) {
+    if (legacyScalar) {
+      if (stage.x !== stage.y) return `Slot ${index + 1} must use the same X and Y DPI.`;
+      if (stage.lod !== 0) return `Slot ${index + 1} cannot store lift-off distance.`;
+    } else if (!Number.isInteger(stage.lod) || stage.lod < 1 || stage.lod > 3) {
+      // 0 is the "unused stage" marker on formats with per-stage lift-off.
       return `Slot ${index + 1} has an invalid lift-off level.`;
     }
   }
@@ -722,8 +818,13 @@ export function encodeDpiStages(
   sector: Uint8Array,
   profileFormatId: number,
   plan: DpiStagePlan,
+  capabilitiesOverride?: DpiStageCapabilities | null,
 ): Uint8Array {
-  const invalid = validateDpiStagePlan(plan, capabilitiesForFormat(profileFormatId).dpiStages);
+  const legacyScalar = profileFormatId < 6;
+  const capabilities = capabilitiesOverride === undefined
+    ? capabilitiesForFormat(profileFormatId).dpiStages
+    : capabilitiesOverride;
+  const invalid = validateDpiStagePlan(plan, capabilities, legacyScalar);
   if (invalid) throw new Error(invalid);
   const layout = layoutForFormat(profileFormatId);
   if (layout.dpi === null) throw new Error("This profile format has no DPI stages.");
@@ -734,6 +835,13 @@ export function encodeDpiStages(
   // slots in use, in which case it would select a zeroed stage.
   const gShift = result[layout.dpi + 1] ?? 0;
   if (gShift >= plan.stages.length) result[layout.dpi + 1] = plan.defaultIndex;
+
+  if (legacyScalar) {
+    for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
+      writeUint16LE(result, layout.dpi + 2 + stage * 2, plan.stages[stage]?.x ?? 0);
+    }
+    return applyCrc(result);
+  }
 
   for (let stage = 0; stage < DPI_STAGE_SLOTS; stage += 1) {
     const base = layout.dpi + 2 + stage * 5;
@@ -793,7 +901,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
 
   const copyRate = (offset: number | null): void => {
     if (offset === null) return;
-    const hz = legacyLayout ? decodeReportRateV1(after, offset) : decodeReportRate(after, offset);
+    const hz = legacyLayout ? decodeLegacyReportRate(after, offset) : decodeReportRate(after, offset);
     if (hz === null) return;
     if (legacyLayout) result[offset] = 1000 / hz;
     else {
@@ -805,7 +913,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
   copyRate(layout.reportRateWired);
 
   if (layout.dpi !== null) {
-    const dpi = legacyLayout ? decodeDpiV1(after, layout.dpi) : decodeDpi(after, layout.dpi);
+    const dpi = legacyLayout ? decodeLegacyDpi(after, layout.dpi) : decodeDpi(after, layout.dpi);
     if (dpi.defaultIndex !== null) result[layout.dpi] = dpi.defaultIndex;
     result[layout.dpi + 1] = after[layout.dpi + 1];
     // Stages are re-encoded from decoded values, not copied, so their
@@ -839,7 +947,7 @@ export function reproduceProfile(before: Uint8Array, after: Uint8Array, profileF
     if (seconds !== null) writeUint16LE(result, offset, seconds);
   }
 
-  const name = legacyLayout ? null : decodeName(after, layout.profileName);
+  const name = profileFormatId === 1 ? null : decodeName(after, layout.profileName);
   if (name !== null) {
     const encoded = new Uint8Array(0x30);
     encoded.set(after.slice(layout.profileName, layout.profileName + 0x30).map(() => 0));
@@ -876,7 +984,7 @@ export function decodeOnboardProfile(
   const legacyLayout = profileFormatId < 6;
   const dpi = layout.dpi === null
     ? { stages: [], defaultIndex: null }
-    : legacyLayout ? decodeDpiV1(bytes, layout.dpi) : decodeDpi(bytes, layout.dpi);
+    : legacyLayout ? decodeLegacyDpi(bytes, layout.dpi) : decodeDpi(bytes, layout.dpi);
   const angleSnappingByte = bytes[layout.angleSnapping];
 
   return {
@@ -885,14 +993,14 @@ export function decodeOnboardProfile(
     isCurrent,
     // The v1 region is byte text, not UTF-16. This G402 capture contains
     // non-text device data there, so do not manufacture a mojibake name.
-    name: legacyLayout ? null : decodeName(bytes, layout.profileName),
+    name: profileFormatId === 1 ? null : decodeName(bytes, layout.profileName),
     dpiStages: dpi.stages,
     defaultDpiIndex: dpi.defaultIndex,
     reportRateWireless: legacyLayout
-      ? decodeReportRateV1(bytes, layout.reportRateWireless)
+      ? decodeLegacyReportRate(bytes, layout.reportRateWireless)
       : decodeReportRate(bytes, layout.reportRateWireless),
     reportRateWired: legacyLayout
-      ? decodeReportRateV1(bytes, layout.reportRateWired)
+      ? decodeLegacyReportRate(bytes, layout.reportRateWired)
       : decodeReportRate(bytes, layout.reportRateWired),
     angleSnapping: angleSnappingByte === undefined || angleSnappingByte === 0xff
       ? null

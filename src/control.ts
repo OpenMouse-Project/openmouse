@@ -69,11 +69,13 @@ import {
   capabilitiesForFormat,
   clampDpi,
   describeOffset,
-  layoutForFormat,
+  dpiStageCapabilitiesForOptions,
   reportRatesFor,
+  reportRatesForDevice,
   validateProfileName,
-  validateReportRate,
   reproduceProfile,
+  supportsFactoryReset,
+  supportsProfileWriteProbe,
   stageLodLevel,
   validateBunnyHoppingMs,
   type DpiStageCapabilities,
@@ -522,7 +524,7 @@ function showSlotsPreview(): void {
     supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
     liftOffDistance: "Low",
     supportedLiftOffDistances: ["Low", "Medium", "High"],
-    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true },
+    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true, writable: true },
     gamingSurfaceMode: "Auto",
     lightforceSwitchMode: "Hybrid",
     activeProfile: 1,
@@ -801,15 +803,15 @@ function configureProfileCapture(status: MouseStatus | null): void {
   const logitechClient = status?.brand === "Logitech" ? activeClient as LogitechHidppClient | null : null;
   const formatId = status?.onboardProfileFormat?.id ?? null;
   const captureOpen = document.querySelector<HTMLButtonElement>("#capture-open");
-  if (captureOpen) captureOpen.hidden = logitechClient === null || formatId === null;
+  if (captureOpen) captureOpen.hidden = logitechClient === null;
   const resetButton = document.querySelector<HTMLButtonElement>("#reset-logitech-profiles");
   if (resetButton) {
-    resetButton.hidden = logitechClient === null || formatId === null;
-    const supported = formatId === 7;
-    resetButton.disabled = settingInProgress || !supported;
+    const supported = logitechClient !== null && supportsFactoryReset(formatId);
+    resetButton.hidden = !supported;
+    resetButton.disabled = settingInProgress;
     resetButton.title = supported
       ? "Permanently restore every onboard profile to Logitech defaults"
-      : `Factory defaults have not been captured for profile format ${formatId ?? "unknown"}`;
+      : "";
   }
   setCaptureContext({
     device: activeDevice ? describeHidDevice(activeDevice) : status?.name ?? null,
@@ -846,6 +848,22 @@ function configureProfileCapture(status: MouseStatus | null): void {
         reproduce: (before, after) => reproduceProfile(before, after, formatId),
       }
       : null,
+    writeProbe: logitechClient === null
+      ? null
+      : supportsProfileWriteProbe(formatId)
+        ? {
+          supported: true,
+          reason: `Run the guarded write probe for profile format ${formatId}`,
+          prepare: () => logitechClient.prepareProfileContentWriteProbe(),
+          run: (backup: Parameters<LogitechHidppClient["runProfileContentWriteProbe"]>[0]) =>
+            logitechClient.runProfileContentWriteProbe(backup),
+        }
+        : {
+          supported: false,
+          reason: formatId === null
+            ? "This Logitech mouse does not report an onboard-profile format"
+            : `The guarded write probe does not support profile format ${formatId}`,
+        },
   });
 }
 
@@ -2257,7 +2275,7 @@ function renderBunnyHop(): void {
   row.hidden = !supported;
   if (!supported || !active) return;
 
-  const locked = lastProfileFormat?.verified !== true;
+  const locked = lastProfileFormat?.writable !== true;
   // Show the staged value, so a background refresh cannot snap the control back
   // to what is still on the device.
   // A never-written byte counts as off, so the toggle starts in the off state
@@ -2302,7 +2320,9 @@ function dpiAxisLockedAt(index: number): boolean {
 
 function dpiSlotLimits(): DpiStageCapabilities | null {
   const format = lastProfileFormat;
-  return format ? capabilitiesForFormat(format.id).dpiStages : null;
+  return format
+    ? dpiStageCapabilitiesForOptions(capabilitiesForFormat(format.id).dpiStages, dpiOptions)
+    : null;
 }
 
 /**
@@ -2317,7 +2337,7 @@ function dpiSlotsAvailable(): boolean {
 
 /** True while the flash write sequence for stage tables is still unproven. */
 function dpiSlotsLocked(): boolean {
-  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.verified !== true;
+  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.writable !== true;
 }
 
 /**
@@ -2643,16 +2663,31 @@ function renameOnboardProfile(sector: number): void {
 let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
 const PROFILE_RATE_KEY = "logitech-profile-rate";
 
+function profileReportRateOptions(link: "wireless" | "wired"): number[] {
+  const format = lastProfileFormat;
+  const rates = format ? capabilitiesForFormat(format.id).reportRates : null;
+  const activeLink = latestDeviceStatus?.connectionType === "Wireless" ? "wireless" : "wired";
+  return reportRatesForDevice(
+    rates,
+    link,
+    latestDeviceStatus?.supportedPollingRates ?? [],
+    activeLink,
+    (format?.id ?? 6) < 6,
+  );
+}
+
 function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
   const entry = editedProfileEntry();
   if (!entry || !activeClient) return;
-  const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
-  const invalid = validateReportRate(hz, rates, link);
-  if (invalid) {
-    setText("#polling-note", invalid);
+  // Formats 1-5 have one shared interval byte. Use the wired slot as the
+  // canonical staged value rather than pretending they store two rates.
+  const selectedLink = (lastProfileFormat?.id ?? 6) < 6 ? "wired" : link;
+  const allowed = profileReportRateOptions(selectedLink);
+  if (!allowed.includes(hz)) {
+    setText("#polling-note", `This mouse supports ${allowed.join(", ")} Hz for that profile link.`);
     return;
   }
-  stagedProfileRates = { ...stagedProfileRates, [link]: hz };
+  stagedProfileRates = { ...stagedProfileRates, [selectedLink]: hz };
 
   const stored = { wireless: entry.reportRateWireless, wired: entry.reportRateWired };
   const wanted = {
@@ -2669,8 +2704,8 @@ function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
   stageChange({
     key: PROFILE_RATE_KEY,
     group: PROFILE_SECTOR_GROUP,
-    label: `${link === "wired" ? "Wired" : "Wireless"} ${hz.toLocaleString()} Hz`,
-    command: `Set profile ${link} report rate to ${hz} Hz`,
+    label: `${selectedLink === "wired" && (lastProfileFormat?.id ?? 6) >= 6 ? "Wired " : selectedLink === "wireless" ? "Wireless " : ""}${hz.toLocaleString()} Hz`,
+    command: `Set profile ${selectedLink} report rate to ${hz} Hz`,
     progress: "Writing the report rate to the profile…",
     // No preview: profile rates are not part of MouseStatus.
     apply: writeStagedProfileSector,
@@ -2696,23 +2731,21 @@ function renderProfileRates(): void {
   }
   if (!available || !entry || !rates) return;
 
-  const locked = lastProfileFormat?.verified !== true;
-  // Base v1 stores a single wired rate; only formats with the field for a link
-  // get a slider for it, so a LOGAN mouse never offers a wireless stop it
-  // cannot store.
-  const layout = lastProfileFormat ? layoutForFormat(lastProfileFormat.id) : null;
-  const links = (["wireless", "wired"] as const).filter((link) => {
-    const offset = link === "wired" ? layout?.reportRateWired : layout?.reportRateWireless;
-    return offset !== null && offset !== undefined;
-  });
+  const locked = lastProfileFormat?.writable !== true;
+  const shared = (lastProfileFormat?.id ?? 6) < 6;
+  const wirelessSlider = document.querySelector<HTMLElement>("#profile-rate-wireless");
+  const wiredSlider = document.querySelector<HTMLElement>("#profile-rate-wired");
+  if (wirelessSlider) wirelessSlider.hidden = shared;
+  if (wiredSlider) wiredSlider.hidden = false;
+  const links: Array<"wireless" | "wired"> = shared ? ["wired"] : ["wireless", "wired"];
   for (const link of links) {
     const value = stagedProfileRates[link]
       ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
     renderRateSlider(
       document.querySelector<HTMLElement>(`#profile-rate-${link}`),
-      reportRatesFor(rates, link),
+      profileReportRateOptions(link),
       value,
-      { label: link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
+      { label: shared ? "All connections" : link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
     );
   }
   for (const link of ["wireless", "wired"] as const) {
@@ -2720,10 +2753,11 @@ function renderProfileRates(): void {
     if (slider) slider.hidden = !links.includes(link);
   }
 
-  const ceilings = links
-    .map((link) => `${reportRatesFor(rates, link).at(-1)?.toLocaleString() ?? "0"} Hz ${link === "wired" ? "over the cable" : "wireless"}`)
-    .join(" and ");
-  setText("#polling-note", `Stored in this profile. Up to ${ceilings}.`);
+  setText("#polling-note", shared
+    ? `Stored in this profile as one shared interval, up to ${profileReportRateOptions("wired").at(-1)?.toLocaleString()} Hz.`
+    : `Stored in this profile, one rate per link. Up to ${
+      reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
+      reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
 }
 
 function renderDpiSlots(): void {
@@ -2764,6 +2798,7 @@ function renderDpiSlots(): void {
 
   const locked = dpiSlotsLocked();
   const levels = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).supportedLods : [];
+  const profileHasLod = levels.length > 0;
 
   // The preset row writes host DPI, so it stands down while slots are shown.
   const presets = document.querySelector<HTMLElement>("#dpi-presets");
@@ -2801,7 +2836,7 @@ function renderDpiSlots(): void {
         <button type="button" class="dpi-axis-lock${axisLocked ? " is-locked" : ""}" data-dpi-axis-lock="${index}"${locked ? " disabled" : ""} title="${axisLocked ? "X and Y are linked — click to set them separately" : "X and Y are separate — click to link them"}" aria-label="Link X and Y for slot ${index + 1}" aria-pressed="${axisLocked}">${axisLocked ? ICON_LINKED : ICON_UNLINKED}</button>
         <input type="number" data-dpi-slot="${index}" data-dpi-axis="y" aria-label="Slot ${index + 1} Y DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.y}"${locked || axisLocked ? " disabled" : ""} />
         <div class="lod-select" data-lod-select="${index}">
-          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
+          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked || !profileHasLod ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off" title="${profileHasLod ? "Set lift-off distance" : "This profile format has no lift-off setting"}"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
           <ul class="lod-select-menu" role="listbox" data-dpi-slot-lod="${index}" aria-label="Slot ${index + 1} lift-off">${lodOptions}</ul>
         </div>
       </div>`;
@@ -2835,7 +2870,7 @@ async function reloadOnboardProfiles(): Promise<void> {
 
 async function resetLogitechProfiles(): Promise<void> {
   const client = activeClient;
-  if (!client || settingInProgress || lastProfileFormat?.id !== 7) return;
+  if (!client || settingInProgress || !supportsFactoryReset(lastProfileFormat?.id)) return;
 
   const stagedWarning = hasPendingChanges()
     ? "\n\nYour staged, unflashed changes will also be discarded."
@@ -2960,6 +2995,7 @@ function renderOnboardProfiles(): void {
   const hostOpened = editedProfile === "host";
   const hostRunning = lastDeviceMode === "Host";
   const profileLayoutVerified = lastProfileFormat?.verified === true;
+  const profileContentsWritable = lastProfileFormat?.writable === true;
   const profileNameLimit = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
   // Host is a live, volatile source rather than a stored profile, so it is
   // listed apart from them rather than mixed in.
@@ -3010,7 +3046,7 @@ function renderOnboardProfiles(): void {
           <small style="color:#77777c;font-size:.62rem">${escapeHtml(detail)}</small>
         </span>
       </button>
-      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable ? "not-allowed" : "pointer"};opacity:${locked || !nameable ? ".4" : "1"}">
+      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable || !profileContentsWritable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : !profileContentsWritable ? "Profile-content writes have not been verified on hardware" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable || !profileContentsWritable ? "not-allowed" : "pointer"};opacity:${locked || !nameable || !profileContentsWritable ? ".4" : "1"}">
         ${ICON_RENAME}
       </button>
       <button type="button" data-profile-activate="${profile.sector}" ${locked || running || !profile.enabled ? "disabled" : ""} title="${running ? "The mouse is running this profile" : !profile.enabled ? "Enable this profile before switching to it" : "Switch the mouse to this profile"}" aria-label="Switch to profile ${profile.sector}" aria-pressed="${running}" style="display:flex;padding:.3rem;border:1px solid ${running ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${locked || running || !profile.enabled ? "not-allowed" : "pointer"};opacity:${locked || !profile.enabled ? ".4" : "1"}">

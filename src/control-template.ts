@@ -153,6 +153,7 @@ export function controlTemplate(buildLabel: string): string {
           <small style="color:#77777c;font-size:.64rem"><strong style="color:#a8a8ae">Verify a format:</strong> copy a read-only bundle containing the memory geometry, full directory, every profile and all CRC results. To map an individual setting, snapshot the profiles, change only that setting in G HUB or Onboard Memory Manager, compare, mark the change and copy the comparison.</small>
           <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
             <button id="capture-verification" type="button" class="is-primary">Copy verification data</button>
+            <button id="capture-write-probe" type="button" hidden style="border-color:#7d3038;background:#32181c;color:#ff9ca5">Verify profile writes</button>
             <button id="capture-snapshot" type="button">Snapshot profiles</button>
             <button id="capture-compare" type="button">Compare</button>
             <button id="capture-reset" type="button">Clear</button>

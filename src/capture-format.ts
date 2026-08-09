@@ -1,3 +1,8 @@
+import type {
+  ProfileContentWriteProbeBackup,
+  ProfileContentWriteProbeReport,
+} from "./devices/logitech/hidpp";
+
 /**
  * Export format for profile-layout confirmations.
  *
@@ -113,6 +118,18 @@ export interface ProfileVerificationExport {
   directory: Uint8Array;
   directoryCrcValid: boolean;
   profiles: ProfileVerificationProfile[];
+  dpiCapabilities?: ProfileVerificationCapability | null;
+  reportRateCapabilities?: ProfileVerificationCapability | null;
+}
+
+export interface ProfileVerificationCapability {
+  featureId: number;
+  featureIndex: number;
+  featureVersion: number;
+  kind: "legacy" | "extended";
+  replies: Array<{ name: string; bytes: Uint8Array }>;
+  decodedValues: number[];
+  error: string | null;
 }
 
 function hexBlock(bytes: Uint8Array): string {
@@ -129,9 +146,82 @@ const hexByte = (value: number): string => `0x${value.toString(16).padStart(2, "
 
 const hexWord = (value: number): string => `0x${value.toString(16).padStart(4, "0")}`;
 
+function capabilityLines(
+  label: string,
+  capability: ProfileVerificationCapability | null | undefined,
+  unit: string,
+): string[] {
+  if (capability === undefined) return [];
+  if (capability === null) return [`- ${label}: not exposed`];
+  const lines = [
+    `- ${label}: feature ${hexWord(capability.featureId)}, index ${hexByte(capability.featureIndex)}, version ${capability.featureVersion}, ${capability.kind}`,
+    `- ${label} values: ${capability.decodedValues.length > 0 ? capability.decodedValues.map((value) => `${value} ${unit}`).join(", ") : "none decoded"}`,
+  ];
+  if (capability.error) lines.push(`- ${label} read warning: ${capability.error}`);
+  for (const reply of capability.replies) {
+    lines.push(`- ${label} ${reply.name}: \`${[...reply.bytes].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}\``);
+  }
+  return lines;
+}
+
+/** Recovery bundle copied before the first destructive verification write. */
+export function formatProfileWriteProbeBackupMarkdown(backup: ProfileContentWriteProbeBackup): string {
+  return [
+    "## OpenMouse profile-write probe recovery backup",
+    "",
+    `- Profile format: ${backup.formatId}`,
+    `- Sector: ${hexWord(backup.sector)}`,
+    `- Sector size: ${backup.sectorSize} bytes`,
+    `- Original mode: ${backup.originalMode}`,
+    `- Original current sector: ${hexWord(backup.originalCurrentSector)}`,
+    `- DPI options: ${backup.dpiOptions.join(", ")}`,
+    `- Report rates: ${backup.reportRates.join(", ")} Hz`,
+    "",
+    "### Original directory sector",
+    "",
+    "```",
+    hexBlock(backup.directory),
+    "```",
+    "",
+    `### Original profile sector ${hexWord(backup.sector)}`,
+    "",
+    "```",
+    hexBlock(backup.profile),
+    "```",
+    "",
+    "Keep this text until OpenMouse reports that the original profile and mode were restored.",
+  ].join("\n");
+}
+
+export function formatProfileWriteProbeReportMarkdown(report: ProfileContentWriteProbeReport): string {
+  const verdict = report.ok ? "PASSED" : "FAILED";
+  return [
+    `## OpenMouse profile-write verification — ${verdict}`,
+    "",
+    ...report.steps.flatMap((step) => [
+      `### ${step.setting}`,
+      "",
+      `- Intended value: ${step.intended}`,
+      `- Stored exactly: ${step.storedExactly}`,
+      `- Live value confirmed: ${step.liveConfirmed === null ? "not applicable" : step.liveConfirmed}`,
+      `- Original restored: ${step.restored}`,
+      ...(step.error ? [`- Error: ${step.error}`] : []),
+      "",
+    ]),
+    `- Final profile restored: ${report.restored}`,
+    `- Original mode restored: ${report.modeRestored}`,
+    "",
+    formatProfileWriteProbeBackupMarkdown(report.backup),
+  ].join("\n");
+}
+
 /** Markdown verification bundle suitable for an issue or a test fixture. */
 export function formatProfileVerificationMarkdown(capture: ProfileVerificationExport): string {
   const { info } = capture;
+  const capabilitySection = [
+    ...capabilityLines("DPI", capture.dpiCapabilities, "DPI"),
+    ...capabilityLines("Report rate", capture.reportRateCapabilities, "Hz"),
+  ];
   const sections = [
     "## OpenMouse profile-format verification",
     "",
@@ -150,6 +240,7 @@ export function formatProfileVerificationMarkdown(capture: ProfileVerificationEx
     `- getInfo: \`${[...capture.infoReply].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}\``,
     `- getMode: \`${[...capture.modeReply].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}\``,
     `- getCurrentProfile: \`${[...capture.currentProfileReply].map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}\``,
+    ...(capabilitySection.length > 0 ? ["", "### Device capability replies", "", ...capabilitySection] : []),
     "",
     "### Directory sector 0",
     "",

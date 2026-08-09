@@ -15,11 +15,14 @@ import {
   clampDpi,
   decodeLiftOffLevel,
   describeProfileFormat,
+  dpiStageCapabilitiesForOptions,
   encodeDpiStages,
   encodeProfileName,
   encodeReportRate,
   factoryProfileForFormat,
+  supportsFactoryReset,
   reportRatesFor,
+  reportRatesForDevice,
   validateBunnyHoppingMs,
   validateProfileName,
   validateReportRate,
@@ -105,6 +108,153 @@ const G402_SECTOR = (() => {
     00 08 93 d3 00 08 7d d3 00 08 c1 00 00 02 00 ff
   `), 0);
   sector.set([0x4e, 0xba], sector.length - 2);
+  return sector;
+})();
+
+/** Three format-2 profiles captured read-only from a G502 (PID 0xc332). */
+const G502_SECTORS = [
+  bytes(`
+    01 00 00 a4 06 00 00 00 00 00 00 00 00 ff ff ff
+    ff 00 08 00 ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 90 00 00 00
+    90 00 00 00 90 00 00 00 80 02 00 09 80 02 00 0b
+    90 00 00 00 90 02 00 00 80 02 00 20 ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 90 00 00 00
+    90 00 00 00 90 00 00 00 80 02 00 09 80 02 00 0b
+    90 00 00 00 90 02 00 00 80 02 00 20 ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    50 00 52 00 4f 00 46 00 49 00 4c 00 45 00 5f 00
+    4e 00 41 00 4d 00 45 00 5f 00 44 00 45 00 46 00
+    41 00 55 00 4c 00 54 00 00 00 00 00 00 00 00 00
+    03 00 00 00 00 00 1f 40 64 00 00 03 00 00 00 00
+    00 1f 40 64 00 00 ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff 40 f7
+  `),
+  bytes(`
+    01 00 00 46 05 00 00 00 00 00 00 00 00 ff ff ff
+    ff 00 22 00 ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 90 00 00 00
+    90 00 00 00 90 00 00 00 80 02 00 09 80 02 00 0b
+    90 00 00 00 90 02 00 00 80 02 00 20 ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 90 00 00 00
+    90 00 00 00 90 00 00 00 80 02 00 09 80 02 00 0b
+    90 00 00 00 90 02 00 00 80 02 00 20 ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    50 00 52 00 4f 00 46 00 49 00 4c 00 45 00 5f 00
+    4e 00 41 00 4d 00 45 00 5f 00 44 00 45 00 46 00
+    41 00 55 00 4c 00 54 00 00 00 00 00 00 00 00 00
+    03 00 00 00 00 00 1f 40 64 00 00 03 00 00 00 00
+    00 1f 40 64 00 00 ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff 00 ff 11 38
+  `),
+  bytes(`
+    02 00 00 60 09 00 00 00 00 00 00 00 00 ff ff ff
+    ff 00 03 00 ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+    80 01 00 10 90 0b ff ff 80 02 01 06 80 02 01 19
+    90 00 00 00 90 02 ff ff 90 01 ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    80 01 00 01 80 01 00 02 80 02 01 17 80 02 01 3d
+    80 02 03 17 ff ff ff ff 80 02 01 1b 80 02 01 1d
+    80 02 01 27 80 02 01 2b 80 02 03 2b ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+    50 00 72 00 6f 00 66 00 69 00 6c 00 65 00 20 00
+    33 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    01 ff ff ff 00 00 00 00 00 00 00 01 ff ff ff 00
+    00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff ff ff ff ff ff ff 3f c6
+  `),
+];
+
+const G502_INFO_REPLY = bytes("ff 0e 05 01 02 01 03 03 0b 10 01 00 0a 01 00 00 00 00 00");
+const G502_HERO_INFO_REPLY = bytes("ff 0c 05 01 02 01 05 05 0b 10 01 00 0a 01 00 00 00 00 00");
+const G502_DIRECTORY = (() => {
+  const sector = new Uint8Array(256).fill(0xff);
+  sector.set(bytes("00 01 01 00 00 02 00 00 00 03 00 00 ff ff 00 00"));
+  sector.set([0x03, 0xbc], sector.length - 2);
+  return sector;
+})();
+
+/** G502 LIGHTSPEED format-3 sectors captured read-only (PID 0xc08d). */
+const G502_LIGHTSPEED_PROFILE_1 = bytes(`
+  01 00 00 58 02 e8 03 dc 05 00 00 00 00 ff ff ff
+  ff 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+  80 01 00 10 80 02 00 29 90 04 00 00 90 03 00 00
+  90 0c 00 00 90 02 00 00 90 01 00 00 ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+  80 01 00 10 80 02 00 29 90 04 00 00 90 03 00 00
+  90 0c 00 00 90 02 00 00 90 01 00 00 ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  50 00 52 00 4f 00 46 00 49 00 4c 00 45 00 5f 00
+  4e 00 41 00 4d 00 45 00 5f 00 44 00 45 00 46 00
+  41 00 55 00 4c 00 54 00 00 00 00 00 00 00 00 00
+  01 fd 76 00 00 00 00 00 00 00 00 01 fd 76 00 00
+  00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff 00 42 3b
+`);
+
+/** Profiles 2-5 were byte-identical in the same format-3 capture. */
+const G502_LIGHTSPEED_FACTORY_PROFILE = bytes(`
+  01 01 00 90 01 20 03 40 06 80 0c 00 19 ff ff ff
+  ff 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+  80 01 00 10 90 07 00 00 90 04 00 00 90 03 00 00
+  90 0c 00 00 90 02 00 00 90 01 00 00 ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  03 00 00 00 00 00 1f 40 00 00 00 03 00 00 00 00
+  00 1f 40 00 00 00 ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff 3e 23
+`);
+
+const G502_LIGHTSPEED_INFO_REPLY = bytes(
+  "ff 09 05 01 03 01 05 01 0b 10 00 ff 0a 04 00 00 00 00 00",
+);
+const G502_LIGHTSPEED_DIRECTORY = (() => {
+  const sector = new Uint8Array(255).fill(0xff);
+  sector.set(bytes("00 01 01 ff 00 02 00 ff 00 03 00 ff 00 04 00 ff 00 05 00 ff"));
+  sector.set([0x40, 0x37], sector.length - 2);
+  return sector;
+})();
+
+/** G102 LIGHTSYNC format-4 sector captured read-only (PID 0xc092). */
+const G102_LIGHTSYNC_PROFILE = bytes(`
+  01 01 01 32 00 d0 07 40 06 00 00 00 00 ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  80 01 00 01 80 01 00 02 80 01 00 04 80 01 00 08
+  80 01 00 10 90 05 ff 00 ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+  50 00 52 00 4f 00 46 00 49 00 4c 00 45 00 5f 00
+  4e 00 41 00 4d 00 45 00 5f 00 44 00 45 00 46 00
+  41 00 55 00 4c 00 54 00 00 00 00 00 00 00 00 00
+  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  00 00 00 00 00 00 00 00 00 00 00 00 ff 68 27
+`);
+
+const G102_LIGHTSYNC_INFO_REPLY = bytes(
+  "ff 0f 05 01 04 01 01 01 06 10 00 ff 0a 01 00 00 00 00 00",
+);
+const G102_LIGHTSYNC_DIRECTORY = (() => {
+  const sector = new Uint8Array(255).fill(0xff);
+  sector.set(bytes("00 01 01 00 ff ff 00 00"));
+  sector.set([0x58, 0x7c], sector.length - 2);
   return sector;
 })();
 
@@ -255,14 +405,263 @@ test("decodes the captured G402 format-1 profile without v6 mojibake", () => {
   assert.equal(profile.name, null);
   assert.equal(profile.defaultDpiIndex, 2);
   assert.deepEqual(profile.dpiStages, [420, 840, 1596, 3192].map((dpi) => ({ x: dpi, y: dpi, lod: 0 })));
-  assert.equal(profile.reportRateWireless, null);
+  assert.equal(profile.reportRateWireless, 1000);
   assert.equal(profile.reportRateWired, 1000);
   assert.equal(profile.angleSnapping, false);
   assert.equal(profile.powerSaveTimeoutSeconds, null);
   assert.equal(profile.powerOffTimeoutSeconds, null);
+
+  const limits = capabilitiesForFormat(1).dpiStages;
+  assert.deepEqual(limits, { maxStages: 5, minDpi: 252, maxDpi: 4032, stepDpi: 84 });
+  assert.ok(limits);
+  const grid = Array.from(
+    { length: Math.floor((limits.maxDpi - limits.minDpi) / limits.stepDpi) + 1 },
+    (_, step) => limits.minDpi + step * limits.stepDpi,
+  );
+  assert.equal(grid.includes(2436), true, "the format grid includes the value shown as 2400 by vendor UI");
+});
+
+test("decodes all captured G502 format-2 profiles", () => {
+  const expected = [
+    { name: "PROFILE_NAME_DEFAULT", dpi: 1700, rate: 1000 },
+    { name: "PROFILE_NAME_DEFAULT", dpi: 1350, rate: 1000 },
+    { name: "Profile 3", dpi: 2400, rate: 500 },
+  ];
+
+  G502_SECTORS.forEach((sector, index) => {
+    const profile = decodeOnboardProfile(
+      sector,
+      2,
+      { sector: index + 1, enabled: index === 0 },
+      false,
+    );
+    assert.equal(sector.length, 256);
+    assert.equal(profile.crcValid, true);
+    assert.equal(profile.name, expected[index].name);
+    assert.equal(profile.defaultDpiIndex, 0);
+    assert.deepEqual(profile.dpiStages, [{ x: expected[index].dpi, y: expected[index].dpi, lod: 0 }]);
+    assert.equal(profile.reportRateWireless, expected[index].rate);
+    assert.equal(profile.reportRateWired, expected[index].rate);
+    assert.equal(profile.angleSnapping, false);
+  });
+});
+
+test("parses the captured G502 format-2 geometry and directory", () => {
+  assert.deepEqual(
+    { verified: describeProfileFormat(2).verified, writable: describeProfileFormat(2).writable },
+    { verified: true, writable: true },
+  );
+  assert.deepEqual(parseProfilesInfo(G502_INFO_REPLY), {
+    memoryModelId: 1,
+    profileFormatId: 2,
+    profileCount: 3,
+    sectorCount: 16,
+    sectorSize: 256,
+  });
+  assert.deepEqual(parseProfilesInfo(G502_HERO_INFO_REPLY), {
+    memoryModelId: 1,
+    profileFormatId: 2,
+    profileCount: 5,
+    sectorCount: 16,
+    sectorSize: 256,
+  });
+  assert.equal(profileCrc(G502_DIRECTORY), storedCrc(G502_DIRECTORY));
+  assert.deepEqual(parseDirectory(G502_DIRECTORY), [
+    { sector: 1, enabled: true },
+    { sector: 2, enabled: false },
+    { sector: 3, enabled: false },
+  ]);
+});
+
+test("format-2 probe encoders use limits collected live from the wired G502", () => {
+  const heroLimits = capabilitiesForFormat(2).dpiStages;
+  assert.deepEqual(heroLimits, { maxStages: 5, minDpi: 100, maxDpi: 25600, stepDpi: 50 });
+  assert.deepEqual(
+    dpiStageCapabilitiesForOptions(heroLimits, [100, 150, 200, 11950, 12000]),
+    { maxStages: 5, minDpi: 100, maxDpi: 12000, stepDpi: 50 },
+    "the older G502 is narrowed to its live 12K sensor grid",
+  );
+  const original = decodeOnboardProfile(G502_SECTORS[0], 2, { sector: 1, enabled: true }, false);
+  const stages = original.dpiStages.map((stage) => ({ ...stage }));
+  stages[original.defaultDpiIndex!] = { x: 1000, y: 1000, lod: 0 };
+  const dpi = encodeDpiStages(
+    G502_SECTORS[0],
+    2,
+    { stages, defaultIndex: original.defaultDpiIndex! },
+    { maxStages: 5, minDpi: 100, maxDpi: 12000, stepDpi: 1 },
+  );
+  assert.equal(decodeOnboardProfile(dpi, 2, { sector: 1, enabled: true }, false).dpiStages[0].x, 1000);
+
+  const rate = encodeReportRate(
+    G502_SECTORS[0],
+    2,
+    "wired",
+    500,
+    { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+  );
+  assert.equal(decodeOnboardProfile(rate, 2, { sector: 1, enabled: true }, false).reportRateWired, 500);
+
+  const named = encodeProfileName(G502_SECTORS[0], 2, "OM_VERIFY", PROFILE_NAME_MAX_CHARS);
+  assert.equal(decodeOnboardProfile(named, 2, { sector: 1, enabled: true }, false).name, "OM_VERIFY");
+  for (const sector of [dpi, rate, named]) assert.equal(profileCrc(sector), storedCrc(sector));
+});
+
+test("decodes all captured G502 LIGHTSPEED format-3 profiles", () => {
+  const configured = decodeOnboardProfile(
+    G502_LIGHTSPEED_PROFILE_1,
+    3,
+    { sector: 1, enabled: true },
+    true,
+  );
+  assert.equal(G502_LIGHTSPEED_PROFILE_1.length, 255);
+  assert.equal(configured.crcValid, true);
+  assert.equal(configured.name, "PROFILE_NAME_DEFAULT");
+  assert.equal(configured.defaultDpiIndex, 0);
+  assert.deepEqual(
+    configured.dpiStages,
+    [600, 1000, 1500].map((dpi) => ({ x: dpi, y: dpi, lod: 0 })),
+  );
+  assert.equal(configured.reportRateWireless, 1000);
+  assert.equal(configured.reportRateWired, 1000);
+  assert.equal(configured.isCurrent, true);
+
+  for (let sector = 2; sector <= 5; sector += 1) {
+    const profile = decodeOnboardProfile(
+      G502_LIGHTSPEED_FACTORY_PROFILE,
+      3,
+      { sector, enabled: false },
+      false,
+    );
+    assert.equal(G502_LIGHTSPEED_FACTORY_PROFILE.length, 255);
+    assert.equal(profile.crcValid, true);
+    assert.equal(profile.name, null);
+    assert.equal(profile.defaultDpiIndex, 1);
+    assert.deepEqual(
+      profile.dpiStages,
+      [400, 800, 1600, 3200, 6400].map((dpi) => ({ x: dpi, y: dpi, lod: 0 })),
+    );
+    assert.equal(profile.reportRateWireless, 1000);
+    assert.equal(profile.reportRateWired, 1000);
+    assert.equal(profile.isCurrent, false);
+  }
+});
+
+test("parses the captured G502 LIGHTSPEED format-3 geometry and directory", () => {
+  assert.deepEqual(
+    { verified: describeProfileFormat(3).verified, writable: describeProfileFormat(3).writable },
+    { verified: true, writable: false },
+  );
+  assert.deepEqual(parseProfilesInfo(G502_LIGHTSPEED_INFO_REPLY), {
+    memoryModelId: 1,
+    profileFormatId: 3,
+    profileCount: 5,
+    sectorCount: 16,
+    sectorSize: 255,
+  });
+  assert.equal(profileCrc(G502_LIGHTSPEED_DIRECTORY), storedCrc(G502_LIGHTSPEED_DIRECTORY));
+  assert.deepEqual(parseDirectory(G502_LIGHTSPEED_DIRECTORY), [
+    { sector: 1, enabled: true },
+    { sector: 2, enabled: false },
+    { sector: 3, enabled: false },
+    { sector: 4, enabled: false },
+    { sector: 5, enabled: false },
+  ]);
+});
+
+test("format-3 probe encoders accept limits collected live from the mouse", () => {
+  const original = decodeOnboardProfile(G502_LIGHTSPEED_PROFILE_1, 3, { sector: 1, enabled: true }, true);
+  const stages = original.dpiStages.map((stage) => ({ ...stage }));
+  stages[original.defaultDpiIndex!] = { x: 800, y: 800, lod: 0 };
+  const dpi = encodeDpiStages(
+    G502_LIGHTSPEED_PROFILE_1,
+    3,
+    { stages, defaultIndex: original.defaultDpiIndex! },
+    { maxStages: 5, minDpi: 100, maxDpi: 25600, stepDpi: 1 },
+  );
+  assert.equal(decodeOnboardProfile(dpi, 3, { sector: 1, enabled: true }, true).dpiStages[0].x, 800);
+
+  const rate = encodeReportRate(
+    G502_LIGHTSPEED_PROFILE_1,
+    3,
+    "wired",
+    500,
+    { wirelessMaxHz: 1000, wiredMaxHz: 1000 },
+  );
+  assert.equal(decodeOnboardProfile(rate, 3, { sector: 1, enabled: true }, true).reportRateWired, 500);
+
+  const named = encodeProfileName(G502_LIGHTSPEED_PROFILE_1, 3, "OM_VERIFY", PROFILE_NAME_MAX_CHARS);
+  assert.equal(decodeOnboardProfile(named, 3, { sector: 1, enabled: true }, true).name, "OM_VERIFY");
+  for (const sector of [dpi, rate, named]) assert.equal(profileCrc(sector), storedCrc(sector));
+});
+
+test("decodes the captured G102 LIGHTSYNC format-4 profile", () => {
+  const profile = decodeOnboardProfile(
+    G102_LIGHTSYNC_PROFILE,
+    4,
+    { sector: 1, enabled: true },
+    false,
+  );
+  assert.equal(G102_LIGHTSYNC_PROFILE.length, 255);
+  assert.equal(profile.crcValid, true);
+  assert.equal(profile.name, "PROFILE_NAME_DEFAULT");
+  assert.equal(profile.defaultDpiIndex, 1);
+  assert.deepEqual(
+    profile.dpiStages,
+    [50, 2000, 1600].map((dpi) => ({ x: dpi, y: dpi, lod: 0 })),
+  );
+  assert.equal(profile.reportRateWireless, 1000);
+  assert.equal(profile.reportRateWired, 1000);
+  assert.equal(profile.angleSnapping, null);
+  assert.equal(profile.isCurrent, false, "the capture was taken while the mouse was in host mode");
+});
+
+test("parses the captured G102 LIGHTSYNC format-4 geometry and directory", () => {
+  assert.deepEqual(
+    { verified: describeProfileFormat(4).verified, writable: describeProfileFormat(4).writable },
+    { verified: true, writable: true },
+  );
+  assert.deepEqual(parseProfilesInfo(G102_LIGHTSYNC_INFO_REPLY), {
+    memoryModelId: 1,
+    profileFormatId: 4,
+    profileCount: 1,
+    sectorCount: 16,
+    sectorSize: 255,
+  });
+  assert.equal(profileCrc(G102_LIGHTSYNC_DIRECTORY), storedCrc(G102_LIGHTSYNC_DIRECTORY));
+  assert.deepEqual(parseDirectory(G102_LIGHTSYNC_DIRECTORY), [
+    { sector: 1, enabled: true },
+  ]);
+});
+
+test("format-4 encoders prepare reversible scalar DPI, shared-rate and name probes", () => {
+  const capabilities = capabilitiesForFormat(4);
+  assert.deepEqual(capabilities.dpiStages, { maxStages: 5, minDpi: 50, maxDpi: 8000, stepDpi: 50 });
+  assert.deepEqual(reportRatesFor(capabilities.reportRates, "wired"), [125, 250, 500, 1000]);
+
+  const original = decodeOnboardProfile(G102_LIGHTSYNC_PROFILE, 4, { sector: 1, enabled: true }, false);
+  const stages = original.dpiStages.map((stage) => ({ ...stage }));
+  stages[original.defaultDpiIndex!] = { x: 1000, y: 1000, lod: 0 };
+  const dpi = encodeDpiStages(G102_LIGHTSYNC_PROFILE, 4, {
+    stages,
+    defaultIndex: original.defaultDpiIndex!,
+  });
+  assert.equal(decodeOnboardProfile(dpi, 4, { sector: 1, enabled: true }, false).dpiStages[1].x, 1000);
+  assert.equal(profileCrc(dpi), storedCrc(dpi));
+
+  const rate = encodeReportRate(G102_LIGHTSYNC_PROFILE, 4, "wired", 500);
+  assert.equal(rate[0], 2, "legacy profiles store the USB interval in milliseconds");
+  assert.equal(decodeOnboardProfile(rate, 4, { sector: 1, enabled: true }, false).reportRateWired, 500);
+
+  const named = encodeProfileName(G102_LIGHTSYNC_PROFILE, 4, "OM_VERIFY");
+  assert.equal(decodeOnboardProfile(named, 4, { sector: 1, enabled: true }, false).name, "OM_VERIFY");
+  assert.equal(profileCrc(named), storedCrc(named));
 });
 
 test("factory reset image is exact, CRC-valid and limited to captured geometry", () => {
+  assert.equal(supportsFactoryReset(7), true);
+  for (const format of [1, 2, 3, 4, 5, 6, 8, null, undefined]) {
+    assert.equal(supportsFactoryReset(format), false, `format ${format ?? "missing"}`);
+  }
   const factory = factoryProfileForFormat(7, 255);
   assert.ok(factory);
   assert.deepEqual([...factory], [...SECTOR_2]);
@@ -419,9 +818,26 @@ test("report-rate ceilings differ per link and per format", () => {
   assert.equal(validateReportRate(8000, rates, "wireless"), null);
   assert.match(validateReportRate(8000, rates, "wired") ?? "", /Wired report rate/);
   assert.equal(validateReportRate(1000, rates, "wired"), null);
+  assert.deepEqual(
+    reportRatesForDevice(rates, "wireless", [125, 500, 1000, 2000], "wireless", false),
+    [125, 500, 1000, 2000],
+  );
+  assert.deepEqual(
+    reportRatesForDevice(rates, "wired", [125, 500, 1000, 2000], "wireless", false),
+    [125, 250, 500, 1000],
+    "the disconnected wired link keeps its captured format ceiling",
+  );
+  assert.deepEqual(
+    reportRatesForDevice({ wirelessMaxHz: 1000, wiredMaxHz: 1000 }, "wired", [125, 500, 1000], "wired", true),
+    [125, 500, 1000],
+    "a shared legacy interval uses the exact live bitmap",
+  );
 
+  // Format 8 reports the same split; this replaces the old Superstrike PID
+  // exception with a format capability.
+  assert.deepEqual(capabilitiesForFormat(8).reportRates, { wirelessMaxHz: 8000, wiredMaxHz: 1000 });
   // Formats whose ceilings were never captured offer nothing.
-  assert.equal(capabilitiesForFormat(8).reportRates, null);
+  assert.equal(capabilitiesForFormat(6).reportRates, null);
   assert.deepEqual(reportRatesFor(null, "wireless"), []);
   assert.match(validateReportRate(1000, null, "wireless") ?? "", /not known/);
 });
@@ -519,10 +935,15 @@ test("DPI slot limits are per format, not global", () => {
   const format7 = capabilitiesForFormat(7).dpiStages;
   assert.deepEqual(format7, { maxStages: 5, minDpi: 100, maxDpi: 32000, stepDpi: 50 });
 
-  // Base v1 has no stage table, and no other format's range was ever captured,
-  // so slots must not be offered rather than borrowing format 7's numbers.
+  // Format 1 uses the grid captured from the G402. Uncaptured formats must not
+  // borrow either it or format 7's limits.
+  assert.deepEqual(capabilitiesForFormat(1).dpiStages, {
+    maxStages: 5,
+    minDpi: 252,
+    maxDpi: 4032,
+    stepDpi: 84,
+  });
   assert.equal(capabilitiesForFormat(8).dpiStages, null);
-  assert.equal(capabilitiesForFormat(1).dpiStages, null);
   assert.equal(capabilitiesForFormat(6).dpiStages, null);
   assert.equal(capabilitiesForFormat(null).dpiStages, null);
 
@@ -568,8 +989,8 @@ test("lift-off limits come from the profile format, not the model", () => {
   // Format 8 carries the analog-button block, so it is the Superstrike format.
   assert.deepEqual(capabilitiesForFormat(8).supportedLods, ["Low", "High"]);
 
-  // Anything else keeps what the driver assumed before limits were per format.
-  assert.deepEqual(capabilitiesForFormat(1).supportedLods, ["Medium", "High"]);
+  // The G402 capture did not expose a lift-off setting for format 1.
+  assert.deepEqual(capabilitiesForFormat(1).supportedLods, []);
 
   // getInfo is allowed to fail, so an absent format must not throw.
   assert.deepEqual(capabilitiesForFormat(null).supportedLods, ["Medium", "High"]);

@@ -7,6 +7,8 @@ import {
   diffSectors,
   formatCaptureMarkdown,
   formatProfileVerificationMarkdown,
+  formatProfileWriteProbeBackupMarkdown,
+  formatProfileWriteProbeReportMarkdown,
   type CaptureExport,
 } from "./capture-format.ts";
 
@@ -115,6 +117,27 @@ test("profile verification exports geometry, raw replies, directory and every fo
     currentProfileReply: new Uint8Array([0x11, 0xff, 0x40, 0x00, 0x02]),
     directory: new Uint8Array([0x00, 0x02, 0x01, 0x00, 0xff, 0xff, 0xff, 0xff]),
     directoryCrcValid: true,
+    dpiCapabilities: {
+      featureId: 0x2201,
+      featureIndex: 0x0d,
+      featureVersion: 1,
+      kind: "legacy",
+      replies: [
+        { name: "getFeature", bytes: new Uint8Array([0x11, 0xff, 0x00, 0x0d, 0x00, 0x00, 0x01]) },
+        { name: "getSensorDpiList", bytes: new Uint8Array([0x11, 0xff, 0x10, 0x00, 0x64, 0xe0, 0x32, 0x0c, 0x80]) },
+      ],
+      decodedValues: [100, 150, 200],
+      error: null,
+    },
+    reportRateCapabilities: {
+      featureId: 0x8060,
+      featureIndex: 0x0e,
+      featureVersion: 0,
+      kind: "legacy",
+      replies: [{ name: "getReportRateList", bytes: new Uint8Array([0x11, 0xff, 0x00, 0x8b]) }],
+      decodedValues: [125, 250, 500, 1000],
+      error: null,
+    },
     profiles: [{
       sector: 2,
       enabled: true,
@@ -128,6 +151,11 @@ test("profile verification exports geometry, raw replies, directory and every fo
   assert.match(markdown, /Profile format: 8 · FORMAT 8/);
   assert.match(markdown, /Sector geometry: 4 × 8 bytes/);
   assert.match(markdown, /### Directory sector 0/);
+  assert.match(markdown, /### Device capability replies/);
+  assert.match(markdown, /DPI values: 100 DPI, 150 DPI, 200 DPI/);
+  assert.match(markdown, /DPI getSensorDpiList: `11 ff 10 00 64 e0 32 0c 80`/);
+  assert.match(markdown, /Report rate values: 125 Hz, 250 Hz, 500 Hz, 1000 Hz/);
+  assert.match(markdown, /Report rate getReportRateList: `11 ff 00 8b`/);
   assert.match(markdown, /### Profile sector 0x0002/);
   assert.match(markdown, /"reportRateWireless": 8000/);
   assert.match(markdown, /no profile flash was written/);
@@ -151,4 +179,41 @@ test("verification formatting accepts every recovered profile format", () => {
     });
     assert.match(markdown, new RegExp(`Profile format: ${profileFormatId} · test`));
   }
+});
+
+test("write-probe reports embed the recovery backup and restoration verdict", () => {
+  const backup = {
+    formatId: 4,
+    sector: 1,
+    sectorSize: 8,
+    originalMode: "Host" as const,
+    originalCurrentSector: 0,
+    directory: new Uint8Array([0, 1, 1, 0, 0, 0, 0xaa, 0xbb]),
+    profile: new Uint8Array([1, 1, 0, 0, 0, 0, 0x12, 0x34]),
+    dpiOptions: [50, 100, 150],
+    reportRates: [125, 250, 500, 1000],
+  };
+  const recovery = formatProfileWriteProbeBackupMarkdown(backup);
+  assert.match(recovery, /profile-write probe recovery backup/);
+  assert.match(recovery, /Original profile sector 0x0001/);
+  assert.match(recovery, /01 01 00 00 00 00 12 34/);
+
+  const report = formatProfileWriteProbeReportMarkdown({
+    backup,
+    steps: [{
+      setting: "dpi",
+      intended: "1000 DPI",
+      storedExactly: true,
+      liveConfirmed: true,
+      restored: true,
+      error: null,
+    }],
+    restored: true,
+    modeRestored: true,
+    ok: true,
+  });
+  assert.match(report, /profile-write verification — PASSED/);
+  assert.match(report, /Live value confirmed: true/);
+  assert.match(report, /Final profile restored: true/);
+  assert.match(report, /profile-write probe recovery backup/);
 });

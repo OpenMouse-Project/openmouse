@@ -1,5 +1,4 @@
 import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
-import { LOGITECH_DIRECT_PRODUCT_IDS } from "./logitech/protocol.ts";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,
@@ -70,23 +69,9 @@ export const RAZER_DEATHADDER_ESSENTIAL_FILTERS: HIDDeviceFilter[] = [0x006e, 0x
 
 export const TEEVOLUTION_PRODUCT_IDS = [0xf520, 0xf523, 0xf5bb, 0xf522] as const;
 
-// Logitech HID++ control interfaces addressed through a receiver slot (HID++
-// device index 0x01). 0xc54d and 0xc547 are newer Lightspeed receivers, 0xc539
-// is HERO-era Lightspeed, 0xc53f and 0xc543 are Nano Lightspeed 1.1/1.2
-// receivers (G305), and 0xc0a8 is the PRO X 2 Superstrike USB interface.
-export const LOGITECH_RECEIVER_PRODUCT_IDS = [0xc54d, 0xc539, 0xc0a8, 0xc547, 0xc53f, 0xc543] as const;
-
-// Every Logitech product with an HID++ control interface, receiver-addressed or
-// not. Direct-connect product IDs live in ./logitech/protocol so the driver and
-// these filters cannot disagree about which index a mouse answers on.
-export const LOGITECH_PRODUCT_IDS = [
-  ...LOGITECH_RECEIVER_PRODUCT_IDS,
-  ...LOGITECH_DIRECT_PRODUCT_IDS,
-] as const;
-
 /**
- * Every Logitech HID++ control interface, not only the product ids listed
- * above: a mouse we have never seen should still be offered. The usage page
+ * Every Logitech HID++ control interface: a mouse we have never seen should
+ * still be offered. The usage page
  * keeps this to HID++ endpoints, but it cannot tell a mouse from a keyboard or
  * a headset — the driver decides that after connecting, by looking for a sensor
  * feature, and reports a clear message when there is none.
