@@ -4,8 +4,8 @@ import test from "node:test";
 import { RAZER_PRODUCTS, RAZER_PRODUCT_IDS, RATES_1K, RATES_8K } from "./devices.ts";
 import {
   RAZER_TRANSACTION_ID,
-  RAZER_TRANSACTION_ID_DEFAULT,
-  RAZER_TRANSACTION_ID_LEGACY,
+  RAZER_TRANSACTION_ID_FF,
+  RAZER_TRANSACTION_ID_3F,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
 } from "./protocol.ts";
@@ -33,9 +33,9 @@ const REFACTOR_BASELINE: ReadonlyArray<[number, VerifiedProfile]> = [
   [0x00a6, { model: "Viper V2 Pro", wireless: true, maxDpi: 30000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: true }],
   [0x00c0, { model: "Viper V3 Pro", wireless: false, maxDpi: 35000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_1K, highRate: false }],
   [0x00c1, { model: "Viper V3 Pro", wireless: true, maxDpi: 35000, transactionId: RAZER_TRANSACTION_ID, rates: RATES_8K, highRate: true }],
-  [0x006e, { model: "DeathAdder Essential", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_LEGACY, rates: RATES_1K, highRate: false }],
-  [0x0071, { model: "DeathAdder Essential White Edition", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_LEGACY, rates: RATES_1K, highRate: false }],
-  [0x0098, { model: "DeathAdder Essential (2021)", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_LEGACY, rates: RATES_1K, highRate: false }],
+  [0x006e, { model: "DeathAdder Essential", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_3F, rates: RATES_1K, highRate: false }],
+  [0x0071, { model: "DeathAdder Essential White Edition", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_3F, rates: RATES_1K, highRate: false }],
+  [0x0098, { model: "DeathAdder Essential (2021)", wireless: false, maxDpi: 6400, transactionId: RAZER_TRANSACTION_ID_3F, rates: RATES_1K, highRate: false }],
 ];
 
 /** Models promoted by a hardware report since. */
@@ -48,7 +48,17 @@ const VERIFIED_SINCE: ReadonlyArray<[number, VerifiedProfile]> = [
 
 const VERIFIED = [...REFACTOR_BASELINE, ...VERIFIED_SINCE];
 
-test("the models verified on hardware keep exactly the profile they were given", () => {
+/**
+ * Products a hardware report has actually covered.
+ *
+ * Deliberately smaller than REFACTOR_BASELINE: the DeathAdder Essential family
+ * shipped with the driver but TESTING.md has always listed it as "not yet
+ * hardware-tested", so it is pinned like the others without claiming to be
+ * verified.
+ */
+const HARDWARE_VERIFIED: readonly number[] = [0x00a5, 0x00a6, 0x00c0, 0x00c1, 0x00b8];
+
+test("every pinned product keeps exactly the profile it was given", () => {
   // A silent change to any of these would only show up on hardware, which is
   // the one place this project cannot re-run on demand.
   for (const [productId, expected] of VERIFIED) {
@@ -60,7 +70,6 @@ test("the models verified on hardware keep exactly the profile they were given",
     assert.equal(product.transactionId, expected.transactionId);
     assert.deepEqual([...product.pollingRates], [...expected.rates]);
     assert.equal(product.highRatePolling, expected.highRate);
-    assert.equal(product.verified, true);
   }
 });
 
@@ -91,8 +100,19 @@ test("a wireless model can still answer only the legacy polling command", () => 
 });
 
 test("only models connected by this project claim to be verified", () => {
+  // `verified` drives the "untested model" label and whether a failed battery
+  // read is fatal, so it must mean "someone plugged one in", not "shipped for
+  // a while".
   const verified = RAZER_PRODUCT_IDS.filter((id) => RAZER_PRODUCTS.get(id)?.verified === true);
-  assert.deepEqual(verified.sort(), VERIFIED.map(([id]) => id).sort());
+  assert.deepEqual([...verified].sort(), [...HARDWARE_VERIFIED].sort());
+});
+
+test("the DeathAdder Essential family does not claim to be tested", () => {
+  // TESTING.md carries it under "not yet hardware-tested", and an earlier
+  // revision of the registry contradicted that.
+  for (const productId of [0x006e, 0x0071, 0x0098]) {
+    assert.equal(RAZER_PRODUCTS.get(productId)?.verified, false, `0x${productId.toString(16)}`);
+  }
 });
 
 test("the asymmetric lift-off write probe is only armed where it was confirmed", () => {
@@ -125,9 +145,77 @@ test("families that cannot work over this transport are left out", () => {
 test("every product answers on a transaction id the protocol defines", () => {
   // A wrong id is silent — the mouse simply never replies — so an id outside
   // the three known ones would be a guess with no failure mode to catch it.
-  const known = new Set([RAZER_TRANSACTION_ID, RAZER_TRANSACTION_ID_LEGACY, RAZER_TRANSACTION_ID_DEFAULT]);
+  const known = new Set([RAZER_TRANSACTION_ID, RAZER_TRANSACTION_ID_3F, RAZER_TRANSACTION_ID_FF]);
   for (const [productId, product] of RAZER_PRODUCTS) {
     assert.equal(known.has(product.transactionId), true, `0x${productId.toString(16)} uses an unknown transaction id`);
+  }
+});
+
+/**
+ * The transaction id every product is expected to answer on, transcribed from
+ * the id OpenRazer's `razer_attr_read_firmware_version()` selects — the gating
+ * first read, so a product that disagrees there cannot be reached at all.
+ *
+ * What this does and does not buy, stated plainly because the difference
+ * matters: this list and the one in `devices.ts` were transcribed from the same
+ * reading of the driver, in one sitting, by the same person. They are two
+ * copies of one transcription, not two independent readings. A misreading of
+ * the driver is therefore present in both and this test will not catch it.
+ *
+ * What it does catch is drift — an id edited in `devices.ts` without a
+ * corresponding decision here — and it forces every deliberate divergence to be
+ * declared in EXPECTED_DIVERGENCE with its evidence rather than sitting in the
+ * table looking like an audited value. Independent confirmation only comes from
+ * connecting the mouse.
+ */
+const OPENRAZER_TRANSACTION_IDS: ReadonlyMap<number, number> = new Map([
+  ...[
+    0x0050, 0x0059, 0x005a, 0x005c, 0x0060, 0x0064, 0x0065, 0x006f, 0x0070,
+    0x0072, 0x0073, 0x007c, 0x007d, 0x0084, 0x008c,
+  ].map((id) => [id, 0x3f] as const),
+  ...[
+    0x0062, 0x006c, 0x0077, 0x0080, 0x0085, 0x0086, 0x0088, 0x008d, 0x008f,
+    0x0090, 0x0094, 0x0096, 0x0099, 0x009a, 0x009c, 0x009e, 0x009f, 0x00a1,
+    0x00a5, 0x00a6, 0x00a7, 0x00a8, 0x00aa, 0x00ab, 0x00af, 0x00b0, 0x00b2,
+    0x00b4, 0x00b6, 0x00b7, 0x00b8, 0x00b9, 0x00be, 0x00bf, 0x00c0, 0x00c1,
+    0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c7, 0x00c8, 0x00cb, 0x00cc, 0x00cd,
+    0x00d0, 0x00d1, 0x00d3, 0x00d4, 0x00d6, 0x00d7,
+  ].map((id) => [id, 0x1f] as const),
+]);
+
+/** Products where this driver knowingly sends something else, and why. */
+const EXPECTED_DIVERGENCE: ReadonlyMap<number, { ours: number; openRazer: number; why: string }> = new Map([
+  [0x007a, { ours: 0x3f, openRazer: 0xff, why: "hardware report: 0x1f silent, 0x3f reads correctly" }],
+  [0x007b, { ours: 0x3f, openRazer: 0xff, why: "hardware report: 0x1f silent, 0x3f reads correctly" }],
+  [0x006e, { ours: 0x3f, openRazer: 0xff, why: "predates the audit; untested either way" }],
+  [0x0071, { ours: 0x3f, openRazer: 0xff, why: "predates the audit; untested either way" }],
+  [0x0098, { ours: 0x3f, openRazer: 0xff, why: "predates the audit; untested either way" }],
+]);
+
+test("every transaction id matches OpenRazer, or is a divergence with a reason", () => {
+  // This field has no failure mode that reaches the user as anything but
+  // silence, so it is checked product by product against the reference rather
+  // than inherited from a transport group — which is how 26 of them were wrong.
+  const wrong: string[] = [];
+  for (const [productId, product] of RAZER_PRODUCTS) {
+    const divergence = EXPECTED_DIVERGENCE.get(productId);
+    const expected = divergence?.ours ?? OPENRAZER_TRANSACTION_IDS.get(productId) ?? 0xff;
+    if (product.transactionId !== expected) {
+      wrong.push(`0x${productId.toString(16).padStart(4, "0")} ${product.model}:`
+        + ` sends 0x${product.transactionId.toString(16)}, expected 0x${expected.toString(16)}`);
+    }
+  }
+  assert.deepEqual(wrong, [], "A transaction id disagrees with the OpenRazer audit and is not a listed divergence.");
+});
+
+test("each declared divergence really does differ from OpenRazer", () => {
+  // Otherwise the list accumulates entries that no longer say anything, and the
+  // next person cannot tell which ones still need a decision.
+  for (const [productId, divergence] of EXPECTED_DIVERGENCE) {
+    assert.notEqual(divergence.ours, divergence.openRazer, `0x${productId.toString(16)} is listed but does not diverge`);
+    assert.equal(OPENRAZER_TRANSACTION_IDS.has(productId), false,
+      `0x${productId.toString(16)} is in both the audit map and the divergence list`);
+    assert.ok(divergence.why.length > 0);
   }
 });
 

@@ -9,14 +9,20 @@ Identifiers verified on hardware:
 - `1532:00a6` — Viper V2 Pro, Stock receiver
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
-- `1532:008a` — Viper Mini, wired
+- `1532:008a` — Viper Mini, wired (separate driver)
+- `1532:00b8` — Viper V3 HyperSpeed, stock HyperSpeed receiver
+
+Claimed but never connected:
+
 - `1532:006e` — DeathAdder Essential, wired
 - `1532:0071` — DeathAdder Essential White Edition, wired
 - `1532:0098` — DeathAdder Essential (2021), wired
-- `1532:00b8` — Viper V3 HyperSpeed, stock HyperSpeed receiver
+- 99 further products from the OpenRazer reference
 
-A further 99 products are claimed from the OpenRazer reference and have never
-been connected — see [Untested models](#untested-models) before testing one.
+These three shipped with the driver long before the registry existed and were
+listed here as supported, but the section below has always described them as not
+hardware-tested. See [Untested models](#untested-models) before testing any of
+them.
 
 Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
@@ -95,9 +101,70 @@ stays `false`, so the mode probe — which is a *write* — is never sent and th
 mouse keeps the plain three-stop tracking control. The reported lift-off
 behaviour is that control, not the pair.
 
+## Transaction ids, audited against OpenRazer
+
+A hardware report on the Viper Ultimate (`1532:007b`) found `0x1f` silent where
+`0x3f` read firmware, DPI, polling and battery correctly. Auditing the whole
+registry against the id OpenRazer's `razer_attr_read_firmware_version()` selects
+found **26 of 107 products wrong**, because the id had been inherited from the
+transport preset.
+
+The id does not follow the transport group, the connection, the model's age or
+its marketing family. Within a single group all three values occur:
+
+| Product | Group | Id |
+| --- | --- | --- |
+| Basilisk `0x0064` | standard | `0x3f` |
+| Basilisk V2 `0x0085` | standard | `0x1f` |
+| Basilisk X HyperSpeed `0x0083` | new-receiver | `0xff` |
+| Lancehead Wireless `0x006f` | new-receiver | `0x3f` |
+| Pro Click `0x0077` | new-receiver | `0x1f` |
+
+It is now a flat per-product list in `devices.ts`, checked against a full
+transcription of the reference in `devices.test.ts`. A wrong id produces silence
+rather than an error, so there is no failure mode to catch an inherited guess —
+this is why it is not a preset field.
+
+Be clear about how strong that check is. Both lists were transcribed from one
+reading of the driver, so a misreading is in both and the test cannot see it.
+The test catches drift and forces divergences to be declared; it is not
+independent confirmation. Only connecting a mouse gives that, which is why
+these products stay `verified: false` regardless of how carefully the id was
+transcribed.
+
+Two divergences from OpenRazer are deliberate and listed in
+`EXPECTED_DIVERGENCE`:
+
+- **Viper Ultimate `0x007a`/`0x007b`** — OpenRazer sends `0xff` on every command
+  for both ids; the hardware report has `0x3f` working. Observed behaviour wins.
+  The mouse may accept both, so **re-testing against `0xff` would settle it**.
+- **DeathAdder Essential `0x006e`/`0x0071`/`0x0098`** — the driver has always
+  sent `0x3f` on the stated grounds that OpenRazer does, which the driver source
+  does not bear out: it lists all three under `0xff`. Untested either way, so it
+  was left alone rather than changed blind. **Next thing to check on this
+  family.**
+
+### Known limitation: OpenRazer varies the id per command
+
+`RazerProduct.transactionId` is one value per product, and for some models that
+is not enough. OpenRazer selects the id per command, and these disagree with
+themselves:
+
+| Product | Divergence |
+| --- | --- |
+| Lancehead Wireless `0x006f`/`0x0070` | firmware/serial/polling/DPI `0x3f`, battery `0x1f` |
+| Basilisk Ultimate `0x0086`/`0x0088` | firmware/DPI/polling-write `0x1f`, polling-read `0xff` |
+| Mamba Elite `0x006c` | firmware/DPI `0x1f`, serial/polling `0xff` |
+
+The registry uses the firmware-read id, since that read gates everything else.
+The consequence is that the commands listed above may fail on those three
+models. It degrades rather than breaking: battery and serial are already
+optional reads, and the polling read falls back to the other encoding. Supporting
+this properly needs a per-command override, which is not implemented.
+
 ## Untested models
 
-`devices.ts` claims 99 further products taken from OpenRazer's supported-device
+`devices.ts` claims 102 further products taken from OpenRazer's supported-device
 table. They reuse the commands verified above; what the table records per model
 is which of those commands are valid, which transaction id the mouse answers on,
 and what its sensor and radio can do. **None has been connected**, so each is a
@@ -156,6 +223,34 @@ them through USB control-transfer index 3, and WebHID cannot select a `wIndex`.
 The picker offers every interface instead, so the right one has to be found by
 trying them. If none answers, that is worth recording — it would mean these need
 a native helper rather than a driver fix.
+
+## Models Chrome may not be able to reach at all
+
+Reported on the Viper Ultimate dongle: **every** collection came back
+`feat[none]`, including the Generic Desktop Mouse interface, whose reports
+Chrome stripped as protected. `sendFeatureReport` then fails whatever the
+transaction id is, and the mouse could only be driven through the native OS HID
+API.
+
+This is worth separating from the ordinary Razer situation, which looks similar
+and is not the same thing. Razer never declares the control report in its
+descriptor, so `feat[none]` is normal and expected — the Viper V3 Pro reads and
+writes fine in that state, because WebHID does not validate report IDs against
+the descriptor. What is different here is Chrome *removing* the reports from a
+protected collection, which no transaction id or interface choice can work
+around.
+
+If that holds up, the affected models need the native/HAL transport rather than
+a driver fix, and their registry entries are unreachable in the browser however
+correct they are. Two things would establish the boundary:
+
+1. Whether it is specific to this device, or to Chrome's handling of a device
+   whose only candidate interface is a protected mouse collection.
+2. Whether any product currently claimed by the registry shares that shape.
+
+Until then the entries stay: they are correct data, they cost nothing but a
+picker row, and a model that cannot be opened fails at `open()` with a clear
+browser error rather than doing anything harmful.
 
 ## DeathAdder Essential — not yet hardware-tested
 

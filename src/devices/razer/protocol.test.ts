@@ -10,7 +10,7 @@ import {
   RAZER_READ,
   RAZER_STATUS,
   RAZER_TRANSACTION_ID,
-  RAZER_TRANSACTION_ID_LEGACY,
+  RAZER_TRANSACTION_ID_3F,
   RAZER_WRITE,
   RazerProtocolError,
   decodeBatteryPercent,
@@ -69,7 +69,7 @@ test("requests carry the transaction id, command and checksum", () => {
 });
 
 test("a request can carry the older transaction id the Essential family uses", () => {
-  const packet = encodeRazerRequest(RAZER_READ.firmware, RAZER_TRANSACTION_ID_LEGACY);
+  const packet = encodeRazerRequest(RAZER_READ.firmware, RAZER_TRANSACTION_ID_3F);
 
   assert.equal(packet[1], 0x3f);
   assert.equal(packet[5], 0x02);
@@ -81,7 +81,7 @@ test("the transaction id sits outside the checksummed range", () => {
   // OpenRazer checksums bytes 2..87, so the same command checksums identically
   // on either transaction id. A mismatch here would mean the range is wrong.
   const modern = encodeRazerRequest(RAZER_READ.dpi, RAZER_TRANSACTION_ID);
-  const legacy = encodeRazerRequest(RAZER_READ.dpi, RAZER_TRANSACTION_ID_LEGACY);
+  const legacy = encodeRazerRequest(RAZER_READ.dpi, RAZER_TRANSACTION_ID_3F);
 
   assert.notEqual(modern[1], legacy[1]);
   assert.equal(modern[88], legacy[88]);

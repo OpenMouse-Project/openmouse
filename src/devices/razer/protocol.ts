@@ -10,25 +10,29 @@
 export const RAZER_REPORT_ID = 0;
 export const RAZER_PACKET_LENGTH = 90;
 
-/** Verified against Viper V3 Pro firmware 1.12 on both transports. */
-export const RAZER_TRANSACTION_ID = 0x1f;
-
 /**
- * Razer's older configuration interfaces answer on a different transaction id,
- * and a mismatch is silent: the mouse simply never replies. OpenRazer uses this
- * one for the DeathAdder Essential family.
- */
-export const RAZER_TRANSACTION_ID_LEGACY = 0x3f;
-
-/**
- * The id most of Razer's pre-HyperPolling mice answer on. Verified in this repo
- * on the Viper Mini, whose dedicated driver pins the same value independently.
+ * Razer's three transaction ids.
  *
- * Kept as a third named constant rather than a default, because there is no
- * safe default: choosing the wrong one produces silence rather than an error,
- * so every product has to state which id it answers on.
+ * Named by value on purpose. They carry no meaning beyond "which firmware
+ * generation answers to this", they do not order neatly by device age, and
+ * every name that tried to describe them has been wrong: `_LEGACY` for `0x3f`
+ * read as "the oldest one" when `0xff` is older, and `_DEFAULT` for `0xff`
+ * read as "use this when unsure" when there is no safe default at all. A
+ * mismatch is silent — the mouse simply never replies — so every product must
+ * state its own id and none may be inferred from a family name.
+ *
+ * The same three values are what OpenRazer's driver selects between, and what
+ * the reference notes type as `"ff" | "3f" | "1f"`.
  */
-export const RAZER_TRANSACTION_ID_DEFAULT = 0xff;
+export const RAZER_TRANSACTION_ID_FF = 0xff;
+export const RAZER_TRANSACTION_ID_3F = 0x3f;
+export const RAZER_TRANSACTION_ID_1F = 0x1f;
+
+/**
+ * Default for `encodeRazerRequest`. Verified against Viper V3 Pro firmware 1.12
+ * on both transports; the per-product table overrides it for everything else.
+ */
+export const RAZER_TRANSACTION_ID = RAZER_TRANSACTION_ID_1F;
 
 const ARGS_OFFSET = 8;
 const CHECKSUM_INDEX = 88;

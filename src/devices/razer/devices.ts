@@ -49,9 +49,9 @@
  */
 
 import {
-  RAZER_TRANSACTION_ID,
-  RAZER_TRANSACTION_ID_DEFAULT,
-  RAZER_TRANSACTION_ID_LEGACY,
+  RAZER_TRANSACTION_ID_1F,
+  RAZER_TRANSACTION_ID_3F,
+  RAZER_TRANSACTION_ID_FF,
 } from "./protocol.ts";
 
 /**
@@ -98,10 +98,73 @@ export interface RazerProduct {
   verified: boolean;
 }
 
+/** Everything a preset supplies. The transaction id is deliberately not here. */
+type ProductDefaults = Omit<RazerProduct, "model" | "transactionId">;
+
 // The cable tops out at 1000 Hz on the models verified so far, which is also
 // the ceiling the legacy polling command can encode.
 export const RATES_1K: readonly number[] = [125, 500, 1000];
 export const RATES_8K: readonly number[] = [125, 500, 1000, 2000, 4000, 8000];
+
+/**
+ * Products answering on `0x3f`, audited against OpenRazer's mouse driver.
+ *
+ * ## Why this is a flat list and not a field on the transport presets
+ *
+ * It was a preset field, and that was wrong for 26 of the 107 products. The
+ * transaction id does not follow the transport group, the connection, the
+ * model's age or its marketing family — OpenRazer picks it per product id, and
+ * the groups interleave all three values:
+ *
+ * - Basilisk `0x0064` is `0x3f` while Basilisk V2 `0x0085` is `0x1f` and
+ *   Basilisk X HyperSpeed `0x0083` is `0xff`.
+ * - Viper `0x0078` is `0xff`, Viper 8KHz `0x0091` is `0xff`, Viper Mini SE
+ *   `0x009e` is `0x1f`.
+ * - Inside one `new-receiver` group: Lancehead Wireless `0x006f` is `0x3f`,
+ *   Pro Click `0x0077` is `0x1f`, Basilisk X HyperSpeed `0x0083` is `0xff`.
+ *
+ * A wrong id is silent — the mouse never replies — so there is no failure mode
+ * to catch an inherited guess. Keeping the ids in one auditable block, rather
+ * than spread across presets that imply a pattern, is what stops that
+ * inheritance happening again.
+ */
+const TRANSACTION_3F: readonly number[] = [
+  0x0050, 0x0059, 0x005a, 0x005c, 0x0060, 0x0064, 0x0065, 0x006f, 0x0070,
+  0x0072, 0x0073, 0x007c, 0x007d, 0x0084, 0x008c,
+  // --- Diverging from OpenRazer, on purpose ---------------------------------
+  // Viper Ultimate. OpenRazer sends `0xff` on every command for both ids, but
+  // a hardware report has `0x1f` silent and `0x3f` reading firmware, DPI,
+  // polling and battery correctly. Observed behaviour wins over the reference,
+  // and the mouse may well accept both. Worth re-testing against `0xff`.
+  0x007a, 0x007b,
+  // DeathAdder Essential. Predates this audit: the driver has always sent
+  // `0x3f` here on the stated grounds that OpenRazer does, which the driver
+  // source does not bear out — it lists all three ids under `0xff`. Left as it
+  // was rather than changed blind, because nothing has connected one either
+  // way. Flagged in TESTING.md as the next thing to check on this family.
+  0x006e, 0x0071, 0x0098,
+];
+
+/** Products answering on `0x1f`. Same provenance as the list above. */
+const TRANSACTION_1F: readonly number[] = [
+  0x0062, 0x006c, 0x0077, 0x0080, 0x0085, 0x0086, 0x0088, 0x008d, 0x008f,
+  0x0090, 0x0094, 0x0096, 0x0099, 0x009a, 0x009c, 0x009e, 0x009f, 0x00a1,
+  0x00a5, 0x00a6, 0x00a7, 0x00a8, 0x00aa, 0x00ab, 0x00af, 0x00b0, 0x00b2,
+  0x00b4, 0x00b6, 0x00b7, 0x00b8, 0x00b9, 0x00be, 0x00bf, 0x00c0, 0x00c1,
+  0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c7, 0x00c8, 0x00cb, 0x00cc, 0x00cd,
+  0x00d0, 0x00d1, 0x00d3, 0x00d4, 0x00d6, 0x00d7,
+];
+
+/**
+ * `0xff` is the fallback because it is the id the largest group uses, not
+ * because it is safe to assume: a product missing from both lists above has
+ * simply not been audited, and will be silent if `0xff` is wrong for it.
+ */
+function transactionIdFor(productId: number): number {
+  if (TRANSACTION_3F.includes(productId)) return RAZER_TRANSACTION_ID_3F;
+  if (TRANSACTION_1F.includes(productId)) return RAZER_TRANSACTION_ID_1F;
+  return RAZER_TRANSACTION_ID_FF;
+}
 
 /**
  * Sensor ceilings by generation, from published specifications rather than from
@@ -123,7 +186,6 @@ const DPI_FOCUS_PRO_35K = 35_000;
  */
 const STANDARD = {
   transport: "standard",
-  transactionId: RAZER_TRANSACTION_ID_DEFAULT,
   wireless: false,
   pollingRates: RATES_1K,
   maxDpi: DPI_CHROMA,
@@ -132,14 +194,14 @@ const STANDARD = {
   highRatePolling: false,
   asymmetricLiftOff: false,
   verified: false,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /** Same generation, but a model with a cell and a charging dock or receiver. */
 const STANDARD_WIRELESS = {
   ...STANDARD,
   wireless: true,
   hasBattery: true,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /**
  * OpenRazer routes Naga X, Basilisk V3 and Basilisk V3 35K through USB control
@@ -150,9 +212,8 @@ const STANDARD_WIRELESS = {
 const INDEX3 = {
   ...STANDARD,
   transport: "index3",
-  transactionId: RAZER_TRANSACTION_ID,
   maxDpi: DPI_FOCUS_PRO,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /** Atheris and Orochi V2 receivers, which need a longer response window. */
 const ATHERIS_RECEIVER = {
@@ -161,7 +222,7 @@ const ATHERIS_RECEIVER = {
   wireless: true,
   hasBattery: true,
   maxDpi: DPI_FOCUS,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /**
  * The modern HyperSpeed generation, wired half. These are wireless mice on a
@@ -170,7 +231,6 @@ const ATHERIS_RECEIVER = {
  */
 const MODERN_WIRED = {
   transport: "new-receiver",
-  transactionId: RAZER_TRANSACTION_ID,
   wireless: false,
   pollingRates: RATES_1K,
   maxDpi: DPI_FOCUS,
@@ -178,14 +238,14 @@ const MODERN_WIRED = {
   highRatePolling: false,
   asymmetricLiftOff: false,
   verified: false,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /** The stock 1000 Hz receiver these ship with. */
 const MODERN_RECEIVER = {
   ...MODERN_WIRED,
   wireless: true,
   highRatePolling: true,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /**
  * Older HyperSpeed receivers, which predate the extended polling command and
@@ -194,45 +254,50 @@ const MODERN_RECEIVER = {
 const LEGACY_RECEIVER = {
   ...MODERN_RECEIVER,
   highRatePolling: false,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /** Receivers that ship as HyperPolling dongles and reach 8000 Hz. */
 const HYPERPOLLING_RECEIVER = {
   ...MODERN_RECEIVER,
   pollingRates: RATES_8K,
   maxDpi: DPI_FOCUS_PRO_35K,
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 /** Viper Ultimate / Viper Mini SE / DeathAdder V2 Pro timing group. */
 const VIPER_RECEIVER_WIRED = {
   ...MODERN_WIRED,
   transport: "viper-receiver",
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
 const VIPER_RECEIVER_WIRELESS = {
   ...MODERN_RECEIVER,
   transport: "viper-receiver",
-} as const satisfies Omit<RazerProduct, "model">;
+} as const satisfies ProductDefaults;
 
-// The DeathAdder Essential's officially published maximum, and the ceiling the
-// vendor software offers.
+/**
+ * DeathAdder Essential family. 6400 DPI is the officially published maximum
+ * and the ceiling the vendor software offers.
+ *
+ * Not verified: it shipped before this registry existed and TESTING.md has
+ * always carried it under "not yet hardware-tested". An earlier revision of
+ * this file marked it verified by mistake, which was wrong in both directions —
+ * it suppressed the "untested model" label and armed the strict battery read.
+ */
 const DEATHADDER_ESSENTIAL = {
   transport: "standard",
   wireless: false,
   pollingRates: RATES_1K,
   maxDpi: 6400,
-  transactionId: RAZER_TRANSACTION_ID_LEGACY,
   hasBattery: false,
   vendorControlInterface: true,
   highRatePolling: false,
   asymmetricLiftOff: false,
-  verified: true,
-} as const satisfies Omit<RazerProduct, "model">;
+  verified: false,
+} as const satisfies ProductDefaults;
 
 const VIPER_V2_PRO = {
   transport: "new-receiver",
   maxDpi: DPI_FOCUS_PRO,
-  transactionId: RAZER_TRANSACTION_ID,
   hasBattery: true,
   // Stock receiver, not an 8K HyperPolling dongle.
   pollingRates: RATES_1K,
@@ -243,20 +308,19 @@ const VIPER_V2_PRO = {
 const VIPER_V3_PRO = {
   transport: "viper-receiver",
   maxDpi: DPI_FOCUS_PRO_35K,
-  transactionId: RAZER_TRANSACTION_ID,
   hasBattery: true,
   asymmetricLiftOff: true,
   verified: true,
 } as const;
 
 /**
- * Every product this driver claims.
+ * Every product this driver claims, before the audited transaction id is
+ * attached. Build `RAZER_PRODUCTS` from this rather than reading it directly.
  *
- * The seven `verified: true` entries came first and their behaviour is pinned
- * by `hid.test.ts` and `TESTING.md`; the rest were added from the OpenRazer
- * reference and have never been connected.
+ * The `verified: true` entries are the ones a hardware report has covered;
+ * the rest come from the OpenRazer reference and have never been connected.
  */
-export const RAZER_PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map<number, RazerProduct>([
+const PRODUCT_DEFINITIONS: ReadonlyArray<[number, Omit<RazerProduct, "transactionId">]> = [
   // ---- Verified on hardware -------------------------------------------------
   [0x00a5, { model: "Viper V2 Pro", wireless: false, highRatePolling: false, ...VIPER_V2_PRO }],
   [0x00a6, { model: "Viper V2 Pro", wireless: true, highRatePolling: true, ...VIPER_V2_PRO }],
@@ -316,10 +380,10 @@ export const RAZER_PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map<number,
   [0x008d, { model: "Naga Left-Handed Edition 2020", ...STANDARD, maxDpi: DPI_FOCUS }],
   // Wired, but the whole point of the model is 8000 Hz, which the legacy
   // polling command cannot encode.
-  [0x0091, { model: "Viper 8KHz", ...STANDARD, maxDpi: DPI_FOCUS, transactionId: RAZER_TRANSACTION_ID, pollingRates: RATES_8K, highRatePolling: true }],
+  [0x0091, { model: "Viper 8KHz", ...STANDARD, maxDpi: DPI_FOCUS, pollingRates: RATES_8K, highRatePolling: true }],
   [0x00a1, { model: "DeathAdder V2 Lite", ...STANDARD, maxDpi: 8500 }],
-  [0x00a3, { model: "Cobra", ...STANDARD, maxDpi: 8500, transactionId: RAZER_TRANSACTION_ID }],
-  [0x00b2, { model: "DeathAdder V3", ...STANDARD, maxDpi: DPI_FOCUS_PRO, transactionId: RAZER_TRANSACTION_ID }],
+  [0x00a3, { model: "Cobra", ...STANDARD, maxDpi: 8500 }],
+  [0x00b2, { model: "DeathAdder V3", ...STANDARD, maxDpi: DPI_FOCUS_PRO }],
 
   // ---- index3: wired, control channel on USB interface 3 --------------------
   [0x0096, { model: "Naga X", ...INDEX3, maxDpi: 18_000 }],
@@ -390,7 +454,20 @@ export const RAZER_PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map<number,
   [0x00d4, { model: "Basilisk Mobile", ...LEGACY_RECEIVER, maxDpi: 18_000 }],
   [0x00d6, { model: "Basilisk V3 Pro 35K Phantom Green (Wired)", ...MODERN_WIRED, maxDpi: DPI_FOCUS_PRO_35K }],
   [0x00d7, { model: "Basilisk V3 Pro 35K Phantom Green", ...HYPERPOLLING_RECEIVER }],
-]);
+];
+
+/**
+ * Every product, with its audited transaction id attached.
+ *
+ * Joined here rather than written into each row so there is exactly one place
+ * the id can come from, and no preset can supply one by inheritance.
+ */
+export const RAZER_PRODUCTS: ReadonlyMap<number, RazerProduct> = new Map(
+  PRODUCT_DEFINITIONS.map(([productId, product]) => [
+    productId,
+    { ...product, transactionId: transactionIdFor(productId) },
+  ]),
+);
 
 /** Product ids for the WebHID picker filters in `../vendors.ts`. */
 export const RAZER_PRODUCT_IDS: readonly number[] = [...RAZER_PRODUCTS.keys()];
