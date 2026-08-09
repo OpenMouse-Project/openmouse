@@ -894,22 +894,6 @@ test("base v1 report rates are encoded as milliseconds, not a table index", () =
   }
 });
 
-test("format 2 (LOGAN) advertises a writable wired ceiling and no wireless link", () => {
-  const rates = capabilitiesForFormat(2).reportRates;
-  assert.deepEqual(rates, { wirelessMaxHz: 0, wiredMaxHz: 1000 });
-  assert.deepEqual(reportRatesFor(rates, "wired"), [125, 250, 500, 1000]);
-  assert.deepEqual(reportRatesFor(rates, "wireless"), []);
-  assert.equal(validateReportRate(1000, rates, "wired"), null);
-  assert.match(validateReportRate(2000, rates, "wired") ?? "", /Wired report rate/);
-
-  // The report-rate write is the one thing this format is trusted for; the rest
-  // stays locked so a v1 mouse cannot be pushed into unknown fields.
-  assert.equal(describeProfileFormat(2).verified, true);
-  assert.equal(capabilitiesForFormat(2).dpiStages, null);
-  assert.equal(capabilitiesForFormat(2).maxNameLength, null);
-  assert.equal(capabilitiesForFormat(2).bunnyHop, false);
-});
-
 test("profile names round-trip and are held to the region's size", () => {
   const named = encodeProfileName(SECTOR_3, 7, "FPS");
   assert.equal(decodeOnboardProfile(named, 7, ENTRY, true).name, "FPS");

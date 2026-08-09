@@ -5,7 +5,7 @@ import {
   RAZER_READ,
   RAZER_REPORT_ID,
   RAZER_STATUS,
-  RAZER_TRANSACTION_ID_LEGACY,
+  RAZER_TRANSACTION_ID_3F,
   RazerProtocolError,
   decodeDpi,
   decodeFirmwareVersion,
@@ -66,7 +66,7 @@ const VIPER_MINI_REACTIVE_SPEEDS = [1, 2, 3, 4] as const;
  * mouse's DPI and polling reads, which verified 0xff. A mismatch is silent: the
  * mouse never replies and the write times out.
  */
-export const VIPER_MINI_EFFECT_TRANSACTION_ID = RAZER_TRANSACTION_ID_LEGACY;
+export const VIPER_MINI_EFFECT_TRANSACTION_ID = RAZER_TRANSACTION_ID_3F;
 
 /**
  * Razer exposes its control channel on the interface whose only collection is

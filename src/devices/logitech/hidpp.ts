@@ -10,6 +10,7 @@ import {
   resolveBoltReportDevice,
 } from "./bolt.ts";
 import {
+  DEVICE_INDEX_DIRECT,
   decodeBatteryLevelState,
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
