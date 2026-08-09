@@ -63,10 +63,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .panel-title { display: flex; align-items: center; gap: .9rem; }
 
 .device-label, .overline { margin: 0 0 .7rem; color: #7f7f84; font-family: var(--font-mono); font-size: .63rem; letter-spacing: .1em; }
-.demo-wordmark { margin-bottom: 4rem; font-size: 1.05rem; font-weight: 600; letter-spacing: -.025em; }
-.build-identity { display: flex; align-items: center; gap: .65rem; margin-bottom: 4rem; }
-.build-identity .demo-wordmark { margin-bottom: 0; }
-.build-badge { display: inline-flex; align-items: center; min-height: 1.35rem; padding: .2rem .45rem; border: 1px solid color-mix(in srgb, var(--ui-accent) 35%, transparent); border-radius: 999px; background: var(--ui-accent-soft); color: var(--ui-accent); font-family: var(--font-mono); font-size: .52rem; font-weight: 700; letter-spacing: .07em; line-height: 1; white-space: nowrap; }
+.demo-wordmark { display: flex; align-items: center; gap: .5rem; margin-bottom: 4rem; font-size: 1.05rem; font-weight: 600; letter-spacing: -.025em; }
+.demo-wordmark img { width: auto; height: 1.5rem; }
+.sidebar > .build-badge { margin-top: auto; }
+.build-badge { color: var(--ghost); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em; white-space: nowrap; }
 
 .device-select { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .7rem; width: 100%; padding: .85rem; border: 1px solid #303034; border-radius: 10px; background: var(--raised); cursor: default; text-align: left; }
 .device-select strong, .device-select small { display: block; }
@@ -94,7 +94,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .nav-item:hover { background: #1b1b1e; color: #fff; }
 .control-shell .nav-item[aria-current="true"] { background: var(--ui-accent-soft); color: var(--ui-accent); }
 .interface-settings-button::before { margin-right: .5rem; color: var(--ui-accent); content: "⚙"; font-size: .72rem; }
-.sidebar-footer { display: grid; gap: .45rem; margin-top: auto; color: var(--ghost); font-size: .7rem; }
 
 .panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 4rem 0 2rem; }
 .panel-header h1 { max-width: min(760px, 70vw); margin: 0; font-size: clamp(2.5rem, 4.5vw, 4rem); font-weight: 500; line-height: .95; letter-spacing: -.04em; overflow-wrap: anywhere; }
@@ -328,7 +327,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 @media (max-width: 899px) {
   .control-shell { display: block; }
   .control-shell .sidebar { position: static; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .control-shell .sidebar-footer { display: none; }
   .control-shell .control-panel { width: min(100% - 2rem, 1180px); }
   .control-shell.has-pending-changes .control-panel { padding-bottom: 7rem; }
   .pending-bar-copy small { display: none; }

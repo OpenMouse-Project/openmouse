@@ -29,7 +29,7 @@ import {
 } from "./pending-changes";
 import { deviceImage } from "./ui/device-images";
 import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
-import { renderPendingBar, setPendingBarBusy, setPendingBarStatus } from "./ui/pending-bar";
+import { renderPendingBar, setPendingBarBusy, setPendingBarStatus, setPendingBarSuppressed } from "./ui/pending-bar";
 import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
@@ -69,6 +69,7 @@ import {
   capabilitiesForFormat,
   clampDpi,
   describeOffset,
+  layoutForFormat,
   reportRatesFor,
   validateProfileName,
   validateReportRate,
@@ -102,6 +103,7 @@ if (!controlApp) {
 const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+const DEFAULT_TITLE = document.title;
 const previewMode = import.meta.env.DEV
   ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
   : null;
@@ -226,7 +228,20 @@ function stageChange(change: PendingChange): void {
   }
   stagePendingChange(change);
   if (latestDeviceStatus) showStatus(latestDeviceStatus);
+  if (interfacePreferences.instantFlash) {
+    queueInstantFlash();
+    return;
+  }
   setText("#read-status", `${change.label} staged. Flash to write it to the mouse.`);
+}
+
+function queueInstantFlash(): void {
+  if (instantFlashQueued) return;
+  instantFlashQueued = true;
+  window.setTimeout(() => {
+    instantFlashQueued = false;
+    void flashPendingChanges();
+  });
 }
 
 // True when previewing the change over the device status would leave it unchanged
@@ -305,6 +320,7 @@ async function flashPendingChanges(): Promise<void> {
 }
 
 let interfacePreferences = loadInterfacePreferences(localStorage);
+let instantFlashQueued = false;
 
 function saveInterfacePreferences(): void {
   persistInterfacePreferences(localStorage, interfacePreferences);
@@ -312,6 +328,7 @@ function saveInterfacePreferences(): void {
 }
 
 function applyInterfacePreferences(): void {
+  setPendingBarSuppressed(interfacePreferences.instantFlash);
   const shell = document.querySelector<HTMLElement>(".control-shell");
   if (!shell) return;
   shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
@@ -359,6 +376,10 @@ function renderControl(): void {
     },
     setReducedMotion: (enabled) => {
       interfacePreferences.reducedMotion = enabled;
+      saveInterfacePreferences();
+    },
+    setInstantFlash: (enabled) => {
+      interfacePreferences.instantFlash = enabled;
       saveInterfacePreferences();
     },
     setExpandSections: (enabled) => {
@@ -639,9 +660,11 @@ function populateInterfaceSettings(): void {
   setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
   const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
+  const instantFlash = document.querySelector<HTMLInputElement>("#interface-instant-flash");
   const showExperimental = document.querySelector<HTMLInputElement>("#interface-show-experimental");
   if (reducedMotion) reducedMotion.checked = interfacePreferences.reducedMotion;
   if (expandSections) expandSections.checked = interfacePreferences.expandSections;
+  if (instantFlash) instantFlash.checked = interfacePreferences.instantFlash;
   if (showExperimental) showExperimental.checked = interfacePreferences.showExperimental;
 }
 
@@ -991,6 +1014,10 @@ function downloadDiagnostics(): void {
   if (status) status.textContent = `Saved ${name}`;
 }
 
+function setPageTitle(prefix?: string): void {
+  document.title = prefix ? `${prefix} - ${DEFAULT_TITLE}` : DEFAULT_TITLE;
+}
+
 function showStatus(deviceStatus: MouseStatus): void {
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
@@ -1080,6 +1107,8 @@ function showStatus(deviceStatus: MouseStatus): void {
     processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
+  const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
+  setPageTitle(status.batteryPercent === null ? status.name : `${charging}${status.batteryPercent}% - ${status.name}`);
   const dpiOutputField = document.querySelector<HTMLInputElement>("#dpi-output");
   if (dpiOutputField?.readOnly) dpiOutputField.value = `${status.dpi.toLocaleString()} DPI`;
   setText("#battery-value", battery);
@@ -1600,6 +1629,7 @@ function showDisconnectedState(): void {
   if (advanced) advanced.style.display = "none";
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
+  setPageTitle();
   setText("#device-title", "Connect a mouse");
   setText("#device-status", "No device connected");
   setText("#read-status", "Add a supported device from the sidebar to read its current status.");
@@ -2575,7 +2605,15 @@ function renderProfileRates(): void {
   if (!available || !entry || !rates) return;
 
   const locked = lastProfileFormat?.verified !== true;
-  for (const link of ["wireless", "wired"] as const) {
+  // Base v1 stores a single wired rate; only formats with the field for a link
+  // get a slider for it, so a LOGAN mouse never offers a wireless stop it
+  // cannot store.
+  const layout = lastProfileFormat ? layoutForFormat(lastProfileFormat.id) : null;
+  const links = (["wireless", "wired"] as const).filter((link) => {
+    const offset = link === "wired" ? layout?.reportRateWired : layout?.reportRateWireless;
+    return offset !== null && offset !== undefined;
+  });
+  for (const link of links) {
     const value = stagedProfileRates[link]
       ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
     renderRateSlider(
@@ -2585,10 +2623,15 @@ function renderProfileRates(): void {
       { label: link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
     );
   }
+  for (const link of ["wireless", "wired"] as const) {
+    const slider = document.querySelector<HTMLElement>(`#profile-rate-${link}`);
+    if (slider) slider.hidden = !links.includes(link);
+  }
 
-  setText("#polling-note", `Stored in this profile, one rate per link. Up to ${
-    reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
-    reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
+  const ceilings = links
+    .map((link) => `${reportRatesFor(rates, link).at(-1)?.toLocaleString() ?? "0"} Hz ${link === "wired" ? "over the cable" : "wireless"}`)
+    .join(" and ");
+  setText("#polling-note", `Stored in this profile. Up to ${ceilings}.`);
 }
 
 function renderDpiSlots(): void {
@@ -3428,6 +3471,8 @@ const notice = unsupportedNotice({
   secureContext: window.isSecureContext,
   chromium: isChromium(),
 });
+if (import.meta.env.PROD) void navigator.serviceWorker?.register("/sw.js").catch(() => undefined);
+
 if (notice) {
   appRoot.innerHTML = unsupportedTemplate(notice);
 } else {

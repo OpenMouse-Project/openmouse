@@ -119,7 +119,7 @@ export class NotAMouseError extends Error {
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547, 0xc53f, 0xc543]);
 
 /**
  * Models whose 0x8090 mode-status feature drives the power-mode switch only.
@@ -130,6 +130,7 @@ const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
  */
 const MODE_STATUS_POWER_ONLY_MODEL_IDS: ReadonlySet<string> = new Set([
   "B03C40B10000", // G309 LIGHTSPEED
+  "407400000000", // G305 LIGHTSPEED
 ]);
 
 /** Whether 0x8090 on this model is the power-mode-only variant. */
@@ -320,11 +321,13 @@ export class LogitechHidppClient {
 
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
-      // Any reply at all proves something is listening, including a HID++
-      // error reply. Only silence rules the index out.
+      // Only a successful reply proves a HID++ 2.0 mouse is on this index. A
+      // receiver answers the direct index with a HID++ 1.0 error reply, which
+      // is not a mouse and must not count — else we latch onto it and every
+      // later request fails with "invalid command".
       const answered = await this.request(0x00, 0x00, FEATURE.firmware >> 8, FEATURE.firmware & 0xff)
         .then(() => true)
-        .catch((error: unknown) => !(error instanceof HidppTimeoutError));
+        .catch(() => false);
       if (answered) return;
     }
     this.resolvedDeviceIndex = null;
@@ -456,6 +459,13 @@ export class LogitechHidppClient {
     this.lodCapabilities = capabilitiesForFormat(onboardProfileFormat?.id);
     this.supportedLods = [...this.lodCapabilities.supportedLods];
     const wired = this.device.productId === 0xc0a8 || this.isDirectConnect;
+    // A direct-connect mouse keeps its rate in the onboard profile, so it can
+    // only change once that format is verified and actually carries a
+    // report-rate field. Anything else stays read-only.
+    const profileRateWritable = this.isDirectConnect
+      && this.profileFormatId !== null
+      && describeProfileFormat(this.profileFormatId).verified
+      && capabilitiesForFormat(this.profileFormatId).reportRates !== null;
 
     return {
       brand: "Logitech",
@@ -465,10 +475,13 @@ export class LogitechHidppClient {
         // Logitech allows Lift-off Distance modification only when Gaming Surface Mode is set to "on" or "auto"
         lodRequiresSurface: true,
         // Direct-connect mice report their rate but keep the writable copy in
-        // the onboard profile, so show it without offering to change it.
-        pollingReadOnly: this.isDirectConnect ? true : undefined,
+        // the onboard profile. It is editable again once the profile write path
+        // is available for that format.
+        pollingReadOnly: this.isDirectConnect && !profileRateWritable ? true : undefined,
         pollingNote: this.isDirectConnect
-          ? "This mouse stores its polling rate in the onboard profile, so OpenMouse reads it without changing it."
+          ? profileRateWritable
+            ? "Stored in this mouse's onboard profile — OpenMouse writes it there."
+            : "This mouse stores its polling rate in the onboard profile, so OpenMouse reads it without changing it."
           : undefined,
       },
       batteryPercent: battery.percent,
@@ -524,9 +537,12 @@ export class LogitechHidppClient {
   async setPollingRate(pollingRateHz: number): Promise<number> {
     if (this.isDirectConnect) {
       // 0x8060's setter rejects live writes on this generation (HID++ error
-      // 0x02). The persistent rate lives in the onboard profile, which needs a
-      // CRC-checked sector rewrite that is not implemented here.
-      throw new Error("This mouse stores its polling rate in the onboard profile. Change it in Logitech's own software; OpenMouse can only read it.");
+      // 0x02), and the persistent rate lives in the onboard profile anyway.
+      // Write the active profile's report-rate byte; encodeReportRate validates
+      // the value against the format the mouse reported. This costs one sector
+      // erase/write cycle.
+      await this.writeActiveProfile({ reportRateWiredHz: pollingRateHz });
+      return pollingRateHz;
     }
     if (this.isSuperstrikeDevice && this.device.productId === 0xc0a8 && pollingRateHz > 1000) {
       throw new Error("The Superstrike USB connection supports up to 1000 Hz. Use the Lightspeed receiver for higher rates.");
