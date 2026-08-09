@@ -137,12 +137,28 @@ export function razerSetExtendedPollingCommand(pollingRateHz: number): RazerComm
 
 export class RazerProtocolError extends Error {
   readonly status: number | null;
+  /**
+   * The reply belonged to an earlier exchange, so re-reading may still find the
+   * right one. Distinct from a failure status, which the mouse meant for us.
+   */
+  readonly stale: boolean;
 
-  constructor(message: string, status: number | null = null) {
+  constructor(message: string, status: number | null = null, stale = false) {
     super(message);
     this.name = "RazerProtocolError";
     this.status = status;
+    this.stale = stale;
   }
+}
+
+/**
+ * Razer pairs each read with a write that clears the high bit of the command
+ * id, so the bit is what separates a question from an instruction. Repeating a
+ * question costs nothing; repeating an instruction is what the reference means
+ * by "do not automatically retry writes".
+ */
+export function isRazerGetter(command: RazerCommand): boolean {
+  return (command.commandId & 0x80) !== 0;
 }
 
 export function razerChecksum(packet: Uint8Array): number {
@@ -186,7 +202,7 @@ export function decodeRazerResponse(packet: Uint8Array, command: RazerCommand): 
     throw new RazerProtocolError(describe(command, `returned status ${`0x${status.toString(16).padStart(2, "0")}`}`), status);
   }
   if (packet[6] !== command.commandClass || packet[7] !== command.commandId) {
-    throw new RazerProtocolError(describe(command, "was answered by a different command"), status);
+    throw new RazerProtocolError(describe(command, "was answered by a different command"), status, true);
   }
   const length = Math.min(packet[5], RAZER_PACKET_LENGTH - ARGS_OFFSET);
   return packet.slice(ARGS_OFFSET, ARGS_OFFSET + length);

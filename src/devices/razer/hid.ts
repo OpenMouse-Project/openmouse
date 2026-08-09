@@ -24,6 +24,7 @@ import {
   decodeSerial,
   decodeSleepTimeout,
   encodeRazerRequest,
+  isRazerGetter,
   razerSetDpiCommand,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
@@ -516,18 +517,36 @@ export class RazerHidClient {
   private async exchange(command: RazerCommand): Promise<Uint8Array> {
     await this.open();
     const transactionId = this.profile()?.transactionId ?? RAZER_TRANSACTION_ID;
-    await this.device.sendFeatureReport(RAZER_REPORT_ID, encodeRazerRequest(command, transactionId));
+    const request = encodeRazerRequest(command, transactionId);
+    await this.device.sendFeatureReport(RAZER_REPORT_ID, request);
+    let last: unknown = new Error("The mouse stayed busy — it may be asleep or out of range.");
     for (let attempt = 0; attempt < RESPONSE_ATTEMPTS; attempt += 1) {
       await this.delay(RESPONSE_DELAY_MS);
       const reply = this.copyDataView(await this.device.receiveFeatureReport(RAZER_REPORT_ID));
       try {
         return decodeRazerResponse(reply, command);
       } catch (error) {
-        if (error instanceof RazerProtocolError && error.status === RAZER_STATUS.busy) continue;
+        if (!(error instanceof RazerProtocolError)) throw error;
+        // Busy means "ask again", and re-reading is enough: the mouse is
+        // already working on this command.
+        if (error.status === RAZER_STATUS.busy) {
+          last = error;
+          continue;
+        }
+        // A reply carrying an earlier command's id means the buffer is behind.
+        // Re-reading alone cannot fix that — nothing new arrives until the host
+        // asks again — so the request has to go out a second time. Only for a
+        // getter: repeating a write is the one retry the reference warns
+        // against, and every setter here confirms itself by read-back anyway.
+        if (error.stale && isRazerGetter(command)) {
+          last = error;
+          await this.device.sendFeatureReport(RAZER_REPORT_ID, request);
+          continue;
+        }
         throw error;
       }
     }
-    throw new Error("The mouse stayed busy — it may be asleep or out of range.");
+    throw last;
   }
 
   private copyDataView(view: DataView): Uint8Array {

@@ -134,6 +134,56 @@ this model and took the whole read down with it. The two are now read
 independently; an unreadable charging state reports `Unknown` rather than
 costing the level.
 
+## DeathAdder V3 Pro (`1532:00b6`) — open: a write that confirms but may not apply
+
+Reported: polling rate, low power mode and auto sleep "don't flash into the
+mouse", yet changing them in Razer's own software does show up here.
+
+The capture does not support a bug in the write path. Across 80 events and 252
+reports there were **zero failures**, and every write was confirmed by a
+separate read of the paired getter:
+
+| Set | Wrote | Read back | Still reading, 20 min later |
+| --- | --- | --- | --- |
+| Polling 125 Hz | `00`/`05` `[08]` | `00`/`85` → `08` | `08` |
+| Low power 5% | `07`/`01` `[0d 00]` | `07`/`81` → `0d 00` | `0d 00` |
+| Auto sleep 300 s | `07`/`03` `[01 2c]` | `07`/`83` → `01 2c` | `01 2c` |
+
+Transaction id `0x1f` is right, the bytes match OpenRazer's `set_polling_rate`,
+`set_idle_time` and `set_low_battery_threshold`, and `decodeRazerResponse`
+checked class and id on every reply. So if the reporter is right, **the register
+that answers is not the register that governs the hardware** — the Basilisk X
+lesson one level deeper: reading back what you wrote is not proof it applied.
+
+Unresolved, because three mechanisms fit and the fixes for them conflict:
+
+1. **No commit step.** DPI writes carry a storage selector (`RAZER_STORAGE`);
+   these three carry none, so the value may sit in volatile state the getter
+   faithfully echoes.
+2. **Contention.** Two replies arrived carrying an earlier command's id and a
+   transaction id the host never sent (`0x10`, `0x14`), and latency went from
+   ~100 ms to ~1000 ms mid-session. Something else was on the wire.
+3. **Wrong polling register.** `0x00b6` is `MODERN_WIRED`, so it sends legacy
+   `00`/`05`. Razer publishes 1000 Hz for this model wired, which argues the
+   legacy command is the live one — but a compatibility shim would look
+   identical from here.
+
+The discriminating tests, in order: set auto sleep, power-cycle the mouse, and
+re-read with the vendor software closed (reverts ⇒ 1); repeat with the vendor
+software and its background service fully quit (⇒ 2); set 125 Hz and measure
+the actual report rate with a rate tester, which needs no vendor software at
+all (unchanged ⇒ 3). Do not guess between them — picking wrong ships a second
+silent no-op.
+
+Note that auto sleep and low power do nothing while the mouse is on a cable, so
+the vendor software displaying a stale value for those two is not evidence
+either way; it keeps its own copy and pushes it down.
+
+Fixed from the same capture: a reply belonging to the previous command used to
+fail that read outright. Re-reading cannot recover it — nothing new arrives
+until the host asks again — so getters now re-issue the request, and setters
+still refuse to repeat themselves.
+
 ## Transaction ids, audited against OpenRazer
 
 A hardware report on the Viper Ultimate (`1532:007b`) found `0x1f` silent where

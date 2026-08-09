@@ -140,6 +140,80 @@ test("an untested model that refuses the battery read still reports the rest", a
   assert.match(status.connectionDetail ?? "", /untested model/);
 });
 
+test("a reply left over from the previous command is re-read, not reported", async () => {
+  // A DeathAdder V3 Pro capture had two reads out of 252 answered by the
+  // command before them — `0x07`/`0x83` receiving `0x07`/`0x80`'s battery reply
+  // with a transaction id the host never sent. The buffer had simply not caught
+  // up, and the following exchange resynced both times, so the recovery is the
+  // same one `busy` gets. Arrange: the sleep read is stale exactly once.
+  let staleLeft = 1;
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x00b6,
+    productName: "Razer DeathAdder V3 Pro",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      const [commandClass, commandId] = [data[6], data[7]];
+      const answer = (dataSize: number, args: number[]) =>
+        replyPacket(commandClass, commandId, dataSize, args, RAZER_STATUS.ok);
+      if (commandClass === 0x07 && commandId === 0x83 && staleLeft > 0) {
+        staleLeft -= 1;
+        // The battery answer, verbatim, in place of the sleep timeout's.
+        pending = replyPacket(0x07, 0x80, 0x02, [0x00, 0x3b], RAZER_STATUS.ok);
+        return;
+      }
+      if (commandClass === 0x00 && commandId === 0x81) pending = answer(0x02, [1, 5]);
+      else if (commandClass === 0x07 && commandId === 0x80) pending = answer(0x02, [0x00, 0x3b]);
+      else if (commandClass === 0x07 && commandId === 0x83) pending = answer(0x02, [0x01, 0x2c]);
+      else if (commandClass === 0x04 && commandId === 0x85) pending = answer(0x07, [0x01, 0x06, 0x40, 0x06, 0x40]);
+      else if (commandClass === 0x00 && commandId === 0x85) pending = answer(0x01, [1]);
+      else pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+
+  // Act
+  const status = await new RazerHidClient(device).readStatus();
+
+  // Assert: the retry found the real answer rather than dropping the field.
+  assert.equal(status.sleepTimeout, 300);
+  assert.equal(staleLeft, 0);
+});
+
+test("a stale reply to a write is reported rather than sending the write again", async () => {
+  // The same recovery must not extend to setters. A write is the one command
+  // the reference says never to repeat blindly, and a stale reply is no
+  // evidence the first one missed — it may already have landed.
+  const sent: Uint8Array[] = [];
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x00b6,
+    productName: "Razer DeathAdder V3 Pro",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      sent.push(data.slice());
+      // Always one command behind: the sleep write gets the battery's answer.
+      pending = replyPacket(0x07, 0x80, 0x02, [0x00, 0x3b], RAZER_STATUS.ok);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+
+  // Act / Assert
+  await assert.rejects(
+    () => new RazerHidClient(device).setSleepTimeout(300),
+    /answered by a different command/,
+  );
+  assert.equal(sent.filter((packet) => packet[6] === 0x07 && packet[7] === 0x03).length, 1);
+});
+
 /**
  * The Basilisk X HyperSpeed as captured in a user's diagnostics: it answers
  * `0x0b`/`0x85` with status 0x02 and an all-zero payload, refuses the charging
