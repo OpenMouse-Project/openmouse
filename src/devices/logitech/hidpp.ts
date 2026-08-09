@@ -119,7 +119,7 @@ export class NotAMouseError extends Error {
 
 const LOGITECH_VENDOR_ID = 0x046d;
 // HID++ control interfaces, including the PRO X 2 Superstrike USB interface.
-const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
+const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547, 0xc53f, 0xc543]);
 
 /**
  * Models whose 0x8090 mode-status feature drives the power-mode switch only.
@@ -130,6 +130,7 @@ const LOGITECH_RECEIVER_PRODUCT_IDS = new Set([0xc54d, 0xc539, 0xc0a8, 0xc547]);
  */
 const MODE_STATUS_POWER_ONLY_MODEL_IDS: ReadonlySet<string> = new Set([
   "B03C40B10000", // G309 LIGHTSPEED
+  "407400000000", // G305 LIGHTSPEED
 ]);
 
 /** Whether 0x8090 on this model is the power-mode-only variant. */
@@ -320,11 +321,13 @@ export class LogitechHidppClient {
 
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
-      // Any reply at all proves something is listening, including a HID++
-      // error reply. Only silence rules the index out.
+      // Only a successful reply proves a HID++ 2.0 mouse is on this index. A
+      // receiver answers the direct index with a HID++ 1.0 error reply, which
+      // is not a mouse and must not count — else we latch onto it and every
+      // later request fails with "invalid command".
       const answered = await this.request(0x00, 0x00, FEATURE.firmware >> 8, FEATURE.firmware & 0xff)
         .then(() => true)
-        .catch((error: unknown) => !(error instanceof HidppTimeoutError));
+        .catch(() => false);
       if (answered) return;
     }
     this.resolvedDeviceIndex = null;

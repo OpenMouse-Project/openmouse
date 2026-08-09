@@ -9,6 +9,7 @@ Supported identifiers:
 
 - `046d:c54d`, `046d:c547` — Lightspeed receivers
 - `046d:c539` — HERO-era Lightspeed receiver
+- `046d:c53f`, `046d:c543` — Nano Lightspeed 1.1 / 1.2 receivers (G305)
 - `046d:c0a8` — PRO X 2 Superstrike (USB)
 - `046d:c07e` — G402 / G402 Hyperion Fury (wired)
 - `046d:c08f` — G403 HERO (wired)
@@ -96,6 +97,20 @@ would carry the gaming-surface and LightForce fields is reserved and reads 0.
 The `0x2202` sensor likewise reports lift-off level 0, the feature's "no
 lift-off control" value. OpenMouse treats both as absent, so those cards stay
 hidden.
+
+1. Confirm the model, battery, connection type, DPI, and polling rate are read
+   correctly.
+2. Confirm the sensor card (lift-off distance), the gaming-surface card, and
+   the LightForce switch are all hidden.
+3. Change the DPI and polling rate and confirm each write persists after a
+   reload.
+
+## G305 LIGHTSPEED (receiver-attached, Model ID `407400000000`)
+
+Like the G309, the G305 exposes Mode Status `0x8090` but only the power-mode
+half is meaningful: the status1 byte that would carry the gaming-surface and
+LightForce fields is reserved and reads 0. The G305 also has no lift-off
+control. OpenMouse treats all three as absent, so those cards stay hidden.
 
 1. Confirm the model, battery, connection type, DPI, and polling rate are read
    correctly.
