@@ -1,8 +1,8 @@
 import { createSupportedClient, deviceBrand, listLogicalDevices } from "./device-clients";
-import { EGG_WE_DISPLAY_NAME, isEggWeClient } from "./devices/endgame/egg-we-control";
-import { FinalmouseHidClient } from "./devices/finalmouse/hid";
+import { EGG_WE_DISPLAY_NAME, isEggWeClient } from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
 import { escapeHtml } from "./ui/dom";
-import type { MouseStatus } from "./devices/mouse-types";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 
 export function renderDeviceSidebar(
   devices: HIDDevice[],

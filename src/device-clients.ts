@@ -1,14 +1,14 @@
 import {
   eggWeMergeLogicalDevices,
-} from "./devices/endgame/egg-we-control";
-import { collapseBoltPeers } from "./devices/logitech/bolt";
+} from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { collapseBoltPeers } from "@openmouse/protocol/drivers/logitech/bolt";
 import {
   clientSupportScore,
   createSupportedClient,
   deviceBrand,
   type PulsarClient,
   type SupportedClient,
-} from "./devices/registry";
+} from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics";
 export { clientSupportScore, createSupportedClient, deviceBrand, type PulsarClient, type SupportedClient };
 

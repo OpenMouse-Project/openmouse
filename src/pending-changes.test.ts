@@ -9,7 +9,7 @@ import {
   stagePendingChange,
   withPendingChanges,
 } from "./pending-changes.ts";
-import type { MouseStatus } from "./devices/mouse-types";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 
 function status(): MouseStatus {
   return {

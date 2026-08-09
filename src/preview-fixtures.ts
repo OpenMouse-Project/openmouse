@@ -1,4 +1,4 @@
-import type { MouseLighting, MouseStatus } from "./devices/mouse-types";
+import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { PREVIEW_KEYS, type FixturePreviewMode } from "./preview-modes";
 
 export { PREVIEW_KEYS };

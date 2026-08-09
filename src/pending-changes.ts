@@ -1,4 +1,4 @@
-import type { MouseStatus } from "./devices/mouse-types";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 
 export interface PendingChange {
   // Dedupe key. Staging the same key again replaces the earlier entry.

@@ -1,6 +1,6 @@
-import type { EggSpdtMode } from "./devices/endgame/egg-op1-hid";
-import type { MouseLighting, MouseStatus } from "./devices/mouse-types";
-import { clampBunnyHopMs } from "./devices/logitech/onboard-profiles";
+import type { EggSpdtMode } from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
+import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import { clampBunnyHopMs } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 
 type EggLiftOffLevel = NonNullable<MouseStatus["liftOffDistance"]>;
 

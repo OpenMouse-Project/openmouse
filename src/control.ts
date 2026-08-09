@@ -13,7 +13,7 @@ import {
 } from "./device-clients";
 import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
 import { closestDpiOption, dpiPresetValues } from "./dpi-presets";
-import { renderEggControls } from "./devices/endgame/egg-controls-view";
+import { renderEggControls } from "./egg-controls-view";
 import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import {
   clearPendingChanges,
@@ -43,7 +43,7 @@ import {
   type EggButtonIndex,
   type EggButtonMapping,
   type EggSpdtMode,
-} from "./devices/endgame/egg-op1-hid";
+} from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
 import {
   EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
@@ -54,15 +54,15 @@ import {
   eggWeResolveConnect,
   isEggWeClient,
   type EggWeHidClient,
-} from "./devices/endgame/egg-we-control";
-import { AtkHidClient } from "./devices/atk/hid";
-import { LamzuHidClient } from "./devices/lamzu/hid";
+} from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
+import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import {
   LogitechHidppClient,
   NotAMouseError,
   PROFILE_DPI_WRITES_ENABLED,
   type OnboardProfile,
-} from "./devices/logitech/hidpp";
+} from "@openmouse/protocol/drivers/logitech/hidpp";
 import {
   BUNNY_HOP_LIMITS,
   PROFILE_STAGE_LOD,
@@ -80,24 +80,24 @@ import {
   validateBunnyHoppingMs,
   type DpiStageCapabilities,
   type DpiStagePlan,
-} from "./devices/logitech/onboard-profiles";
+} from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { escapeHtml } from "./ui/dom";
 import { bindCapturePanel, setCaptureContext } from "./capture-panel";
-import type { MouseLighting, MouseStatus } from "./devices/mouse-types";
-import { PulsarProHidClient } from "./devices/pulsar/pulsar-pro-hid";
-import { OrbitalHidClient } from "./devices/orbital/hid";
-import { RazerHidClient } from "./devices/razer/hid";
-import { RazerViperMiniHidClient } from "./devices/razer/viper-mini-hid";
-import { RazerViperHidClient } from "./devices/razer/viper-hid"
-import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
-import { FinalmouseHidClient } from "./devices/finalmouse/hid";
-import { ModdoHidClient } from "./devices/moddo/hid";
-import { TeevolutionHidClient } from "./devices/teevolution/hid";
+import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
+import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
+import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
+import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
+import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
+import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
+import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
+import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
+import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
-import { VgnF2HidClient } from "./devices/vgn/hid";
-import { KeychronHidClient } from "./devices/keychron/hid";
-import { SUPPORTED_HID_FILTERS } from "./devices/vendors";
-import { WLMouseHidClient } from "./devices/wlmouse/hid";
+import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
+import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
+import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { parsePreviewMode, type PreviewMode } from "./preview-modes";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");

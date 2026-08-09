@@ -12,7 +12,7 @@ import {
 import type {
   ProfileContentWriteProbeBackup,
   ProfileContentWriteProbeReport,
-} from "./devices/logitech/hidpp";
+} from "@openmouse/protocol/drivers/logitech/hidpp";
 import { escapeHtml } from "./ui/dom";
 
 /**

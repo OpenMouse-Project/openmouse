@@ -3,8 +3,8 @@ import {
   EGG_BUTTON_NAMES,
   type EggButtonIndex,
   type EggButtonMapping,
-} from "./egg-op1-hid.ts";
-import type { MouseStatus } from "../mouse-types.ts";
+} from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 
 export interface EggControlActions {
   applyCpiStage(level: number, x: number, y: number): void;
@@ -73,3 +73,4 @@ function renderButtons(
   container.querySelectorAll<HTMLInputElement>("[data-multiclick]").forEach((input) => input.addEventListener("change", () => void applyMulticlick(Number(input.dataset.multiclick) as EggButtonIndex, Number(input.value))));
   container.querySelectorAll<HTMLSelectElement>("[data-button-mapping]").forEach((select) => select.addEventListener("change", () => void applyButtonMapping(Number(select.dataset.buttonMapping) as EggButtonIndex, select.value as EggButtonMapping)));
 }
+

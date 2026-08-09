@@ -22,32 +22,30 @@ npm run check
 
 The control panel is organized by responsibility: `control.ts` coordinates the
 application, while the template, events, DOM helpers, persisted preferences,
-battery history, and device-client selection live in focused modules under
-`src/`. Vendor drivers are grouped under `src/devices/`: `atk/`, `endgame/`,
-`finalmouse/`, `logitech/`, `pulsar/`, `razer/`, `teevolution/`, and `wlmouse/`;
-shared device types and HID filters remain directly under `src/devices/`.
+battery history, device selection, and rendering live in focused modules under
+`src/`.
 
-Transport-independent packet codecs live in the standalone
+Packet codecs and WebHID drivers live in the standalone
 [`@openmouse/protocol`](https://github.com/OpenMouse-Project/mouse-protocol)
-library. OpenMouse consumes the same public package exports that external
-consumers use; WebHID transport and application-facing status conversion
-remain in the device drivers.
+library. Its codec entry points remain transport-independent, while its
+`drivers` entry points own discovery filters, device clients, retries, and
+application-facing status conversion. OpenMouse consumes the same public
+exports that external consumers use.
 
 ## Adding a vendor
 
-Each supported vendor is self-contained under `src/devices/<vendor>/`.
+Codec and driver contributions belong in the `mouse-protocol` repository.
 
-1. Add transport-independent packet definitions and codecs to the
-   `mouse-protocol` repository, then expose a package subpath.
-2. Add the vendor's WebHID driver module(s) in a new vendor folder.
-3. Register the driver in `src/devices/registry.ts`, including its brand,
-   support check, client factory, and priority score.
-4. Add the vendor's WebHID filters in `src/devices/vendors.ts`.
-5. Add or extend protocol tests and state which product IDs were verified on
-   hardware, then run `npm run check`.
+1. Add transport-independent packet definitions and codecs under the vendor's
+   `mouse-protocol/src/<vendor>/` folder.
+2. Add the WebHID implementation under `mouse-protocol/src/drivers/<vendor>/`.
+3. Register the driver and browser filters in the shared driver layer.
+4. Add or extend codec and driver tests, state which product IDs were verified
+   on hardware, and run the checks in both repositories.
 
-The registry is the only central integration point for a new vendor; the
-control UI discovers supported clients through it automatically.
+OpenMouse should only need changes when a driver introduces a genuinely new UI
+capability. The control UI otherwise discovers supported clients through the
+library registry automatically.
 
-Hardware-specific validation checklists live with each driver, for example
-`src/devices/orbital/TESTING.md` for Orbital DMS V1/V2 devices and receivers.
+Hardware-specific validation checklists live in the protocol repository's
+`docs/` directory.
