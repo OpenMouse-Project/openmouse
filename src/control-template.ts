@@ -14,10 +14,7 @@ export function controlTemplate(buildLabel: string): string {
   return `
     <div class="control-shell is-empty">
       <aside class="sidebar">
-        <div class="build-identity">
-          <span class="demo-wordmark">OpenMouse</span>
-          <span class="build-badge" title="OpenMouse ${buildLabel}">${buildLabel}</span>
-        </div>
+        <span class="demo-wordmark"><img src="/logo.png" alt="" width="181" height="268" />OpenMouse</span>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
           <div class="device-select">
@@ -29,7 +26,7 @@ export function controlTemplate(buildLabel: string): string {
         <nav aria-label="Sections">
           <button id="interface-settings-button" class="nav-item interface-settings-button" type="button" aria-current="false">Interface settings</button>
         </nav>
-        <div class="sidebar-footer"><span>WebHID device control</span><span>OpenMouse Control</span></div>
+        <span class="build-badge" title="OpenMouse ${buildLabel}">${buildLabel}</span>
       </aside>
 
       <main class="control-panel">
