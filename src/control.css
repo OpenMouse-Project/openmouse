@@ -570,7 +570,8 @@ body { height: 100vh; overflow: hidden; }
 .control-shell .setting-heading h2 { font-size: 1rem; }
 .control-shell .setting-heading p { margin-bottom: .4rem; font-size: .56rem; }
 .dpi-header-actions input {
-  width: 8.7rem;
+  width: 12.5rem;
+  min-width: 0;
   padding: 0;
   color: #f7f7f8;
   font: 500 2.2rem/1 var(--font-sans);
@@ -655,4 +656,10 @@ body { height: 100vh; overflow: hidden; }
   .control-shell .control-panel { width: 100%; min-height: 70vh; padding-inline: 1rem; overflow: visible; }
   .control-shell .pending-bar { left: 0; }
   #pulsar-advanced { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .control-shell .dpi-card .setting-heading { flex-wrap: wrap; gap: .75rem; }
+  .dpi-header-actions { width: 100%; }
+  .dpi-header-actions input { width: 0; flex: 1 1 auto; font-size: 1.7rem; text-align: left; }
 }
