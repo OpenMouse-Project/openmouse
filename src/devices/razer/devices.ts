@@ -459,7 +459,14 @@ const PRODUCT_DEFINITIONS: ReadonlyArray<[number, Omit<RazerProduct, "transactio
   [0x00b0, { model: "Cobra Pro", ...MODERN_RECEIVER, maxDpi: DPI_FOCUS_PRO }],
   [0x00b4, { model: "Naga V2 HyperSpeed", ...LEGACY_RECEIVER, maxDpi: DPI_FOCUS_PRO }],
   [0x00b6, { model: "DeathAdder V3 Pro (Wired)", ...MODERN_WIRED, maxDpi: DPI_FOCUS_PRO }],
-  [0x00b7, { model: "DeathAdder V3 Pro", ...MODERN_RECEIVER, maxDpi: DPI_FOCUS_PRO }],
+  // Hardware report: the extended command is accepted and reads back, but the
+  // measured report rate stays at 1000 Hz whatever is written. This model ships
+  // with the stock 1000 Hz HyperSpeed receiver, not the 8000 Hz HyperPolling
+  // dongle (`0x00b3`, which this driver does not claim), so the extended
+  // encoding was addressing a ceiling the hardware does not have. `0x00c3` is
+  // the same model on a second product id and is likely the same, but nobody
+  // has measured it — see TESTING.md.
+  [0x00b7, { model: "DeathAdder V3 Pro", ...MODERN_RECEIVER, highRatePolling: false, maxDpi: DPI_FOCUS_PRO }],
   [0x00b9, { model: "Basilisk V3 X HyperSpeed", ...LEGACY_RECEIVER, maxDpi: 18_000 }],
   [0x00be, { model: "DeathAdder V4 Pro (Wired)", ...MODERN_WIRED, maxDpi: DPI_FOCUS_PRO_35K }],
   [0x00bf, { model: "DeathAdder V4 Pro", ...HYPERPOLLING_RECEIVER }],

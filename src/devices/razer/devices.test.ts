@@ -99,6 +99,36 @@ test("a wireless model can still answer only the legacy polling command", () => 
   assert.deepEqual([...hyperSpeed?.pollingRates ?? []], [...viperV2?.pollingRates ?? []]);
 });
 
+test("the DeathAdder V3 Pro receiver writes polling on the legacy command", () => {
+  // Reported on hardware: the extended command was accepted and read back at
+  // every rate, while the measured report rate never left 1000 Hz. The stock
+  // receiver this model ships with has a 1000 Hz ceiling, so an encoding built
+  // around 8000 was addressing a range the hardware does not have.
+  const receiver = RAZER_PRODUCTS.get(0x00b7);
+  assert.equal(receiver?.wireless, true);
+  assert.equal(receiver?.highRatePolling, false);
+  // The legacy encoding has to reach every rate still offered, or the fix
+  // trades a silent no-op for a visible failure.
+  for (const rate of receiver?.pollingRates ?? []) {
+    assert.doesNotThrow(() => razerSetLegacyPollingCommand(rate));
+  }
+});
+
+test("no product asks for a rate its polling command cannot encode", () => {
+  // `highRatePolling` picks the encoding and `pollingRates` picks the values
+  // offered; they are set independently, so nothing stops a product asking for
+  // 8000 Hz through an encoding whose ceiling is 1000.
+  for (const [productId, product] of RAZER_PRODUCTS) {
+    const encode = product.highRatePolling ? razerSetExtendedPollingCommand : razerSetLegacyPollingCommand;
+    for (const rate of product.pollingRates) {
+      assert.doesNotThrow(
+        () => encode(rate),
+        `0x${productId.toString(16).padStart(4, "0")} ${product.model} cannot encode ${rate} Hz`,
+      );
+    }
+  }
+});
+
 test("only models connected by this project claim to be verified", () => {
   // `verified` drives the "untested model" label and whether a failed battery
   // read is fatal, so it must mean "someone plugged one in", not "shipped for

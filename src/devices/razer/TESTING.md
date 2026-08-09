@@ -155,25 +155,53 @@ checked class and id on every reply. So if the reporter is right, **the register
 that answers is not the register that governs the hardware** — the Basilisk X
 lesson one level deeper: reading back what you wrote is not proof it applied.
 
-Unresolved, because three mechanisms fit and the fixes for them conflict:
+### Polling: resolved on the receiver (`1532:00b7`)
+
+A second capture, on the receiver rather than the cable, wrote 500, 125 and
+1000 Hz on the extended command (`0x00`/`0x40`) and read every one back from
+`0x00`/`0xc0` correctly — while the **measured** report rate stayed at 1000 Hz
+throughout.
+
+`0x00b7` is the stock HyperSpeed receiver, whose ceiling is 1000 Hz. The 8000 Hz
+HyperPolling Wireless Dongle is a different device (`0x00b3`) that this driver
+does not claim, so a mouse reaching us on this product id is never on one. The
+extended encoding expresses the rate as a divisor of 8000, so it was addressing
+a range this hardware does not have; the firmware stored the value and kept
+running at 1000. `highRatePolling` is now `false` here, which sends the legacy
+command and its divisor of 1000 — enough for every rate the stock receiver can
+actually reach.
+
+Two things this does **not** settle:
+
+- `0x00c3` is the same model on a second product id and inherits
+  `MODERN_RECEIVER` unchanged. Likely the same, unmeasured.
+- Six other products still pair `highRatePolling: true` with a 1000 Hz ceiling
+  (`0x007b`, `0x007d`, `0x00a8`, `0x00ab`, `0x00b0`, `0x00c3`), and so does
+  `0x00a6`, which is marked verified. The 499 Hz `pointerrawupdate` measurement
+  below belongs to the Viper V3 Pro (`0x00c1`) on a genuinely 8K-capable
+  dongle — no measurement covers `0x00a6`, so it should not be read as proof
+  that the extended command works on a 1000 Hz receiver.
+
+**Read-back is not measurement.** That is the fourth capability to confirm
+itself and do nothing, after `highRatePolling` on `0x00b8`, `asymmetricLiftOff`,
+and `liftOff` on `0x0083`.
+
+### Sleep and low power: still open
+
+Both were written and read back cleanly on both transports, and neither can be
+observed while the mouse is on a cable. Two mechanisms still fit:
 
 1. **No commit step.** DPI writes carry a storage selector (`RAZER_STORAGE`);
-   these three carry none, so the value may sit in volatile state the getter
+   these two carry none, so the value may sit in volatile state the getter
    faithfully echoes.
 2. **Contention.** Two replies arrived carrying an earlier command's id and a
    transaction id the host never sent (`0x10`, `0x14`), and latency went from
    ~100 ms to ~1000 ms mid-session. Something else was on the wire.
-3. **Wrong polling register.** `0x00b6` is `MODERN_WIRED`, so it sends legacy
-   `00`/`05`. Razer publishes 1000 Hz for this model wired, which argues the
-   legacy command is the live one — but a compatibility shim would look
-   identical from here.
 
-The discriminating tests, in order: set auto sleep, power-cycle the mouse, and
-re-read with the vendor software closed (reverts ⇒ 1); repeat with the vendor
-software and its background service fully quit (⇒ 2); set 125 Hz and measure
-the actual report rate with a rate tester, which needs no vendor software at
-all (unchanged ⇒ 3). Do not guess between them — picking wrong ships a second
-silent no-op.
+To tell them apart: set auto sleep, power-cycle the mouse, and re-read with the
+vendor software closed — a value that reverts means 1. Then repeat with the
+vendor software and its background service fully quit — a value that now holds
+means 2. Do not guess between them; picking wrong ships another silent no-op.
 
 Note that auto sleep and low power do nothing while the mouse is on a cable, so
 the vendor software displaying a stale value for those two is not evidence
