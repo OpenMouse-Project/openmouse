@@ -391,7 +391,6 @@ const PRODUCT_DEFINITIONS: ReadonlyArray<[number, Omit<RazerProduct, "transactio
   [0x006a, { model: "Abyssus Elite (D.Va Edition)", ...STANDARD, maxDpi: 7200 }],
   [0x006b, { model: "Abyssus Essential", ...STANDARD, maxDpi: 7200 }],
   [0x006c, { model: "Mamba Elite", ...STANDARD }],
-  [0x0078, { model: "Viper", ...STANDARD, maxDpi: DPI_FOCUS }],
   [0x0084, { model: "DeathAdder V2", ...STANDARD, maxDpi: DPI_FOCUS }],
   [0x0085, { model: "Basilisk V2", ...STANDARD, maxDpi: DPI_FOCUS }],
   [0x008c, { model: "DeathAdder V2 Mini", ...STANDARD, maxDpi: 8500 }],
