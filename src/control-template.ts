@@ -14,10 +14,7 @@ export function controlTemplate(buildLabel: string): string {
   return `
     <div class="control-shell is-empty">
       <aside class="sidebar">
-        <div class="build-identity">
-          <span class="demo-wordmark">OpenMouse</span>
-          <span class="build-badge" title="OpenMouse ${buildLabel}">${buildLabel}</span>
-        </div>
+        <span class="demo-wordmark"><img src="/logo.png" alt="" width="181" height="268" />OpenMouse</span>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
           <div class="device-select">
@@ -29,7 +26,7 @@ export function controlTemplate(buildLabel: string): string {
         <nav aria-label="Sections">
           <button id="interface-settings-button" class="nav-item interface-settings-button" type="button" aria-current="false">Interface settings</button>
         </nav>
-        <div class="sidebar-footer"><span>WebHID device control</span><span>OpenMouse Control</span></div>
+        <span class="build-badge" title="OpenMouse ${buildLabel}">${buildLabel}</span>
       </aside>
 
       <main class="control-panel">
@@ -112,6 +109,7 @@ export function controlTemplate(buildLabel: string): string {
             <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
             <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
             <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
+            <article class="interface-setting-card"><span>WRITES</span><h3>Instant flash</h3><p>Write each change to the mouse as soon as you make it, instead of staging it for the flash bar.</p><label class="interface-switch-row"><span>Flash immediately</span><input id="interface-instant-flash" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
           </div>

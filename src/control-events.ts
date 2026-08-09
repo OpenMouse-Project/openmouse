@@ -23,6 +23,7 @@ export interface ControlEventHandlers {
   setInterfaceTheme(value: string): void;
   setReducedMotion(enabled: boolean): void;
   setExpandSections(enabled: boolean): void;
+  setInstantFlash(enabled: boolean): void;
   setShowExperimental(enabled: boolean): void;
   toggleSidebar(): void;
   resetInterfacePreferences(): void;
@@ -109,6 +110,9 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   });
   document.querySelector<HTMLInputElement>("#interface-reduced-motion")?.addEventListener("change", (event) => {
     handlers.setReducedMotion((event.target as HTMLInputElement).checked);
+  });
+  document.querySelector<HTMLInputElement>("#interface-instant-flash")?.addEventListener("change", (event) => {
+    handlers.setInstantFlash((event.target as HTMLInputElement).checked);
   });
   document.querySelector<HTMLInputElement>("#interface-expand-sections")?.addEventListener("change", (event) => {
     handlers.setExpandSections((event.target as HTMLInputElement).checked);

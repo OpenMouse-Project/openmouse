@@ -21,6 +21,7 @@ test("interface preferences restore only supported values", () => {
     reducedMotion: true,
     expandSections: true,
     showExperimental: false,
+    instantFlash: true,
   });
 
   assert.deepEqual(loadInterfacePreferences(storage), {
@@ -29,6 +30,7 @@ test("interface preferences restore only supported values", () => {
     reducedMotion: true,
     expandSections: true,
     showExperimental: false,
+    instantFlash: true,
   });
 });
 

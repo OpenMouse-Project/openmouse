@@ -7,6 +7,7 @@ export interface InterfacePreferences {
   reducedMotion: boolean;
   expandSections: boolean;
   showExperimental: boolean;
+  instantFlash: boolean;
 }
 
 const STORAGE_KEY = "openmouse-interface-settings-v1";
@@ -18,6 +19,7 @@ export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   reducedMotion: false,
   expandSections: false,
   showExperimental: true,
+  instantFlash: false,
 };
 
 export function loadInterfacePreferences(storage: Storage): InterfacePreferences {
@@ -29,6 +31,7 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
       reducedMotion: saved.reducedMotion === true,
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,
+      instantFlash: saved.instantFlash === true,
     };
   } catch {
     return { ...DEFAULT_INTERFACE_PREFERENCES };

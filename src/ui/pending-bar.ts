@@ -5,14 +5,34 @@ import { setText } from "./dom";
 const HIDE_DELAY_MS = 220;
 
 let hideTimer: number | null = null;
+let suppressed = false;
 
 function bar(): HTMLElement | null {
   return document.querySelector<HTMLElement>("#pending-changes-bar");
 }
 
+function hideNow(element: HTMLElement): void {
+  if (hideTimer !== null) {
+    window.clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  element.classList.remove("is-leaving");
+  element.hidden = true;
+  document.querySelector<HTMLElement>(".control-shell")?.classList.remove("has-pending-changes");
+}
+
+export function setPendingBarSuppressed(value: boolean): void {
+  suppressed = value;
+  renderPendingBar();
+}
+
 export function renderPendingBar(): void {
   const element = bar();
   if (!element) return;
+  if (suppressed) {
+    hideNow(element);
+    return;
+  }
   const count = pendingChangeCount();
   document.querySelector<HTMLElement>(".control-shell")?.classList.toggle("has-pending-changes", count > 0);
   if (count === 0) {
