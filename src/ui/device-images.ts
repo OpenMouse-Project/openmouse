@@ -1,5 +1,5 @@
 /**
- * Top-down product art, keyed by the identifiers WebHID already reports so that
+ * Top-down product art for the persistent device panel, keyed by the identifiers WebHID already reports so that
  * drivers stay free of asset paths and no new UI hint is needed.
  *
  * Files live in `public/devices/`, which Vite serves from the site root and
@@ -19,6 +19,8 @@ function deviceKey(device: HIDDevice): string {
   return `${hex(device.vendorId)}:${hex(device.productId)}`;
 }
 
-export function deviceImage(device: HIDDevice | null | undefined): string | null {
-  return device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
+export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string | null {
+  const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
+  if (mapped) return mapped;
+  return /superlight/i.test(displayName) ? "/devices/logitech-pro-x-superlight-2c.png" : null;
 }

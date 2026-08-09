@@ -2,10 +2,11 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  // Viper V3 sleep and low-power controls plus the Viper Mini lighting card
-  // (effect, colour, and reactive speed pickers) add small device-specific
-  // rows to the existing settings UI.
-  ".css": 47_000,
+  // Raised from 47 kB for the concept-18 workspace redesign: the persistent
+  // product panel, status strip, section tabs, stacked cards, responsive
+  // layout, and fixed apply bar are all implemented in the existing CSS
+  // bundle without adding a UI framework or runtime dependency.
+  ".css": 54_000,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus

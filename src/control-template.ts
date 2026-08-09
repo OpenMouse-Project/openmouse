@@ -15,6 +15,14 @@ export function controlTemplate(buildLabel: string): string {
     <div class="control-shell is-empty">
       <aside class="sidebar">
         <span class="demo-wordmark"><img src="/logo.png" alt="" width="181" height="268" />OpenMouse</span>
+        <section class="sidebar-product device-data" aria-label="Selected device">
+          <div class="sidebar-product-heading">
+            <span>SELECTED DEVICE</span>
+            <strong id="sidebar-device-title">Connected mouse</strong>
+          </div>
+          <article id="device-thumbnail" class="device-thumbnail" hidden><img id="device-thumbnail-image" alt="" /></article>
+          <div class="sidebar-product-status"><span class="status-dot is-idle"></span><span>Connected</span></div>
+        </section>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
           <div class="device-select">
@@ -32,7 +40,7 @@ export function controlTemplate(buildLabel: string): string {
       <main class="control-panel">
         <div class="panel-top">
           <header class="panel-header">
-            <div class="panel-title"><button id="sidebar-menu-toggle" class="sidebar-menu-toggle" type="button" aria-label="Toggle sidebar" aria-pressed="false" title="Toggle sidebar"><i></i><i></i><i></i></button><div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div></div>
+            <div class="panel-title"><div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div></div>
             <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
           </header>
           <p class="live-status"><i aria-hidden="true"></i><span id="read-status" role="status" aria-live="polite">Add a supported device from the sidebar to read its current status.</span></p>
@@ -45,11 +53,17 @@ export function controlTemplate(buildLabel: string): string {
           <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
         <section class="device-overview device-data" aria-label="Device status">
-          <article id="device-thumbnail" class="device-thumbnail" hidden><img id="device-thumbnail-image" alt="" /></article>
           <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
           <article class="summary-stat" data-pending-key="dongle-led"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" class="dongle-led-button" type="button" hidden disabled>Receiver LED</button></article>
         </section>
+        <nav class="workspace-tabs device-data" aria-label="Device sections">
+          <button type="button" data-workspace-tab="overview" aria-current="false">Overview</button>
+          <button type="button" data-workspace-tab="performance" aria-current="page">Performance</button>
+          <button type="button" data-workspace-tab="buttons" aria-current="false">Buttons</button>
+          <button type="button" data-workspace-tab="profiles" aria-current="false">Profiles</button>
+          <button type="button" data-workspace-tab="advanced" aria-current="false">Advanced</button>
+        </nav>
         <section id="logitech-onboard" class="profile-disclosure device-data" hidden>
           <div class="profile-summary">
             <button id="profile-disclosure-toggle" class="profile-summary-main" type="button" aria-expanded="false" aria-controls="profile-disclosure-body">
@@ -70,7 +84,7 @@ export function controlTemplate(buildLabel: string): string {
             </div>
           </div>
         </section>
-        <section class="settings-grid device-data" aria-label="Mouse status">
+        <section id="performance-settings" class="settings-grid device-data" aria-label="Mouse status">
           <article class="setting-card dpi-card" data-pending-key="dpi"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity<span class="setting-scope" id="dpi-scope-badge" hidden></span></h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" role="group" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none"><div class="axis-grid"><label>X axis<input id="logitech-dpi-x" type="number" min="100" step="50" /></label><label>Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" /></label><button id="apply-logitech-axes" class="axis-apply" type="button">Apply</button></div></div><div id="logitech-dpi-slots" hidden><div class="dpi-slot-header"><span>Slots in use</span><div id="dpi-slot-count" class="dpi-slot-count" role="group" aria-label="Number of DPI slots"></div></div><div class="dpi-slot-rule"></div><div id="dpi-slot-list" class="dpi-slot-list"></div><small id="dpi-slot-note" class="setting-note"></small></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
           <article id="polling-card" class="setting-card" data-pending-key="polling-rate"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency<span class="setting-scope" id="rate-scope-badge" hidden></span></h2></div></div><div id="profile-rate-rows" hidden><div id="profile-rate-wireless" class="rate-slider" data-rate-link="wireless"></div><div id="profile-rate-wired" class="rate-slider" data-rate-link="wired"></div></div><div id="host-rate-slider" class="rate-slider"></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
           <article class="setting-card" data-pending-key="lift-off-distance gaming-surface"><div class="setting-heading tight"><div><p>SENSOR</p></div></div><div id="gaming-surface-row" hidden><div class="setting-heading"><div><h2>Gaming surface</h2></div></div><div class="segmented three" role="group" aria-label="Gaming surface"><button data-gaming-surface="On" disabled>On</button><button data-gaming-surface="Off" disabled>Off</button><button data-gaming-surface="Auto" disabled>Auto</button></div><small class="setting-note">Tunes the sensor for gaming mouse pads. Auto lets the mouse decide; turn it off if tracking misbehaves on a non-gaming surface.</small></div><div id="host-lod-row"><div class="setting-heading"><div><h2>Lift-off distance</h2></div></div><div id="lod-mode-row" class="lod-mode" hidden><div class="segmented two" role="group" aria-label="Lift-off mode"><button data-lod-mode="single" disabled>Single</button><button data-lod-mode="asymmetric" disabled>Asymmetric</button></div></div><div id="lod-single"><div class="segmented three" role="group" aria-label="Lift-off distance"><button data-lod="Low" disabled>Low</button><button data-lod="Medium" disabled>Medium</button><button data-lod="High" disabled>High</button></div></div><div id="lod-asymmetric" class="lod-sliders" hidden><label>Lift-off<output id="lod-lift-off-value">—</output><input id="lod-lift-off" type="range" min="2" max="26" step="1" /></label><label>Landing<output id="lod-landing-value">—</output><input id="lod-landing" type="range" min="1" max="25" step="1" /></label></div><small id="lod-note" class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></div></article>
@@ -133,12 +147,12 @@ export function controlTemplate(buildLabel: string): string {
           <span class="pending-bar-dot" aria-hidden="true"></span>
           <div class="pending-bar-copy">
             <p class="overline">PENDING</p>
-            <strong id="pending-changes-count">1 unsaved change</strong>
+            <strong id="pending-changes-count">No pending changes</strong>
             <small id="pending-changes-summary" role="status" aria-live="polite"></small>
           </div>
           <div class="pending-bar-actions">
             <button id="pending-revert" class="pending-revert" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5h11a5.5 5.5 0 0 1 0 11H8" /><path d="M7.5 4 3 8.5 7.5 13" /></svg><span>Revert</span></button>
-            <button id="pending-flash" class="pending-flash" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" /></svg><i class="pending-spinner" aria-hidden="true"></i><span id="pending-flash-label">Flash</span></button>
+            <button id="pending-flash" class="pending-flash" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" /></svg><i class="pending-spinner" aria-hidden="true"></i><span id="pending-flash-label">Apply changes</span></button>
           </div>
         </div>
       </div>

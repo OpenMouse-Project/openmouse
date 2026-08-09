@@ -15,7 +15,7 @@ const THEMES: readonly InterfaceTheme[] = ["Emerald", "Violet", "Ice", "Ember", 
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   density: "Compact",
-  theme: "Emerald",
+  theme: "Mono",
   reducedMotion: false,
   expandSections: false,
   showExperimental: true,
@@ -27,7 +27,7 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : "Emerald",
+      theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : "Mono",
       reducedMotion: saved.reducedMotion === true,
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,

@@ -361,6 +361,33 @@ function renderStagedMarkers(): void {
   });
 }
 
+const WORKSPACE_TAB_TARGETS: Record<string, readonly string[]> = {
+  overview: ["#device-overview"],
+  performance: ["#performance-settings"],
+  buttons: ["#logitech-analog-button-settings", "#egg-button-settings", "#lightforce-card"],
+  profiles: ["#logitech-onboard", "#pulsar-pro-settings"],
+  advanced: ["#pulsar-advanced", "#logitech-device-details", "#device-debug-details"],
+};
+
+function bindWorkspaceTabs(): void {
+  document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectors = WORKSPACE_TAB_TARGETS[button.dataset.workspaceTab ?? ""] ?? [];
+      const target = selectors
+        .map((selector) => document.querySelector<HTMLElement>(selector))
+        .find((element) => element && !element.hidden && element.getClientRects().length > 0);
+      if (!target) {
+        setText("#read-status", `${button.textContent?.trim() ?? "That section"} is not available for this mouse.`);
+        return;
+      }
+      document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((tab) => {
+        tab.setAttribute("aria-current", tab === button ? "page" : "false");
+      });
+      target.scrollIntoView({ behavior: interfacePreferences.reducedMotion ? "auto" : "smooth", block: "start" });
+    });
+  });
+}
+
 function renderControl(): void {
   startHidCapture();
   appRoot.innerHTML = controlTemplate(BUILD_LABEL);
@@ -458,6 +485,7 @@ function renderControl(): void {
     toggleOnboardProfileEnabled,
     reloadOnboardProfiles,
   });
+  bindWorkspaceTabs();
   onPendingChanges(renderPendingBar);
   onPendingChanges(() => {
     // Flashed or reverted: stop previewing and fall back to the device value.
@@ -1085,15 +1113,15 @@ function showStatus(deviceStatus: MouseStatus): void {
     const showBatteryColumn = !isEgg8k
       && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
     const stats = showBatteryColumn ? 3 : 2;
-    const artwork = deviceImage(activeDevice);
+    const artwork = deviceImage(activeDevice, status.name);
     const thumbnail = document.querySelector<HTMLElement>("#device-thumbnail");
     const thumbnailImage = document.querySelector<HTMLImageElement>("#device-thumbnail-image");
-    // Art is optional for every device, so the stat columns stay the layout and
-    // the thumbnail only ever prepends a column to it.
+    // Art is optional for every device. It lives in the persistent product
+    // panel while the status strip always stays three equal columns.
     const showArtwork = artwork !== null && !unreachableImages.has(artwork);
     const statColumns = `repeat(${stats}, 1fr)`;
     if (thumbnail) thumbnail.hidden = !showArtwork;
-    overview.style.gridTemplateColumns = showArtwork ? `112px ${statColumns}` : statColumns;
+    overview.style.gridTemplateColumns = statColumns;
     if (thumbnailImage && artwork && showArtwork && thumbnailImage.dataset.source !== artwork) {
       thumbnailImage.dataset.source = artwork;
       // A file that never shipped alongside its mapping would otherwise leave an
@@ -1101,7 +1129,6 @@ function showStatus(deviceStatus: MouseStatus): void {
       thumbnailImage.onerror = () => {
         unreachableImages.add(artwork);
         thumbnail?.setAttribute("hidden", "");
-        overview.style.gridTemplateColumns = statColumns;
       };
       thumbnailImage.src = artwork;
     }
@@ -1342,6 +1369,13 @@ function showStatus(deviceStatus: MouseStatus): void {
     }
   }
   setText("#device-title", status.name);
+  setText("#sidebar-device-title", status.name);
+  if (isAnyPreview && !activeDevice) {
+    const list = document.querySelector<HTMLElement>("#sidebar-device-list");
+    if (list) {
+      list.innerHTML = `<div class="device-select is-selected"><span class="device-dot"></span><span><strong>${escapeHtml(status.name)}</strong><small>${escapeHtml(status.brand)} · Preview</small></span></div>`;
+    }
+  }
   if (activeDevice) {
     deviceStatuses.set(activeDevice, deviceStatus);
     void renderDeviceSidebar();
@@ -1807,6 +1841,7 @@ function showDisconnectedState(): void {
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
   setPageTitle();
   setText("#device-title", "Connect a mouse");
+  setText("#sidebar-device-title", "Connected mouse");
   setText("#device-status", "No device connected");
   setText("#read-status", "Add a supported device from the sidebar to read its current status.");
   setConnectionButtons(false, "Add device");
