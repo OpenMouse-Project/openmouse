@@ -69,6 +69,9 @@ export const RAZER_STORAGE = 0x01;
 /** The underglow's led id in openrazer's extended-matrix family. */
 const RAZER_LED_LOGO = 0x04;
 
+/** The underglow's led id in openrazer's extended-matrix family. */
+const RAZER_LED_LOGO = 0x04;
+
 /** Read-only commands confirmed against Viper V3 Pro firmware 1.12. */
 export const RAZER_READ = {
   firmware: { commandClass: 0x00, commandId: 0x81, dataSize: 0x02 },

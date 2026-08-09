@@ -7,15 +7,16 @@ import {
   collapseBoltPeers,
   hasHidppLongCollection,
   hasHidppShortCollection,
-  hidppIndexCandidates,
   resolveBoltReportDevice,
 } from "./bolt.ts";
 import {
   decodeBatteryLevelState,
   decodeReportRateBitmap,
   decodeUnifiedBatteryState,
+  hidppDeviceIndexCandidates,
   hidppErrorForRequest,
   isBoltReceiverProduct,
+  isDirectConnectProduct,
   isDirectConnection,
   OnboardOnlyError,
   withSoftwareId,
@@ -407,26 +408,40 @@ export class LogitechHidppClient {
    * Only a HID++ 2.0 reply (success or 2.0 error) counts. Bolt receivers answer
    * HID++ 1.0 errors on empty slots and on 0xFF; treating those as "answered"
    * made OpenMouse lock onto the receiver and report "invalid command".
+   * A G HUB merge can also push the mouse off slot 0x01, so receivers probe
+   * every pairing slot, not just the first.
+   *
+   * So ask. The root feature query is the cheapest request there is, and the
+   * wrong index simply times out.
    */
   private async resolveDeviceIndex(): Promise<void> {
     if (this.resolvedDeviceIndex !== null) return;
-    const candidates = hidppIndexCandidates(this.device.productId, KNOWN_RECEIVER_PRODUCT_IDS);
+    const receiverAttached = KNOWN_RECEIVER_PRODUCT_IDS.has(this.device.productId);
+    const candidates = hidppDeviceIndexCandidates(receiverAttached);
 
+    // A merged receiver can carry a keyboard on a lower slot than the mouse.
+    // Keyboards answer the same HID++ queries, so an answering slot only counts
+    // once it proves it has a sensor; a direct connection has a single endpoint
+    // and is latched as before, with readStatus deciding whether it is a mouse.
+    let answeredWithoutSensor = false;
     for (const candidate of candidates) {
       this.resolvedDeviceIndex = candidate;
       const outcome = await this.probeHidpp20Root();
-      if (outcome === "hidpp20") return;
+      if (outcome !== "hidpp20") continue;
+      if (!receiverAttached) return;
+      answeredWithoutSensor = true;
+      if (await this.hasDpiFeature()) return;
     }
     this.resolvedDeviceIndex = null;
+    if (answeredWithoutSensor) {
+      throw new NotAMouseError(this.device.productName || "That Logitech device");
+    }
     throw new Error(this.isBoltReceiver
       ? "No mouse answered on this Logi Bolt receiver. Move the mouse, then try again. Close Logi Options+ if it is open."
       : "The mouse did not answer on any HID++ device index.");
   }
 
-  /**
-   * Root getFeature(firmware): distinguishes a HID++ 2.0 device from receiver
-   * HID++ 1.0 noise and from empty pairing slots.
-   */
+  /** Root getFeature(firmware) distinguishes HID++ 2.0 from receiver noise. */
   private async probeHidpp20Root(): Promise<"hidpp20" | "absent"> {
     try {
       await this.requestWithOptions(
@@ -439,6 +454,18 @@ export class LogitechHidppClient {
     } catch (error: unknown) {
       return classifyHidpp20Probe(error, error instanceof HidppTimeoutError);
     }
+  }
+
+  /**
+   * Whether the slot currently probed exposes a DPI feature — the same sensor
+   * check readStatus uses, so a keyboard paired to a merged receiver is never
+   * mistaken for the mouse.
+   */
+  private async hasDpiFeature(): Promise<boolean> {
+    const extended = await this.getFeature(FEATURE.extendedDpi).catch(() => null);
+    if (extended?.index) return true;
+    const legacy = await this.getFeature(FEATURE.adjustableDpi).catch(() => null);
+    return (legacy?.index ?? 0) !== 0;
   }
 
   /**

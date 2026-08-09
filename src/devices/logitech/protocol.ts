@@ -55,6 +55,21 @@ export function isDirectConnection(resolvedDeviceIndex: number | null): boolean 
   return resolvedDeviceIndex === DEVICE_INDEX_DIRECT;
 }
 
+/**
+ * Device indices to probe when discovering which one answers.
+ *
+ * A receiver forwards to its pairing slots, and G HUB merging a keyboard onto
+ * the same receiver can push the mouse off the first one — so all six slots
+ * are probed before the direct index. A direct connection is its own single
+ * endpoint and answers as itself, with the receiver slot only a fallback for
+ * product ids that are on neither list.
+ */
+export function hidppDeviceIndexCandidates(isKnownReceiver: boolean): readonly number[] {
+  return isKnownReceiver
+    ? [DEVICE_INDEX_RECEIVER, 0x02, 0x03, 0x04, 0x05, 0x06, DEVICE_INDEX_DIRECT]
+    : [DEVICE_INDEX_DIRECT, DEVICE_INDEX_RECEIVER];
+}
+
 /** HID++ 2.0 error codes, reported in byte 4 of a 0xFF error response. */
 const HIDPP20_ERRORS: Readonly<Record<number, string>> = {
   0x01: "unknown request",
