@@ -10,6 +10,7 @@ const RESPONSE_ATTEMPTS = 12;
 const RESPONSE_DELAY_MS = 30;
 const WAKE_DELAY_MS = 300;
 const QUICK_ATTEMPTS = 3;
+const FRAME_OFFSETS = [0, 1] as const;
 const SLEEP_DISABLED = 0xffff;
 const SLEEP_DISABLED_MIN = 0xff00;
 
@@ -412,22 +413,22 @@ export class WLMouseHidClient {
     packet[4] = spec.page;
     packet[5] = spec.command;
     packet.set(spec.args, HEADER_LENGTH);
-    await this.device.sendFeatureReport(REPORT_ID, packet);
 
     const attempts = spec.attempts ?? RESPONSE_ATTEMPTS;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
+      await this.device.sendFeatureReport(REPORT_ID, packet);
+      await this.delay(RESPONSE_DELAY_MS);
       const reply = this.copyDataView(await this.device.receiveFeatureReport(REPORT_ID));
-      if (reply[0] === STATUS.unsupported) throw new Error(this.describe(spec, "is not supported by this mouse"));
-      if (reply[0] === STATUS.ok && reply[4] === spec.page && reply[5] === spec.command) {
-        const length = Math.min(reply[3], PACKET_LENGTH - HEADER_LENGTH);
-        return reply.slice(HEADER_LENGTH, HEADER_LENGTH + length);
-      }
-      if (reply[0] !== STATUS.pending && reply[0] !== STATUS.ok) {
-        throw new Error(this.describe(spec, `returned an unexpected status 0x${reply[0].toString(16)}`));
+      for (const offset of FRAME_OFFSETS) {
+        if (reply[4 + offset] !== spec.page || reply[5 + offset] !== spec.command) continue;
+        if (reply[offset] === STATUS.unsupported) throw new Error(this.describe(spec, "is not supported by this mouse"));
+        if (reply[offset] !== STATUS.ok) continue;
+        const start = HEADER_LENGTH + offset;
+        return reply.slice(start, start + Math.min(reply[3 + offset], PACKET_LENGTH - start));
       }
       await this.delay(attempt < QUICK_ATTEMPTS ? RESPONSE_DELAY_MS : WAKE_DELAY_MS);
     }
-    throw new Error(this.describe(spec, "got no answer — the mouse may be asleep or out of range"));
+    throw new Error(this.describe(spec, "got no answer, the mouse may be asleep or out of range"));
   }
 
   private describe(spec: WLMouseRequest, problem: string): string {
