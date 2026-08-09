@@ -11,6 +11,41 @@ export function withSoftwareId(functionId: number): number {
 export const DEVICE_INDEX_RECEIVER = 0x01;
 /** A mouse addressed over its own USB interface answers on 0xFF. */
 export const DEVICE_INDEX_DIRECT = 0xff;
+/** Bolt receivers expose up to six pairing slots (HID++ device indices 1..6). */
+export const BOLT_PAIRING_SLOTS = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06] as const;
+
+/**
+ * Logitech mice whose vendor interface is the mouse itself rather than a
+ * receiver. They answer HID++ on device index 0xFF and keep their writable
+ * settings in an onboard profile.
+ *
+ * - 0xc07e — G402 / G402 Hyperion Fury (wired)
+ * - 0xc08f — G403 HERO (wired)
+ *
+ * This module deliberately imports nothing, so both the driver and the WebHID
+ * filters in ../vendors can read it without a cycle.
+ */
+export const LOGITECH_DIRECT_PRODUCT_IDS = [0xc07e, 0xc08f] as const;
+
+/**
+ * Logi Bolt receivers. Unlike Lightspeed, device HID++ 2.0 rides long reports
+ * (report id 0x11) on usage `ff00:2`, and the mouse may sit on any pairing
+ * slot — not only 0x01.
+ *
+ * - 0xc548 — Logi Bolt USB receiver (MX Master 3S and other Bolt mice)
+ */
+export const LOGITECH_BOLT_PRODUCT_IDS = [0xc548] as const;
+
+const DIRECT_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_DIRECT_PRODUCT_IDS);
+const BOLT_PRODUCT_ID_SET: ReadonlySet<number> = new Set(LOGITECH_BOLT_PRODUCT_IDS);
+
+export function isDirectConnectProduct(productId: number): boolean {
+  return DIRECT_PRODUCT_ID_SET.has(productId);
+}
+
+export function isBoltReceiverProduct(productId: number): boolean {
+  return BOLT_PRODUCT_ID_SET.has(productId);
+}
 
 /**
  * Whether this HID++ endpoint is the mouse itself rather than a receiver.
