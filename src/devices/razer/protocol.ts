@@ -10,15 +10,29 @@
 export const RAZER_REPORT_ID = 0;
 export const RAZER_PACKET_LENGTH = 90;
 
-/** Verified against Viper V3 Pro firmware 1.12 on both transports. */
-export const RAZER_TRANSACTION_ID = 0x1f;
+/**
+ * Razer's three transaction ids.
+ *
+ * Named by value on purpose. They carry no meaning beyond "which firmware
+ * generation answers to this", they do not order neatly by device age, and
+ * every name that tried to describe them has been wrong: `_LEGACY` for `0x3f`
+ * read as "the oldest one" when `0xff` is older, and `_DEFAULT` for `0xff`
+ * read as "use this when unsure" when there is no safe default at all. A
+ * mismatch is silent — the mouse simply never replies — so every product must
+ * state its own id and none may be inferred from a family name.
+ *
+ * The same three values are what OpenRazer's driver selects between, and what
+ * the reference notes type as `"ff" | "3f" | "1f"`.
+ */
+export const RAZER_TRANSACTION_ID_FF = 0xff;
+export const RAZER_TRANSACTION_ID_3F = 0x3f;
+export const RAZER_TRANSACTION_ID_1F = 0x1f;
 
 /**
- * Razer's older configuration interfaces answer on a different transaction id,
- * and a mismatch is silent: the mouse simply never replies. OpenRazer uses this
- * one for the DeathAdder Essential family.
+ * Default for `encodeRazerRequest`. Verified against Viper V3 Pro firmware 1.12
+ * on both transports; the per-product table overrides it for everything else.
  */
-export const RAZER_TRANSACTION_ID_LEGACY = 0x3f;
+export const RAZER_TRANSACTION_ID = RAZER_TRANSACTION_ID_1F;
 
 const ARGS_OFFSET = 8;
 const CHECKSUM_INDEX = 88;
@@ -123,12 +137,28 @@ export function razerSetExtendedPollingCommand(pollingRateHz: number): RazerComm
 
 export class RazerProtocolError extends Error {
   readonly status: number | null;
+  /**
+   * The reply belonged to an earlier exchange, so re-reading may still find the
+   * right one. Distinct from a failure status, which the mouse meant for us.
+   */
+  readonly stale: boolean;
 
-  constructor(message: string, status: number | null = null) {
+  constructor(message: string, status: number | null = null, stale = false) {
     super(message);
     this.name = "RazerProtocolError";
     this.status = status;
+    this.stale = stale;
   }
+}
+
+/**
+ * Razer pairs each read with a write that clears the high bit of the command
+ * id, so the bit is what separates a question from an instruction. Repeating a
+ * question costs nothing; repeating an instruction is what the reference means
+ * by "do not automatically retry writes".
+ */
+export function isRazerGetter(command: RazerCommand): boolean {
+  return (command.commandId & 0x80) !== 0;
 }
 
 export function razerChecksum(packet: Uint8Array): number {
@@ -172,7 +202,7 @@ export function decodeRazerResponse(packet: Uint8Array, command: RazerCommand): 
     throw new RazerProtocolError(describe(command, `returned status ${`0x${status.toString(16).padStart(2, "0")}`}`), status);
   }
   if (packet[6] !== command.commandClass || packet[7] !== command.commandId) {
-    throw new RazerProtocolError(describe(command, "was answered by a different command"), status);
+    throw new RazerProtocolError(describe(command, "was answered by a different command"), status, true);
   }
   const length = Math.min(packet[5], RAZER_PACKET_LENGTH - ARGS_OFFSET);
   return packet.slice(ARGS_OFFSET, ARGS_OFFSET + length);

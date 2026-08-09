@@ -3,16 +3,26 @@
 Test in Chrome or Edge over HTTPS. Quit Razer Synapse first — it holds the
 control interface open and reads then time out.
 
-Supported identifiers:
+Identifiers verified on hardware:
 
 - `1532:00a5` — Viper V2 Pro, wired
 - `1532:00a6` — Viper V2 Pro, Stock receiver
 - `1532:00c0` — Viper V3 Pro, wired
 - `1532:00c1` — Viper V3 Pro, HyperSpeed receiver
-- `1532:008a` — Viper Mini, wired
+- `1532:008a` — Viper Mini, wired (separate driver)
+- `1532:00b8` — Viper V3 HyperSpeed, stock HyperSpeed receiver
+
+Claimed but never connected:
+
 - `1532:006e` — DeathAdder Essential, wired
 - `1532:0071` — DeathAdder Essential White Edition, wired
 - `1532:0098` — DeathAdder Essential (2021), wired
+- 99 further products from the OpenRazer reference
+
+These three shipped with the driver long before the registry existed and were
+listed here as supported, but the section below has always described them as not
+hardware-tested. See [Untested models](#untested-models) before testing any of
+them.
 
 Razer does not declare its control channel in the HID descriptor, so no
 interface advertises a feature report. The exchange still works because WebHID
@@ -63,6 +73,295 @@ other control is withheld because no command for it has been confirmed.
     keeps reporting without stalling or throwing.
 11. Record the device identifier, firmware version, and any failing setting in
     the issue or pull request.
+
+## Viper V3 HyperSpeed (`1532:00b8`) — verified on the stock receiver
+
+Battery, DPI read/write, lift-off distance and sleep timeout all behaved. One
+entry in the registry was wrong and is now corrected:
+
+**The stock HyperSpeed receiver rejects the extended polling command**
+(`0x00`/`0x40`, a divisor of 8000) as unsupported, and answers only the legacy
+divisor-of-1000 one. 125, 500 and 1000 Hz were each written and read back
+successfully after `highRatePolling` was set to `false`.
+
+This is the first product to show that `highRatePolling` is genuinely per-PID.
+It cannot be inferred from either of the obvious rules:
+
+| Rule you might infer | Counter-example |
+| --- | --- |
+| "wireless ⇒ extended command" | `0x00b8` is wireless and refuses it |
+| "1000 Hz ceiling ⇒ legacy command" | `0x00a6` tops out at 1000 Hz and uses the extended one |
+
+Both are wireless receivers advertising the same three rates, and they disagree,
+so this field has to be settled per product and must not be tidied onto a group
+default. `devices.test.ts` pins the pair against exactly that.
+
+Still untested on this model: the asymmetric lift-off pair. `asymmetricLiftOff`
+stays `false`, so the mode probe — which is a *write* — is never sent and the
+mouse keeps the plain three-stop tracking control. The reported lift-off
+behaviour is that control, not the pair.
+
+## Basilisk X HyperSpeed (`1532:0083`) — a command that answers without existing
+
+Reported: every lift-off level failed, two different ways.
+
+| Level | Sent | Reply | Message |
+| --- | --- | --- | --- |
+| Medium | `00 04 01 01` | `0x02` OK, args echoed | "kept Low tracking distance instead of Medium" |
+| High | `00 04 01 02` | `0x05` unsupported | "Class 0x0b command 0x0b is not supported" |
+
+The mouse has no class `0x0b` lift-off. What made it look as though it did is
+the **read**: `0x0b`/`0x85` answers status `0x02` with an all-zero payload, on
+every call, and `decodeLiftOff` maps `args[2] = 0` to a perfectly legitimate
+**"Low"**. The driver offered the control because the read succeeded.
+
+There is no reply that separates "no lift-off control" from "Low at the bottom
+of the range" — `0` is a valid level — so this cannot be probed and is now a
+per-product `liftOff` flag, off unless a hardware report turned it on. It also
+saves `0x0b` a round trip on every background refresh for the 102 products that
+do not have it.
+
+**This is the third capability that could not be probed**, after
+`highRatePolling` and `asymmetricLiftOff`. The pattern is worth stating plainly:
+a Razer mouse answering a command is not evidence it implements it. Firmware
+acknowledges commands it ignores, and returns zeroed payloads that decode as
+valid values. Any future capability must default off and be turned on by a
+hardware report.
+
+The same capture also showed the battery level (`0x07`/`0x80` → `0x35`, 21%)
+being discarded because the charging query (`0x07`/`0x84`) is unsupported on
+this model and took the whole read down with it. The two are now read
+independently; an unreadable charging state reports `Unknown` rather than
+costing the level.
+
+## DeathAdder V3 Pro (`1532:00b6`) — open: a write that confirms but may not apply
+
+Reported: polling rate, low power mode and auto sleep "don't flash into the
+mouse", yet changing them in Razer's own software does show up here.
+
+The capture does not support a bug in the write path. Across 80 events and 252
+reports there were **zero failures**, and every write was confirmed by a
+separate read of the paired getter:
+
+| Set | Wrote | Read back | Still reading, 20 min later |
+| --- | --- | --- | --- |
+| Polling 125 Hz | `00`/`05` `[08]` | `00`/`85` → `08` | `08` |
+| Low power 5% | `07`/`01` `[0d 00]` | `07`/`81` → `0d 00` | `0d 00` |
+| Auto sleep 300 s | `07`/`03` `[01 2c]` | `07`/`83` → `01 2c` | `01 2c` |
+
+Transaction id `0x1f` is right, the bytes match OpenRazer's `set_polling_rate`,
+`set_idle_time` and `set_low_battery_threshold`, and `decodeRazerResponse`
+checked class and id on every reply. So if the reporter is right, **the register
+that answers is not the register that governs the hardware** — the Basilisk X
+lesson one level deeper: reading back what you wrote is not proof it applied.
+
+### Polling: resolved on the receiver (`1532:00b7`)
+
+A second capture, on the receiver rather than the cable, wrote 500, 125 and
+1000 Hz on the extended command (`0x00`/`0x40`) and read every one back from
+`0x00`/`0xc0` correctly — while the **measured** report rate stayed at 1000 Hz
+throughout.
+
+`0x00b7` is the stock HyperSpeed receiver, whose ceiling is 1000 Hz. The 8000 Hz
+HyperPolling Wireless Dongle is a different device (`0x00b3`) that this driver
+does not claim, so a mouse reaching us on this product id is never on one. The
+extended encoding expresses the rate as a divisor of 8000, so it was addressing
+a range this hardware does not have; the firmware stored the value and kept
+running at 1000. `highRatePolling` is now `false` here, which sends the legacy
+command and its divisor of 1000 — enough for every rate the stock receiver can
+actually reach.
+
+Two things this does **not** settle:
+
+- `0x00c3` is the same model on a second product id and inherits
+  `MODERN_RECEIVER` unchanged. Likely the same, unmeasured.
+- Six other products still pair `highRatePolling: true` with a 1000 Hz ceiling
+  (`0x007b`, `0x007d`, `0x00a8`, `0x00ab`, `0x00b0`, `0x00c3`), and so does
+  `0x00a6`, which is marked verified. The 499 Hz `pointerrawupdate` measurement
+  below belongs to the Viper V3 Pro (`0x00c1`) on a genuinely 8K-capable
+  dongle — no measurement covers `0x00a6`, so it should not be read as proof
+  that the extended command works on a 1000 Hz receiver.
+
+**Read-back is not measurement.** That is the fourth capability to confirm
+itself and do nothing, after `highRatePolling` on `0x00b8`, `asymmetricLiftOff`,
+and `liftOff` on `0x0083`.
+
+### Sleep and low power: still open
+
+Both were written and read back cleanly on both transports, and neither can be
+observed while the mouse is on a cable. Two mechanisms still fit:
+
+1. **No commit step.** DPI writes carry a storage selector (`RAZER_STORAGE`);
+   these two carry none, so the value may sit in volatile state the getter
+   faithfully echoes.
+2. **Contention.** Two replies arrived carrying an earlier command's id and a
+   transaction id the host never sent (`0x10`, `0x14`), and latency went from
+   ~100 ms to ~1000 ms mid-session. Something else was on the wire.
+
+To tell them apart: set auto sleep, power-cycle the mouse, and re-read with the
+vendor software closed — a value that reverts means 1. Then repeat with the
+vendor software and its background service fully quit — a value that now holds
+means 2. Do not guess between them; picking wrong ships another silent no-op.
+
+Note that auto sleep and low power do nothing while the mouse is on a cable, so
+the vendor software displaying a stale value for those two is not evidence
+either way; it keeps its own copy and pushes it down.
+
+Fixed from the same capture: a reply belonging to the previous command used to
+fail that read outright. Re-reading cannot recover it — nothing new arrives
+until the host asks again — so getters now re-issue the request, and setters
+still refuse to repeat themselves.
+
+## Transaction ids, audited against OpenRazer
+
+A hardware report on the Viper Ultimate (`1532:007b`) found `0x1f` silent where
+`0x3f` read firmware, DPI, polling and battery correctly. Auditing the whole
+registry against the id OpenRazer's `razer_attr_read_firmware_version()` selects
+found **26 of 107 products wrong**, because the id had been inherited from the
+transport preset.
+
+The id does not follow the transport group, the connection, the model's age or
+its marketing family. Within a single group all three values occur:
+
+| Product | Group | Id |
+| --- | --- | --- |
+| Basilisk `0x0064` | standard | `0x3f` |
+| Basilisk V2 `0x0085` | standard | `0x1f` |
+| Basilisk X HyperSpeed `0x0083` | new-receiver | `0xff` |
+| Lancehead Wireless `0x006f` | new-receiver | `0x3f` |
+| Pro Click `0x0077` | new-receiver | `0x1f` |
+
+It is now a flat per-product list in `devices.ts`, checked against a full
+transcription of the reference in `devices.test.ts`. A wrong id produces silence
+rather than an error, so there is no failure mode to catch an inherited guess —
+this is why it is not a preset field.
+
+Be clear about how strong that check is. Both lists were transcribed from one
+reading of the driver, so a misreading is in both and the test cannot see it.
+The test catches drift and forces divergences to be declared; it is not
+independent confirmation. Only connecting a mouse gives that, which is why
+these products stay `verified: false` regardless of how carefully the id was
+transcribed.
+
+Two divergences from OpenRazer are deliberate and listed in
+`EXPECTED_DIVERGENCE`:
+
+- **Viper Ultimate `0x007a`/`0x007b`** — OpenRazer sends `0xff` on every command
+  for both ids; the hardware report has `0x3f` working. Observed behaviour wins.
+  The mouse may accept both, so **re-testing against `0xff` would settle it**.
+- **DeathAdder Essential `0x006e`/`0x0071`/`0x0098`** — the driver has always
+  sent `0x3f` on the stated grounds that OpenRazer does, which the driver source
+  does not bear out: it lists all three under `0xff`. Untested either way, so it
+  was left alone rather than changed blind. **Next thing to check on this
+  family.**
+
+### Known limitation: OpenRazer varies the id per command
+
+`RazerProduct.transactionId` is one value per product, and for some models that
+is not enough. OpenRazer selects the id per command, and these disagree with
+themselves:
+
+| Product | Divergence |
+| --- | --- |
+| Lancehead Wireless `0x006f`/`0x0070` | firmware/serial/polling/DPI `0x3f`, battery `0x1f` |
+| Basilisk Ultimate `0x0086`/`0x0088` | firmware/DPI/polling-write `0x1f`, polling-read `0xff` |
+| Mamba Elite `0x006c` | firmware/DPI `0x1f`, serial/polling `0xff` |
+
+The registry uses the firmware-read id, since that read gates everything else.
+The consequence is that the commands listed above may fail on those three
+models. It degrades rather than breaking: battery and serial are already
+optional reads, and the polling read falls back to the other encoding. Supporting
+this properly needs a per-command override, which is not implemented.
+
+## Untested models
+
+`devices.ts` claims 102 further products taken from OpenRazer's supported-device
+table. They reuse the commands verified above; what the table records per model
+is which of those commands are valid, which transaction id the mouse answers on,
+and what its sensor and radio can do. **None has been connected**, so each is a
+prediction until someone reports otherwise. The panel says so: the connection
+card reads `… · untested model`.
+
+The Viper V3 HyperSpeed result above is worth reading before testing one: the
+first model connected had a wrong `highRatePolling`, so expect that field to be
+the most likely thing to need correcting. It presents as the polling rate
+refusing to change while everything else works.
+
+Testing one is worth doing and is low-risk, because every failure mode here is
+loud rather than silent:
+
+| If this is wrong | What happens |
+| --- | --- |
+| Transaction id | The mouse never replies. The status read fails on firmware and the panel reports a connection failure. Nothing is written. |
+| Interface choice | Same — the wrong interface never answers. Add the device again and pick another entry. |
+| A capability flag | The command is not sent at all. The control is missing, not broken. |
+| DPI or rate ceiling | The write is refused, or fails its read-back and reports what the mouse kept. |
+
+What is deliberately **not** attempted on an untested model:
+
+- The asymmetric lift-off mode probe, which is a *write*. It stays off unless
+  `asymmetricLiftOff` is set, which only the four Viper V2/V3 Pro ids have. An
+  untested mouse that answers class `0x0b` still gets the plain three-stop
+  tracking control, which costs reads only.
+- Lighting, button mapping and macros, none of which this driver implements for
+  any model.
+
+To promote a model to verified:
+
+1. Work through the numbered checklist above for it.
+2. Confirm the model name, connection type and firmware read at all — that alone
+   proves the transaction id and the interface.
+3. Check DPI and polling **against Synapse before writing anything**, then
+   change each, reload, and confirm it persisted.
+4. Correct the model's row in `devices.ts`, set `verified: true`, add its id to
+   the verified list at the top of this file and to `VERIFIED` in
+   `devices.test.ts`, and record the firmware version in the pull request.
+
+Three groups from the OpenRazer list are excluded on purpose, and adding them
+needs new transport work rather than a table row:
+
+- **`legacy/old`** — Orochi 2011 `0x0013`, DeathAdder 3.5G `0x0016` and `0x0029`.
+  These predate the 90-byte report and use direct USB control writes, so this
+  driver could only ever time out on them.
+- **Orochi V2 Bluetooth `0x0095`** — a Bluetooth HID path is not the USB control
+  channel and must not be assumed to take the same reports.
+- **HyperPolling Wireless Dongle `0x00b3`** — a receiver rather than a mouse.
+  Reaching the mouse paired to it needs dongle-specific commands.
+
+The `index3` models (Naga X `0x0096`, Basilisk V3 `0x0099`, Basilisk V3 35K
+`0x00cb`) are the least certain of those that *are* claimed: OpenRazer reaches
+them through USB control-transfer index 3, and WebHID cannot select a `wIndex`.
+The picker offers every interface instead, so the right one has to be found by
+trying them. If none answers, that is worth recording — it would mean these need
+a native helper rather than a driver fix.
+
+## Models Chrome may not be able to reach at all
+
+Reported on the Viper Ultimate dongle: **every** collection came back
+`feat[none]`, including the Generic Desktop Mouse interface, whose reports
+Chrome stripped as protected. `sendFeatureReport` then fails whatever the
+transaction id is, and the mouse could only be driven through the native OS HID
+API.
+
+This is worth separating from the ordinary Razer situation, which looks similar
+and is not the same thing. Razer never declares the control report in its
+descriptor, so `feat[none]` is normal and expected — the Viper V3 Pro reads and
+writes fine in that state, because WebHID does not validate report IDs against
+the descriptor. What is different here is Chrome *removing* the reports from a
+protected collection, which no transaction id or interface choice can work
+around.
+
+If that holds up, the affected models need the native/HAL transport rather than
+a driver fix, and their registry entries are unreachable in the browser however
+correct they are. Two things would establish the boundary:
+
+1. Whether it is specific to this device, or to Chrome's handling of a device
+   whose only candidate interface is a protected mouse collection.
+2. Whether any product currently claimed by the registry shares that shape.
+
+Until then the entries stay: they are correct data, they cost nothing but a
+picker row, and a model that cannot be opened fails at `open()` with a clear
+browser error rather than doing anything harmful.
 
 ## DeathAdder Essential — not yet hardware-tested
 

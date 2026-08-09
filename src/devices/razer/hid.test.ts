@@ -92,6 +92,207 @@ function fakeMouse(state: FakeLiftOff, options: FakeOptions = {}) {
   return { client: new RazerHidClient(device), sent };
 }
 
+/**
+ * A mouse that answers firmware, DPI and legacy polling, and reports every
+ * power-management command (class 0x07) as unsupported — the shape an untested
+ * model takes when its `hasBattery` prediction is wrong.
+ */
+function fakeMouseWithoutBattery(productId: number) {
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId,
+    productName: "Razer test device",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      const [commandClass, commandId] = [data[6], data[7]];
+      const answer = (dataSize: number, args: number[]) =>
+        replyPacket(commandClass, commandId, dataSize, args, RAZER_STATUS.ok);
+      if (commandClass === 0x00 && commandId === 0x81) pending = answer(0x02, [1, 12]);
+      else if (commandClass === 0x04 && commandId === 0x85) pending = answer(0x07, [0x01, 0x03, 0x20, 0x03, 0x20]);
+      else if (commandClass === 0x00 && commandId === 0x85) pending = answer(0x01, [1]);
+      else pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+  return new RazerHidClient(device);
+}
+
+test("an untested model that refuses the battery read still reports the rest", async () => {
+  // `hasBattery` is a prediction on a model nobody has connected. Unlike sleep
+  // and low power, this read is not optional, so an unsupported reply would
+  // abort the whole status read and take DPI and polling down with it.
+  // Arrange: 0x0083 is Basilisk X HyperSpeed — wireless, unverified.
+  const client = fakeMouseWithoutBattery(0x0083);
+
+  // Act
+  const status = await client.readStatus();
+
+  // Assert
+  assert.equal(status.name, "Razer Basilisk X HyperSpeed");
+  assert.equal(status.batteryPercent, null);
+  assert.equal(status.dpi, 800);
+  assert.equal(status.pollingRateHz, 1000);
+  // The panel should not present a transcribed model as a tested one.
+  assert.match(status.connectionDetail ?? "", /untested model/);
+});
+
+test("a reply left over from the previous command is re-read, not reported", async () => {
+  // A DeathAdder V3 Pro capture had two reads out of 252 answered by the
+  // command before them — `0x07`/`0x83` receiving `0x07`/`0x80`'s battery reply
+  // with a transaction id the host never sent. The buffer had simply not caught
+  // up, and the following exchange resynced both times, so the recovery is the
+  // same one `busy` gets. Arrange: the sleep read is stale exactly once.
+  let staleLeft = 1;
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x00b6,
+    productName: "Razer DeathAdder V3 Pro",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      const [commandClass, commandId] = [data[6], data[7]];
+      const answer = (dataSize: number, args: number[]) =>
+        replyPacket(commandClass, commandId, dataSize, args, RAZER_STATUS.ok);
+      if (commandClass === 0x07 && commandId === 0x83 && staleLeft > 0) {
+        staleLeft -= 1;
+        // The battery answer, verbatim, in place of the sleep timeout's.
+        pending = replyPacket(0x07, 0x80, 0x02, [0x00, 0x3b], RAZER_STATUS.ok);
+        return;
+      }
+      if (commandClass === 0x00 && commandId === 0x81) pending = answer(0x02, [1, 5]);
+      else if (commandClass === 0x07 && commandId === 0x80) pending = answer(0x02, [0x00, 0x3b]);
+      else if (commandClass === 0x07 && commandId === 0x83) pending = answer(0x02, [0x01, 0x2c]);
+      else if (commandClass === 0x04 && commandId === 0x85) pending = answer(0x07, [0x01, 0x06, 0x40, 0x06, 0x40]);
+      else if (commandClass === 0x00 && commandId === 0x85) pending = answer(0x01, [1]);
+      else pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+
+  // Act
+  const status = await new RazerHidClient(device).readStatus();
+
+  // Assert: the retry found the real answer rather than dropping the field.
+  assert.equal(status.sleepTimeout, 300);
+  assert.equal(staleLeft, 0);
+});
+
+test("a stale reply to a write is reported rather than sending the write again", async () => {
+  // The same recovery must not extend to setters. A write is the one command
+  // the reference says never to repeat blindly, and a stale reply is no
+  // evidence the first one missed — it may already have landed.
+  const sent: Uint8Array[] = [];
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x00b6,
+    productName: "Razer DeathAdder V3 Pro",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      sent.push(data.slice());
+      // Always one command behind: the sleep write gets the battery's answer.
+      pending = replyPacket(0x07, 0x80, 0x02, [0x00, 0x3b], RAZER_STATUS.ok);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+
+  // Act / Assert
+  await assert.rejects(
+    () => new RazerHidClient(device).setSleepTimeout(300),
+    /answered by a different command/,
+  );
+  assert.equal(sent.filter((packet) => packet[6] === 0x07 && packet[7] === 0x03).length, 1);
+});
+
+/**
+ * The Basilisk X HyperSpeed as captured in a user's diagnostics: it answers
+ * `0x0b`/`0x85` with status 0x02 and an all-zero payload, refuses the charging
+ * query, and reports a good battery level.
+ */
+function fakeBasiliskXHyperSpeed() {
+  const sent: Uint8Array[] = [];
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x0083,
+    productName: "Razer Basilisk X HyperSpeed",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      sent.push(data);
+      const [commandClass, commandId] = [data[6], data[7]];
+      const ok = (dataSize: number, args: number[]) =>
+        replyPacket(commandClass, commandId, dataSize, args, RAZER_STATUS.ok);
+      if (commandClass === 0x00 && commandId === 0x81) pending = ok(0x02, [1, 2]);
+      else if (commandClass === 0x07 && commandId === 0x80) pending = ok(0x02, [0x00, 0x35]);
+      // Captured: the charging query is refused even though the level works.
+      else if (commandClass === 0x07 && commandId === 0x84) pending = replyPacket(commandClass, commandId, 0x02, [], RAZER_STATUS.unsupported);
+      else if (commandClass === 0x04 && commandId === 0x85) pending = ok(0x07, [0x01, 0x1f, 0x40, 0x1f, 0x40]);
+      else if (commandClass === 0x00 && commandId === 0x85) pending = ok(0x01, [1]);
+      // Captured: answers the lift-off read with zeros, which decode as "Low".
+      else if (commandClass === 0x0b && commandId === 0x85) pending = ok(0x05, [0, 0, 0, 0, 0]);
+      else pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+  return { client: new RazerHidClient(device), sent };
+}
+
+test("a mouse that answers the lift-off read with zeros is not offered lift-off", async () => {
+  // The reply decodes as a legitimate "Low", so a successful read cannot be
+  // what enables the control: every level then fails, one silently acknowledged
+  // and the other refused outright.
+  // Arrange
+  const { client, sent } = fakeBasiliskXHyperSpeed();
+
+  // Act
+  const status = await client.readStatus();
+
+  // Assert
+  assert.deepEqual(status.supportedLiftOffDistances, []);
+  assert.equal(status.liftOffDistance, null);
+  assert.equal(status.asymmetricLiftOff, null);
+  // Not merely hidden — the command is never sent, so it costs no round trip
+  // on the refresh loop either.
+  assert.equal(sent.some((packet) => packet[6] === 0x0b), false, "class 0x0b was still sent");
+});
+
+test("a battery level survives a mouse that refuses the charging query", async () => {
+  // Captured: 0x07/0x80 answers 0x35 while 0x07/0x84 is unsupported. Losing the
+  // level over that is losing the reading the panel exists to show.
+  // Arrange
+  const { client } = fakeBasiliskXHyperSpeed();
+
+  // Act
+  const status = await client.readStatus();
+
+  // Assert
+  assert.equal(status.batteryPercent, 21);
+  assert.equal(status.batteryState, "Unknown");
+});
+
+test("a verified model still fails loudly when its battery read stops answering", async () => {
+  // There the command is known to exist, so a refusal is news rather than an
+  // absent capability, and hiding it would hide a real fault.
+  // Arrange: 0x00c1 is the Viper V3 Pro receiver.
+  const client = fakeMouseWithoutBattery(0x00c1);
+
+  // Act / Assert
+  await assert.rejects(() => client.readStatus(), /not supported by this mouse/);
+});
+
 test("lift-off reads the tracking level and the asymmetric pair together", async () => {
   // Arrange
   const { client } = fakeMouse({ tracking: 1, liftOff: 16, landing: 11, asymmetric: true });

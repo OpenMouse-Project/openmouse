@@ -12,7 +12,7 @@ const BUDGET_BYTES: Record<string, number> = {
   // moddoMOUSE wired/wireless config driver, plus the Teevolution Compx codec
   // and staged Terra Pro controls, plus Logi Bolt / MX Master 3S transport.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 345_000,
+  ".js": 350_000,
 };
 
 const ASSETS = join("dist", "assets");
