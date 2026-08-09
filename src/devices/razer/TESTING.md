@@ -101,6 +101,39 @@ stays `false`, so the mode probe — which is a *write* — is never sent and th
 mouse keeps the plain three-stop tracking control. The reported lift-off
 behaviour is that control, not the pair.
 
+## Basilisk X HyperSpeed (`1532:0083`) — a command that answers without existing
+
+Reported: every lift-off level failed, two different ways.
+
+| Level | Sent | Reply | Message |
+| --- | --- | --- | --- |
+| Medium | `00 04 01 01` | `0x02` OK, args echoed | "kept Low tracking distance instead of Medium" |
+| High | `00 04 01 02` | `0x05` unsupported | "Class 0x0b command 0x0b is not supported" |
+
+The mouse has no class `0x0b` lift-off. What made it look as though it did is
+the **read**: `0x0b`/`0x85` answers status `0x02` with an all-zero payload, on
+every call, and `decodeLiftOff` maps `args[2] = 0` to a perfectly legitimate
+**"Low"**. The driver offered the control because the read succeeded.
+
+There is no reply that separates "no lift-off control" from "Low at the bottom
+of the range" — `0` is a valid level — so this cannot be probed and is now a
+per-product `liftOff` flag, off unless a hardware report turned it on. It also
+saves `0x0b` a round trip on every background refresh for the 102 products that
+do not have it.
+
+**This is the third capability that could not be probed**, after
+`highRatePolling` and `asymmetricLiftOff`. The pattern is worth stating plainly:
+a Razer mouse answering a command is not evidence it implements it. Firmware
+acknowledges commands it ignores, and returns zeroed payloads that decode as
+valid values. Any future capability must default off and be turned on by a
+hardware report.
+
+The same capture also showed the battery level (`0x07`/`0x80` → `0x35`, 21%)
+being discarded because the charging query (`0x07`/`0x84`) is unsupported on
+this model and took the whole read down with it. The two are now read
+independently; an unreadable charging state reports `Unknown` rather than
+costing the level.
+
 ## Transaction ids, audited against OpenRazer
 
 A hardware report on the Viper Ultimate (`1532:007b`) found `0x1f` silent where

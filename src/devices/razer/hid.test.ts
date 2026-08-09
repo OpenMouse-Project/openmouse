@@ -140,6 +140,75 @@ test("an untested model that refuses the battery read still reports the rest", a
   assert.match(status.connectionDetail ?? "", /untested model/);
 });
 
+/**
+ * The Basilisk X HyperSpeed as captured in a user's diagnostics: it answers
+ * `0x0b`/`0x85` with status 0x02 and an all-zero payload, refuses the charging
+ * query, and reports a good battery level.
+ */
+function fakeBasiliskXHyperSpeed() {
+  const sent: Uint8Array[] = [];
+  let pending = new Uint8Array(RAZER_PACKET_LENGTH);
+  const device = {
+    vendorId: 0x1532,
+    productId: 0x0083,
+    productName: "Razer Basilisk X HyperSpeed",
+    opened: true,
+    collections: [{ usagePage: 0x01, usage: 0x02, children: [], featureReports: [], inputReports: [], outputReports: [] }],
+    open: async () => {},
+    close: async () => {},
+    sendFeatureReport: async (_reportId: number, data: Uint8Array) => {
+      sent.push(data);
+      const [commandClass, commandId] = [data[6], data[7]];
+      const ok = (dataSize: number, args: number[]) =>
+        replyPacket(commandClass, commandId, dataSize, args, RAZER_STATUS.ok);
+      if (commandClass === 0x00 && commandId === 0x81) pending = ok(0x02, [1, 2]);
+      else if (commandClass === 0x07 && commandId === 0x80) pending = ok(0x02, [0x00, 0x35]);
+      // Captured: the charging query is refused even though the level works.
+      else if (commandClass === 0x07 && commandId === 0x84) pending = replyPacket(commandClass, commandId, 0x02, [], RAZER_STATUS.unsupported);
+      else if (commandClass === 0x04 && commandId === 0x85) pending = ok(0x07, [0x01, 0x1f, 0x40, 0x1f, 0x40]);
+      else if (commandClass === 0x00 && commandId === 0x85) pending = ok(0x01, [1]);
+      // Captured: answers the lift-off read with zeros, which decode as "Low".
+      else if (commandClass === 0x0b && commandId === 0x85) pending = ok(0x05, [0, 0, 0, 0, 0]);
+      else pending = replyPacket(commandClass, commandId, data[5], [], RAZER_STATUS.unsupported);
+    },
+    receiveFeatureReport: async () => new DataView(pending.buffer.slice(0)),
+  } as unknown as HIDDevice;
+  return { client: new RazerHidClient(device), sent };
+}
+
+test("a mouse that answers the lift-off read with zeros is not offered lift-off", async () => {
+  // The reply decodes as a legitimate "Low", so a successful read cannot be
+  // what enables the control: every level then fails, one silently acknowledged
+  // and the other refused outright.
+  // Arrange
+  const { client, sent } = fakeBasiliskXHyperSpeed();
+
+  // Act
+  const status = await client.readStatus();
+
+  // Assert
+  assert.deepEqual(status.supportedLiftOffDistances, []);
+  assert.equal(status.liftOffDistance, null);
+  assert.equal(status.asymmetricLiftOff, null);
+  // Not merely hidden — the command is never sent, so it costs no round trip
+  // on the refresh loop either.
+  assert.equal(sent.some((packet) => packet[6] === 0x0b), false, "class 0x0b was still sent");
+});
+
+test("a battery level survives a mouse that refuses the charging query", async () => {
+  // Captured: 0x07/0x80 answers 0x35 while 0x07/0x84 is unsupported. Losing the
+  // level over that is losing the reading the panel exists to show.
+  // Arrange
+  const { client } = fakeBasiliskXHyperSpeed();
+
+  // Act
+  const status = await client.readStatus();
+
+  // Assert
+  assert.equal(status.batteryPercent, 21);
+  assert.equal(status.batteryState, "Unknown");
+});
+
 test("a verified model still fails loudly when its battery read stops answering", async () => {
   // There the command is known to exist, so a refusal is news rather than an
   // absent capability, and hiding it would hide a real fault.

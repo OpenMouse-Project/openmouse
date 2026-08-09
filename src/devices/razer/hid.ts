@@ -218,7 +218,13 @@ export class RazerHidClient {
     const lowPower = hasBattery ? await this.request(RAZER_READ.lowPowerThreshold).catch(() => null) : null;
     const dpi = decodeDpi(await this.request(RAZER_READ.dpi));
     const pollingRateHz = await this.readPollingRateHz();
-    const liftOff = await this.readLiftOff();
+    // Asked of the product, not of the mouse. A model without lift-off can
+    // still answer this read — the Basilisk X HyperSpeed returns status 0x02
+    // with an all-zero payload, which decodes as a perfectly ordinary "Low" —
+    // so a successful reply proves nothing and the control cannot be offered on
+    // the strength of one. Skipping it also spares 0x0b a round trip on every
+    // background refresh for every model that does not have it.
+    const liftOff = this.profile()?.liftOff === true ? await this.readLiftOff() : null;
     return {
       brand: "Razer",
       name: this.displayName(),
@@ -338,10 +344,24 @@ export class RazerHidClient {
     return confirmed;
   }
 
+  /**
+   * Battery level, and the charging state when the mouse reports one.
+   *
+   * The two are separate commands and a mouse may answer the first without the
+   * second — the Basilisk X HyperSpeed reports a good level and refuses
+   * `0x07`/`0x84` as unsupported. Letting that take the level down with it threw
+   * away the reading the panel actually wanted; an unknown charging state is
+   * only a missing word in the battery caption.
+   */
   private async readBattery(): Promise<{ percent: number; state: MouseStatus["batteryState"] }> {
     const level = await this.request(RAZER_READ.battery);
-    const charging = decodeCharging(await this.request(RAZER_READ.charging));
-    return { percent: decodeBatteryPercent(level), state: charging ? "Charging" : "Discharging" };
+    const charging = await this.request(RAZER_READ.charging).catch(() => null);
+    return {
+      percent: decodeBatteryPercent(level),
+      state: charging === null
+        ? "Unknown"
+        : decodeCharging(charging) ? "Charging" : "Discharging",
+    };
   }
 
   /**

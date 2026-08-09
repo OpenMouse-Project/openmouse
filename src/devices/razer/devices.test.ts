@@ -115,6 +115,28 @@ test("the DeathAdder Essential family does not claim to be tested", () => {
   }
 });
 
+test("lift-off is only offered where the mouse is known to have it", () => {
+  // A model without lift-off can still answer 0x0b/0x85: the Basilisk X
+  // HyperSpeed replies status 0x02 with zeros, which decode as "Low". Offering
+  // the control on a successful read gave a picker where Medium was silently
+  // ignored and High was refused, on a mouse with no lift-off control at all.
+  const offered = RAZER_PRODUCT_IDS.filter((id) => RAZER_PRODUCTS.get(id)?.liftOff === true);
+  assert.deepEqual(offered.sort(), [0x00a5, 0x00a6, 0x00b8, 0x00c0, 0x00c1]);
+  for (const id of offered) {
+    assert.equal(RAZER_PRODUCTS.get(id)?.verified, true, `0x${id.toString(16)} offers lift-off without being verified`);
+  }
+});
+
+test("the asymmetric pair is never armed without the tracking control", () => {
+  // The pair write is a superset: `setLiftOff` reads the same 0x0b/0x85 reply
+  // back, so a product claiming the pair but not the level would probe a
+  // command whose reply it does not trust.
+  for (const [productId, product] of RAZER_PRODUCTS) {
+    if (!product.asymmetricLiftOff) continue;
+    assert.equal(product.liftOff, true, `0x${productId.toString(16)} claims the pair but not the level`);
+  }
+});
+
 test("the asymmetric lift-off write probe is only armed where it was confirmed", () => {
   // Establishing the mode is a write, so an unverified model must not be sent
   // one during an ordinary status read.

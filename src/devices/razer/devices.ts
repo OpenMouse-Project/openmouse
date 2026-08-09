@@ -86,12 +86,25 @@ export interface RazerProduct {
    */
   highRatePolling: boolean;
   /**
-   * The mouse stores separate lift-off and landing heights, and the mode can be
-   * established by the pair write's own status.
+   * The mouse implements the class `0x0b` tracking distance.
+   *
+   * This cannot be probed. The Basilisk X HyperSpeed answers `0x0b`/`0x85` with
+   * status `0x02` and an all-zero payload, which decodes as a legitimate
+   * "Low" — so "the command replied" is not evidence the mouse has the feature,
+   * and offering the control on that basis produced a picker where every level
+   * failed: `0x01` was acknowledged and stored nothing, `0x02` was refused
+   * outright.
+   *
+   * There is no reply that distinguishes "no lift-off control" from "Low at the
+   * bottom of the range", so this has to be stated per product.
+   */
+  liftOff: boolean;
+  /**
+   * The mouse additionally stores separate lift-off and landing heights, and
+   * the mode can be established by the pair write's own status.
    *
    * That probe is a *write*, so it is only enabled where the command has been
-   * confirmed on hardware. Everywhere else the mouse keeps the plain
-   * three-stop tracking control if it answers the class at all.
+   * confirmed on hardware. Implies `liftOff`.
    */
   asymmetricLiftOff: boolean;
   /** Confirmed against real hardware by this project. */
@@ -192,6 +205,7 @@ const STANDARD = {
   hasBattery: false,
   vendorControlInterface: true,
   highRatePolling: false,
+  liftOff: false,
   asymmetricLiftOff: false,
   verified: false,
 } as const satisfies ProductDefaults;
@@ -236,6 +250,7 @@ const MODERN_WIRED = {
   maxDpi: DPI_FOCUS,
   hasBattery: true,
   highRatePolling: false,
+  liftOff: false,
   asymmetricLiftOff: false,
   verified: false,
 } as const satisfies ProductDefaults;
@@ -291,6 +306,7 @@ const DEATHADDER_ESSENTIAL = {
   hasBattery: false,
   vendorControlInterface: true,
   highRatePolling: false,
+  liftOff: false,
   asymmetricLiftOff: false,
   verified: false,
 } as const satisfies ProductDefaults;
@@ -301,6 +317,7 @@ const VIPER_V2_PRO = {
   hasBattery: true,
   // Stock receiver, not an 8K HyperPolling dongle.
   pollingRates: RATES_1K,
+  liftOff: true,
   asymmetricLiftOff: true,
   verified: true,
 } as const;
@@ -309,6 +326,7 @@ const VIPER_V3_PRO = {
   transport: "viper-receiver",
   maxDpi: DPI_FOCUS_PRO_35K,
   hasBattery: true,
+  liftOff: true,
   asymmetricLiftOff: true,
   verified: true,
 } as const;
@@ -412,7 +430,12 @@ const PRODUCT_DEFINITIONS: ReadonlyArray<[number, Omit<RazerProduct, "transactio
   // counter-example in the other direction — a 1000 Hz receiver that does use
   // the extended command — so neither the group nor the rate ceiling predicts
   // this, and it can only be settled per product.
-  [0x00b8, { model: "Viper V3 HyperSpeed", ...VIPER_RECEIVER_WIRELESS, highRatePolling: false, maxDpi: DPI_FOCUS_PRO, verified: true }],
+  // Lift-off reported working here, so the tracking control stays on — but not
+  // the asymmetric pair, which was never exercised. If this model turns out to
+  // answer `0x0b`/`0x85` with zeros the way the Basilisk X HyperSpeed does, it
+  // will show a permanent "Low" and refuse every level; that is the thing to
+  // check before trusting it.
+  [0x00b8, { model: "Viper V3 HyperSpeed", ...VIPER_RECEIVER_WIRELESS, highRatePolling: false, liftOff: true, maxDpi: DPI_FOCUS_PRO, verified: true }],
 
   // ---- new-receiver ---------------------------------------------------------
   [0x006f, { model: "Lancehead Wireless", ...LEGACY_RECEIVER, maxDpi: DPI_CHROMA }],
