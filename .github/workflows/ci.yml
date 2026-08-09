@@ -33,9 +33,18 @@ jobs:
       - name: Audit
         run: npm audit --audit-level=high
 
-      - name: No new dependencies
+      - name: Approved runtime dependencies
         run: |
-          if [ -s package.json ] && [ "$(node -p "Object.keys(require('./package.json').dependencies ?? {}).length")" != "0" ]; then
-            echo "OpenMouse ships with no runtime dependencies. Adding one needs a maintainer decision."
-            exit 1
-          fi
+          node <<'NODE'
+          const { dependencies = {} } = require("./package.json");
+          const approved = {
+            "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git",
+          };
+
+          if (JSON.stringify(dependencies) !== JSON.stringify(approved)) {
+            console.error("Runtime dependencies differ from the maintainer-approved list.");
+            console.error("Expected:", approved);
+            console.error("Received:", dependencies);
+            process.exit(1);
+          }
+          NODE
