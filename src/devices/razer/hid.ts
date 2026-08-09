@@ -1,6 +1,6 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
-import { RATES_1K, RAZER_PRODUCTS, type RazerProduct } from "./devices.ts";
+import { RATES_1K, RAZER_PRODUCTS, type RazerProduct } from "@openmouse/protocol/razer-devices";
 import { openRazerDevice } from "./hid-open.ts";
 import {
   RAZER_LANDING_MAX,
@@ -40,7 +40,7 @@ import {
   type RazerCommand,
   type RazerLiftOff,
   type RazerTrackingDistance,
-} from "./protocol.ts";
+} from "@openmouse/protocol/razer";
 
 // The sensor takes any whole DPI from here up to the model's ceiling, per axis.
 const DPI_MIN = 100;

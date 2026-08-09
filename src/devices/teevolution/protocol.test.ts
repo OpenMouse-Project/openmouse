@@ -25,7 +25,7 @@ import {
   teevolutionParseBattery,
   teevolutionParseReadResponse,
   teevolutionSensorModeUi,
-} from "./protocol.ts";
+} from "@openmouse/protocol/teevolution";
 
 test("host-control and battery commands match Compx report-8 checksums", () => {
   // Arrange — same framing Teevolink uses on report ID 0x08

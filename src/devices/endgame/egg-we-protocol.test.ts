@@ -14,7 +14,7 @@ import {
   weReportChecksum,
   weUnpackDpiStage,
   weUnpackScalarPair,
-} from "./egg-we-protocol.ts";
+} from "@openmouse/protocol/endgame-gear-we";
 
 test("commands produce a valid report checksum", () => {
   for (const payload of [weBuildReadEepromPayload(0x1234, 8), weBuildWriteEepromPayload(0x12, [1, 2, 3, 4])]) {

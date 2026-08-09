@@ -14,7 +14,7 @@ import {
   razerSetDpiCommand,
   razerSetLegacyPollingCommand,
   type RazerCommand,
-} from "./protocol.ts";
+} from "@openmouse/protocol/razer";
 
 export const VIPER_PRODUCT_ID = 0x0078;
 

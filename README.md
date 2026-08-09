@@ -27,15 +27,24 @@ battery history, and device-client selection live in focused modules under
 `finalmouse/`, `logitech/`, `pulsar/`, `razer/`, `teevolution/`, and `wlmouse/`;
 shared device types and HID filters remain directly under `src/devices/`.
 
+Transport-independent packet codecs live in the standalone
+[`@openmouse/protocol`](https://github.com/OpenMouse-Project/mouse-protocol)
+library. OpenMouse consumes the same public package exports that external
+consumers use; WebHID transport and application-facing status conversion
+remain in the device drivers.
+
 ## Adding a vendor
 
 Each supported vendor is self-contained under `src/devices/<vendor>/`.
 
-1. Add the vendor's HID driver module(s) in a new vendor folder.
-2. Register the driver in `src/devices/registry.ts`, including its brand,
+1. Add transport-independent packet definitions and codecs to the
+   `mouse-protocol` repository, then expose a package subpath.
+2. Add the vendor's WebHID driver module(s) in a new vendor folder.
+3. Register the driver in `src/devices/registry.ts`, including its brand,
    support check, client factory, and priority score.
-3. Add the vendor's WebHID filters in `src/devices/vendors.ts`.
-4. Add or extend protocol tests, then run `npm run check`.
+4. Add the vendor's WebHID filters in `src/devices/vendors.ts`.
+5. Add or extend protocol tests and state which product IDs were verified on
+   hardware, then run `npm run check`.
 
 The registry is the only central integration point for a new vendor; the
 control UI discovers supported clients through it automatically.

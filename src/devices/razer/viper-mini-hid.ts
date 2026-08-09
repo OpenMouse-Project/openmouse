@@ -19,7 +19,7 @@ import {
   type RazerCommand,
   type RazerExtendedEffect,
   type RazerReactiveSpeed,
-} from "./protocol.ts";
+} from "@openmouse/protocol/razer";
 
 export const VIPER_MINI_PRODUCT_ID = 0x008a;
 

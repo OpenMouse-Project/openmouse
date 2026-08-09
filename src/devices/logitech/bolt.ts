@@ -9,7 +9,7 @@ import {
   DEVICE_INDEX_DIRECT,
   DEVICE_INDEX_RECEIVER,
   isBoltReceiverProduct,
-} from "./protocol.ts";
+} from "@openmouse/protocol/logitech";
 
 /** Index probe on empty Bolt slots should fail fast; feature I/O keeps longer. */
 export const BOLT_INDEX_PROBE_TIMEOUT_MS = 800;

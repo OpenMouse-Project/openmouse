@@ -4,10 +4,10 @@ import {
   WE_REPORT_ID,
   weBuildCmdPayload,
   wePackScalarPair,
-} from "../endgame/egg-we-protocol.ts";
+} from "@openmouse/protocol/endgame-gear-we";
 import type { MouseStatus } from "../mouse-types.ts";
 import { VENDOR_ID } from "../vendors.ts";
-import { atkDecodeLiftOff, atkPackDpiStage, atkUnpackDpiStage } from "./protocol.ts";
+import { atkDecodeLiftOff, atkPackDpiStage, atkUnpackDpiStage } from "@openmouse/protocol/atk";
 
 // ATK mice (A9 family and siblings) use the same OEM framing as the Endgame
 // Gear WE series — 16-byte EEPROM commands on report 0x08 — but carry them on

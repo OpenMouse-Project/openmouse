@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { DEVICE_DRIVERS } from "./registry.ts";
 import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "./vendors.ts";
+import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
+import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 
 const DEVICES_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -57,7 +59,17 @@ function sourceFiles(dir: string): string[] {
 }
 
 function candidateProductIds(): number[] {
-  const ids = new Set<number>([0x0000, 0x0001, 0x1234, 0xffff]);
+  const ids = new Set<number>([
+    0x0000,
+    0x0001,
+    0x1234,
+    0xffff,
+    ...LAMZU_PRODUCTS.keys(),
+    ...ORBITAL_DEVICES.keys(),
+  ]);
+  for (const filter of SUPPORTED_HID_FILTERS) {
+    if (filter.productId !== undefined) ids.add(filter.productId);
+  }
   for (const file of sourceFiles(DEVICES_DIR)) {
     for (const match of readFileSync(file, "utf8").matchAll(/0x[0-9a-f]{4}\b/gi)) {
       ids.add(Number.parseInt(match[0], 16));

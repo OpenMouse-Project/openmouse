@@ -13,7 +13,7 @@ import {
   vgnParseBattery,
   vgnParseReadResponse,
   vgnReportChecksumIsValid,
-} from "./protocol.ts";
+} from "@openmouse/protocol/vgn";
 
 const VGN_VENDOR_ID = 0x3554;
 const VGN_RECEIVER_PID = 0xfb56;

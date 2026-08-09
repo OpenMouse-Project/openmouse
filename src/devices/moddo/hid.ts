@@ -20,7 +20,7 @@ import {
   type ModdoBattery,
   type ModdoConfig,
   type ModdoFirmware,
-} from "./protocol.ts";
+} from "@openmouse/protocol/moddo";
 
 // The firmware applies config writes fire-and-forget, so a read-back can briefly
 // still show the old value (especially over the 2.4 GHz dongle). Settle and retry

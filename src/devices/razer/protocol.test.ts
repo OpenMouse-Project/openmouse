@@ -37,7 +37,7 @@ import {
   razerEnableAsymmetricLiftOffCommand,
   razerSetLowPowerThresholdCommand,
   razerSetSleepTimeoutCommand,
-} from "./protocol.ts";
+} from "@openmouse/protocol/razer";
 
 /**
  * Fixtures are Viper V3 Pro (firmware 1.12) captures. Only the firmware reply

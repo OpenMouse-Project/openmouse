@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RAZER_READ, encodeRazerRequest, razerSetDpiCommand, razerSetExtendedEffectCommand, razerSetLegacyPollingCommand } from "./protocol.ts";
+import { RAZER_READ, encodeRazerRequest, razerSetDpiCommand, razerSetExtendedEffectCommand, razerSetLegacyPollingCommand } from "@openmouse/protocol/razer";
 import {
   VIPER_MINI_DPI_READ,
   VIPER_MINI_PRODUCT_ID,

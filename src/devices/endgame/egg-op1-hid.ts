@@ -26,8 +26,31 @@ import {
   eggWriteUint16LE,
   type EggButtonAction,
   type EggDeviceProfile,
-  type EggOp1Status,
-} from "./egg-op1-protocol.ts";
+} from "@openmouse/protocol/endgame-gear-op1";
+
+export interface EggOp1Status extends MouseStatus {
+  eggCpiLevels: number;
+  eggCpiStages: Array<{ x: number; y: number }>;
+  eggActiveCpiStage: number;
+  eggCpiMin: number;
+  eggCpiMax: number;
+  eggCpiStepLow: number;
+  eggCpiStepHigh: number;
+  eggPollingDivider: number;
+  eggLodIndex: number;
+  eggLodOptions: string[];
+  eggMulticlickFilters: number[];
+  eggButtonMappings: string[];
+  eggGlassMode: boolean;
+  eggSupportsGlassMode: boolean;
+  eggMotionSyncAt8k: boolean;
+  eggAngleTuning?: number;
+  eggForceMaxFps?: boolean;
+  eggLedLiftOffDisabled?: boolean;
+  eggSupportsV2SensorControls: boolean;
+  eggButtonActions: EggButtonAction[];
+  eggLeftHanded: boolean;
+}
 
 const STATUS_OK = 0x01;
 const STATUS_BUSY = 0x03;

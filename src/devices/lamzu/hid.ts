@@ -1,28 +1,24 @@
 import type { MouseStatus } from "../mouse-types.ts";
-import { VENDOR_ID } from "../vendors.ts";
-
-interface LamzuProduct {
-  model: string;
-  wireless: boolean;
-  pollingRates: readonly number[];
-  maxDpi?: number;
-  sleepOptions?: readonly number[];
-}
-
-const RATES_1K: readonly number[] = [125, 250, 500, 1000];
-const RATES_8K: readonly number[] = [500, 1000, 2000, 4000, 8000];
+import {
+  COMPX_HEADER_LENGTH as HEADER_LENGTH,
+  COMPX_PACKET_LENGTH as PACKET_LENGTH,
+  COMPX_REPORT_ID as REPORT_ID,
+  COMPX_STATUS as STATUS,
+  compaxDecodeDpiStages,
+  compaxDecodeFirmware,
+  compaxDecodeLiftOff,
+  compaxDecodePollingRate,
+  compaxDecodeSleep,
+  compaxEncodeRequest,
+  LAMZU_POLLING_RATES as POLLING_RATES,
+  LAMZU_PRODUCTS as PRODUCTS,
+  LAMZU_VENDOR_ID,
+  type CompaxDpiStage,
+  type LamzuProduct,
+} from "@openmouse/protocol/lamzu";
 
 const SLEEP_SECONDS: readonly number[] = [10, 30, 60, 300, 600, 1800];
 
-const PRODUCTS: ReadonlyMap<number, LamzuProduct> = new Map([
-  [0x001c, { model: "Maya X", wireless: false, pollingRates: RATES_1K }],
-  [0x001d, { model: "Maya X", wireless: true, pollingRates: RATES_1K }],
-  [0x001e, { model: "Maya X", wireless: true, pollingRates: RATES_8K }],
-]);
-
-const REPORT_ID = 0;
-const PACKET_LENGTH = 64;
-const HEADER_LENGTH = 6;
 const RESPONSE_ATTEMPTS = 12;
 const RESPONSE_DELAY_MS = 30;
 const WAKE_DELAY_MS = 300;
@@ -37,13 +33,6 @@ const NOTIFY_REPORT_ID = 4;
 const NOTIFY_DEBOUNCE_MS = 200;
 const NOTIFY_KINDS = new Set([0x03, 0x06, 0x08]);
 
-const STATUS = {
-  request: 0x00,
-  pending: 0xa0,
-  ok: 0xa1,
-  unsupported: 0xa2,
-} as const;
-
 const TARGET = {
   dongle: 0x00,
   mouse: 0x02,
@@ -53,17 +42,6 @@ const PAGE = {
   device: 0x00,
   profile: 0x01,
 } as const;
-
-const POLLING_RATES: ReadonlyArray<readonly [number, number]> = [
-  [0x08, 125],
-  [0x04, 250],
-  [0x02, 500],
-  [0x01, 1000],
-  [0x10, 1000],
-  [0x20, 2000],
-  [0x40, 4000],
-  [0x80, 8000],
-];
 
 type LiftOffDistance = NonNullable<MouseStatus["liftOffDistance"]>;
 
@@ -110,10 +88,7 @@ const WRITE = {
   rippleControl: 0x0a,
 } as const;
 
-export interface LamzuDpiStage {
-  x: number;
-  y: number;
-}
+export type LamzuDpiStage = CompaxDpiStage;
 
 export class LamzuHidClient {
   readonly canDisableSleep = false;
@@ -134,7 +109,7 @@ export class LamzuHidClient {
     const search = (collection: HIDCollectionInfo): boolean =>
       collection.featureReports.some((report) => report.reportId === REPORT_ID)
       || collection.children.some(search);
-    return device.vendorId === VENDOR_ID.lamzu
+    return device.vendorId === LAMZU_VENDOR_ID
       && PRODUCTS.has(device.productId)
       && device.collections.some(search);
   }
@@ -417,13 +392,7 @@ export class LamzuHidClient {
 
   private async exchange(spec: LamzuRequest): Promise<Uint8Array> {
     await this.open();
-    const packet = new Uint8Array(PACKET_LENGTH);
-    packet[0] = STATUS.request;
-    packet[2] = spec.target;
-    packet[3] = spec.length;
-    packet[4] = spec.page;
-    packet[5] = spec.command;
-    packet.set(spec.args, HEADER_LENGTH);
+    const packet = compaxEncodeRequest(spec);
     await this.device.sendFeatureReport(REPORT_ID, packet);
 
     const attempts = spec.attempts ?? RESPONSE_ATTEMPTS;
@@ -448,41 +417,23 @@ export class LamzuHidClient {
   }
 
   private decodeDpiStages(payload: Uint8Array): LamzuDpiStage[] {
-    const count = payload[1];
-    const stages: LamzuDpiStage[] = [];
-    for (let index = 0; index < count; index += 1) {
-      const offset = 2 + index * 4;
-      if (offset + 3 >= payload.length) break;
-      stages.push({
-        x: (payload[offset] << 8) | payload[offset + 1],
-        y: (payload[offset + 2] << 8) | payload[offset + 3],
-      });
-    }
-    return stages;
+    return compaxDecodeDpiStages(payload);
   }
 
   private decodePollingRate(value: number): number {
-    const match = POLLING_RATES.find(([mask]) => mask === value);
-    if (!match) throw new Error(`The mouse reported an unknown polling-rate value 0x${value.toString(16)}.`);
-    return match[1];
+    return compaxDecodePollingRate(POLLING_RATES, value);
   }
 
   private decodeLiftOffDistance(value: number): LiftOffDistance | null {
-    if (!value) return null;
-    const millimetres = (value & 0x80) !== 0 ? (value & 0x7f) / 10 : value;
-    if (millimetres < 1) return "Low";
-    return millimetres < 2 ? "Medium" : "High";
+    return compaxDecodeLiftOff(value);
   }
 
   private decodeSleepTimeout(payload: Uint8Array | null): number | null {
-    if (!payload || payload.length < 3) return null;
-    const seconds = (payload[1] << 8) | payload[2];
-    return seconds === 0 || seconds >= SLEEP_DISABLED_MIN ? null : seconds;
+    return compaxDecodeSleep(payload, SLEEP_DISABLED_MIN);
   }
 
   private decodeFirmware(label: string, payload: Uint8Array | null): string {
-    if (!payload || payload.length < 4) return `${label} firmware unavailable`;
-    return `${label} ${payload[2]}.${payload[3]}`;
+    return compaxDecodeFirmware(label, payload);
   }
 
   private copyDataView(view: DataView): Uint8Array {

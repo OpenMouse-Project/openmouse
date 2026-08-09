@@ -21,7 +21,7 @@ import {
   isDirectConnection,
   OnboardOnlyError,
   withSoftwareId,
-} from "./protocol.ts";
+} from "@openmouse/protocol/logitech";
 
 export {
   collapseBoltPeers,

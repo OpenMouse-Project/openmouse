@@ -2,8 +2,8 @@ import { EGG_WE_HID_FILTERS } from "./endgame/egg-we-control.ts";
 import {
   LOGITECH_BOLT_PRODUCT_IDS,
   LOGITECH_DIRECT_PRODUCT_IDS,
-} from "./logitech/protocol.ts";
-import { RAZER_PRODUCT_IDS } from "./razer/devices.ts";
+} from "@openmouse/protocol/logitech";
+import { RAZER_PRODUCT_IDS } from "@openmouse/protocol/razer-devices";
 
 export const VENDOR_ID = {
   pulsar: 0x3710,

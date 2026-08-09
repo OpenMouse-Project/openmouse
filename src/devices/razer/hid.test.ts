@@ -11,7 +11,7 @@ const {
   RAZER_STATUS,
   RAZER_TRANSACTION_ID,
   razerChecksum,
-} = await import("./protocol.ts");
+} = await import("@openmouse/protocol/razer");
 
 interface FakeLiftOff {
   tracking: number;

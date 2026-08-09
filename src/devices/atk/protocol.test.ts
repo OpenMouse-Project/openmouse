@@ -5,7 +5,7 @@ import {
   atkDecodeLiftOff,
   atkPackDpiStage,
   atkUnpackDpiStage,
-} from "./protocol.ts";
+} from "@openmouse/protocol/atk";
 
 test("DPI stages survive a round trip across every step range", () => {
   for (const [x, y] of [[50, 50], [800, 800], [10000, 1600], [10050, 10050], [26000, 26000], [42000, 42000]]) {

@@ -29,7 +29,7 @@ import {
   teevolutionProfileForCid,
   teevolutionSensorModeUi,
   type TeevolutionDeviceProfile,
-} from "./protocol.ts";
+} from "@openmouse/protocol/teevolution";
 
 export interface TeevolutionDeviceInfo {
   cid: number;

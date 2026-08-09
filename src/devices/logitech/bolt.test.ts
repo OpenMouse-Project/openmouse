@@ -16,7 +16,7 @@ import {
   DEVICE_INDEX_RECEIVER,
   isBoltReceiverProduct,
   isDirectConnectProduct,
-} from "./protocol.ts";
+} from "@openmouse/protocol/logitech";
 
 const LIGHTSPEED_RECEIVER = 0xc54d;
 const BOLT_RECEIVER = 0xc548;

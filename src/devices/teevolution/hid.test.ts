@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { TeevolutionHidClient } from "./hid.ts";
-import { TEEVOLUTION_REPORT_ID } from "./protocol.ts";
+import { TEEVOLUTION_REPORT_ID } from "@openmouse/protocol/teevolution";
 
 function device(productId: number, reportId = TEEVOLUTION_REPORT_ID): HIDDevice {
   return {

@@ -12,7 +12,7 @@ import {
   moddoDpiOptions,
   MODDO_CONFIG_REPORT_SIZE,
   type ModdoConfig,
-} from "./protocol.ts";
+} from "@openmouse/protocol/moddo";
 
 test("config round-trips through the packed 11-byte report", () => {
   // Arrange

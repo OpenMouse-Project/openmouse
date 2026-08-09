@@ -1,14 +1,10 @@
 import "./host-protocol.js";
 import type { MouseStatus } from "../mouse-types.ts";
-
-const VENDOR_ID = 0x1915;
-const PRODUCTS = new Map<number, { name: string; wireless: boolean }>([
-  [0x080c, { name: "Ghost / Pathfinder V2", wireless: false }],
-  [0x080b, { name: "Ghost / Pathfinder V2 receiver", wireless: true }],
-  [0x0747, { name: "Pathfinder V1", wireless: false }],
-  [0x0746, { name: "Pathfinder V1 receiver", wireless: true }],
-]);
-const REPORT_RATES = [125, 500, 1000, 2000, 4000, 8000];
+import {
+  ORBITAL_DEVICES,
+  ORBITAL_REPORT_RATES_HZ as REPORT_RATES,
+  ORBITAL_VENDOR_ID as VENDOR_ID,
+} from "@openmouse/protocol/orbital";
 
 type OrbitalProtocolClient = {
   open(): Promise<unknown>;
@@ -36,7 +32,7 @@ export class OrbitalHidClient {
 
   static isSupported(device: HIDDevice): boolean {
     return device.vendorId === VENDOR_ID
-      && PRODUCTS.has(device.productId)
+      && ORBITAL_DEVICES.has(device.productId)
       && device.collections.some((collection) => collection.usagePage === 0xff0a && collection.usage === 1);
   }
 
@@ -61,12 +57,12 @@ export class OrbitalHidClient {
     const { identity, settings, power } = snapshot;
     this.settings = settings;
     const stage = settings.dpiStages[settings.activeDpiStage] ?? [800, 800];
-    const definition = PRODUCTS.get(this.device.productId)!;
+    const definition = ORBITAL_DEVICES.get(this.device.productId)!;
     return {
       brand: "Orbital",
       name: identity.productName || definition.name,
       ui: { defaultDisplayName: definition.name, hideLodLow: false, hideUnsupportedPollingRates: true },
-      batteryPercent: definition.wireless ? power.percent : null,
+      batteryPercent: definition.receiver ? power.percent : null,
       batteryState: power.state === 2 ? "Full" : power.state === 1 || power.state === 3 ? "Charging" : "Discharging",
       dpi: stage[0],
       dpiY: stage[1],
@@ -74,7 +70,7 @@ export class OrbitalHidClient {
       pollingRateHz: settings.reportRateHz,
       supportedPollingRates: REPORT_RATES.slice(0, identity.definition.maxReportRateIndex + 1),
       activeProfile: power.profile + 1,
-      connectionType: definition.wireless ? "Wireless" : "Wired",
+      connectionType: definition.receiver ? "Wireless" : "Wired",
       motionSync: settings.sensor.motionSync,
       debounceMs: settings.debounceMs,
       sleepTimeout: settings.sleepSeconds,

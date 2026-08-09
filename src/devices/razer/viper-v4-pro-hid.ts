@@ -1,58 +1,22 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import { openRazerDevice } from "./hid-open.ts";
+import {
+  RAZER_V4_POLLING_CODES as POLLING_CODES,
+  RAZER_V4_PRODUCTS as VIPER_V4_PRO_PRODUCTS,
+  RAZER_V4_REPORT_ID as REPORT_ID,
+  RAZER_V4_REPORT_LENGTH as REPORT_LENGTH,
+  buildRazerV4Report,
+  decodeRazerV4DpiState,
+  decodeRazerV4PollingCode,
+  razerV4Crc,
+  type RazerV4DpiState as DpiState,
+} from "@openmouse/protocol/razer-v4";
 
 export const RAZER_VENDOR_ID = 0x1532;
-export const VIPER_V4_PRO_PRODUCTS = new Map<number, { wireless: boolean }>([
-  [0x00e5, { wireless: false }],
-  [0x00e6, { wireless: true }],
-]);
+export { VIPER_V4_PRO_PRODUCTS };
 
-const REPORT_ID = 0;
-const REPORT_LENGTH = 90;
 const RESPONSE_ATTEMPTS = 16;
 const RESPONSE_DELAY_MS = 35;
-const MAX_DPI_STAGES = 5;
-const POLLING_CODES = new Map<number, number>([
-  [125, 0x40], [500, 0x10], [1000, 0x08], [2000, 0x04], [4000, 0x02], [8000, 0x01],
-]);
-
-interface DpiState {
-  activeStage: number;
-  stages: Array<{ x: number; y: number }>;
-}
-
-/** The standard 90-byte Razer feature report used by the Viper V4 Pro. */
-export function buildRazerReport(commandClass: number, commandId: number, dataSize: number, args: Uint8Array = new Uint8Array()): Uint8Array {
-  if (args.length > 80) throw new Error("Razer command payload is too large.");
-  if (!Number.isInteger(dataSize) || dataSize < 0 || dataSize > 80) throw new Error("Razer command data size is invalid.");
-  const report = new Uint8Array(REPORT_LENGTH);
-  report[1] = 0x1f; // Host transaction id; accepted by both wired mouse and receiver.
-  report[5] = dataSize;
-  report[6] = commandClass;
-  report[7] = commandId;
-  report.set(args, 8);
-  report[88] = razerCrc(report);
-  return report;
-}
-
-export function razerCrc(report: Uint8Array): number {
-  let crc = 0;
-  for (let index = 2; index <= 87; index += 1) crc ^= report[index] ?? 0;
-  return crc;
-}
-
-export function decodeDpiState(args: Uint8Array): DpiState {
-  const count = Math.min(args[2] ?? 0, MAX_DPI_STAGES);
-  const stages: DpiState["stages"] = [];
-  for (let index = 0; index < count; index += 1) {
-    const offset = 3 + index * 7;
-    const x = ((args[offset + 1] ?? 0) << 8) | (args[offset + 2] ?? 0);
-    const y = ((args[offset + 3] ?? 0) << 8) | (args[offset + 4] ?? 0);
-    stages.push({ x, y });
-  }
-  if (stages.length === 0) throw new Error("The Viper V4 Pro reported no DPI stages.");
-  return { activeStage: Math.min(Math.max((args[1] ?? 1) - 1, 0), stages.length - 1), stages };
-}
 
 function readU16BE(bytes: Uint8Array, offset: number): number {
   return ((bytes[offset] ?? 0) << 8) | (bytes[offset + 1] ?? 0);
@@ -116,7 +80,7 @@ export class RazerViperV4ProHidClient {
       dpi: current.x,
       dpiY: current.y,
       supportsSeparateDpiAxes: true,
-      pollingRateHz: this.decodePollingCode(polling[1]),
+      pollingRateHz: decodeRazerV4PollingCode(polling[1]),
       supportedPollingRates: [...POLLING_CODES.keys()],
       activeProfile: dpi.activeStage + 1,
       connectionType: wireless ? "Wireless" : "Wired",
@@ -145,7 +109,7 @@ export class RazerViperV4ProHidClient {
     await this.command(0x00, 0x40, 2, new Uint8Array([1, code]));
     // Changing rate briefly reconfigures the wireless link.
     await sleep(150);
-    const confirmed = this.decodePollingCode((await this.command(0x00, 0xc0, 2, new Uint8Array([1])))[1]);
+    const confirmed = decodeRazerV4PollingCode((await this.command(0x00, 0xc0, 2, new Uint8Array([1])))[1]);
     if (confirmed !== rate) throw new Error(`The Viper V4 Pro kept ${confirmed} Hz instead of ${rate} Hz.`);
     return confirmed;
   }
@@ -168,7 +132,7 @@ export class RazerViperV4ProHidClient {
   async setRippleControl(): Promise<never> { throw new Error("Ripple control is not mapped for the Viper V4 Pro yet."); }
 
   private async readDpi(): Promise<DpiState> {
-    return decodeDpiState(await this.command(0x04, 0x86, 80));
+    return decodeRazerV4DpiState(await this.command(0x04, 0x86, 80));
   }
 
   private async writeDpi(state: DpiState): Promise<void> {
@@ -187,20 +151,14 @@ export class RazerViperV4ProHidClient {
     await this.command(0x04, 0x06, args.length, args);
   }
 
-  private decodePollingCode(code: number | undefined): number {
-    const rate = [...POLLING_CODES].find(([, candidate]) => candidate === code)?.[0];
-    if (!rate) throw new Error(`The Viper V4 Pro reported unknown polling code 0x${(code ?? 0).toString(16)}.`);
-    return rate;
-  }
-
   private async command(commandClass: number, commandId: number, dataSize: number, args: Uint8Array = new Uint8Array()): Promise<Uint8Array> {
     await this.open();
-    const request = buildRazerReport(commandClass, commandId, dataSize, args);
+    const request = buildRazerV4Report(commandClass, commandId, dataSize, args);
     await this.device.sendFeatureReport(REPORT_ID, request.buffer as ArrayBuffer);
     for (let attempt = 0; attempt < RESPONSE_ATTEMPTS; attempt += 1) {
       const view = await this.device.receiveFeatureReport(REPORT_ID);
       const response = new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
-      if (response.byteLength !== REPORT_LENGTH || response[88] !== razerCrc(response)) throw new Error("The Viper V4 Pro returned an invalid Razer control report.");
+      if (response.byteLength !== REPORT_LENGTH || response[88] !== razerV4Crc(response)) throw new Error("The Viper V4 Pro returned an invalid Razer control report.");
       if (response[0] === 0x02) {
         if (response[6] !== commandClass || response[7] !== commandId) {
           throw new Error("The Viper V4 Pro returned a response for a different command.");

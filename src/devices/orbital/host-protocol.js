@@ -1,3 +1,12 @@
+import {
+    ORBITAL_DEVICES,
+    ORBITAL_PACKET_SIZE,
+    ORBITAL_REPORT_ID,
+    ORBITAL_REPORT_RATES_HZ,
+    ORBITAL_VENDOR_ID,
+    orbitalFinishPacket,
+} from "@openmouse/protocol/orbital";
+
 /**
  * Orbital mouse host protocol
  *
@@ -134,31 +143,8 @@
 // -----------------------------------------------------------------------------
 // Public constants
 // -----------------------------------------------------------------------------
-const ORBITAL_VENDOR_ID = 0x1915;
-const ORBITAL_REPORT_ID = 0;
-const ORBITAL_PACKET_SIZE = 64;
 const ORBITAL_PROFILE_COUNT = 5;
 const ORBITAL_DPI_LIMITS = { min: 50, max: 30000, step: 50 };
-/** The device stores report rate as an index, not the actual Hz value. */
-const ORBITAL_REPORT_RATES_HZ = [125, 500, 1000, 2000, 4000, 8000];
-const ORBITAL_DEVICES = new Map([
-    [0x080c, { name: "Ghost / Pathfinder V2", protocol: "dms_v2", receiver: false, maxReportRateIndex: 5 }],
-    [0x080b, {
-            name: "Ghost / Pathfinder V2 receiver",
-            protocol: "dms_v2",
-            receiver: true,
-            pairedProductId: 0x080c,
-            maxReportRateIndex: 5,
-        }],
-    [0x0747, { name: "Pathfinder V1", protocol: "dms", receiver: false, maxReportRateIndex: 2 }],
-    [0x0746, {
-            name: "Pathfinder V1 receiver",
-            protocol: "dms",
-            receiver: true,
-            pairedProductId: 0x0747,
-            maxReportRateIndex: 2,
-        }],
-]);
 // -----------------------------------------------------------------------------
 // Main client
 // -----------------------------------------------------------------------------
@@ -771,14 +757,7 @@ class OrbitalMouseClient {
      * packet the receiver will reject.
      */
     finishPacket(packet, routeToMouse = true) {
-        // The receiver uses bit 6 of byte 0 as "send this to the paired mouse".
-        // Set it before the checksum or the receiver will reject the packet.
-        if (this.isReceiver && routeToMouse)
-            packet[0] |= 0x40;
-        let sum = 0;
-        for (let index = 0; index < 63; index += 1)
-            sum += packet[index];
-        packet[63] = (161 - (sum & 0xff)) & 0xff;
+        packet.set(orbitalFinishPacket(packet, this.isReceiver && routeToMouse));
         return packet;
     }
     async sendPacket(packet, label) {

@@ -93,7 +93,7 @@ import { RazerViperV4ProHidClient } from "./devices/razer/viper-v4-pro-hid";
 import { FinalmouseHidClient } from "./devices/finalmouse/hid";
 import { ModdoHidClient } from "./devices/moddo/hid";
 import { TeevolutionHidClient } from "./devices/teevolution/hid";
-import { teevolutionProfileForCid, teevolutionSensorModeUi } from "./devices/teevolution/protocol.ts";
+import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "./devices/vgn/hid";
 import { KeychronHidClient } from "./devices/keychron/hid";
 import { SUPPORTED_HID_FILTERS } from "./devices/vendors";

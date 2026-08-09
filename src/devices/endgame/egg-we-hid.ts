@@ -22,7 +22,7 @@ import {
   WE_POLLING_RATES,
   type WeLod,
   type WeProfile,
-} from "./egg-we-protocol.ts";
+} from "@openmouse/protocol/endgame-gear-we";
 
 /**
  * Endgame Gear WE-series (OP1we).

@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RAZER_PRODUCTS, RAZER_PRODUCT_IDS, RATES_1K, RATES_8K } from "./devices.ts";
+import {
+  RAZER_PRODUCTS,
+  RAZER_PRODUCT_IDS,
+  RATES_1K,
+  RATES_8K,
+} from "@openmouse/protocol/razer-devices";
 import {
   RAZER_TRANSACTION_ID,
   RAZER_TRANSACTION_ID_FF,
   RAZER_TRANSACTION_ID_3F,
   razerSetExtendedPollingCommand,
   razerSetLegacyPollingCommand,
-} from "./protocol.ts";
+} from "@openmouse/protocol/razer";
 import { VIPER_MINI_PRODUCT_ID } from "./viper-mini-hid.ts";
 import { VIPER_V4_PRO_PRODUCTS } from "./viper-v4-pro-hid.ts";
 

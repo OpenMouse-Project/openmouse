@@ -13,7 +13,7 @@ import {
   eggIsValidCpi,
   eggLodOptions,
   eggNormalizeFeatureReport,
-} from "./egg-op1-protocol.ts";
+} from "@openmouse/protocol/endgame-gear-op1";
 
 const op1 = EGG_DEVICE_PROFILES.get(0x1964)!;
 const purple = EGG_DEVICE_PROFILES.get(0x1976)!;

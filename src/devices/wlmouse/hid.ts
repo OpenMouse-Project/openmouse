@@ -1,11 +1,23 @@
 import type { MouseStatus } from "../mouse-types.ts";
-import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "../vendors.ts";
+import { WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "../vendors.ts";
+import {
+  COMPX_HEADER_LENGTH as HEADER_LENGTH,
+  COMPX_PACKET_LENGTH as PACKET_LENGTH,
+  COMPX_REPORT_ID as REPORT_ID,
+  COMPX_STATUS as STATUS,
+  compaxDecodeDpiStages,
+  compaxDecodeFirmware,
+  compaxDecodeLiftOff,
+  compaxDecodePollingRate,
+  compaxDecodeSleep,
+  compaxEncodeRequest,
+  WLMOUSE_POLLING_RATES as POLLING_RATES,
+  WLMOUSE_VENDOR_ID,
+  type CompaxDpiStage,
+} from "@openmouse/protocol/wlmouse";
 
-export const WLMOUSE_VENDOR_ID = VENDOR_ID.wlmouse;
+export { WLMOUSE_VENDOR_ID };
 
-const REPORT_ID = 0;
-const PACKET_LENGTH = 64;
-const HEADER_LENGTH = 6;
 const RESPONSE_ATTEMPTS = 12;
 const RESPONSE_DELAY_MS = 30;
 const WAKE_DELAY_MS = 300;
@@ -18,13 +30,6 @@ const PROFILE = 0x01;
 const DPI_STEP = 50;
 const DPI_MAX = 30000;
 
-const STATUS = {
-  request: 0x00,
-  pending: 0xa0,
-  ok: 0xa1,
-  unsupported: 0xa2,
-} as const;
-
 const TARGET = {
   dongle: 0x00,
   mouse: 0x02,
@@ -34,17 +39,6 @@ const PAGE = {
   device: 0x00,
   profile: 0x01,
 } as const;
-
-const POLLING_RATES: ReadonlyArray<readonly [number, number]> = [
-  [0x08, 125],
-  [0x04, 250],
-  [0x02, 500],
-  [0x01, 1000],
-  [0x10, 1000],
-  [0x20, 2000],
-  [0x40, 4000],
-  [0x80, 8000],
-];
 
 type LiftOffDistance = NonNullable<MouseStatus["liftOffDistance"]>;
 
@@ -98,10 +92,7 @@ const NOTIFY_REPORT_ID = 4;
 const NOTIFY_DEBOUNCE_MS = 200;
 const NOTIFY_KINDS = new Set([0x03, 0x06, 0x08]);
 
-export interface WLMouseDpiStage {
-  x: number;
-  y: number;
-}
+export type WLMouseDpiStage = CompaxDpiStage;
 
 export class WLMouseHidClient {
   readonly canDisableSleep = true;
@@ -406,13 +397,7 @@ export class WLMouseHidClient {
 
   private async exchange(spec: WLMouseRequest): Promise<Uint8Array> {
     await this.open();
-    const packet = new Uint8Array(PACKET_LENGTH);
-    packet[0] = STATUS.request;
-    packet[2] = spec.target;
-    packet[3] = spec.length;
-    packet[4] = spec.page;
-    packet[5] = spec.command;
-    packet.set(spec.args, HEADER_LENGTH);
+    const packet = compaxEncodeRequest(spec);
 
     const attempts = spec.attempts ?? RESPONSE_ATTEMPTS;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -437,41 +422,23 @@ export class WLMouseHidClient {
   }
 
   private decodeDpiStages(payload: Uint8Array): WLMouseDpiStage[] {
-    const count = payload[1];
-    const stages: WLMouseDpiStage[] = [];
-    for (let index = 0; index < count; index += 1) {
-      const offset = 2 + index * 4;
-      if (offset + 3 >= payload.length) break;
-      stages.push({
-        x: (payload[offset] << 8) | payload[offset + 1],
-        y: (payload[offset + 2] << 8) | payload[offset + 3],
-      });
-    }
-    return stages;
+    return compaxDecodeDpiStages(payload);
   }
 
   private decodePollingRate(value: number): number {
-    const match = POLLING_RATES.find(([mask]) => mask === value);
-    if (!match) throw new Error(`The mouse reported an unknown polling-rate value 0x${value.toString(16)}.`);
-    return match[1];
+    return compaxDecodePollingRate(POLLING_RATES, value);
   }
 
   private decodeLiftOffDistance(value: number): LiftOffDistance | null {
-    if (!value) return null;
-    const millimetres = (value & 0x80) !== 0 ? (value & 0x7f) / 10 : value;
-    if (millimetres < 1) return "Low";
-    return millimetres < 2 ? "Medium" : "High";
+    return compaxDecodeLiftOff(value);
   }
 
   private decodeSleepTimeout(payload: Uint8Array | null): number | null {
-    if (!payload || payload.length < 3) return null;
-    const seconds = (payload[1] << 8) | payload[2];
-    return seconds === 0 || seconds >= SLEEP_DISABLED_MIN ? null : seconds;
+    return compaxDecodeSleep(payload, SLEEP_DISABLED_MIN);
   }
 
   private decodeFirmware(label: string, payload: Uint8Array | null): string {
-    if (!payload || payload.length < 4) return `${label} firmware unavailable`;
-    return `${label} ${payload[2]}.${payload[3]}`;
+    return compaxDecodeFirmware(label, payload);
   }
 
   private decodeText(payload: Uint8Array | null): string | null {

@@ -1,47 +1,27 @@
 import type { MouseStatus } from "../mouse-types.ts";
-import { KEYCHRON_PRODUCT_IDS, VENDOR_ID } from "../vendors.ts";
-
-const RAW_USAGE_PAGE = 0xff60;
-const RAW_USAGE = 0x61;
-const REPORT_ID = 0;
-const PACKET_LENGTH = 32;
+import {
+  KEYCHRON_COMMAND as CMD,
+  KEYCHRON_MISC_COMMAND as MISC,
+  KEYCHRON_NAPE_COMMAND as NAPE,
+  KEYCHRON_POLLING_TABLE as POLLING_TABLE,
+  KEYCHRON_PRODUCTS as PRODUCTS,
+  KEYCHRON_RAW_USAGE as RAW_USAGE,
+  KEYCHRON_RAW_USAGE_PAGE as RAW_USAGE_PAGE,
+  KEYCHRON_REPORT_ID as REPORT_ID,
+  KEYCHRON_VENDOR_ID,
+  keychronDecodeFirmware,
+  keychronDecodePolling,
+  keychronPacket,
+} from "@openmouse/protocol/keychron";
 const QUERY_TIMEOUT_MS = 1200;
-
-const PRODUCTS = new Map<number, { name: string; receiver?: boolean }>([
-  [0x0440, { name: "Nape Pro" }],
-  [0xd026, { name: "Keychron Link-KM", receiver: true }],
-  [0xd029, { name: "Keychron Link-KM Type C", receiver: true }],
-]);
-
-const CMD = {
-  firmwareVersion: 161,
-  miscGroup: 167,
-} as const;
-
-const NAPE = {
-  getDpiStage: 33,
-  setDpiStage: 34,
-  setDpiValue: 35,
-  getDpiValue: 36,
-  getBattery: 49,
-  getOrientation: 32,
-  getCustomDpi: 54,
-  setCustomDpi: 55,
-} as const;
-
-const MISC = {
-  getPolling: 13,
-  setPolling: 14,
-} as const;
 
 const DPI_STAGE_COUNT = 5;
 const DPI_MIN = 50;
 const DPI_MAX = 3200;
 const DPI_STEP = 50;
 const ORIENTATION_STEPS = 8;
-const POLLING_TABLE = [8000, 4000, 2000, 1000, 500, 250, 125] as const;
 const NAPE_DISPLAY_NAME = "Nape Pro";
-const PRODUCT_IDS = new Set<number>(KEYCHRON_PRODUCT_IDS);
+const PRODUCT_IDS = new Set<number>(PRODUCTS.keys());
 
 export class KeychronHidClient {
   private responseWaiter: {
@@ -67,7 +47,7 @@ export class KeychronHidClient {
     this.device = device;
   }
   static isSupported(device: HIDDevice): boolean {
-    return device.vendorId === VENDOR_ID.keychron
+    return device.vendorId === KEYCHRON_VENDOR_ID
       && PRODUCT_IDS.has(device.productId)
       && device.collections.some((collection) =>
         collection.usagePage === RAW_USAGE_PAGE && collection.usage === RAW_USAGE);
@@ -316,20 +296,7 @@ export class KeychronHidClient {
       (bytes) => bytes[0] === CMD.miscGroup && bytes[1] === MISC.getPolling,
       [CMD.miscGroup, MISC.getPolling],
     );
-    // Keychron Launcher treats an empty/zero payload as a 1 kHz-only device.
-    if (response.slice(2).every((byte) => byte === 0)) {
-      return { rateHz: 1000, supported: [125, 500, 1000] };
-    }
-    const supportMask = response[5] ?? 0;
-    const supported = POLLING_TABLE.filter((_, index) => ((supportMask >> index) & 1) === 1)
-      .slice()
-      .sort((a, b) => a - b);
-    const shift = response[6] ?? 3;
-    const rateHz = POLLING_TABLE[Math.min(shift, POLLING_TABLE.length - 1)] ?? 1000;
-    return {
-      rateHz,
-      supported: supported.length > 0 ? supported : [rateHz],
-    };
+    return keychronDecodePolling(response);
   }
 
   private async getFirmwareVersion(): Promise<string | null> {
@@ -337,28 +304,18 @@ export class KeychronHidClient {
       (bytes) => bytes[0] === CMD.firmwareVersion,
       [CMD.firmwareVersion],
     );
-    const chars: string[] = [];
-    for (let index = 1; index < response.length; index += 1) {
-      const code = response[index] ?? 0;
-      if (code === 0) break;
-      chars.push(String.fromCharCode(code));
-    }
-    if (chars.length === 0) return null;
-    const text = chars.join("");
-    return text.startsWith("v") ? text : `v${text}`;
+    return keychronDecodeFirmware(response);
   }
 
   private async write(command: number[]): Promise<void> {
-    const packet = new Uint8Array(PACKET_LENGTH);
-    packet.set(command.slice(0, PACKET_LENGTH));
+    const packet = keychronPacket(command);
     await this.device.sendReport(REPORT_ID, packet);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 40));
   }
 
   private async query(match: (bytes: Uint8Array) => boolean, command: number[]): Promise<Uint8Array> {
     if (this.responseWaiter) throw new Error("Another Keychron request is already in progress.");
-    const packet = new Uint8Array(PACKET_LENGTH);
-    packet.set(command.slice(0, PACKET_LENGTH));
+    const packet = keychronPacket(command);
     let timeout = 0;
     let rejectResponse: ((reason: Error) => void) | null = null;
     const response = new Promise<Uint8Array>((resolve, reject) => {

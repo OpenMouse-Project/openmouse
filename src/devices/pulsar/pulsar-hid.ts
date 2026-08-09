@@ -1,36 +1,17 @@
 import type { MouseStatus } from "../mouse-types.ts";
-
-const PULSAR_VENDOR_ID = 0x3710;
-const CONFIG_REPORT_ID = 0x08;
-const CONFIG_PACKET_LENGTH = 16;
-
-const COMMAND = {
-  encryptionData: 0x01,
-  deviceOnline: 0x03,
-  batteryLevel: 0x04,
-  writeFlashData: 0x07,
-  readFlashData: 0x08,
-  getCurrentConfig: 0x0e,
-  readVersionId: 0x12,
-  getDongleVersion: 0x1d,
-  setDongleRgb: 0x14,
-  getDongleRgb: 0x15,
-  getRssi: 0x2b,
-} as const;
-
-const FLASH = {
-  reportRate: 0,
-  currentDpi: 4,
-  liftOffDistance: 10,
-  dpiValues: 12,
-  debounceTime: 169,
-  motionSync: 171,
-  sleepTime: 173,
-  angleSnapping: 175,
-  rippleControl: 177,
-  performanceState: 181,
-  performanceTime: 183,
-} as const;
+import {
+  PULSAR_COMMAND as COMMAND,
+  PULSAR_CONFIG_PACKET_LENGTH as CONFIG_PACKET_LENGTH,
+  PULSAR_CONFIG_REPORT_ID as CONFIG_REPORT_ID,
+  PULSAR_FLASH as FLASH,
+  PULSAR_VENDOR_ID,
+  pulsarDecodeDpi,
+  pulsarDecodePollingRate,
+  pulsarDpiOptions,
+  pulsarEncodeDpi,
+  pulsarEncodePollingRate,
+  pulsarPacketChecksum,
+} from "@openmouse/protocol/pulsar";
 
 export interface PulsarReport {
   timestamp: number;
@@ -135,7 +116,7 @@ export class PulsarHidClient {
         : null;
       const rssi = await this.query(COMMAND.getRssi).catch(() => null);
       const currentDpi = Math.min(flash[FLASH.currentDpi] ?? 0, 7);
-      const dpi = this.decodeDpi(flash.slice(FLASH.dpiValues + currentDpi * 4, FLASH.dpiValues + currentDpi * 4 + 4));
+      const dpi = pulsarDecodeDpi(flash.slice(FLASH.dpiValues + currentDpi * 4, FLASH.dpiValues + currentDpi * 4 + 4));
       const lodValue = flash[FLASH.liftOffDistance];
       return {
         brand: "Pulsar",
@@ -143,7 +124,7 @@ export class PulsarHidClient {
         batteryPercent: battery[5] <= 100 ? battery[5] : null,
         batteryState: battery[6] === 1 ? "Charging" : "Discharging",
         dpi,
-        pollingRateHz: this.decodePollingRate(flash[FLASH.reportRate]),
+        pollingRateHz: pulsarDecodePollingRate(flash[FLASH.reportRate]),
         activeProfile: profile && profile[1] === 0 ? (profile[5] ?? 0) + 1 : null,
         connectionDetail: `CID 0x${info.cid.toString(16).toUpperCase().padStart(2, "0")} · MID 0x${info.mid.toString(16).toUpperCase().padStart(2, "0")} · Dongle type ${info.dongleType}`,
         dongleLedEnabled: dongleLed?.enabled ?? null,
@@ -164,21 +145,14 @@ export class PulsarHidClient {
   }
 
   getDpiOptions(): number[] {
-    const options: number[] = [];
-    for (let dpi = 10; dpi <= 10000; dpi += 10) options.push(dpi);
-    for (let dpi = 10050; dpi <= 30000; dpi += 50) options.push(dpi);
-    for (let dpi = 30100; dpi <= 32000; dpi += 100) options.push(dpi);
-    return options;
+    return pulsarDpiOptions();
   }
 
   async setPollingRate(pollingRateHz: number): Promise<number> {
-    const encoded = pollingRateHz <= 1000 ? 1000 / pollingRateHz : pollingRateHz / 2000 * 16;
-    if (!Number.isInteger(encoded) || ![125, 250, 500, 1000, 2000, 4000, 8000].includes(pollingRateHz)) {
-      throw new Error("Unsupported Pulsar polling rate.");
-    }
+    const encoded = pulsarEncodePollingRate(pollingRateHz);
     return await this.withDeviceControl(async () => {
       await this.writeCheckedByte(FLASH.reportRate, encoded);
-      const confirmed = this.decodePollingRate((await this.readFlash(FLASH.reportRate, 2))[0]);
+      const confirmed = pulsarDecodePollingRate((await this.readFlash(FLASH.reportRate, 2))[0]);
       if (confirmed !== pollingRateHz) throw new Error(`The mouse kept ${confirmed} Hz instead of ${pollingRateHz} Hz.`);
       return confirmed;
     });
@@ -189,8 +163,8 @@ export class PulsarHidClient {
     return await this.withDeviceControl(async () => {
       const currentDpi = (await this.readFlash(FLASH.currentDpi, 2))[0] ?? 0;
       const address = FLASH.dpiValues + Math.min(currentDpi, 7) * 4;
-      await this.writeFlash(address, this.encodeDpi(dpi));
-      const confirmed = this.decodeDpi(await this.readFlash(address, 4));
+      await this.writeFlash(address, pulsarEncodeDpi(dpi));
+      const confirmed = pulsarDecodeDpi(await this.readFlash(address, 4));
       if (confirmed !== dpi) throw new Error(`The mouse kept ${confirmed} DPI instead of ${dpi} DPI.`);
       return confirmed;
     });
@@ -285,7 +259,7 @@ export class PulsarHidClient {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const packet = this.createPacket(COMMAND.deviceOnline);
       packet[5] = enabled ? 1 : 0;
-      packet[15] = this.packetChecksum(packet);
+      packet[15] = pulsarPacketChecksum(packet);
       response = await this.exchange(packet);
       this.assertAccepted(response, enabled ? "host-control entry" : "host-control exit");
       if (response[9] !== 1) break;
@@ -304,7 +278,7 @@ export class PulsarHidClient {
       packet[2] = currentAddress >> 8;
       packet[3] = currentAddress & 0xff;
       packet[4] = count;
-      packet[15] = this.packetChecksum(packet);
+      packet[15] = pulsarPacketChecksum(packet);
       const response = await this.exchange(packet);
       this.assertAccepted(response, "configuration read");
       result.set(response.slice(5, 5 + count), offset);
@@ -351,7 +325,7 @@ export class PulsarHidClient {
       packet[3] = currentAddress & 0xff;
       packet[4] = chunk.length;
       packet.set(chunk, 5);
-      packet[15] = this.packetChecksum(packet);
+      packet[15] = pulsarPacketChecksum(packet);
       this.assertAccepted(await this.exchange(packet), "configuration write");
     }
   }
@@ -361,7 +335,7 @@ export class PulsarHidClient {
     const packet = this.createPacket(command);
     packet[4] = parameters.length;
     packet.set(parameters, 5);
-    packet[15] = this.packetChecksum(packet);
+    packet[15] = pulsarPacketChecksum(packet);
     return await this.exchange(packet);
   }
 
@@ -403,53 +377,6 @@ export class PulsarHidClient {
     const packet = new Uint8Array(CONFIG_PACKET_LENGTH);
     packet[0] = command;
     return packet;
-  }
-
-  private packetChecksum(packet: Uint8Array): number {
-    let sum = 0;
-    for (let index = 0; index < packet.length - 1; index += 1) sum += packet[index];
-    return (0x55 - (sum & 0xff) - CONFIG_REPORT_ID) & 0xff;
-  }
-
-  private dataChecksum(data: Uint8Array): number {
-    let sum = 0;
-    for (const value of data) sum += value;
-    return (0x55 - (sum & 0xff)) & 0xff;
-  }
-
-  private decodePollingRate(encoded: number): number {
-    return encoded >= 16 ? encoded / 16 * 2000 : 1000 / encoded;
-  }
-
-  private decodeDpi(data: Uint8Array): number {
-    const flags = data[2] ?? 0;
-    const raw = (data[0] ?? 0) + (((flags & 0x0c) >> 2) << 8);
-    let dpi = (raw + 1) * 10;
-    if ((flags & 0x02) !== 0) dpi = dpi * 5 + 10000;
-    if ((flags & 0x01) !== 0) dpi *= 2;
-    return dpi;
-  }
-
-  private encodeDpi(dpi: number): Uint8Array {
-    let raw: number;
-    let dpiEx: number;
-    if (dpi >= 30100) {
-      raw = (dpi / 2 - 10050) / 50;
-      dpiEx = 0x33;
-    } else if (dpi >= 10050) {
-      raw = (dpi - 10050) / 50;
-      dpiEx = 0x22;
-    } else {
-      raw = dpi / 10 - 1;
-      dpiEx = 0;
-    }
-    const high = raw >> 8;
-    const result = new Uint8Array(4);
-    result[0] = raw;
-    result[1] = raw;
-    result[2] = (high << 2) | (high << 6) | dpiEx | (dpiEx << 4);
-    result[3] = this.dataChecksum(result.slice(0, 3));
-    return result;
   }
 
   private decodeVersion(label: string, response: Uint8Array): string {

@@ -1,33 +1,15 @@
 import type { MouseStatus } from "../mouse-types.ts";
 import type { PulsarDeviceInfo } from "./pulsar-hid.ts";
-
-const VENDOR_ID = 0x3710;
-const PRO_DONGLE_PRODUCT_ID = 0x5405;
-const REPORT_ID = 0;
-const REPORT_LENGTH = 63;
-
-const COMMAND = {
-  dongleVersion: 0xa0,
-  rssi: 0xa4,
-  dpi: 0xb1,
-  polling: 0xb2,
-  lod: 0xb3,
-  battery: 0xb4,
-  motionSync: 0xb5,
-  ripple: 0xb6,
-  angleSnap: 0xb7,
-  angleTune: 0xb8,
-  wheelAcceleration: 0xb9,
-  lowBattery: 0xbe,
-  mouseVersion: 0xbf,
-  remoteLed: 0xc0,
-  dpiLed: 0xc1,
-  powerSaving: 0xc2,
-  saveAllow: 0xc3,
-  turboMode: 0xc4,
-  debounce: 0xc5,
-  profile: 0xc6,
-} as const;
+import {
+  PULSAR_PRO_COMMAND as COMMAND,
+  PULSAR_PRO_PRODUCT_ID as PRO_DONGLE_PRODUCT_ID,
+  PULSAR_PRO_REPORT_ID as REPORT_ID,
+  PULSAR_PRO_REPORT_LENGTH as REPORT_LENGTH,
+  PULSAR_VENDOR_ID as VENDOR_ID,
+  readUint16LE,
+  readUint32LE,
+  uint32LE,
+} from "@openmouse/protocol/pulsar";
 
 export class PulsarProHidClient {
   private commandQueue: Promise<void> = Promise.resolve();
@@ -107,14 +89,14 @@ export class PulsarProHidClient {
     const rssi = await this.queryOptional(COMMAND.rssi);
     const dpiIndex = Math.min(dpi[3] ?? 0, 7);
     const dpiOffset = 4 + dpiIndex * 4;
-    const sleepMs = sleep ? this.readUint32LE(sleep, 2) : 0;
+    const sleepMs = sleep ? readUint32LE(sleep, 2) : 0;
     return {
       brand: "Pulsar",
       name: this.device.productName || "Pulsar Pro Mouse",
       batteryPercent: battery[0] === COMMAND.battery ? Math.min(battery[1] ?? 0, 100) : null,
       batteryState: battery[6] === 1 ? "Charging" : "Discharging",
-      dpi: this.readUint16LE(dpi, dpiOffset),
-      pollingRateHz: this.readUint16LE(polling, 2),
+      dpi: readUint16LE(dpi, dpiOffset),
+      pollingRateHz: readUint16LE(polling, 2),
       activeProfile: profile ? (profile[2] ?? 0) + 1 : null,
       connectionDetail: "PID 0x5405 · Pulsar Pro protocol · Wireless",
       signalStrength: this.signalLevel(rssi?.[1]),
@@ -162,14 +144,14 @@ export class PulsarProHidClient {
     await this.applySettings();
     const confirmed = await this.query(COMMAND.dpi);
     const confirmedOffset = 4 + activeStage * 4;
-    const confirmedValue = this.readUint16LE(confirmed, confirmedOffset);
+    const confirmedValue = readUint16LE(confirmed, confirmedOffset);
     if (confirmedValue !== value) throw new Error(`The mouse kept ${confirmedValue} DPI instead of ${value} DPI.`);
     return confirmedValue;
   }
 
   async setPollingRate(value: number): Promise<number> {
     await this.setValue(COMMAND.polling, new Uint8Array([value & 0xff, value >> 8]));
-    const confirmed = this.readUint16LE(await this.query(COMMAND.polling), 2);
+    const confirmed = readUint16LE(await this.query(COMMAND.polling), 2);
     if (confirmed !== value) throw new Error(`The mouse kept ${confirmed} Hz instead of ${value} Hz.`);
     return confirmed;
   }
@@ -241,8 +223,8 @@ export class PulsarProHidClient {
   async setSleepTimeout(code: number): Promise<number> {
     const milliseconds = ({ 1: 10000, 3: 30000, 6: 60000, 12: 120000, 30: 300000, 60: 600000, 180: 1800000 } as Record<number, number>)[code];
     if (!milliseconds) throw new Error("Unsupported Pulsar Pro sleep timeout.");
-    await this.setValue(COMMAND.powerSaving, this.uint32LE(milliseconds));
-    return this.sleepCode(this.readUint32LE(await this.query(COMMAND.powerSaving), 2)) ?? code;
+    await this.setValue(COMMAND.powerSaving, uint32LE(milliseconds));
+    return this.sleepCode(readUint32LE(await this.query(COMMAND.powerSaving), 2)) ?? code;
   }
 
   async setDongleLed(): Promise<boolean> {
@@ -327,18 +309,6 @@ export class PulsarProHidClient {
       throw error;
     }
     return await response;
-  }
-
-  private readUint16LE(data: Uint8Array, offset: number): number {
-    return (data[offset] ?? 0) | (data[offset + 1] ?? 0) << 8;
-  }
-
-  private readUint32LE(data: Uint8Array, offset: number): number {
-    return ((data[offset] ?? 0) | (data[offset + 1] ?? 0) << 8 | (data[offset + 2] ?? 0) << 16 | (data[offset + 3] ?? 0) << 24) >>> 0;
-  }
-
-  private uint32LE(value: number): Uint8Array {
-    return new Uint8Array([value, value >>> 8, value >>> 16, value >>> 24]);
   }
 
   private sleepCode(milliseconds: number): number | null {

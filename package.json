@@ -11,6 +11,9 @@
     "check": "npm run build && npm test",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git"
+  },
   "devDependencies": {
     "typescript": "^5.8.3",
     "vite": "^6.3.5"

@@ -5,7 +5,7 @@ import {
   FINALMOUSE_COMMAND,
   FINALMOUSE_REPORT,
   type FinalmouseTelemetry,
-} from "./protocol.ts";
+} from "@openmouse/protocol/finalmouse";
 
 export const FINALMOUSE_VENDOR_ID = 0x361d;
 export const FINALMOUSE_ULX_DONGLE_PRODUCT_ID = 0x0100;

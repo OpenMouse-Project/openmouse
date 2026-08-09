@@ -6,7 +6,7 @@ import {
   decodeFinalmouseReport,
   finalmouseBatteryPercent,
   FINALMOUSE_REPORT,
-} from "./protocol.ts";
+} from "@openmouse/protocol/finalmouse";
 
 function input(command: number, payload: number[]): Uint8Array {
   return new Uint8Array([2 + payload.length, command, payload.length, ...payload]);

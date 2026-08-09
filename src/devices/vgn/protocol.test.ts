@@ -14,7 +14,7 @@ import {
   vgnParseBattery,
   vgnParseReadResponse,
   vgnReportChecksumIsValid,
-} from "./protocol.ts";
+} from "@openmouse/protocol/vgn";
 
 test("read commands match captured VGN checksums", () => {
   // Arrange
