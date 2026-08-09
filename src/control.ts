@@ -110,6 +110,7 @@ const appRoot = controlApp;
 
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 const DEFAULT_TITLE = document.title;
+const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const previewMode = import.meta.env.DEV
   ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
   : null;
@@ -1440,7 +1441,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (isAnyPreview && !activeDevice) {
     const list = document.querySelector<HTMLElement>("#sidebar-device-list");
     if (list) {
-      list.innerHTML = `<div class="device-select is-selected"><span class="device-dot"></span><span><strong>${escapeHtml(status.name)}</strong><small>${escapeHtml(status.brand)} · Preview</small></span></div>`;
+      list.innerHTML = `<div class="device-dropdown is-selected"><span class="device-dot"></span><span class="device-dropdown-copy"><select id="sidebar-device-select" aria-label="Connected device" disabled><option selected>${escapeHtml(status.name)}</option></select><small id="sidebar-device-detail">${escapeHtml(status.brand)} · Preview</small></span></div>`;
     }
   }
   if (activeDevice) {
@@ -1735,6 +1736,26 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
   renderDeviceSidebarView(all, deviceStatuses, activeDevice);
 }
 
+function deviceStorageKey(device: HIDDevice): string {
+  return [device.vendorId, device.productId, device.productName || "unknown"].join(":");
+}
+
+function storedActiveDeviceKey(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_DEVICE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberActiveDevice(device: HIDDevice): void {
+  try {
+    localStorage.setItem(ACTIVE_DEVICE_STORAGE_KEY, deviceStorageKey(device));
+  } catch {
+    // Device selection still works when storage is blocked or unavailable.
+  }
+}
+
 async function selectAuthorizedDevice(index: number): Promise<void> {
   if (settingInProgress || refreshInProgress) return;
   const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
@@ -1750,6 +1771,7 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
     const message = error instanceof Error ? error.message : "Unable to switch devices.";
     setText("#device-status", "Connection failed");
     setText("#read-status", message);
+    await renderDeviceSidebar();
   }
 }
 
@@ -1874,6 +1896,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
     await showPulsarExplorer(client);
   }
   await renderDeviceSidebar();
+  rememberActiveDevice(client.device);
   startAutomaticRefresh();
   // Always restore the sidebar action after a successful activate.
   setConnectionButtons(false, "Add device");
@@ -2075,10 +2098,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (hasActiveClient()) return;
 
       const devices = await navigator.hid?.getDevices() ?? [];
+      const preferredKey = storedActiveDeviceKey();
       const clients = listLogicalDevices(devices)
-        .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
-        .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
-        .sort((left, right) => right.score - left.score)
+        .map((device) => ({
+          client: createSupportedClient(device),
+          preferred: deviceStorageKey(device) === preferredKey,
+          score: clientSupportScore(device),
+        }))
+        .filter((entry): entry is { client: SupportedClient; preferred: boolean; score: number } => entry.client !== null)
+        .sort((left, right) => Number(right.preferred) - Number(left.preferred) || right.score - left.score)
         .map((entry) => entry.client);
       await renderDeviceSidebar(devices);
       if (clients.length === 0) continue;

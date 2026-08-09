@@ -68,15 +68,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sidebar > .build-badge { margin-top: auto; }
 .build-badge { color: var(--ghost); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em; white-space: nowrap; }
 
-.device-select { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .7rem; width: 100%; padding: .85rem; border: 1px solid #303034; border-radius: 10px; background: var(--raised); cursor: default; text-align: left; }
-.device-select strong, .device-select small { display: block; }
-.device-select strong { font-size: .85rem; font-weight: 500; }
-.device-select small { margin-top: .2rem; color: var(--muted); font-size: .68rem; }
-.sidebar-device-list { display: grid; gap: .45rem; }
-.sidebar-device-list .device-select { width: 100%; color: inherit; }
-.sidebar-device-list button.device-select { cursor: pointer; transition: border-color .18s ease, background .18s ease; }
-.sidebar-device-list button.device-select:hover { border-color: #4a4a4f; background: #1b1b1e; }
-.sidebar-device-list button.device-select.is-selected { border-color: #55555b; background: #202023; }
+.sidebar-device-list { display: block; }
+.device-dropdown { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .7rem; width: 100%; padding: .72rem .78rem; border: 1px solid #303034; border-radius: 10px; background: var(--raised); }
+.device-dropdown:focus-within { border-color: #65656b; }
+.device-dropdown-copy { display: block; min-width: 0; }
+.device-dropdown select { width: 100%; border: 0; outline: 0; background: transparent; color: var(--bright); font-size: .82rem; font-weight: 600; }
+.device-dropdown select:disabled { opacity: 1; }
+.device-dropdown option { background: #171719; color: var(--bright); }
+.device-dropdown small { display: block; margin-top: .2rem; overflow: hidden; color: var(--muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .device-dot { width: .48rem; height: .48rem; border-radius: 50%; background: #69d28d; box-shadow: 0 0 0 4px rgb(105 210 141 / 10%); }
 .device-dot.is-idle, .status-dot.is-idle { background: #5a5a5f; box-shadow: none; }
@@ -435,10 +434,10 @@ body { height: 100vh; overflow: hidden; }
 .control-shell:not(.is-empty) .sidebar-product-status .status-dot { background: #62db72; box-shadow: 0 0 0 3px rgb(98 219 114 / 9%); }
 
 .device-label { margin: .4rem .35rem .5rem; }
-.sidebar-device-list { flex: 0 0 auto; max-height: 7.5rem; overflow-y: auto; }
-.device-select { padding: .68rem .72rem; border-radius: 7px; background: #111316; }
-.device-select strong { font-size: .76rem; }
-.device-select small { font-size: .6rem; }
+.sidebar-device-list { flex: 0 0 auto; }
+.device-dropdown { padding: .64rem .68rem; border-radius: 7px; background: #111316; }
+.device-dropdown select { font-size: .74rem; }
+.device-dropdown small { font-size: .6rem; }
 .sidebar-action { margin-top: .5rem; padding: .62rem .72rem; border-radius: 6px; background: #121417; font-size: .68rem; }
 .sidebar nav { margin-top: .55rem; }
 .nav-item { padding: .58rem .7rem; border-radius: 5px; font-size: .7rem; }

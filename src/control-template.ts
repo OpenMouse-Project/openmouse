@@ -25,9 +25,9 @@ export function controlTemplate(buildLabel: string): string {
         </section>
         <div class="device-label">CONNECTED DEVICES</div>
         <div id="sidebar-device-list" class="sidebar-device-list">
-          <div class="device-select">
+          <div class="device-dropdown is-empty">
             <span class="device-dot is-idle"></span>
-            <span><strong>No device connected</strong><small>Choose a supported device</small></span>
+            <span class="device-dropdown-copy"><select id="sidebar-device-select" aria-label="Connected device" disabled><option>No device connected</option></select><small id="sidebar-device-detail">Choose a supported device</small></span>
           </div>
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
