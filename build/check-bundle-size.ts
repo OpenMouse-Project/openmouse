@@ -9,7 +9,8 @@ const BUDGET_BYTES: Record<string, number> = {
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
   // asymmetric lift-off protocol and controls, Keychron Nape Pro, and the
-  // moddoMOUSE wired/wireless config driver. Preview fixtures remain dev-only.
+  // moddoMOUSE wired/wireless config driver, plus the Teevolution Compx codec
+  // and staged Terra Pro controls. Protocol tests and previews remain unbundled.
   ".js": 340_000,
 };
 
