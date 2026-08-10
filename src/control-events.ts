@@ -59,7 +59,7 @@ export interface ControlEventHandlers {
   applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
   applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
   applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>): void;
-  applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam" | "stage", value: string | number | boolean): void;
+  applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam", value: string | boolean): void;
   // Mode and profile selection apply immediately: both are volatile navigation
   // actions, and the profiles cannot be re-read until they have taken effect.
   applyOnboardMode(mode: "Onboard" | "Host"): Promise<void>;
@@ -429,13 +429,14 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   document.querySelector<HTMLInputElement>("#lighting-color2")?.addEventListener("change", (event) => {
     handlers.applyLighting({ color2: (event.target as HTMLInputElement).value });
   });
-  document.querySelector<HTMLElement>("#ninjutso-settings")?.addEventListener("click", (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-ninjutso-setting]");
-    if (!target || target.disabled) return;
-    const setting = target.dataset.ninjutsoSetting as "system" | "hyper" | "optical" | "slam" | "stage";
-    const raw = target.dataset.ninjutsoValue ?? "";
-    const value: string | number | boolean = setting === "stage" ? Number(raw) : setting === "hyper" ? raw === "true" : raw;
-    handlers.applyNinjutsoSetting(setting, value);
+  document.querySelectorAll<HTMLElement>("[data-ninjutso-controls]").forEach((container) => {
+    container.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-ninjutso-setting]");
+      if (!target || target.disabled) return;
+      const setting = target.dataset.ninjutsoSetting as "system" | "hyper" | "optical" | "slam";
+      const raw = target.dataset.ninjutsoValue ?? "";
+      handlers.applyNinjutsoSetting(setting, setting === "hyper" ? raw === "true" : raw);
+    });
   });
   const shell = document.querySelector<HTMLElement>(".control-shell");
   const panel = document.querySelector<HTMLElement>(".control-panel");

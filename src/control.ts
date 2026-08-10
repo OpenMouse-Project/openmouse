@@ -370,8 +370,9 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   overview: ["#device-overview"],
   performance: [
     "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
-    "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']", "#lighting-card",
-    "#pulsar-advanced", "#processing-settings", "#teevolution-dpi-lighting", "#egg-filter-settings",
+    "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']",
+    "#pulsar-advanced", "#processing-settings", "#ninjutso-sensor-settings", "#ninjutso-click-settings",
+    "#teevolution-dpi-lighting", "#egg-filter-settings",
     "#egg-polling-settings", "#egg-cpi-settings",
   ],
   buttons: [
@@ -381,7 +382,7 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
   ],
 };
 const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced"]);
@@ -1231,10 +1232,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
-  const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
-  if (processingCard && processingCard.id !== "egg-filter-settings") {
-    processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
-  }
+  const processingCard = document.querySelector<HTMLElement>("#processing-settings");
   for (const [selector, hidden] of [
     ["#motion-sync-toggle", ui?.hideMotionSync === true],
     ["#angle-snapping-toggle", ui?.hideAngleSnapping === true],
@@ -1244,6 +1242,17 @@ function showStatus(deviceStatus: MouseStatus): void {
     if (!row) continue;
     row.hidden = hidden;
     row.style.display = hidden ? "none" : "";
+  }
+  if (processingCard) {
+    const processingAvailable = ui?.hideProcessingCard !== true && (
+      (status.motionSync != null && ui?.hideMotionSync !== true)
+      || (status.angleSnapping != null && ui?.hideAngleSnapping !== true)
+      || (status.rippleControl != null && ui?.hideRippleControl !== true)
+      || (status.performanceMode != null && !isDmFamily && !isEgg && !isFinalmouse)
+      || status.sensorMode != null || status.performanceDuration != null
+    );
+    processingCard.hidden = !processingAvailable;
+    processingCard.style.display = processingAvailable ? "" : "none";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
@@ -1600,6 +1609,7 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   }
   card.hidden = false;
   card.style.display = "";
+  setText("#lighting-title", lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
   const mode = lighting.mode;
   const usesColor = mode !== null && lighting.colorModes.includes(mode);
   const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
@@ -1675,19 +1685,29 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
 }
 
 function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
-  const card = document.querySelector<HTMLElement>("#ninjutso-settings");
-  if (!card) return;
-  const visible = status.brand === "Ninjutso" && Boolean(
-    status.dpiStages?.length || status.ninjutsoSystemMode || status.ninjutsoHyperClick != null
-    || status.ninjutsoOpticalEngine || status.ninjutsoSlamClick,
-  );
-  card.hidden = !visible;
-  card.style.display = visible ? "" : "none";
-  if (!visible) return;
-  const groups: Array<[string, readonly (string | number)[] | undefined, string | number | boolean | null | undefined]> = [
-    ["stage", status.dpiStages?.map((_, index) => index), status.activeDpiStage],
+  const sensorCard = document.querySelector<HTMLElement>("#ninjutso-sensor-settings");
+  const clickCard = document.querySelector<HTMLElement>("#ninjutso-click-settings");
+  const sensorVisible = status.brand === "Ninjutso" && Boolean(status.ninjutsoSystemMode || status.ninjutsoOpticalEngine);
+  const clickVisible = status.brand === "Ninjutso" && Boolean(status.ninjutsoHyperClick != null || status.ninjutsoSlamClick);
+  if (sensorCard) {
+    sensorCard.hidden = !sensorVisible;
+    sensorCard.style.display = sensorVisible ? "" : "none";
+  }
+  if (clickCard) {
+    clickCard.hidden = !clickVisible;
+    clickCard.style.display = clickVisible ? "" : "none";
+  }
+  const hyperRow = document.querySelector<HTMLElement>("#ninjutso-hyper-row");
+  const hyperAvailable = status.brand === "Ninjutso" && status.ninjutsoHyperClick != null;
+  if (hyperRow) hyperRow.hidden = !hyperAvailable;
+  const hyperToggle = document.querySelector<HTMLButtonElement>("#ninjutso-hyper-toggle");
+  if (hyperToggle && hyperAvailable) {
+    setToggleValue("#ninjutso-hyper-toggle", status.ninjutsoHyperClick);
+    hyperToggle.dataset.ninjutsoValue = String(!status.ninjutsoHyperClick);
+    hyperToggle.disabled = settingsPending;
+  }
+  const groups: Array<[string, readonly string[] | undefined, string | null | undefined]> = [
     ["system", status.ninjutsoSystemModes, status.ninjutsoSystemMode],
-    ["hyper", status.ninjutsoHyperClick === null || status.ninjutsoHyperClick === undefined ? undefined : ["false", "true"], String(status.ninjutsoHyperClick)],
     ["optical", status.ninjutsoOpticalEngine ? ["Standard", "Burst"] : undefined, status.ninjutsoOpticalEngine],
     ["slam", status.ninjutsoSlamClick ? ["Low", "Medium", "High"] : undefined, status.ninjutsoSlamClick],
   ];
@@ -1697,9 +1717,7 @@ function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): 
     const container = document.querySelector<HTMLElement>(`#ninjutso-${setting}-options`);
     if (!container || !values?.length) continue;
     container.innerHTML = values.map((value) => {
-      const label = setting === "stage" ? `${Number(value) + 1} · ${status.dpiStages?.[Number(value)]?.toLocaleString()} DPI`
-        : setting === "hyper" ? value === "true" ? "On" : "Off" : String(value);
-      return `<button type="button" data-ninjutso-setting="${setting}" data-ninjutso-value="${value}" aria-pressed="${String(value) === String(selected)}">${label}</button>`;
+      return `<button type="button" data-ninjutso-setting="${setting}" data-ninjutso-value="${value}" aria-pressed="${value === selected}">${value}</button>`;
     }).join("");
     const locked = setting === "optical" && status.ninjutsoSystemMode === "Ultra"
       || setting === "system" && status.ninjutsoSystemModes?.length === 2
@@ -3425,20 +3443,19 @@ function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "co
   });
 }
 
-function applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam" | "stage", value: string | number | boolean): void {
+function applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam", value: string | boolean): void {
   if (!hasActiveClient() || latestDeviceStatus?.brand !== "Ninjutso") return;
   const config = {
     system: ["ninjutso-system", "System mode", "ninjutsoSystemMode", "setNinjutsoSystemMode"],
     hyper: ["ninjutso-hyper", "HyperClick", "ninjutsoHyperClick", "setNinjutsoHyperClick"],
     optical: ["ninjutso-optical", "Optical Engine", "ninjutsoOpticalEngine", "setNinjutsoOpticalEngine"],
     slam: ["ninjutso-slam", "Slam-Click", "ninjutsoSlamClick", "setNinjutsoSlamClick"],
-    stage: ["ninjutso-stage", "DPI stage", "activeDpiStage", "setNinjutsoActiveDpiStage"],
   }[setting]!;
   const [key, label, field, method] = config;
   stageChange({
     key,
-    label: `${label} ${setting === "stage" ? Number(value) + 1 : String(value)}`,
-    command: `Set ${label} to ${setting === "stage" ? Number(value) + 1 : String(value)}`,
+    label: `${label} ${String(value)}`,
+    command: `Set ${label} to ${String(value)}`,
     progress: `Setting ${label}…`,
     preview: (status) => { (status as unknown as Record<string, unknown>)[field] = value; },
     apply: async () => {

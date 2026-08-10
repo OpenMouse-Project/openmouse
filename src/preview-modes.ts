@@ -22,6 +22,7 @@ export const PREVIEW_KEYS = [
   "teevolution",
   "vgn",
   "finalmouse",
+  "ninjutso",
   "logitech-legacy",
 ] as const;
 
@@ -48,6 +49,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "teevolution": return "teevolution";
     case "vgn": return "vgn";
     case "finalmouse": return "finalmouse";
+    case "ninjutso": return "ninjutso";
     case "logitech-legacy": return "logitech-legacy";
     default: return null;
   }
