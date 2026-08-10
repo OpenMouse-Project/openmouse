@@ -32,10 +32,6 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["093a:e020", "/devices/ninjutso-ten.png"],
   ["093a:ea01", "/devices/ninjutso-ten.png"],
   ["093a:eb01", "/devices/ninjutso-ten.png"],
-  // Logi Bolt receivers share 0xc548 across mice; MX Master 3S is the verified
-  // Bolt path today, so the receiver shows this shell until other Bolt models
-  // need distinct art.
-  ["046d:c548", "/devices/logitech-mx-master-3s.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
