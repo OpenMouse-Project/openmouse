@@ -28,6 +28,7 @@ import {
   type PendingChange,
 } from "./pending-changes";
 import { deviceImage } from "./ui/device-images";
+import { batteryNeedsCharging, renderBatteryIcon } from "./ui/battery-icon";
 import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
 import { renderPendingBar, setPendingBarBusy, setPendingBarStatus, setPendingBarSuppressed } from "./ui/pending-bar";
 import {
@@ -787,7 +788,8 @@ function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
 
 function batteryDetail(status: MouseStatus): string {
   const voltage = status.batteryVoltageMv ? `${(status.batteryVoltageMv / 1000).toFixed(3)} V` : null;
-  const withVoltage = (detail: string): string => voltage ? `${detail} · ${voltage}` : detail;
+  const lead = batteryNeedsCharging(status.batteryPercent, status.batteryState) ? "Needs charging" : null;
+  const withVoltage = (detail: string): string => [lead, detail, voltage].filter(Boolean).join(" · ");
   if (status.batteryPercent === null) return withVoltage(status.batteryState);
   if (status.batteryState === "Full") return withVoltage("Fully charged");
   const mode = batteryMode(status.batteryState);
@@ -1171,13 +1173,21 @@ function showStatus(deviceStatus: MouseStatus): void {
   // Always clear device-specific panels first. A status read from the previous
   // mouse may have left these visible when WebHID switches devices.
   resetDeviceSpecificPanels();
+  const hideBattery = isEgg8k
+    || (isWired && !ui?.forceShowBattery && status.batteryPercent === null);
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
-    // 8K is wired-only (no battery). Drivers may force the column via ui.forceShowBattery.
-    const hideBattery = isEgg8k
-      || (isWired && !ui?.forceShowBattery && status.batteryPercent === null);
     batterySummary.hidden = hideBattery;
     batterySummary.style.display = hideBattery ? "none" : "flex";
+  }
+  const sidebarBattery = document.querySelector<HTMLElement>("#sidebar-battery");
+  if (sidebarBattery) {
+    sidebarBattery.hidden = hideBattery || status.batteryPercent === null;
+    const sidebarIcon = document.querySelector<HTMLElement>("#sidebar-battery-icon");
+    if (sidebarIcon && !sidebarBattery.hidden) {
+      renderBatteryIcon(sidebarIcon, status.batteryPercent, status.batteryState);
+      setText("#sidebar-battery-value", `${status.batteryPercent}%`);
+    }
   }
   const overview = document.querySelector<HTMLElement>(".device-overview");
   if (overview) {
@@ -1260,6 +1270,8 @@ function showStatus(deviceStatus: MouseStatus): void {
   const dpiOutputField = document.querySelector<HTMLInputElement>("#dpi-output");
   if (dpiOutputField?.readOnly) dpiOutputField.value = `${status.dpi.toLocaleString()} DPI`;
   setText("#battery-value", battery);
+  const batteryIconSlot = document.querySelector<HTMLElement>("#battery-icon-slot");
+  if (batteryIconSlot) renderBatteryIcon(batteryIconSlot, status.batteryPercent, status.batteryState);
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.length > 1
@@ -1482,8 +1494,6 @@ function showStatus(deviceStatus: MouseStatus): void {
   } else if (!hasPendingChanges()) {
     setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
   }
-  const meter = document.querySelector<HTMLElement>("#battery-meter");
-  if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => setSelected(button, button.dataset.lod === status.liftOffDistance));

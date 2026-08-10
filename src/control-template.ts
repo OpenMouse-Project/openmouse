@@ -24,7 +24,7 @@ export function controlTemplate(buildLabel: string): string {
             <strong id="sidebar-device-title">Connected mouse</strong>
           </div>
           <article id="device-thumbnail" class="device-thumbnail" hidden><img id="device-thumbnail-image" alt="" /></article>
-          <div class="sidebar-product-status"><span class="status-dot is-idle"></span><span>Connected</span></div>
+          <div class="sidebar-product-status"><span class="status-dot is-idle"></span><span>Connected</span><span id="sidebar-battery" class="sidebar-battery" hidden><span id="sidebar-battery-icon"></span><span id="sidebar-battery-value"></span></span></div>
         </section>
         <div class="device-label">CONNECTED DEVICES</div>
         <div class="device-panel">
@@ -52,7 +52,7 @@ export function controlTemplate(buildLabel: string): string {
           <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
         </section>
         <section id="device-overview" class="device-overview device-data" role="tabpanel" aria-labelledby="workspace-tab-overview" aria-label="Device status">
-          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
+          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong class="battery-readout"><span id="battery-icon-slot"></span><span id="battery-value">—</span></strong><small id="battery-detail">Read after connection</small></article>
           <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
           <article class="summary-stat" data-pending-key="dongle-led"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" class="dongle-led-button" type="button" hidden disabled>Receiver LED</button></article>
         </section>
