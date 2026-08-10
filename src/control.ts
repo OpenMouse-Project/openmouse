@@ -378,7 +378,7 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
     "#teevolution-dpi-lighting", "#egg-filter-settings",
     "#egg-polling-settings", "#egg-cpi-settings",
   ],
-  lighting: ["#lighting-settings", "#lighting-card"],
+  lighting: ["#lighting-settings", "#lighting-tab-card"],
   buttons: [
     "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
     "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
@@ -386,7 +386,7 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
   ],
 };
 const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);
@@ -1613,7 +1613,12 @@ function showStatus(deviceStatus: MouseStatus): void {
 }
 
 function renderLighting(status: MouseStatus, settingsPending: boolean): void {
-  const card = document.querySelector<HTMLElement>("#lighting-card");
+  renderLightingCard(status, settingsPending, "lighting");
+  renderLightingCard(status, settingsPending, "lighting-tab");
+}
+
+function renderLightingCard(status: MouseStatus, settingsPending: boolean, prefix: "lighting" | "lighting-tab"): void {
+  const card = document.querySelector<HTMLElement>(`#${prefix}-card`);
   const lighting = status.lighting;
   if (!card) return;
   if (!lighting) {
@@ -1623,12 +1628,12 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   }
   card.hidden = false;
   card.style.display = "";
-  setText("#lighting-title", lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
+  setText(`#${prefix}-title`, lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
   const mode = lighting.mode;
   const usesColor = mode !== null && lighting.colorModes.includes(mode);
   const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
   const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
-  const modesContainer = document.querySelector<HTMLElement>("#lighting-modes");
+  const modesContainer = document.querySelector<HTMLElement>(`#${prefix}-modes`);
   if (modesContainer) {
     modesContainer.innerHTML = lighting.modes
       .map((candidate) => `<button type="button" data-lighting-mode="${candidate}" aria-pressed="${candidate === mode}">${candidate}</button>`)
@@ -1638,17 +1643,17 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
     setSelected(button, button.dataset.lightingMode === mode);
     button.disabled = settingsPending;
   });
-  const colorRow = document.querySelector<HTMLElement>("#lighting-color-row");
+  const colorRow = document.querySelector<HTMLElement>(`#${prefix}-color-row`);
   if (colorRow) colorRow.hidden = !usesColor;
-  const color2Field = document.querySelector<HTMLElement>("#lighting-color2-field");
+  const color2Field = document.querySelector<HTMLElement>(`#${prefix}-color2-field`);
   if (color2Field) color2Field.hidden = !usesColor2;
-  if (usesColor) setControlValue("#lighting-color", lighting.color ?? "#00ff00");
-  if (usesColor2) setControlValue("#lighting-color2", lighting.color2 ?? "#ff0000");
-  const speedRow = document.querySelector<HTMLElement>("#lighting-speed-row");
+  if (usesColor) setControlValue(`#${prefix}-color`, lighting.color ?? "#00ff00");
+  if (usesColor2) setControlValue(`#${prefix}-color2`, lighting.color2 ?? "#ff0000");
+  const speedRow = document.querySelector<HTMLElement>(`#${prefix}-speed-row`);
   if (speedRow) speedRow.hidden = !usesSpeed;
   if (usesSpeed) {
-    const speedsContainer = document.querySelector<HTMLElement>("#lighting-speeds");
-    const speedSlider = document.querySelector<HTMLInputElement>("#lighting-speed-slider");
+    const speedsContainer = document.querySelector<HTMLElement>(`#${prefix}-speeds`);
+    const speedSlider = document.querySelector<HTMLInputElement>(`#${prefix}-speed-slider`);
     if (speedsContainer) {
       speedsContainer.hidden = lighting.speeds.length > 8;
       speedsContainer.innerHTML = lighting.speeds
@@ -1670,31 +1675,31 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
       }
     }
   }
-  const brightnessRow = document.querySelector<HTMLElement>("#lighting-brightness-row");
+  const brightnessRow = document.querySelector<HTMLElement>(`#${prefix}-brightness-row`);
   const brightnessLevels = lighting.brightnessLevels ?? [];
   if (brightnessRow) brightnessRow.hidden = brightnessLevels.length === 0;
-  const brightnessContainer = document.querySelector<HTMLElement>("#lighting-brightness-levels");
+  const brightnessContainer = document.querySelector<HTMLElement>(`#${prefix}-brightness-levels`);
   if (brightnessContainer && brightnessLevels.length) {
     brightnessContainer.innerHTML = brightnessLevels
       .map((level) => `<button type="button" data-lighting-brightness="${level}" aria-pressed="${level === lighting.brightness}">${level}%</button>`)
       .join("");
     brightnessContainer.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
   }
-  const pending = document.querySelector<HTMLElement>("#lighting-pending");
+  const pending = document.querySelector<HTMLElement>(`#${prefix}-pending`);
   if (pending) pending.textContent = isPendingChange("lighting")
     ? `Staged: ${describeLighting(status.lighting ?? lighting)}`
     : "Choose an effect";
-  const writeOnlyBadge = document.querySelector<HTMLElement>("#lighting-write-only-badge");
+  const writeOnlyBadge = document.querySelector<HTMLElement>(`#${prefix}-write-only-badge`);
   if (writeOnlyBadge) writeOnlyBadge.hidden = !lighting.writeOnly;
-  const note = document.querySelector<HTMLElement>("#lighting-note");
+  const note = document.querySelector<HTMLElement>(`#${prefix}-note`);
   if (note) {
     note.textContent = lighting.writeOnly
       ? "The mouse cannot report its current effect, so this shows the last value written."
       : `Picks the ${lighting.zone} light effect.`;
   }
-  const colorInput = document.querySelector<HTMLInputElement>("#lighting-color");
+  const colorInput = document.querySelector<HTMLInputElement>(`#${prefix}-color`);
   if (colorInput) colorInput.disabled = settingsPending || !usesColor;
-  const color2Input = document.querySelector<HTMLInputElement>("#lighting-color2");
+  const color2Input = document.querySelector<HTMLInputElement>(`#${prefix}-color2`);
   if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
   syncColorPickers();
 }

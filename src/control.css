@@ -176,6 +176,8 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .lighting-modes button { padding-inline: .35rem; }
 .lighting-color-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
 .lighting-color-field { display: flex; flex-direction: column; gap: .4rem; color: var(--faint); font-family: var(--font-mono); font-size: .58rem; letter-spacing: .07em; text-transform: uppercase; }
+.lighting-color-field input[type="color"] { width: 5rem; height: 2rem; box-sizing: border-box; padding: .18rem; border: 1px solid #303034; border-radius: 7px; background: var(--input); cursor: pointer; }
+.lighting-color-field input[type="color"]:disabled { cursor: default; opacity: .45; }
 .lighting-color-picker { display: grid; gap: .55rem; width: 13.75rem; }
 .lighting-color-panel { position: relative; overflow: hidden; border: 1px solid #303034; border-radius: 9px; cursor: crosshair; touch-action: none; }
 .lighting-color-panel canvas { display: block; width: 100%; aspect-ratio: 22 / 15; }

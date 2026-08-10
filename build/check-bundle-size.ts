@@ -22,8 +22,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // multi-stage DPI selection, and Sora V3 receiver lighting read/write UI.
   // Raised from 425 kB for the in-app lighting colour picker: pointer-event
   // binding, canvas-drawn SV/hue surfaces, and hex/swatch sync.
+  // Raised from 427 kB for the second, dedicated Lighting-tab card: the
+  // render path now drives both the Advanced-tab card and the new tab.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 427_000,
+  ".js": 429_000,
 };
 
 const ASSETS = join("dist", "assets");
