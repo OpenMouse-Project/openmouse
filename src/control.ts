@@ -535,6 +535,7 @@ function renderControl(): void {
     applyGamingSurfaceMode,
     applyLightforceSwitchMode,
     applyLighting,
+    applyNinjutsoSetting,
     flashPendingChanges,
     revertPendingChanges,
     applyOnboardMode,
@@ -1553,6 +1554,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     button.disabled = settingsPending || !status.lightforceSwitchMode;
   });
   renderLighting(status, settingsPending);
+  renderNinjutsoSettings(status, settingsPending);
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     setSelected(button, Number(button.dataset.dpi) === status.dpi);
     button.disabled = settingsPending;
@@ -1622,7 +1624,9 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   if (speedRow) speedRow.hidden = !usesSpeed;
   if (usesSpeed) {
     const speedsContainer = document.querySelector<HTMLElement>("#lighting-speeds");
+    const speedSlider = document.querySelector<HTMLInputElement>("#lighting-speed-slider");
     if (speedsContainer) {
+      speedsContainer.hidden = lighting.speeds.length > 8;
       speedsContainer.innerHTML = lighting.speeds
         .map((speed) => `<button type="button" data-lighting-speed="${speed}" aria-pressed="${speed === lighting.speed}">${speed}</button>`)
         .join("");
@@ -1631,6 +1635,26 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
       setSelected(button, Number(button.dataset.lightingSpeed) === lighting.speed);
       button.disabled = settingsPending;
     });
+    if (speedSlider) {
+      speedSlider.hidden = lighting.speeds.length <= 8;
+      if (lighting.speeds.length > 8) {
+        speedSlider.min = String(Math.min(...lighting.speeds));
+        speedSlider.max = String(Math.max(...lighting.speeds));
+        speedSlider.step = "1";
+        speedSlider.value = String(lighting.speed ?? lighting.speeds[0] ?? 0);
+        speedSlider.disabled = settingsPending;
+      }
+    }
+  }
+  const brightnessRow = document.querySelector<HTMLElement>("#lighting-brightness-row");
+  const brightnessLevels = lighting.brightnessLevels ?? [];
+  if (brightnessRow) brightnessRow.hidden = brightnessLevels.length === 0;
+  const brightnessContainer = document.querySelector<HTMLElement>("#lighting-brightness-levels");
+  if (brightnessContainer && brightnessLevels.length) {
+    brightnessContainer.innerHTML = brightnessLevels
+      .map((level) => `<button type="button" data-lighting-brightness="${level}" aria-pressed="${level === lighting.brightness}">${level}%</button>`)
+      .join("");
+    brightnessContainer.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
   }
   const pending = document.querySelector<HTMLElement>("#lighting-pending");
   if (pending) pending.textContent = isPendingChange("lighting")
@@ -1648,6 +1672,37 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   if (colorInput) colorInput.disabled = settingsPending || !usesColor;
   const color2Input = document.querySelector<HTMLInputElement>("#lighting-color2");
   if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
+}
+
+function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
+  const card = document.querySelector<HTMLElement>("#ninjutso-settings");
+  if (!card) return;
+  const visible = status.brand === "Ninjutso" && Boolean(
+    status.dpiStages?.length || status.ninjutsoSystemMode || status.ninjutsoHyperClick != null
+    || status.ninjutsoOpticalEngine || status.ninjutsoSlamClick,
+  );
+  card.hidden = !visible;
+  card.style.display = visible ? "" : "none";
+  if (!visible) return;
+  const groups: Array<[string, readonly (string | number)[] | undefined, string | number | boolean | null | undefined]> = [
+    ["stage", status.dpiStages?.map((_, index) => index), status.activeDpiStage],
+    ["system", status.ninjutsoSystemModes, status.ninjutsoSystemMode],
+    ["hyper", status.ninjutsoHyperClick === null || status.ninjutsoHyperClick === undefined ? undefined : ["false", "true"], String(status.ninjutsoHyperClick)],
+    ["optical", status.ninjutsoOpticalEngine ? ["Standard", "Burst"] : undefined, status.ninjutsoOpticalEngine],
+    ["slam", status.ninjutsoSlamClick ? ["Low", "Medium", "High"] : undefined, status.ninjutsoSlamClick],
+  ];
+  for (const [setting, values, selected] of groups) {
+    const row = document.querySelector<HTMLElement>(`#ninjutso-${setting}-row`);
+    if (row) row.hidden = !values?.length;
+    const container = document.querySelector<HTMLElement>(`#ninjutso-${setting}-options`);
+    if (!container || !values?.length) continue;
+    container.innerHTML = values.map((value) => {
+      const label = setting === "stage" ? `${Number(value) + 1} · ${status.dpiStages?.[Number(value)]?.toLocaleString()} DPI`
+        : setting === "hyper" ? value === "true" ? "On" : "Off" : String(value);
+      return `<button type="button" data-ninjutso-setting="${setting}" data-ninjutso-value="${value}" aria-pressed="${String(value) === String(selected)}">${label}</button>`;
+    }).join("");
+    container.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
+  }
 }
 
 function renderLogitechAnalogButtonSettings(status: MouseStatus): void {
@@ -3330,6 +3385,7 @@ function describeLighting(lighting: MouseLighting): string {
   if (lighting.colorModes.includes(lighting.mode) && lighting.color) parts.push(lighting.color.toUpperCase());
   if (lighting.dualColorModes.includes(lighting.mode) && lighting.color2) parts.push(lighting.color2.toUpperCase());
   if (lighting.reactiveModes.includes(lighting.mode) && lighting.speed !== null) parts.push(`speed ${lighting.speed}`);
+  if (lighting.brightness != null) parts.push(`${lighting.brightness}%`);
   return parts.join(" · ");
 }
 
@@ -3342,7 +3398,7 @@ function lightingCommand(lighting: MouseLighting): string {
  * `writeOnly`, in which case the mouse cannot report the effect back and the
  * preview is the only source of the current value.
  */
-function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed">>): void {
+function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>): void {
   if (!hasActiveClient() || !latestDeviceStatus?.lighting) {
     setText("#read-status", "Lighting is not available for this mouse.");
     return;
@@ -3362,6 +3418,29 @@ function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "co
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);
+    },
+  });
+}
+
+function applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam" | "stage", value: string | number | boolean): void {
+  if (!hasActiveClient() || latestDeviceStatus?.brand !== "Ninjutso") return;
+  const config = {
+    system: ["ninjutso-system", "System mode", "ninjutsoSystemMode", "setNinjutsoSystemMode"],
+    hyper: ["ninjutso-hyper", "HyperClick", "ninjutsoHyperClick", "setNinjutsoHyperClick"],
+    optical: ["ninjutso-optical", "Optical Engine", "ninjutsoOpticalEngine", "setNinjutsoOpticalEngine"],
+    slam: ["ninjutso-slam", "Slam-Click", "ninjutsoSlamClick", "setNinjutsoSlamClick"],
+    stage: ["ninjutso-stage", "DPI stage", "activeDpiStage", "setNinjutsoActiveDpiStage"],
+  }[setting]!;
+  const [key, label, field, method] = config;
+  stageChange({
+    key,
+    label: `${label} ${setting === "stage" ? Number(value) + 1 : String(value)}`,
+    command: `Set ${label} to ${setting === "stage" ? Number(value) + 1 : String(value)}`,
+    progress: `Setting ${label}…`,
+    preview: (status) => { (status as unknown as Record<string, unknown>)[field] = value; },
+    apply: async () => {
+      const client = requireClientMethod(method, label) as unknown as Record<string, (next: never) => Promise<unknown>>;
+      await client[method]!(value as never);
     },
   });
 }
