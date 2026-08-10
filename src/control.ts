@@ -1701,7 +1701,10 @@ function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): 
         : setting === "hyper" ? value === "true" ? "On" : "Off" : String(value);
       return `<button type="button" data-ninjutso-setting="${setting}" data-ninjutso-value="${value}" aria-pressed="${String(value) === String(selected)}">${label}</button>`;
     }).join("");
-    container.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
+    const locked = setting === "optical" && status.ninjutsoSystemMode === "Ultra"
+      || setting === "system" && status.ninjutsoSystemModes?.length === 2
+        && (status.pollingRateHz > 1000 || status.connectionType === "Wired");
+    container.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending || locked);
   }
 }
 
