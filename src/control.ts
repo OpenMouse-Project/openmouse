@@ -91,6 +91,7 @@ import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
 import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
 import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
+import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
 import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
 import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
@@ -2133,6 +2134,21 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   }
 
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
+  const nativeOnly = devices.find((device) => {
+    const product = RAZER_PRODUCTS.get(device.productId) as { nativeOnly?: boolean } | undefined;
+    return product?.nativeOnly === true;
+  });
+  if (nativeOnly) {
+    // A nativeOnly model (e.g. DeathAdder V4 Pro) moves its control channel to
+    // a collection the browser refuses to expose, so the picker filters should
+    // not offer it at all. If one was granted anyway, say why it cannot work.
+    const product = RAZER_PRODUCTS.get(nativeOnly.productId);
+    throw new Error(
+      `The ${product?.model ?? "mouse"} cannot be read in the browser: its control channel `
+      + "sits on a protected HID collection. Razer only exposes it through the desktop "
+      + "Synapse app, so this mouse needs a native client.",
+    );
+  }
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
     + "Pick a vendor control interface (not a plain boot mouse). "
