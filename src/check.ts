@@ -34,6 +34,12 @@ const BRANDS: Record<number, string> = {
 // OpenMouse-supported brands (driver exists in the control app)
 const OPENMOUSE_SUPPORTED = new Set([0x046D, 0x3710, 0x3367, 0x36A7, 0x373E, 0x3554, 0x373B, 0x361D, 0x3434, 0x2FE3, 0x1915]);
 
+// Safety: skip raw feature-report probing for these vendors.
+// Endgame Gear (0x3367): OP1 8K has no firmware guards — unrecognised
+// feature-report bytes accidentally triggered a bootloader reset in testing.
+// The OpenMouse driver handles these devices through its own safe protocol.
+const SKIP_FEATURE_PROBE = new Set([0x3367]);
+
 // Broad filters — vendorId only so all interfaces appear
 const SCAN_FILTERS: HIDDeviceFilter[] = Object.keys(BRANDS).map((vid) => ({
   vendorId: Number(vid),
@@ -217,16 +223,22 @@ async function scanDevices(devices: HIDDevice[]): Promise<DeviceResult[]> {
 
     // Generic feature report probe (non-Razer, if opened)
     if (opened && !isRazer && verdict !== "blocked") {
-      const vendorCollections = device.collections.filter((c) => c.usagePage >= 0xFF00 && c.featureReports.length > 0);
-      if (vendorCollections.length > 0) {
-        const reportId = vendorCollections[0].featureReports[0].reportId;
-        try {
-          await device.receiveFeatureReport(reportId);
-          verdict = "full";
-          verdictNote = "Feature report readable on vendor interface";
-        } catch {
-          verdict = "partial";
-          verdictNote = "Vendor interface accessible but feature report read failed";
+      if (SKIP_FEATURE_PROBE.has(vendorId)) {
+        // No raw feature-report probing — this vendor's firmware has no safety
+        // guards and unrecognised bytes can corrupt device state.
+        verdictNote = `${brand} — interface accessible (probe skipped for safety)`;
+      } else {
+        const vendorCollections = device.collections.filter((c) => c.usagePage >= 0xFF00 && c.featureReports.length > 0);
+        if (vendorCollections.length > 0) {
+          const reportId = vendorCollections[0].featureReports[0].reportId;
+          try {
+            await device.receiveFeatureReport(reportId);
+            verdict = "full";
+            verdictNote = "Feature report readable on vendor interface";
+          } catch {
+            verdict = "partial";
+            verdictNote = "Vendor interface accessible but feature report read failed";
+          }
         }
       }
     }
