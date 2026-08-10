@@ -16,6 +16,22 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1978", "/devices/endgame-gear-op1-8k.png"],
+  // NinjaForce exposes separate wired and receiver ids for Sora V2, Sora V3,
+  // and the TEN family. Receiver variants show the paired mouse artwork.
+  ["1915:ae11", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae12", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae13", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae14", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae15", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae16", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae1c", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae8a", "/devices/ninjutso-sora-v2.png"],
+  ["1915:ae8c", "/devices/ninjutso-sora-v2.png"],
+  ["093a:e010", "/devices/ninjutso-sora-v3.png"],
+  ["093a:eb02", "/devices/ninjutso-sora-v3.png"],
+  ["093a:e020", "/devices/ninjutso-ten.png"],
+  ["093a:ea01", "/devices/ninjutso-ten.png"],
+  ["093a:eb01", "/devices/ninjutso-ten.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {

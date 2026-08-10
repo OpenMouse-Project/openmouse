@@ -92,6 +92,7 @@ import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid
 import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
 import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
 import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
+import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
@@ -123,7 +124,7 @@ let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
-let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | null = null;
+let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
 let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
@@ -1159,7 +1160,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || activeDmClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
   const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
   const isRazer = ui?.family === "razer" || activeRazerClient !== null;
   const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
@@ -1213,7 +1214,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
-    if (element) element.hidden = isEgg || isFinalmouse;
+    if (element) element.hidden = isEgg || isFinalmouse || (selector === "#sleep-settings" && ui?.hideSleepCard === true);
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
@@ -1232,6 +1233,15 @@ function showStatus(deviceStatus: MouseStatus): void {
   const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
   if (processingCard && processingCard.id !== "egg-filter-settings") {
     processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
+  }
+  for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+    const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+    if (!row) continue;
+    const hidden = selector === "#angle-snapping-toggle"
+      ? ui?.hideAngleSnapping === true
+      : ui?.hideRippleControl === true;
+    row.hidden = hidden;
+    row.style.display = hidden ? "none" : "";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
@@ -1803,7 +1813,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient || client instanceof AtkHidClient) {
+  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient || client instanceof AtkHidClient || client instanceof NinjutsoHidClient) {
     activeDmClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
