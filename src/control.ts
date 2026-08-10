@@ -280,7 +280,7 @@ function renderControl(): void {
         </div>
         <button id="connect-button" class="sidebar-action" type="button">Add device</button>
         <button id="interface-settings-button" class="sidebar-action interface-settings-button" type="button">Interface settings</button>
-        <div class="sidebar-footer"><span>WebHID device control</span><a href="/">Back to website</a></div>
+        <div class="sidebar-footer"><span>WebHID device control</span><a href="/check.html">Mouse Check</a><a href="/">Back to website</a></div>
       </aside>
 
       <main class="control-panel" style="position:relative;overflow-y:auto">
