@@ -16,8 +16,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised from 390 kB for the Ninjutso NinjaForce integration: Sora V2 uses
   // the legacy settings-block protocol, while Sora V3 and TEN use the current
   // command protocol. No framework or runtime dependency was added.
+  // Raised from 410 kB for capability-gated NinjaForce performance controls,
+  // multi-stage DPI selection, and Sora V3 receiver lighting read/write UI.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 410_000,
+  ".js": 425_000,
 };
 
 const ASSETS = join("dist", "assets");

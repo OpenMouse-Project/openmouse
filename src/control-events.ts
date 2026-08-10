@@ -58,7 +58,8 @@ export interface ControlEventHandlers {
   capLandingToLiftOff(): void;
   applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
   applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
-  applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed">>): void;
+  applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>): void;
+  applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam", value: string | boolean): void;
   // Mode and profile selection apply immediately: both are volatile navigation
   // actions, and the profiles cannot be re-read until they have taken effect.
   applyOnboardMode(mode: "Onboard" | "Host"): Promise<void>;
@@ -415,11 +416,27 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-speed]");
     if (target && !target.disabled) handlers.applyLighting({ speed: Number(target.dataset.lightingSpeed) });
   });
+  document.querySelector<HTMLInputElement>("#lighting-speed-slider")?.addEventListener("change", (event) => {
+    handlers.applyLighting({ speed: Number((event.target as HTMLInputElement).value) });
+  });
+  document.querySelector<HTMLElement>("#lighting-brightness-levels")?.addEventListener("click", (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-brightness]");
+    if (target && !target.disabled) handlers.applyLighting({ brightness: Number(target.dataset.lightingBrightness) });
+  });
   document.querySelector<HTMLInputElement>("#lighting-color")?.addEventListener("change", (event) => {
     handlers.applyLighting({ color: (event.target as HTMLInputElement).value });
   });
   document.querySelector<HTMLInputElement>("#lighting-color2")?.addEventListener("change", (event) => {
     handlers.applyLighting({ color2: (event.target as HTMLInputElement).value });
+  });
+  document.querySelectorAll<HTMLElement>("[data-ninjutso-controls]").forEach((container) => {
+    container.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-ninjutso-setting]");
+      if (!target || target.disabled) return;
+      const setting = target.dataset.ninjutsoSetting as "system" | "hyper" | "optical" | "slam";
+      const raw = target.dataset.ninjutsoValue ?? "";
+      handlers.applyNinjutsoSetting(setting, setting === "hyper" ? raw === "true" : raw);
+    });
   });
   const shell = document.querySelector<HTMLElement>(".control-shell");
   const panel = document.querySelector<HTMLElement>(".control-panel");
