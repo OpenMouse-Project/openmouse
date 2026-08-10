@@ -1,6 +1,6 @@
 export interface BrowserEnvironment {
   hasWebHid: boolean;
-  touchCapable: boolean;
+  handheld: boolean;
   secureContext: boolean;
   chromium: boolean;
 }
@@ -12,7 +12,7 @@ export interface UnsupportedNotice {
 
 export function unsupportedNotice(env: BrowserEnvironment): UnsupportedNotice | null {
   if (env.hasWebHid) return null;
-  if (env.touchCapable) {
+  if (env.handheld) {
     return {
       headline: "Use a desktop.",
       detail: "OpenMouse cannot reach your mouse from a phone or tablet.",

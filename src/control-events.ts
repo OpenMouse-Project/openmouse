@@ -97,9 +97,9 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   };
   onClick("#connect-button", showDevice(() => void handlers.connect()));
   onClick("#empty-connect-button", showDevice(() => void handlers.connect()));
-  document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("change", (event) => {
-    const select = (event.target as HTMLElement).closest<HTMLSelectElement>("#sidebar-device-select");
-    if (select?.value) showDevice(() => void handlers.selectAuthorizedDevice(Number(select.value)))();
+  document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-device-index]");
+    if (row?.dataset.deviceIndex) showDevice(() => void handlers.selectAuthorizedDevice(Number(row.dataset.deviceIndex)))();
   });
   onClick("#pending-flash", () => void handlers.flashPendingChanges());
   onClick("#pending-revert", handlers.revertPendingChanges);

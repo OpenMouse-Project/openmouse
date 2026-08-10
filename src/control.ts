@@ -1452,7 +1452,7 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (isAnyPreview && !activeDevice) {
     const list = document.querySelector<HTMLElement>("#sidebar-device-list");
     if (list) {
-      list.innerHTML = `<div class="device-dropdown is-selected"><span class="device-dot"></span><span class="device-dropdown-copy"><select id="sidebar-device-select" aria-label="Connected device" disabled><option selected>${escapeHtml(status.name)}</option></select><small id="sidebar-device-detail">${escapeHtml(status.brand)} · Preview</small></span></div>`;
+      list.innerHTML = `<div class="device-row is-selected"><span class="device-dot"></span><span class="device-row-copy"><strong>${escapeHtml(status.name)}</strong><small>${escapeHtml(status.brand)} · Preview</small></span></div>`;
     }
   }
   if (activeDevice) {
@@ -2091,10 +2091,7 @@ async function connect(): Promise<void> {
 
 async function reconnectAuthorizedDevice(): Promise<void> {
   if (hasActiveClient() || reconnectInFlight) return;
-  const button = document.querySelector<HTMLButtonElement>("#connect-button");
-  if (!button) return;
   reconnectInFlight = true;
-  setConnectionButtons(true, "Reconnecting…");
 
   let lastError: Error | null = null;
   try {
@@ -2141,8 +2138,6 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     }
   } finally {
     reconnectInFlight = false;
-    // Always restore the button — previously success left "Reconnecting…" forever.
-    setConnectionButtons(false, "Add device");
   }
 }
 
@@ -3914,7 +3909,7 @@ function isChromium(): boolean {
 
 const notice = unsupportedNotice({
   hasWebHid: Boolean(navigator.hid),
-  touchCapable: navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches,
+  handheld: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
   secureContext: window.isSecureContext,
   chromium: isChromium(),
 });

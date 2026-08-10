@@ -13,8 +13,12 @@ export function setControlValue(selector: string, value: number | string | null 
 export function setToggleValue(selector: string, value: boolean | null | undefined): void {
   const control = document.querySelector<HTMLButtonElement>(selector);
   if (!control) return;
-  control.disabled = value === null || value === undefined;
-  if (control.disabled) {
+  const unsupported = value === null || value === undefined;
+  control.disabled = unsupported;
+  const rowLabel = control.closest(".switch-row")?.querySelector("span")?.textContent?.trim();
+  if (rowLabel) control.setAttribute("aria-label", unsupported ? `${rowLabel}, unavailable on this mouse` : rowLabel);
+  if (unsupported) {
+    control.setAttribute("aria-checked", "false");
     control.textContent = "N/A";
     control.style.background = "#202023";
     control.style.borderColor = "#3a3a3f";

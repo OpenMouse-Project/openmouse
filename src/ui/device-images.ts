@@ -39,9 +39,10 @@ function deviceKey(device: HIDDevice): string {
   return `${hex(device.vendorId)}:${hex(device.productId)}`;
 }
 
-export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string | null {
+export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
-  return /\bop1\s*8k\b/i.test(displayName) ? "/devices/endgame-gear-op1-8k.png" : null;
+  if (/\bop1\s*8k\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
+  return "/devices/unknown-device.png";
 }
