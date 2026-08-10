@@ -31,3 +31,7 @@ before including it in a public release package.
 `endgame-gear-op1-8k.png` was supplied from an Overclockers UK product-image
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
+
+`logitech-mx-master-3s.png` was supplied from Logitech's product CDN (MX Master
+3S Bluetooth Edition graphite top view). Confirm redistribution terms before
+including it in a public release package.
