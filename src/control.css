@@ -174,10 +174,21 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .rate-options { grid-template-columns: repeat(4, 1fr); }
 .lighting-modes { grid-template-columns: repeat(auto-fill, minmax(5.75rem, 1fr)); }
 .lighting-modes button { padding-inline: .35rem; }
-.lighting-color-row { display: flex; gap: 1rem; margin-top: 1rem; }
-.lighting-color-field { display: flex; flex-direction: column; gap: .3rem; color: var(--faint); font-family: var(--font-mono); font-size: .58rem; letter-spacing: .07em; text-transform: uppercase; }
-.lighting-color-field input[type="color"] { width: 5rem; height: 2rem; box-sizing: border-box; padding: .18rem; border: 1px solid #303034; border-radius: 7px; background: var(--input); cursor: pointer; }
-.lighting-color-field input[type="color"]:disabled { cursor: default; opacity: .45; }
+.lighting-color-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+.lighting-color-field { display: flex; flex-direction: column; gap: .4rem; color: var(--faint); font-family: var(--font-mono); font-size: .58rem; letter-spacing: .07em; text-transform: uppercase; }
+.lighting-color-picker { display: grid; gap: .55rem; width: 13.75rem; }
+.lighting-color-panel { position: relative; overflow: hidden; border: 1px solid #303034; border-radius: 9px; cursor: crosshair; touch-action: none; }
+.lighting-color-panel canvas { display: block; width: 100%; aspect-ratio: 22 / 15; }
+.lighting-sv-thumb { position: absolute; width: .95rem; height: .95rem; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgb(0 0 0 / 55%), 0 1px 5px rgb(0 0 0 / 4%); pointer-events: none; transform: translate(-50%, -50%); }
+.lighting-hue-bar { position: relative; overflow: hidden; border: 1px solid #303034; border-radius: 999px; cursor: crosshair; touch-action: none; }
+.lighting-hue-bar canvas { display: block; width: 100%; aspect-ratio: 110 / 7; }
+.lighting-hue-thumb { position: absolute; top: 50%; width: .95rem; height: .95rem; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgb(0 0 0 / 55%), 0 1px 5px rgb(0 0 0 / 4%); pointer-events: none; transform: translate(-50%, -50%); }
+.lighting-color-actions { display: flex; align-items: center; gap: .5rem; }
+.lighting-color-swatch { width: 1.6rem; height: 1.6rem; flex: 0 0 auto; border: 1px solid #3b3b40; border-radius: 8px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%); }
+.lighting-color-hex { width: 5.75rem; box-sizing: border-box; padding: .34rem .4rem; border: 1px solid #303034; border-radius: 7px; background: #18181b; color: #e6e6ea; font-family: var(--font-mono); font-size: .68rem; }
+.lighting-color-hex:hover { border-color: #66666b; }
+.lighting-color-hex:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+.lighting-color-picker.is-disabled { opacity: .45; pointer-events: none; }
 .lighting-speed-row { margin-top: 1rem; }
 .lighting-speed-row .segmented { grid-template-columns: repeat(4, 1fr); max-width: 15rem; }
 
@@ -551,13 +562,14 @@ body { height: 100vh; overflow: hidden; }
 .workspace-tab-empty small { display: block; margin-top: .45rem; color: #777c82; font-size: .64rem; }
 
 #performance-settings { order: 3; }
-#logitech-onboard { order: 4; }
-#logitech-device-details { order: 5; }
-#logitech-analog-button-settings { order: 6; }
-#pulsar-advanced { order: 7; }
-.testing-note { order: 8; }
-#device-debug-details { order: 9; }
-#interface-settings-page { order: 10; }
+#lighting-settings { order: 4; }
+#logitech-onboard { order: 5; }
+#logitech-device-details { order: 6; }
+#logitech-analog-button-settings { order: 7; }
+#pulsar-advanced { order: 8; }
+.testing-note { order: 9; }
+#device-debug-details { order: 10; }
+#interface-settings-page { order: 11; }
 
 .control-shell .settings-grid {
   display: grid;

@@ -3,6 +3,7 @@ import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./batt
 import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
 import { controlTemplate } from "./control-template";
 import { bindControlEvents } from "./control-events";
+import { initColorPickers, syncColorPickers } from "./ui/color-picker";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -365,9 +366,9 @@ function renderStagedMarkers(): void {
   });
 }
 
-type WorkspaceTab = "overview" | "performance" | "buttons" | "profiles" | "advanced";
+type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced";
 
-const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "buttons", "profiles", "advanced"];
+const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "lighting", "buttons", "profiles", "advanced"];
 const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   overview: ["#device-overview"],
   performance: [
@@ -377,6 +378,7 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
     "#teevolution-dpi-lighting", "#egg-filter-settings",
     "#egg-polling-settings", "#egg-cpi-settings",
   ],
+  lighting: ["#lighting-settings", "#lighting-card"],
   buttons: [
     "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
     "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
@@ -384,10 +386,10 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#finalmouse-settings", ".testing-note", "#device-debug-details",
   ],
 };
-const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced"]);
+const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);
 let activeWorkspaceTab: WorkspaceTab = "performance";
 
 function workspaceElements(selectors: readonly string[]): HTMLElement[] {
@@ -558,6 +560,7 @@ function renderControl(): void {
     toggleOnboardProfileEnabled,
     reloadOnboardProfiles,
   });
+  initColorPickers();
   bindWorkspaceTabs();
   onPendingChanges(renderPendingBar);
   onPendingChanges(() => {
@@ -1693,6 +1696,7 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   if (colorInput) colorInput.disabled = settingsPending || !usesColor;
   const color2Input = document.querySelector<HTMLInputElement>("#lighting-color2");
   if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
+  syncColorPickers();
 }
 
 function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
@@ -3456,7 +3460,7 @@ function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "co
     command: lightingCommand(staged),
     progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
     preview: (status) => {
-      if (status.lighting) status.lighting = { ...status.lighting, ...patch } as MouseLighting;
+      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);
