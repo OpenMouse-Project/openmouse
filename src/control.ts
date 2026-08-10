@@ -1234,12 +1234,13 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (processingCard && processingCard.id !== "egg-filter-settings") {
     processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
   }
-  for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+  for (const [selector, hidden] of [
+    ["#motion-sync-toggle", ui?.hideMotionSync === true],
+    ["#angle-snapping-toggle", ui?.hideAngleSnapping === true],
+    ["#ripple-control-toggle", ui?.hideRippleControl === true],
+  ] as const) {
     const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
     if (!row) continue;
-    const hidden = selector === "#angle-snapping-toggle"
-      ? ui?.hideAngleSnapping === true
-      : ui?.hideRippleControl === true;
     row.hidden = hidden;
     row.style.display = hidden ? "none" : "";
   }
