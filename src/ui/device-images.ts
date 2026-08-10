@@ -32,6 +32,11 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["093a:e020", "/devices/ninjutso-ten.png"],
   ["093a:ea01", "/devices/ninjutso-ten.png"],
   ["093a:eb01", "/devices/ninjutso-ten.png"],
+  // Teevolution Terra Pro wired / receiver Compx transports.
+  ["3554:f520", "/devices/teevolution-terra-pro.png"],
+  ["3554:f522", "/devices/teevolution-terra-pro.png"],
+  ["3554:f523", "/devices/teevolution-terra-pro.png"],
+  ["3554:f5bb", "/devices/teevolution-terra-pro.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {

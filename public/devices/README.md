@@ -31,3 +31,7 @@ before including it in a public release package.
 `endgame-gear-op1-8k.png` was supplied from an Overclockers UK product-image
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
+
+`teevolution-terra-pro.png` was supplied from Teevolution's Terra PRO Shopify
+CDN product render. Confirm redistribution terms before including it in a
+public release package.
