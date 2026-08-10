@@ -1977,13 +1977,17 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof KeychronHidClient || client instanceof ModdoHidClient) {
-    if (client instanceof ModdoHidClient) {
-      activeModdoClient = client;
-      await client.open();
-    } else {
-      activeKeychronClient = client;
-    }
+  } else if (client instanceof KeychronHidClient) {
+    activeKeychronClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof ModdoHidClient) {
+    activeModdoClient = client;
+    await client.open();
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
