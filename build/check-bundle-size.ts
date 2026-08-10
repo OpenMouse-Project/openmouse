@@ -13,8 +13,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // asymmetric lift-off protocol and controls, Keychron Nape Pro, and the
   // moddoMOUSE wired/wireless config driver, plus the Teevolution Compx codec
   // and staged Terra Pro controls, plus Logi Bolt / MX Master 3S transport.
+  // Raised from 390 kB for the Ninjutso NinjaForce integration: Sora V2 uses
+  // the legacy settings-block protocol, while Sora V3 and TEN use the current
+  // command protocol. No framework or runtime dependency was added.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 390_000,
+  ".js": 410_000,
 };
 
 const ASSETS = join("dist", "assets");
