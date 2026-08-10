@@ -6,7 +6,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // product panel, status strip, section tabs, stacked cards, responsive
   // layout, and fixed apply bar are all implemented in the existing CSS
   // bundle without adding a UI framework or runtime dependency.
-  ".css": 54_000,
+  // Raised from 54 kB for the in-app lighting colour picker: the SV panel,
+  // hue bar, drag thumbs, swatch, and hex field in the dedicated Lighting tab.
+  ".css": 55_500,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
@@ -18,8 +20,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // command protocol. No framework or runtime dependency was added.
   // Raised from 410 kB for capability-gated NinjaForce performance controls,
   // multi-stage DPI selection, and Sora V3 receiver lighting read/write UI.
+  // Raised from 425 kB for the in-app lighting colour picker: pointer-event
+  // binding, canvas-drawn SV/hue surfaces, and hex/swatch sync.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 425_000,
+  ".js": 427_000,
 };
 
 const ASSETS = join("dist", "assets");
