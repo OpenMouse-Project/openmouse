@@ -31,3 +31,7 @@ before including it in a public release package.
 `endgame-gear-op1-8k.png` was supplied from an Overclockers UK product-image
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
+
+`razer-viper-v2-pro.png` was supplied from Razer's support FAQ device-layout
+asset (`dl.razerzone.com/src/6048-1-en-v10.png`). Ideally replace with a higher-res one if found. Confirm redistribution terms before including it in a public
+release package.
