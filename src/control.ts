@@ -90,6 +90,7 @@ import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pr
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
+import { RazerCobraHidClient } from "@openmouse/protocol/drivers/razer/cobra-hid";
 import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
 import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
@@ -129,7 +130,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
-let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | null = null;
+let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
@@ -1949,7 +1950,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient) {
+  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient || client instanceof RazerCobraHidClient) {
     activeRazerClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
