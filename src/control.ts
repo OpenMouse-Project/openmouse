@@ -1216,6 +1216,26 @@ function clientSupportScore(device: HIDDevice): number {
   return 0;
 }
 
+function detectOs(): string {
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  if (uaData?.platform) {
+    const p = uaData.platform.toLowerCase();
+    if (p.includes("windows")) return "Windows";
+    if (p.includes("mac")) return "macOS";
+    if (p.includes("linux")) return "Linux";
+    if (p.includes("android")) return "Android";
+    if (p.includes("ios")) return "iOS";
+  }
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return "Android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS";
+  if (/CrOS/i.test(ua)) return "ChromeOS";
+  if (/Win/i.test(ua)) return "Windows";
+  if (/Mac/i.test(ua)) return "macOS";
+  if (/Linux/i.test(ua)) return "Linux";
+  return "Unknown OS";
+}
+
 function describeHidDevice(device: HIDDevice): string {
   const name = device.productName || "unknown";
   const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
@@ -1245,7 +1265,7 @@ async function connect(): Promise<void> {
     await activateClient(client);
   } catch (error) {
     const rawMessage = error instanceof Error ? error.message : "Unable to read the mouse.";
-    const message = rawMessage.includes("Failed to open the device") && /Linux/.test(navigator.userAgent)
+    const message = rawMessage.includes("Failed to open the device") && detectOs() === "Linux"
       ? "Failed to open the device. On Linux, WebHID requires a udev rule — run: "
         + "sudo sh -c 'echo KERNEL==\"hidraw*\", ATTRS{idVendor}==\"046d\", TAG+=\"uaccess\" > /etc/udev/rules.d/99-openmouse.rules' "
         + "&& sudo udevadm control --reload-rules && sudo udevadm trigger — then replug the receiver."
@@ -1748,6 +1768,9 @@ function buildDiscordReport(): string {
   const connectionDetail = document.querySelector<HTMLElement>("#connection-detail")?.textContent ?? "";
   const readStatus = document.querySelector<HTMLElement>("#read-status")?.textContent ?? "";
 
+  const os = detectOs();
+  const browser = navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[0] ?? navigator.userAgent.split(" ").pop() ?? "—";
+
   const lines: string[] = [
     `OpenMouse · ${name}`,
     `DPI: ${dpi}  |  Polling: ${polling}  |  Battery: ${battery}`,
@@ -1756,6 +1779,7 @@ function buildDiscordReport(): string {
   lines.push(`Firmware: ${firmware}`);
   lines.push(`Connection: ${connection}${connectionDetail ? " · " + connectionDetail : ""}`);
   if (readStatus) lines.push(`Status: ${readStatus}`);
+  lines.push(`OS: ${os}  |  ${browser}`);
   return lines.join("\n");
 }
 
