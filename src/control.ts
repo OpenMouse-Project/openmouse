@@ -3841,7 +3841,13 @@ let stagedHapticIntensity: number | null = null;
 let stagedHapticEnabled: boolean | null = null;
 let stagedHapticBatterySaving: boolean | null = null;
 let stagedWheelMode: MouseStatus["wheelMode"] = null;
-let stagedSmartShift: number | null = null;
+/**
+ * undefined means nothing is staged; null means staged as off. Using null for
+ * both made "SmartShift off" stage a change that the apply then skipped, so it
+ * flashed successfully and wrote nothing, and the next poll read the old value
+ * back as if the switch had bounced.
+ */
+let stagedSmartShift: number | null | undefined;
 let stagedHiRes: boolean | null = null;
 let stagedInvertScroll: boolean | null = null;
 
@@ -3855,7 +3861,7 @@ function clearLogitechStaging(): void {
   if (!isPendingChange("haptic-enabled")) stagedHapticEnabled = null;
   if (!isPendingChange("haptic-battery-saving")) stagedHapticBatterySaving = null;
   if (!isPendingChange("wheel-mode")) stagedWheelMode = null;
-  if (!isPendingChange("smart-shift")) stagedSmartShift = null;
+  if (!isPendingChange("smart-shift")) stagedSmartShift = undefined;
   if (!isPendingChange("hi-res-scroll")) stagedHiRes = null;
   if (!isPendingChange("invert-scroll")) stagedInvertScroll = null;
 }
@@ -3887,7 +3893,7 @@ async function writeStagedHaptics(): Promise<void> {
 async function writeStagedRatchet(): Promise<void> {
   if (!activeClient) throw new Error("The mouse is no longer connected.");
   if (stagedWheelMode) await activeClient.setWheelMode(stagedWheelMode);
-  if (stagedSmartShift !== null) await activeClient.setSmartShiftThreshold(stagedSmartShift);
+  if (stagedSmartShift !== undefined) await activeClient.setSmartShiftThreshold(stagedSmartShift);
 }
 
 async function writeStagedWheelMode(): Promise<void> {

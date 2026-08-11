@@ -61,6 +61,10 @@ function deviceKey(device: HIDDevice): string {
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
+  // Matched on the name rather than the product id: a Logi Bolt receiver is
+  // 046d:c548 whichever mouse is paired to it, so keying the id would put this
+  // artwork on an MX Master 3S as well.
+  if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\s*8k\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
   if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";

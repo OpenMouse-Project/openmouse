@@ -1058,6 +1058,11 @@ body { height: 100vh; overflow: hidden; }
 
 .name-row { display: flex; gap: .4rem; }
 .name-row input { flex: 1; min-width: 0; }
+/* Matches .dpi-header-actions: without an explicit colour the button inherits
+   nothing legible once the card picks up its staged accent border. */
+.name-row button { padding: .4rem .65rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); color: var(--dim); font-size: .65rem; font-weight: 700; }
+.name-row button:disabled { cursor: default; opacity: .45; }
+.control-shell .name-row button:not(:disabled) { border-color: var(--ui-accent); background: var(--ui-accent); color: var(--ui-accent-ink); }
 
 .easy-switch-slots { display: flex; flex-wrap: wrap; gap: .35rem; }
 .easy-switch-slots > * { min-width: 2.1rem; padding: .28rem .5rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); color: var(--dim); font-size: .68rem; text-align: center; }
