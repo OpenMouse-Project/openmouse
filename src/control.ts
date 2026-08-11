@@ -73,7 +73,7 @@ function hasActiveClient(): boolean {
 
 type BatteryMode = "charging" | "discharging";
 type InterfaceDensity = "Compact" | "Comfortable";
-type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
+type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono" | "Berry Frost" | "Aurora Dust" | "Neon Pulse" | "Ocean Rose" | "Solar Pop" | "Lime Crush" | "Sunrise Sorbet" | "Cyber Bloom" | "Mint Eclipse";
 
 interface InterfacePreferences {
   density: InterfaceDensity;
@@ -105,7 +105,7 @@ function loadInterfacePreferences(): InterfacePreferences {
     const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono"].includes(saved.theme ?? "")
+      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono", "Berry Frost", "Aurora Dust", "Neon Pulse", "Ocean Rose", "Solar Pop", "Lime Crush", "Sunrise Sorbet", "Cyber Bloom", "Mint Eclipse"].includes(saved.theme ?? "")
         ? saved.theme as InterfaceTheme
         : "Emerald",
       reducedMotion: saved.reducedMotion === true,
@@ -140,7 +140,7 @@ function applyInterfacePreferences(): void {
 function renderControl(): void {
   appRoot.innerHTML = `
     <style>
-      .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
+      .control-shell { --ui-accent:#69d28d;--ui-accent-end:var(--ui-accent);--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
       .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:4rem }
       .build-identity .demo-wordmark { margin-bottom:0 }
       .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
@@ -148,6 +148,15 @@ function renderControl(): void {
       .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
       .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
       .control-shell[data-interface-theme="mono"] { --ui-accent:#f1f1f3;--ui-accent-ink:#09090b;--ui-accent-soft:rgb(241 241 243 / 13%) }
+      .control-shell[data-interface-theme="berry frost"] { --ui-accent:#B24592;--ui-accent-end:#F15F79;--ui-accent-ink:#fff;--ui-accent-soft:rgb(178 69 146 / 17%) }
+      .control-shell[data-interface-theme="aurora dust"] { --ui-accent:#B993D6;--ui-accent-end:#8CA6DB;--ui-accent-ink:#0e0716;--ui-accent-soft:rgb(185 147 214 / 17%) }
+      .control-shell[data-interface-theme="neon pulse"] { --ui-accent:#8a2387;--ui-accent-end:#f27121;--ui-accent-ink:#fff;--ui-accent-soft:rgb(138 35 135 / 17%) }
+      .control-shell[data-interface-theme="ocean rose"] { --ui-accent:#aa4b6b;--ui-accent-end:#3b8d99;--ui-accent-ink:#fff;--ui-accent-soft:rgb(170 75 107 / 18%) }
+      .control-shell[data-interface-theme="solar pop"] { --ui-accent:#FF6A00;--ui-accent-end:#FFD500;--ui-accent-ink:#1a0800;--ui-accent-soft:rgb(255 106 0 / 17%) }
+      .control-shell[data-interface-theme="lime crush"] { --ui-accent:#A1FFCE;--ui-accent-end:#F9F586;--ui-accent-ink:#0a150b;--ui-accent-soft:rgb(161 255 206 / 14%) }
+      .control-shell[data-interface-theme="sunrise sorbet"] { --ui-accent:#f7797d;--ui-accent-end:#c6ffdd;--ui-accent-ink:#1a0508;--ui-accent-soft:rgb(247 121 125 / 17%) }
+      .control-shell[data-interface-theme="cyber bloom"] { --ui-accent:#ff0099;--ui-accent-end:#9b2472;--ui-accent-ink:#fff;--ui-accent-soft:rgb(255 0 153 / 17%) }
+      .control-shell[data-interface-theme="mint eclipse"] { --ui-accent:#99f2c8;--ui-accent-end:#1f4037;--ui-accent-ink:#041a0c;--ui-accent-soft:rgb(153 242 200 / 15%) }
       .control-shell .sidebar-action::before { color:var(--ui-accent) }
       .sidebar-device-list { display:grid;gap:.45rem }
       .sidebar-device-list .device-select { width:100%;color:inherit }
@@ -155,7 +164,7 @@ function renderControl(): void {
       .sidebar-device-list button.device-select:hover { border-color:#4a4a4f;background:#1b1b1e }
       .sidebar-device-list button.device-select.is-selected { border-color:#55555b;background:#202023 }
       .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
-      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
+      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:transparent;background:linear-gradient(135deg,var(--ui-accent),var(--ui-accent-end));color:var(--ui-accent-ink) }
       .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
       .control-shell .dpi-header-actions button { padding:.38rem .6rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#b3b3b7;font-size:.62rem;font-weight:700;white-space:nowrap }
       .control-shell .dpi-header-actions button:disabled { cursor:default;opacity:.45 }
@@ -227,7 +236,7 @@ function renderControl(): void {
       .interface-setting-card p { margin:0 0 .8rem;color:#85858a;font-size:.68rem;line-height:1.45 }
       .interface-setting-card select { width:100%;padding:.52rem;border:1px solid #39393e;border-radius:7px;background:#18181b;color:#eee;color-scheme:dark }
       .theme-preview { display:flex;gap:.32rem;margin-top:.65rem }
-      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:var(--ui-accent);opacity:.2 }
+      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:linear-gradient(to right,var(--ui-accent),var(--ui-accent-end));opacity:.2 }
       .theme-preview i:nth-child(2) { opacity:.35 }.theme-preview i:nth-child(3) { opacity:.55 }.theme-preview i:nth-child(4) { opacity:.75 }.theme-preview i:nth-child(5) { opacity:1 }
       .interface-switch-row { display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.7rem;color:#c5c5c9;font-size:.72rem }
       .interface-switch-row input {
@@ -247,7 +256,7 @@ function renderControl(): void {
       .interface-switch-row input:checked {
         border-color:var(--ui-accent);
         background-color:var(--ui-accent);
-        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,#07120b 0 .34rem,transparent .36rem);
+        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,var(--ui-accent-ink) 0 .34rem,transparent .36rem);
       }
       .interface-switch-row input:focus-visible { box-shadow:0 0 0 3px var(--ui-accent-soft) }
       .interface-reset { margin-top:.75rem;padding:.55rem .75rem;border:1px solid #4a3436;border-radius:7px;background:#1c1315;color:#e7a7aa;font-size:.68rem;font-weight:650 }
@@ -344,7 +353,7 @@ function renderControl(): void {
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
             <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
-            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option><option>Berry Frost</option><option>Aurora Dust</option><option>Neon Pulse</option><option>Ocean Rose</option><option>Solar Pop</option><option>Lime Crush</option><option>Sunrise Sorbet</option><option>Cyber Bloom</option><option>Mint Eclipse</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
             <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
