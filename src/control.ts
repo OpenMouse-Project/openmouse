@@ -73,7 +73,7 @@ function hasActiveClient(): boolean {
 
 type BatteryMode = "charging" | "discharging";
 type InterfaceDensity = "Compact" | "Comfortable";
-type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono" | "Berry Frost" | "Aurora Dust" | "Neon Pulse" | "Ocean Rose" | "Solar Pop" | "Lime Crush" | "Sunrise Sorbet" | "Cyber Bloom" | "Mint Eclipse";
+type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono" | "Miku" | "Catppuccin Mocha" | "Catppuccin Macchiato" | "Catppuccin Frappé" | "Berry Frost" | "Aurora Dust" | "Neon Pulse" | "Ocean Rose" | "Solar Pop" | "Lime Crush" | "Sunrise Sorbet" | "Cyber Bloom" | "Mint Eclipse";
 
 interface InterfacePreferences {
   density: InterfaceDensity;
@@ -105,7 +105,7 @@ function loadInterfacePreferences(): InterfacePreferences {
     const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono", "Berry Frost", "Aurora Dust", "Neon Pulse", "Ocean Rose", "Solar Pop", "Lime Crush", "Sunrise Sorbet", "Cyber Bloom", "Mint Eclipse"].includes(saved.theme ?? "")
+      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono", "Miku", "Catppuccin Mocha", "Catppuccin Macchiato", "Catppuccin Frappé", "Berry Frost", "Aurora Dust", "Neon Pulse", "Ocean Rose", "Solar Pop", "Lime Crush", "Sunrise Sorbet", "Cyber Bloom", "Mint Eclipse"].includes(saved.theme ?? "")
         ? saved.theme as InterfaceTheme
         : "Emerald",
       reducedMotion: saved.reducedMotion === true,
@@ -157,6 +157,10 @@ function renderControl(): void {
       .control-shell[data-interface-theme="sunrise sorbet"] { --ui-accent:#f7797d;--ui-accent-end:#c6ffdd;--ui-accent-ink:#1a0508;--ui-accent-soft:rgb(247 121 125 / 17%) }
       .control-shell[data-interface-theme="cyber bloom"] { --ui-accent:#ff0099;--ui-accent-end:#9b2472;--ui-accent-ink:#fff;--ui-accent-soft:rgb(255 0 153 / 17%) }
       .control-shell[data-interface-theme="mint eclipse"] { --ui-accent:#99f2c8;--ui-accent-end:#1f4037;--ui-accent-ink:#041a0c;--ui-accent-soft:rgb(153 242 200 / 15%) }
+      .control-shell[data-interface-theme="miku"] { --ui-accent:#39C5BB;--ui-accent-ink:#021a19;--ui-accent-soft:rgb(57 197 187 / 16%) }
+      .control-shell[data-interface-theme="catppuccin mocha"] { --ui-accent:#CBA6F7;--ui-accent-ink:#1e1e2e;--ui-accent-soft:rgb(203 166 247 / 17%) }
+      .control-shell[data-interface-theme="catppuccin macchiato"] { --ui-accent:#C6A0F6;--ui-accent-ink:#24273a;--ui-accent-soft:rgb(198 160 246 / 17%) }
+      .control-shell[data-interface-theme="catppuccin frappé"] { --ui-accent:#CA9EE6;--ui-accent-ink:#303446;--ui-accent-soft:rgb(202 158 230 / 17%) }
       .control-shell .sidebar-action::before { color:var(--ui-accent) }
       .sidebar-device-list { display:grid;gap:.45rem }
       .sidebar-device-list .device-select { width:100%;color:inherit }
@@ -353,7 +357,7 @@ function renderControl(): void {
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
             <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
-            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option><option>Berry Frost</option><option>Aurora Dust</option><option>Neon Pulse</option><option>Ocean Rose</option><option>Solar Pop</option><option>Lime Crush</option><option>Sunrise Sorbet</option><option>Cyber Bloom</option><option>Mint Eclipse</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option><option>Miku</option><option>Catppuccin Mocha</option><option>Catppuccin Macchiato</option><option>Catppuccin Frappé</option><option>Berry Frost</option><option>Aurora Dust</option><option>Neon Pulse</option><option>Ocean Rose</option><option>Solar Pop</option><option>Lime Crush</option><option>Sunrise Sorbet</option><option>Cyber Bloom</option><option>Mint Eclipse</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
             <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
@@ -1240,7 +1244,12 @@ async function connect(): Promise<void> {
     setText("#read-status", `Reading ${statusNameForClient(client)}…`);
     await activateClient(client);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    const rawMessage = error instanceof Error ? error.message : "Unable to read the mouse.";
+    const message = rawMessage.includes("Failed to open the device") && /Linux/.test(navigator.userAgent)
+      ? "Failed to open the device. On Linux, WebHID requires a udev rule — run: "
+        + "sudo sh -c 'echo KERNEL==\"hidraw*\", ATTRS{idVendor}==\"046d\", TAG+=\"uaccess\" > /etc/udev/rules.d/99-openmouse.rules' "
+        + "&& sudo udevadm control --reload-rules && sudo udevadm trigger — then replug the receiver."
+      : rawMessage;
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
