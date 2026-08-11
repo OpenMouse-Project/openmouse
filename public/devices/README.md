@@ -45,6 +45,10 @@ package.
 CDN product render. Confirm redistribution terms before including it in a
 public release package.
 
+`crdrako-ko-one.png` was supplied from CRDRAKO's KO-ONE Shopify CDN product
+render and converted to a transparent PNG. Confirm redistribution terms before
+including it in a public release package.
+
 `razer-viper-mini.webp` was supplied from a Discord attachment URL for the
 Razer Viper Mini (wired). Confirm redistribution terms before including it in
 a public release package.
