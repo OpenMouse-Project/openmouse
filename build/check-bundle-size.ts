@@ -71,7 +71,7 @@ if (found.length === 0) {
 // fixture chunk. Stable builds tree-shake both and retain the original limit.
 const budgets = {
   ...BUDGET_BYTES,
-  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 16_000 : 0),
+  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 18_000 : 0),
 };
 
 const totals = new Map<string, number>();
