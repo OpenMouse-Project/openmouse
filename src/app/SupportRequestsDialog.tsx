@@ -8,8 +8,6 @@ import {
   type SupportRequest,
 } from "../support-requests";
 
-const FEATURES = ["DPI", "Polling rate", "Buttons", "Profiles", "Lighting", "Battery"];
-
 export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { open: boolean; onClose: () => void; diagnosticBundle: unknown | null }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [requests, setRequests] = useState<SupportRequest[]>([]);
@@ -59,8 +57,6 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
         manufacturer: String(data.get("manufacturer") ?? "").trim(),
         model: String(data.get("model") ?? "").trim(),
         connection: String(data.get("connection") ?? "Not sure"),
-        features: data.getAll("features").map(String),
-        canTest: data.get("can_test") === "on",
       }, voterToken(localStorage));
       setRequests((rows) => [saved, ...rows.filter((row) => row.id !== saved.id)]);
       setSavedRequest(saved);
@@ -100,8 +96,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
         </> : <form className="support-form" onSubmit={(event) => void submit(event)}>
           <div className="support-two"><label>Manufacturer<input name="manufacturer" required placeholder="Pulsar" /></label><label>Model<input name="model" required placeholder="X2V2" /></label></div>
           <label>Connection<select name="connection"><option>Not sure</option><option>Wired USB</option><option>Wireless USB receiver</option><option>Bluetooth</option><option>Wired and wireless</option></select></label>
-          <fieldset><legend>What should OpenMouse support?</legend><div className="support-features">{FEATURES.map((feature) => <label key={feature}><input type="checkbox" name="features" value={feature} />{feature}</label>)}</div></fieldset>
-          <label className="support-check"><input type="checkbox" name="can_test" /> I can help test support for this mouse</label>
+          <p className="support-scope">A request covers the whole mouse: performance settings, buttons, profiles, lighting, battery information, and every other capability we can support.</p>
           <p className="support-consent">This submits only the fields shown here. Device diagnostics are never attached automatically.</p>
           <div className="support-actions"><button type="button" onClick={() => setShowForm(false)}>Back</button><button className="support-primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit request"}</button></div>
         </form>}

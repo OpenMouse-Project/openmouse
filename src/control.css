@@ -581,10 +581,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-form > label, .support-two label { display: grid; gap: .35rem; color: var(--dim); font-size: .7rem; }
 .support-form label > small { color: var(--faint); }
 .support-two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.support-form fieldset { margin: 0; padding: .7rem; border: 1px solid var(--border); border-radius: 8px; }
-.support-form legend { padding: 0 .25rem; color: var(--dim); font-size: .7rem; }
-.support-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: .55rem; }
-.support-features label, .support-check { display: flex; align-items: center; gap: .4rem; color: var(--dim); font-size: .7rem; }
+.support-scope { margin: 0; padding: .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-control); color: var(--dim); font-size: .68rem; line-height: 1.5; }
 .support-actions { display: flex; justify-content: flex-end; gap: .5rem; }
 .support-actions > button:not(.support-primary) { padding: .65rem .9rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-control); color: var(--dim); font-size: .75rem; }
 .support-message { padding: .6rem .7rem; border-radius: 7px; background: var(--ui-accent-soft); color: var(--ui-accent); }
@@ -594,7 +591,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-diagnostics h3 { color: var(--bright); font-size: .9rem; }
 .support-diagnostics p, .support-diagnostics label { color: var(--dim); font-size: .68rem; line-height: 1.45; }
 .support-diagnostics pre { max-height: 12rem; margin: 0; padding: .65rem; overflow: auto; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-soft); font-size: .58rem; white-space: pre-wrap; }
-@media (max-width: 540px) { .support-two { grid-template-columns: 1fr; } .support-features { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .support-two { grid-template-columns: 1fr; } }
 
 .panel-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 4rem 0 2rem; }
 .panel-header h1 { max-width: min(760px, 70vw); margin: 0; font-size: clamp(2.5rem, 4.5vw, 4rem); font-weight: 500; line-height: .95; letter-spacing: -.04em; overflow-wrap: anywhere; }

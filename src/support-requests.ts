@@ -16,8 +16,6 @@ export interface NewSupportRequest {
   manufacturer: string;
   model: string;
   connection: string;
-  features: string[];
-  canTest: boolean;
 }
 
 function configuration(): { url: string; key: string } {
@@ -60,8 +58,8 @@ export async function submitSupportRequest(input: NewSupportRequest, token: stri
       p_manufacturer: input.manufacturer,
       p_model: input.model,
       p_connection: input.connection,
-      p_features: input.features,
-      p_can_test: input.canTest,
+      p_features: [],
+      p_can_test: false,
       p_voter_token: token,
     }),
   });
