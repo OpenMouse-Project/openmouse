@@ -12,6 +12,8 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Wired and receiver are separate product ids for the same mouse.
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
+  ["1532:008a", "/devices/razer-viper-mini.webp"],
+  ["1532:00a3", "/devices/razer-cobra.webp"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
