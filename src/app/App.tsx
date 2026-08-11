@@ -259,7 +259,7 @@ export function App(): ReactNode {
   const tabs = WORKSPACE_TAB_ORDER;
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
     const index = tabs.indexOf(current);
-    let next = index;
+    let next: number;
     if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
     else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
     else if (event.key === "Home") next = 0;
