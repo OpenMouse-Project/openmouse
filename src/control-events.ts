@@ -57,6 +57,17 @@ export interface ControlEventHandlers {
   capLandingToLiftOff(): void;
   applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void;
   applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void;
+  applyHapticIntensity(preset: string): void;
+  applyHapticEnabled(enabled: boolean): void;
+  applyHapticBatterySaving(enabled: boolean): void;
+  applyWheelMode(mode: NonNullable<MouseStatus["wheelMode"]>): void;
+  applySmartShiftThreshold(threshold: number | null): void;
+  applyHiResScroll(enabled: boolean): void;
+  applyInvertScroll(inverted: boolean): void;
+  applyThumbWheelInverted(inverted: boolean): void;
+  applyFriendlyName(name: string): void;
+  requestHostSwitch(): Promise<void>;
+  cancelHostSwitch(): void;
   applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>): void;
   applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam", value: string | boolean): void;
   // Mode and profile selection apply immediately: both are volatile navigation
@@ -396,6 +407,67 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   document.querySelector<HTMLButtonElement>("#onboard-refresh")?.addEventListener("click", () => {
     void handlers.reloadOnboardProfiles();
   });
+  document.querySelectorAll<HTMLButtonElement>("[data-haptic]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const preset = button.dataset.haptic;
+      if (preset) handlers.applyHapticIntensity(preset);
+    });
+  });
+
+  const switchToggle = (id: string, apply: (on: boolean) => void): void => {
+    document.querySelector<HTMLButtonElement>(id)?.addEventListener("click", (event) => {
+      apply((event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
+    });
+  };
+  switchToggle("#haptic-enabled-toggle", (on) => handlers.applyHapticEnabled(on));
+  switchToggle("#haptic-battery-toggle", (on) => handlers.applyHapticBatterySaving(on));
+  switchToggle("#hi-res-toggle", (on) => handlers.applyHiResScroll(on));
+  switchToggle("#invert-scroll-toggle", (on) => handlers.applyInvertScroll(on));
+  switchToggle("#thumb-wheel-toggle", (on) => handlers.applyThumbWheelInverted(on));
+
+  document.querySelectorAll<HTMLButtonElement>("[data-wheel-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.wheelMode as MouseStatus["wheelMode"];
+      if (mode) handlers.applyWheelMode(mode);
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>("#smart-shift-toggle")?.addEventListener("click", (event) => {
+    const enabling = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
+    const slider = document.querySelector<HTMLInputElement>("#smart-shift-threshold");
+    // Re-enabling restores what the slider shows, which is the last value the
+    // mouse reported rather than an invented default.
+    handlers.applySmartShiftThreshold(enabling ? Number(slider?.value ?? 0) || null : null);
+  });
+
+  document.querySelector<HTMLInputElement>("#smart-shift-threshold")?.addEventListener("change", (event) => {
+    handlers.applySmartShiftThreshold(Number((event.currentTarget as HTMLInputElement).value));
+  });
+
+  document.querySelector<HTMLInputElement>("#device-name-input")?.addEventListener("input", (event) => {
+    // Keeps the counter and the button honest while typing, from the field
+    // itself rather than from a status snapshot.
+    const input = event.currentTarget as HTMLInputElement;
+    const typed = input.value.trim();
+    const apply = document.querySelector<HTMLButtonElement>("#device-name-apply");
+    if (apply) apply.disabled = typed.length === 0 || typed === input.dataset.current;
+    const remaining = document.querySelector<HTMLElement>("#device-name-remaining");
+    if (remaining) remaining.textContent = `${typed.length}/${input.maxLength}`;
+  });
+
+  document.querySelector<HTMLButtonElement>("#device-name-apply")?.addEventListener("click", () => {
+    const input = document.querySelector<HTMLInputElement>("#device-name-input");
+    const name = input?.value.trim() ?? "";
+    if (name) handlers.applyFriendlyName(name);
+  });
+
+  document.querySelector<HTMLButtonElement>("#easy-switch-go")?.addEventListener("click", () => {
+    void handlers.requestHostSwitch();
+  });
+  document.querySelector<HTMLButtonElement>("#easy-switch-cancel")?.addEventListener("click", () => {
+    handlers.cancelHostSwitch();
+  });
+
   document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
     button.addEventListener("click", () => {
       const mode = button.dataset.lightforce as MouseStatus["lightforceSwitchMode"];
