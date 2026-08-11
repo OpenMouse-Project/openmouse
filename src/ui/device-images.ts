@@ -18,6 +18,7 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
   ["1532:008a", "/devices/razer-viper-mini.webp"],
+  ["1532:0091", "/devices/razer-viper.webp"],
   ["1532:00a3", "/devices/razer-cobra.webp"],
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "/devices/crdrako-ko-one.png"],
