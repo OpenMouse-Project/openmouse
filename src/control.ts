@@ -352,6 +352,11 @@ function applyInterfacePreferences(): void {
   const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
   if (menuToggle) menuToggle.setAttribute("aria-pressed", String(!sidebarHidden));
   shell.dataset.interfaceTheme = interfaceThemeSlug(interfacePreferences.theme);
+  const mascot = document.querySelector<HTMLImageElement>("#miku-mascot");
+  const mascotSource = mascot?.dataset.src;
+  if (interfacePreferences.theme === "Miku" && mascot && mascotSource && !mascot.getAttribute("src")) {
+    mascot.src = mascotSource;
+  }
   document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
     details.open = interfacePreferences.expandSections;
   });

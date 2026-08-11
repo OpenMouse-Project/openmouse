@@ -25,6 +25,7 @@ export function controlTemplate(buildLabel: string): string {
             <strong id="sidebar-device-title">Connected mouse</strong>
           </div>
           <article id="device-thumbnail" class="device-thumbnail" hidden><img id="device-thumbnail-image" alt="" /></article>
+          <img id="miku-mascot" class="miku-mascot" data-src="/miku-mascot.gif" alt="" aria-hidden="true" />
           <div class="sidebar-product-status"><span class="status-dot is-idle"></span><span>Connected</span><span id="sidebar-battery" class="sidebar-battery" hidden><span id="sidebar-battery-icon"></span><span id="sidebar-battery-value"></span></span></div>
         </section>
         <div class="device-label">CONNECTED DEVICES</div>
