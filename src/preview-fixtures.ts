@@ -105,6 +105,34 @@ const EGG_WE: MouseStatus = {
   firmware: ["1.00.07"],
 };
 
+const EGG_XM2WE: MouseStatus = {
+  brand: "Endgame Gear",
+  name: "XM2we",
+  ui: {
+    family: "egg-we",
+    settingsReady: true,
+    hideLodLow: true,
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    forceShowBattery: true,
+    pollingNote: "Endgame Gear XM2we supports up to 1,000 Hz (125 / 250 / 500 / 1000).",
+    defaultDisplayName: "Endgame Gear XM2we",
+  },
+  batteryPercent: 82,
+  batteryState: "Discharging",
+  dpi: 1600,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: 1,
+  liftOffDistance: "Medium",
+  connectionType: "Wireless",
+  debounceMs: 4,
+  sleepTimeout: 60,
+  slamclickFilter: true,
+  motionJitterFilter: false,
+  firmware: ["1.00.07"],
+};
+
 const WLMOUSE: MouseStatus = {
   brand: "WLMouse",
   name: "BEAST X",
@@ -506,6 +534,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "pulsar-pro": { label: "Pulsar X2H Mini Pro", status: PULSAR_PRO },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
+  "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
   crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
