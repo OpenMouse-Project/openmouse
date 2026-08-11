@@ -43,6 +43,7 @@ const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
+const WEBHOOK_KEY = "om-discord-webhook";
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
@@ -72,7 +73,7 @@ function hasActiveClient(): boolean {
 
 type BatteryMode = "charging" | "discharging";
 type InterfaceDensity = "Compact" | "Comfortable";
-type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
+type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono" | "Miku" | "Catppuccin Mocha" | "Catppuccin Macchiato" | "Catppuccin Frappé" | "Berry Frost" | "Aurora Dust" | "Neon Pulse" | "Ocean Rose" | "Solar Pop" | "Lime Crush" | "Sunrise Sorbet" | "Cyber Bloom" | "Mint Eclipse";
 
 interface InterfacePreferences {
   density: InterfaceDensity;
@@ -104,7 +105,7 @@ function loadInterfacePreferences(): InterfacePreferences {
     const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono"].includes(saved.theme ?? "")
+      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono", "Miku", "Catppuccin Mocha", "Catppuccin Macchiato", "Catppuccin Frappé", "Berry Frost", "Aurora Dust", "Neon Pulse", "Ocean Rose", "Solar Pop", "Lime Crush", "Sunrise Sorbet", "Cyber Bloom", "Mint Eclipse"].includes(saved.theme ?? "")
         ? saved.theme as InterfaceTheme
         : "Emerald",
       reducedMotion: saved.reducedMotion === true,
@@ -139,7 +140,7 @@ function applyInterfacePreferences(): void {
 function renderControl(): void {
   appRoot.innerHTML = `
     <style>
-      .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
+      .control-shell { --ui-accent:#69d28d;--ui-accent-end:var(--ui-accent);--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
       .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:4rem }
       .build-identity .demo-wordmark { margin-bottom:0 }
       .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
@@ -147,6 +148,19 @@ function renderControl(): void {
       .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
       .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
       .control-shell[data-interface-theme="mono"] { --ui-accent:#f1f1f3;--ui-accent-ink:#09090b;--ui-accent-soft:rgb(241 241 243 / 13%) }
+      .control-shell[data-interface-theme="berry frost"] { --ui-accent:#B24592;--ui-accent-end:#F15F79;--ui-accent-ink:#fff;--ui-accent-soft:rgb(178 69 146 / 17%) }
+      .control-shell[data-interface-theme="aurora dust"] { --ui-accent:#B993D6;--ui-accent-end:#8CA6DB;--ui-accent-ink:#0e0716;--ui-accent-soft:rgb(185 147 214 / 17%) }
+      .control-shell[data-interface-theme="neon pulse"] { --ui-accent:#8a2387;--ui-accent-end:#f27121;--ui-accent-ink:#fff;--ui-accent-soft:rgb(138 35 135 / 17%) }
+      .control-shell[data-interface-theme="ocean rose"] { --ui-accent:#aa4b6b;--ui-accent-end:#3b8d99;--ui-accent-ink:#fff;--ui-accent-soft:rgb(170 75 107 / 18%) }
+      .control-shell[data-interface-theme="solar pop"] { --ui-accent:#FF6A00;--ui-accent-end:#FFD500;--ui-accent-ink:#1a0800;--ui-accent-soft:rgb(255 106 0 / 17%) }
+      .control-shell[data-interface-theme="lime crush"] { --ui-accent:#A1FFCE;--ui-accent-end:#F9F586;--ui-accent-ink:#0a150b;--ui-accent-soft:rgb(161 255 206 / 14%) }
+      .control-shell[data-interface-theme="sunrise sorbet"] { --ui-accent:#f7797d;--ui-accent-end:#c6ffdd;--ui-accent-ink:#1a0508;--ui-accent-soft:rgb(247 121 125 / 17%) }
+      .control-shell[data-interface-theme="cyber bloom"] { --ui-accent:#ff0099;--ui-accent-end:#9b2472;--ui-accent-ink:#fff;--ui-accent-soft:rgb(255 0 153 / 17%) }
+      .control-shell[data-interface-theme="mint eclipse"] { --ui-accent:#99f2c8;--ui-accent-end:#1f4037;--ui-accent-ink:#041a0c;--ui-accent-soft:rgb(153 242 200 / 15%) }
+      .control-shell[data-interface-theme="miku"] { --ui-accent:#39C5BB;--ui-accent-ink:#021a19;--ui-accent-soft:rgb(57 197 187 / 16%) }
+      .control-shell[data-interface-theme="catppuccin mocha"] { --ui-accent:#CBA6F7;--ui-accent-ink:#1e1e2e;--ui-accent-soft:rgb(203 166 247 / 17%) }
+      .control-shell[data-interface-theme="catppuccin macchiato"] { --ui-accent:#C6A0F6;--ui-accent-ink:#24273a;--ui-accent-soft:rgb(198 160 246 / 17%) }
+      .control-shell[data-interface-theme="catppuccin frappé"] { --ui-accent:#CA9EE6;--ui-accent-ink:#303446;--ui-accent-soft:rgb(202 158 230 / 17%) }
       .control-shell .sidebar-action::before { color:var(--ui-accent) }
       .sidebar-device-list { display:grid;gap:.45rem }
       .sidebar-device-list .device-select { width:100%;color:inherit }
@@ -154,7 +168,7 @@ function renderControl(): void {
       .sidebar-device-list button.device-select:hover { border-color:#4a4a4f;background:#1b1b1e }
       .sidebar-device-list button.device-select.is-selected { border-color:#55555b;background:#202023 }
       .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
-      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
+      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:transparent;background:linear-gradient(135deg,var(--ui-accent),var(--ui-accent-end));color:var(--ui-accent-ink) }
       .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
       .control-shell .dpi-header-actions button { padding:.38rem .6rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#b3b3b7;font-size:.62rem;font-weight:700;white-space:nowrap }
       .control-shell .dpi-header-actions button:disabled { cursor:default;opacity:.45 }
@@ -226,7 +240,7 @@ function renderControl(): void {
       .interface-setting-card p { margin:0 0 .8rem;color:#85858a;font-size:.68rem;line-height:1.45 }
       .interface-setting-card select { width:100%;padding:.52rem;border:1px solid #39393e;border-radius:7px;background:#18181b;color:#eee;color-scheme:dark }
       .theme-preview { display:flex;gap:.32rem;margin-top:.65rem }
-      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:var(--ui-accent);opacity:.2 }
+      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:linear-gradient(to right,var(--ui-accent),var(--ui-accent-end));opacity:.2 }
       .theme-preview i:nth-child(2) { opacity:.35 }.theme-preview i:nth-child(3) { opacity:.55 }.theme-preview i:nth-child(4) { opacity:.75 }.theme-preview i:nth-child(5) { opacity:1 }
       .interface-switch-row { display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.7rem;color:#c5c5c9;font-size:.72rem }
       .interface-switch-row input {
@@ -246,7 +260,7 @@ function renderControl(): void {
       .interface-switch-row input:checked {
         border-color:var(--ui-accent);
         background-color:var(--ui-accent);
-        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,#07120b 0 .34rem,transparent .36rem);
+        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,var(--ui-accent-ink) 0 .34rem,transparent .36rem);
       }
       .interface-switch-row input:focus-visible { box-shadow:0 0 0 3px var(--ui-accent-soft) }
       .interface-reset { margin-top:.75rem;padding:.55rem .75rem;border:1px solid #4a3436;border-radius:7px;background:#1c1315;color:#e7a7aa;font-size:.68rem;font-weight:650 }
@@ -264,6 +278,18 @@ function renderControl(): void {
         .control-shell .settings-grid > .setting-card { min-height:220px }
       }
       @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
+      .discord-section { display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .6rem;padding:.7rem 0 .5rem;border-top:1px solid #1e1e21 }
+      #discord-webhook-input { flex:1;min-width:160px;padding:.42rem .62rem;border:1px solid #343438;border-radius:7px;background:#111113;color:#ececef;font-family:"DM Sans",ui-sans-serif,sans-serif;font-size:.72rem;outline:none;transition:border-color .18s }
+      #discord-webhook-input:focus { border-color:#55555a }
+      #discord-webhook-input::placeholder { color:#45454a }
+      #discord-send-btn { white-space:nowrap;padding:.42rem .9rem;border:none;border-radius:7px;background:#5865F2;color:#fff;font-size:.72rem;font-weight:700;font-family:"DM Sans",ui-sans-serif,sans-serif;cursor:pointer;transition:filter .15s,opacity .15s }
+      #discord-send-btn:hover:not(:disabled) { filter:brightness(1.12) }
+      #discord-send-btn:disabled { opacity:.5;cursor:not-allowed }
+      #discord-send-btn.ok { background:linear-gradient(135deg,#3ba55c,#2d8c4e) }
+      #discord-send-btn.err { background:linear-gradient(135deg,#c0392b,#943126) }
+      #discord-send-status { width:100%;font-size:.68rem;color:#55555a }
+      #discord-send-status.ok { color:#4db880 }
+      #discord-send-status.err { color:#e06c75 }
     </style>
     <div class="control-shell is-empty">
       <aside class="sidebar">
@@ -322,11 +348,16 @@ function renderControl(): void {
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
+        <section class="discord-section device-data">
+          <input id="discord-webhook-input" type="text" placeholder="Discord Webhook URL (saved locally)" spellcheck="false" autocomplete="off" />
+          <button id="discord-send-btn" type="button">Send to Discord</button>
+          <span id="discord-send-status"></span>
+        </section>
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
             <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
-            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option><option>Miku</option><option>Catppuccin Mocha</option><option>Catppuccin Macchiato</option><option>Catppuccin Frappé</option><option>Berry Frost</option><option>Aurora Dust</option><option>Neon Pulse</option><option>Ocean Rose</option><option>Solar Pop</option><option>Lime Crush</option><option>Sunrise Sorbet</option><option>Cyber Bloom</option><option>Mint Eclipse</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
             <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
@@ -470,6 +501,16 @@ function renderControl(): void {
     panel.scrollTop += event.deltaY;
     event.preventDefault();
   }, { passive: false });
+  const discordInput = document.querySelector<HTMLInputElement>("#discord-webhook-input");
+  if (discordInput) {
+    discordInput.value = localStorage.getItem(WEBHOOK_KEY) ?? "";
+    discordInput.addEventListener("change", () => {
+      localStorage.setItem(WEBHOOK_KEY, discordInput.value.trim());
+    });
+  }
+  document.querySelector<HTMLButtonElement>("#discord-send-btn")?.addEventListener("click", () => {
+    void sendStatusToDiscord();
+  });
   populateInterfaceSettings();
   applyInterfacePreferences();
   navigator.hid?.addEventListener("connect", handleHidConnect);
@@ -1175,6 +1216,22 @@ function clientSupportScore(device: HIDDevice): number {
   return 0;
 }
 
+function detectOs(): string {
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  if (uaData?.platform) {
+    const p = uaData.platform.toLowerCase();
+    if (p.includes("windows")) return "Windows";
+    if (p.includes("mac")) return "macOS";
+    if (p.includes("linux")) return "Linux";
+  }
+  const ua = navigator.userAgent;
+  if (/CrOS/i.test(ua)) return "ChromeOS";
+  if (/Win/i.test(ua)) return "Windows";
+  if (/Mac/i.test(ua)) return "macOS";
+  if (/Linux/i.test(ua)) return "Linux";
+  return "Unknown OS";
+}
+
 function describeHidDevice(device: HIDDevice): string {
   const name = device.productName || "unknown";
   const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
@@ -1203,7 +1260,12 @@ async function connect(): Promise<void> {
     setText("#read-status", `Reading ${statusNameForClient(client)}…`);
     await activateClient(client);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    const rawMessage = error instanceof Error ? error.message : "Unable to read the mouse.";
+    const message = rawMessage.includes("Failed to open the device") && detectOs() === "Linux"
+      ? "Failed to open the device. On Linux, WebHID needs a udev rule — run: "
+        + "echo 'KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", TAG+=\"uaccess\"' | sudo tee /etc/udev/rules.d/99-openmouse.rules "
+        + "&& sudo udevadm control --reload-rules && sudo udevadm trigger — then replug your mouse."
+      : rawMessage;
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
@@ -1687,6 +1749,92 @@ async function refreshStatus(): Promise<void> {
     setText("#read-status", message);
   } finally {
     refreshInProgress = false;
+  }
+}
+
+function buildDiscordReport(): string {
+  const name = document.querySelector<HTMLElement>("#device-title")?.textContent ?? "—";
+  const dpi = document.querySelector<HTMLInputElement>("#dpi-output")?.value ?? "—";
+  const pollingBtn = document.querySelector<HTMLButtonElement>("[data-rate].selected");
+  const polling = pollingBtn ? `${Number(pollingBtn.dataset.rate).toLocaleString()} Hz` : "—";
+  const battery = document.querySelector<HTMLElement>("#battery-value")?.textContent ?? "—";
+  const batteryDetail = document.querySelector<HTMLElement>("#battery-detail")?.textContent ?? "";
+  const firmware = document.querySelector<HTMLElement>("#firmware-value")?.textContent ?? "—";
+  const connection = document.querySelector<HTMLElement>("#connection-value")?.textContent ?? "—";
+  const connectionDetail = document.querySelector<HTMLElement>("#connection-detail")?.textContent ?? "";
+  const readStatus = document.querySelector<HTMLElement>("#read-status")?.textContent ?? "";
+
+  const os = detectOs();
+  const browser = navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[0] ?? navigator.userAgent.split(" ").pop() ?? "—";
+
+  const lines: string[] = [
+    `OpenMouse · ${name}`,
+    `DPI: ${dpi}  |  Polling: ${polling}  |  Battery: ${battery}`,
+  ];
+  if (batteryDetail && batteryDetail !== "Read after connection") lines.push(`Battery: ${batteryDetail}`);
+  lines.push(`Firmware: ${firmware}`);
+  lines.push(`Connection: ${connection}${connectionDetail ? " · " + connectionDetail : ""}`);
+  if (readStatus) lines.push(`Status: ${readStatus}`);
+  lines.push(`OS: ${os}  |  ${browser}`);
+  return lines.join("\n");
+}
+
+async function sendStatusToDiscord(): Promise<void> {
+  const urlInput = document.querySelector<HTMLInputElement>("#discord-webhook-input");
+  const statusEl = document.querySelector<HTMLElement>("#discord-send-status");
+  const btn = document.querySelector<HTMLButtonElement>("#discord-send-btn");
+  if (!urlInput || !statusEl || !btn) return;
+
+  const url = urlInput.value.trim();
+  if (!url) {
+    statusEl.className = "err";
+    statusEl.textContent = "Paste a Discord Webhook URL first.";
+    return;
+  }
+  if (!url.startsWith("https://discord.com/api/webhooks/") && !url.startsWith("https://discordapp.com/api/webhooks/")) {
+    statusEl.className = "err";
+    statusEl.textContent = "That doesn’t look like a Discord webhook URL.";
+    return;
+  }
+  if (!hasActiveClient()) {
+    statusEl.className = "err";
+    statusEl.textContent = "Connect a mouse first.";
+    return;
+  }
+  localStorage.setItem(WEBHOOK_KEY, url);
+  const text = buildDiscordReport();
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  statusEl.className = "";
+  statusEl.textContent = "";
+  try {
+    const wrapped = "```\n" + text + "\n```";
+    const content = wrapped.length <= 2000 ? wrapped : text.slice(0, 1990) + "\n…";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "OpenMouse", content }),
+    });
+    if (res.ok || res.status === 204) {
+      btn.textContent = "✓ Sent!";
+      btn.classList.add("ok");
+      statusEl.className = "ok";
+      statusEl.textContent = "Report sent to Discord.";
+    } else {
+      const body = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}${body ? ": " + body.slice(0, 120) : ""}`);
+    }
+  } catch (e) {
+    btn.textContent = "Failed";
+    btn.classList.add("err");
+    statusEl.className = "err";
+    statusEl.textContent = String(e);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Send to Discord";
+      btn.classList.remove("ok", "err");
+    }, 3000);
   }
 }
 

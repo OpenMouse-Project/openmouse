@@ -9,10 +9,39 @@ if (!demoApp) {
 const mobileNavigator = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
 const isMobileDevice = mobileNavigator.userAgentData?.mobile === true
   || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const DEMO_SETTINGS_KEY = "openmouse-demo-settings-v1";
 
 if (isMobileDevice) {
   document.documentElement.classList.add("blocked-device");
+}
+
+const DEMO_SETTINGS_KEY = "openmouse-demo-settings-v1";
+const POLLING_VALUES = [125, 250, 500, 1000] as const;
+type PollingValue = typeof POLLING_VALUES[number];
+const DPI_PRESETS = [400, 800, 1600, 3200, 6400] as const;
+
+let appliedDpi = 1600;
+let appliedPolling: PollingValue = 1000;
+let pendingDpi = appliedDpi;
+let pendingPolling: PollingValue = appliedPolling;
+
+try {
+  const saved = JSON.parse(localStorage.getItem(DEMO_SETTINGS_KEY) ?? "{}") as Partial<{ dpi: number; polling: number }>;
+  if (typeof saved.dpi === "number" && (DPI_PRESETS as readonly number[]).includes(saved.dpi)) {
+    appliedDpi = pendingDpi = saved.dpi;
+  }
+  if (typeof saved.polling === "number" && (POLLING_VALUES as readonly number[]).includes(saved.polling)) {
+    appliedPolling = pendingPolling = saved.polling as PollingValue;
+  }
+} catch {
+  // Use defaults if storage is unavailable.
+}
+
+function fmtDpi(dpi: number): string {
+  return `${dpi.toLocaleString()} DPI`;
+}
+
+function fmtHz(hz: number): string {
+  return hz >= 1000 ? `${hz / 1000}K Hz` : `${hz} Hz`;
 }
 
 demoApp.innerHTML = `
@@ -26,21 +55,41 @@ demoApp.innerHTML = `
 
   <div class="demo-shell">
     <aside class="sidebar">
-      <a class="demo-wordmark" href="/" aria-label="Back to OpenMouse">OpenMouse</a>
-      <div class="device-label">CONNECTED DEVICE</div>
-      <div class="device-select" aria-label="Selected device">
-        <span class="device-dot"></span>
-        <span><strong>Superlight 2C</strong><small>Logitech · Connected</small></span>
+      <div class="sidebar-header">
+        <a class="demo-wordmark" href="/" aria-label="Back to OpenMouse">OpenMouse</a>
+        <div class="sidebar-icons">
+          <a class="icon-link" href="https://discord.gg/5Vw9uQV3xB" target="_blank" rel="noreferrer" aria-label="Discord">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M19.5 5.3A17.2 17.2 0 0 0 15.2 4l-.5 1a16 16 0 0 0-5.3 0l-.6-1a17.5 17.5 0 0 0-4.3 1.3C1.8 9.4 1 13.4 1.3 17.4a17.4 17.4 0 0 0 5.3 2.7l1.3-1.8a11 11 0 0 1-2-1l.5-.4a12.3 12.3 0 0 0 11.2 0l.6.4c-.7.4-1.3.7-2 1l1.3 1.8a17.4 17.4 0 0 0 5.3-2.7c.4-4.6-.8-8.5-3.3-12.1ZM8.3 15.2c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Zm7.4 0c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 1.9 1 1.9 2.2-.9 2.2-1.9 2.2Z"/></svg>
+          </a>
+          <a class="icon-link" href="https://x.com/openmouseapp" target="_blank" rel="noreferrer" aria-label="X / Twitter">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M17.751 3h3.067l-6.7 7.625L22 21h-6.172l-4.833-6.293L5.464 21H2.395l7.167-8.155L2 3h6.328l4.37 5.752zm-1.076 16.172h1.7L7.404 4.732H5.58z"/></svg>
+          </a>
+        </div>
       </div>
-      <nav aria-label="Device settings">
-        <button class="nav-item active" type="button" data-panel="overview">Overview</button>
-        <button class="nav-item" type="button" data-panel="performance">Performance</button>
-        <button class="nav-item" type="button" data-panel="buttons">Buttons</button>
-        <button class="nav-item" type="button" data-panel="profiles">Profiles</button>
-      </nav>
+
+      <p class="device-label">SELECTED DEVICE</p>
+      <div class="selected-device">
+        <strong>Superlight 2C</strong>
+        <div class="device-connection"><span class="device-dot"></span>Connected</div>
+      </div>
+
+      <p class="device-label" style="margin-top:1.75rem">CONNECTED DEVICES</p>
+      <button class="device-select is-selected" type="button" aria-pressed="true">
+        <span class="device-dot"></span>
+        <span><strong>Superlight 2C</strong><small>Logitech · Wireless</small></span>
+      </button>
+      <button class="add-device-btn" type="button" disabled>+ Add device</button>
+
+      <hr class="sidebar-divider" />
+      <button class="sidebar-action" type="button" disabled>
+        <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM.87 10.8a1.5 1.5 0 0 1 0-1.6l1.19-1.87A1.5 1.5 0 0 1 3.84 6.7l.41.05c.36.04.72-.07 1-.28l.35-.27a1.5 1.5 0 0 0 .55-.96l.07-.41A1.5 1.5 0 0 1 7.7 3.5h2.6a1.5 1.5 0 0 1 1.47 1.33l.07.4a1.5 1.5 0 0 0 .55.97l.35.27c.28.2.64.32 1 .28l.41-.05a1.5 1.5 0 0 1 1.78.63l1.19 1.87a1.5 1.5 0 0 1 0 1.6l-1.19 1.87a1.5 1.5 0 0 1-1.78.63l-.41-.05a1.5 1.5 0 0 0-1 .28l-.35.27a1.5 1.5 0 0 0-.55.97l-.07.4a1.5 1.5 0 0 1-1.47 1.33H7.7a1.5 1.5 0 0 1-1.47-1.33l-.07-.41a1.5 1.5 0 0 0-.55-.96l-.35-.27a1.5 1.5 0 0 0-1-.28l-.41.05a1.5 1.5 0 0 1-1.78-.63z"/></svg>
+        Interface settings
+      </button>
+      <a class="sidebar-action" href="https://openmouse.app/mouse-check" target="_blank" rel="noreferrer">Mouse Check</a>
+
       <div class="sidebar-footer">
+        <span>INSIDERS · v0.1.0</span>
         <span>Interface concept</span>
-        <a href="/">Back to website</a>
       </div>
     </aside>
 
@@ -50,157 +99,174 @@ demoApp.innerHTML = `
         <p id="preview-message" aria-live="polite">This demo does not connect to or change a real device.</p>
       </div>
 
-      <header class="panel-header">
-        <div>
-          <p class="overline">LOGITECH</p>
-          <h1>Superlight 2C</h1>
-        </div>
-        <div class="device-status"><span></span>Connected</div>
-      </header>
+      <div class="status-bar">
+        <span class="status-dot"></span>
+        <span id="status-text">Current: ${fmtDpi(appliedDpi)} · ${fmtHz(appliedPolling)}</span>
+      </div>
 
-      <section class="device-overview">
-        <div class="mouse-stage" aria-label="Mouse preview">
-          <img class="mouse-image" src="/superlight-2c-black.png" alt="Top view of a black Logitech Superlight 2C gaming mouse" />
-          <span class="model-caption">SUPERLIGHT 2C</span>
-        </div>
-        <div class="quick-stats">
-          <article><span>BATTERY</span><strong>82%</strong><div class="meter"><i style="width:82%"></i></div></article>
-          <article><span>FIRMWARE</span><strong>1.2.4</strong><small>Up to date</small></article>
-          <article><span>CONNECTION</span><strong>Wireless</strong><small>2.4 GHz receiver</small></article>
+      <nav class="tab-bar" aria-label="Device settings">
+        <button class="tab-btn" type="button" data-tab="overview">Overview</button>
+        <button class="tab-btn active" type="button" data-tab="performance">Performance</button>
+        <button class="tab-btn" type="button" data-tab="lighting" disabled>Lighting</button>
+        <button class="tab-btn" type="button" data-tab="buttons" disabled>Buttons</button>
+        <button class="tab-btn" type="button" data-tab="profiles" disabled>Profiles</button>
+        <button class="tab-btn" type="button" data-tab="advanced" disabled>Advanced</button>
+      </nav>
+
+      <section id="panel-overview" class="panel" hidden>
+        <div class="device-overview">
+          <div class="mouse-stage" aria-label="Mouse preview">
+            <img class="mouse-image" src="/superlight-2c-black.png" alt="Top view of a black Logitech Superlight 2C gaming mouse" />
+            <span class="model-caption">SUPERLIGHT 2C</span>
+          </div>
+          <div class="quick-stats">
+            <article><span>BATTERY</span><strong>82%</strong><div class="meter"><i style="width:82%"></i></div></article>
+            <article><span>FIRMWARE</span><strong>1.2.4</strong><small>Up to date</small></article>
+            <article><span>CONNECTION</span><strong>Wireless</strong><small>2.4 GHz receiver</small></article>
+          </div>
         </div>
       </section>
 
-      <section class="settings-grid" aria-label="Mouse settings">
-        <article class="setting-card dpi-card">
-          <div class="setting-heading">
-            <div><p>DPI</p><h2>Sensitivity</h2></div>
-            <output id="dpi-output">1600 DPI</output>
-          </div>
-          <input id="dpi-range" type="range" min="100" max="3200" step="100" value="1600" aria-label="DPI sensitivity" />
-          <div class="range-labels"><span>100</span><span>3200</span></div>
-          <div class="dpi-stages" aria-label="DPI presets">
-            <button type="button" data-dpi="400">400</button>
-            <button type="button" data-dpi="800">800</button>
-            <button class="selected" type="button" data-dpi="1600">1600</button>
-            <button type="button" data-dpi="3200">3200</button>
-          </div>
-        </article>
+      <section id="panel-performance" class="panel">
+        <div class="settings-stack">
+          <article class="setting-card">
+            <div class="setting-heading">
+              <div><p>DPI</p><h2>Sensitivity</h2></div>
+              <div class="dpi-heading-right">
+                <span id="dpi-display" class="dpi-large">${fmtDpi(pendingDpi)}</span>
+                <button class="custom-btn" type="button" id="custom-dpi-btn" disabled>Custom</button>
+              </div>
+            </div>
+            <div class="dpi-grid" id="dpi-grid" aria-label="DPI presets">
+              ${DPI_PRESETS.map((dpi) =>
+                `<button type="button" data-dpi="${dpi}" class="${dpi === pendingDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`,
+              ).join("")}
+            </div>
+            <small id="dpi-note" class="setting-note">Current ${fmtDpi(appliedDpi)}</small>
+          </article>
 
-        <article class="setting-card">
-          <div class="setting-heading">
-            <div><p>POLLING RATE</p><h2>Report frequency</h2></div>
-            <span class="info">?</span>
-          </div>
-          <div class="segmented" data-control="polling">
-            <button type="button">125</button>
-            <button type="button">500</button>
-            <button class="selected" type="button">1000</button>
-            <button type="button">2000</button>
-          </div>
-          <small class="setting-note">Higher rates can use more battery.</small>
-        </article>
-
-        <article class="setting-card">
-          <div class="setting-heading">
-            <div><p>SENSOR</p><h2>Lift-off distance</h2></div>
-          </div>
-          <div class="segmented two" data-control="lift">
-            <button class="selected" type="button">Low</button>
-            <button type="button">High</button>
-          </div>
-          <label class="toggle-row">
-            <span><strong>Motion sync</strong><small>Align sensor data with USB reports.</small></span>
-            <input type="checkbox" checked />
-            <i aria-hidden="true"></i>
-          </label>
-        </article>
+          <article class="setting-card">
+            <div class="setting-heading">
+              <div><p>POLLING RATE</p><h2>Report frequency</h2></div>
+            </div>
+            <div class="polling-wrap">
+              <input id="polling-range" type="range" min="0" max="3" step="1" value="${POLLING_VALUES.indexOf(appliedPolling)}" class="polling-range" aria-label="Polling rate" />
+              <div class="polling-ticks" aria-hidden="true">
+                <span>125</span><span>250</span><span>500</span><span>1K</span>
+              </div>
+            </div>
+            <small class="setting-note">Stored in this mouse's onboard profile — OpenMouse writes it there.</small>
+          </article>
+        </div>
       </section>
 
       <footer class="panel-footer">
-        <span id="save-status">Preview settings have not been saved.</span>
-        <button id="save-button" type="button">Save changes</button>
+        <div class="footer-status">
+          <span id="pending-label">No pending changes</span>
+          <small id="pending-sub">Adjust a setting to preview it before writing.</small>
+        </div>
+        <div class="footer-actions">
+          <button id="revert-btn" type="button" class="revert-btn" disabled>↩ Revert</button>
+          <button id="apply-btn" type="button" class="apply-btn" disabled>⚡ Apply changes</button>
+        </div>
       </footer>
     </main>
   </div>
 `;
 
-const dpiRange = document.querySelector<HTMLInputElement>("#dpi-range");
-const dpiOutput = document.querySelector<HTMLOutputElement>("#dpi-output");
-const dpiButtons = document.querySelectorAll<HTMLButtonElement>("[data-dpi]");
-const segmentedControls = document.querySelectorAll<HTMLElement>(".segmented");
-const saveButton = document.querySelector<HTMLButtonElement>("#save-button");
-const saveStatus = document.querySelector<HTMLSpanElement>("#save-status");
-const previewMessage = document.querySelector<HTMLParagraphElement>("#preview-message");
-const navItems = document.querySelectorAll<HTMLButtonElement>(".nav-item");
+// Tab switching
+const tabBtns = document.querySelectorAll<HTMLButtonElement>(".tab-btn");
 
-function markChanged(): void {
-  if (saveStatus) saveStatus.textContent = "Preview settings have unsaved changes.";
-}
-
-function setDpi(value: number): void {
-  if (!dpiRange || !dpiOutput) return;
-  dpiRange.value = String(value);
-  dpiOutput.value = `${value} DPI`;
-  dpiButtons.forEach((button) => button.classList.toggle("selected", Number(button.dataset.dpi) === value));
-}
-
-dpiRange?.addEventListener("input", () => {
-  setDpi(Number(dpiRange.value));
-  markChanged();
-});
-dpiButtons.forEach((button) => button.addEventListener("click", () => {
-  setDpi(Number(button.dataset.dpi));
-  markChanged();
-}));
-
-segmentedControls.forEach((control) => {
-  control.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      control.querySelectorAll("button").forEach((item) => item.classList.remove("selected"));
-      button.classList.add("selected");
-      markChanged();
-    });
-  });
-});
-
-saveButton?.addEventListener("click", () => {
-  if (!saveStatus || !saveButton) return;
-  try {
-    localStorage.setItem(DEMO_SETTINGS_KEY, JSON.stringify({
-      dpi: Number(dpiRange?.value ?? 1600),
-      polling: document.querySelector('[data-control="polling"] .selected')?.textContent?.trim(),
-      lift: document.querySelector('[data-control="lift"] .selected')?.textContent?.trim(),
-      motionSync: document.querySelector<HTMLInputElement>(".toggle-row input")?.checked,
-    }));
-  } catch {
-    saveStatus.textContent = "Settings could not be stored in this browser.";
-    return;
+function showTab(tabId: string): void {
+  tabBtns.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabId));
+  const overview = document.getElementById("panel-overview");
+  const performance = document.getElementById("panel-performance");
+  if (overview) overview.hidden = tabId !== "overview";
+  if (performance) performance.hidden = tabId !== "performance";
+  const msg = document.querySelector<HTMLElement>("#preview-message");
+  if (msg) {
+    msg.textContent = tabId === "overview"
+      ? "This demo shows a simulated device status — no real connection."
+      : "This demo does not connect to or change a real device.";
   }
-  saveButton.textContent = "Saved";
-  saveStatus.textContent = "Demo settings saved in this browser.";
-  window.setTimeout(() => {
-    saveButton.textContent = "Save changes";
-  }, 1600);
+}
+
+tabBtns.forEach((btn) => {
+  if (!btn.disabled) {
+    btn.addEventListener("click", () => showTab(btn.dataset.tab ?? "performance"));
+  }
 });
 
-document.querySelector<HTMLInputElement>(".toggle-row input")?.addEventListener("change", markChanged);
+// Pending state
+function hasPendingChanges(): boolean {
+  return pendingDpi !== appliedDpi || pendingPolling !== appliedPolling;
+}
 
-navItems.forEach((item) => {
-  item.addEventListener("click", () => {
-    navItems.forEach((navItem) => {
-      const isActive = navItem === item;
-      navItem.classList.toggle("active", isActive);
-      navItem.setAttribute("aria-pressed", String(isActive));
-    });
-    const plannedPanel = item.dataset.panel === "buttons" || item.dataset.panel === "profiles";
-    const target = item.dataset.panel === "overview"
-      ? document.querySelector(".device-overview")
-      : document.querySelector(".settings-grid");
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (previewMessage) {
-      previewMessage.textContent = plannedPanel
-        ? `${item.textContent} controls are planned for a future device profile.`
-        : "This demo does not connect to or change a real device.";
-    }
+function updatePendingState(): void {
+  const hasChanges = hasPendingChanges();
+  const pendingLabel = document.getElementById("pending-label");
+  const pendingSub = document.getElementById("pending-sub");
+  const revertBtn = document.getElementById("revert-btn") as HTMLButtonElement | null;
+  const applyBtn = document.getElementById("apply-btn") as HTMLButtonElement | null;
+  if (pendingLabel) pendingLabel.textContent = hasChanges ? "Pending changes" : "No pending changes";
+  if (pendingSub) {
+    pendingSub.textContent = hasChanges
+      ? "Preview is active — click Apply to write settings."
+      : "Adjust a setting to preview it before writing.";
+  }
+  if (revertBtn) revertBtn.disabled = !hasChanges;
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+}
+
+// DPI controls
+const dpiGrid = document.getElementById("dpi-grid");
+const dpiDisplay = document.getElementById("dpi-display");
+const dpiNote = document.getElementById("dpi-note");
+
+function setDpi(dpi: number): void {
+  pendingDpi = dpi;
+  if (dpiDisplay) dpiDisplay.textContent = fmtDpi(dpi);
+  dpiGrid?.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((btn) => {
+    btn.classList.toggle("selected", Number(btn.dataset.dpi) === dpi);
   });
+  updatePendingState();
+}
+
+dpiGrid?.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((btn) => {
+  btn.addEventListener("click", () => setDpi(Number(btn.dataset.dpi)));
+});
+
+// Polling slider
+const pollingRange = document.querySelector<HTMLInputElement>("#polling-range");
+
+pollingRange?.addEventListener("input", () => {
+  pendingPolling = POLLING_VALUES[Number(pollingRange.value)];
+  updatePendingState();
+});
+
+// Apply / Revert
+const applyBtn = document.getElementById("apply-btn") as HTMLButtonElement | null;
+const revertBtn = document.getElementById("revert-btn") as HTMLButtonElement | null;
+const statusText = document.getElementById("status-text");
+
+applyBtn?.addEventListener("click", () => {
+  if (!hasPendingChanges() || !applyBtn) return;
+  appliedDpi = pendingDpi;
+  appliedPolling = pendingPolling;
+  if (dpiNote) dpiNote.textContent = `Current ${fmtDpi(appliedDpi)}`;
+  if (statusText) statusText.textContent = `Current: ${fmtDpi(appliedDpi)} · ${fmtHz(appliedPolling)}`;
+  try {
+    localStorage.setItem(DEMO_SETTINGS_KEY, JSON.stringify({ dpi: appliedDpi, polling: appliedPolling }));
+  } catch { /* ignore */ }
+  applyBtn.textContent = "Applied!";
+  window.setTimeout(() => { applyBtn.textContent = "⚡ Apply changes"; }, 1600);
+  updatePendingState();
+});
+
+revertBtn?.addEventListener("click", () => {
+  pendingDpi = appliedDpi;
+  pendingPolling = appliedPolling;
+  setDpi(appliedDpi);
+  if (pollingRange) pollingRange.value = String(POLLING_VALUES.indexOf(appliedPolling));
+  updatePendingState();
 });
