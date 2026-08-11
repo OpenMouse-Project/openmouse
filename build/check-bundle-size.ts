@@ -46,7 +46,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised from 446 kB for CRDRAKO KO-ONE support: wired/receiver identifiers,
   // capability metadata, and the Competitive and Hyper mode codecs and UI.
   // No framework or runtime dependency was added.
-  ".js": 447_000,
+  // Raised from 447 kB for Zaunkoenig M2K/M3K support: the public packed-config
+  // codec and WebHID client add device detection, confirmed reads/writes, and
+  // model-specific DPI/LOD handling. No framework or runtime dependency was added.
+  ".js": 455_000,
 };
 
 const ASSETS = join("dist", "assets");
