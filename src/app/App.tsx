@@ -9,6 +9,7 @@ import { PendingBar } from "./PendingBar";
 import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
+import { SupportRequestsDialog } from "./SupportRequestsDialog";
 import { useControl } from "./useControl";
 import { BatteryIcon } from "./ui";
 import { DpiCard } from "./cards/DpiCard";
@@ -245,6 +246,7 @@ export function App(): ReactNode {
   const snapshot = useControl();
   const panel = useRef<HTMLElement>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [supportRequestsOpen, setSupportRequestsOpen] = useState(false);
   const { preferences, status } = snapshot;
 
   useEffect(() => {
@@ -290,7 +292,7 @@ export function App(): ReactNode {
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
     >
-      <Sidebar snapshot={snapshot} />
+      <Sidebar snapshot={snapshot} onOpenSupportRequests={() => setSupportRequestsOpen(true)} />
 
       <main className={`control-panel${snapshot.interfaceSettingsOpen ? " showing-settings" : ""}`} ref={panel}>
         <div className="panel-top">
@@ -372,6 +374,7 @@ export function App(): ReactNode {
 
       <PendingBar snapshot={snapshot} />
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <SupportRequestsDialog open={supportRequestsOpen} onClose={() => setSupportRequestsOpen(false)} diagnosticBundle={control.supportDiagnosticBundle()} />
     </div>
   );
 }

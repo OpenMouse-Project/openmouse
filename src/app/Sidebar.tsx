@@ -27,7 +27,7 @@ function GitHubIcon(): ReactNode {
   );
 }
 
-export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: ControlSnapshot; onOpenSupportRequests: () => void }): ReactNode {
   const { status, deviceArtwork, preferences } = snapshot;
   const [unreachable, setUnreachable] = useState<ReadonlySet<string>>(new Set());
   const showArtwork = deviceArtwork !== null && !unreachable.has(deviceArtwork);
@@ -143,6 +143,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           Interface settings
         </button>
         <a className="nav-item" href="/check.html">Mouse Check</a>
+        <button className="nav-item mouse-request-button" type="button" onClick={onOpenSupportRequests}>Request a mouse</button>
       </nav>
       <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
       <small className="build-note">Development build - not the final product</small>

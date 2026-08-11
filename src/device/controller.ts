@@ -963,6 +963,17 @@ function diagnosticsLog(): object[] {
     });
 }
 
+/** Returns exactly the diagnostic object shown for consent before an upload. */
+export function supportDiagnosticBundle(): Record<string, unknown> | null {
+  if (!latestDiagnosticsSnapshot || !activeDevice) return null;
+  const rows = hidTraffic(activeDevice);
+  return {
+    ...latestDiagnosticsSnapshot,
+    logStart: rows.length > 0 ? new Date(performance.timeOrigin + rows[0].at).toISOString() : null,
+    log: diagnosticsLog(),
+  };
+}
+
 function diagnosticsFileName(): string {
   const device = activeDevice;
   const ids = device ? `${formatHex(device.vendorId, 4)}-${formatHex(device.productId, 4)}` : "no-device";
