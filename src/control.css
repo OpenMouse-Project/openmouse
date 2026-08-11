@@ -648,12 +648,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-switch-row input:focus-visible { box-shadow: 0 0 0 3px var(--ui-accent-soft); }
 .interface-reset { margin-top: .75rem; padding: .55rem .75rem; border: 1px solid #4a3436; border-radius: 7px; background: #1c1315; color: #e7a7aa; font-size: .68rem; font-weight: 650; }
 
-.density-comfortable #pulsar-advanced.egg-advanced-layout { gap: .8rem !important; }
-.density-comfortable #pulsar-advanced.egg-advanced-layout > .setting-card { padding: 1rem !important; }
-.density-comfortable .settings-grid { gap: .9rem !important; }
-.density-comfortable .settings-grid .setting-card { padding: 1.1rem !important; }
-.density-comfortable .device-overview .summary-stat { padding: 1rem 1.2rem !important; }
-.density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding: .95rem 1rem; }
 .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 
 .small-screen-blocker { display: flex; min-height: 100vh; align-items: flex-start; justify-content: center; flex-direction: column; padding: clamp(2rem, 8vw, 7rem); }

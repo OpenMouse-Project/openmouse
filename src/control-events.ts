@@ -19,7 +19,6 @@ export interface ControlEventHandlers {
   selectAuthorizedDevice(index: number): Promise<void>;
   openInterfaceSettings(): void;
   closeInterfaceSettings(): void;
-  setInterfaceDensity(value: string): void;
   setInterfaceTheme(value: string): void;
   setReducedMotion(enabled: boolean): void;
   setExpandSections(enabled: boolean): void;
@@ -107,9 +106,6 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   onClick("#interface-settings-button", handlers.openInterfaceSettings);
   onClick("#close-interface-settings", handlers.closeInterfaceSettings);
 
-  document.querySelector<HTMLSelectElement>("#interface-density")?.addEventListener("change", (event) => {
-    handlers.setInterfaceDensity((event.target as HTMLSelectElement).value);
-  });
   document.querySelector<HTMLSelectElement>("#interface-theme")?.addEventListener("change", (event) => {
     handlers.setInterfaceTheme((event.target as HTMLSelectElement).value);
   });

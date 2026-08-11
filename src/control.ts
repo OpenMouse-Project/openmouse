@@ -37,7 +37,6 @@ import {
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
   interfaceThemeSlug,
-  type InterfaceDensity,
   type InterfaceTheme,
 } from "./interface-preferences";
 import {
@@ -346,7 +345,6 @@ function applyInterfacePreferences(): void {
   setPendingBarSuppressed(interfacePreferences.instantFlash);
   const shell = document.querySelector<HTMLElement>(".control-shell");
   if (!shell) return;
-  shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
   shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
   shell.classList.toggle("sidebar-hidden", sidebarHidden);
   const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
@@ -482,10 +480,6 @@ function renderControl(): void {
     selectAuthorizedDevice,
     openInterfaceSettings,
     closeInterfaceSettings,
-    setInterfaceDensity: (value) => {
-      interfacePreferences.density = value as InterfaceDensity;
-      saveInterfacePreferences();
-    },
     setInterfaceTheme: (value) => {
       interfacePreferences.theme = value as InterfaceTheme;
       saveInterfacePreferences();
@@ -779,7 +773,6 @@ async function populatePreviewLauncher(): Promise<void> {
 
 function populateInterfaceSettings(): void {
   void populatePreviewLauncher();
-  setControlValue("#interface-density", interfacePreferences.density);
   setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
   const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
