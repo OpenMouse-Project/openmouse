@@ -1171,7 +1171,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "crdrako" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
   const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
   const isRazer = ui?.family === "razer" || activeRazerClient !== null;
   const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
@@ -1322,10 +1322,10 @@ function showStatus(deviceStatus: MouseStatus): void {
 
   const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
   if (sleepToggle) sleepToggle.hidden = !isDmFamily || !activeDmClient?.canDisableSleep;
-  if (isDmFamily && activeDmClient) {
-    const seconds = activeDmClient.getSleepOptions();
+  if (isDmFamily) {
+    const seconds = activeDmClient?.getSleepOptions() ?? [10, 30, 60, 300, 600, 1800];
     fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
-    fillDebounceOptions(activeDmClient.getDebounceMaxMs());
+    fillDebounceOptions(activeDmClient?.getDebounceMaxMs() ?? 20);
     // Read from the device value so toggling sleep back on restores a real timeout.
     lastSleepSeconds = deviceStatus.sleepTimeout ?? seconds[0] ?? 60;
     setToggleValue("#sleep-toggle", status.sleepTimeout !== null && status.sleepTimeout !== undefined);

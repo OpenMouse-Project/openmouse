@@ -145,6 +145,63 @@ const LAMZU: MouseStatus = {
   firmware: ["1.1.4"],
 };
 
+const CRDRAKO: MouseStatus = {
+  brand: "CRDRAKO",
+  name: "CRDRAKO KO-ONE",
+  ui: { family: "crdrako", hideUnsupportedPollingRates: true, forceShowBattery: true },
+  batteryPercent: 68,
+  batteryState: "Discharging",
+  dpi: 1600,
+  dpiY: 1600,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: 1,
+  liftOffDistance: "Low",
+  connectionType: "Wireless",
+  connectionDetail: "2.4 GHz receiver",
+  motionSync: true,
+  angleSnapping: false,
+  rippleControl: false,
+  performanceMode: true,
+  hyperMode: true,
+  debounceMs: 2,
+  sleepTimeout: 60,
+  firmware: ["Mouse 1.0.3", "Dongle 1.0.2"],
+};
+
+const M3K: MouseStatus = {
+  // The Zaunkoenig driver is being prepared in mouse-protocol. This assertion
+  // can disappear when the website refreshes to that package revision.
+  brand: "Zaunkoenig" as MouseStatus["brand"],
+  name: "Zaunkoenig M3K",
+  ui: {
+    family: "zaunkoenig",
+    hideUnsupportedPollingRates: true,
+    hideMotionSync: true,
+    hideRippleControl: true,
+    hideSleepCard: true,
+    hideSignalCard: true,
+    showAdvancedSection: true,
+    pollingNote: "Full-speed is limited to 1,000 Hz; High-speed supports 1,000–8,000 Hz.",
+    defaultDisplayName: "Zaunkoenig M3K",
+  },
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 800,
+  pollingRateHz: 8000,
+  supportedPollingRates: [1000, 2000, 4000, 8000],
+  activeProfile: null,
+  liftOffDistance: "Medium",
+  supportedLiftOffDistances: ["Low", "Medium", "High"],
+  connectionType: "Wired",
+  connectionDetail: "USB High-speed",
+  angleSnapping: false,
+  motionSync: null,
+  rippleControl: null,
+  firmware: ["parawizard new v0.8.2"],
+};
+
 const ATK: MouseStatus = {
   brand: "ATK",
   name: "A9 Ultra",
@@ -451,6 +508,8 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
+  crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
+  m3k: { label: "Zaunkoenig M3K", status: M3K },
   atk: { label: "ATK A9 Ultra", status: ATK },
   orbital: { label: "Orbital One", status: ORBITAL },
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
