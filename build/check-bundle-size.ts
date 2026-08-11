@@ -2,8 +2,14 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  ".css": 85_000,
-  ".js": 470_000,
+  // Raised from 85 kB after the Preact workspace rewrite split the control,
+  // profile, device, and diagnostics styles into the aggregate production
+  // bundle. The measured bundle is 86.3 kB; 90 kB leaves modest headroom.
+  ".css": 90_000,
+  // Raised from 470 kB for the Preact component rewrite, MX Master 4 controls,
+  // and database-backed support-request flow. Preview fixtures retain their
+  // separate allowance below; the measured aggregate is 491.8 kB with them.
+  ".js": 485_000,
 };
 
 const ASSETS = join("dist", "assets");
