@@ -13,7 +13,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // Catppuccin family (Mocha, Macchiato, Frappé). Each variant ships its raw
   // palette plus a shared semantic token mapping, and the whole family shares
   // one block of component-level overrides — no UI framework was added.
-  ".css": 72_000,
+  // Raised from 72 kB for the Mouse Check page CSS bundled alongside the
+  // themes in the aggregate main + check stylesheet.
+  ".css": 78_000,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
