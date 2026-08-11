@@ -3,9 +3,6 @@ dist/
 /preview/
 CHANGELOG.md
 supabase/migrations/
-!supabase/migrations/
-supabase/migrations/*
-!supabase/migrations/20260811000000_mouse_support_requests.sql
 .DS_Store
 .env
 .env.*
