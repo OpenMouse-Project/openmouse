@@ -3,6 +3,7 @@ import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./batt
 import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
 import { controlTemplate } from "./control-template";
 import { bindControlEvents } from "./control-events";
+import { initColorPickers, syncColorPickers } from "./ui/color-picker";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -35,7 +36,7 @@ import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
-  type InterfaceDensity,
+  interfaceThemeSlug,
   type InterfaceTheme,
 } from "./interface-preferences";
 import {
@@ -89,19 +90,21 @@ import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pr
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
+import { RazerCobraHidClient } from "@openmouse/protocol/drivers/razer/cobra-hid";
 import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
 import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
 import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
 import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
+import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
-import { parsePreviewMode, type PreviewMode } from "./preview-modes";
+import { parsePreviewMode, previewsEnabled, type PreviewMode } from "./preview-modes";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -114,7 +117,8 @@ const appRoot = controlApp;
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 const DEFAULT_TITLE = document.title;
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
-const previewMode = import.meta.env.DEV
+const previewModeEnabled = previewsEnabled(__BUILD_CHANNEL__, import.meta.env.DEV);
+const previewMode = previewModeEnabled
   ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
   : null;
 const isSuperstrikePreview = previewMode === "superstrike";
@@ -128,7 +132,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
-let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | null = null;
+let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
@@ -343,12 +347,19 @@ function applyInterfacePreferences(): void {
   setPendingBarSuppressed(interfacePreferences.instantFlash);
   const shell = document.querySelector<HTMLElement>(".control-shell");
   if (!shell) return;
-  shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
   shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
   shell.classList.toggle("sidebar-hidden", sidebarHidden);
   const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
   if (menuToggle) menuToggle.setAttribute("aria-pressed", String(!sidebarHidden));
-  shell.dataset.interfaceTheme = interfacePreferences.theme.toLowerCase();
+  shell.dataset.interfaceTheme = interfaceThemeSlug(interfacePreferences.theme);
+  document.querySelectorAll<HTMLInputElement>('input[name="interface-theme"]').forEach((input) => {
+    input.checked = input.value === interfacePreferences.theme;
+  });
+  setText("#theme-preview-name", `${interfacePreferences.theme} preview`);
+  if (interfacePreferences.theme === "Miku") document.querySelectorAll<HTMLImageElement>("#miku-mascot, #miku-theme-preview-mascot").forEach((mascot) => {
+    const source = mascot.dataset.src;
+    if (source && !mascot.getAttribute("src")) mascot.src = source;
+  });
   document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
     details.open = interfacePreferences.expandSections;
   });
@@ -365,18 +376,18 @@ function renderStagedMarkers(): void {
   });
 }
 
-type WorkspaceTab = "overview" | "performance" | "buttons" | "profiles" | "advanced";
+type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced";
 
-const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "buttons", "profiles", "advanced"];
+const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "lighting", "buttons", "profiles", "advanced"];
 const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   overview: ["#device-overview"],
   performance: [
     "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
     "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']",
     "#pulsar-advanced", "#processing-settings", "#ninjutso-sensor-settings", "#ninjutso-click-settings",
-    "#teevolution-dpi-lighting", "#egg-filter-settings",
-    "#egg-polling-settings", "#egg-cpi-settings",
+    "#egg-filter-settings", "#egg-polling-settings", "#egg-cpi-settings",
   ],
+  lighting: ["#lighting-settings", "#lighting-tab-card"],
   buttons: [
     "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
     "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
@@ -384,10 +395,11 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#lighting-card", "#teevolution-dpi-lighting", "#finalmouse-settings",
+    ".testing-note", "#device-debug-details",
   ],
 };
-const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced"]);
+const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);
 let activeWorkspaceTab: WorkspaceTab = "performance";
 
 function workspaceElements(selectors: readonly string[]): HTMLElement[] {
@@ -473,10 +485,6 @@ function renderControl(): void {
     selectAuthorizedDevice,
     openInterfaceSettings,
     closeInterfaceSettings,
-    setInterfaceDensity: (value) => {
-      interfacePreferences.density = value as InterfaceDensity;
-      saveInterfacePreferences();
-    },
     setInterfaceTheme: (value) => {
       interfacePreferences.theme = value as InterfaceTheme;
       saveInterfacePreferences();
@@ -558,6 +566,7 @@ function renderControl(): void {
     toggleOnboardProfileEnabled,
     reloadOnboardProfiles,
   });
+  initColorPickers();
   bindWorkspaceTabs();
   onPendingChanges(renderPendingBar);
   onPendingChanges(() => {
@@ -661,8 +670,8 @@ function showSlotsPreview(): void {
  * the same rendering path the real driver would.
  */
 async function showFixturePreview(name: PreviewMode): Promise<void> {
-  // Loaded on demand so the fixtures never reach a production bundle, where
-  // `previewMode` is always null and none of this is reachable.
+  // Loaded on demand so ordinary visitors do not pay to parse fixtures. Stable
+  // builds remove this path; the deployed insiders app keeps it for reviewers.
   const { PREVIEW_FIXTURES, PREVIEW_KEYS } = await import("./preview-fixtures");
   const fixture = name === "list" || name === "slots" || name === "superstrike"
     ? undefined
@@ -753,7 +762,7 @@ function closeInterfaceSettings(): void {
 async function populatePreviewLauncher(): Promise<void> {
   const section = document.querySelector<HTMLElement>("#preview-launcher");
   const list = document.querySelector<HTMLElement>("#preview-launcher-list");
-  if (!section || !list || !import.meta.env.DEV || list.childElementCount > 0) return;
+  if (!section || !list || !previewModeEnabled || list.childElementCount > 0) return;
 
   const { PREVIEW_FIXTURES } = await import("./preview-fixtures");
   const entries: Array<[string, string]> = [
@@ -769,8 +778,6 @@ async function populatePreviewLauncher(): Promise<void> {
 
 function populateInterfaceSettings(): void {
   void populatePreviewLauncher();
-  setControlValue("#interface-density", interfacePreferences.density);
-  setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
   const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
   const instantFlash = document.querySelector<HTMLInputElement>("#interface-instant-flash");
@@ -1165,7 +1172,7 @@ function showStatus(deviceStatus: MouseStatus): void {
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "crdrako" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
   const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
   const isRazer = ui?.family === "razer" || activeRazerClient !== null;
   const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
@@ -1239,9 +1246,21 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse || ui?.hideSignalCard === true;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isDmFamily || isFinalmouse;
+    const hidePerformanceMode = status.performanceMode == null || isEgg || isFinalmouse;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
+  }
+  const performanceModeLabel = document.querySelector<HTMLElement>("#performance-mode-label");
+  if (performanceModeLabel) {
+    performanceModeLabel.textContent = status.brand === "CRDRAKO"
+      ? "Competitive mode"
+      : status.brand === "Teevolution" ? "Highest performance" : "Performance mode";
+  }
+  const hyperModeSetting = document.querySelector<HTMLElement>("#hyper-mode-setting");
+  if (hyperModeSetting) {
+    const hideHyperMode = status.hyperMode == null;
+    hyperModeSetting.hidden = hideHyperMode;
+    hyperModeSetting.style.display = hideHyperMode ? "none" : "flex";
   }
   const processingCard = document.querySelector<HTMLElement>("#processing-settings");
   for (const [selector, hidden] of [
@@ -1259,7 +1278,8 @@ function showStatus(deviceStatus: MouseStatus): void {
       (status.motionSync != null && ui?.hideMotionSync !== true)
       || (status.angleSnapping != null && ui?.hideAngleSnapping !== true)
       || (status.rippleControl != null && ui?.hideRippleControl !== true)
-      || (status.performanceMode != null && !isDmFamily && !isEgg && !isFinalmouse)
+      || (status.performanceMode != null && !isEgg && !isFinalmouse)
+      || status.hyperMode != null
       || status.sensorMode != null || status.performanceDuration != null
     );
     processingCard.hidden = !processingAvailable;
@@ -1303,10 +1323,10 @@ function showStatus(deviceStatus: MouseStatus): void {
 
   const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
   if (sleepToggle) sleepToggle.hidden = !isDmFamily || !activeDmClient?.canDisableSleep;
-  if (isDmFamily && activeDmClient) {
-    const seconds = activeDmClient.getSleepOptions();
+  if (isDmFamily) {
+    const seconds = activeDmClient?.getSleepOptions() ?? [10, 30, 60, 300, 600, 1800];
     fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
-    fillDebounceOptions(activeDmClient.getDebounceMaxMs());
+    fillDebounceOptions(activeDmClient?.getDebounceMaxMs() ?? 20);
     // Read from the device value so toggling sleep back on restores a real timeout.
     lastSleepSeconds = deviceStatus.sleepTimeout ?? seconds[0] ?? 60;
     setToggleValue("#sleep-toggle", status.sleepTimeout !== null && status.sleepTimeout !== undefined);
@@ -1315,6 +1335,8 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#motion-sync-toggle", status.motionSync);
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
+    setToggleValue("#performance-mode-toggle", status.performanceMode);
+    setToggleValue("#hyper-mode-toggle", status.hyperMode);
   }
   // Sleep and low-power commands are supported by the Viper V3 protocol,
   // but not by the legacy Viper Mini driver.
@@ -1360,8 +1382,6 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#ripple-control-toggle", status.rippleControl);
     setToggleValue("#performance-mode-toggle", status.performanceMode);
     const isTeevolution = status.brand === "Teevolution";
-    const performanceModeLabel = document.querySelector<HTMLElement>("#performance-mode-label");
-    if (performanceModeLabel) performanceModeLabel.textContent = isTeevolution ? "Highest performance" : "Performance mode";
     const teevolutionSensorRow = document.querySelector<HTMLElement>("#teevolution-sensor-mode-row");
     const teevolutionDurationRow = document.querySelector<HTMLElement>("#teevolution-performance-duration-row");
     const teevolutionDpiLighting = document.querySelector<HTMLElement>("#teevolution-dpi-lighting");
@@ -1610,7 +1630,12 @@ function showStatus(deviceStatus: MouseStatus): void {
 }
 
 function renderLighting(status: MouseStatus, settingsPending: boolean): void {
-  const card = document.querySelector<HTMLElement>("#lighting-card");
+  renderLightingCard(status, settingsPending, "lighting");
+  renderLightingCard(status, settingsPending, "lighting-tab");
+}
+
+function renderLightingCard(status: MouseStatus, settingsPending: boolean, prefix: "lighting" | "lighting-tab"): void {
+  const card = document.querySelector<HTMLElement>(`#${prefix}-card`);
   const lighting = status.lighting;
   if (!card) return;
   if (!lighting) {
@@ -1620,12 +1645,12 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   }
   card.hidden = false;
   card.style.display = "";
-  setText("#lighting-title", lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
+  setText(`#${prefix}-title`, lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
   const mode = lighting.mode;
   const usesColor = mode !== null && lighting.colorModes.includes(mode);
   const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
   const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
-  const modesContainer = document.querySelector<HTMLElement>("#lighting-modes");
+  const modesContainer = document.querySelector<HTMLElement>(`#${prefix}-modes`);
   if (modesContainer) {
     modesContainer.innerHTML = lighting.modes
       .map((candidate) => `<button type="button" data-lighting-mode="${candidate}" aria-pressed="${candidate === mode}">${candidate}</button>`)
@@ -1635,17 +1660,17 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
     setSelected(button, button.dataset.lightingMode === mode);
     button.disabled = settingsPending;
   });
-  const colorRow = document.querySelector<HTMLElement>("#lighting-color-row");
+  const colorRow = document.querySelector<HTMLElement>(`#${prefix}-color-row`);
   if (colorRow) colorRow.hidden = !usesColor;
-  const color2Field = document.querySelector<HTMLElement>("#lighting-color2-field");
+  const color2Field = document.querySelector<HTMLElement>(`#${prefix}-color2-field`);
   if (color2Field) color2Field.hidden = !usesColor2;
-  if (usesColor) setControlValue("#lighting-color", lighting.color ?? "#00ff00");
-  if (usesColor2) setControlValue("#lighting-color2", lighting.color2 ?? "#ff0000");
-  const speedRow = document.querySelector<HTMLElement>("#lighting-speed-row");
+  if (usesColor) setControlValue(`#${prefix}-color`, lighting.color ?? "#00ff00");
+  if (usesColor2) setControlValue(`#${prefix}-color2`, lighting.color2 ?? "#ff0000");
+  const speedRow = document.querySelector<HTMLElement>(`#${prefix}-speed-row`);
   if (speedRow) speedRow.hidden = !usesSpeed;
   if (usesSpeed) {
-    const speedsContainer = document.querySelector<HTMLElement>("#lighting-speeds");
-    const speedSlider = document.querySelector<HTMLInputElement>("#lighting-speed-slider");
+    const speedsContainer = document.querySelector<HTMLElement>(`#${prefix}-speeds`);
+    const speedSlider = document.querySelector<HTMLInputElement>(`#${prefix}-speed-slider`);
     if (speedsContainer) {
       speedsContainer.hidden = lighting.speeds.length > 8;
       speedsContainer.innerHTML = lighting.speeds
@@ -1667,32 +1692,33 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
       }
     }
   }
-  const brightnessRow = document.querySelector<HTMLElement>("#lighting-brightness-row");
+  const brightnessRow = document.querySelector<HTMLElement>(`#${prefix}-brightness-row`);
   const brightnessLevels = lighting.brightnessLevels ?? [];
   if (brightnessRow) brightnessRow.hidden = brightnessLevels.length === 0;
-  const brightnessContainer = document.querySelector<HTMLElement>("#lighting-brightness-levels");
+  const brightnessContainer = document.querySelector<HTMLElement>(`#${prefix}-brightness-levels`);
   if (brightnessContainer && brightnessLevels.length) {
     brightnessContainer.innerHTML = brightnessLevels
       .map((level) => `<button type="button" data-lighting-brightness="${level}" aria-pressed="${level === lighting.brightness}">${level}%</button>`)
       .join("");
     brightnessContainer.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
   }
-  const pending = document.querySelector<HTMLElement>("#lighting-pending");
+  const pending = document.querySelector<HTMLElement>(`#${prefix}-pending`);
   if (pending) pending.textContent = isPendingChange("lighting")
     ? `Staged: ${describeLighting(status.lighting ?? lighting)}`
     : "Choose an effect";
-  const writeOnlyBadge = document.querySelector<HTMLElement>("#lighting-write-only-badge");
+  const writeOnlyBadge = document.querySelector<HTMLElement>(`#${prefix}-write-only-badge`);
   if (writeOnlyBadge) writeOnlyBadge.hidden = !lighting.writeOnly;
-  const note = document.querySelector<HTMLElement>("#lighting-note");
+  const note = document.querySelector<HTMLElement>(`#${prefix}-note`);
   if (note) {
     note.textContent = lighting.writeOnly
       ? "The mouse cannot report its current effect, so this shows the last value written."
       : `Picks the ${lighting.zone} light effect.`;
   }
-  const colorInput = document.querySelector<HTMLInputElement>("#lighting-color");
+  const colorInput = document.querySelector<HTMLInputElement>(`#${prefix}-color`);
   if (colorInput) colorInput.disabled = settingsPending || !usesColor;
-  const color2Input = document.querySelector<HTMLInputElement>("#lighting-color2");
+  const color2Input = document.querySelector<HTMLInputElement>(`#${prefix}-color2`);
   if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
+  syncColorPickers();
 }
 
 function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
@@ -1940,7 +1966,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient) {
+  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient || client instanceof RazerCobraHidClient) {
     activeRazerClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
@@ -1977,13 +2003,24 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof KeychronHidClient || client instanceof ModdoHidClient) {
-    if (client instanceof ModdoHidClient) {
-      activeModdoClient = client;
-      await client.open();
-    } else {
-      activeKeychronClient = client;
-    }
+  } else if (client instanceof KeychronHidClient) {
+    activeKeychronClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof ModdoHidClient) {
+    activeModdoClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof ZaunkoenigHidClient) {
+    await client.open();
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
@@ -3456,7 +3493,7 @@ function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "co
     command: lightingCommand(staged),
     progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
     preview: (status) => {
-      if (status.lighting) status.lighting = { ...status.lighting, ...patch } as MouseLighting;
+      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);
@@ -3641,7 +3678,7 @@ function toggleDongleLed(): void {
   });
 }
 
-type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
+type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode" | "hyperMode";
 
 function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
   if (!hasActiveClient()) return;
@@ -3658,6 +3695,7 @@ function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void
       if (setting === "angleSnapping") await requireClientMethod("setAngleSnapping", "angle snapping").setAngleSnapping(enabled);
       if (setting === "rippleControl") await requireClientMethod("setRippleControl", "ripple control").setRippleControl(enabled);
       if (setting === "performanceMode") await requireClientMethod("setPerformanceMode", "performance mode").setPerformanceMode(enabled);
+      if (setting === "hyperMode") await requireClientMethod("setHyperMode", "Hyper mode").setHyperMode(enabled);
     },
   });
 }
@@ -3668,6 +3706,7 @@ function settingLabel(setting: PulsarToggleSetting): string {
     angleSnapping: "angle snapping",
     rippleControl: "ripple control",
     performanceMode: activeTeevolutionClient ? "highest performance" : "performance mode",
+    hyperMode: "Hyper mode",
   } as const)[setting];
 }
 

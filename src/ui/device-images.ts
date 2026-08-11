@@ -9,9 +9,19 @@
  * and its file belong in the same commit.
  */
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
+  // M3K and M2K use the supplied M3K product artwork.
+  ["0483:a462", "/devices/zaunkoenig-m3k.png"],
+  ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
   // Wired and receiver are separate product ids for the same mouse.
+  ["1532:00a5", "/devices/razer-viper-v2-pro.png"],
+  ["1532:00a6", "/devices/razer-viper-v2-pro.png"],
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
+  ["1532:008a", "/devices/razer-viper-mini.webp"],
+  ["1532:00a3", "/devices/razer-cobra.webp"],
+  // CRDRAKO KO-ONE wired and receiver transports share the same shell.
+  ["373e:006a", "/devices/crdrako-ko-one.png"],
+  ["373e:006b", "/devices/crdrako-ko-one.png"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
@@ -32,6 +42,15 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["093a:e020", "/devices/ninjutso-ten.png"],
   ["093a:ea01", "/devices/ninjutso-ten.png"],
   ["093a:eb01", "/devices/ninjutso-ten.png"],
+  // Nape Pro wired / Link-KM receivers share the same shell artwork.
+  ["3434:0440", "/devices/keychron-nape-pro.png"],
+  ["3434:d026", "/devices/keychron-nape-pro.png"],
+  ["3434:d029", "/devices/keychron-nape-pro.png"],
+  // Teevolution Terra Pro wired / receiver Compx transports.
+  ["3554:f520", "/devices/teevolution-terra-pro.png"],
+  ["3554:f522", "/devices/teevolution-terra-pro.png"],
+  ["3554:f523", "/devices/teevolution-terra-pro.png"],
+  ["3554:f5bb", "/devices/teevolution-terra-pro.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -44,5 +63,9 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (mapped) return mapped;
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\s*8k\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
+  if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
+  if (/\bnape\s*pro\b/i.test(displayName)) return "/devices/keychron-nape-pro.png";
+  if (/\bko-one\b/i.test(displayName)) return "/devices/crdrako-ko-one.png";
+  if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   return "/devices/unknown-device.png";
 }
