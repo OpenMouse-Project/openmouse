@@ -407,28 +407,31 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     });
   });
   // The effect and speed buttons are rebuilt on every render, so their clicks
-  // are delegated to the containers that own them.
-  document.querySelector<HTMLElement>("#lighting-modes")?.addEventListener("click", (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-mode]");
-    if (target && !target.disabled) handlers.applyLighting({ mode: target.dataset.lightingMode as MouseLighting["mode"] });
-  });
-  document.querySelector<HTMLElement>("#lighting-speeds")?.addEventListener("click", (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-speed]");
-    if (target && !target.disabled) handlers.applyLighting({ speed: Number(target.dataset.lightingSpeed) });
-  });
-  document.querySelector<HTMLInputElement>("#lighting-speed-slider")?.addEventListener("change", (event) => {
-    handlers.applyLighting({ speed: Number((event.target as HTMLInputElement).value) });
-  });
-  document.querySelector<HTMLElement>("#lighting-brightness-levels")?.addEventListener("click", (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-brightness]");
-    if (target && !target.disabled) handlers.applyLighting({ brightness: Number(target.dataset.lightingBrightness) });
-  });
-  document.querySelector<HTMLInputElement>("#lighting-color")?.addEventListener("change", (event) => {
-    handlers.applyLighting({ color: (event.target as HTMLInputElement).value });
-  });
-  document.querySelector<HTMLInputElement>("#lighting-color2")?.addEventListener("change", (event) => {
-    handlers.applyLighting({ color2: (event.target as HTMLInputElement).value });
-  });
+  // are delegated to the containers that own them. Both the Advanced-tab card
+  // and the dedicated Lighting-tab card bind the same way.
+  for (const prefix of ["lighting", "lighting-tab"] as const) {
+    document.querySelector<HTMLElement>(`#${prefix}-modes`)?.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-mode]");
+      if (target && !target.disabled) handlers.applyLighting({ mode: target.dataset.lightingMode as MouseLighting["mode"] });
+    });
+    document.querySelector<HTMLElement>(`#${prefix}-speeds`)?.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-speed]");
+      if (target && !target.disabled) handlers.applyLighting({ speed: Number(target.dataset.lightingSpeed) });
+    });
+    document.querySelector<HTMLInputElement>(`#${prefix}-speed-slider`)?.addEventListener("change", (event) => {
+      handlers.applyLighting({ speed: Number((event.target as HTMLInputElement).value) });
+    });
+    document.querySelector<HTMLElement>(`#${prefix}-brightness-levels`)?.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-lighting-brightness]");
+      if (target && !target.disabled) handlers.applyLighting({ brightness: Number(target.dataset.lightingBrightness) });
+    });
+    document.querySelector<HTMLInputElement>(`#${prefix}-color`)?.addEventListener("change", (event) => {
+      handlers.applyLighting({ color: (event.target as HTMLInputElement).value });
+    });
+    document.querySelector<HTMLInputElement>(`#${prefix}-color2`)?.addEventListener("change", (event) => {
+      handlers.applyLighting({ color2: (event.target as HTMLInputElement).value });
+    });
+  }
   document.querySelectorAll<HTMLElement>("[data-ninjutso-controls]").forEach((container) => {
     container.addEventListener("click", (event) => {
       const target = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-ninjutso-setting]");
