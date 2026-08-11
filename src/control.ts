@@ -2,6 +2,12 @@ import "./control.css";
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
 import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
 import { controlTemplate } from "./control-template";
+import {
+  LOGITECH_HAPTIC_EFFECTS as HAPTIC_EFFECTS,
+  LOGITECH_HAPTIC_PRESETS as HAPTIC_PRESET_VALUES,
+  LOGITECH_SMART_SHIFT_OFF as SMART_SHIFT_OFF,
+  type LogitechHapticPreset as HapticPreset,
+} from "@openmouse/protocol/logitech";
 import { bindControlEvents } from "./control-events";
 import { initColorPickers, syncColorPickers } from "./ui/color-picker";
 import {
@@ -545,6 +551,17 @@ function renderControl(): void {
     capLandingToLiftOff,
     applyGamingSurfaceMode,
     applyLightforceSwitchMode,
+    applyHapticIntensity: (preset: string) => applyHapticIntensity(preset as HapticPreset),
+    applyHapticEnabled,
+    applyHapticBatterySaving,
+    applyWheelMode,
+    applySmartShiftThreshold,
+    applyHiResScroll,
+    applyInvertScroll,
+    applyThumbWheelInverted,
+    applyFriendlyName,
+    requestHostSwitch,
+    cancelHostSwitch,
     applyLighting,
     applyNinjutsoSetting,
     flashPendingChanges,
@@ -581,6 +598,7 @@ function renderControl(): void {
     }
     if (!isPendingChange("gaming-surface")) stagedGamingSurface = null;
     if (!isPendingChange("lightforce-switch-mode")) stagedLightforce = null;
+    clearLogitechStaging();
     renderBunnyHop();
   });
   onPendingChanges(renderStagedMarkers);
@@ -1558,6 +1576,7 @@ function showStatus(deviceStatus: MouseStatus): void {
       ? "Turn the gaming surface on or set it to auto to adjust lift-off distance."
       : "Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.";
   }
+  renderMxMaster4Cards(status, settingsPending);
   const gamingSurfaceRow = document.querySelector<HTMLElement>("#gaming-surface-row");
   if (gamingSurfaceRow) gamingSurfaceRow.hidden = !status.gamingSurfaceMode;
   document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
@@ -3622,6 +3641,391 @@ function applyAsymmetricLiftOff(liftOff: number, requested: number): void {
 const MODE_STATUS_GROUP = "logitech-mode-status";
 let stagedGamingSurface: MouseStatus["gamingSurfaceMode"] = null;
 let stagedLightforce: MouseStatus["lightforceSwitchMode"] = null;
+
+/**
+ * The MX Master 4 haptic pair, the wheel trio and the hi-res mode byte each
+ * ride in a single device write, so everything staged into one of these groups
+ * is written together. Staging them separately would cost two writes to one
+ * byte, and the second would be built from a device read the first already
+ * invalidated.
+ */
+/**
+ * Easy-Switch is deliberately absent from the staged-changes model. A switch
+ * disconnects this computer, so it cannot sit in a batch alongside writes that
+ * would never land, and there is nothing to preview: the mouse is either here
+ * or it is not.
+ */
+let pendingHostSlot: number | null = null;
+
+function renderMxMaster4Cards(status: MouseStatus, settingsPending: boolean): void {
+  renderHapticsCard(status, settingsPending);
+  renderWheelCard(status, settingsPending);
+  renderDeviceNameCard(status, settingsPending);
+  renderEasySwitchCard(status);
+}
+
+function renderHapticsCard(status: MouseStatus, settingsPending: boolean): void {
+  const card = document.querySelector<HTMLElement>("#haptics-card");
+  if (!card) return;
+  const intensity = status.hapticIntensity;
+  card.hidden = intensity === null || intensity === undefined;
+  if (card.hidden) return;
+
+  const preset = (Object.keys(HAPTIC_PRESET_VALUES) as HapticPreset[])
+    .find((name) => HAPTIC_PRESET_VALUES[name] === intensity);
+  // Strength is meaningless while the motor is off, so the presets follow the
+  // master switch rather than sitting there looking clickable.
+  const enabled = status.hapticEnabled === true;
+
+  document.querySelectorAll<HTMLButtonElement>("[data-haptic]").forEach((button) => {
+    setSelected(button, button.dataset.haptic === preset);
+    button.disabled = settingsPending || !enabled;
+  });
+  setToggleValue("#haptic-enabled-toggle", status.hapticEnabled);
+  setToggleValue("#haptic-battery-toggle", status.hapticBatterySaving);
+  setText("#haptic-output", enabled ? preset ?? String(intensity) : "Off");
+}
+
+function renderWheelCard(status: MouseStatus, settingsPending: boolean): void {
+  const card = document.querySelector<HTMLElement>("#wheel-card");
+  if (!card) return;
+  const hasWheel = status.wheelMode != null || status.hiResScroll != null;
+  card.hidden = !hasWheel;
+  if (!hasWheel) return;
+
+  document.querySelectorAll<HTMLButtonElement>("[data-wheel-mode]").forEach((button) => {
+    setSelected(button, button.dataset.wheelMode === status.wheelMode);
+    button.disabled = settingsPending || status.wheelMode == null;
+  });
+
+  // 255 disables SmartShift; any other value is both "on" and the setting.
+  const threshold = status.smartShiftThreshold;
+  const smartShiftOn = threshold != null && threshold !== SMART_SHIFT_OFF;
+  const smartShiftRow = document.querySelector<HTMLElement>("#smart-shift-row");
+  if (smartShiftRow) smartShiftRow.hidden = threshold == null;
+  setToggleValue("#smart-shift-toggle", smartShiftOn);
+
+  const slider = document.querySelector<HTMLInputElement>("#smart-shift-threshold");
+  const thresholdRow = document.querySelector<HTMLElement>("#smart-shift-threshold-row");
+  if (thresholdRow) thresholdRow.hidden = !smartShiftOn;
+  if (slider) {
+    // The refresh must not yank the handle out from under a drag.
+    if (smartShiftOn && document.activeElement !== slider) slider.value = String(threshold);
+    slider.disabled = settingsPending || !smartShiftOn;
+  }
+  setText("#smart-shift-value", smartShiftOn ? String(threshold) : "—");
+
+  setToggleValue("#hi-res-toggle", status.hiResScroll);
+  const invertRow = document.querySelector<HTMLElement>("#invert-scroll-row");
+  if (invertRow) invertRow.hidden = status.supportsInvertScroll !== true;
+  setToggleValue("#invert-scroll-toggle", status.invertScroll);
+  const thumbRow = document.querySelector<HTMLElement>("#thumb-wheel-row");
+  if (thumbRow) thumbRow.hidden = status.supportsThumbWheelInvert !== true;
+  setToggleValue("#thumb-wheel-toggle", status.thumbWheelInverted);
+
+  setText("#wheel-ratchet-state", status.wheelRatchetEngaged == null
+    ? "—"
+    : status.wheelRatchetEngaged ? "Ratcheted now" : "Free-spinning now");
+}
+
+function renderDeviceNameCard(status: MouseStatus, settingsPending: boolean): void {
+  const card = document.querySelector<HTMLElement>("#device-name-card");
+  if (!card) return;
+  const current = status.friendlyName;
+  const maxLength = status.friendlyNameMaxLength;
+  card.hidden = current == null || maxLength == null;
+  if (card.hidden || current == null || maxLength == null) return;
+
+  const input = document.querySelector<HTMLInputElement>("#device-name-input");
+  if (input) {
+    input.maxLength = maxLength;
+    input.dataset.current = current;
+    // Left alone while focused so the refresh cannot overwrite a half-typed name.
+    if (document.activeElement !== input) input.value = current;
+    input.disabled = settingsPending;
+  }
+  const typed = input?.value.trim() ?? "";
+  const apply = document.querySelector<HTMLButtonElement>("#device-name-apply");
+  if (apply) apply.disabled = settingsPending || typed.length === 0 || typed === current;
+  setText("#device-name-remaining", `${typed.length}/${maxLength}`);
+}
+
+function renderEasySwitchCard(status: MouseStatus): void {
+  const card = document.querySelector<HTMLElement>("#easy-switch-card");
+  if (!card) return;
+  const { hostCount, currentHost, hostSlotsPaired } = status;
+  const known = hostCount != null && currentHost != null;
+  card.hidden = !known;
+  if (!known || hostCount == null || currentHost == null) {
+    cancelHostSwitch();
+    return;
+  }
+
+  const slots = document.querySelector<HTMLElement>("#easy-switch-slots");
+  if (slots) {
+    slots.replaceChildren(...Array.from({ length: hostCount }, (_unused, index) => {
+      const active = index === currentHost;
+      const paired = hostSlotsPaired?.[index] === true;
+      /*
+       * Only a paired slot that is not the current one is a button. An empty
+       * slot is a plain span and cannot be clicked at all: switching there
+       * leaves the mouse unreachable until someone presses the button on its
+       * underside, which is not a thing a misclick should be able to do.
+       */
+      const switchable = paired && !active;
+      const pill = document.createElement(switchable ? "button" : "span");
+      pill.textContent = String(index + 1);
+      pill.title = active
+        ? "This computer"
+        : paired ? `Request a switch to computer ${index + 1}` : "Empty slot — nothing paired here";
+      if (active) pill.classList.add("is-current");
+      if (switchable) {
+        (pill as HTMLButtonElement).type = "button";
+        pill.addEventListener("click", () => askForHostSwitch(index));
+      }
+      return pill;
+    }));
+  }
+
+  const pairedCount = hostSlotsPaired?.filter(Boolean).length ?? 0;
+  setText("#easy-switch-output", `On ${currentHost + 1} of ${hostCount} · ${pairedCount} paired`);
+}
+
+/** Two-step confirmation that says what happens and how to undo it. */
+function askForHostSwitch(slot: number): void {
+  const row = document.querySelector<HTMLElement>("#easy-switch-confirm");
+  const message = document.querySelector<HTMLElement>("#easy-switch-confirm-text");
+  if (!row || !message) return;
+  pendingHostSlot = slot;
+  message.textContent =
+    `Request a switch to computer ${slot + 1}? The mouse will disconnect from this computer `
+    + "straight away. To bring it back, press the button underneath the mouse.";
+  row.hidden = false;
+  document.querySelector<HTMLButtonElement>("#easy-switch-go")?.focus();
+}
+
+function cancelHostSwitch(): void {
+  pendingHostSlot = null;
+  const row = document.querySelector<HTMLElement>("#easy-switch-confirm");
+  if (row) row.hidden = true;
+}
+
+/**
+ * Sends the mouse away. Says "requested" rather than "switched" because it
+ * cannot know: the device is gone the moment this succeeds, so nothing can be
+ * read back to confirm it arrived.
+ */
+async function requestHostSwitch(): Promise<void> {
+  const slot = pendingHostSlot;
+  const client = activeClient;
+  cancelHostSwitch();
+  if (!client || slot === null) return;
+
+  try {
+    await client.requestHostSwitch(slot);
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to request the switch.");
+    return;
+  }
+  setText("#read-status", 
+    `Switch to computer ${slot + 1} requested. If it worked the mouse has left this computer — `
+    + "press the button underneath it to bring it back.",
+  );
+}
+
+const HAPTIC_GROUP = "logitech-haptic";
+const RATCHET_GROUP = "logitech-ratchet";
+const WHEEL_MODE_GROUP = "logitech-wheel-mode";
+
+let stagedHapticIntensity: number | null = null;
+let stagedHapticEnabled: boolean | null = null;
+let stagedHapticBatterySaving: boolean | null = null;
+let stagedWheelMode: MouseStatus["wheelMode"] = null;
+let stagedSmartShift: number | null = null;
+let stagedHiRes: boolean | null = null;
+let stagedInvertScroll: boolean | null = null;
+
+/**
+ * Drops a staged value once its change is no longer pending — flashed or
+ * reverted. Keeping it would let a later write in the same group resend a
+ * value the user had already discarded.
+ */
+function clearLogitechStaging(): void {
+  if (!isPendingChange("haptic-strength")) stagedHapticIntensity = null;
+  if (!isPendingChange("haptic-enabled")) stagedHapticEnabled = null;
+  if (!isPendingChange("haptic-battery-saving")) stagedHapticBatterySaving = null;
+  if (!isPendingChange("wheel-mode")) stagedWheelMode = null;
+  if (!isPendingChange("smart-shift")) stagedSmartShift = null;
+  if (!isPendingChange("hi-res-scroll")) stagedHiRes = null;
+  if (!isPendingChange("invert-scroll")) stagedInvertScroll = null;
+}
+
+async function writeStagedHaptics(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  // Order matters only in that strength is pointless while the motor is off,
+  // so the enable lands first and the sample buzz below is felt at the new
+  // strength rather than the old one.
+  if (stagedHapticEnabled !== null) await activeClient.setHapticEnabled(stagedHapticEnabled);
+  if (stagedHapticBatterySaving !== null) await activeClient.setHapticBatterySaving(stagedHapticBatterySaving);
+  if (stagedHapticIntensity !== null) await activeClient.setHapticIntensity(stagedHapticIntensity);
+
+  /*
+   * The device does not buzz by itself. Logi Options+ plays an effect straight
+   * after these writes, and someone who has used the vendor software notices
+   * its absence — but a mouse that refuses the sample must not make a strength
+   * change that worked look failed.
+   */
+  const shouldBuzz = stagedHapticIntensity !== null || stagedHapticEnabled === true;
+  if (shouldBuzz) {
+    const effect = stagedHapticEnabled === true && stagedHapticIntensity === null
+      ? HAPTIC_EFFECTS.enableConfirmation
+      : HAPTIC_EFFECTS.strengthSample;
+    await activeClient.playHapticEffect(effect).catch(() => undefined);
+  }
+}
+
+async function writeStagedRatchet(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  if (stagedWheelMode) await activeClient.setWheelMode(stagedWheelMode);
+  if (stagedSmartShift !== null) await activeClient.setSmartShiftThreshold(stagedSmartShift);
+}
+
+async function writeStagedWheelMode(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  if (stagedHiRes !== null) await activeClient.setHiResScroll(stagedHiRes);
+  if (stagedInvertScroll !== null) await activeClient.setInvertScroll(stagedInvertScroll);
+}
+
+function applyHapticIntensity(preset: HapticPreset): void {
+  if (!activeClient) return;
+  stagedHapticIntensity = HAPTIC_PRESET_VALUES[preset];
+  stageChange({
+    key: "haptic-strength",
+    group: HAPTIC_GROUP,
+    label: `Haptics ${preset.toLowerCase()}`,
+    command: `Set haptic strength to ${preset} (${stagedHapticIntensity})`,
+    progress: `Setting haptic strength to ${preset.toLowerCase()}…`,
+    preview: (status) => { status.hapticIntensity = HAPTIC_PRESET_VALUES[preset]; },
+    apply: writeStagedHaptics,
+  });
+}
+
+function applyHapticEnabled(enabled: boolean): void {
+  if (!activeClient) return;
+  stagedHapticEnabled = enabled;
+  stageChange({
+    key: "haptic-enabled",
+    group: HAPTIC_GROUP,
+    label: `Haptics ${enabled ? "on" : "off"}`,
+    command: `Turn haptic feedback ${enabled ? "on" : "off"}`,
+    progress: `Turning haptic feedback ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hapticEnabled = enabled; },
+    apply: writeStagedHaptics,
+  });
+}
+
+function applyHapticBatterySaving(enabled: boolean): void {
+  if (!activeClient) return;
+  stagedHapticBatterySaving = enabled;
+  stageChange({
+    key: "haptic-battery-saving",
+    group: HAPTIC_GROUP,
+    label: `Haptic battery saving ${enabled ? "on" : "off"}`,
+    command: `Turn haptic battery saving ${enabled ? "on" : "off"}`,
+    progress: `Turning haptic battery saving ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hapticBatterySaving = enabled; },
+    apply: writeStagedHaptics,
+  });
+}
+
+function applyWheelMode(mode: NonNullable<MouseStatus["wheelMode"]>): void {
+  if (!activeClient) return;
+  stagedWheelMode = mode;
+  const wording = mode === "Freespin" ? "free-spin" : "ratchet";
+  stageChange({
+    key: "wheel-mode",
+    group: RATCHET_GROUP,
+    label: `Wheel ${wording}`,
+    command: `Set the wheel to ${wording}`,
+    progress: `Setting the wheel to ${wording}…`,
+    preview: (status) => { status.wheelMode = mode; },
+    apply: writeStagedRatchet,
+  });
+}
+
+function applySmartShiftThreshold(threshold: number | null): void {
+  if (!activeClient) return;
+  stagedSmartShift = threshold;
+  const off = threshold === null || threshold === SMART_SHIFT_OFF;
+  stageChange({
+    key: "smart-shift",
+    group: RATCHET_GROUP,
+    label: off ? "SmartShift off" : `SmartShift ${threshold}`,
+    command: off ? "Turn SmartShift off" : `Set the SmartShift threshold to ${threshold}`,
+    progress: off ? "Turning SmartShift off…" : `Setting the SmartShift threshold to ${threshold}…`,
+    preview: (status) => { status.smartShiftThreshold = threshold ?? SMART_SHIFT_OFF; },
+    apply: writeStagedRatchet,
+  });
+}
+
+function applyHiResScroll(enabled: boolean): void {
+  if (!activeClient) return;
+  stagedHiRes = enabled;
+  stageChange({
+    key: "hi-res-scroll",
+    group: WHEEL_MODE_GROUP,
+    label: `High-resolution scrolling ${enabled ? "on" : "off"}`,
+    command: `Turn high-resolution scrolling ${enabled ? "on" : "off"}`,
+    progress: `Turning high-resolution scrolling ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hiResScroll = enabled; },
+    apply: writeStagedWheelMode,
+  });
+}
+
+function applyInvertScroll(inverted: boolean): void {
+  if (!activeClient) return;
+  stagedInvertScroll = inverted;
+  stageChange({
+    key: "invert-scroll",
+    group: WHEEL_MODE_GROUP,
+    label: inverted ? "Scroll inverted" : "Scroll normal",
+    command: `${inverted ? "Invert" : "Restore"} the scroll direction`,
+    progress: `${inverted ? "Inverting" : "Restoring"} the scroll direction…`,
+    preview: (status) => { status.invertScroll = inverted; },
+    apply: writeStagedWheelMode,
+  });
+}
+
+function applyThumbWheelInverted(inverted: boolean): void {
+  if (!activeClient) return;
+  // Its own write, so it needs no group.
+  stageChange({
+    key: "thumb-wheel-invert",
+    label: inverted ? "Thumb wheel inverted" : "Thumb wheel normal",
+    command: `${inverted ? "Invert" : "Restore"} the thumb-wheel direction`,
+    progress: `${inverted ? "Inverting" : "Restoring"} the thumb wheel…`,
+    preview: (status) => { status.thumbWheelInverted = inverted; },
+    apply: async () => {
+      if (!activeClient) throw new Error("The mouse is no longer connected.");
+      await activeClient.setThumbWheelInverted(inverted);
+    },
+  });
+}
+
+function applyFriendlyName(name: string): void {
+  if (!activeClient || !name) return;
+  stageChange({
+    key: "friendly-name",
+    label: `Name "${name}"`,
+    command: `Rename the mouse to "${name}"`,
+    progress: `Renaming the mouse to "${name}"…`,
+    preview: (status) => { status.friendlyName = name; },
+    apply: async () => {
+      if (!activeClient) throw new Error("The mouse is no longer connected.");
+      await activeClient.setFriendlyName(name);
+    },
+  });
+}
 
 async function writeStagedModeStatus(): Promise<void> {
   if (!activeClient) throw new Error("The mouse is no longer connected.");
