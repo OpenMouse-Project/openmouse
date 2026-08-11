@@ -94,7 +94,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 
 nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
-.nav-item { padding: .7rem .8rem; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; font-size: .82rem; }
+.nav-item { display: block; width: 100%; box-sizing: border-box; padding: .7rem .8rem; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; text-decoration: none; font-size: .82rem; }
 .nav-item:hover { background: #1b1b1e; color: #fff; }
 .control-shell .nav-item[aria-current="true"] { background: var(--ui-accent-soft); color: var(--ui-accent); }
 .interface-settings-button::before { margin-right: .5rem; color: var(--ui-accent); content: "⚙"; font-size: .72rem; }

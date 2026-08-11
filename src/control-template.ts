@@ -33,6 +33,7 @@ export function controlTemplate(buildLabel: string): string {
         </div>
         <nav aria-label="Sections">
           <button id="interface-settings-button" class="nav-item interface-settings-button" type="button" aria-current="false">Interface settings</button>
+          <a class="nav-item" href="/check.html">Mouse Check</a>
         </nav>
         <span class="build-badge" title="OpenMouse ${buildLabel}">${buildLabel}</span>
         <small class="build-note">Development build - not the final product</small>

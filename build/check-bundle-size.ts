@@ -8,7 +8,8 @@ const BUDGET_BYTES: Record<string, number> = {
   // bundle without adding a UI framework or runtime dependency.
   // Raised from 54 kB for the in-app lighting colour picker: the SV panel,
   // hue bar, drag thumbs, swatch, and hex field in the dedicated Lighting tab.
-  ".css": 55_500,
+  // Raised from 55.5 kB for the standalone Mouse Check diagnostics page.
+  ".css": 61_500,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
@@ -28,7 +29,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // registry now bundles the Cobra HID client, its extended-matrix lighting
   // payloads, and the Cobra picker filter alongside the other Razer drivers.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 435_000,
+  // Raised from 435 kB for Mouse Check's HID inventory UI and reuse of the
+  // protocol package's validated Razer request/response codec.
+  ".js": 444_000,
 };
 
 const ASSETS = join("dist", "assets");
