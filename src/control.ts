@@ -376,8 +376,7 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
     "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
     "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']",
     "#pulsar-advanced", "#processing-settings", "#ninjutso-sensor-settings", "#ninjutso-click-settings",
-    "#teevolution-dpi-lighting", "#egg-filter-settings",
-    "#egg-polling-settings", "#egg-cpi-settings",
+    "#egg-filter-settings", "#egg-polling-settings", "#egg-cpi-settings",
   ],
   lighting: ["#lighting-settings", "#lighting-tab-card"],
   buttons: [
@@ -387,7 +386,8 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#lighting-card", "#teevolution-dpi-lighting", "#finalmouse-settings",
+    ".testing-note", "#device-debug-details",
   ],
 };
 const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);

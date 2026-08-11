@@ -32,6 +32,10 @@ before including it in a public release package.
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
 
+`teevolution-terra-pro.png` was supplied from Teevolution's Terra PRO Shopify
+CDN product render. Confirm redistribution terms before including it in a
+public release package.
+
 `razer-viper-mini.webp` was supplied from a Discord attachment URL for the
 Razer Viper Mini (wired). Confirm redistribution terms before including it in
 a public release package.
