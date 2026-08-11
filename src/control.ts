@@ -1262,9 +1262,9 @@ async function connect(): Promise<void> {
   } catch (error) {
     const rawMessage = error instanceof Error ? error.message : "Unable to read the mouse.";
     const message = rawMessage.includes("Failed to open the device") && detectOs() === "Linux"
-      ? "Failed to open the device. On Linux, WebHID requires a udev rule — run: "
-        + "sudo sh -c 'echo KERNEL==\"hidraw*\", ATTRS{idVendor}==\"046d\", TAG+=\"uaccess\" > /etc/udev/rules.d/99-openmouse.rules' "
-        + "&& sudo udevadm control --reload-rules && sudo udevadm trigger — then replug the receiver."
+      ? "Failed to open the device. On Linux, WebHID needs a udev rule — run: "
+        + "echo 'KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", TAG+=\"uaccess\"' | sudo tee /etc/udev/rules.d/99-openmouse.rules "
+        + "&& sudo udevadm control --reload-rules && sudo udevadm trigger — then replug your mouse."
       : rawMessage;
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
