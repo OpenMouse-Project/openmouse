@@ -43,7 +43,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // the Nape Pro codec tests/limits, and hardware-verified Razer corrections.
   // Raised from 446 kB for the theme system: the persisted theme list and the
   // display-name → dataset slug mapping for the Miku and Catppuccin themes.
-  ".js": 446_000,
+  // Raised from 446 kB for CRDRAKO KO-ONE support: wired/receiver identifiers,
+  // capability metadata, and the Competitive and Hyper mode codecs and UI.
+  // No framework or runtime dependency was added.
+  ".js": 447_000,
 };
 
 const ASSETS = join("dist", "assets");
