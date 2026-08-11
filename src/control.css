@@ -251,6 +251,101 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   --ctp-base: #303446; --ctp-mantle: #292c3c; --ctp-crust: #232634;
 }
 
+.control-shell[data-interface-theme="nier-automata"] {
+  color: var(--foreground);
+
+  --nier-canvas: #2f2d26; --nier-sidebar: #282620; --nier-terminal: #2b2923;
+  --nier-code: #33312a; --nier-surface: #36342c; --nier-raised: #3b3930;
+  --nier-overlay: #403e35; --nier-control: #3d3b33; --nier-input: #454338;
+  --nier-selection: #45433a; --nier-border: #4f4d45; --nier-border-soft: #49473f;
+  --nier-text: #d1cdb7; --nier-placeholder: #b2b0a3; --nier-update: #b5b096;
+  --nier-muted: #a8a593; --nier-ghost: #9d9986;
+  --nier-error: #c96b57; --nier-warning: #c2b169; --nier-success: #a8b083;
+
+  --background: var(--nier-sidebar);
+  --foreground: var(--nier-text);
+  --surface: var(--nier-canvas);
+  --surface-soft: var(--nier-sidebar);
+  --surface-elevated: var(--nier-surface);
+  --surface-elevated-hover: var(--nier-raised);
+  --surface-hover: var(--nier-overlay);
+  --border: var(--nier-border);
+  --primary: var(--nier-text);
+  --primary-hover: color-mix(in srgb, var(--nier-text) 82%, #ffffff);
+  --primary-ink: var(--nier-canvas);
+  --secondary: var(--nier-update);
+  --success: var(--nier-success);
+  --warning: var(--nier-warning);
+  --destructive: var(--nier-error);
+  --info: var(--nier-update);
+  --muted: var(--nier-muted);
+  --muted-foreground: var(--nier-ghost);
+  --focus: var(--nier-text);
+
+  --ui-accent: var(--primary);
+  --ui-accent-ink: var(--primary-ink);
+  --ui-accent-soft: color-mix(in srgb, var(--primary) 16%, transparent);
+
+  --ink: var(--background);
+  --sidebar: var(--surface-soft);
+  --well: var(--surface);
+  --card: var(--surface-elevated);
+  --raised: var(--surface-elevated-hover);
+  --input: var(--nier-input);
+  --control: var(--nier-control);
+  --hover: var(--surface-hover);
+
+  --line: var(--border);
+  --line-soft: var(--nier-border-soft);
+  --line-strong: var(--nier-border);
+  --edge: var(--nier-ghost);
+
+  --text: var(--foreground);
+  --bright: var(--nier-text);
+  --dim: var(--nier-placeholder);
+  --faint: var(--nier-muted);
+  --ghost: var(--nier-ghost);
+
+  --surface-bg: var(--background);
+  --surface-bg-tint: color-mix(in srgb, var(--background) 96%, transparent);
+  --surface-tabs: color-mix(in srgb, var(--surface) 96%, transparent);
+  --surface-sidebar: var(--surface-soft);
+  --surface-panel: var(--surface);
+  --surface-panel-soft: var(--nier-terminal);
+  --surface-panel-strong: var(--surface-elevated);
+  --surface-menu: var(--nier-code);
+  --surface-control: var(--nier-control);
+  --surface-input: var(--nier-input);
+  --surface-raised: var(--surface-elevated-hover);
+  --surface-strong: var(--nier-overlay);
+  --surface-hover-soft: var(--nier-raised);
+  --surface-hover-strong: var(--nier-overlay);
+  --surface-hover-alt: var(--nier-code);
+  --surface-dialog: var(--nier-raised);
+  --surface-dialog-hover: var(--nier-overlay);
+  --surface-superstrike: color-mix(in srgb, var(--nier-raised) 58%, transparent);
+
+  --border-rule: var(--nier-border-soft);
+  --border-soft: var(--nier-border-soft);
+  --border-hover: var(--nier-border);
+
+  --text-input: var(--nier-text);
+  --text-strong: var(--nier-text);
+  --text-soft: var(--nier-muted);
+  --text-faint: var(--nier-muted);
+  --text-hover: var(--nier-text);
+
+  --tone-dim: var(--nier-ghost);
+  --tone-ghost: var(--nier-muted);
+  --tone-text: var(--nier-text);
+  --tone-sub: var(--nier-placeholder);
+  --tone-deep: var(--nier-sidebar);
+  --tone-base: var(--nier-canvas);
+  --tone-mantle: var(--nier-terminal);
+  --tone-s0: var(--nier-code);
+  --tone-s1: var(--nier-raised);
+}
+
 /* Shared semantic mapping for the whole family. The accents stay understated:
    surfaces own ~85% of the screen, text ~10%, mauve/blue interactions ~5%. */
 .control-shell[data-interface-theme^="catppuccin-"] {
@@ -326,84 +421,94 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   --text-soft: var(--ctp-subtext0);
   --text-faint: var(--ctp-overlay2);
   --text-hover: var(--ctp-text);
+
+  --tone-dim: var(--ctp-overlay0);
+  --tone-ghost: var(--ctp-overlay1);
+  --tone-text: var(--ctp-text);
+  --tone-sub: var(--ctp-subtext1);
+  --tone-deep: var(--ctp-crust);
+  --tone-base: var(--ctp-base);
+  --tone-mantle: var(--ctp-mantle);
+  --tone-s0: var(--ctp-surface0);
+  --tone-s1: var(--ctp-surface1);
 }
 
 /* Component-level family touches. Everything else flows through the token
    mapping above, so these only cover where the UI hardcodes a behaviour the
    palette cannot express: status lights, accent hover, the pending bar, and
    the destructive/warning notes. */
-.control-shell[data-interface-theme^="catppuccin-"] .device-dot:not(.is-idle),
-.control-shell[data-interface-theme^="catppuccin-"] .device-status > .status-dot:not(.is-idle),
-.control-shell[data-interface-theme^="catppuccin-"] .live-status i,
-.control-shell[data-interface-theme^="catppuccin-"]:not(.is-empty) .sidebar-product-status .status-dot {
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .device-dot:not(.is-idle),
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .device-status > .status-dot:not(.is-idle),
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .live-status i,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]):not(.is-empty) .sidebar-product-status .status-dot {
   background: var(--success);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .device-dot.is-idle,
-.control-shell[data-interface-theme^="catppuccin-"] .status-dot.is-idle,
-.control-shell[data-interface-theme^="catppuccin-"] .sidebar-product-status .status-dot {
-  background: var(--ctp-overlay0);
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .device-dot.is-idle,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .status-dot.is-idle,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .sidebar-product-status .status-dot {
+  background: var(--tone-dim);
   box-shadow: none;
 }
-.control-shell[data-interface-theme^="catppuccin-"] .battery-icon { color: var(--ctp-text); }
-.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-charging { color: var(--success); }
-.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-low,
-.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-dead { color: var(--destructive); }
-.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-unknown { color: var(--ctp-overlay0); }
-.control-shell[data-interface-theme^="catppuccin-"] .sidebar-battery::before { color: var(--ctp-overlay0); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .battery-icon { color: var(--tone-text); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .battery-icon.is-charging { color: var(--success); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .battery-icon.is-low,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .battery-icon.is-dead { color: var(--destructive); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .battery-icon.is-unknown { color: var(--tone-dim); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .sidebar-battery::before { color: var(--tone-dim); }
 /* Active tab underline reads as a soft mauve instead of the mono white. */
-.control-shell[data-interface-theme^="catppuccin-"] .workspace-tabs button[aria-selected="true"]::after { background: var(--primary); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .workspace-tabs button[aria-selected="true"]::after { background: var(--primary); }
 /* Accent buttons deepen to a brighter mauve on hover. */
-.control-shell[data-interface-theme^="catppuccin-"] .empty-connect-action:hover,
-.control-shell[data-interface-theme^="catppuccin-"] .setting-action button:not(:disabled):hover,
-.control-shell[data-interface-theme^="catppuccin-"] .device-debug-actions button:not(:disabled):hover,
-.control-shell[data-interface-theme^="catppuccin-"] .segmented button.selected:hover,
-.control-shell[data-interface-theme^="catppuccin-"] .dpi-header-actions button:not(:disabled):hover,
-.control-shell[data-interface-theme^="catppuccin-"] .pending-flash:hover:not(:disabled) {
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .empty-connect-action:hover,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .setting-action button:not(:disabled):hover,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .device-debug-actions button:not(:disabled):hover,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .segmented button.selected:hover,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .dpi-header-actions button:not(:disabled):hover,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .pending-flash:hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
   filter: none;
 }
-.control-shell[data-interface-theme^="catppuccin-"] .pending-flash {
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .pending-flash {
   border-color: var(--primary);
   background: var(--primary);
   color: var(--primary-ink);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .interface-switch-row input:checked {
-  background-image: radial-gradient(circle at calc(100% - .56rem) 50%, var(--ctp-crust) 0 .34rem, transparent .36rem);
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .interface-switch-row input:checked {
+  background-image: radial-gradient(circle at calc(100% - .56rem) 50%, var(--tone-deep) 0 .34rem, transparent .36rem);
 }
 /* Destructive and status notes adopt the muted Catppuccin accents. */
-.control-shell[data-interface-theme^="catppuccin-"] .interface-reset {
-  border-color: color-mix(in srgb, var(--destructive) 45%, var(--ctp-surface0));
-  background: color-mix(in srgb, var(--destructive) 10%, var(--ctp-surface0));
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .interface-reset {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--tone-s0));
+  background: color-mix(in srgb, var(--destructive) 10%, var(--tone-s0));
   color: var(--destructive);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .testing-note {
-  border-color: color-mix(in srgb, var(--warning) 32%, var(--ctp-surface0));
-  background: color-mix(in srgb, var(--warning) 7%, var(--ctp-surface0));
-  color: var(--ctp-subtext1);
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .testing-note {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--tone-s0));
+  background: color-mix(in srgb, var(--warning) 7%, var(--tone-s0));
+  color: var(--tone-sub);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .testing-note strong,
-.control-shell[data-interface-theme^="catppuccin-"] .egg-experimental summary small { color: var(--warning); }
-.control-shell[data-interface-theme^="catppuccin-"] .egg-warning { color: color-mix(in srgb, var(--warning) 74%, var(--ctp-overlay1)); }
-.control-shell[data-interface-theme^="catppuccin-"] .build-note { color: color-mix(in srgb, var(--warning) 62%, var(--ctp-overlay1)); }
-.control-shell[data-interface-theme^="catppuccin-"] .device-overview .device-thumbnail {
-  background: radial-gradient(circle at 50% 45%, var(--ctp-surface1) 0, var(--ctp-surface0) 72%);
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .testing-note strong,
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .egg-experimental summary small { color: var(--warning); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .egg-warning { color: color-mix(in srgb, var(--warning) 74%, var(--tone-ghost)); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .build-note { color: color-mix(in srgb, var(--warning) 62%, var(--tone-ghost)); }
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .device-overview .device-thumbnail {
+  background: radial-gradient(circle at 50% 45%, var(--tone-s1) 0, var(--tone-s0) 72%);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .pending-bar-inner {
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--ctp-surface1));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--ctp-base)), var(--ctp-mantle) 62%);
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .pending-bar-inner {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--tone-s1));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--tone-base)), var(--tone-mantle) 62%);
 }
 /* Profile delete stays destructive, in the theme's red rather than the stock one. */
-.control-shell[data-interface-theme^="catppuccin-"] .icon-button.profile-delete-button {
-  border-color: color-mix(in srgb, var(--destructive) 45%, var(--ctp-surface1));
-  background: color-mix(in srgb, var(--destructive) 12%, var(--ctp-surface0));
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .icon-button.profile-delete-button {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--tone-s1));
+  background: color-mix(in srgb, var(--destructive) 12%, var(--tone-s0));
   color: var(--destructive);
 }
-.control-shell[data-interface-theme^="catppuccin-"] .icon-button.profile-delete-button:hover:not(:disabled) {
+.control-shell:is([data-interface-theme^="catppuccin-"],[data-interface-theme="nier-automata"]) .icon-button.profile-delete-button:hover:not(:disabled) {
   border-color: var(--destructive);
-  background: color-mix(in srgb, var(--destructive) 30%, var(--ctp-surface0));
-  color: var(--ctp-text);
+  background: color-mix(in srgb, var(--destructive) 30%, var(--tone-s0));
+  color: var(--tone-text);
 }
 .control-shell button:focus-visible, .control-shell select:focus-visible, .control-shell input:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 
@@ -426,6 +531,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .brand-links a { display: flex; color: var(--text-faint); transition: color .18s ease; }
 .brand-links a:hover { color: var(--ui-accent); }
 .brand-links svg { width: auto; height: .85rem; }
+.brand-links a[title="GitHub"] svg { height: 1rem; }
 .build-note { display: block; margin-top: .25rem; color: #8a7048; font-family: var(--font-mono); font-size: .55rem; letter-spacing: .04em; }
 
 .device-panel { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); }
@@ -446,7 +552,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .control-shell .device-dot:not(.is-idle),
 .control-shell .device-status > .status-dot:not(.is-idle),
 .control-shell .live-status i { background: var(--ui-accent); box-shadow: 0 0 0 3px var(--ui-accent-soft); }
-
 
 nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .nav-item { display: block; width: 100%; box-sizing: border-box; padding: .7rem .8rem; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; text-decoration: none; font-size: .82rem; }
@@ -719,19 +824,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
   .control-shell .settings-grid.has-logitech-axis-controls { grid-template-rows: minmax(330px, auto); }
   .control-shell.is-empty .empty-state { display: grid; flex: 1 1 auto; min-height: 0; max-width: none; align-content: center; justify-items: center; margin: 0; padding: 2rem; text-align: center; }
   .control-shell.is-empty .empty-state > p:not(.overline) { margin-top: 1rem; }
-}
-
-@media (max-width: 899px) {
-  .control-shell { display: block; }
-  .control-shell .sidebar { position: static; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .control-shell .control-panel { width: min(100% - 2rem, 1180px); }
-  .control-shell.has-pending-changes .control-panel { padding-bottom: 7rem; }
-  .pending-bar-copy small { display: none; }
-}
-
-@media (max-width: 720px) {
-  .interface-settings-grid { grid-template-columns: 1fr; }
-  .theme-studio { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1035,19 +1127,3 @@ body { height: 100vh; overflow: hidden; }
   .sidebar-product .device-thumbnail img { max-height: 42vh; }
 }
 
-@media (max-width: 899px) {
-  body { height: auto; overflow: auto; }
-  .control-shell { display: block; height: auto; min-height: 100vh; overflow: visible; }
-  .control-shell .sidebar { position: relative; height: auto; min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .sidebar-product { min-height: 25rem; }
-  .sidebar-product .device-thumbnail img { max-height: 20rem; }
-  .control-shell .control-panel { width: 100%; min-height: 70vh; padding-inline: 1rem; overflow: visible; }
-  .control-shell .pending-bar { left: 0; }
-  #pulsar-advanced { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 480px) {
-  .control-shell .dpi-card .setting-heading { flex-wrap: wrap; gap: .75rem; }
-  .dpi-header-actions { width: 100%; }
-  .dpi-header-actions input { width: 0; flex: 1 1 auto; font-size: 1.7rem; text-align: left; }
-}

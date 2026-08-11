@@ -87,7 +87,6 @@
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
 .rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
 .rate-slider-scale span.is-on { color:var(--text-input) }
-@media (max-width:640px) { .dpi-slot-row { grid-template-columns:auto minmax(0,1fr);row-gap:.4rem } }
 
 /* The compact layout pins the settings grid to a 176px row. Five slot rows are
    far taller than that, so the grid falls back to sizing by content while the
@@ -213,7 +212,6 @@
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
 .rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
 .rate-slider-scale span.is-on { color:var(--text-input) }
-@media (max-width:640px) { .dpi-slot-row { grid-template-columns:auto minmax(0,1fr);row-gap:.4rem } }
 
 /* The compact layout pins the settings grid to a 176px row. Five slot rows are
    far taller than that, so the grid falls back to sizing by content while the

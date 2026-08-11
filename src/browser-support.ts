@@ -35,10 +35,3 @@ export function unsupportedNotice(env: BrowserEnvironment): UnsupportedNotice | 
     detail: "OpenMouse needs WebHID, added in Chrome and Edge 89. Update to the latest version.",
   };
 }
-
-export function unsupportedTemplate(notice: UnsupportedNotice): string {
-  return `<section class="small-screen-blocker">
-    <h1>${notice.headline}</h1>
-    <p>${notice.detail}</p>
-  </section>`;
-}

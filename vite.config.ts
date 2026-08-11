@@ -11,6 +11,13 @@ const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "insiders";
 
 export default defineConfig({
   plugins: [sites()],
+  resolve: {
+    // Prefix aliases, so react-dom/client and react/jsx-runtime follow too.
+    alias: {
+      react: "preact/compat",
+      "react-dom": "preact/compat",
+    },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(packageVersion.version),
     __BUILD_CHANNEL__: JSON.stringify(buildChannel),
