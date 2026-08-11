@@ -43,6 +43,7 @@ const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
 const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
 const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
+const WEBHOOK_KEY = "om-discord-webhook";
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
@@ -264,6 +265,18 @@ function renderControl(): void {
         .control-shell .settings-grid > .setting-card { min-height:220px }
       }
       @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
+      .discord-section { display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .6rem;padding:.7rem 0 .5rem;border-top:1px solid #1e1e21 }
+      #discord-webhook-input { flex:1;min-width:160px;padding:.42rem .62rem;border:1px solid #343438;border-radius:7px;background:#111113;color:#ececef;font-family:"DM Sans",ui-sans-serif,sans-serif;font-size:.72rem;outline:none;transition:border-color .18s }
+      #discord-webhook-input:focus { border-color:#55555a }
+      #discord-webhook-input::placeholder { color:#45454a }
+      #discord-send-btn { white-space:nowrap;padding:.42rem .9rem;border:none;border-radius:7px;background:#5865F2;color:#fff;font-size:.72rem;font-weight:700;font-family:"DM Sans",ui-sans-serif,sans-serif;cursor:pointer;transition:filter .15s,opacity .15s }
+      #discord-send-btn:hover:not(:disabled) { filter:brightness(1.12) }
+      #discord-send-btn:disabled { opacity:.5;cursor:not-allowed }
+      #discord-send-btn.ok { background:linear-gradient(135deg,#3ba55c,#2d8c4e) }
+      #discord-send-btn.err { background:linear-gradient(135deg,#c0392b,#943126) }
+      #discord-send-status { width:100%;font-size:.68rem;color:#55555a }
+      #discord-send-status.ok { color:#4db880 }
+      #discord-send-status.err { color:#e06c75 }
     </style>
     <div class="control-shell is-empty">
       <aside class="sidebar">
@@ -322,6 +335,11 @@ function renderControl(): void {
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
+        <section class="discord-section device-data">
+          <input id="discord-webhook-input" type="text" placeholder="Discord Webhook URL (saved locally)" spellcheck="false" autocomplete="off" />
+          <button id="discord-send-btn" type="button">Send to Discord</button>
+          <span id="discord-send-status"></span>
+        </section>
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
@@ -470,6 +488,16 @@ function renderControl(): void {
     panel.scrollTop += event.deltaY;
     event.preventDefault();
   }, { passive: false });
+  const discordInput = document.querySelector<HTMLInputElement>("#discord-webhook-input");
+  if (discordInput) {
+    discordInput.value = localStorage.getItem(WEBHOOK_KEY) ?? "";
+    discordInput.addEventListener("change", () => {
+      localStorage.setItem(WEBHOOK_KEY, discordInput.value.trim());
+    });
+  }
+  document.querySelector<HTMLButtonElement>("#discord-send-btn")?.addEventListener("click", () => {
+    void sendStatusToDiscord();
+  });
   populateInterfaceSettings();
   applyInterfacePreferences();
   navigator.hid?.addEventListener("connect", handleHidConnect);
@@ -1687,6 +1715,88 @@ async function refreshStatus(): Promise<void> {
     setText("#read-status", message);
   } finally {
     refreshInProgress = false;
+  }
+}
+
+function buildDiscordReport(): string {
+  const name = document.querySelector<HTMLElement>("#device-title")?.textContent ?? "—";
+  const dpi = document.querySelector<HTMLInputElement>("#dpi-output")?.value ?? "—";
+  const pollingBtn = document.querySelector<HTMLButtonElement>("[data-rate].selected");
+  const polling = pollingBtn ? `${Number(pollingBtn.dataset.rate).toLocaleString()} Hz` : "—";
+  const battery = document.querySelector<HTMLElement>("#battery-value")?.textContent ?? "—";
+  const batteryDetail = document.querySelector<HTMLElement>("#battery-detail")?.textContent ?? "";
+  const firmware = document.querySelector<HTMLElement>("#firmware-value")?.textContent ?? "—";
+  const connection = document.querySelector<HTMLElement>("#connection-value")?.textContent ?? "—";
+  const connectionDetail = document.querySelector<HTMLElement>("#connection-detail")?.textContent ?? "";
+  const readStatus = document.querySelector<HTMLElement>("#read-status")?.textContent ?? "";
+
+  const lines: string[] = [
+    `OpenMouse · ${name}`,
+    `DPI: ${dpi}  |  Polling: ${polling}  |  Battery: ${battery}`,
+  ];
+  if (batteryDetail && batteryDetail !== "Read after connection") lines.push(`Battery: ${batteryDetail}`);
+  lines.push(`Firmware: ${firmware}`);
+  lines.push(`Connection: ${connection}${connectionDetail ? " · " + connectionDetail : ""}`);
+  if (readStatus) lines.push(`Status: ${readStatus}`);
+  return lines.join("\n");
+}
+
+async function sendStatusToDiscord(): Promise<void> {
+  const urlInput = document.querySelector<HTMLInputElement>("#discord-webhook-input");
+  const statusEl = document.querySelector<HTMLElement>("#discord-send-status");
+  const btn = document.querySelector<HTMLButtonElement>("#discord-send-btn");
+  if (!urlInput || !statusEl || !btn) return;
+
+  const url = urlInput.value.trim();
+  if (!url) {
+    statusEl.className = "err";
+    statusEl.textContent = "Paste a Discord Webhook URL first.";
+    return;
+  }
+  if (!url.startsWith("https://discord.com/api/webhooks/") && !url.startsWith("https://discordapp.com/api/webhooks/")) {
+    statusEl.className = "err";
+    statusEl.textContent = "That doesn’t look like a Discord webhook URL.";
+    return;
+  }
+  if (!hasActiveClient()) {
+    statusEl.className = "err";
+    statusEl.textContent = "Connect a mouse first.";
+    return;
+  }
+  localStorage.setItem(WEBHOOK_KEY, url);
+  const text = buildDiscordReport();
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  statusEl.className = "";
+  statusEl.textContent = "";
+  try {
+    const wrapped = "```\n" + text + "\n```";
+    const content = wrapped.length <= 2000 ? wrapped : text.slice(0, 1990) + "\n…";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "OpenMouse", content }),
+    });
+    if (res.ok || res.status === 204) {
+      btn.textContent = "✓ Sent!";
+      btn.classList.add("ok");
+      statusEl.className = "ok";
+      statusEl.textContent = "Report sent to Discord.";
+    } else {
+      const body = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}${body ? ": " + body.slice(0, 120) : ""}`);
+    }
+  } catch (e) {
+    btn.textContent = "Failed";
+    btn.classList.add("err");
+    statusEl.className = "err";
+    statusEl.textContent = String(e);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Send to Discord";
+      btn.classList.remove("ok", "err");
+    }, 3000);
   }
 }
 
