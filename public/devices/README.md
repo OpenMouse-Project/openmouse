@@ -52,3 +52,7 @@ including it in a public release package.
 `razer-viper-mini.webp` was supplied from a Discord attachment URL for the
 Razer Viper Mini (wired). Confirm redistribution terms before including it in
 a public release package.
+
+`zaunkoenig-m3k.png` was supplied from the OpenMouse product-image storage URL
+for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
+terms before including it in a public release package.

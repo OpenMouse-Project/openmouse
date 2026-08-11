@@ -9,6 +9,9 @@
  * and its file belong in the same commit.
  */
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
+  // M3K and M2K use the supplied M3K product artwork.
+  ["0483:a462", "/devices/zaunkoenig-m3k.png"],
+  ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
   // Wired and receiver are separate product ids for the same mouse.
   ["1532:00a5", "/devices/razer-viper-v2-pro.png"],
   ["1532:00a6", "/devices/razer-viper-v2-pro.png"],
