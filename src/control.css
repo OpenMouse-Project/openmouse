@@ -174,29 +174,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .control-shell[data-interface-theme="miku"] .miku-waveform i:nth-child(4) { animation-delay: .66s; height: 8px; background: var(--miku-pink); }
 .control-shell[data-interface-theme="miku"] .miku-waveform i:nth-child(5) { animation-delay: .88s; height: 5px; background: var(--miku-soft-cyan); }
 @keyframes miku-wave { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
-/* Miku mascot: a small transparent companion that settles in the empty space
-   below the device preview and above the connection status. Decorative only —
-   it never intercepts pointer events and stays out of the way of controls. */
-.miku-mascot { display: none; }
-.control-shell[data-interface-theme="miku"] .miku-mascot {
-  display: block;
-  height: clamp(70px, 9vh, 96px);
-  width: auto;
-  align-self: flex-end;
-  margin: .1rem .2rem .2rem 0;
-  pointer-events: none;
-  user-select: none;
-  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 35%));
-  animation: miku-mascot-idle 4.5s ease-in-out infinite;
-}
-@keyframes miku-mascot-idle {
-  0%, 100% { transform: translateY(0); }
-  10% { transform: translateY(-5px); }
-  20% { transform: translateY(0); }
-  68% { transform: translateY(0) translateX(0) rotate(0deg); }
-  74% { transform: translateY(-3px) translateX(3px) rotate(-2deg); }
-  82% { transform: translateY(0) translateX(0) rotate(0deg); }
-}
 /* Primary accent hover deepens to Miku teal instead of brightening. */
 .control-shell[data-interface-theme="miku"] .empty-connect-action:hover,
 .control-shell[data-interface-theme="miku"] .setting-action button:not(:disabled):hover,
