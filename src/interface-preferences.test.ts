@@ -22,7 +22,6 @@ class MemoryStorage implements Storage {
 test("interface preferences restore only supported values", () => {
   const storage = new MemoryStorage();
   saveInterfacePreferences(storage, {
-    density: "Comfortable",
     theme: "Violet",
     reducedMotion: true,
     expandSections: true,
@@ -31,7 +30,6 @@ test("interface preferences restore only supported values", () => {
   });
 
   assert.deepEqual(loadInterfacePreferences(storage), {
-    density: "Comfortable",
     theme: "Violet",
     reducedMotion: true,
     expandSections: true,

@@ -37,7 +37,6 @@ import {
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
   interfaceThemeSlug,
-  type InterfaceDensity,
   type InterfaceTheme,
 } from "./interface-preferences";
 import {
@@ -346,17 +345,19 @@ function applyInterfacePreferences(): void {
   setPendingBarSuppressed(interfacePreferences.instantFlash);
   const shell = document.querySelector<HTMLElement>(".control-shell");
   if (!shell) return;
-  shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
   shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
   shell.classList.toggle("sidebar-hidden", sidebarHidden);
   const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
   if (menuToggle) menuToggle.setAttribute("aria-pressed", String(!sidebarHidden));
   shell.dataset.interfaceTheme = interfaceThemeSlug(interfacePreferences.theme);
-  const mascot = document.querySelector<HTMLImageElement>("#miku-mascot");
-  const mascotSource = mascot?.dataset.src;
-  if (interfacePreferences.theme === "Miku" && mascot && mascotSource && !mascot.getAttribute("src")) {
-    mascot.src = mascotSource;
-  }
+  document.querySelectorAll<HTMLInputElement>('input[name="interface-theme"]').forEach((input) => {
+    input.checked = input.value === interfacePreferences.theme;
+  });
+  setText("#theme-preview-name", `${interfacePreferences.theme} preview`);
+  if (interfacePreferences.theme === "Miku") document.querySelectorAll<HTMLImageElement>("#miku-mascot, #miku-theme-preview-mascot").forEach((mascot) => {
+    const source = mascot.dataset.src;
+    if (source && !mascot.getAttribute("src")) mascot.src = source;
+  });
   document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
     details.open = interfacePreferences.expandSections;
   });
@@ -482,10 +483,6 @@ function renderControl(): void {
     selectAuthorizedDevice,
     openInterfaceSettings,
     closeInterfaceSettings,
-    setInterfaceDensity: (value) => {
-      interfacePreferences.density = value as InterfaceDensity;
-      saveInterfacePreferences();
-    },
     setInterfaceTheme: (value) => {
       interfacePreferences.theme = value as InterfaceTheme;
       saveInterfacePreferences();
@@ -779,8 +776,6 @@ async function populatePreviewLauncher(): Promise<void> {
 
 function populateInterfaceSettings(): void {
   void populatePreviewLauncher();
-  setControlValue("#interface-density", interfacePreferences.density);
-  setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
   const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
   const instantFlash = document.querySelector<HTMLInputElement>("#interface-instant-flash");

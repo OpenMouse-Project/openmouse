@@ -15,7 +15,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // one block of component-level overrides — no UI framework was added.
   // Raised from 72 kB for the Mouse Check page CSS bundled alongside the
   // themes in the aggregate main + check stylesheet.
-  ".css": 78_000,
+  // Raised from 78 kB for the accessible theme-card grid and responsive live
+  // workspace preview. The existing theme tokens drive it; no dependency was added.
+  ".css": 79_000,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
