@@ -106,8 +106,8 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
   onClick("#interface-settings-button", handlers.openInterfaceSettings);
   onClick("#close-interface-settings", handlers.closeInterfaceSettings);
 
-  document.querySelector<HTMLSelectElement>("#interface-theme")?.addEventListener("change", (event) => {
-    handlers.setInterfaceTheme((event.target as HTMLSelectElement).value);
+  document.querySelectorAll<HTMLInputElement>('input[name="interface-theme"]').forEach((input) => {
+    input.addEventListener("change", () => handlers.setInterfaceTheme(input.value));
   });
   document.querySelector<HTMLInputElement>("#interface-reduced-motion")?.addEventListener("change", (event) => {
     handlers.setReducedMotion((event.target as HTMLInputElement).checked);

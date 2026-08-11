@@ -2,6 +2,15 @@
 const TOGGLE_ROW = "switch-row";
 const FIELD_LABEL = "field-label";
 const CARD_HEADING = "setting-heading compact";
+const THEME_CHOICES = [
+  ["Emerald", "#69d28d"], ["Violet", "#a78bfa"], ["Ice", "#67d8ff"],
+  ["Ember", "#ff9b62"], ["Mono", "#f1f1f3"], ["Miku", "#39c5bb"],
+  ["Catppuccin Mocha", "#cba6f7"], ["Catppuccin Macchiato", "#c6a0f6"], ["Catppuccin Frappé", "#ca9ee6"],
+] as const;
+
+function themeChoices(): string {
+  return THEME_CHOICES.map(([name, swatch]) => `<label class="theme-choice" style="--theme-swatch:${swatch}"><input type="radio" name="interface-theme" value="${name}" /><i aria-hidden="true"></i><span>${name}</span></label>`).join("");
+}
 
 function superstrikeSteps(id: string, min: number, max: number): string {
   return `<div class="superstrike-steps" role="group" aria-label="${id.replace("logitech-", "").replaceAll("-", " ")}"><input id="${id}" type="hidden" /><div>${Array.from({ length: max - min + 1 }, (_, index) => {
@@ -134,7 +143,7 @@ export function controlTemplate(buildLabel: string): string {
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
           <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
           <div class="interface-settings-grid">
-            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option><option>Miku</option><option>Catppuccin Mocha</option><option>Catppuccin Macchiato</option><option>Catppuccin Frappé</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
+            <article class="interface-setting-card interface-theme-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Choose a theme and preview it across a miniature OpenMouse workspace.</p><div class="theme-studio"><fieldset id="interface-theme" class="theme-choices" aria-label="Accent theme">${themeChoices()}</fieldset><div class="theme-demo"><div class="theme-demo-window" aria-hidden="true"><header>OPENMOUSE</header><div class="theme-demo-body"><nav><i></i><i></i><i></i></nav><main><small>PROFILE 1</small><strong>Performance</strong><div><span>Polling rate</span><b>1000 Hz</b></div><em>Apply changes</em></main><img id="miku-theme-preview-mascot" data-src="/miku-mascot.gif" alt="" /></div></div><p id="theme-preview-name" aria-live="polite">Mono preview</p></div></div></article>
             <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>WRITES</span><h3>Instant flash</h3><p>Write each change to the mouse as soon as you make it, instead of staging it for the flash bar.</p><label class="interface-switch-row"><span>Flash immediately</span><input id="interface-instant-flash" type="checkbox" /></label></article>
             <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
