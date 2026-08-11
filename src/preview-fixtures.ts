@@ -260,6 +260,22 @@ const RAZER_VIPER_MINI: MouseStatus = {
   firmware: ["Mouse 1.01"],
 };
 
+const RAZER_COBRA: MouseStatus = {
+  ...RAZER_VIPER_MINI,
+  name: "Cobra",
+  dpi: 1600,
+  dpiY: 1600,
+  ui: {
+    family: "razer",
+    settingsReady: true,
+    valuesVerified: true,
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    defaultDisplayName: "Cobra",
+  },
+  firmware: ["Mouse 1.00"],
+};
+
 const TEEVOLUTION: MouseStatus = {
   brand: "Teevolution",
   name: "Terra Pro",
@@ -319,7 +335,7 @@ const FINALMOUSE: MouseStatus = {
   batteryState: "Discharging",
   dpi: 1600,
   pollingRateHz: 8000,
-  supportedPollingRates: [500, 1000, 2000, 4000, 8000],
+  supportedPollingRates: [125, 500, 1000],
   activeProfile: null,
   connectionType: "Wireless",
   connectionDetail: "2.4 GHz receiver · -48 dBm",
@@ -382,6 +398,30 @@ const NINJUTSO: MouseStatus = {
   firmware: ["Mouse 1611", "Receiver 0116"],
 };
 
+const KEYCHRON: MouseStatus = {
+  brand: "Keychron",
+  name: "Nape Pro",
+  ui: {
+    family: "keychron-nape",
+    defaultDisplayName: "Nape Pro",
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    forceShowBattery: true,
+    pollingNote: "Nape Pro exposes polling through Keychron's misc HID commands when the firmware allows it.",
+  },
+  batteryPercent: 76,
+  batteryState: "Discharging",
+  dpi: 800,
+  pollingRateHz: 1000,
+  supportedPollingRates: [500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  connectionType: "Wired",
+  connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5",
+  liftOffDistance: null,
+  supportedLiftOffDistances: [],
+  firmware: ["v1.0.4"],
+};
+
 const LOGITECH_LEGACY: MouseStatus = {
   brand: "Logitech",
   name: "G402 Hyperion Fury",
@@ -415,10 +455,12 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   orbital: { label: "Orbital One", status: ORBITAL },
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
+  "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
   teevolution: { label: "Teevolution Terra Pro", status: TEEVOLUTION },
   vgn: { label: "VGN F2 Master Plus", status: VGN },
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
+  keychron: { label: "Keychron Nape Pro", status: KEYCHRON },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };
