@@ -319,7 +319,7 @@ const FINALMOUSE: MouseStatus = {
   batteryState: "Discharging",
   dpi: 1600,
   pollingRateHz: 8000,
-  supportedPollingRates: [500, 1000, 2000, 4000, 8000],
+  supportedPollingRates: [125, 500, 1000],
   activeProfile: null,
   connectionType: "Wireless",
   connectionDetail: "2.4 GHz receiver · -48 dBm",
