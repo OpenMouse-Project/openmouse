@@ -10,7 +10,7 @@
    which is unreadable against the dark panel, so they are themed explicitly. */
 #capture-dialog { color-scheme:dark }
 #capture-dialog::backdrop { background:rgb(0 0 0 / 62%) }
-#capture-dialog button { padding:.4rem .62rem;border:1px solid #3a3a3f;border-radius:6px;background:var(--surface-dialog);color:var(--text-strong);font-size:.62rem;font-weight:600;cursor:pointer }
+#capture-dialog button { padding:.4rem .62rem;border:1px solid var(--border);border-radius:6px;background:var(--surface-dialog);color:var(--text-strong);font-size:.62rem;font-weight:600;cursor:pointer }
 #capture-dialog button:hover { border-color:var(--border-hover);background:var(--surface-dialog-hover) }
 #capture-dialog button:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
 #capture-dialog button.is-primary { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
@@ -65,7 +65,7 @@
 .lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid var(--muted);border-bottom:1.2px solid var(--muted);transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
 .lod-select.is-open .lod-select-value { border-color:var(--ui-accent) }
 .lod-select.is-open .lod-select-value i { transform:translateY(1px) rotate(-135deg) }
-.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
+.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid var(--border);border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
 .lod-select.is-open .lod-select-menu { opacity:1;transform:none;pointer-events:auto }
 .lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:var(--dim);font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
 .lod-select-menu li:hover { background:var(--surface-hover-soft);color:var(--text-hover) }
@@ -83,7 +83,7 @@
 .rate-slider-input { width:100%;margin:0;accent-color:var(--ui-accent);cursor:pointer }
 .rate-slider-input:disabled { opacity:.5;cursor:not-allowed }
 .rate-slider-scale { position:relative;height:1.15rem;margin-top:.1rem }
-.rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:#3a3a3f;transform:translateX(-50%) }
+.rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:var(--border);transform:translateX(-50%) }
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
 .rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
 .rate-slider-scale span.is-on { color:var(--text-input) }
@@ -107,7 +107,7 @@
 /* The panel is a flex column, so without a fixed basis this section shrinks to
    its min-height — which `overflow:hidden` makes zero — and collapses to just
    its borders. Every other section in the panel sets the same. */
-.profile-disclosure { flex:0 0 auto;margin-top:.65rem;overflow:hidden;border:1px solid #2b2b2f;border-radius:12px;background:#111113 }
+.profile-disclosure { flex:0 0 auto;margin-top:.65rem;overflow:hidden;border:1px solid var(--border-rule);border-radius:12px;background:var(--surface-panel) }
 .profile-summary { display:flex;align-items:stretch;gap:.35rem;padding:.15rem .55rem .15rem .15rem }
 .profile-summary-main { display:flex;flex:1 1 auto;align-items:center;justify-content:space-between;gap:.75rem;min-width:0;padding:.6rem .55rem;border:0;border-radius:10px;background:none;color:inherit;text-align:left;cursor:pointer;transition:background .16s ease }
 .profile-summary-main:hover { background:var(--surface-hover-strong) }
@@ -191,7 +191,7 @@
 .lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid var(--muted);border-bottom:1.2px solid var(--muted);transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
 .lod-select.is-open .lod-select-value { border-color:var(--ui-accent) }
 .lod-select.is-open .lod-select-value i { transform:translateY(1px) rotate(-135deg) }
-.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
+.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid var(--border);border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
 .lod-select.is-open .lod-select-menu { opacity:1;transform:none;pointer-events:auto }
 .lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:var(--dim);font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
 .lod-select-menu li:hover { background:var(--surface-hover-soft);color:var(--text-hover) }
@@ -209,7 +209,7 @@
 .rate-slider-input { width:100%;margin:0;accent-color:var(--ui-accent);cursor:pointer }
 .rate-slider-input:disabled { opacity:.5;cursor:not-allowed }
 .rate-slider-scale { position:relative;height:1.15rem;margin-top:.1rem }
-.rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:#3a3a3f;transform:translateX(-50%) }
+.rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:var(--border);transform:translateX(-50%) }
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
 .rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
 .rate-slider-scale span.is-on { color:var(--text-input) }
@@ -230,7 +230,7 @@
    hidden and its fixtures are never fetched in a production build. */
 .preview-launcher { margin-top:.9rem }
 .preview-launcher-list { display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.4rem;margin-top:.7rem }
-.preview-launcher-link { display:grid;gap:.1rem;padding:.5rem .6rem;border:1px solid #2b2b2f;border-radius:9px;background:var(--surface-menu);color:var(--text-strong);font-size:.7rem;text-decoration:none;transition:border-color .16s ease,background .16s ease }
+.preview-launcher-link { display:grid;gap:.1rem;padding:.5rem .6rem;border:1px solid var(--border-rule);border-radius:9px;background:var(--surface-menu);color:var(--text-strong);font-size:.7rem;text-decoration:none;transition:border-color .16s ease,background .16s ease }
 .preview-launcher-link:hover { border-color:var(--border-hover);background:var(--surface-hover-soft);color:var(--text-hover) }
 .preview-launcher-link small { color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.55rem }
 .preview-launcher-link.is-active { border-color:var(--ui-accent);color:var(--ui-accent) }

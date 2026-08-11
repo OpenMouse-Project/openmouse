@@ -24,7 +24,7 @@
 #logitech-device-details .setting-card { min-height: 0; }
 #logitech-detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .55rem; }
 #logitech-analog-button-settings { flex: 0 0 auto; margin-top: .65rem; }
-#logitech-analog-button-settings .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, #29292d); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, var(--surface-menu)), #121214 62%); }
+#logitech-analog-button-settings .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, var(--surface-menu)), var(--surface-panel-strong) 62%); }
 #logitech-analog-button-settings .superstrike-tuning-heading { margin-bottom: .2rem; }
 #logitech-analog-button-settings .superstrike-tuning-description { max-width: 540px; margin: .1rem 0 0; color: var(--text-soft); line-height: 1.45; }
 #logitech-analog-button-settings .superstrike-tabs { display: inline-flex; gap: .2rem; margin-top: .7rem; padding: .2rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }

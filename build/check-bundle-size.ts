@@ -9,7 +9,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised from 54 kB for the in-app lighting colour picker: the SV panel,
   // hue bar, drag thumbs, swatch, and hex field in the dedicated Lighting tab.
   // Raised from 55.5 kB for the standalone Mouse Check diagnostics page.
-  ".css": 61_500,
+  // Raised from 61.5 kB for the theme system: the Hatsune Miku palette and the
+  // Catppuccin family (Mocha, Macchiato, Frappé). Each variant ships its raw
+  // palette plus a shared semantic token mapping, and the whole family shares
+  // one block of component-level overrides — no UI framework was added.
+  ".css": 72_000,
   // Raised from 280 kB for the production Logitech onboard-profile codec,
   // guarded flash editor, verification exporter, upstream Finalmouse driver,
   // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
@@ -33,6 +37,8 @@ const BUDGET_BYTES: Record<string, number> = {
   // protocol package's validated Razer request/response codec.
   // Raised from 444 kB after refreshing the protocol lock for Mouse Dock Pro,
   // the Nape Pro codec tests/limits, and hardware-verified Razer corrections.
+  // Raised from 446 kB for the theme system: the persisted theme list and the
+  // display-name → dataset slug mapping for the Miku and Catppuccin themes.
   ".js": 446_000,
 };
 

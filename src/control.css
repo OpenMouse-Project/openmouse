@@ -57,6 +57,11 @@
   --text-faint: #777c82;
   --text-hover: #ffffff;
 
+  --success: #69d28d;
+  --warning: #e8b267;
+  --destructive: #e2686f;
+  --info: #67d8ff;
+
   --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
@@ -205,6 +210,208 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .control-shell[data-interface-theme="miku"] .workspace-tabs button[aria-selected="true"]::after { background: var(--miku-soft-cyan); }
 .control-shell[data-interface-theme="miku"] .theme-preview i:last-child { background: var(--miku-pink); }
 .control-shell[data-interface-theme="miku"] .theme-preview i:nth-child(4) { background: var(--miku-soft-cyan); }
+
+/* ============================================================
+   Catppuccin theme family — Mocha, Macchiato and Frappé: three
+   dark, cozy developer palettes. Each variant block below only
+   supplies its raw palette; the shared block after them maps that
+   palette onto the semantic + component tokens the rest of the UI
+   reads, so nothing is recolored case by case.
+   ============================================================ */
+.control-shell[data-interface-theme="catppuccin-mocha"] {
+  --ctp-rosewater: #f5e0e6; --ctp-flamingo: #f2cdcd; --ctp-pink: #f5c2e7;
+  --ctp-mauve: #cba6f7; --ctp-red: #f38ba8; --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387; --ctp-yellow: #f9e2af; --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5; --ctp-sky: #89dceb; --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa; --ctp-lavender: #b4befe;
+  --ctp-text: #cdd6f4; --ctp-subtext1: #bac2de; --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2; --ctp-overlay1: #7f849c; --ctp-overlay0: #6c7086;
+  --ctp-surface2: #585b70; --ctp-surface1: #45475a; --ctp-surface0: #313244;
+  --ctp-base: #1e1e2e; --ctp-mantle: #181825; --ctp-crust: #11111b;
+}
+.control-shell[data-interface-theme="catppuccin-macchiato"] {
+  --ctp-rosewater: #f4dbd6; --ctp-flamingo: #f0c6c6; --ctp-pink: #f5bde6;
+  --ctp-mauve: #c6a0f6; --ctp-red: #ed8796; --ctp-maroon: #ee99a0;
+  --ctp-peach: #f5a97f; --ctp-yellow: #eed49f; --ctp-green: #a6da95;
+  --ctp-teal: #8bd5ca; --ctp-sky: #91d7e3; --ctp-sapphire: #7dc4e4;
+  --ctp-blue: #8aadf4; --ctp-lavender: #b7bdf8;
+  --ctp-text: #cad3f5; --ctp-subtext1: #b8c0e0; --ctp-subtext0: #a5adcb;
+  --ctp-overlay2: #939ab7; --ctp-overlay1: #8087a2; --ctp-overlay0: #6e738d;
+  --ctp-surface2: #5b6078; --ctp-surface1: #494d64; --ctp-surface0: #363a4f;
+  --ctp-base: #24273a; --ctp-mantle: #1e2030; --ctp-crust: #181926;
+}
+.control-shell[data-interface-theme="catppuccin-frappe"] {
+  --ctp-rosewater: #f2d5cf; --ctp-flamingo: #eebebe; --ctp-pink: #f4b8e4;
+  --ctp-mauve: #ca9ee6; --ctp-red: #e78284; --ctp-maroon: #ea999c;
+  --ctp-peach: #ef9f76; --ctp-yellow: #e5c890; --ctp-green: #a6d189;
+  --ctp-teal: #81c8be; --ctp-sky: #99d1db; --ctp-sapphire: #85c1dc;
+  --ctp-blue: #8caaee; --ctp-lavender: #babbf1;
+  --ctp-text: #c6d0f5; --ctp-subtext1: #b5bfe2; --ctp-subtext0: #a5adce;
+  --ctp-overlay2: #949cbb; --ctp-overlay1: #838ba7; --ctp-overlay0: #737994;
+  --ctp-surface2: #626880; --ctp-surface1: #51576d; --ctp-surface0: #414559;
+  --ctp-base: #303446; --ctp-mantle: #292c3c; --ctp-crust: #232634;
+}
+
+/* Shared semantic mapping for the whole family. The accents stay understated:
+   surfaces own ~85% of the screen, text ~10%, mauve/blue interactions ~5%. */
+.control-shell[data-interface-theme^="catppuccin-"] {
+  --background: var(--ctp-crust);
+  --foreground: var(--ctp-text);
+  --surface: var(--ctp-base);
+  --surface-soft: var(--ctp-mantle);
+  --surface-elevated: var(--ctp-surface0);
+  --surface-elevated-hover: var(--ctp-surface1);
+  --surface-hover: var(--ctp-surface2);
+  --border: var(--ctp-surface1);
+  --primary: var(--ctp-mauve);
+  --primary-hover: color-mix(in srgb, var(--ctp-mauve) 78%, var(--ctp-text));
+  --primary-ink: var(--ctp-crust);
+  --secondary: var(--ctp-blue);
+  --success: var(--ctp-green);
+  --warning: var(--ctp-yellow);
+  --destructive: var(--ctp-red);
+  --info: var(--ctp-sapphire);
+  --muted: var(--ctp-subtext0);
+  --muted-foreground: var(--ctp-overlay2);
+  --focus: var(--ctp-mauve);
+
+  --ui-accent: var(--primary);
+  --ui-accent-ink: var(--primary-ink);
+  --ui-accent-soft: color-mix(in srgb, var(--primary) 16%, transparent);
+
+  --ink: var(--background);
+  --sidebar: var(--surface-soft);
+  --well: var(--surface);
+  --card: var(--surface-elevated);
+  --raised: var(--surface-elevated-hover);
+  --input: var(--surface-elevated);
+  --control: var(--surface-elevated);
+  --hover: var(--surface-hover);
+
+  --line: var(--border);
+  --line-soft: var(--ctp-surface0);
+  --line-strong: var(--ctp-surface2);
+  --edge: var(--ctp-overlay0);
+
+  --text: var(--foreground);
+  --bright: var(--ctp-text);
+  --dim: var(--ctp-subtext1);
+  --faint: var(--ctp-overlay2);
+  --ghost: var(--ctp-overlay1);
+
+  --surface-bg: var(--background);
+  --surface-bg-tint: color-mix(in srgb, var(--background) 96%, transparent);
+  --surface-tabs: color-mix(in srgb, var(--surface) 96%, transparent);
+  --surface-sidebar: var(--surface-soft);
+  --surface-panel: var(--surface);
+  --surface-panel-soft: var(--surface-soft);
+  --surface-panel-strong: var(--surface-elevated);
+  --surface-menu: var(--surface-elevated);
+  --surface-control: var(--surface-elevated);
+  --surface-input: var(--surface-elevated);
+  --surface-raised: var(--surface-elevated-hover);
+  --surface-strong: var(--surface-elevated-hover);
+  --surface-hover-soft: var(--ctp-surface1);
+  --surface-hover-strong: var(--ctp-surface2);
+  --surface-hover-alt: var(--ctp-surface0);
+  --surface-dialog: var(--ctp-surface1);
+  --surface-dialog-hover: var(--ctp-surface2);
+  --surface-superstrike: color-mix(in srgb, var(--ctp-surface1) 58%, transparent);
+
+  --border-rule: var(--ctp-surface0);
+  --border-soft: var(--ctp-surface0);
+  --border-hover: var(--ctp-surface2);
+
+  --text-input: var(--ctp-text);
+  --text-strong: var(--ctp-subtext1);
+  --text-soft: var(--ctp-subtext0);
+  --text-faint: var(--ctp-overlay2);
+  --text-hover: var(--ctp-text);
+}
+
+/* Component-level family touches. Everything else flows through the token
+   mapping above, so these only cover where the UI hardcodes a behaviour the
+   palette cannot express: status lights, accent hover, the pending bar, and
+   the destructive/warning notes. */
+.control-shell[data-interface-theme^="catppuccin-"] .device-dot:not(.is-idle),
+.control-shell[data-interface-theme^="catppuccin-"] .device-status > .status-dot:not(.is-idle),
+.control-shell[data-interface-theme^="catppuccin-"] .live-status i,
+.control-shell[data-interface-theme^="catppuccin-"]:not(.is-empty) .sidebar-product-status .status-dot {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .device-dot.is-idle,
+.control-shell[data-interface-theme^="catppuccin-"] .status-dot.is-idle,
+.control-shell[data-interface-theme^="catppuccin-"] .sidebar-product-status .status-dot {
+  background: var(--ctp-overlay0);
+  box-shadow: none;
+}
+.control-shell[data-interface-theme^="catppuccin-"] .battery-icon { color: var(--ctp-text); }
+.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-charging { color: var(--success); }
+.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-low,
+.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-dead { color: var(--destructive); }
+.control-shell[data-interface-theme^="catppuccin-"] .battery-icon.is-unknown { color: var(--ctp-overlay0); }
+.control-shell[data-interface-theme^="catppuccin-"] .sidebar-battery::before { color: var(--ctp-overlay0); }
+/* Active tab underline reads as a soft mauve instead of the mono white. */
+.control-shell[data-interface-theme^="catppuccin-"] .workspace-tabs button[aria-selected="true"]::after { background: var(--primary); }
+/* Accent buttons deepen to a brighter mauve on hover. */
+.control-shell[data-interface-theme^="catppuccin-"] .empty-connect-action:hover,
+.control-shell[data-interface-theme^="catppuccin-"] .setting-action button:not(:disabled):hover,
+.control-shell[data-interface-theme^="catppuccin-"] .device-debug-actions button:not(:disabled):hover,
+.control-shell[data-interface-theme^="catppuccin-"] .segmented button.selected:hover,
+.control-shell[data-interface-theme^="catppuccin-"] .dpi-header-actions button:not(:disabled):hover,
+.control-shell[data-interface-theme^="catppuccin-"] .pending-flash:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  filter: none;
+}
+.control-shell[data-interface-theme^="catppuccin-"] .pending-flash {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .interface-switch-row input:checked {
+  background-image: radial-gradient(circle at calc(100% - .56rem) 50%, var(--ctp-crust) 0 .34rem, transparent .36rem);
+}
+/* Destructive and status notes adopt the muted Catppuccin accents. */
+.control-shell[data-interface-theme^="catppuccin-"] .interface-reset {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--ctp-surface0));
+  background: color-mix(in srgb, var(--destructive) 10%, var(--ctp-surface0));
+  color: var(--destructive);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .testing-note {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--ctp-surface0));
+  background: color-mix(in srgb, var(--warning) 7%, var(--ctp-surface0));
+  color: var(--ctp-subtext1);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .testing-note strong,
+.control-shell[data-interface-theme^="catppuccin-"] .egg-experimental summary small { color: var(--warning); }
+.control-shell[data-interface-theme^="catppuccin-"] .egg-warning { color: color-mix(in srgb, var(--warning) 74%, var(--ctp-overlay1)); }
+.control-shell[data-interface-theme^="catppuccin-"] .build-note { color: color-mix(in srgb, var(--warning) 62%, var(--ctp-overlay1)); }
+.control-shell[data-interface-theme^="catppuccin-"] .device-overview .device-thumbnail {
+  background: radial-gradient(circle at 50% 45%, var(--ctp-surface1) 0, var(--ctp-surface0) 72%);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .pending-bar-inner {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--ctp-surface1));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--ctp-base)), var(--ctp-mantle) 62%);
+}
+/* Profile delete stays destructive, in the theme's red rather than the stock one. */
+.control-shell[data-interface-theme^="catppuccin-"] .icon-button.profile-delete-button {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--ctp-surface1));
+  background: color-mix(in srgb, var(--destructive) 12%, var(--ctp-surface0));
+  color: var(--destructive);
+}
+.control-shell[data-interface-theme^="catppuccin-"] .icon-button.profile-delete-button:hover:not(:disabled) {
+  border-color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 30%, var(--ctp-surface0));
+  color: var(--ctp-text);
+}
+/* Theme preview: a surface ramp closing on blue and mauve. */
+.control-shell[data-interface-theme^="catppuccin-"] .theme-preview i:nth-child(1) { background: var(--ctp-surface0); opacity: 1; }
+.control-shell[data-interface-theme^="catppuccin-"] .theme-preview i:nth-child(2) { background: var(--ctp-surface1); opacity: 1; }
+.control-shell[data-interface-theme^="catppuccin-"] .theme-preview i:nth-child(3) { background: var(--ctp-surface2); opacity: 1; }
+.control-shell[data-interface-theme^="catppuccin-"] .theme-preview i:nth-child(4) { background: var(--ctp-blue); opacity: 1; }
+.control-shell[data-interface-theme^="catppuccin-"] .theme-preview i:nth-child(5) { background: var(--ctp-mauve); opacity: 1; }
 .control-shell button:focus-visible, .control-shell select:focus-visible, .control-shell input:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 
 .control-shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
