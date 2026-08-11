@@ -18,6 +18,7 @@ export const PREVIEW_KEYS = [
   "orbital",
   "razer",
   "razer-viper-mini",
+  "razer-cobra",
   "razer-viper-v4",
   "teevolution",
   "vgn",
@@ -46,6 +47,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "orbital": return "orbital";
     case "razer": return "razer";
     case "razer-viper-mini": return "razer-viper-mini";
+    case "razer-cobra": return "razer-cobra";
     case "razer-viper-v4": return "razer-viper-v4";
     case "teevolution": return "teevolution";
     case "vgn": return "vgn";

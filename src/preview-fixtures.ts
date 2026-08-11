@@ -260,6 +260,22 @@ const RAZER_VIPER_MINI: MouseStatus = {
   firmware: ["Mouse 1.01"],
 };
 
+const RAZER_COBRA: MouseStatus = {
+  ...RAZER_VIPER_MINI,
+  name: "Cobra",
+  dpi: 1600,
+  dpiY: 1600,
+  ui: {
+    family: "razer",
+    settingsReady: true,
+    valuesVerified: true,
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    defaultDisplayName: "Cobra",
+  },
+  firmware: ["Mouse 1.00"],
+};
+
 const TEEVOLUTION: MouseStatus = {
   brand: "Teevolution",
   name: "Terra Pro",
@@ -439,6 +455,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   orbital: { label: "Orbital One", status: ORBITAL },
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
+  "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
   teevolution: { label: "Teevolution Terra Pro", status: TEEVOLUTION },
   vgn: { label: "VGN F2 Master Plus", status: VGN },

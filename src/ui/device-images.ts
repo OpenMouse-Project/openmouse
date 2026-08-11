@@ -12,6 +12,8 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Wired and receiver are separate product ids for the same mouse.
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
+  ["1532:008a", "/devices/razer-viper-mini.webp"],
+  ["1532:00a3", "/devices/razer-cobra.webp"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
@@ -36,6 +38,11 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3434:0440", "/devices/keychron-nape-pro.png"],
   ["3434:d026", "/devices/keychron-nape-pro.png"],
   ["3434:d029", "/devices/keychron-nape-pro.png"],
+  // Teevolution Terra Pro wired / receiver Compx transports.
+  ["3554:f520", "/devices/teevolution-terra-pro.png"],
+  ["3554:f522", "/devices/teevolution-terra-pro.png"],
+  ["3554:f523", "/devices/teevolution-terra-pro.png"],
+  ["3554:f5bb", "/devices/teevolution-terra-pro.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {

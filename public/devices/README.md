@@ -6,7 +6,7 @@ this folder from the site root, so a file here is reachable at
 
 Adding one:
 
-1. Save a **transparent** PNG named after the model in kebab-case, e.g.
+1. Save a **transparent** PNG or WebP named after the model in kebab-case, e.g.
    `razer-viper-v3-pro.png`. The panel sits on a dark background, so an image
    with a white backdrop shows as a white block.
 2. Keep enough resolution for a product panel up to roughly 340 px wide.
@@ -35,3 +35,11 @@ public release package.
 `keychron-nape-pro.png` was supplied from Keychron's sysmgr cover CDN for the
 Nape Pro. Confirm redistribution terms before including it in a public release
 package.
+
+`teevolution-terra-pro.png` was supplied from Teevolution's Terra PRO Shopify
+CDN product render. Confirm redistribution terms before including it in a
+public release package.
+
+`razer-viper-mini.webp` was supplied from a Discord attachment URL for the
+Razer Viper Mini (wired). Confirm redistribution terms before including it in
+a public release package.

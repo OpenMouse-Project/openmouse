@@ -3,6 +3,7 @@ import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./batt
 import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
 import { controlTemplate } from "./control-template";
 import { bindControlEvents } from "./control-events";
+import { initColorPickers, syncColorPickers } from "./ui/color-picker";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -89,6 +90,7 @@ import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pr
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
+import { RazerCobraHidClient } from "@openmouse/protocol/drivers/razer/cobra-hid";
 import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
 import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
@@ -128,7 +130,7 @@ let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null = null;
 let activeOrbitalClient: OrbitalHidClient | null = null;
-let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | null = null;
+let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null = null;
 let activeTeevolutionClient: TeevolutionHidClient | null = null;
 let activeVgnClient: VgnF2HidClient | null = null;
 let activeViperClient: RazerViperV4ProHidClient | null = null;
@@ -365,18 +367,18 @@ function renderStagedMarkers(): void {
   });
 }
 
-type WorkspaceTab = "overview" | "performance" | "buttons" | "profiles" | "advanced";
+type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced";
 
-const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "buttons", "profiles", "advanced"];
+const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "lighting", "buttons", "profiles", "advanced"];
 const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   overview: ["#device-overview"],
   performance: [
     "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
     "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']",
     "#pulsar-advanced", "#processing-settings", "#ninjutso-sensor-settings", "#ninjutso-click-settings",
-    "#teevolution-dpi-lighting", "#egg-filter-settings",
-    "#egg-polling-settings", "#egg-cpi-settings",
+    "#egg-filter-settings", "#egg-polling-settings", "#egg-cpi-settings",
   ],
+  lighting: ["#lighting-settings", "#lighting-tab-card"],
   buttons: [
     "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
     "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
@@ -384,10 +386,11 @@ const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
   profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
   advanced: [
     "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
-    "#low-power-settings", "#lighting-card", "#finalmouse-settings", ".testing-note", "#device-debug-details",
+    "#low-power-settings", "#lighting-card", "#teevolution-dpi-lighting", "#finalmouse-settings",
+    ".testing-note", "#device-debug-details",
   ],
 };
-const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced"]);
+const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);
 let activeWorkspaceTab: WorkspaceTab = "performance";
 
 function workspaceElements(selectors: readonly string[]): HTMLElement[] {
@@ -558,6 +561,7 @@ function renderControl(): void {
     toggleOnboardProfileEnabled,
     reloadOnboardProfiles,
   });
+  initColorPickers();
   bindWorkspaceTabs();
   onPendingChanges(renderPendingBar);
   onPendingChanges(() => {
@@ -1610,7 +1614,12 @@ function showStatus(deviceStatus: MouseStatus): void {
 }
 
 function renderLighting(status: MouseStatus, settingsPending: boolean): void {
-  const card = document.querySelector<HTMLElement>("#lighting-card");
+  renderLightingCard(status, settingsPending, "lighting");
+  renderLightingCard(status, settingsPending, "lighting-tab");
+}
+
+function renderLightingCard(status: MouseStatus, settingsPending: boolean, prefix: "lighting" | "lighting-tab"): void {
+  const card = document.querySelector<HTMLElement>(`#${prefix}-card`);
   const lighting = status.lighting;
   if (!card) return;
   if (!lighting) {
@@ -1620,12 +1629,12 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
   }
   card.hidden = false;
   card.style.display = "";
-  setText("#lighting-title", lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
+  setText(`#${prefix}-title`, lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
   const mode = lighting.mode;
   const usesColor = mode !== null && lighting.colorModes.includes(mode);
   const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
   const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
-  const modesContainer = document.querySelector<HTMLElement>("#lighting-modes");
+  const modesContainer = document.querySelector<HTMLElement>(`#${prefix}-modes`);
   if (modesContainer) {
     modesContainer.innerHTML = lighting.modes
       .map((candidate) => `<button type="button" data-lighting-mode="${candidate}" aria-pressed="${candidate === mode}">${candidate}</button>`)
@@ -1635,17 +1644,17 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
     setSelected(button, button.dataset.lightingMode === mode);
     button.disabled = settingsPending;
   });
-  const colorRow = document.querySelector<HTMLElement>("#lighting-color-row");
+  const colorRow = document.querySelector<HTMLElement>(`#${prefix}-color-row`);
   if (colorRow) colorRow.hidden = !usesColor;
-  const color2Field = document.querySelector<HTMLElement>("#lighting-color2-field");
+  const color2Field = document.querySelector<HTMLElement>(`#${prefix}-color2-field`);
   if (color2Field) color2Field.hidden = !usesColor2;
-  if (usesColor) setControlValue("#lighting-color", lighting.color ?? "#00ff00");
-  if (usesColor2) setControlValue("#lighting-color2", lighting.color2 ?? "#ff0000");
-  const speedRow = document.querySelector<HTMLElement>("#lighting-speed-row");
+  if (usesColor) setControlValue(`#${prefix}-color`, lighting.color ?? "#00ff00");
+  if (usesColor2) setControlValue(`#${prefix}-color2`, lighting.color2 ?? "#ff0000");
+  const speedRow = document.querySelector<HTMLElement>(`#${prefix}-speed-row`);
   if (speedRow) speedRow.hidden = !usesSpeed;
   if (usesSpeed) {
-    const speedsContainer = document.querySelector<HTMLElement>("#lighting-speeds");
-    const speedSlider = document.querySelector<HTMLInputElement>("#lighting-speed-slider");
+    const speedsContainer = document.querySelector<HTMLElement>(`#${prefix}-speeds`);
+    const speedSlider = document.querySelector<HTMLInputElement>(`#${prefix}-speed-slider`);
     if (speedsContainer) {
       speedsContainer.hidden = lighting.speeds.length > 8;
       speedsContainer.innerHTML = lighting.speeds
@@ -1667,32 +1676,33 @@ function renderLighting(status: MouseStatus, settingsPending: boolean): void {
       }
     }
   }
-  const brightnessRow = document.querySelector<HTMLElement>("#lighting-brightness-row");
+  const brightnessRow = document.querySelector<HTMLElement>(`#${prefix}-brightness-row`);
   const brightnessLevels = lighting.brightnessLevels ?? [];
   if (brightnessRow) brightnessRow.hidden = brightnessLevels.length === 0;
-  const brightnessContainer = document.querySelector<HTMLElement>("#lighting-brightness-levels");
+  const brightnessContainer = document.querySelector<HTMLElement>(`#${prefix}-brightness-levels`);
   if (brightnessContainer && brightnessLevels.length) {
     brightnessContainer.innerHTML = brightnessLevels
       .map((level) => `<button type="button" data-lighting-brightness="${level}" aria-pressed="${level === lighting.brightness}">${level}%</button>`)
       .join("");
     brightnessContainer.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
   }
-  const pending = document.querySelector<HTMLElement>("#lighting-pending");
+  const pending = document.querySelector<HTMLElement>(`#${prefix}-pending`);
   if (pending) pending.textContent = isPendingChange("lighting")
     ? `Staged: ${describeLighting(status.lighting ?? lighting)}`
     : "Choose an effect";
-  const writeOnlyBadge = document.querySelector<HTMLElement>("#lighting-write-only-badge");
+  const writeOnlyBadge = document.querySelector<HTMLElement>(`#${prefix}-write-only-badge`);
   if (writeOnlyBadge) writeOnlyBadge.hidden = !lighting.writeOnly;
-  const note = document.querySelector<HTMLElement>("#lighting-note");
+  const note = document.querySelector<HTMLElement>(`#${prefix}-note`);
   if (note) {
     note.textContent = lighting.writeOnly
       ? "The mouse cannot report its current effect, so this shows the last value written."
       : `Picks the ${lighting.zone} light effect.`;
   }
-  const colorInput = document.querySelector<HTMLInputElement>("#lighting-color");
+  const colorInput = document.querySelector<HTMLInputElement>(`#${prefix}-color`);
   if (colorInput) colorInput.disabled = settingsPending || !usesColor;
-  const color2Input = document.querySelector<HTMLInputElement>("#lighting-color2");
+  const color2Input = document.querySelector<HTMLInputElement>(`#${prefix}-color2`);
   if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
+  syncColorPickers();
 }
 
 function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
@@ -1940,7 +1950,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
-  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient) {
+  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient || client instanceof RazerCobraHidClient) {
     activeRazerClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
@@ -3460,7 +3470,7 @@ function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "co
     command: lightingCommand(staged),
     progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
     preview: (status) => {
-      if (status.lighting) status.lighting = { ...status.lighting, ...patch } as MouseLighting;
+      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);
