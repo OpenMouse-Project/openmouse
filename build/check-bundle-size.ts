@@ -24,8 +24,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // binding, canvas-drawn SV/hue surfaces, and hex/swatch sync.
   // Raised from 427 kB for the second, dedicated Lighting-tab card: the
   // render path now drives both the Advanced-tab card and the new tab.
+  // Raised from 429 kB for the dedicated Razer Cobra driver: the protocol
+  // registry now bundles the Cobra HID client, its extended-matrix lighting
+  // payloads, and the Cobra picker filter alongside the other Razer drivers.
   // Protocol tests and preview fixtures remain unbundled.
-  ".js": 429_000,
+  ".js": 435_000,
 };
 
 const ASSETS = join("dist", "assets");
