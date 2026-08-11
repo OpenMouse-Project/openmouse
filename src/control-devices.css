@@ -79,8 +79,3 @@
   #egg-button-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-@media (max-width: 720px) {
-  #pulsar-advanced.egg-advanced-layout { grid-template-columns: 1fr !important; }
-  #egg-cpi-stage-list, #egg-button-list { grid-template-columns: 1fr; }
-  #logitech-analog-button-settings .superstrike-tuning-grid { grid-template-columns: 1fr; }
-}

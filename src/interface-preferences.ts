@@ -7,7 +7,8 @@ export type InterfaceTheme =
   | "Miku"
   | "Catppuccin Mocha"
   | "Catppuccin Macchiato"
-  | "Catppuccin Frappé";
+  | "Catppuccin Frappé"
+  | "NieR: Automata";
 
 export interface InterfacePreferences {
   theme: InterfaceTheme;
@@ -28,6 +29,7 @@ const THEMES: readonly InterfaceTheme[] = [
   "Catppuccin Mocha",
   "Catppuccin Macchiato",
   "Catppuccin Frappé",
+  "NieR: Automata",
 ];
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
@@ -60,5 +62,9 @@ export function saveInterfacePreferences(storage: Storage, preferences: Interfac
 /** Dataset value for the theme selector. Display names carry spaces (and one
     accent) for the dropdown, but the stylesheet matches slugs. */
 export function interfaceThemeSlug(theme: InterfaceTheme): string {
-  return theme.toLowerCase().replace("é", "e").replace(/\s+/g, "-");
+  return theme
+    .toLowerCase()
+    .replace("é", "e")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
