@@ -1,5 +1,0 @@
-{
-  "version": 1,
-  "include": ["/api/license/*", "/control-app*", "/protected-assets/*"],
-  "exclude": []
-}

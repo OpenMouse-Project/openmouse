@@ -1,4 +1,10 @@
 import "./check.css";
+import {
+  decodeFirmwareVersion,
+  decodeRazerResponse,
+  encodeRazerRequest,
+  type RazerCommand,
+} from "@openmouse/protocol/razer";
 
 // ---------------------------------------------------------------------------
 // Brand registry — all known gaming mouse vendor IDs
@@ -32,7 +38,7 @@ const BRANDS: Record<number, string> = {
 };
 
 // OpenMouse-supported brands (driver exists in the control app)
-const OPENMOUSE_SUPPORTED = new Set([0x046D, 0x3710, 0x3367, 0x36A7, 0x373E, 0x3554, 0x373B, 0x361D, 0x3434, 0x2FE3, 0x1915]);
+const OPENMOUSE_SUPPORTED = new Set([0x1532, 0x046D, 0x3710, 0x3367, 0x36A7, 0x373E, 0x3554, 0x373B, 0x361D, 0x3434, 0x2FE3, 0x1915]);
 
 // Safety: skip raw feature-report probing for these vendors.
 // Endgame Gear (0x3367): OP1 8K has no firmware guards — unrecognised
@@ -50,22 +56,14 @@ const SCAN_FILTERS: HIDDeviceFilter[] = Object.keys(BRANDS).map((vid) => ({
 // ---------------------------------------------------------------------------
 
 const RAZER_TX_IDS = [0xFF, 0x3F, 0x1F] as const;
+const RAZER_FIRMWARE_COMMAND: RazerCommand = {
+  commandClass: 0x00,
+  commandId: 0x81,
+  dataSize: 0x02,
+};
 
-function buildRazerPacket(txId: number): Uint8Array {
-  const buf = new Uint8Array(90);
-  // [0] = status (0x00)
-  buf[1] = txId;
-  // [2-3] = remaining_packets (0x0000)
-  // [4] = protocol_type (0x00)
-  buf[5] = 0x02; // data_size
-  buf[6] = 0x00; // command_class: device info
-  buf[7] = 0x81; // command_id: firmware version
-  // [8-87] = arguments (zeros)
-  let crc = 0;
-  for (let i = 2; i <= 87; i++) crc ^= buf[i];
-  buf[88] = crc;
-  // [89] = reserved (0x00)
-  return buf;
+function buildRazerPacket(txId: number): Uint8Array<ArrayBuffer> {
+  return encodeRazerRequest(RAZER_FIRMWARE_COMMAND, txId);
 }
 
 async function tryRazerTx(
@@ -78,11 +76,10 @@ async function tryRazerTx(
       await device.sendFeatureReport(0x00, packet);
       await sleep(120);
       const resp = await device.receiveFeatureReport(0x00);
-      const data = new Uint8Array(resp.buffer, resp.byteOffset);
-      if (data[0] === 0x02) {
-        const fw = `${data[8]}.${String(data[9]).padStart(2, "0")}`;
-        return { ok: true, firmware: fw };
-      }
+      const data = new Uint8Array(resp.buffer.slice(resp.byteOffset, resp.byteOffset + resp.byteLength));
+      if (data[1] !== txId) continue;
+      const args = decodeRazerResponse(data, RAZER_FIRMWARE_COMMAND);
+      return { ok: true, firmware: decodeFirmwareVersion(args) };
     } catch {
       // continue
     }

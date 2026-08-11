@@ -1,32 +1,109 @@
 import "./control.css";
+import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "./battery-history";
+import { unsupportedNotice, unsupportedTemplate } from "./browser-support";
+import { controlTemplate } from "./control-template";
+import { bindControlEvents } from "./control-events";
+import { initColorPickers, syncColorPickers } from "./ui/color-picker";
 import {
-  EGG_BUTTON_MAPPINGS,
+  clientSupportScore,
+  createSupportedClient,
+  describeHidDevice,
+  listLogicalDevices,
+  type PulsarClient,
+  type SupportedClient,
+} from "./device-clients";
+import { renderDeviceSidebar as renderDeviceSidebarView } from "./device-sidebar";
+import { closestDpiOption, dpiPresetValues } from "./dpi-presets";
+import { renderEggControls } from "./egg-controls-view";
+import { hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
+import {
+  clearPendingChanges,
+  dropPendingChange,
+  hasPendingChanges,
+  isPendingChange,
+  onPendingChanges,
+  pendingChangeBatches,
+  pendingChanges,
+  stagePendingChange,
+  withPendingChanges,
+  type PendingChange,
+} from "./pending-changes";
+import { deviceImage } from "./ui/device-images";
+import { batteryNeedsCharging, renderBatteryIcon } from "./ui/battery-icon";
+import { formatHex, setControlValue, setSelected, setText, setToggleValue } from "./ui/dom";
+import { renderPendingBar, setPendingBarBusy, setPendingBarStatus, setPendingBarSuppressed } from "./ui/pending-bar";
+import {
+  DEFAULT_INTERFACE_PREFERENCES,
+  loadInterfacePreferences,
+  saveInterfacePreferences as persistInterfacePreferences,
+  type InterfaceDensity,
+  type InterfaceTheme,
+} from "./interface-preferences";
+import {
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
   type EggButtonIndex,
   type EggButtonMapping,
   type EggSpdtMode,
-} from "./egg-op1-hid";
+} from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
 import {
   EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
-  eggWeCreate,
   eggWeFromAuthorized,
   eggWeIsSupported,
-  eggWeMergeLogicalDevices,
   eggWeOwnsDevice,
   eggWePrepare,
   eggWeResolveConnect,
-  eggWeSupportScore,
   isEggWeClient,
   type EggWeHidClient,
-} from "./egg-we-control";
-import { LogitechHidppClient } from "./logitech-hidpp";
-import type { MouseStatus } from "./mouse-types";
-import { PulsarHidClient } from "./pulsar-hid";
-import { PulsarProHidClient } from "./pulsar-pro-hid";
-import { SUPPORTED_HID_FILTERS } from "./vendors";
-import { WLMouseHidClient } from "./wlmouse-hid";
+} from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
+import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
+import {
+  LogitechHidppClient,
+  NotAMouseError,
+  PROFILE_DPI_WRITES_ENABLED,
+  type OnboardProfile,
+} from "@openmouse/protocol/drivers/logitech/hidpp";
+import {
+  BUNNY_HOP_LIMITS,
+  PROFILE_STAGE_LOD,
+  capabilitiesForFormat,
+  clampDpi,
+  describeOffset,
+  dpiStageCapabilitiesForOptions,
+  reportRatesFor,
+  reportRatesForDevice,
+  validateProfileName,
+  reproduceProfile,
+  supportsFactoryReset,
+  supportsProfileWriteProbe,
+  stageLodLevel,
+  validateBunnyHoppingMs,
+  type DpiStageCapabilities,
+  type DpiStagePlan,
+} from "@openmouse/protocol/drivers/logitech/onboard-profiles";
+import { escapeHtml } from "./ui/dom";
+import { bindCapturePanel, setCaptureContext } from "./capture-panel";
+import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
+import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
+import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
+import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
+import { RazerCobraHidClient } from "@openmouse/protocol/drivers/razer/cobra-hid";
+import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid"
+import { RazerViperV4ProHidClient } from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
+import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
+import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
+import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
+import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
+import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
+import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
+import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
+import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
+import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
+import { parsePreviewMode, type PreviewMode } from "./preview-modes";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -36,96 +113,243 @@ if (!controlApp) {
 
 const appRoot = controlApp;
 
-const BATTERY_HISTORY_KEY = "openmouse-battery-history-v1";
-const BATTERY_CHECKPOINT_MS = 5 * 60 * 1000;
-const BATTERY_MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const BATTERY_MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
-const BATTERY_MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
-const BATTERY_MAX_SAMPLES_PER_DEVICE = 500;
-const INTERFACE_SETTINGS_KEY = "openmouse-interface-settings-v1";
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+const DEFAULT_TITLE = document.title;
+const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
+const previewMode = import.meta.env.DEV
+  ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
+  : null;
+const isSuperstrikePreview = previewMode === "superstrike";
+/** Any `?preview=` value, so the HID listeners stay off in every preview. */
+const isAnyPreview = previewMode !== null;
+/** Dev-only: renders the profile list and slot editor without hardware. */
+const isSlotsPreview = previewMode === "slots";
 let activeClient: LogitechHidppClient | null = null;
 let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
-let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeDmClient: WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null = null;
+let activeOrbitalClient: OrbitalHidClient | null = null;
+let activeRazerClient: RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null = null;
+let activeTeevolutionClient: TeevolutionHidClient | null = null;
+let activeVgnClient: VgnF2HidClient | null = null;
+let activeViperClient: RazerViperV4ProHidClient | null = null;
+let activeModdoClient: ModdoHidClient | null = null;
+/** Cached onboard profiles; a full read is far too slow for the refresh loop. */
+let onboardProfiles: OnboardProfile[] | null = null;
+let onboardProfilesLoading = false;
+let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
+let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
+
+const ICON_ENABLED = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9fe0b6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.2-4 6-4 6 4 6 4-2.2 4-6 4-6-4-6-4Z"/><circle cx="8" cy="8" r="1.8"/></svg>`;
+/** Closed link: this slot's X and Y move together. */
+const ICON_LINKED = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6.5 9.5a2.6 2.6 0 0 0 3.7 0l2.3-2.3a2.6 2.6 0 0 0-3.7-3.7l-.7.7"/><path d="M9.5 6.5a2.6 2.6 0 0 0-3.7 0L3.5 8.8a2.6 2.6 0 0 0 3.7 3.7l.7-.7"/></svg>`;
+/** Broken link: this slot's X and Y are set separately. */
+const ICON_UNLINKED = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 4.4l1.1-1.1a2.6 2.6 0 0 1 3.7 3.7L10.7 8.1"/><path d="M9 11.6l-1.1 1.1a2.6 2.6 0 0 1-3.7-3.7L5.3 7.9"/><path d="M2.6 2.6l10.8 10.8"/></svg>`;
+/** Pencil: rename this profile. */
+const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8b8b90" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.2 2.6a1.7 1.7 0 0 1 2.4 2.4L5.4 13.2 2 14l.8-3.4Z"/></svg>`;
+/** Filled dot: the mouse is running this profile. */
+const ICON_RUNNING = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9fe0b6" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.4" fill="#9fe0b6" stroke="none"/></svg>`;
+/** Hollow dot: switching the mouse to this profile. */
+const ICON_ACTIVATE = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#77777c" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/></svg>`;
+const ICON_DISABLED = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#77777c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.2-4 6-4 6 4 6 4a10 10 0 0 1-1.7 1.9"/><path d="M6.3 11.7A7.6 7.6 0 0 0 8 12"/><path d="m2 2 12 12"/></svg>`;
+let activeFinalmouseClient: FinalmouseHidClient | null = null;
+let activeKeychronClient: KeychronHidClient | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
+
+/**
+ * Clears the in-progress flag and repaints the controls that read it.
+ *
+ * Every control rendered during a write comes out disabled, so simply clearing
+ * the flag in a `finally` leaves them that way until something else happens to
+ * re-render. Anything that sets the flag must end through here.
+ */
+function endDeviceWrite(): void {
+  settingInProgress = false;
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+  renderOnboardProfiles();
+}
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+/** Art whose file did not load, so repaints stop re-requesting it. */
+const unreachableImages = new Set<string>();
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
+let latestDiagnosticStatus: MouseStatus | null = null;
+// Last status read from the device, before staged changes are previewed over it
+let latestDeviceStatus: MouseStatus | null = null;
+let lastDiagnosticCommand: string | null = null;
+let lastDiagnosticError: string | null = null;
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
+let sidebarHidden = false;
 
-type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
+async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
+  return activeDmClient && client === activeDmClient
+    ? await activeDmClient.readStatus(true)
+    : await client.readStatus();
+}
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
+  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeFinalmouseClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient ?? activeKeychronClient ?? activeModdoClient;
 }
 
 function hasActiveClient(): boolean {
   return activeSettingsClient() !== null;
 }
 
-type BatteryMode = "charging" | "discharging";
-type InterfaceDensity = "Compact" | "Comfortable";
-type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
-
-interface InterfacePreferences {
-  density: InterfaceDensity;
-  theme: InterfaceTheme;
-  reducedMotion: boolean;
-  expandSections: boolean;
-  showExperimental: boolean;
+function requireSettingsClient(): SupportedClient {
+  const client = activeSettingsClient();
+  if (!client) throw new Error("The mouse is no longer connected.");
+  return client;
 }
 
-const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
-  density: "Compact",
-  theme: "Emerald",
-  reducedMotion: false,
-  expandSections: false,
-  showExperimental: true,
-};
-let interfacePreferences = loadInterfacePreferences();
-
-interface BatterySample {
-  timestamp: number;
-  percent: number;
-  mode: BatteryMode;
+/**
+ * Drivers may confirm one write before another, so each setting is checked on
+ * its own. A driver that hides the settings grid never reaches these, which
+ * makes this a guard rather than a path the interface offers.
+ */
+function requireClientMethod<K extends string>(
+  method: K,
+  setting: string,
+): Extract<SupportedClient, Record<K, unknown>> {
+  const client = requireSettingsClient();
+  if (!(method in client)) throw new Error(`This mouse does not support changing ${setting} yet.`);
+  // `in` does not narrow through a generic key, so the union is filtered here.
+  return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
-type BatteryHistory = Record<string, BatterySample[]>;
-
-function loadInterfacePreferences(): InterfacePreferences {
-  try {
-    const saved = JSON.parse(localStorage.getItem(INTERFACE_SETTINGS_KEY) ?? "{}") as Partial<InterfacePreferences>;
-    return {
-      density: saved.density === "Comfortable" ? "Comfortable" : "Compact",
-      theme: ["Emerald", "Violet", "Ice", "Ember", "Mono"].includes(saved.theme ?? "")
-        ? saved.theme as InterfaceTheme
-        : "Emerald",
-      reducedMotion: saved.reducedMotion === true,
-      expandSections: saved.expandSections === true,
-      showExperimental: saved.showExperimental !== false,
-    };
-  } catch {
-    return { ...DEFAULT_INTERFACE_PREFERENCES };
+/**
+ * Records a settings change without touching the device. The control repaints
+ * from the previewed status so it shows the staged value, and the unsaved-changes
+ * bar offers to flash or discard it.
+ */
+function stageChange(change: PendingChange): void {
+  if (settingInProgress) {
+    setText("#read-status", "Wait for the current flash to finish.");
+    return;
   }
+  if (matchesDeviceStatus(change)) {
+    // The control was moved back to the value the mouse already holds, so there
+    // is nothing left to flash for this setting.
+    dropPendingChange(change.key);
+    if (latestDeviceStatus) showStatus(latestDeviceStatus);
+    setText("#read-status", `${change.label} already matches the mouse.`);
+    return;
+  }
+  stagePendingChange(change);
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+  if (interfacePreferences.instantFlash) {
+    queueInstantFlash();
+    return;
+  }
+  setText("#read-status", `${change.label} staged. Flash to write it to the mouse.`);
 }
+
+function queueInstantFlash(): void {
+  if (instantFlashQueued) return;
+  instantFlashQueued = true;
+  window.setTimeout(() => {
+    instantFlashQueued = false;
+    void flashPendingChanges();
+  });
+}
+
+// True when previewing the change over the device status would leave it unchanged
+function matchesDeviceStatus(change: PendingChange): boolean {
+  if (!latestDeviceStatus) return false;
+  // Without a preview the setting is not in MouseStatus, so there is nothing to
+  // compare and the caller has to decide for itself whether the value changed.
+  if (!change.preview) return false;
+  const preview = structuredClone(latestDeviceStatus);
+  change.preview(preview);
+  return JSON.stringify(preview) === JSON.stringify(latestDeviceStatus);
+}
+
+function revertPendingChanges(): void {
+  if (settingInProgress || !hasPendingChanges()) return;
+  clearPendingChanges();
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+  setText("#read-status", "Discarded the staged changes.");
+}
+
+// Held before each write so the flashing state is legible rather than a flicker.
+const FLASH_STEP_DELAY_MS = 420;
+// Held after the last write, so the bar does not vanish the instant it lands.
+const FLASH_SETTLE_MS = 320;
+
+async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
+  // The pause only exists to show the animation, so skip it when motion is reduced.
+  if (interfacePreferences.reducedMotion) return;
+  await wait(milliseconds);
+}
+
+async function flashPendingChanges(): Promise<void> {
+  const batches = pendingChangeBatches();
+  if (batches.length === 0 || settingInProgress || refreshInProgress) return;
+  settingInProgress = true;
+  setPendingBarBusy(true);
+  let written = 0;
+  let failure: string | null = null;
+  try {
+    for (const batch of batches) {
+      // Grouped settings share a byte or sector, so the last change staged into
+      // the group carries the combined write and the rest ride along with it.
+      const writer = batch[batch.length - 1];
+      if (!writer) continue;
+      setPendingBarStatus(`${writer.progress} (${written + 1} of ${batches.length})`);
+      setText("#read-status", writer.progress);
+      // Let the step render before the write blocks on HID traffic.
+      await flashPause();
+      for (const change of batch) recordDiagnosticCommand(change.command);
+      await writer.apply();
+      // Drop each change as it lands, so a later failure leaves only the
+      // unwritten ones staged and the user can retry just those.
+      for (const change of batch) dropPendingChange(change.key);
+      written += batch.length;
+    }
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to flash the staged changes.");
+    failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
+  }
+  await flashPause(FLASH_SETTLE_MS);
+  const client = activeSettingsClient();
+  const status = client ? await statusAfterWrite(client).catch(() => null) : null;
+  // statusAfterWrite may have failed, so re-render either way rather than
+  // leaving the controls disabled from the write.
+  if (status) latestDeviceStatus = status;
+  endDeviceWrite();
+  setPendingBarBusy(false);
+  if (failure) {
+    setText("#read-status", failure);
+    setPendingBarStatus(failure);
+    return;
+  }
+  setText("#read-status", written === 1
+    ? "Flashed 1 change to the mouse."
+    : `Flashed ${written} changes to the mouse.`);
+}
+
+let interfacePreferences = loadInterfacePreferences(localStorage);
+let instantFlashQueued = false;
 
 function saveInterfacePreferences(): void {
-  localStorage.setItem(INTERFACE_SETTINGS_KEY, JSON.stringify(interfacePreferences));
+  persistInterfacePreferences(localStorage, interfacePreferences);
   applyInterfacePreferences();
 }
 
 function applyInterfacePreferences(): void {
+  setPendingBarSuppressed(interfacePreferences.instantFlash);
   const shell = document.querySelector<HTMLElement>(".control-shell");
   if (!shell) return;
   shell.classList.toggle("density-comfortable", interfacePreferences.density === "Comfortable");
   shell.classList.toggle("reduce-interface-motion", interfacePreferences.reducedMotion);
+  shell.classList.toggle("sidebar-hidden", sidebarHidden);
+  const menuToggle = document.querySelector<HTMLButtonElement>("#sidebar-menu-toggle");
+  if (menuToggle) menuToggle.setAttribute("aria-pressed", String(!sidebarHidden));
   shell.dataset.interfaceTheme = interfacePreferences.theme.toLowerCase();
   document.querySelectorAll<HTMLDetailsElement>(".egg-collapsible, .egg-experimental").forEach((details) => {
     details.open = interfacePreferences.expandSections;
@@ -136,371 +360,429 @@ function applyInterfacePreferences(): void {
   }
 }
 
-function renderControl(): void {
-  appRoot.innerHTML = `
-    <style>
-      .control-shell { --ui-accent:#69d28d;--ui-accent-ink:#07120b;--ui-accent-soft:rgb(105 210 141 / 16%) }
-      .build-identity { display:flex;align-items:center;gap:.65rem;margin-bottom:4rem }
-      .build-identity .demo-wordmark { margin-bottom:0 }
-      .build-badge { display:inline-flex;align-items:center;min-height:1.35rem;padding:.2rem .45rem;border:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);border-radius:999px;background:var(--ui-accent-soft);color:var(--ui-accent);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.52rem;font-weight:700;letter-spacing:.07em;line-height:1;white-space:nowrap }
-      .control-shell[data-interface-theme="violet"] { --ui-accent:#a78bfa;--ui-accent-ink:#130b25;--ui-accent-soft:rgb(167 139 250 / 17%) }
-      .control-shell[data-interface-theme="ice"] { --ui-accent:#67d8ff;--ui-accent-ink:#06161d;--ui-accent-soft:rgb(103 216 255 / 16%) }
-      .control-shell[data-interface-theme="ember"] { --ui-accent:#ff9b62;--ui-accent-ink:#211006;--ui-accent-soft:rgb(255 155 98 / 17%) }
-      .control-shell[data-interface-theme="mono"] { --ui-accent:#f1f1f3;--ui-accent-ink:#09090b;--ui-accent-soft:rgb(241 241 243 / 13%) }
-      .control-shell .sidebar-action::before { color:var(--ui-accent) }
-      .sidebar-device-list { display:grid;gap:.45rem }
-      .sidebar-device-list .device-select { width:100%;color:inherit }
-      .sidebar-device-list button.device-select { cursor:pointer;transition:border-color .18s ease,background .18s ease }
-      .sidebar-device-list button.device-select:hover { border-color:#4a4a4f;background:#1b1b1e }
-      .sidebar-device-list button.device-select.is-selected { border-color:#55555b;background:#202023 }
-      .control-shell .device-dot:not(.is-idle), .control-shell .device-status > .status-dot:not(.is-idle), .control-shell .panel-footer .live-status-label i { background:var(--ui-accent);box-shadow:0 0 0 3px var(--ui-accent-soft) }
-      .control-shell .segmented button.selected, .control-shell .setting-action button:not(:disabled), .control-shell .dpi-header-actions button:not(:disabled) { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
-      .control-shell .dpi-header-actions { display:flex;align-items:center;gap:.45rem }
-      .control-shell .dpi-header-actions button { padding:.38rem .6rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#b3b3b7;font-size:.62rem;font-weight:700;white-space:nowrap }
-      .control-shell .dpi-header-actions button:disabled { cursor:default;opacity:.45 }
-      .control-shell .dpi-header-actions input { width:4.7rem;box-sizing:border-box;padding:.38rem .48rem;border:1px solid #343438;border-radius:6px;background:#111113;color:#ececef;font:600 .62rem "JetBrains Mono",monospace;text-align:center }
-      .control-shell .dpi-header-actions input:not([readonly]) { border-color:var(--ui-accent);background:#171719 }
-      .control-shell .dpi-card .setting-action { margin-top:.55rem }
-      .control-shell.is-empty .empty-state { width:min(100%,760px);min-height:0;flex:0 0 auto;align-self:center;box-sizing:border-box;margin:auto;padding:clamp(2rem,5vw,4rem) !important }
-      .control-shell.is-empty .empty-state::before { right:-5% !important;width:42% !important;opacity:.65 }
-      .control-shell.is-empty .empty-state::after { right:2.5rem !important;bottom:1.75rem !important;font-size:clamp(6rem,12vw,10rem) !important }
-      .control-shell.is-empty .empty-state h2 { max-width:480px !important;font-size:clamp(2.5rem,4vw,4rem);line-height:.96 }
-      .control-shell.is-empty .empty-state > p:not(.overline) { max-width:440px;margin:.95rem 0 .45rem !important;font-size:.88rem }
-      .control-shell.is-empty .empty-state small { display:block;max-width:420px }
-      .empty-connect-action { width:max-content;margin-top:1.5rem;padding:.7rem 1rem;border:1px solid var(--ui-accent);border-radius:7px;background:var(--ui-accent);color:var(--ui-accent-ink);font-size:.72rem;font-weight:750 }
-      .empty-connect-action::before { margin-right:.45rem;content:"+" }
-      .empty-connect-action:hover { filter:brightness(1.07);transform:translateY(-1px) }
-      .empty-connect-action:disabled { cursor:wait;opacity:.6;transform:none }
-      .control-shell button:focus-visible, .control-shell select:focus-visible, .control-shell input:focus-visible { outline:2px solid var(--ui-accent);outline-offset:2px }
-      #pulsar-advanced input[type="number"], #pulsar-advanced select { width:100%;box-sizing:border-box;margin-top:.2rem;padding:.48rem .55rem;border:1px solid #343438;border-radius:6px;outline:none;background:#171719;color:#eee;font:inherit;color-scheme:dark }
-      #pulsar-advanced input[type="number"]:focus, #pulsar-advanced select:focus { border-color:#77777c;box-shadow:0 0 0 2px rgb(255 255 255 / 4%) }
-      #pulsar-advanced input:disabled, #pulsar-advanced select:disabled { cursor:not-allowed;opacity:.45 }
-      #pulsar-advanced input[type="checkbox"] { width:.85rem;height:.85rem;margin:0;accent-color:#69d28d }
-      .egg-action-button, #egg-cpi-stage-list [data-apply-cpi] { margin-top:.5rem;padding:.42rem .62rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem;font-weight:650;transition:border-color .18s ease,background .18s ease,transform .18s ease }
-      .egg-action-button:hover, #egg-cpi-stage-list [data-apply-cpi]:hover { border-color:#77777c;background:#29292d;transform:translateY(-1px) }
-      .egg-experimental { overflow:hidden;border:1px solid #343438;border-radius:9px;background:#111113 }
-      .egg-experimental summary { display:flex;align-items:center;justify-content:space-between;padding:.8rem .9rem;cursor:pointer;color:#d8d8dc;font-size:.76rem;font-weight:650;list-style:none }
-      .egg-experimental summary::-webkit-details-marker { display:none }
-      .egg-experimental summary small { display:block;margin-bottom:.18rem;color:#d49b62;font-family:"JetBrains Mono",monospace;font-size:.52rem;letter-spacing:.09em }
-      .egg-experimental summary i { width:.45rem;height:.45rem;border-right:1px solid #96969b;border-bottom:1px solid #96969b;transform:rotate(45deg);transition:transform .18s ease }
-      .egg-experimental[open] summary i { transform:rotate(225deg) }
-      .egg-experimental-body { padding:0 .65rem .65rem;border-top:1px solid #29292d }
-      .egg-experimental .egg-form-card { min-height:0;margin-top:.65rem;padding:.8rem }
-      .egg-experimental .egg-form-card label { display:block;max-width:220px;color:#77777c;font-size:.62rem }
-      .egg-warning { margin:-.15rem 0 .65rem;color:#a28b75;font-size:.63rem;line-height:1.45 }
-      .egg-experimental #egg-polling-result { display:block;margin-top:.4rem }
-      .egg-collapsible { overflow:hidden;border:1px solid #343438;border-radius:9px;background:#111113 }
-      .egg-collapsible summary { display:flex;align-items:center;justify-content:space-between;padding:.72rem .85rem;cursor:pointer;color:#d8d8dc;font-size:.74rem;font-weight:650;list-style:none }
-      .egg-collapsible summary::-webkit-details-marker { display:none }
-      .egg-collapsible summary span small { display:block;margin-bottom:.12rem;color:#77777c;font-family:"JetBrains Mono",monospace;font-size:.5rem;letter-spacing:.09em }
-      .egg-collapsible summary i { width:.42rem;height:.42rem;border-right:1px solid #96969b;border-bottom:1px solid #96969b;transform:rotate(45deg);transition:transform .18s ease }
-      .egg-collapsible[open] summary i { transform:rotate(225deg) }
-      .egg-collapsible-body { padding:.6rem;border-top:1px solid #29292d }
-      .egg-collapsible-body > .setting-card { min-height:0 !important;padding:.7rem !important }
-      .control-panel { scrollbar-width:none }
-      .control-panel::-webkit-scrollbar { display:none;width:0;height:0 }
-      #pulsar-advanced.egg-advanced-layout { grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:.55rem !important }
-      #pulsar-advanced.egg-advanced-layout > .setting-card { min-height:0 !important;padding:.72rem !important }
-      #egg-cpi-stage-list { grid-template-columns:repeat(4,minmax(0,1fr)) !important }
-      #egg-button-list { grid-template-columns:repeat(5,minmax(0,1fr)) !important }
-      #egg-cpi-stage-list > div, #egg-button-list > div { min-width:0;padding:.48rem !important }
-      @media (max-width:1100px) {
-        #egg-cpi-stage-list { grid-template-columns:repeat(2,minmax(0,1fr)) !important }
-        #egg-button-list { grid-template-columns:repeat(3,minmax(0,1fr)) !important }
-      }
-      @media (max-width:720px) {
-        #pulsar-advanced.egg-advanced-layout { grid-template-columns:1fr !important }
-        #egg-cpi-stage-list, #egg-button-list { grid-template-columns:1fr !important }
-      }
-      .interface-settings-button::before { content:"⚙";font-size:.72rem }
-      .interface-settings-page { position:absolute;z-index:20;inset:0;display:none;padding:1rem 0 2rem;overflow:auto;background:#0b0b0d;scrollbar-width:none }
-      .interface-settings-page::-webkit-scrollbar { display:none }
-      .interface-settings-page.is-open { display:block }
-      .interface-settings-header { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 0 1.2rem;border-bottom:1px solid #29292d }
-      .interface-settings-header h2 { margin:.25rem 0 0;font-size:2rem;font-weight:500;letter-spacing:-.035em }
-      .interface-settings-back { padding:.48rem .7rem;border:1px solid #3b3b40;border-radius:7px;background:#18181b;color:#e6e6e9;font-size:.68rem;font-weight:650 }
-      .interface-settings-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.75rem }
-      .interface-setting-card { min-height:120px;padding:1rem;border:1px solid #2f2f34;border-radius:10px;background:#111113 }
-      .interface-setting-card > span { color:#77777c;font-family:"JetBrains Mono",monospace;font-size:.55rem;letter-spacing:.09em }
-      .interface-setting-card h3 { margin:.35rem 0 .3rem;font-size:1rem;font-weight:550 }
-      .interface-setting-card p { margin:0 0 .8rem;color:#85858a;font-size:.68rem;line-height:1.45 }
-      .interface-setting-card select { width:100%;padding:.52rem;border:1px solid #39393e;border-radius:7px;background:#18181b;color:#eee;color-scheme:dark }
-      .theme-preview { display:flex;gap:.32rem;margin-top:.65rem }
-      .theme-preview i { width:1.25rem;height:.28rem;border-radius:999px;background:var(--ui-accent);opacity:.2 }
-      .theme-preview i:nth-child(2) { opacity:.35 }.theme-preview i:nth-child(3) { opacity:.55 }.theme-preview i:nth-child(4) { opacity:.75 }.theme-preview i:nth-child(5) { opacity:1 }
-      .interface-switch-row { display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.7rem;color:#c5c5c9;font-size:.72rem }
-      .interface-switch-row input {
-        appearance:none;
-        width:2.25rem;
-        height:1.25rem;
-        flex:0 0 auto;
-        margin:0;
-        border:1px solid #414147;
-        border-radius:999px;
-        outline:none;
-        background-color:#242428;
-        background-image:radial-gradient(circle at .56rem 50%,#a0a0a5 0 .34rem,transparent .36rem);
-        cursor:pointer;
-        transition:border-color .18s ease,background-color .18s ease,background-position .18s ease,box-shadow .18s ease;
-      }
-      .interface-switch-row input:checked {
-        border-color:var(--ui-accent);
-        background-color:var(--ui-accent);
-        background-image:radial-gradient(circle at calc(100% - .56rem) 50%,#07120b 0 .34rem,transparent .36rem);
-      }
-      .interface-switch-row input:focus-visible { box-shadow:0 0 0 3px var(--ui-accent-soft) }
-      .interface-reset { margin-top:.75rem;padding:.55rem .75rem;border:1px solid #4a3436;border-radius:7px;background:#1c1315;color:#e7a7aa;font-size:.68rem;font-weight:650 }
-      .density-comfortable #pulsar-advanced.egg-advanced-layout { gap:.8rem !important }
-      .density-comfortable #pulsar-advanced.egg-advanced-layout > .setting-card { padding:1rem !important }
-      .density-comfortable .settings-grid { gap:.9rem !important }
-      .density-comfortable .settings-grid .setting-card { padding:1.1rem !important }
-      .density-comfortable .device-overview .summary-stat { padding:1rem 1.2rem !important }
-      .density-comfortable .egg-collapsible summary, .density-comfortable .egg-experimental summary { padding:.95rem 1rem }
-      .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior:auto !important;transition:none !important;animation:none !important }
-      #logitech-device-details { flex:0 0 auto }
-      #logitech-device-details .setting-card { min-height:0 }
-      @media (min-width:900px) {
-        .control-shell .settings-grid { grid-template-rows:minmax(220px,auto) }
-        .control-shell .settings-grid > .setting-card { min-height:220px }
-      }
-      @media (max-width:720px) { .interface-settings-grid { grid-template-columns:1fr } }
-    </style>
-    <div class="control-shell is-empty">
-      <aside class="sidebar">
-        <div class="build-identity">
-          <a class="demo-wordmark" href="/">OpenMouse</a>
-          <span class="build-badge" title="OpenMouse ${BUILD_LABEL}">${BUILD_LABEL}</span>
-        </div>
-        <div class="device-label">CONNECTED DEVICES</div>
-        <div id="sidebar-device-list" class="sidebar-device-list">
-          <div class="device-select">
-            <span class="device-dot is-idle"></span>
-            <span><strong>No device connected</strong><small>Choose a supported device</small></span>
-          </div>
-        </div>
-        <button id="connect-button" class="sidebar-action" type="button">Add device</button>
-        <button id="interface-settings-button" class="sidebar-action interface-settings-button" type="button">Interface settings</button>
-        <div class="sidebar-footer"><span>WebHID device control</span><a href="/check.html">Mouse Check</a><a href="/">Back to website</a></div>
-      </aside>
-
-      <main class="control-panel" style="position:relative;overflow-y:auto">
-        <div class="preview-banner"><span>WEBHID</span><p id="connection-banner">Connect a supported device to view and change its settings.</p></div>
-        <header class="panel-header">
-          <div><p class="overline">DEVICE CONTROL</p><h1 id="device-title">Connect a mouse</h1></div>
-          <div class="device-status"><span class="status-dot is-idle"></span><span id="device-status">No device connected</span></div>
-        </header>
-        <section class="empty-state" aria-labelledby="empty-state-title">
-          <p class="overline">READY WHEN YOU ARE</p>
-          <h2 id="empty-state-title">Connect a supported mouse.</h2>
-          <p>Choose your mouse in the browser prompt to view and adjust its onboard settings.</p>
-          <small>Your browser will only show compatible WebHID devices.</small>
-          <button id="empty-connect-button" class="empty-connect-action" type="button">Add device</button>
-        </section>
-        <section class="device-overview device-data" aria-label="Device status">
-          <article id="battery-summary" class="summary-stat"><span>BATTERY</span><strong id="battery-value">—</strong><small id="battery-detail">Read after connection</small><div class="meter"><i id="battery-meter" style="width:0%"></i></div></article>
-          <article class="summary-stat"><span>FIRMWARE</span><strong id="firmware-value">—</strong><small id="firmware-detail">Read after connection</small></article>
-          <article class="summary-stat"><span>CONNECTION</span><strong id="connection-value">—</strong><small id="connection-detail">2.4 GHz receiver</small><button id="dongle-led-toggle" type="button" style="align-self:flex-start;margin-top:.45rem;padding:.28rem .5rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;color:#d8d8dc;font-size:.61rem;font-weight:600" hidden disabled>Receiver LED</button></article>
-        </section>
-        <section class="settings-grid device-data" aria-label="Mouse status">
-          <article class="setting-card dpi-card"><div class="setting-heading"><div><p>DPI</p><h2>Sensitivity</h2></div><div class="dpi-header-actions"><input id="dpi-output" type="text" inputmode="numeric" value="— DPI" aria-label="DPI value" readonly /><button id="custom-dpi" type="button" disabled>Custom</button></div></div><div id="dpi-presets" class="segmented dpi-presets" aria-label="Common DPI values"></div><div id="logitech-axis-controls" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #29292d"><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;align-items:end"><label style="color:#77777c;font-size:.6rem">X axis<input id="logitech-dpi-x" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><label style="color:#77777c;font-size:.6rem">Y axis<input id="logitech-dpi-y" type="number" min="100" step="50" style="width:100%;box-sizing:border-box;margin-top:.2rem;padding:.42rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee" /></label><button id="apply-logitech-axes" type="button" style="padding:.45rem .6rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.62rem">Apply</button></div></div><div class="setting-action"><span id="dpi-pending">Choose a DPI value</span></div></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>POLLING RATE</p><h2>Report frequency</h2></div></div><div class="segmented rate-options"><button data-rate="125" disabled>125</button><button data-rate="250" disabled>250</button><button data-rate="500" disabled>500</button><button data-rate="1000" disabled>1K</button><button data-rate="2000" disabled>2K</button><button data-rate="4000" disabled>4K</button><button data-rate="8000" disabled>8K</button></div><small id="polling-note" class="setting-note">Higher rates update cursor movement more often, but use more battery.</small></article>
-          <article class="setting-card"><div class="setting-heading"><div><p>SENSOR</p><h2>Lift-off distance</h2></div></div><div class="segmented three"><button data-lod="Low" disabled>0.7 mm</button><button data-lod="Medium" disabled>1 mm</button><button data-lod="High" disabled>2 mm</button></div><small class="setting-note">Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.</small></article>
-        </section>
-        <section id="logitech-device-details" class="device-data" style="display:none;margin-top:.65rem">
-          <details class="egg-collapsible"><summary><span><small>LOGITECH HID++</small>Device details</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card" style="min-height:0"><div id="logitech-detail-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem"></div></article></div></details>
-        </section>
-        <section id="pulsar-advanced" class="device-data" aria-label="Advanced Pulsar settings" style="display:none;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.65rem;margin-top:.65rem;padding-bottom:.4rem">
-          <article id="signal-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>WIRELESS</p><h2>Signal strength</h2></div><output id="signal-output">—</output></div><small id="signal-detail" class="setting-note">Receiver signal is unavailable.</small></article>
-          <article id="debounce-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>Debounce</h2></div></div><select id="debounce-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></article>
-          <article id="sleep-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>POWER</p><h2>Auto sleep</h2></div><button id="sleep-toggle" type="button" role="switch" aria-checked="false" hidden style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><select id="sleep-select" style="width:100%;padding:.48rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">10 seconds</option><option value="3">30 seconds</option><option value="6">1 minute</option><option value="12">2 minutes</option><option value="30">5 minutes</option><option value="60">10 minutes</option><option value="180">30 minutes</option></select></article>
-          <article id="processing-settings" class="setting-card" style="min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Processing</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion Sync</span><button id="motion-sync-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Angle snapping</span><button id="angle-snapping-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Ripple control</span><button id="ripple-control-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div id="performance-mode-setting" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Performance mode</span><button id="performance-mode-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
-          <article id="egg-filter-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>SENSOR</p><h2>Filters</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Slamclick filter</span><button id="slamclick-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Motion-jitter filter</span><button id="motion-jitter-filter-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div></article>
-          <article id="egg-spdt-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>CLICK</p><h2>GX switch mode</h2></div></div><label style="display:block;color:#77777c;font-size:.62rem">Left button<select id="left-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label><label style="display:block;margin-top:.45rem;color:#77777c;font-size:.62rem">Right button<select id="right-spdt-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option>Off</option><option>GX Safe</option><option>GX Speed</option></select></label></article>
-          <details id="egg-polling-settings" class="egg-experimental" style="display:none;grid-column:1/-1"><summary><span><small>EXPERIMENTAL</small>Experimental settings</span><i aria-hidden="true"></i></summary><div class="egg-experimental-body"><article class="setting-card egg-form-card"><div class="setting-heading"><div><p>POLLING</p><h2>Custom divider</h2></div></div><p class="egg-warning">Nonstandard polling dividers may behave differently across firmware versions.</p><label>8K divider<input id="egg-polling-divider" type="number" min="1" max="255" step="1" /></label><small id="egg-polling-result" class="setting-note">—</small><button id="apply-egg-polling" class="egg-action-button" type="button">Apply divider</button></article></div></details>
-          <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
-          <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
-          <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
-        </section>
-        <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
-        <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
-          <header class="interface-settings-header"><div><p class="overline">OPENMOUSE</p><h2 id="interface-settings-title">Interface settings</h2></div><button id="close-interface-settings" class="interface-settings-back" type="button">Back to device</button></header>
-          <div class="interface-settings-grid">
-            <article class="interface-setting-card"><span>LAYOUT</span><h3>Interface density</h3><p>Choose tighter controls or add more breathing room throughout the panel.</p><select id="interface-density"><option>Compact</option><option>Comfortable</option></select></article>
-            <article class="interface-setting-card"><span>APPEARANCE</span><h3>Accent theme</h3><p>Customize active controls, status lights, switches, and focus highlights.</p><select id="interface-theme"><option>Emerald</option><option>Violet</option><option>Ice</option><option>Ember</option><option>Mono</option></select><div class="theme-preview" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article>
-            <article class="interface-setting-card"><span>MOTION</span><h3>Animation</h3><p>Disable interface transitions and animated state changes.</p><label class="interface-switch-row"><span>Reduce motion</span><input id="interface-reduced-motion" type="checkbox" /></label></article>
-            <article class="interface-setting-card"><span>SECTIONS</span><h3>Advanced editors</h3><p>Choose whether CPI, button mapping, and experimental sections begin expanded.</p><label class="interface-switch-row"><span>Expand by default</span><input id="interface-expand-sections" type="checkbox" /></label></article>
-            <article class="interface-setting-card"><span>EXPERIMENTAL</span><h3>Experimental controls</h3><p>Show or completely hide controls that may vary between firmware versions.</p><label class="interface-switch-row"><span>Show experimental settings</span><input id="interface-show-experimental" type="checkbox" /></label></article>
-          </div>
-          <button id="reset-interface-settings" class="interface-reset" type="button">Reset interface preferences</button>
-        </section>
-      </main>
-    </div>`;
-
-  document.querySelector<HTMLButtonElement>("#connect-button")?.addEventListener("click", () => {
-    void connect();
+function renderStagedMarkers(): void {
+  document.querySelectorAll<HTMLElement>("[data-pending-key]").forEach((element) => {
+    const staged = element.dataset.pendingKey!.split(" ").some(isPendingChange);
+    element.classList.toggle("is-staged", staged);
   });
-  document.querySelector<HTMLButtonElement>("#empty-connect-button")?.addEventListener("click", () => {
-    void connect();
-  });
-  document.querySelector<HTMLElement>("#sidebar-device-list")?.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-device-index]");
-    if (!button) return;
-    void selectAuthorizedDevice(Number(button.dataset.deviceIndex));
-  });
-  document.querySelector<HTMLButtonElement>("#interface-settings-button")?.addEventListener("click", openInterfaceSettings);
-  document.querySelector<HTMLButtonElement>("#close-interface-settings")?.addEventListener("click", closeInterfaceSettings);
-  document.querySelector<HTMLSelectElement>("#interface-density")?.addEventListener("change", (event) => {
-    interfacePreferences.density = (event.target as HTMLSelectElement).value as InterfaceDensity;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLSelectElement>("#interface-theme")?.addEventListener("change", (event) => {
-    interfacePreferences.theme = (event.target as HTMLSelectElement).value as InterfaceTheme;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-reduced-motion")?.addEventListener("change", (event) => {
-    interfacePreferences.reducedMotion = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-expand-sections")?.addEventListener("change", (event) => {
-    interfacePreferences.expandSections = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLInputElement>("#interface-show-experimental")?.addEventListener("change", (event) => {
-    interfacePreferences.showExperimental = (event.target as HTMLInputElement).checked;
-    saveInterfacePreferences();
-  });
-  document.querySelector<HTMLButtonElement>("#reset-interface-settings")?.addEventListener("click", () => {
-    interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
-    saveInterfacePreferences();
-    populateInterfaceSettings();
-  });
-  document.querySelector<HTMLButtonElement>("#custom-dpi")?.addEventListener("click", () => {
-    void chooseCustomDpi();
-  });
-  document.querySelector<HTMLButtonElement>("#apply-logitech-axes")?.addEventListener("click", () => {
-    void applyLogitechAxisDpi();
-  });
-  document.querySelector<HTMLInputElement>("#dpi-output")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void chooseCustomDpi();
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      finishCustomDpiEditing();
-    }
-  });
-  document.querySelector<HTMLButtonElement>("#dongle-led-toggle")?.addEventListener("click", () => {
-    void toggleDongleLed();
-  });
-  for (let debounce = 0; debounce <= 20; debounce += 1) {
-    document.querySelector<HTMLSelectElement>("#debounce-select")?.add(new Option(`${debounce} ms`, String(debounce)));
-  }
-  for (let angle = -30; angle <= 30; angle += 1) {
-    document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.add(new Option(`${angle}°`, String(angle)));
-  }
-  document.querySelector<HTMLSelectElement>("#debounce-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("debounce", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLSelectElement>("#sleep-select")?.addEventListener("change", (event) => {
-    void applyPulsarValue("sleep", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLButtonElement>("#sleep-toggle")?.addEventListener("click", (event) => {
-    const enabled = (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true";
-    void applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
-  });
-  const toggles = [
-    ["#motion-sync-toggle", "motionSync"],
-    ["#angle-snapping-toggle", "angleSnapping"],
-    ["#ripple-control-toggle", "rippleControl"],
-    ["#performance-mode-toggle", "performanceMode"],
-  ] as const;
-  for (const [selector, setting] of toggles) {
-    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
-      void applyPulsarToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-    });
-  }
-  const eggFilterToggles = [
-    ["#slamclick-filter-toggle", "slamclick"],
-    ["#motion-jitter-filter-toggle", "motionJitter"],
-  ] as const;
-  for (const [selector, setting] of eggFilterToggles) {
-    document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
-      void applyEggFilter(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-    });
-  }
-  document.querySelector<HTMLSelectElement>("#left-spdt-select")?.addEventListener("change", (event) => {
-    void applyEggSpdtMode("left", (event.target as HTMLSelectElement).value as EggSpdtMode);
-  });
-  document.querySelector<HTMLSelectElement>("#right-spdt-select")?.addEventListener("change", (event) => {
-    void applyEggSpdtMode("right", (event.target as HTMLSelectElement).value as EggSpdtMode);
-  });
-  document.querySelector<HTMLSelectElement>("#egg-cpi-levels")?.addEventListener("change", (event) => {
-    void applyEggCpiLevels(Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLInputElement>("#egg-polling-divider")?.addEventListener("input", updateCustomPollingPreview);
-  document.querySelector<HTMLButtonElement>("#apply-egg-polling")?.addEventListener("click", () => {
-    const divider = Number(document.querySelector<HTMLInputElement>("#egg-polling-divider")?.value);
-    void applyEggPollingDivider(divider);
-  });
-  document.querySelector<HTMLButtonElement>("#wheel-acceleration-toggle")?.addEventListener("click", (event) => {
-    void applyProSetting("wheelAcceleration", (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
-  });
-  document.querySelector<HTMLSelectElement>("#angle-tuning-select")?.addEventListener("change", (event) => {
-    void applyProSetting("angleTuning", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelector<HTMLSelectElement>("#profile-select")?.addEventListener("change", (event) => {
-    void applyProSetting("profile", Number((event.target as HTMLSelectElement).value));
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    button.addEventListener("click", () => {
-      void applyPollingRate(Number(button.dataset.rate));
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const lod = button.dataset.lod as MouseStatus["liftOffDistance"];
-      if (lod) void applyLiftOffDistance(lod);
-    });
-  });
-  const shell = document.querySelector<HTMLElement>(".control-shell");
-  const panel = document.querySelector<HTMLElement>(".control-panel");
-  shell?.addEventListener("wheel", (event) => {
-    if (!panel || panel.contains(event.target as Node) || event.deltaY === 0) return;
-    panel.scrollTop += event.deltaY;
-    event.preventDefault();
-  }, { passive: false });
-  populateInterfaceSettings();
-  applyInterfacePreferences();
-  navigator.hid?.addEventListener("connect", handleHidConnect);
-  navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
-  void reconnectAuthorizedDevice();
 }
 
-function openInterfaceSettings(): void {
+type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced";
+
+const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = ["overview", "performance", "lighting", "buttons", "profiles", "advanced"];
+const WORKSPACE_TAB_CONTENT: Record<WorkspaceTab, readonly string[]> = {
+  overview: ["#device-overview"],
+  performance: [
+    "#performance-settings", "#performance-settings > .dpi-card", "#polling-card",
+    "#performance-settings > .setting-card[data-pending-key='lift-off-distance gaming-surface']",
+    "#pulsar-advanced", "#processing-settings", "#ninjutso-sensor-settings", "#ninjutso-click-settings",
+    "#egg-filter-settings", "#egg-polling-settings", "#egg-cpi-settings",
+  ],
+  lighting: ["#lighting-settings", "#lighting-tab-card"],
+  buttons: [
+    "#performance-settings", "#lightforce-card", "#logitech-analog-button-settings", "#pulsar-advanced",
+    "#debounce-settings", "#egg-spdt-settings", "#egg-button-settings",
+  ],
+  profiles: ["#logitech-onboard", "#pulsar-advanced", "#pulsar-pro-settings"],
+  advanced: [
+    "#logitech-device-details", "#pulsar-advanced", "#signal-settings", "#sleep-settings",
+    "#low-power-settings", "#lighting-card", "#teevolution-dpi-lighting", "#finalmouse-settings",
+    ".testing-note", "#device-debug-details",
+  ],
+};
+const WORKSPACE_HOST_SELECTORS = new Set(["#performance-settings", "#pulsar-advanced", "#lighting-settings"]);
+let activeWorkspaceTab: WorkspaceTab = "performance";
+
+function workspaceElements(selectors: readonly string[]): HTMLElement[] {
+  return selectors.flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)));
+}
+
+function applyWorkspaceTab(tab: WorkspaceTab, resetScroll = true): void {
+  activeWorkspaceTab = tab;
+  const selectedSelectors = new Set(WORKSPACE_TAB_CONTENT[tab]);
+  const allSelectors = new Set(Object.values(WORKSPACE_TAB_CONTENT).flat());
+  allSelectors.forEach((selector) => {
+    workspaceElements([selector]).forEach((element) => {
+      element.classList.toggle("workspace-tab-hidden", !selectedSelectors.has(selector));
+    });
+  });
+
+  // Mixed containers hold controls from several tabs. Suppress the container
+  // too when none of the selected controls inside it are available.
+  WORKSPACE_HOST_SELECTORS.forEach((hostSelector) => {
+    const host = document.querySelector<HTMLElement>(hostSelector);
+    if (!host || !selectedSelectors.has(hostSelector)) return;
+    const hasVisibleContent = [...selectedSelectors]
+      .filter((selector) => !WORKSPACE_HOST_SELECTORS.has(selector))
+      .flatMap((selector) => workspaceElements([selector]))
+      .some((element) => host.contains(element) && !element.hidden && element.style.display !== "none");
+    host.classList.toggle("workspace-tab-hidden", !hasVisibleContent);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
+    const selected = button.dataset.workspaceTab === tab;
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+
+  const hasVisiblePanel = workspaceElements([...selectedSelectors])
+    .filter((element) => !element.matches("[data-workspace-host]"))
+    .some((element) => element.getClientRects().length > 0);
+  const empty = document.querySelector<HTMLElement>("#workspace-tab-empty");
+  if (empty) {
+    empty.hidden = hasVisiblePanel;
+    setText("#workspace-tab-empty-title", `${tab[0].toUpperCase()}${tab.slice(1)} controls are not available for this mouse.`);
+  }
+
+  if (resetScroll) {
+    document.querySelector<HTMLElement>(".control-panel")?.scrollTo({
+      top: 0,
+      behavior: interfacePreferences.reducedMotion ? "auto" : "smooth",
+    });
+  }
+}
+
+function bindWorkspaceTabs(): void {
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]"));
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => applyWorkspaceTab(button.dataset.workspaceTab as WorkspaceTab));
+    button.addEventListener("keydown", (event) => {
+      const current = WORKSPACE_TAB_ORDER.indexOf(button.dataset.workspaceTab as WorkspaceTab);
+      let next = current;
+      if (event.key === "ArrowRight") next = (current + 1) % WORKSPACE_TAB_ORDER.length;
+      else if (event.key === "ArrowLeft") next = (current - 1 + WORKSPACE_TAB_ORDER.length) % WORKSPACE_TAB_ORDER.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = WORKSPACE_TAB_ORDER.length - 1;
+      else return;
+      event.preventDefault();
+      const nextTab = WORKSPACE_TAB_ORDER[next];
+      applyWorkspaceTab(nextTab);
+      tabs.find((candidate) => candidate.dataset.workspaceTab === nextTab)?.focus();
+    });
+  });
+  applyWorkspaceTab(activeWorkspaceTab, false);
+}
+
+function renderControl(): void {
+  startHidCapture();
+  appRoot.innerHTML = controlTemplate(BUILD_LABEL);
+  document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.addEventListener("toggle", () => {
+    renderDeviceDiagnostics(latestDiagnosticStatus);
+  });
+
+  bindCapturePanel();
+  bindControlEvents({
+    connect,
+    selectAuthorizedDevice,
+    openInterfaceSettings,
+    closeInterfaceSettings,
+    setInterfaceDensity: (value) => {
+      interfacePreferences.density = value as InterfaceDensity;
+      saveInterfacePreferences();
+    },
+    setInterfaceTheme: (value) => {
+      interfacePreferences.theme = value as InterfaceTheme;
+      saveInterfacePreferences();
+    },
+    setReducedMotion: (enabled) => {
+      interfacePreferences.reducedMotion = enabled;
+      saveInterfacePreferences();
+    },
+    setInstantFlash: (enabled) => {
+      interfacePreferences.instantFlash = enabled;
+      saveInterfacePreferences();
+    },
+    setExpandSections: (enabled) => {
+      interfacePreferences.expandSections = enabled;
+      saveInterfacePreferences();
+    },
+    setShowExperimental: (enabled) => {
+      interfacePreferences.showExperimental = enabled;
+      saveInterfacePreferences();
+    },
+    toggleSidebar: () => {
+      sidebarHidden = !sidebarHidden;
+      applyInterfacePreferences();
+    },
+    resetInterfacePreferences: () => {
+      interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES };
+      saveInterfacePreferences();
+      populateInterfaceSettings();
+    },
+    downloadDiagnostics,
+    resetLogitechProfiles,
+    chooseCustomDpi,
+    sanitizeCustomDpi,
+    finishCustomDpiEditing,
+    applyLogitechAxisDpi,
+    applyLogitechAnalogButton,
+    applyLogitechAnalogButtons,
+    setSuperstrikeTuningMode,
+    toggleDongleLed,
+    applyPulsarValue,
+    toggleSleep: (enabled) => applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER),
+    applyLowPowerThreshold,
+    applyPulsarToggle,
+    applyTeevolutionSensorMode,
+    applyTeevolutionPerformanceDuration,
+    applyTeevolutionDpiLighting,
+    applyEggFilter,
+    applyEggSpdtMode,
+    applyEggCpiLevels,
+    updateCustomPollingPreview,
+    applyEggPollingDivider,
+    applyProSetting,
+    applyFinalmouseSetting,
+    applyPollingRate,
+    applyLiftOffDistance,
+    applyLiftOffMode,
+    applyAsymmetricLiftOff,
+    capLandingToLiftOff,
+    applyGamingSurfaceMode,
+    applyLightforceSwitchMode,
+    applyLighting,
+    applyNinjutsoSetting,
+    flashPendingChanges,
+    revertPendingChanges,
+    applyOnboardMode,
+    applyBunnyHopMs,
+    setDpiSlotCount,
+    setDpiSlotAxis,
+    setDpiSlotLod,
+    setDpiSlotDefault,
+    setDpiAxisLock,
+    selectOnboardProfile,
+    openOnboardProfile: selectEditedProfile,
+    renameOnboardProfile,
+    toggleProfilesExpanded,
+    setProfileReportRate,
+    rateFromSlider,
+    previewRateSlider,
+    toggleOnboardProfileEnabled,
+    reloadOnboardProfiles,
+  });
+  initColorPickers();
+  bindWorkspaceTabs();
+  onPendingChanges(renderPendingBar);
+  onPendingChanges(() => {
+    // Flashed or reverted: stop previewing and fall back to the device value.
+    if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
+    if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
+    if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
+    if (!isPendingChange(DPI_SLOTS_KEY)) {
+      // Flashed or reverted: reseed the editor from whatever the mouse holds.
+      syncDpiSlotPlan();
+      renderDpiSlots();
+    }
+    if (!isPendingChange("gaming-surface")) stagedGamingSurface = null;
+    if (!isPendingChange("lightforce-switch-mode")) stagedLightforce = null;
+    renderBunnyHop();
+  });
+  onPendingChanges(renderStagedMarkers);
+  renderPendingBar();
+  renderStagedMarkers();
   populateInterfaceSettings();
-  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.add("is-open");
+  applyInterfacePreferences();
+  if (!isAnyPreview) {
+    navigator.hid?.addEventListener("connect", handleHidConnect);
+    navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
+    void reconnectAuthorizedDevice();
+  }
+}
+
+/**
+ * Dev-only preview of a Pro X Superlight 2 with its onboard profiles loaded,
+ * so the profile list and the slot editor can be looked at without hardware.
+ */
+function showSlotsPreview(): void {
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 8000, 16000, 32000];
+  const stages = [
+    { x: 800, y: 800, lod: 1 },
+    { x: 1200, y: 1200, lod: 2 },
+    { x: 1600, y: 1600, lod: 2 },
+    { x: 2400, y: 2400, lod: 2 },
+    { x: 3200, y: 3200, lod: 3 },
+  ];
+  onboardProfiles = [1, 2, 3].map((index) => ({
+    sector: index,
+    enabled: index !== 3,
+    isCurrent: index === 1,
+    name: `Profile ${index}`,
+    dpiStages: stages.slice(0, index === 1 ? 5 : 2),
+    defaultDpiIndex: 0,
+    reportRateWireless: 8000,
+    reportRateWired: 1000,
+    angleSnapping: false,
+    powerSaveTimeoutSeconds: 60,
+    powerOffTimeoutSeconds: 300,
+    bunnyHoppingMs: 100,
+    crcValid: true,
+  } as OnboardProfile));
+  const status: MouseStatus = {
+    brand: "Logitech",
+    name: "PRO X SUPERLIGHT 2",
+    ui: { family: "logitech-hidpp", lodRequiresSurface: true },
+    batteryPercent: 72,
+    batteryState: "Discharging",
+    dpi: 800,
+    dpiY: 800,
+    supportsSeparateDpiAxes: true,
+    pollingRateHz: 8000,
+    supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+    liftOffDistance: "Low",
+    supportedLiftOffDistances: ["Low", "Medium", "High"],
+    onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true, writable: true },
+    gamingSurfaceMode: "Auto",
+    lightforceSwitchMode: "Hybrid",
+    activeProfile: 1,
+    deviceMode: "Onboard",
+    connectionType: "Wireless",
+    firmware: ["MPM 39.00.B0004"],
+  };
+  // Stand-in client so the staging paths run without hardware. Every write
+  // refuses: the preview is for looking at the UI, not pretending to flash.
+  const refuse = async (): Promise<never> => {
+    throw new Error("Preview mode: no mouse is connected, so nothing was written.");
+  };
+  activeClient = {
+    writeActiveProfile: refuse,
+    setBunnyHoppingMs: refuse,
+    setProfileDpiStages: refuse,
+    setModeStatus: refuse,
+    readOnboardProfiles: async () => onboardProfiles ?? [],
+  } as unknown as LogitechHidppClient;
+
+  configureDpiControl(status.dpi);
+  showStatus(status);
+  renderOnboardProfiles();
+  setConnectionButtons(true, "Preview mode");
+  setText("#read-status", "Preview: profile format 7 with five DPI slots.");
+}
+
+/**
+ * Renders one driver's fixture, or lists the available ones when the name is
+ * unknown. The shell decides what to show from MouseStatus alone, so this walks
+ * the same rendering path the real driver would.
+ */
+async function showFixturePreview(name: PreviewMode): Promise<void> {
+  // Loaded on demand so the fixtures never reach a production bundle, where
+  // `previewMode` is always null and none of this is reachable.
+  const { PREVIEW_FIXTURES, PREVIEW_KEYS } = await import("./preview-fixtures");
+  const fixture = name === "list" || name === "slots" || name === "superstrike"
+    ? undefined
+    : PREVIEW_FIXTURES[name];
+  if (!fixture) {
+    // `?preview=list` lands here on purpose: an index is more useful than an
+    // error when you cannot remember the driver's key.
+    const heading = document.querySelector<HTMLElement>("#empty-state-title");
+    if (heading) heading.textContent = "Driver previews";
+    const links = PREVIEW_KEYS
+      .filter((key) => key !== "list")
+      .map((key) => `<a href="?preview=${key}" style="color:var(--ui-accent)">${key}</a>`)
+      .join(" · ");
+    const blurb = heading?.nextElementSibling;
+    if (blurb) blurb.innerHTML = `Render any supported driver without its hardware: ${links}`;
+    setText("#read-status", name === "list" ? "Pick a driver preview." : `Unknown preview "${name}".`);
+    return;
+  }
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
+  configureDpiControl(fixture.status.dpi);
+  showStatus(fixture.status);
+  setConnectionButtons(true, "Preview mode");
+  setText("#read-status", `Preview: ${fixture.label}. Nothing is written.`);
+}
+
+function showSuperstrikePreview(): void {
+  dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 8000, 16000, 32000];
+  const status: MouseStatus = {
+    brand: "Logitech",
+    name: "PRO X 2 Superstrike",
+    batteryPercent: 87,
+    batteryVoltageMv: 3989,
+    batteryState: "Discharging",
+    dpi: 800,
+    dpiY: 800,
+    supportsSeparateDpiAxes: true,
+    analogButtonTuning: {
+      maxActuation: 10,
+      maxRapidTrigger: 5,
+      maxHaptics: 5,
+      buttons: [
+        { actuation: 3, rapidTrigger: 2, haptics: 3 },
+        { actuation: 3, rapidTrigger: 2, haptics: 3 },
+      ],
+    },
+    pollingRateHz: 4000,
+    supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+    liftOffDistance: "High",
+    supportedLiftOffDistances: ["Low", "High"],
+    activeProfile: 1,
+    deviceMode: "Onboard",
+    modelId: "40BDC0A80000",
+    transportIds: { USB: "C0A8", Wireless: "40BD" },
+    connectionType: "Wireless",
+    connectionDetail: "Lightspeed receiver",
+    firmware: ["MPM 42.00.B0011", "BL2 73.00.B0011"],
+  };
+  configureDpiControl(status.dpi);
+  showStatus(status);
+  document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>(
+    ".settings-grid input, .settings-grid button, #logitech-analog-button-settings input, #logitech-analog-button-settings .superstrike-apply-button",
+  ).forEach((control) => { control.disabled = true; });
+  setConnectionButtons(true, "Preview mode");
+  setText("#read-status", "Current: 800 DPI · 4,000 Hz");
+}
+
+function showInterfaceSettings(open: boolean): void {
+  if (open) populateInterfaceSettings();
+  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.toggle("is-open", open);
+  document.querySelector<HTMLElement>(".control-panel")?.classList.toggle("showing-settings", open);
+  document.querySelector<HTMLElement>("#interface-settings-button")?.setAttribute("aria-current", String(open));
   document.querySelector<HTMLElement>(".control-panel")?.scrollTo({ top: 0 });
 }
 
+function openInterfaceSettings(): void {
+  showInterfaceSettings(true);
+}
+
 function closeInterfaceSettings(): void {
-  document.querySelector<HTMLElement>("#interface-settings-page")?.classList.remove("is-open");
+  showInterfaceSettings(false);
+}
+
+/**
+ * Fills the driver-preview list in interface settings. Development only: the
+ * fixtures are a dynamic import so they never reach a production bundle, and
+ * the section stays hidden there.
+ */
+async function populatePreviewLauncher(): Promise<void> {
+  const section = document.querySelector<HTMLElement>("#preview-launcher");
+  const list = document.querySelector<HTMLElement>("#preview-launcher-list");
+  if (!section || !list || !import.meta.env.DEV || list.childElementCount > 0) return;
+
+  const { PREVIEW_FIXTURES } = await import("./preview-fixtures");
+  const entries: Array<[string, string]> = [
+    ["slots", "Logitech PRO X Superlight 2"],
+    ["superstrike", "Logitech PRO X 2 Superstrike"],
+    ...Object.entries(PREVIEW_FIXTURES).map(([key, fixture]) => [key, fixture.label] as [string, string]),
+  ];
+  list.innerHTML = entries
+    .map(([key, label]) => `<a class="preview-launcher-link${previewMode === key ? " is-active" : ""}" href="?preview=${key}">${escapeHtml(label)}<small>${key}</small></a>`)
+    .join("");
+  section.hidden = false;
 }
 
 function populateInterfaceSettings(): void {
+  void populatePreviewLauncher();
   setControlValue("#interface-density", interfacePreferences.density);
   setControlValue("#interface-theme", interfacePreferences.theme);
   const reducedMotion = document.querySelector<HTMLInputElement>("#interface-reduced-motion");
   const expandSections = document.querySelector<HTMLInputElement>("#interface-expand-sections");
+  const instantFlash = document.querySelector<HTMLInputElement>("#interface-instant-flash");
   const showExperimental = document.querySelector<HTMLInputElement>("#interface-show-experimental");
   if (reducedMotion) reducedMotion.checked = interfacePreferences.reducedMotion;
   if (expandSections) expandSections.checked = interfacePreferences.expandSections;
+  if (instantFlash) instantFlash.checked = interfacePreferences.instantFlash;
   if (showExperimental) showExperimental.checked = interfacePreferences.showExperimental;
-}
-
-function setText(selector: string, value: string): void {
-  const element = document.querySelector<HTMLElement>(selector);
-  if (element) element.textContent = value;
 }
 
 function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
@@ -509,87 +791,19 @@ function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
   return null;
 }
 
-function loadBatteryHistory(): BatteryHistory {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(BATTERY_HISTORY_KEY) ?? "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as BatteryHistory : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveBatterySample(deviceName: string, percent: number, mode: BatteryMode, now = Date.now()): BatterySample[] {
-  const history = loadBatteryHistory();
-  const cutoff = now - BATTERY_MAX_SAMPLE_AGE_MS;
-  const storedSamples = Array.isArray(history[deviceName]) ? history[deviceName] : [];
-  const samples = storedSamples.filter((sample) =>
-    Number.isFinite(sample.timestamp)
-    && Number.isFinite(sample.percent)
-    && sample.timestamp >= cutoff
-    && sample.percent >= 0
-    && sample.percent <= 100
-    && (sample.mode === "charging" || sample.mode === "discharging"));
-  const previous = samples.at(-1);
-  const shouldSave = !previous
-    || previous.mode !== mode
-    || previous.percent !== percent
-    || now - previous.timestamp >= BATTERY_CHECKPOINT_MS;
-
-  if (shouldSave) samples.push({ timestamp: now, percent, mode });
-  const retainedSamples = samples.slice(-BATTERY_MAX_SAMPLES_PER_DEVICE);
-  history[deviceName] = retainedSamples;
-  if (shouldSave || retainedSamples.length !== storedSamples.length) {
-    try {
-      localStorage.setItem(BATTERY_HISTORY_KEY, JSON.stringify(history));
-    } catch {
-      // Estimates remain optional when browser storage is unavailable or full.
-    }
-  }
-  return retainedSamples;
-}
-
-function formatEstimate(milliseconds: number): string {
-  const minutes = Math.max(1, Math.round(milliseconds / 60000));
-  if (minutes < 60) return `~${minutes} min`;
-  const hours = minutes / 60;
-  if (hours < 48) return `~${hours < 10 ? hours.toFixed(1) : Math.round(hours)} hr`;
-  const days = hours / 24;
-  return `~${days < 10 ? days.toFixed(1) : Math.round(days)} days`;
-}
-
-function estimateBatteryTime(samples: BatterySample[], percent: number, mode: BatteryMode, now = Date.now()): string | null {
-  const continuous: BatterySample[] = [];
-  for (let index = samples.length - 1; index >= 0; index -= 1) {
-    const sample = samples[index];
-    const newer = continuous[0];
-    if (sample.mode !== mode || (newer && newer.timestamp - sample.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS)) break;
-    continuous.unshift(sample);
-  }
-
-  const first = continuous[0];
-  const last = continuous.at(-1);
-  if (!first || !last || now - last.timestamp > BATTERY_MAX_CONTINUOUS_GAP_MS) return null;
-  const elapsed = last.timestamp - first.timestamp;
-  const change = mode === "charging" ? last.percent - first.percent : first.percent - last.percent;
-  if (elapsed < BATTERY_MIN_ESTIMATE_SPAN_MS || change < 1) return null;
-
-  const remainingPercent = mode === "charging" ? 100 - percent : percent;
-  if (remainingPercent <= 0) return null;
-  return formatEstimate(remainingPercent / (change / elapsed));
-}
-
 function batteryDetail(status: MouseStatus): string {
   const voltage = status.batteryVoltageMv ? `${(status.batteryVoltageMv / 1000).toFixed(3)} V` : null;
-  const withVoltage = (detail: string): string => voltage ? `${detail} · ${voltage}` : detail;
+  const lead = batteryNeedsCharging(status.batteryPercent, status.batteryState) ? "Needs charging" : null;
+  const withVoltage = (detail: string): string => [lead, detail, voltage].filter(Boolean).join(" · ");
   if (status.batteryPercent === null) return withVoltage(status.batteryState);
   if (status.batteryState === "Full") return withVoltage("Fully charged");
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(status.batteryState);
   const now = Date.now();
-  const samples = saveBatterySample(status.name, status.batteryPercent, mode, now);
+  const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? "until full" : "remaining";
-  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : `${status.batteryState} · Calculating estimate`);
+  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : status.batteryState);
 }
 
 const WLMOUSE_SLEEP_NEVER = 0xffff;
@@ -597,18 +811,51 @@ const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
   [1, "10 seconds"], [3, "30 seconds"], [6, "1 minute"], [12, "2 minutes"],
   [30, "5 minutes"], [60, "10 minutes"], [180, "30 minutes"],
 ];
-const WLMOUSE_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
-  [30, "30 seconds"], [60, "1 minute"], [120, "2 minutes"], [300, "5 minutes"],
-  [600, "10 minutes"], [1800, "30 minutes"],
-];
-const WLMOUSE_SLEEP_DEFAULT = 60;
-let lastSleepSeconds = WLMOUSE_SLEEP_DEFAULT;
+let lastSleepSeconds = 60;
+
+function sleepLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds} seconds`;
+  const minutes = seconds / 60;
+  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+}
 
 function fillSleepOptions(options: ReadonlyArray<readonly [number, string]>): void {
-  const select = document.querySelector<HTMLSelectElement>("#sleep-select");
-  if (!select || select.dataset.options === String(options[0][0])) return;
+  fillSelectOptions("#sleep-select", options);
+}
+
+function fillSelectOptions(selector: string, options: ReadonlyArray<readonly [number, string]>): void {
+  const select = document.querySelector<HTMLSelectElement>(selector);
+  const signature = options.map(([value]) => value).join(",");
+  if (!select || select.dataset.options === signature) return;
   select.replaceChildren(...options.map(([value, label]) => new Option(label, String(value))));
-  select.dataset.options = String(options[0][0]);
+  select.dataset.options = signature;
+}
+
+/**
+ * Stepped options for a setting the mouse stores continuously. The device's own
+ * value joins the list when it falls between the offered ones, because a value
+ * matching no option renders the select blank; a value outside them altogether
+ * returns null, since the panel can neither show it nor write it back.
+ */
+function selectableValues(offered: number[], current: number | null | undefined): number[] | null {
+  if (current === null || current === undefined) return null;
+  if (current < offered[0] || current > offered[offered.length - 1]) return null;
+  return offered.includes(current) ? offered : [...offered, current].sort((left, right) => left - right);
+}
+
+function fillPercentOptions(selector: string, values: readonly number[]): void {
+  const select = document.querySelector<HTMLSelectElement>(selector);
+  const signature = values.join(",");
+  if (!select || select.dataset.options === signature) return;
+  select.replaceChildren(...values.map((value) => new Option(`${value}%`, String(value))));
+  select.dataset.options = signature;
+}
+
+function fillDebounceOptions(maxMs: number): void {
+  const select = document.querySelector<HTMLSelectElement>("#debounce-select");
+  if (!select || select.dataset.max === String(maxMs)) return;
+  select.replaceChildren(...Array.from({ length: maxMs + 1 }, (_, ms) => new Option(`${ms} ms`, String(ms))));
+  select.dataset.max = String(maxMs);
 }
 
 function resetDeviceSpecificPanels(): void {
@@ -619,76 +866,417 @@ function resetDeviceSpecificPanels(): void {
     "#egg-cpi-settings",
     "#egg-button-settings",
     "#pulsar-pro-settings",
+    "#logitech-analog-button-settings",
+    "#finalmouse-settings",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
   }
+  // Shown through the hidden attribute rather than display, and only ever set
+  // by the driver that owns them, so nothing else would clear them on a switch.
+  for (const selector of ["#low-power-settings", "#device-thumbnail"]) {
+    document.querySelector<HTMLElement>(selector)?.setAttribute("hidden", "");
+  }
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
+  for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+    const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+    if (row) {
+      row.hidden = false;
+      row.style.display = "";
+    }
+  }
 }
 
-function showStatus(status: MouseStatus): void {
-  lastRenderedStatusKey = JSON.stringify(status);
+function diagnosticErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function recordDiagnosticCommand(command: string): void {
+  lastDiagnosticCommand = command;
+  markHidActivity(command);
+  lastDiagnosticError = null;
+  renderDeviceDiagnostics(latestDiagnosticStatus);
+}
+
+function recordDiagnosticError(error: unknown, fallback: string): void {
+  lastDiagnosticError = diagnosticErrorMessage(error, fallback);
+  markHidActivity(lastDiagnosticError, { failed: true });
+  renderReads();
+  renderDeviceDiagnostics(latestDiagnosticStatus);
+}
+
+function configureProfileCapture(status: MouseStatus | null): void {
+  // Capture must be reachable from the profile section even when the separate
+  // Diagnostics disclosure is closed.
+  const logitechClient = status?.brand === "Logitech" ? activeClient as LogitechHidppClient | null : null;
+  const formatId = status?.onboardProfileFormat?.id ?? null;
+  const captureOpen = document.querySelector<HTMLButtonElement>("#capture-open");
+  if (captureOpen) captureOpen.hidden = logitechClient === null;
+  const resetButton = document.querySelector<HTMLButtonElement>("#reset-logitech-profiles");
+  if (resetButton) {
+    const supported = logitechClient !== null && supportsFactoryReset(formatId);
+    resetButton.hidden = !supported;
+    resetButton.disabled = settingInProgress;
+    resetButton.title = supported
+      ? "Permanently restore every onboard profile to Logitech defaults"
+      : "";
+  }
+  setCaptureContext({
+    device: activeDevice ? describeHidDevice(activeDevice) : status?.name ?? null,
+    profileFormat: status?.onboardProfileFormat ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name}` : null,
+    profiles: logitechClient && formatId !== null
+      ? {
+        read: async () => (await logitechClient.readOnboardProfiles())
+          .map((profile) => ({ sector: profile.sector, bytes: profile.raw })),
+        readVerification: async () => {
+          const verification = await logitechClient.readOnboardProfileVerification();
+          return {
+            ...verification,
+            profiles: verification.profiles.map((profile) => ({
+              sector: profile.sector,
+              enabled: profile.enabled,
+              isCurrent: profile.isCurrent,
+              crcValid: profile.crcValid,
+              decoded: {
+                name: profile.name,
+                dpiStages: profile.dpiStages,
+                defaultDpiIndex: profile.defaultDpiIndex,
+                reportRateWireless: profile.reportRateWireless,
+                reportRateWired: profile.reportRateWired,
+                angleSnapping: profile.angleSnapping,
+                powerSaveTimeoutSeconds: profile.powerSaveTimeoutSeconds,
+                powerOffTimeoutSeconds: profile.powerOffTimeoutSeconds,
+                bunnyHoppingMs: profile.bunnyHoppingMs,
+              },
+              bytes: profile.raw,
+            })),
+          };
+        },
+        describeOffset: (offset) => describeOffset(formatId, offset),
+        reproduce: (before, after) => reproduceProfile(before, after, formatId),
+      }
+      : null,
+    writeProbe: logitechClient === null
+      ? null
+      : supportsProfileWriteProbe(formatId)
+        ? {
+          supported: true,
+          reason: `Run the guarded write probe for profile format ${formatId}`,
+          prepare: () => logitechClient.prepareProfileContentWriteProbe(),
+          run: (backup: Parameters<LogitechHidppClient["runProfileContentWriteProbe"]>[0]) =>
+            logitechClient.runProfileContentWriteProbe(backup),
+        }
+        : {
+          supported: false,
+          reason: formatId === null
+            ? "This Logitech mouse does not report an onboard-profile format"
+            : `The guarded write probe does not support profile format ${formatId}`,
+        },
+  });
+}
+
+function renderDeviceDiagnostics(status: MouseStatus | null): void {
+  configureProfileCapture(status);
+  const output = document.querySelector<HTMLPreElement>("#device-debug-snapshot");
+  if (!output || !diagnosticsOpen()) return;
+
+  const serializeCollection = (collection: HIDCollectionInfo): object => ({
+    usagePage: `0x${formatHex(collection.usagePage, 4)}`,
+    usage: `0x${formatHex(collection.usage, 4)}`,
+    inputReports: collection.inputReports.map((report) => `0x${formatHex(report.reportId)}`),
+    outputReports: collection.outputReports.map((report) => `0x${formatHex(report.reportId)}`),
+    featureReports: collection.featureReports.map((report) => `0x${formatHex(report.reportId)}`),
+    children: collection.children.map(serializeCollection),
+  });
+
+  const device = activeDevice;
+  if (!device && !status && !lastDiagnosticError) {
+    output.textContent = "Connect a mouse to collect diagnostics.";
+    return;
+  }
+  const driver = status
+    ? (status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand)
+    : "No driver read this device";
+  const overview = document.querySelector<HTMLElement>("#device-debug-overview");
+  if (overview) {
+    const items: string[][] = [
+      ["Driver", driver],
+      ["VID / PID", device ? `0x${formatHex(device.vendorId, 4)} / 0x${formatHex(device.productId, 4)}` : "Not reported"],
+      ["Build", BUILD_LABEL],
+      ["Last command", lastDiagnosticCommand ?? "None"],
+    ];
+    if (lastDiagnosticError) items.push(["Last error", lastDiagnosticError]);
+    overview.replaceChildren(...items.map(([label, value]) => {
+      const item = document.createElement("div");
+      const heading = document.createElement("small");
+      const content = document.createElement("span");
+      heading.textContent = label.toUpperCase();
+      content.textContent = value;
+      item.append(heading, content);
+      return item;
+    }));
+  }
+  const snapshot = {
+    app: {
+      build: BUILD_LABEL,
+      userAgent: navigator.userAgent,
+    },
+    driver: {
+      brand: status?.brand ?? null,
+      family: status?.ui?.family ?? null,
+      readOk: status !== null,
+      description: device ? describeHidDevice(device) : null,
+    },
+    webhid: device ? {
+      productName: device.productName || null,
+      vendorId: `0x${formatHex(device.vendorId, 4)}`,
+      productId: `0x${formatHex(device.productId, 4)}`,
+      opened: device.opened,
+      collections: device.collections.map(serializeCollection),
+    } : null,
+    status: status ? { ...status, unitId: status.unitId ? "(masked)" : status.unitId } : null,
+    diagnostics: {
+      lastCommand: lastDiagnosticCommand,
+      lastError: lastDiagnosticError,
+    },
+  };
+  latestDiagnosticsSnapshot = snapshot;
+  output.textContent = JSON.stringify(snapshot, null, 2);
+  const downloadButton = document.querySelector<HTMLButtonElement>("#download-diagnostics");
+  if (downloadButton) downloadButton.disabled = false;
+  renderReads();
+}
+
+function maskBytes(bytes: Uint8Array): string {
+  const hide = new Set<number>();
+  let run = -1;
+  for (let i = 0; i <= bytes.length; i += 1) {
+    const printable = i < bytes.length && bytes[i] >= 0x20 && bytes[i] <= 0x7e;
+    if (printable && run < 0) run = i;
+    if (!printable && run >= 0) {
+      if (i - run >= 6) for (let j = run; j < i; j += 1) hide.add(j);
+      run = -1;
+    }
+  }
+  let end = bytes.length;
+  while (end > 8 && bytes[end - 1] === 0) end -= 1;
+  const shown = Array.from(bytes.slice(0, end), (byte, i) => hide.has(i) ? "**" : formatHex(byte)).join(" ");
+  return end < bytes.length ? `${shown}  (${bytes.length}B)` : shown;
+}
+
+function diagnosticsOpen(): boolean {
+  return document.querySelector<HTMLDetailsElement>("#device-debug-details details")?.open === true;
+}
+
+function renderReads(): void {
+  const target = document.querySelector<HTMLPreElement>("#device-debug-reads");
+  if (target && diagnosticsOpen()) target.textContent = renderReadTable();
+}
+
+const BACKGROUND = "Background refresh";
+
+function renderReadTable(): string {
+  const rows = hidTraffic(activeDevice);
+  if (!rows.length) return "Nothing yet. Change a setting to see what gets sent.";
+
+  const base = rows[0].at;
+  const stamp = (at: number): string => `t+${((at - base) / 1000).toFixed(1)}s`.padStart(9);
+
+  const groups: { label: string; detail: string | null; failed: boolean; at: number; items: HidTrafficEntry[] }[] = [];
+  for (const row of rows) {
+    if (isMark(row)) groups.push({ label: row.label, detail: row.detail, failed: row.failed, at: row.at, items: [] });
+    else {
+      if (!groups.length) groups.push({ label: BACKGROUND, detail: null, failed: false, at: row.at, items: [] });
+      groups[groups.length - 1].items.push(row);
+    }
+  }
+
+  const interesting = groups.filter((group) => group.label !== BACKGROUND || group.items.some((item) => item.error));
+  const shown = interesting.slice(-15);
+  const lines: string[] = [];
+  const hidden = groups.length - shown.length;
+  if (hidden > 0) lines.push(`… ${hidden} earlier or background entries hidden`);
+
+  for (const group of shown) {
+    lines.push(`${stamp(group.at)} ${group.failed ? "!" : ">"} ${group.label}`);
+    if (group.detail) lines.push(`${stamp(group.at)}     ${group.detail}`);
+    for (const row of group.items) {
+      const outcome = row.error ? `FAILED ${row.error}` : maskBytes(row.bytes);
+      lines.push(`${stamp(row.at)}     ${row.dir.padEnd(4)} id ${row.reportId} ${String(row.ms).padStart(4)}ms  ${outcome}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function diagnosticsLog(): object[] {
+  const rows = hidTraffic(activeDevice);
+  if (rows.length === 0) return [];
+  const base = rows[0].at;
+  const seconds = (at: number): number => Number(((at - base) / 1000).toFixed(3));
+  return rows.map((row) => isMark(row)
+    ? { at: seconds(row.at), kind: "event", label: row.label, detail: row.detail, failed: row.failed }
+    : {
+      at: seconds(row.at),
+      kind: "report",
+      dir: row.dir,
+      reportId: row.reportId,
+      ms: row.ms,
+      bytes: maskBytes(row.bytes),
+      error: row.error,
+    });
+}
+
+function diagnosticsFileName(): string {
+  const device = activeDevice;
+  const ids = device ? `${formatHex(device.vendorId, 4)}-${formatHex(device.productId, 4)}` : "no-device";
+  const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  return `openmouse-${ids}-${stamp}.json`.toLowerCase();
+}
+
+function downloadDiagnostics(): void {
+  const status = document.querySelector<HTMLElement>("#diagnostic-download-status");
+  if (!latestDiagnosticsSnapshot) return;
+  const name = diagnosticsFileName();
+  const rows = hidTraffic(activeDevice);
+  const report = JSON.stringify({
+    ...latestDiagnosticsSnapshot,
+    logStart: rows.length > 0 ? new Date(performance.timeOrigin + rows[0].at).toISOString() : null,
+    log: diagnosticsLog(),
+  }, null, 2);
+  const url = URL.createObjectURL(new Blob([report], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+  if (status) status.textContent = `Saved ${name}`;
+}
+
+function setPageTitle(prefix?: string): void {
+  document.title = prefix ? `${prefix} - ${DEFAULT_TITLE}` : DEFAULT_TITLE;
+}
+
+function showStatus(deviceStatus: MouseStatus): void {
+  latestDeviceStatus = deviceStatus;
+  latestDiagnosticStatus = deviceStatus;
+  lastRenderedStatusKey = JSON.stringify(deviceStatus);
+  // Controls render from the previewed status so staged changes survive a
+  // background refresh; diagnostics and the sidebar keep the device's own values.
+  const status = withPendingChanges(deviceStatus);
   // Driver UI hints (e.g. status.ui.family === "egg-we") avoid brand-specific imports.
   const ui = status.ui;
   const isEgg8k = activeEggClient !== null
     || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
-  const isWLMouse = ui?.family === "wlmouse" || activeWLMouseClient !== null;
+  const isDmFamily = ui?.family === "wlmouse" || ui?.family === "lamzu" || ui?.family === "atk" || ui?.family === "ninjutso" || activeDmClient !== null;
+  const isViper = ui?.family === "razer-viper-v4-pro" || activeViperClient !== null;
+  const isRazer = ui?.family === "razer" || activeRazerClient !== null;
+  const isFinalmouse = ui?.family === "finalmouse-ulx" || activeFinalmouseClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
   // mouse may have left these visible when WebHID switches devices.
   resetDeviceSpecificPanels();
+  const hideBattery = isEgg8k
+    || (isWired && !ui?.forceShowBattery && status.batteryPercent === null);
   const batterySummary = document.querySelector<HTMLElement>("#battery-summary");
   if (batterySummary) {
-    // 8K is wired-only (no battery). Drivers may force the column via ui.forceShowBattery.
-    const hideBattery = isEgg8k
-      || (isWired && !ui?.forceShowBattery && status.batteryPercent === null);
     batterySummary.hidden = hideBattery;
     batterySummary.style.display = hideBattery ? "none" : "flex";
+  }
+  const sidebarBattery = document.querySelector<HTMLElement>("#sidebar-battery");
+  if (sidebarBattery) {
+    sidebarBattery.hidden = hideBattery || status.batteryPercent === null;
+    const sidebarIcon = document.querySelector<HTMLElement>("#sidebar-battery-icon");
+    if (sidebarIcon && !sidebarBattery.hidden) {
+      renderBatteryIcon(sidebarIcon, status.batteryPercent, status.batteryState);
+      setText("#sidebar-battery-value", `${status.batteryPercent}%`);
+    }
   }
   const overview = document.querySelector<HTMLElement>(".device-overview");
   if (overview) {
     const showBatteryColumn = !isEgg8k
       && (ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
-    overview.style.gridTemplateColumns = showBatteryColumn ? "repeat(3, 1fr)" : "repeat(2, 1fr)";
+    const stats = showBatteryColumn ? 3 : 2;
+    const artwork = deviceImage(activeDevice, status.name);
+    const thumbnail = document.querySelector<HTMLElement>("#device-thumbnail");
+    const thumbnailImage = document.querySelector<HTMLImageElement>("#device-thumbnail-image");
+    // Art is optional for every device. It lives in the persistent product
+    // panel while the status strip always stays three equal columns.
+    const showArtwork = artwork !== null && !unreachableImages.has(artwork);
+    const statColumns = `repeat(${stats}, 1fr)`;
+    if (thumbnail) thumbnail.hidden = !showArtwork;
+    overview.style.gridTemplateColumns = statColumns;
+    if (thumbnailImage && artwork && showArtwork && thumbnailImage.dataset.source !== artwork) {
+      thumbnailImage.dataset.source = artwork;
+      // A file that never shipped alongside its mapping would otherwise leave an
+      // empty column. Recorded so later repaints stop asking for it.
+      thumbnailImage.onerror = () => {
+        unreachableImages.add(artwork);
+        thumbnail?.setAttribute("hidden", "");
+      };
+      thumbnailImage.src = artwork;
+    }
+    if (thumbnailImage) thumbnailImage.alt = status.name;
   }
   setText("#polling-note", ui?.pollingNote
     ?? (isEgg8k
       ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
       : "Higher rates update cursor movement more often, but use more battery."));
-  const pollingCard = document.querySelector<HTMLElement>("[data-rate]")?.closest<HTMLElement>(".setting-card");
+  const pollingCard = document.querySelector<HTMLElement>("#polling-card");
   if (pollingCard) {
     pollingCard.hidden = false;
     pollingCard.style.display = "";
   }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
-    if (element) element.hidden = isEgg;
+    if (element) element.hidden = isEgg || isFinalmouse || (selector === "#sleep-settings" && ui?.hideSleepCard === true);
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
     const showDebounce = status.debounceMs !== null && status.debounceMs !== undefined
-      && (status.brand === "Pulsar" || isWLMouse);
+      && (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isDmFamily);
     debounceSettings.hidden = !showDebounce;
   }
   const signalSettings = document.querySelector<HTMLElement>("#signal-settings");
-  if (signalSettings) signalSettings.hidden = isEgg || isWLMouse;
+  if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse || ui?.hideSignalCard === true;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isWLMouse;
+    const hidePerformanceMode = isEgg || isDmFamily || isFinalmouse;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
-  const processingCard = document.querySelector<HTMLElement>("#motion-sync-toggle")?.closest<HTMLElement>(".setting-card");
-  if (processingCard && processingCard.id !== "egg-filter-settings") {
-    processingCard.style.display = ui?.hideProcessingCard ? "none" : "";
+  const processingCard = document.querySelector<HTMLElement>("#processing-settings");
+  for (const [selector, hidden] of [
+    ["#motion-sync-toggle", ui?.hideMotionSync === true],
+    ["#angle-snapping-toggle", ui?.hideAngleSnapping === true],
+    ["#ripple-control-toggle", ui?.hideRippleControl === true],
+  ] as const) {
+    const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+    if (!row) continue;
+    row.hidden = hidden;
+    row.style.display = hidden ? "none" : "";
+  }
+  if (processingCard) {
+    const processingAvailable = ui?.hideProcessingCard !== true && (
+      (status.motionSync != null && ui?.hideMotionSync !== true)
+      || (status.angleSnapping != null && ui?.hideAngleSnapping !== true)
+      || (status.rippleControl != null && ui?.hideRippleControl !== true)
+      || (status.performanceMode != null && !isDmFamily && !isEgg && !isFinalmouse)
+      || status.sensorMode != null || status.performanceDuration != null
+    );
+    processingCard.hidden = !processingAvailable;
+    processingCard.style.display = processingAvailable ? "" : "none";
   }
   const battery = status.batteryPercent === null ? "—" : `${status.batteryPercent}%`;
+  const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
+  setPageTitle(status.batteryPercent === null ? status.name : `${charging}${status.batteryPercent}% - ${status.name}`);
   const dpiOutputField = document.querySelector<HTMLInputElement>("#dpi-output");
   if (dpiOutputField?.readOnly) dpiOutputField.value = `${status.dpi.toLocaleString()} DPI`;
   setText("#battery-value", battery);
+  const batteryIconSlot = document.querySelector<HTMLElement>("#battery-icon-slot");
+  if (batteryIconSlot) renderBatteryIcon(batteryIconSlot, status.batteryPercent, status.batteryState);
   setText("#battery-detail", batteryDetail(status));
   setText("#firmware-value", status.firmware[0] ?? "—");
   setText("#firmware-detail", status.firmware.length > 1
@@ -709,7 +1297,8 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse;
+    const showAdvanced = status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || isEgg8k || isDmFamily || isFinalmouse
+      || ui?.showAdvancedSection === true;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
   }
@@ -717,10 +1306,13 @@ function showStatus(status: MouseStatus): void {
   if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
 
   const sleepToggle = document.querySelector<HTMLElement>("#sleep-toggle");
-  if (sleepToggle) sleepToggle.hidden = !isWLMouse;
-  if (isWLMouse) {
-    fillSleepOptions(WLMOUSE_SLEEP_OPTIONS);
-    if (status.sleepTimeout) lastSleepSeconds = status.sleepTimeout;
+  if (sleepToggle) sleepToggle.hidden = !isDmFamily || !activeDmClient?.canDisableSleep;
+  if (isDmFamily && activeDmClient) {
+    const seconds = activeDmClient.getSleepOptions();
+    fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
+    fillDebounceOptions(activeDmClient.getDebounceMaxMs());
+    // Read from the device value so toggling sleep back on restores a real timeout.
+    lastSleepSeconds = deviceStatus.sleepTimeout ?? seconds[0] ?? 60;
     setToggleValue("#sleep-toggle", status.sleepTimeout !== null && status.sleepTimeout !== undefined);
     setControlValue("#debounce-select", status.debounceMs);
     setControlValue("#sleep-select", status.sleepTimeout);
@@ -728,8 +1320,38 @@ function showStatus(status: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
   }
-  if (status.brand === "Pulsar" || status.brand === "Endgame Gear") {
+  // Sleep and low-power commands are supported by the Viper V3 protocol,
+  // but not by the legacy Viper Mini driver.
+  if (isRazer && activeRazerClient instanceof RazerHidClient) {
+    const seconds = selectableValues(activeRazerClient.getSleepOptions(), status.sleepTimeout);
+    const sleepSettings = document.querySelector<HTMLElement>("#sleep-settings");
+    if (sleepSettings) sleepSettings.hidden = seconds === null;
+    if (seconds) {
+      // Seconds throughout: sleepLabel, the staged command text and
+      // setSleepTimeout all read this as seconds, which Pulsar's options are not.
+      fillSleepOptions(seconds.map((value) => [value, sleepLabel(value)] as const));
+      setControlValue("#sleep-select", status.sleepTimeout);
+    }
+    const percentages = selectableValues(activeRazerClient.getLowPowerOptions(), status.lowBatteryWarning);
+    const lowPowerSettings = document.querySelector<HTMLElement>("#low-power-settings");
+    if (lowPowerSettings) lowPowerSettings.hidden = percentages === null;
+    if (percentages) {
+      fillPercentOptions("#low-power-select", percentages);
+      setControlValue("#low-power-select", status.lowBatteryWarning);
+      // The threshold still reads at any rate; the vendor software just refuses
+      // to arm it above this one, so the control is disabled rather than hidden.
+      const ceiling = activeRazerClient.getLowPowerPollingCeiling();
+      const tooFast = status.pollingRateHz > ceiling;
+      const lowPowerSelect = document.querySelector<HTMLSelectElement>("#low-power-select");
+      if (lowPowerSelect) lowPowerSelect.disabled = tooFast;
+      setText("#low-power-note", tooFast
+        ? `Unavailable above ${ceiling.toLocaleString()} Hz. Lower the polling rate to change it.`
+        : "Slows the mouse down to save battery below this level.");
+    }
+  }
+  if (status.brand === "Pulsar" || status.brand === "Teevolution" || status.brand === "VGN" || status.brand === "Endgame Gear" || isViper || isFinalmouse) {
     fillSleepOptions(PULSAR_SLEEP_OPTIONS);
+    fillDebounceOptions(20);
     const strength = status.signalStrength;
     setText("#signal-output", strength === null || strength === undefined ? "—" : `${strength}/4`);
     setText("#signal-detail", strength === null || strength === undefined
@@ -741,6 +1363,77 @@ function showStatus(status: MouseStatus): void {
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
     setToggleValue("#performance-mode-toggle", status.performanceMode);
+    const isTeevolution = status.brand === "Teevolution";
+    const performanceModeLabel = document.querySelector<HTMLElement>("#performance-mode-label");
+    if (performanceModeLabel) performanceModeLabel.textContent = isTeevolution ? "Highest performance" : "Performance mode";
+    const teevolutionSensorRow = document.querySelector<HTMLElement>("#teevolution-sensor-mode-row");
+    const teevolutionDurationRow = document.querySelector<HTMLElement>("#teevolution-performance-duration-row");
+    const teevolutionDpiLighting = document.querySelector<HTMLElement>("#teevolution-dpi-lighting");
+    if (teevolutionSensorRow) teevolutionSensorRow.hidden = !isTeevolution;
+    if (teevolutionDurationRow) teevolutionDurationRow.hidden = !isTeevolution;
+    if (teevolutionDpiLighting) teevolutionDpiLighting.hidden = !isTeevolution;
+    const teevolutionProfile = activeTeevolutionClient?.getModelProfile() ?? teevolutionProfileForCid(14);
+    if (isTeevolution && status.connectionType && teevolutionProfile) {
+      const profile = teevolutionProfile;
+      fillSleepOptions(profile.sleepOptions.map((value) => [value, sleepLabel(value * 10)] as const));
+      fillDebounceOptions(profile.debounce.max);
+      const performanceDurations = profile.performanceTimeOptions
+        .map((value) => [value, sleepLabel(value * 10)] as const);
+      fillSelectOptions("#teevolution-performance-duration", performanceDurations);
+      const sensorUi = teevolutionSensorModeUi({
+        storedMode: status.sensorModeStored ?? 0,
+        pollingRateHz: status.pollingRateHz,
+        connection: status.connectionType,
+      });
+      const sensorSelect = document.querySelector<HTMLSelectElement>("#teevolution-sensor-mode");
+      if (sensorSelect) {
+        for (const option of sensorSelect.options) {
+          option.hidden = option.value !== "Ultra"
+            && !profile.sensorModes.includes(option.value as "Eco" | "High");
+        }
+        sensorSelect.value = sensorUi.mode;
+        sensorSelect.disabled = !sensorUi.editable;
+      }
+      setText("#teevolution-sensor-mode-note", sensorUi.editable
+        ? "Eco saves power at 125–1000 Hz wireless. High uses the performance sensor profile."
+        : `Locked to ${sensorUi.mode} at ${status.pollingRateHz.toLocaleString()} Hz ${status.connectionType.toLowerCase()}.`);
+      const durationSelect = document.querySelector<HTMLSelectElement>("#teevolution-performance-duration");
+      if (durationSelect) {
+        durationSelect.disabled = status.performanceMode !== true;
+        setControlValue("#teevolution-performance-duration", status.performanceDuration);
+      }
+      const lightMode = status.dpiLedMode ?? 0;
+      const lightModeSelect = document.querySelector<HTMLSelectElement>("#teevolution-dpi-light-mode");
+      if (lightModeSelect) {
+        for (const option of lightModeSelect.options) {
+          option.hidden = !profile.dpiLighting.modes.includes(Number(option.value) as 0 | 1 | 2);
+        }
+      }
+      setControlValue("#teevolution-dpi-light-mode", lightMode);
+      setControlValue("#teevolution-dpi-light-brightness", status.dpiLedBrightness);
+      setControlValue("#teevolution-dpi-light-speed", status.dpiLedSpeed);
+      setText("#teevolution-dpi-light-brightness-output", status.dpiLedBrightness == null ? "—" : String(status.dpiLedBrightness));
+      setText("#teevolution-dpi-light-speed-output", status.dpiLedSpeed == null ? "—" : String(status.dpiLedSpeed));
+      const brightness = document.querySelector<HTMLInputElement>("#teevolution-dpi-light-brightness");
+      const speed = document.querySelector<HTMLInputElement>("#teevolution-dpi-light-speed");
+      if (brightness) {
+        brightness.min = String(profile.dpiLighting.brightness.min);
+        brightness.max = String(profile.dpiLighting.brightness.max);
+        brightness.disabled = lightMode !== 1 || status.dpiLedBrightness == null;
+      }
+      if (speed) {
+        speed.min = String(profile.dpiLighting.speed.min);
+        speed.max = String(profile.dpiLighting.speed.max);
+        speed.disabled = lightMode !== 2 || status.dpiLedSpeed == null;
+      }
+    }
+    for (const selector of ["#angle-snapping-toggle", "#ripple-control-toggle"] as const) {
+      const row = document.querySelector<HTMLElement>(selector)?.closest<HTMLElement>(".switch-row");
+      if (row) {
+        row.hidden = isFinalmouse;
+        row.style.display = isFinalmouse ? "none" : "";
+      }
+    }
     const eggFilterSettings = document.querySelector<HTMLElement>("#egg-filter-settings");
     const eggSpdtSettings = document.querySelector<HTMLElement>("#egg-spdt-settings");
     const eggPollingSettings = document.querySelector<HTMLElement>("#egg-polling-settings");
@@ -759,8 +1452,11 @@ function showStatus(status: MouseStatus): void {
       setControlValue("#egg-cpi-levels", status.eggCpiLevels);
       setControlValue("#egg-polling-divider", status.eggPollingDivider);
       updateCustomPollingPreview();
-      renderEggCpiStages(status);
-      renderEggButtons(status);
+      renderEggControls(status, {
+        applyCpiStage: applyEggCpiStage,
+        applyMulticlick: applyEggMulticlick,
+        applyButtonMapping: applyEggButtonMapping,
+      });
     }
     const proSettings = document.querySelector<HTMLElement>("#pulsar-pro-settings");
     const isPro = status.connectionDetail?.includes("Pulsar Pro protocol") === true;
@@ -770,47 +1466,121 @@ function showStatus(status: MouseStatus): void {
       setControlValue("#angle-tuning-select", status.angleTuning);
       setControlValue("#profile-select", status.activeProfile);
     }
+    const finalmouseSettings = document.querySelector<HTMLElement>("#finalmouse-settings");
+    if (finalmouseSettings) finalmouseSettings.style.display = isFinalmouse ? "block" : "none";
+    if (isFinalmouse) {
+      setControlValue("#finalmouse-dongle-led", status.finalmouseDongleLedMode);
+      setControlValue("#finalmouse-tournament-scroll", status.finalmouseTournamentScrollMode);
+      setControlValue("#finalmouse-tournament-timeout", status.finalmouseTournamentScrollTimeoutMs);
+    }
   }
   setText("#device-title", status.name);
+  setText("#sidebar-device-title", status.name);
+  if (isAnyPreview && !activeDevice) {
+    const list = document.querySelector<HTMLElement>("#sidebar-device-list");
+    if (list) {
+      list.innerHTML = `<div class="device-row is-selected"><span class="device-dot"></span><span class="device-row-copy"><strong>${escapeHtml(status.name)}</strong><small>${escapeHtml(status.brand)} · Preview</small></span></div>`;
+    }
+  }
   if (activeDevice) {
-    deviceStatuses.set(activeDevice, status);
+    deviceStatuses.set(activeDevice, deviceStatus);
     void renderDeviceSidebar();
   }
   setText("#device-status", "Connected");
-  // Same banner copy as other brands — no RE/debug messaging in the chrome.
-  setText("#connection-banner", "Connected directly through WebHID. Supported settings can be adjusted here.");
   if (settingsPending) {
-    setText("#read-status", status.batteryPercent === null
+    // A driver may read more than it can write yet. Only drivers that read
+    // these values report them; the rest fall back to a placeholder here.
+    const battery = deviceStatus.batteryPercent === null
       ? "Connected"
-      : `Battery ${status.batteryPercent}%`);
-  } else {
-    setText("#read-status", `Current: ${status.dpi.toLocaleString()} DPI · ${status.pollingRateHz.toLocaleString()} Hz`);
+      : `Battery ${deviceStatus.batteryPercent}%`;
+    setText("#read-status", ui?.valuesVerified
+      ? [battery, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      : battery);
+  } else if (!hasPendingChanges()) {
+    setText("#read-status", `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`);
   }
-  const meter = document.querySelector<HTMLElement>("#battery-meter");
-  if (meter) meter.style.width = status.batteryPercent === null ? "0%" : `${status.batteryPercent}%`;
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => button.classList.toggle("selected", Number(button.dataset.rate) === status.pollingRateHz));
-  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => button.classList.toggle("selected", button.dataset.lod === status.liftOffDistance));
-  document.querySelectorAll<HTMLButtonElement>("[data-rate]").forEach((button) => {
-    const rate = Number(button.dataset.rate);
-    const supportedRates = status.supportedPollingRates;
-    const unsupportedForEgg8k = isEgg8k && rate < 1000;
-    const unsupportedForListed = Array.isArray(supportedRates) && !supportedRates.includes(rate);
-    const hideListed = (status.brand === "Logitech" || ui?.hideUnsupportedPollingRates) && unsupportedForListed;
-    const hide = unsupportedForEgg8k || hideListed || settingsPending;
-    button.hidden = hide;
-    button.disabled = hide || settingsPending;
-  });
+  document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => setSelected(button, button.dataset.lod === status.liftOffDistance));
+  // The host rate is one stop per rate the mouse actually advertises, so an
+  // unsupported rate is simply not a stop rather than a hidden button.
+  const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
+    .filter((rate) => !(isEgg8k && rate < 1000))
+    .slice()
+    .sort((a, b) => a - b);
+  renderRateSlider(
+    document.querySelector<HTMLElement>("#host-rate-slider"),
+    advertisedRates,
+    status.pollingRateHz,
+    // A read-only rate still shows which one is active, it just cannot be staged.
+    { disabled: settingsPending || ui?.pollingReadOnly === true },
+  );
   document.querySelectorAll<HTMLButtonElement>("[data-lod]").forEach((button) => {
+    const supportedLods = status.supportedLiftOffDistances;
+    // Named levels rather than millimetres: the mouse reports a level, not a
+    // height, and the millimetre figures differed per brand anyway.
+    button.textContent = button.dataset.lod ?? "";
     const hideLow = button.dataset.lod === "Low"
       && (isEgg || ui?.hideLodLow === true);
-    button.hidden = hideLow;
-    button.disabled = hideLow || settingsPending
-      || (status.brand === "Logitech" && button.dataset.lod === "Low");
+    const unsupported = Array.isArray(supportedLods)
+      && !supportedLods.includes(button.dataset.lod as NonNullable<MouseStatus["liftOffDistance"]>);
+    const legacyLogitechLow = status.brand === "Logitech"
+      && !Array.isArray(supportedLods)
+      && button.dataset.lod === "Low";
+    button.hidden = hideLow || unsupported;
+    const lodNeedsSurface = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off";
+    button.disabled = hideLow || unsupported || settingsPending || legacyLogitechLow || lodNeedsSurface;
   });
+  renderAsymmetricLiftOff(status, settingsPending);
+  // Runs after the DPI controls above so the slot editor, when it is in charge,
+  // has the last word on which of them are visible.
+  renderDpiSlots();
+  renderProfileRates();
+  const lodNote = document.querySelector<HTMLElement>("#lod-note");
+  if (lodNote) {
+    lodNote.textContent = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off"
+      ? "Turn the gaming surface on or set it to auto to adjust lift-off distance."
+      : "Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer.";
+  }
+  const gamingSurfaceRow = document.querySelector<HTMLElement>("#gaming-surface-row");
+  if (gamingSurfaceRow) gamingSurfaceRow.hidden = !status.gamingSurfaceMode;
+  document.querySelectorAll<HTMLButtonElement>("[data-gaming-surface]").forEach((button) => {
+    setSelected(button, button.dataset.gamingSurface === status.gamingSurfaceMode);
+    button.disabled = settingsPending || !status.gamingSurfaceMode;
+  });
+  // A driver that reports no gaming surface and an explicitly empty lift-off
+  // list has nothing to put in the sensor card, so hide the card itself rather
+  // than leaving an empty heading behind.
+  const sensorCard = document.querySelector<HTMLElement>("#lod-note")?.closest<HTMLElement>(".setting-card");
+  if (sensorCard) {
+    sensorCard.hidden = !status.gamingSurfaceMode
+      && Array.isArray(status.supportedLiftOffDistances)
+      && status.supportedLiftOffDistances.length === 0;
+  }
+  const onboardSection = document.querySelector<HTMLElement>("#logitech-onboard");
+  if (onboardSection) {
+    const supportsOnboard = status.brand === "Logitech" && status.deviceMode !== undefined && status.deviceMode !== "Unknown";
+    onboardSection.hidden = !supportsOnboard;
+    if (supportsOnboard) {
+      lastDeviceMode = status.deviceMode;
+      lastProfileFormat = status.onboardProfileFormat ?? null;
+      // Profiles stay in flash regardless of mode, so they are listed either
+      // way; only which entry is highlighted changes. Read once per device —
+      // the refresh loop must never trigger a full profile pass.
+      if (onboardProfiles === null && !onboardProfilesLoading) void reloadOnboardProfiles();
+      else renderOnboardProfiles();
+    }
+  }
+  const lightforceCard = document.querySelector<HTMLElement>("#lightforce-card");
+  if (lightforceCard) lightforceCard.hidden = !status.lightforceSwitchMode;
+  document.querySelectorAll<HTMLButtonElement>("[data-lightforce]").forEach((button) => {
+    setSelected(button, button.dataset.lightforce === status.lightforceSwitchMode);
+    button.disabled = settingsPending || !status.lightforceSwitchMode;
+  });
+  renderLighting(status, settingsPending);
+  renderNinjutsoSettings(status, settingsPending);
   document.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
-    button.classList.toggle("selected", Number(button.dataset.dpi) === status.dpi);
+    setSelected(button, Number(button.dataset.dpi) === status.dpi);
     button.disabled = settingsPending;
   });
   const customDpi = document.querySelector<HTMLButtonElement>("#custom-dpi");
@@ -820,7 +1590,17 @@ function showStatus(status: MouseStatus): void {
     dpiOutputField.readOnly = true;
   }
   const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
-  if (axisControls) axisControls.style.display = status.brand === "Logitech" && status.supportsSeparateDpiAxes ? "block" : "none";
+  const showSeparateDpiAxes = status.brand === "Logitech"
+    && status.supportsSeparateDpiAxes === true
+    && !dpiSlotsAvailable();
+  if (axisControls) axisControls.style.display = showSeparateDpiAxes ? "block" : "none";
+  const dpiLabel = (source: MouseStatus): string => showSeparateDpiAxes
+    ? `X ${source.dpi.toLocaleString()} · Y ${(source.dpiY ?? source.dpi).toLocaleString()} DPI`
+    : `${source.dpi.toLocaleString()} DPI`;
+  setText("#dpi-pending", isPendingChange("dpi")
+    ? `Staged ${dpiLabel(status)}`
+    : `Current ${dpiLabel(deviceStatus)}`);
+  settingsGrid?.classList.toggle("has-logitech-axis-controls", showSeparateDpiAxes);
   const dpiX = document.querySelector<HTMLInputElement>("#logitech-dpi-x");
   const dpiY = document.querySelector<HTMLInputElement>("#logitech-dpi-y");
   if (dpiX) dpiX.value = String(status.dpi);
@@ -828,6 +1608,192 @@ function showStatus(status: MouseStatus): void {
   const logitechDetails = document.querySelector<HTMLElement>("#logitech-device-details");
   if (logitechDetails) logitechDetails.style.display = status.brand === "Logitech" ? "block" : "none";
   if (status.brand === "Logitech") renderLogitechDetails(status);
+  renderLogitechAnalogButtonSettings(status);
+  renderDeviceDiagnostics(deviceStatus);
+  applyWorkspaceTab(activeWorkspaceTab, false);
+}
+
+function renderLighting(status: MouseStatus, settingsPending: boolean): void {
+  renderLightingCard(status, settingsPending, "lighting");
+  renderLightingCard(status, settingsPending, "lighting-tab");
+}
+
+function renderLightingCard(status: MouseStatus, settingsPending: boolean, prefix: "lighting" | "lighting-tab"): void {
+  const card = document.querySelector<HTMLElement>(`#${prefix}-card`);
+  const lighting = status.lighting;
+  if (!card) return;
+  if (!lighting) {
+    card.hidden = true;
+    card.style.display = "none";
+    return;
+  }
+  card.hidden = false;
+  card.style.display = "";
+  setText(`#${prefix}-title`, lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`);
+  const mode = lighting.mode;
+  const usesColor = mode !== null && lighting.colorModes.includes(mode);
+  const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
+  const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
+  const modesContainer = document.querySelector<HTMLElement>(`#${prefix}-modes`);
+  if (modesContainer) {
+    modesContainer.innerHTML = lighting.modes
+      .map((candidate) => `<button type="button" data-lighting-mode="${candidate}" aria-pressed="${candidate === mode}">${candidate}</button>`)
+      .join("");
+  }
+  document.querySelectorAll<HTMLButtonElement>("[data-lighting-mode]").forEach((button) => {
+    setSelected(button, button.dataset.lightingMode === mode);
+    button.disabled = settingsPending;
+  });
+  const colorRow = document.querySelector<HTMLElement>(`#${prefix}-color-row`);
+  if (colorRow) colorRow.hidden = !usesColor;
+  const color2Field = document.querySelector<HTMLElement>(`#${prefix}-color2-field`);
+  if (color2Field) color2Field.hidden = !usesColor2;
+  if (usesColor) setControlValue(`#${prefix}-color`, lighting.color ?? "#00ff00");
+  if (usesColor2) setControlValue(`#${prefix}-color2`, lighting.color2 ?? "#ff0000");
+  const speedRow = document.querySelector<HTMLElement>(`#${prefix}-speed-row`);
+  if (speedRow) speedRow.hidden = !usesSpeed;
+  if (usesSpeed) {
+    const speedsContainer = document.querySelector<HTMLElement>(`#${prefix}-speeds`);
+    const speedSlider = document.querySelector<HTMLInputElement>(`#${prefix}-speed-slider`);
+    if (speedsContainer) {
+      speedsContainer.hidden = lighting.speeds.length > 8;
+      speedsContainer.innerHTML = lighting.speeds
+        .map((speed) => `<button type="button" data-lighting-speed="${speed}" aria-pressed="${speed === lighting.speed}">${speed}</button>`)
+        .join("");
+    }
+    document.querySelectorAll<HTMLButtonElement>("[data-lighting-speed]").forEach((button) => {
+      setSelected(button, Number(button.dataset.lightingSpeed) === lighting.speed);
+      button.disabled = settingsPending;
+    });
+    if (speedSlider) {
+      speedSlider.hidden = lighting.speeds.length <= 8;
+      if (lighting.speeds.length > 8) {
+        speedSlider.min = String(Math.min(...lighting.speeds));
+        speedSlider.max = String(Math.max(...lighting.speeds));
+        speedSlider.step = "1";
+        speedSlider.value = String(lighting.speed ?? lighting.speeds[0] ?? 0);
+        speedSlider.disabled = settingsPending;
+      }
+    }
+  }
+  const brightnessRow = document.querySelector<HTMLElement>(`#${prefix}-brightness-row`);
+  const brightnessLevels = lighting.brightnessLevels ?? [];
+  if (brightnessRow) brightnessRow.hidden = brightnessLevels.length === 0;
+  const brightnessContainer = document.querySelector<HTMLElement>(`#${prefix}-brightness-levels`);
+  if (brightnessContainer && brightnessLevels.length) {
+    brightnessContainer.innerHTML = brightnessLevels
+      .map((level) => `<button type="button" data-lighting-brightness="${level}" aria-pressed="${level === lighting.brightness}">${level}%</button>`)
+      .join("");
+    brightnessContainer.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending);
+  }
+  const pending = document.querySelector<HTMLElement>(`#${prefix}-pending`);
+  if (pending) pending.textContent = isPendingChange("lighting")
+    ? `Staged: ${describeLighting(status.lighting ?? lighting)}`
+    : "Choose an effect";
+  const writeOnlyBadge = document.querySelector<HTMLElement>(`#${prefix}-write-only-badge`);
+  if (writeOnlyBadge) writeOnlyBadge.hidden = !lighting.writeOnly;
+  const note = document.querySelector<HTMLElement>(`#${prefix}-note`);
+  if (note) {
+    note.textContent = lighting.writeOnly
+      ? "The mouse cannot report its current effect, so this shows the last value written."
+      : `Picks the ${lighting.zone} light effect.`;
+  }
+  const colorInput = document.querySelector<HTMLInputElement>(`#${prefix}-color`);
+  if (colorInput) colorInput.disabled = settingsPending || !usesColor;
+  const color2Input = document.querySelector<HTMLInputElement>(`#${prefix}-color2`);
+  if (color2Input) color2Input.disabled = settingsPending || !usesColor2;
+  syncColorPickers();
+}
+
+function renderNinjutsoSettings(status: MouseStatus, settingsPending: boolean): void {
+  const sensorCard = document.querySelector<HTMLElement>("#ninjutso-sensor-settings");
+  const clickCard = document.querySelector<HTMLElement>("#ninjutso-click-settings");
+  const sensorVisible = status.brand === "Ninjutso" && Boolean(status.ninjutsoSystemMode || status.ninjutsoOpticalEngine);
+  const clickVisible = status.brand === "Ninjutso" && Boolean(status.ninjutsoHyperClick != null || status.ninjutsoSlamClick);
+  if (sensorCard) {
+    sensorCard.hidden = !sensorVisible;
+    sensorCard.style.display = sensorVisible ? "" : "none";
+  }
+  if (clickCard) {
+    clickCard.hidden = !clickVisible;
+    clickCard.style.display = clickVisible ? "" : "none";
+  }
+  const hyperRow = document.querySelector<HTMLElement>("#ninjutso-hyper-row");
+  const hyperAvailable = status.brand === "Ninjutso" && status.ninjutsoHyperClick != null;
+  if (hyperRow) hyperRow.hidden = !hyperAvailable;
+  const hyperToggle = document.querySelector<HTMLButtonElement>("#ninjutso-hyper-toggle");
+  if (hyperToggle && hyperAvailable) {
+    setToggleValue("#ninjutso-hyper-toggle", status.ninjutsoHyperClick);
+    hyperToggle.dataset.ninjutsoValue = String(!status.ninjutsoHyperClick);
+    hyperToggle.disabled = settingsPending;
+  }
+  const groups: Array<[string, readonly string[] | undefined, string | null | undefined]> = [
+    ["system", status.ninjutsoSystemModes, status.ninjutsoSystemMode],
+    ["optical", status.ninjutsoOpticalEngine ? ["Standard", "Burst"] : undefined, status.ninjutsoOpticalEngine],
+    ["slam", status.ninjutsoSlamClick ? ["Low", "Medium", "High"] : undefined, status.ninjutsoSlamClick],
+  ];
+  for (const [setting, values, selected] of groups) {
+    const row = document.querySelector<HTMLElement>(`#ninjutso-${setting}-row`);
+    if (row) row.hidden = !values?.length;
+    const container = document.querySelector<HTMLElement>(`#ninjutso-${setting}-options`);
+    if (!container || !values?.length) continue;
+    container.innerHTML = values.map((value) => {
+      return `<button type="button" data-ninjutso-setting="${setting}" data-ninjutso-value="${value}" aria-pressed="${value === selected}">${value}</button>`;
+    }).join("");
+    const locked = setting === "optical" && status.ninjutsoSystemMode === "Ultra"
+      || setting === "system" && status.ninjutsoSystemModes?.length === 2
+        && (status.pollingRateHz > 1000 || status.connectionType === "Wired");
+    container.querySelectorAll<HTMLButtonElement>("button").forEach((button) => button.disabled = settingsPending || locked);
+  }
+}
+
+function renderLogitechAnalogButtonSettings(status: MouseStatus): void {
+  const section = document.querySelector<HTMLElement>("#logitech-analog-button-settings");
+  const tuning = status.brand === "Logitech" ? status.analogButtonTuning : undefined;
+  if (!section) return;
+  section.style.display = tuning?.buttons.length === 2 ? "block" : "none";
+  if (!tuning || tuning.buttons.length !== 2) return;
+  for (const side of ["left", "right"] as const) {
+    const values = tuning.buttons[side === "left" ? 0 : 1];
+    for (const [setting, value, max] of [
+      ["actuation", values.actuation, tuning.maxActuation],
+      ["rapid-trigger", values.rapidTrigger, tuning.maxRapidTrigger],
+      ["haptics", values.haptics, tuning.maxHaptics],
+    ] as const) {
+      const input = document.querySelector<HTMLInputElement>(`#logitech-${side}-${setting}`);
+      if (input) {
+        input.value = String(value);
+        input.max = String(max);
+        document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+          option.setAttribute("aria-pressed", String(Number(option.dataset.superstrikeValue) === value));
+        });
+      }
+    }
+  }
+  const both = tuning.buttons[0];
+  for (const [setting, value, max] of [
+    ["actuation", both.actuation, tuning.maxActuation],
+    ["rapid-trigger", both.rapidTrigger, tuning.maxRapidTrigger],
+    ["haptics", both.haptics, tuning.maxHaptics],
+  ] as const) {
+    const input = document.querySelector<HTMLInputElement>(`#logitech-both-${setting}`);
+    if (input) {
+      input.value = String(value);
+      input.max = String(max);
+      document.querySelectorAll<HTMLButtonElement>(`[data-superstrike-input="${input.id}"]`).forEach((option) => {
+        option.setAttribute("aria-pressed", String(Number(option.dataset.superstrikeValue) === value));
+      });
+    }
+  }
+}
+
+function setSuperstrikeTuningMode(mode: "independent" | "both"): void {
+  const panels = document.querySelector<HTMLElement>(".superstrike-tuning-panels");
+  if (!panels) return;
+  panels.dataset.superstrikeMode = mode;
+  document.querySelectorAll<HTMLButtonElement>("[data-superstrike-tab]").forEach((tab) => {
+    tab.setAttribute("aria-selected", String(tab.dataset.superstrikeTab === mode));
+  });
 }
 
 function renderLogitechDetails(status: MouseStatus): void {
@@ -840,6 +1806,9 @@ function renderLogitechDetails(status: MouseStatus): void {
   const items = [
     ["Mode", status.deviceMode ?? "Unknown"],
     ["Active profile", status.activeProfile === null ? "None in host mode" : `Profile ${status.activeProfile}`],
+    ["Profile format", status.onboardProfileFormat
+      ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name} (base ${status.onboardProfileFormat.base})`
+      : "Not reported"],
     ["Model ID", status.modelId ?? "Not reported"],
     ["Unit ID", status.unitId ?? "Not reported"],
     ["Transport IDs", transports],
@@ -847,37 +1816,7 @@ function renderLogitechDetails(status: MouseStatus): void {
     ["DPI axes", status.supportsSeparateDpiAxes ? `X ${status.dpi} · Y ${status.dpiY ?? status.dpi}` : "Linked X/Y"],
   ];
   list.innerHTML = items.map(([label, value]) =>
-    `<div style="padding:.55rem;border:1px solid #29292d;border-radius:7px;background:#141416"><small style="display:block;margin-bottom:.25rem;color:#77777c;font-size:.52rem;letter-spacing:.08em">${label.toUpperCase()}</small><span style="color:#d8d8dc;font:600 .67rem 'JetBrains Mono',monospace;overflow-wrap:anywhere">${value}</span></div>`).join("");
-}
-
-function setControlValue(selector: string, value: number | string | null | undefined): void {
-  const control = document.querySelector<HTMLSelectElement>(selector);
-  if (!control) return;
-  control.disabled = value === null || value === undefined;
-  if (control.disabled) return;
-  control.value = String(value);
-}
-
-function setToggleValue(selector: string, value: boolean | null | undefined): void {
-  const control = document.querySelector<HTMLButtonElement>(selector);
-  if (!control) return;
-  control.disabled = value === null || value === undefined;
-  if (control.disabled) {
-    control.textContent = "N/A";
-    control.style.background = "#202023";
-    control.style.borderColor = "#3a3a3f";
-    control.style.color = "#66666b";
-    return;
-  }
-  control.setAttribute("aria-checked", String(value));
-  control.textContent = value ? "On" : "Off";
-  control.style.background = value ? "var(--ui-accent)" : "#202023";
-  control.style.borderColor = value ? "var(--ui-accent)" : "#3a3a3f";
-  control.style.color = value ? "var(--ui-accent-ink)" : "#8b8b90";
-}
-
-function formatHex(value: number, width = 2): string {
-  return value.toString(16).toUpperCase().padStart(width, "0");
+    `<div><small>${label.toUpperCase()}</small><span>${value}</span></div>`).join("");
 }
 
 async function showPulsarExplorer(client: PulsarClient): Promise<void> {
@@ -887,7 +1826,6 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   setText("#connection-detail", "Reading Pulsar receiver identity");
   setText("#device-title", device.productName || "Pulsar Mouse");
   setText("#device-status", "Connected");
-  setText("#connection-banner", "Pulsar vendor HID connected. Reading verified settings.");
   setText("#read-status", client.describeCollections());
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.remove("is-idle"));
   document.querySelector<HTMLElement>(".control-shell")?.classList.remove("is-empty");
@@ -901,66 +1839,29 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   startAutomaticRefresh();
 }
 
-function createSupportedClient(device: HIDDevice): SupportedClient | null {
-  if (EggOp1HidClient.isSupported(device)) return new EggOp1HidClient(device);
-  if (eggWeIsSupported(device)) return eggWeCreate(device);
-  if (PulsarProHidClient.isSupported(device)) return new PulsarProHidClient(device);
-  if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
-  if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
-  if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
-  return null;
-}
-
-function deviceBrand(client: SupportedClient): string {
-  if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
-  if (client instanceof LogitechHidppClient) return "Logitech";
-  if (client instanceof WLMouseHidClient) return "WLMouse";
-  return "Pulsar";
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;",
-  })[character]!);
-}
-
-/** Supported devices for the sidebar; multi-path drivers collapse via their module. */
-function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
-  const all = devices ?? [];
-  return eggWeMergeLogicalDevices(
-    all,
-    (device) => createSupportedClient(device) !== null,
-  );
-}
-
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
-  const list = document.querySelector<HTMLElement>("#sidebar-device-list");
-  if (!list) return;
   const all = devices ?? await navigator.hid?.getDevices() ?? [];
-  const supportedDevices = listLogicalDevices(all);
-  if (supportedDevices.length === 0) {
-    list.innerHTML = `<div class="device-select"><span class="device-dot is-idle"></span><span><strong>No device connected</strong><small>Choose a supported device</small></span></div>`;
-    return;
+  renderDeviceSidebarView(all, deviceStatuses, activeDevice);
+}
+
+function deviceStorageKey(device: HIDDevice): string {
+  return [device.vendorId, device.productId, device.productName || "unknown"].join(":");
+}
+
+function storedActiveDeviceKey(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_DEVICE_STORAGE_KEY);
+  } catch {
+    return null;
   }
-  list.innerHTML = supportedDevices.map((device, index) => {
-    const client = createSupportedClient(device)!;
-    const status = deviceStatuses.get(device);
-    const selected = device === activeDevice;
-    const name = status?.name
-      ?? status?.ui?.defaultDisplayName
-      ?? (isEggWeClient(client) ? EGG_WE_DISPLAY_NAME : (device.productName ?? `${deviceBrand(client)} mouse`));
-    const detail = status
-      ? `${status.brand} · ${status.connectionType ?? "Connected"}`
-      : `${deviceBrand(client)} · Available`;
-    return `<button class="device-select${selected ? " is-selected" : ""}" type="button" data-device-index="${index}" aria-pressed="${selected}">
-      <span class="device-dot${selected ? "" : " is-idle"}"></span>
-      <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></span>
-    </button>`;
-  }).join("");
+}
+
+function rememberActiveDevice(device: HIDDevice): void {
+  try {
+    localStorage.setItem(ACTIVE_DEVICE_STORAGE_KEY, deviceStorageKey(device));
+  } catch {
+    // Device selection still works when storage is blocked or unavailable.
+  }
 }
 
 async function selectAuthorizedDevice(index: number): Promise<void> {
@@ -978,25 +1879,40 @@ async function selectAuthorizedDevice(index: number): Promise<void> {
     const message = error instanceof Error ? error.message : "Unable to switch devices.";
     setText("#device-status", "Connection failed");
     setText("#read-status", message);
+    await renderDeviceSidebar();
   }
 }
 
 function statusNameForClient(client: SupportedClient): string {
   if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
+  if (client instanceof FinalmouseHidClient) return client.displayName();
   return client.device.productName || "the selected mouse";
 }
 
 async function activateClient(client: SupportedClient): Promise<void> {
   resetDeviceSpecificPanels();
+  // Staged changes belong to the mouse they were made on.
+  clearPendingChanges();
+  latestDeviceStatus = null;
   activeClient = null;
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
-  activeWLMouseClient = null;
+  activeDmClient = null;
+  activeOrbitalClient = null;
+  activeRazerClient = null;
+  activeTeevolutionClient = null;
+  activeVgnClient = null;
+  activeViperClient = null;
+  activeModdoClient = null;
+  if (activeDevice !== client.device) onboardProfiles = null;
+  activeFinalmouseClient = null;
+  activeKeychronClient = null;
   activeDevice = client.device;
+  recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
-  if (client instanceof WLMouseHidClient) {
-    activeWLMouseClient = client;
+  if (client instanceof WLMouseHidClient || client instanceof LamzuHidClient || client instanceof AtkHidClient || client instanceof NinjutsoHidClient) {
+    activeDmClient = client;
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     dpiOptions = client.getDpiOptions();
@@ -1027,11 +1943,72 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = await client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof OrbitalHidClient) {
+    activeOrbitalClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof RazerHidClient || client instanceof RazerViperMiniHidClient || client instanceof RazerViperHidClient || client instanceof RazerCobraHidClient) {
+    activeRazerClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof RazerViperV4ProHidClient) {
+    activeViperClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof FinalmouseHidClient) {
+    activeFinalmouseClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof TeevolutionHidClient) {
+    activeTeevolutionClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof VgnF2HidClient) {
+    activeVgnClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof KeychronHidClient) {
+    activeKeychronClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof ModdoHidClient) {
+    activeModdoClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
   }
   await renderDeviceSidebar();
+  rememberActiveDevice(client.device);
   startAutomaticRefresh();
   // Always restore the sidebar action after a successful activate.
   setConnectionButtons(false, "Add device");
@@ -1046,17 +2023,29 @@ function showDisconnectedState(): void {
   activePulsarClient = null;
   activeEggClient = null;
   activeEggWeClient = null;
-  activeWLMouseClient = null;
+  activeDmClient = null;
+  activeOrbitalClient = null;
+  activeRazerClient = null;
+  activeTeevolutionClient = null;
+  activeVgnClient = null;
+  activeViperClient = null;
+  activeModdoClient = null;
+  activeFinalmouseClient = null;
+  activeKeychronClient = null;
   activeDevice = null;
+  onboardProfiles = null;
   lastRenderedStatusKey = null;
+  clearPendingChanges();
+  latestDeviceStatus = null;
   resetDeviceSpecificPanels();
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) advanced.style.display = "none";
   document.querySelector<HTMLElement>(".control-shell")?.classList.add("is-empty");
   document.querySelectorAll<HTMLElement>(".device-dot, .status-dot").forEach((dot) => dot.classList.add("is-idle"));
+  setPageTitle();
   setText("#device-title", "Connect a mouse");
+  setText("#sidebar-device-title", "Connected mouse");
   setText("#device-status", "No device connected");
-  setText("#connection-banner", "Connect a supported device to view and change its settings.");
   setText("#read-status", "Add a supported device from the sidebar to read its current status.");
   setConnectionButtons(false, "Add device");
 }
@@ -1100,7 +2089,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
   }
 
   setText("#device-status", "New device detected");
-  setText("#read-status", `Reading ${event.device.productName || "the connected mouse"}.`);
+  setText("#read-status", `Reading ${statusNameForClient(client)}.`);
   void activateClient(client).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unable to read the connected mouse.";
     setText("#device-status", "Connection failed");
@@ -1159,30 +2148,26 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   }
 
   const details = devices.map((device) => describeHidDevice(device)).join(" · ");
+  const nativeOnly = devices.find((device) => {
+    const product = RAZER_PRODUCTS.get(device.productId) as { nativeOnly?: boolean } | undefined;
+    return product?.nativeOnly === true;
+  });
+  if (nativeOnly) {
+    // A nativeOnly model (e.g. DeathAdder V4 Pro) moves its control channel to
+    // a collection the browser refuses to expose, so the picker filters should
+    // not offer it at all. If one was granted anyway, say why it cannot work.
+    const product = RAZER_PRODUCTS.get(nativeOnly.productId);
+    throw new Error(
+      `The ${product?.model ?? "mouse"} cannot be read in the browser: its control channel `
+      + "sits on a protected HID collection. Razer only exposes it through the desktop "
+      + "Synapse app, so this mouse needs a native client.",
+    );
+  }
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
-}
-
-function clientSupportScore(device: HIDDevice): number {
-  if (EggOp1HidClient.isSupported(device)) return 10;
-  if (eggWeIsSupported(device)) return eggWeSupportScore(device);
-  if (PulsarProHidClient.isSupported(device)) return 8;
-  if (PulsarHidClient.isSupported(device)) return 7;
-  if (LogitechHidppClient.isSupported(device)) return 6;
-  return 0;
-}
-
-function describeHidDevice(device: HIDDevice): string {
-  const name = device.productName || "unknown";
-  const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;
-  const collections = device.collections.map((collection) => {
-    const features = collection.featureReports.map((report) => `0x${report.reportId.toString(16)}`).join(",") || "none";
-    return `usage 0x${collection.usagePage.toString(16)}:${collection.usage.toString(16)} feat[${features}]`;
-  }).join(" | ") || "no collections";
-  return `${name} (${ids}; ${collections})`;
 }
 
 async function connect(): Promise<void> {
@@ -1204,12 +2189,15 @@ async function connect(): Promise<void> {
     await activateClient(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    // Picking a keyboard or headset is a wrong choice, not a failure: say so,
+    // and do not file it as a device error in diagnostics.
+    const wrongDevice = error instanceof NotAMouseError;
+    if (!wrongDevice) recordDiagnosticError(error, message);
     await activeEggClient?.close().catch(() => undefined);
     activeEggClient = null;
     await activeEggWeClient?.close().catch(() => undefined);
     activeEggWeClient = null;
-    setText("#device-status", "Connection failed");
-    setText("#connection-banner", message);
+    setText("#device-status", wrongDevice ? "Not a mouse" : "Connection failed");
     setText("#read-status", message);
   } finally {
     // Always clear the busy label — success used to leave "Connecting…" stuck.
@@ -1219,10 +2207,7 @@ async function connect(): Promise<void> {
 
 async function reconnectAuthorizedDevice(): Promise<void> {
   if (hasActiveClient() || reconnectInFlight) return;
-  const button = document.querySelector<HTMLButtonElement>("#connect-button");
-  if (!button) return;
   reconnectInFlight = true;
-  setConnectionButtons(true, "Reconnecting…");
 
   let lastError: Error | null = null;
   try {
@@ -1237,10 +2222,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (hasActiveClient()) return;
 
       const devices = await navigator.hid?.getDevices() ?? [];
+      const preferredKey = storedActiveDeviceKey();
       const clients = listLogicalDevices(devices)
-        .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
-        .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
-        .sort((left, right) => right.score - left.score)
+        .map((device) => ({
+          client: createSupportedClient(device),
+          preferred: deviceStorageKey(device) === preferredKey,
+          score: clientSupportScore(device),
+        }))
+        .filter((entry): entry is { client: SupportedClient; preferred: boolean; score: number } => entry.client !== null)
+        .sort((left, right) => Number(right.preferred) - Number(left.preferred) || right.score - left.score)
         .map((entry) => entry.client);
       await renderDeviceSidebar(devices);
       if (clients.length === 0) continue;
@@ -1260,13 +2250,10 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     }
     if (!hasActiveClient()) {
       setText("#device-status", "Not connected");
-      if (lastError) setText("#connection-banner", lastError.message);
-      setText("#read-status", "Use Add device if the mouse does not reconnect automatically.");
+      setText("#read-status", lastError?.message ?? "Use Add device if the mouse does not reconnect automatically.");
     }
   } finally {
     reconnectInFlight = false;
-    // Always restore the button — previously success left "Reconnecting…" forever.
-    setConnectionButtons(false, "Add device");
   }
 }
 
@@ -1299,16 +2286,22 @@ function configureDpiControl(currentDpi: number): void {
   const presets = document.querySelector<HTMLElement>("#dpi-presets");
   const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (!presets || !custom || dpiOptions.length === 0) return;
-  const common = [400, 800, 1600, 3200, 6400, 8000].filter((dpi) => dpiOptions.includes(dpi));
+  const common = dpiPresetValues(dpiOptions);
   const values = common.includes(currentDpi) ? common : [...common, currentDpi].sort((a, b) => a - b);
-  presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
+  presets.innerHTML = values.map((dpi) => `<button type="button" data-dpi="${dpi}" aria-pressed="${dpi === currentDpi}" class="${dpi === currentDpi ? "selected" : ""}">${dpi.toLocaleString()}</button>`).join("");
   presets.querySelectorAll<HTMLButtonElement>("[data-dpi]").forEach((button) => {
     button.addEventListener("click", () => void applyDpiValue(Number(button.dataset.dpi)));
   });
   custom.disabled = false;
+  const min = Math.min(...dpiOptions);
+  const max = Math.max(...dpiOptions);
+  document.querySelectorAll<HTMLInputElement>("#logitech-dpi-x, #logitech-dpi-y").forEach((axis) => {
+    axis.min = String(min);
+    axis.max = String(max);
+  });
 }
 
-async function chooseCustomDpi(): Promise<void> {
+function chooseCustomDpi(): void {
   const input = document.querySelector<HTMLInputElement>("#dpi-output");
   const button = document.querySelector<HTMLButtonElement>("#custom-dpi");
   if (!input || !button) return;
@@ -1323,12 +2316,26 @@ async function chooseCustomDpi(): Promise<void> {
   }
   const dpi = Number(input.value.replace(/[^\d]/g, ""));
   if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
-    setText("#read-status", "That DPI value is not supported by this mouse.");
+    // Naming the closest step saves guessing on mice whose grid does not land
+    // on round numbers, where every obvious value looks unsupported.
+    const closest = Number.isInteger(dpi) && dpi > 0 ? closestDpiOption(dpiOptions, dpi) : null;
+    setText("#read-status", closest === null
+      ? "That DPI value is not supported by this mouse."
+      : `This mouse cannot do ${dpi.toLocaleString()} DPI. The closest step it supports is ${closest.toLocaleString()}.`);
     input.focus();
     input.select();
     return;
   }
-  if (await applyDpiValue(dpi)) finishCustomDpiEditing(dpi);
+  if (applyDpiValue(dpi)) finishCustomDpiEditing(dpi);
+}
+
+function sanitizeCustomDpi(): void {
+  const input = document.querySelector<HTMLInputElement>("#dpi-output");
+  if (!input || input.readOnly) return;
+  const digits = input.value.replace(/\D/g, "");
+  const max = dpiOptions.length > 0 ? Math.max(...dpiOptions) : null;
+  const next = max !== null && digits !== "" && Number(digits) > max ? String(max) : digits;
+  if (next !== input.value) input.value = next;
 }
 
 function finishCustomDpiEditing(dpi?: number): void {
@@ -1342,131 +2349,1331 @@ function finishCustomDpiEditing(dpi?: number): void {
   button.textContent = "Custom";
 }
 
-async function applyDpiValue(dpi: number): Promise<boolean> {
-  const client = activeSettingsClient();
-  if (!client || !dpiOptions.includes(dpi) || refreshInProgress || settingInProgress) return false;
-  settingInProgress = true;
-  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-dpi], #custom-dpi");
-  buttons.forEach((button) => { button.disabled = true; });
-  setText("#read-status", `Setting ${dpi.toLocaleString()} DPI…`);
-  try {
-    await client.setDpi(dpi);
-    showStatus(await client.readStatus());
-    setText("#dpi-pending", `Confirmed at ${dpi.toLocaleString()} DPI`);
-    return true;
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to set DPI.");
-    return false;
-  } finally {
-    settingInProgress = false;
-    buttons.forEach((button) => { button.disabled = false; });
-  }
+function applyDpiValue(dpi: number): boolean {
+  if (!hasActiveClient() || !dpiOptions.includes(dpi)) return false;
+  stageChange({
+    key: "dpi",
+    label: `DPI ${dpi.toLocaleString()}`,
+    command: `Set DPI to ${dpi.toLocaleString()}`,
+    progress: `Setting ${dpi.toLocaleString()} DPI…`,
+    preview: (status) => {
+      status.dpi = dpi;
+      // Only mirror the Y axis when the driver actually reports one, so the
+      // comparison against the device status stays exact.
+      if (status.dpiY !== undefined) status.dpiY = dpi;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpi", "DPI").setDpi(dpi);
+    },
+  });
+  return true;
 }
 
-async function applyLogitechAxisDpi(): Promise<void> {
-  if (!activeClient || refreshInProgress || settingInProgress) return;
+function applyLogitechAxisDpi(): void {
+  if (!activeClient) return;
   const dpiX = Number(document.querySelector<HTMLInputElement>("#logitech-dpi-x")?.value);
   const dpiY = Number(document.querySelector<HTMLInputElement>("#logitech-dpi-y")?.value);
   if (!dpiOptions.includes(dpiX) || !dpiOptions.includes(dpiY)) {
     setText("#read-status", "Both axis values must be advertised DPI values.");
     return;
   }
-  settingInProgress = true;
-  setText("#read-status", `Setting X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI…`);
-  try {
-    await activeClient.setDpi(dpiX, dpiY);
-    showStatus(await activeClient.readStatus());
-    setText("#dpi-pending", `Confirmed X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI`);
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to set axis DPI.");
-  } finally {
-    settingInProgress = false;
-  }
-}
-
-async function applyPollingRate(rate: number): Promise<void> {
-  const client = activeSettingsClient();
-  if (!client || refreshInProgress || settingInProgress) return;
-  settingInProgress = true;
-  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-rate]");
-  buttons.forEach((button) => {
-    button.disabled = true;
+  stageChange({
+    key: "dpi",
+    label: `DPI X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()}`,
+    command: `Set DPI axes to X ${dpiX.toLocaleString()} / Y ${dpiY.toLocaleString()}`,
+    progress: `Setting X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI…`,
+    preview: (status) => {
+      status.dpi = dpiX;
+      status.dpiY = dpiY;
+    },
+    apply: async () => {
+      if (!activeClient) throw new Error("The mouse is no longer connected.");
+      await activeClient.setDpi(dpiX, dpiY);
+    },
   });
-  setText("#read-status", `Setting ${rate.toLocaleString()} Hz…`);
-  try {
-    await client.setPollingRate(rate);
-    showStatus(await client.readStatus());
-  } catch (error) {
-    const status = await client.readStatus().catch(() => null);
-    if (status) showStatus(status);
-    setText("#read-status", error instanceof Error ? error.message : "Unable to set polling rate.");
-  } finally {
-    settingInProgress = false;
-    buttons.forEach((button) => {
-      button.disabled = false;
-    });
-  }
 }
 
-async function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): Promise<void> {
-  const client = activeSettingsClient();
+function readAnalogTuning(group: "left" | "right" | "both"): { actuation: number; rapidTrigger: number; haptics: number } {
+  const read = (setting: "actuation" | "rapid-trigger" | "haptics"): number =>
+    Number(document.querySelector<HTMLInputElement>(`#logitech-${group}-${setting}`)?.value);
+  return { actuation: read("actuation"), rapidTrigger: read("rapid-trigger"), haptics: read("haptics") };
+}
+
+/** Stages one hall-effect button profile. Keyed per button so "both" replaces either side. */
+function stageAnalogButton(button: 0 | 1, tuning: { actuation: number; rapidTrigger: number; haptics: number }): void {
+  const side = button === 0 ? "left" : "right";
+  stageChange({
+    key: `analog-button-${button}`,
+    label: `${side === "left" ? "Left" : "Right"} HITS tuning`,
+    command: `Set ${side} hall-effect button tuning`,
+    progress: `Setting ${side} hall-effect button tuning…`,
+    preview: (status) => {
+      const buttons = status.analogButtonTuning?.buttons;
+      if (buttons?.[button]) buttons[button] = { ...tuning };
+    },
+    apply: async () => {
+      if (!activeClient) throw new Error("The mouse is no longer connected.");
+      await activeClient.setAnalogButtonTuning(button, tuning);
+    },
+  });
+}
+
+function applyLogitechAnalogButton(button: 0 | 1): void {
+  if (!activeClient) return;
+  stageAnalogButton(button, readAnalogTuning(button === 0 ? "left" : "right"));
+}
+
+async function applyOnboardMode(mode: "Onboard" | "Host"): Promise<void> {
+  const client = activeClient;
   if (!client || refreshInProgress || settingInProgress) return;
+  // Host mode opens the host layer, which discards profile edits the same way.
+  if (mode === "Host" && !confirmDiscardingProfileEdits("host")) return;
   settingInProgress = true;
-  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-lod]");
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboard-mode]");
   buttons.forEach((button) => { button.disabled = true; });
-  setText("#read-status", `Setting ${lod.toLowerCase()} lift-off distance…`);
+  setText("#read-status", `Switching to ${mode.toLowerCase()} mode…`);
+  recordDiagnosticCommand(`Set onboard mode to ${mode}`);
   try {
-    await client.setLiftOffDistance(lod);
-    showStatus(await client.readStatus());
+    await client.setOnboardMode(mode);
+    // Host has no stored profile to edit, so switching to it also opens it.
+    if (mode === "Host") selectEditedProfile("host");
+    showStatus(await statusAfterWrite(client));
   } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to set lift-off distance.");
+    recordDiagnosticError(error, "Unable to change the onboard mode.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the onboard mode.");
   } finally {
-    settingInProgress = false;
-    buttons.forEach((button) => {
-      button.disabled = activeClient !== null && button.dataset.lod === "Low";
-    });
+    endDeviceWrite();
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 
-async function toggleDongleLed(): Promise<void> {
-  const button = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
-  if (!button || !activePulsarClient || settingInProgress) return;
-  const enabled = button.dataset.enabled !== "true";
+async function selectOnboardProfile(sector: number): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+  // Asked before the mouse is touched: switching profiles also opens the new
+  // one, so the edits would be gone by the time the prompt appeared.
+  if (!confirmDiscardingProfileEdits(sector)) return;
   settingInProgress = true;
-  button.disabled = true;
-  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} the receiver LED…`);
+  setText("#read-status", `Switching to profile ${sector}…`);
+  recordDiagnosticCommand(`Select onboard profile ${sector}`);
   try {
-    await activePulsarClient.setDongleLed(enabled);
-    showStatus(await activePulsarClient.readStatus());
+    if (lastDeviceMode !== "Onboard") await client.setOnboardMode("Onboard");
+    await client.setCurrentProfile(sector);
+    // Switching to a profile also opens it, which is what you would expect
+    // after asking the mouse to run it.
+    selectEditedProfile(sector);
+    showStatus(await statusAfterWrite(client));
+    await reloadOnboardProfiles();
   } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change the receiver LED.");
+    recordDiagnosticError(error, "Unable to select that profile.");
+    setText("#read-status", error instanceof Error ? error.message : "Unable to select that profile.");
   } finally {
-    settingInProgress = false;
-    button.disabled = false;
+    endDeviceWrite();
   }
+}
+
+/**
+ * Enabling or disabling a slot rewrites the directory sector, so it costs a
+ * flash erase/write cycle and uses a write sequence not yet proven on hardware.
+ * Confirm explicitly rather than treating the icon as a cheap toggle.
+ */
+async function toggleOnboardProfileEnabled(sector: number, enabled: boolean): Promise<void> {
+  const client = activeClient;
+  if (!client || refreshInProgress || settingInProgress) return;
+
+  const confirmed = window.confirm(
+    `${enabled ? "Enable" : "Disable"} profile ${sector}?\n\n`
+    + "This writes to the mouse's flash memory — one write cycle per change. "
+    + "OpenMouse has not yet verified this write sequence on hardware; G HUB can restore the profiles if anything goes wrong.",
+  );
+  if (!confirmed) return;
+
+  settingInProgress = true;
+  setText("#onboard-status", `${enabled ? "Enabling" : "Disabling"} profile ${sector}…`);
+  recordDiagnosticCommand(`${enabled ? "Enable" : "Disable"} onboard profile ${sector}`);
+  try {
+    await client.setProfileEnabled(sector, enabled);
+    await reloadOnboardProfiles();
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to change the profile state.");
+    setText("#onboard-status", error instanceof Error ? error.message : "Unable to change the profile state.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+/**
+ * Bunny hop lives in the active onboard profile, so applying it writes flash.
+ * The encoding is confirmed on hardware but the write sequence is not, hence
+ * the confirmation.
+ */
+const BUNNY_HOP_KEY = "logitech-bunny-hop";
+/**
+ * Settings written into the active profile's sector. Flash is erased and
+ * rewritten a whole sector at a time, so two of these staged together must
+ * cost one erase cycle, not two.
+ */
+const PROFILE_SECTOR_GROUP = "logitech-profile-sector";
+const DPI_SLOTS_KEY = "logitech-dpi-slots";
+
+/**
+ * Writes every staged profile setting in one sector write. This is the apply
+ * for the whole profile-sector group, so it must send everything staged in it:
+ * the group runs once, and whichever change happened to be staged last is the
+ * one that carries it.
+ */
+async function writeStagedProfileSector(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  const entry = editedProfileEntry();
+  if (!entry) throw new Error("No profile is open for editing.");
+  const ratesStaged = isPendingChange(PROFILE_RATE_KEY);
+  await activeClient.writeActiveProfile({
+    // The open profile, which is not necessarily the one the mouse is running.
+    sector: entry.sector,
+    bunnyHoppingMs: isPendingChange(BUNNY_HOP_KEY) ? stagedBunnyHopMs : null,
+    dpiStages: isPendingChange(DPI_SLOTS_KEY) ? dpiSlotPlan : null,
+    reportRateWirelessHz: ratesStaged ? stagedProfileRates.wireless : null,
+    reportRateWiredHz: ratesStaged ? stagedProfileRates.wired : null,
+    name: isPendingChange(PROFILE_NAME_KEY) ? stagedProfileName : null,
+  });
+  // The write changed profile flash, so every cached read is stale.
+  onboardProfiles = null;
+  await reloadOnboardProfiles();
+}
+/**
+ * Staged bunny-hop value. It cannot ride on MouseStatus like the other staged
+ * settings because it lives in the onboard profile, not the status snapshot,
+ * so the pending value is mirrored here for rendering instead.
+ */
+let stagedBunnyHopMs: number | null = null;
+
+function applyBunnyHopMs(milliseconds: number): void {
+  if (!activeClient) return;
+
+  const invalid = validateBunnyHoppingMs(milliseconds);
+  if (invalid) {
+    setText("#bunny-hop-note", invalid);
+    return;
+  }
+
+  const stored = editedProfileEntry()?.bunnyHoppingMs ?? null;
+  if (stored === milliseconds) {
+    stagedBunnyHopMs = null;
+    dropPendingChange(BUNNY_HOP_KEY);
+    renderBunnyHop();
+    return;
+  }
+
+  stagedBunnyHopMs = milliseconds;
+  stageChange({
+    key: BUNNY_HOP_KEY,
+    // Everything stored in the active profile shares one sector, so a second
+    // profile setting must join this group rather than cost its own erase.
+    group: PROFILE_SECTOR_GROUP,
+    label: milliseconds === 0 ? "Bunny hop off" : `Bunny hop ${milliseconds} ms`,
+    command: `Set bunny hop to ${milliseconds} ms`,
+    progress: milliseconds === 0 ? "Turning bunny hop off…" : `Setting bunny hop to ${milliseconds} ms…`,
+    // No preview: the value lives in the onboard profile, not MouseStatus, so
+    // renderBunnyHop mirrors the staged value from stagedBunnyHopMs instead.
+    apply: writeStagedProfileSector,
+  });
+  renderBunnyHop();
+}
+
+
+function renderBunnyHop(): void {
+  const row = document.querySelector<HTMLElement>("#bunny-hop-row");
+  if (!row) return;
+  const active = editedProfileEntry();
+  // Support is a property of the format, not of the stored value: a profile
+  // that never had bunny hop written reads 0xff and decodes to null, which
+  // means off, not unsupported. Keying on the value hid the control entirely
+  // on any profile the setting had not been used on yet.
+  const supported = active !== null
+    && capabilitiesForFormat(lastProfileFormat?.id).bunnyHop;
+  row.hidden = !supported;
+  if (!supported || !active) return;
+
+  const locked = lastProfileFormat?.writable !== true;
+  // Show the staged value, so a background refresh cannot snap the control back
+  // to what is still on the device.
+  // A never-written byte counts as off, so the toggle starts in the off state
+  // rather than the control vanishing.
+  const value = stagedBunnyHopMs ?? active.bunnyHoppingMs ?? 0;
+  const enabled = value !== 0;
+
+  setToggleValue("#bunny-hop-enabled", enabled);
+  const toggle = document.querySelector<HTMLButtonElement>("#bunny-hop-enabled");
+  if (toggle) toggle.disabled = locked || settingInProgress;
+
+  const input = document.querySelector<HTMLInputElement>("#bunny-hop-input");
+  if (input) {
+    // Leave the field alone while it has focus, or typing gets overwritten.
+    // While off there is no stored time, so the field keeps the lowest value
+    // G HUB allows and turning it on applies that.
+    if (document.activeElement !== input) input.value = String(enabled ? value : BUNNY_HOP_LIMITS.minMs);
+    input.disabled = locked || settingInProgress || !enabled;
+  }
+
+  setText("#bunny-hop-note", locked
+    ? "This profile format has not been verified on hardware, so it is read-only."
+    : `Ignores repeat clicks that land within this window, so a switch that bounces during fast click spam only registers once. Longer times filter harder; shorter times let genuine fast clicks through. ${BUNNY_HOP_LIMITS.minMs}–${BUNNY_HOP_LIMITS.maxMs} ms in steps of ${BUNNY_HOP_LIMITS.stepMs}.`);
+}
+
+/**
+ * DPI slots live in the active profile's stage table. The plan is edited as a
+ * whole because the slot count is expressed by zeroing the stages that fall out
+ * of use, so a single slot cannot be written on its own.
+ */
+let dpiSlotPlan: DpiStagePlan | null = null;
+/**
+ * Per-slot axis lock: while a slot is locked, typing X mirrors into Y. Slots
+ * are independent because the choice is per slot — a sniper slot may want
+ * separate axes while the rest stay square.
+ */
+let dpiAxisLocks: boolean[] = [];
+
+function dpiAxisLockedAt(index: number): boolean {
+  return dpiAxisLocks[index] ?? true;
+}
+
+function dpiSlotLimits(): DpiStageCapabilities | null {
+  const format = lastProfileFormat;
+  return format
+    ? dpiStageCapabilitiesForOptions(capabilitiesForFormat(format.id).dpiStages, dpiOptions)
+    : null;
+}
+
+/**
+ * True when the slot editor is driving DPI, which means the preset row and the
+ * single X/Y pair must give way: they write the host layer, the slots write the
+ * profile, and showing both would offer two DPI values that can disagree.
+ * Mice with no slot support keep the preset UI unchanged.
+ */
+function dpiSlotsAvailable(): boolean {
+  return editingStoredProfile() && dpiSlotLimits() !== null && dpiSlotPlan !== null;
+}
+
+/** True while the flash write sequence for stage tables is still unproven. */
+function dpiSlotsLocked(): boolean {
+  return !PROFILE_DPI_WRITES_ENABLED || lastProfileFormat?.writable !== true;
+}
+
+/**
+ * Which profile the settings panels are editing. This is deliberately not the
+ * same as which profile the mouse is running: you can open any stored profile,
+ * change it and flash it without switching to it. "host" means the live layer
+ * rather than a stored profile.
+ */
+let editedProfile: number | "host" | null = null;
+
+function editedProfileEntry(): OnboardProfile | null {
+  if (editedProfile === "host" || editedProfile === null) return null;
+  return onboardProfiles?.find((profile) => profile.sector === editedProfile) ?? null;
+}
+
+/** True while a stored profile is open, so profile settings are in charge. */
+function editingStoredProfile(): boolean {
+  return editedProfileEntry() !== null;
+}
+
+function syncEditedProfile(): void {
+  if (!onboardProfiles) return;
+  // Follow the device on first load, and whenever the chosen profile is gone.
+  const stillThere = editedProfile !== "host"
+    && onboardProfiles.some((profile) => profile.sector === editedProfile);
+  if (stillThere) return;
+  if (editedProfile === "host") return;
+  editedProfile = lastDeviceMode === "Host"
+    ? "host"
+    : onboardProfiles.find((profile) => profile.isCurrent)?.sector ?? "host";
+}
+
+/**
+ * Changes staged against the profile currently open. They are built from that
+ * sector's bytes, so they cannot follow you to another profile.
+ */
+function stagedProfileEdits(): PendingChange[] {
+  return pendingChanges().filter((change) => change.group === PROFILE_SECTOR_GROUP);
+}
+
+/**
+ * Asks before throwing away unflashed edits. Switching profiles discards them,
+ * and losing a set of DPI slots to a stray click is not something to do
+ * silently. Returns false when the user chooses to stay.
+ */
+function confirmDiscardingProfileEdits(target: number | "host"): boolean {
+  const staged = stagedProfileEdits();
+  if (staged.length === 0 || target === editedProfile) return true;
+
+  const from = describeProfileEntry(editedProfileEntry()).name.replace(/ · .*$/, "");
+  const to = target === "host"
+    ? "Host"
+    : onboardProfiles?.find((profile) => profile.sector === target)?.name ?? `Profile ${target}`;
+  return window.confirm(
+    `${from} has ${staged.length} change${staged.length === 1 ? "" : "s"} you have not flashed:\n\n`
+    + `${staged.map((change) => `  • ${change.label}`).join("\n")}\n\n`
+    + `Opening ${to} discards ${staged.length === 1 ? "it" : "them"}. Continue?`,
+  );
+}
+
+function selectEditedProfile(sector: number | "host"): void {
+  if (!confirmDiscardingProfileEdits(sector)) return;
+  editedProfile = sector;
+  // Opening a different profile abandons edits staged against the old one:
+  // they were built from that sector's bytes and cannot carry over.
+  dropPendingChange(DPI_SLOTS_KEY);
+  dropPendingChange(BUNNY_HOP_KEY);
+  dropPendingChange(PROFILE_RATE_KEY);
+  dropPendingChange(PROFILE_NAME_KEY);
+  stagedBunnyHopMs = null;
+  stagedProfileRates = { wireless: null, wired: null };
+  stagedProfileName = null;
+  // The locks describe the slots of the profile that was open, not this one.
+  dpiAxisLocks = [];
+  syncDpiSlotPlan();
+  renderOnboardProfiles();
+  if (latestDeviceStatus) showStatus(latestDeviceStatus);
+}
+
+function syncDpiSlotPlan(): void {
+  const limits = dpiSlotLimits();
+  const entry = editedProfileEntry();
+  // A reload in flight leaves onboardProfiles null for a moment. Clearing the
+  // plan there made the editor blink out and back, so the last one is kept
+  // until there is something to replace it with.
+  if (!onboardProfiles) return;
+  if (!entry || !limits || entry.dpiStages.length === 0) {
+    dpiSlotPlan = null;
+    return;
+  }
+  // A background refresh must not discard edits the user has staged but not
+  // flashed yet, so the device value only reseeds the plan when none is staged.
+  if (isPendingChange(DPI_SLOTS_KEY)) return;
+  dpiSlotPlan = {
+    stages: entry.dpiStages.slice(0, limits.maxStages).map((stage) => ({ ...stage })),
+    defaultIndex: Math.min(entry.defaultDpiIndex ?? 0, entry.dpiStages.length - 1),
+  };
+}
+
+function deviceDpiSlotPlan(): DpiStagePlan | null {
+  const entry = editedProfileEntry();
+  if (!entry || entry.dpiStages.length === 0) return null;
+  return {
+    stages: entry.dpiStages.map((stage) => ({ ...stage })),
+    defaultIndex: Math.min(entry.defaultDpiIndex ?? 0, entry.dpiStages.length - 1),
+  };
+}
+
+/**
+ * Stages the edited slot table, or drops the change once it matches the mouse
+ * again. The whole table is one change: the slot count is expressed by zeroing
+ * the stages that fall out of use, so slots cannot be written individually.
+ */
+function stageDpiSlots(): void {
+  // Render first: the edit already changed the plan, so bailing out below must
+  // not leave the controls showing the values from before it.
+  renderDpiSlots();
+  if (!activeClient || !dpiSlotPlan) return;
+  const stored = deviceDpiSlotPlan();
+  if (stored && JSON.stringify(stored) === JSON.stringify(dpiSlotPlan)) {
+    dropPendingChange(DPI_SLOTS_KEY);
+    renderDpiSlots();
+    return;
+  }
+
+  const count = dpiSlotPlan.stages.length;
+  stageChange({
+    key: DPI_SLOTS_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: count === 1 ? "1 DPI slot" : `${count} DPI slots`,
+    command: `Write ${count} DPI slot(s) to the active profile`,
+    progress: "Writing DPI slots to the profile…",
+    // No preview: the slot table is not part of MouseStatus, so renderDpiSlots
+    // shows the edited plan directly.
+    apply: writeStagedProfileSector,
+  });
+  renderDpiSlots();
+}
+
+function setDpiSlotCount(count: number): void {
+  const limits = dpiSlotLimits();
+  if (!dpiSlotPlan || !limits || dpiSlotsLocked()) return;
+  const wanted = Math.min(limits.maxStages, Math.max(1, Math.round(count)));
+  const stages = dpiSlotPlan.stages.slice(0, wanted);
+  // Growing reuses the last slot's values, so a new slot starts somewhere sane
+  // rather than at zero, which would read back as unused.
+  while (stages.length < wanted) {
+    const previous = stages[stages.length - 1] ?? { x: limits.minDpi, y: limits.minDpi, lod: 2 };
+    stages.push({ ...previous });
+  }
+  dpiSlotPlan = { stages, defaultIndex: Math.min(dpiSlotPlan.defaultIndex, stages.length - 1) };
+  stageDpiSlots();
+}
+
+function setDpiSlotAxis(index: number, axis: "x" | "y", value: number): void {
+  const limits = dpiSlotLimits();
+  const stage = dpiSlotPlan?.stages[index];
+  if (!stage || !limits || dpiSlotsLocked()) return;
+  const dpi = clampDpi(value, limits);
+  stage[axis] = dpi;
+  // With this slot's axes locked the pair moves together, whichever was typed.
+  if (dpiAxisLockedAt(index)) stage[axis === "x" ? "y" : "x"] = dpi;
+  stageDpiSlots();
+}
+
+function setDpiSlotLod(index: number, level: NonNullable<MouseStatus["liftOffDistance"]>): void {
+  const stage = dpiSlotPlan?.stages[index];
+  if (!stage || dpiSlotsLocked()) return;
+  stage.lod = PROFILE_STAGE_LOD[level];
+  stageDpiSlots();
+}
+
+function setDpiSlotDefault(index: number): void {
+  if (!dpiSlotPlan || dpiSlotsLocked()) return;
+  if (index < 0 || index >= dpiSlotPlan.stages.length) return;
+  dpiSlotPlan.defaultIndex = index;
+  stageDpiSlots();
+}
+
+function setDpiAxisLock(index: number, locked: boolean): void {
+  if (dpiSlotsLocked()) return;
+  dpiAxisLocks[index] = locked;
+  const stage = dpiSlotPlan?.stages[index];
+  // Locking pulls Y onto X straight away, so the state matches what is shown.
+  if (locked && stage && stage.y !== stage.x) {
+    stage.y = stage.x;
+    // Mirroring changes the table, so it is staged like any other edit.
+    stageDpiSlots();
+    return;
+  }
+  renderDpiSlots();
+}
+
+/** Fallback stops for a driver that does not advertise a rate list. */
+const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
+
+/** 125 → "125", 8000 → "8K": the scale has to fit under a narrow card. */
+function shortRate(hz: number): string {
+  return hz >= 1000 ? `${hz / 1000}K` : String(hz);
+}
+
+/**
+ * Renders a rate picker as a slider with one stop per supported rate.
+ *
+ * The slider runs over indices rather than hertz because the steps are not
+ * evenly spaced — 125 to 8000 doubles each time — so an index scale puts the
+ * stops at equal distances, which is what makes the dots line up.
+ */
+function renderRateSlider(
+  root: HTMLElement | null,
+  options: number[],
+  valueHz: number | null,
+  state: { label?: string; disabled: boolean },
+): void {
+  if (!root) return;
+  if (options.length === 0) {
+    root.innerHTML = "";
+    return;
+  }
+  // A stored rate can sit off the scale — another tool may have written one
+  // above this link's ceiling. Land on the nearest stop rather than falling
+  // back to index 0, which would read as the slowest rate rather than the
+  // fastest one available.
+  const exact = options.indexOf(valueHz ?? -1);
+  const index = exact >= 0
+    ? exact
+    : options.reduce(
+      (best, rate, step) =>
+        Math.abs(rate - (valueHz ?? options[0] ?? 0)) < Math.abs((options[best] ?? 0) - (valueHz ?? options[0] ?? 0))
+          ? step
+          : best,
+      0,
+    );
+  const last = Math.max(1, options.length - 1);
+  // The thumb centre travels between half a thumb in from each end, so the
+  // dots are inset by the same amount to sit under it.
+  const position = (step: number): string => `calc(7px + (100% - 14px) * ${step} / ${last})`;
+
+  const scale = options.map((rate, step) => {
+    const on = step <= index;
+    return `<i class="${on ? "is-on" : ""}" style="left:${position(step)}"></i>`
+      + `<span class="${step === index ? "is-on" : ""}" style="left:${position(step)}">${shortRate(rate)}</span>`;
+  }).join("");
+
+  root.innerHTML = `${state.label ? `<div class="rate-slider-head"><span>${escapeHtml(state.label)}</span><output>${options[index]?.toLocaleString() ?? "—"} Hz</output></div>` : ""}
+    <input type="range" class="rate-slider-input" min="0" max="${last}" step="1" value="${index}"${state.disabled ? " disabled" : ""} aria-label="${escapeHtml(state.label ?? "Report rate")}" aria-valuetext="${options[index] ?? 0} Hz" />
+    <div class="rate-slider-scale">${scale}</div>`;
+  // The index is only meaningful next to the list it came from.
+  root.dataset.rates = options.join(",");
+}
+
+/** Maps a slider index back to hertz using the list that produced it. */
+function rateFromSlider(selector: string, index: number): number | null {
+  const root = document.querySelector<HTMLElement>(selector);
+  if (!root) return null;
+  const rates = (root.dataset.rates ?? "").split(",").map(Number).filter((rate) => rate > 0);
+  return rates[index] ?? null;
+}
+
+/**
+ * Updates a slider's readout and lit dots as the thumb moves. Nothing is
+ * staged: the value only counts once the drag ends.
+ */
+function previewRateSlider(selector: string, index: number): void {
+  const root = document.querySelector<HTMLElement>(selector);
+  if (!root) return;
+  const hz = rateFromSlider(selector, index);
+  const output = root.querySelector("output");
+  if (output && hz !== null) output.textContent = `${hz.toLocaleString()} Hz`;
+  root.querySelectorAll<HTMLElement>(".rate-slider-scale i").forEach((dot, step) => {
+    dot.classList.toggle("is-on", step <= index);
+  });
+  root.querySelectorAll<HTMLElement>(".rate-slider-scale span").forEach((label, step) => {
+    label.classList.toggle("is-on", step === index);
+  });
+}
+
+const PROFILE_NAME_KEY = "logitech-profile-name";
+let stagedProfileName: string | null = null;
+
+function renameOnboardProfile(sector: number): void {
+  const entry = onboardProfiles?.find((profile) => profile.sector === sector);
+  if (!entry || !activeClient) return;
+  const maxLength = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
+  if (maxLength === null) {
+    setText("#onboard-status", "This profile format has no name field.");
+    return;
+  }
+  // Renaming a profile that is not open would stage against the wrong sector,
+  // so opening it first keeps the pending write pointed at what is on screen.
+  if (editedProfile !== sector) selectEditedProfile(sector);
+
+  const current = stagedProfileName ?? entry.name ?? "";
+  const input = window.prompt(`Profile name (up to ${maxLength} characters)`, current);
+  if (input === null) return;
+
+  const invalid = validateProfileName(input, maxLength);
+  if (invalid) {
+    setText("#onboard-status", invalid);
+    return;
+  }
+  const name = input.trim();
+  if (name === entry.name) {
+    stagedProfileName = null;
+    dropPendingChange(PROFILE_NAME_KEY);
+    renderOnboardProfiles();
+    return;
+  }
+
+  stagedProfileName = name;
+  stageChange({
+    key: PROFILE_NAME_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Rename to "${name}"`,
+    command: `Rename profile ${sector} to "${name}"`,
+    progress: "Writing the profile name…",
+    apply: writeStagedProfileSector,
+  });
+  renderOnboardProfiles();
+}
+
+/** Staged per-profile report rates, keyed by link. */
+let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
+const PROFILE_RATE_KEY = "logitech-profile-rate";
+
+function profileReportRateOptions(link: "wireless" | "wired"): number[] {
+  const format = lastProfileFormat;
+  const rates = format ? capabilitiesForFormat(format.id).reportRates : null;
+  const activeLink = latestDeviceStatus?.connectionType === "Wireless" ? "wireless" : "wired";
+  return reportRatesForDevice(
+    rates,
+    link,
+    latestDeviceStatus?.supportedPollingRates ?? [],
+    activeLink,
+    (format?.id ?? 6) < 6,
+  );
+}
+
+function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
+  const entry = editedProfileEntry();
+  if (!entry || !activeClient) return;
+  // Formats 1-5 have one shared interval byte. Use the wired slot as the
+  // canonical staged value rather than pretending they store two rates.
+  const selectedLink = (lastProfileFormat?.id ?? 6) < 6 ? "wired" : link;
+  const allowed = profileReportRateOptions(selectedLink);
+  if (!allowed.includes(hz)) {
+    setText("#polling-note", `This mouse supports ${allowed.join(", ")} Hz for that profile link.`);
+    return;
+  }
+  stagedProfileRates = { ...stagedProfileRates, [selectedLink]: hz };
+
+  const stored = { wireless: entry.reportRateWireless, wired: entry.reportRateWired };
+  const wanted = {
+    wireless: stagedProfileRates.wireless ?? stored.wireless,
+    wired: stagedProfileRates.wired ?? stored.wired,
+  };
+  if (wanted.wireless === stored.wireless && wanted.wired === stored.wired) {
+    stagedProfileRates = { wireless: null, wired: null };
+    dropPendingChange(PROFILE_RATE_KEY);
+    renderProfileRates();
+    return;
+  }
+
+  stageChange({
+    key: PROFILE_RATE_KEY,
+    group: PROFILE_SECTOR_GROUP,
+    label: `${selectedLink === "wired" && (lastProfileFormat?.id ?? 6) >= 6 ? "Wired " : selectedLink === "wireless" ? "Wireless " : ""}${hz.toLocaleString()} Hz`,
+    command: `Set profile ${selectedLink} report rate to ${hz} Hz`,
+    progress: "Writing the report rate to the profile…",
+    // No preview: profile rates are not part of MouseStatus.
+    apply: writeStagedProfileSector,
+  });
+  renderProfileRates();
+}
+
+function renderProfileRates(): void {
+  const rows = document.querySelector<HTMLElement>("#profile-rate-rows");
+  const rateButtons = document.querySelector<HTMLElement>("#host-rate-slider");
+  if (!rows) return;
+  const entry = editedProfileEntry();
+  const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
+  const available = entry !== null && rates !== null;
+
+  rows.hidden = !available;
+  // The host slider writes the host layer, so only one of the two is shown.
+  if (rateButtons) rateButtons.hidden = available;
+  const badge = document.querySelector<HTMLElement>("#rate-scope-badge");
+  if (badge) {
+    badge.hidden = editedProfile === null;
+    badge.textContent = available ? "Per-profile" : "Host";
+  }
+  if (!available || !entry || !rates) return;
+
+  const locked = lastProfileFormat?.writable !== true;
+  const shared = (lastProfileFormat?.id ?? 6) < 6;
+  const wirelessSlider = document.querySelector<HTMLElement>("#profile-rate-wireless");
+  const wiredSlider = document.querySelector<HTMLElement>("#profile-rate-wired");
+  if (wirelessSlider) wirelessSlider.hidden = shared;
+  if (wiredSlider) wiredSlider.hidden = false;
+  const links: Array<"wireless" | "wired"> = shared ? ["wired"] : ["wireless", "wired"];
+  for (const link of links) {
+    const value = stagedProfileRates[link]
+      ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless);
+    renderRateSlider(
+      document.querySelector<HTMLElement>(`#profile-rate-${link}`),
+      profileReportRateOptions(link),
+      value,
+      { label: shared ? "All connections" : link === "wired" ? "Wired" : "Wireless", disabled: locked || settingInProgress },
+    );
+  }
+  for (const link of ["wireless", "wired"] as const) {
+    const slider = document.querySelector<HTMLElement>(`#profile-rate-${link}`);
+    if (slider) slider.hidden = !links.includes(link);
+  }
+
+  setText("#polling-note", shared
+    ? `Stored in this profile as one shared interval, up to ${profileReportRateOptions("wired").at(-1)?.toLocaleString()} Hz.`
+    : `Stored in this profile, one rate per link. Up to ${
+      reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
+      reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`);
+}
+
+function renderDpiSlots(): void {
+  const section = document.querySelector<HTMLElement>("#logitech-dpi-slots");
+  if (!section) return;
+  const limits = dpiSlotLimits();
+  // No limits means the format's slot table was never established, so nothing
+  // is shown rather than guessing another format's numbers.
+  const available = dpiSlotsAvailable();
+  section.hidden = !available;
+  // One card, two sources: the badge says which one is on screen. Mice with no
+  // profile list have only one source, so it carries no badge at all.
+  const scopeBadge = document.querySelector<HTMLElement>("#dpi-scope-badge");
+  if (scopeBadge) {
+    scopeBadge.hidden = editedProfile === null;
+    scopeBadge.textContent = available ? "Per-profile" : "Host";
+  }
+  // The compact layout pins the settings grid to a fixed row height, which the
+  // slot editor overflows. Set here rather than in showStatus so the class
+  // tracks the editor however the render was reached.
+  document.querySelector<HTMLElement>(".settings-grid")?.classList.toggle("has-dpi-slots", available);
+  // The standalone lift-off control writes the host layer and forces the mouse
+  // into host mode, so it stands down while a stored profile is open — there
+  // lift-off belongs to each DPI slot instead. Toggled here rather than in
+  // showStatus, which runs before the open profile is known.
+  const hostLodRow = document.querySelector<HTMLElement>("#host-lod-row");
+  if (hostLodRow) hostLodRow.hidden = available;
+  // The host layer has no stored slots, so it keeps the preset row instead.
+  if (!available || limits === null || dpiSlotPlan === null) {
+    // No slots on this mouse or profile format, so the preset row stays in
+    // charge exactly as it did before slots existed.
+    const presetRow = document.querySelector<HTMLElement>("#dpi-presets");
+    if (presetRow) presetRow.hidden = false;
+    const customButton = document.querySelector<HTMLButtonElement>("#custom-dpi");
+    if (customButton) customButton.hidden = false;
+    return;
+  }
+
+  const locked = dpiSlotsLocked();
+  const levels = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).supportedLods : [];
+  const profileHasLod = levels.length > 0;
+
+  // The preset row writes host DPI, so it stands down while slots are shown.
+  const presets = document.querySelector<HTMLElement>("#dpi-presets");
+  if (presets) presets.hidden = true;
+  const custom = document.querySelector<HTMLButtonElement>("#custom-dpi");
+  if (custom) custom.hidden = true;
+  const axisControls = document.querySelector<HTMLElement>("#logitech-axis-controls");
+  if (axisControls) axisControls.style.display = "none";
+
+  // A short row of stops reads faster than a dropdown and matches the other
+  // pickers on the page.
+  const count = document.querySelector<HTMLElement>("#dpi-slot-count");
+  if (count) {
+    count.innerHTML = Array.from({ length: limits.maxStages }, (_, step) => {
+      const value = step + 1;
+      const on = value === dpiSlotPlan?.stages.length;
+      return `<button type="button" data-dpi-slot-count="${value}"${locked ? " disabled" : ""} class="${on ? "selected" : ""}" aria-pressed="${on}">${value}</button>`;
+    }).join("");
+  }
+
+  const list = document.querySelector<HTMLElement>("#dpi-slot-list");
+  if (list) {
+    list.innerHTML = dpiSlotPlan.stages.map((stage, index) => {
+      const level = stageLodLevel(stage.lod);
+      // A native select cannot be styled or animated, so the menu is built by
+      // hand. It keeps listbox semantics so it still reads as a select.
+      const lodOptions = levels
+        .map((name) => `<li role="option" data-lod-value="${name}" aria-selected="${name === level}">${name}</li>`)
+        .join("");
+      const isDefault = index === dpiSlotPlan?.defaultIndex;
+      const axisLocked = dpiAxisLockedAt(index);
+      return `<div class="dpi-slot-row${isDefault ? " is-default" : ""}">
+        <button type="button" class="dpi-slot-index" data-dpi-slot-default="${index}"${locked ? " disabled" : ""} title="${isDefault ? "Starting slot" : "Make this the starting slot"}" aria-pressed="${isDefault}">${index + 1}</button>
+        <input type="number" data-dpi-slot="${index}" data-dpi-axis="x" aria-label="Slot ${index + 1} X DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.x}"${locked ? " disabled" : ""} />
+        <button type="button" class="dpi-axis-lock${axisLocked ? " is-locked" : ""}" data-dpi-axis-lock="${index}"${locked ? " disabled" : ""} title="${axisLocked ? "X and Y are linked — click to set them separately" : "X and Y are separate — click to link them"}" aria-label="Link X and Y for slot ${index + 1}" aria-pressed="${axisLocked}">${axisLocked ? ICON_LINKED : ICON_UNLINKED}</button>
+        <input type="number" data-dpi-slot="${index}" data-dpi-axis="y" aria-label="Slot ${index + 1} Y DPI" min="${limits.minDpi}" max="${limits.maxDpi}" step="${limits.stepDpi}" value="${stage.y}"${locked || axisLocked ? " disabled" : ""} />
+        <div class="lod-select" data-lod-select="${index}">
+          <button type="button" class="lod-select-value" data-lod-toggle="${index}"${locked || !profileHasLod ? " disabled" : ""} aria-haspopup="listbox" aria-expanded="false" aria-label="Slot ${index + 1} lift-off" title="${profileHasLod ? "Set lift-off distance" : "This profile format has no lift-off setting"}"><span>${level ?? "—"}</span><i aria-hidden="true"></i></button>
+          <ul class="lod-select-menu" role="listbox" data-dpi-slot-lod="${index}" aria-label="Slot ${index + 1} lift-off">${lodOptions}</ul>
+        </div>
+      </div>`;
+    }).join("");
+    // Column headings once, rather than a label on every field: at this card
+    // width the repeated labels were squeezing the inputs they described.
+    list.insertAdjacentHTML("afterbegin",
+      `<div class="dpi-slot-row dpi-slot-head"><span></span><span>X</span><span></span><span>Y</span><span>Lift-off</span></div>`);
+  }
+
+  setText("#dpi-slot-note", locked
+    ? "Read-only: writing DPI slots to a profile is not enabled yet, because the flash write sequence has not been verified on hardware."
+    : `Each slot stores its own X/Y sensitivity and lift-off level. ${limits.minDpi}–${limits.maxDpi} DPI in steps of ${limits.stepDpi}. The highlighted slot is the one the mouse starts on.`);
+}
+
+async function reloadOnboardProfiles(): Promise<void> {
+  const client = activeClient;
+  if (!client || onboardProfilesLoading) return;
+  onboardProfilesLoading = true;
+  setText("#onboard-status", "Reading onboard profiles…");
+  try {
+    onboardProfiles = await client.readOnboardProfiles();
+    renderOnboardProfiles();
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to read onboard profiles.");
+    setText("#onboard-status", error instanceof Error ? error.message : "Unable to read onboard profiles.");
+  } finally {
+    onboardProfilesLoading = false;
+  }
+}
+
+async function resetLogitechProfiles(): Promise<void> {
+  const client = activeClient;
+  if (!client || settingInProgress || !supportsFactoryReset(lastProfileFormat?.id)) return;
+
+  const stagedWarning = hasPendingChanges()
+    ? "\n\nYour staged, unflashed changes will also be discarded."
+    : "";
+  const confirmed = window.confirm(
+    "Delete every onboard profile and restore Logitech defaults?\n\n"
+    + "This permanently erases all stored DPI stages, polling rates, lift-off distances, button assignments, G-Shift mappings, lighting, names, timeouts and every other byte in onboard profile memory. Fresh default profiles will be written back, with profile 1 as the only enabled profile. This cannot be undone in OpenMouse."
+    + stagedWarning,
+  );
+  if (!confirmed) return;
+
+  settingInProgress = true;
+  clearPendingChanges();
+  setText("#read-status", "Resetting every onboard profile…");
+  setText("#onboard-status", "Writing Logitech factory defaults…");
+  recordDiagnosticCommand("Reset every Logitech onboard profile to factory defaults");
+  configureProfileCapture(latestDeviceStatus);
+  try {
+    await client.resetAllOnboardProfiles();
+    onboardProfiles = await client.readOnboardProfiles();
+    editedProfile = onboardProfiles[0]?.sector ?? "host";
+    lastDeviceMode = "Onboard";
+    const status = await client.readStatus();
+    latestDeviceStatus = status;
+    deviceStatuses.set(client.device, status);
+    showStatus(status);
+    setText("#read-status", "All onboard profiles were reset to Logitech defaults.");
+    setText("#onboard-status", "Reset complete. Profile 1 is active; the other profiles are disabled.");
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to reset every onboard profile.");
+    const message = error instanceof Error ? error.message : "Unable to reset every onboard profile.";
+    setText("#read-status", message);
+    setText("#onboard-status", message);
+    // Some earlier sectors may already have been written. Re-read the device so
+    // the UI never pretends an interrupted destructive operation was atomic.
+    onboardProfiles = null;
+    await reloadOnboardProfiles();
+  } finally {
+    endDeviceWrite();
+    configureProfileCapture(latestDeviceStatus);
+  }
+}
+
+/**
+ * Whether the profile list is expanded. Deliberately sticky: opening a profile
+ * to edit it does not collapse the list, so several can be compared or switched
+ * between without reopening it each time.
+ */
+let profilesExpanded = false;
+
+function toggleProfilesExpanded(): void {
+  profilesExpanded = !profilesExpanded;
+  renderProfileSummary();
+  syncDisclosureHeight();
+}
+
+/**
+ * Drives the open/close animation from the content's measured height.
+ *
+ * Called after the list is rendered, not before, so growing or shrinking the
+ * list while it is open animates to the new size instead of keeping a stale one.
+ */
+function syncDisclosureHeight(): void {
+  const body = document.querySelector<HTMLElement>("#profile-disclosure-body");
+  const inner = document.querySelector<HTMLElement>(".profile-disclosure-inner");
+  if (!body || !inner) return;
+  body.style.maxHeight = profilesExpanded ? `${inner.scrollHeight}px` : "0px";
+}
+
+/** Describes one entry the way the collapsed summary shows it. */
+function describeProfileEntry(entry: OnboardProfile | null): { name: string; detail: string } {
+  if (!entry) {
+    return {
+      name: `Host${lastDeviceMode === "Host" ? " · active" : ""}`,
+      detail: "Live settings, not stored on the mouse",
+    };
+  }
+  const dpi = entry.dpiStages.length > 0
+    ? `${entry.dpiStages.length} DPI slot${entry.dpiStages.length === 1 ? "" : "s"}`
+    : "no DPI slots";
+  const rate = entry.reportRateWireless ? `${entry.reportRateWireless.toLocaleString()} Hz` : "—";
+  return {
+    name: `${entry.name ?? `Profile ${entry.sector}`}${entry.isCurrent && lastDeviceMode !== "Host" ? " · active" : ""}`,
+    detail: [dpi, rate, entry.enabled ? null : "disabled"].filter(Boolean).join(" · "),
+  };
+}
+
+function renderProfileSummary(): void {
+  const section = document.querySelector<HTMLElement>("#logitech-onboard");
+  const toggle = document.querySelector<HTMLButtonElement>("#profile-disclosure-toggle");
+  if (!section || !toggle) return;
+  section.classList.toggle("is-open", profilesExpanded);
+  toggle.setAttribute("aria-expanded", String(profilesExpanded));
+
+  const { name, detail } = describeProfileEntry(editedProfileEntry());
+  setText("#profile-summary-name", name);
+  setText("#profile-summary-detail", detail);
+}
+
+function renderOnboardProfiles(): void {
+  // Runs first so the row hides itself when no profile is loaded.
+  syncEditedProfile();
+  renderBunnyHop();
+  syncDpiSlotPlan();
+  renderDpiSlots();
+  renderProfileRates();
+  renderProfileSummary();
+  const list = document.querySelector<HTMLElement>("#onboard-profile-list");
+  if (!list) return;
+  if (!onboardProfiles) {
+    list.innerHTML = "";
+    return;
+  }
+  if (onboardProfiles.length === 0) {
+    list.innerHTML = "";
+    setText("#onboard-status", "This mouse reported no onboard profiles.");
+    return;
+  }
+
+  // Two independent states: which entry is open for editing, and what the mouse
+  // is actually running. Opening host must not change what is marked active.
+  const hostOpened = editedProfile === "host";
+  const hostRunning = lastDeviceMode === "Host";
+  const profileLayoutVerified = lastProfileFormat?.verified === true;
+  const profileContentsWritable = lastProfileFormat?.writable === true;
+  const profileNameLimit = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
+  // Host is a live, volatile source rather than a stored profile, so it is
+  // listed apart from them rather than mixed in.
+  // Host gets the same split as a profile row: open it to see its settings,
+  // use the circle to actually put the mouse into host mode.
+  const hostTags = [hostRunning ? "active" : null, hostOpened ? "editing" : null].filter(Boolean).join(" · ");
+  const hostRow = `<div style="display:flex;gap:.55rem;align-items:center;padding:.45rem .6rem;border:1px solid ${hostOpened ? "#4a4a52" : "#26262a"};border-radius:7px;background:${hostOpened ? "#1b1b1f" : "#141416"}">
+      <button type="button" data-onboard-profile="host" title="Open host settings" style="display:flex;gap:.55rem;align-items:center;flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;cursor:pointer">
+        <span class="device-dot${hostRunning ? "" : " is-idle"}"></span>
+        <span class="profile-row-text" style="display:flex;flex-direction:column;min-width:0">
+          <strong style="font-size:.72rem;color:#e6e6ea">Host — live${hostTags ? ` · ${hostTags}` : ""}</strong>
+          <small style="color:#77777c;font-size:.62rem">Settings applied by software, not stored on the mouse. Lost on power-cycle.</small>
+        </span>
+      </button>
+      <button type="button" data-onboard-mode="Host" ${hostRunning ? "disabled" : ""} title="${hostRunning ? "The mouse is already in host mode" : "Switch the mouse to host mode"}" aria-label="Switch to host mode" aria-pressed="${hostRunning}" style="display:flex;padding:.3rem;border:1px solid ${hostRunning ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${hostRunning ? "not-allowed" : "pointer"}">
+        ${hostRunning ? ICON_RUNNING : ICON_ACTIVATE}
+      </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin:.15rem 0 .05rem"><span style="height:1px;flex:1;background:#26262a"></span><small style="color:#5c5c62;font-size:.58rem;letter-spacing:.04em">STORED ON THE MOUSE</small><span style="height:1px;flex:1;background:#26262a"></span></div>
+    <small style="display:block;margin:0 0 .2rem;color:#5c5c62;font-size:.58rem">Click a profile to edit it. Use the circle to switch the mouse to it.</small>`;
+
+  list.innerHTML = hostRow + onboardProfiles.map((profile) => {
+    const dpi = profile.dpiStages.length > 0
+      ? profile.dpiStages.map((stage) => (stage.x === stage.y ? `${stage.x}` : `${stage.x}/${stage.y}`)).join(" · ")
+      : "no DPI stages";
+    const rate = profile.reportRateWireless ? `${profile.reportRateWireless.toLocaleString()} Hz` : "—";
+    const detail = [
+      `${dpi} DPI`,
+      rate,
+      profile.enabled ? "enabled" : "disabled",
+      profile.crcValid ? null : "checksum mismatch",
+    ].filter(Boolean).join(" · ");
+    // An unverified layout may be decoding the wrong bytes entirely, so the
+    // values are shown but nothing may act on them.
+    const locked = !profileLayoutVerified;
+    // Being open for editing and being the profile the mouse runs are separate
+    // states: you can change any stored profile without switching to it.
+    const opened = editedProfile === profile.sector;
+    const nameable = profileNameLimit !== null;
+    const running = profile.isCurrent && !hostRunning;
+    const border = opened ? "#4a4a52" : "#26262a";
+    const tags = [running ? "active" : null, opened ? "editing" : null].filter(Boolean).join(" · ");
+    return `<div style="display:flex;gap:.55rem;align-items:center;padding:.45rem .6rem;border:1px solid ${border};border-radius:7px;background:${opened ? "#1b1b1f" : "#141416"};opacity:${profile.enabled ? "1" : ".55"}">
+      <button type="button" data-onboard-profile="${profile.sector}" ${locked ? "disabled" : ""} title="${locked ? "This profile layout has not been verified on hardware" : "Open this profile to edit it"}" style="display:flex;gap:.55rem;align-items:center;flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;cursor:${locked ? "not-allowed" : "pointer"}">
+        <span class="device-dot${running ? "" : " is-idle"}"></span>
+        <span class="profile-row-text" style="display:flex;flex-direction:column;min-width:0">
+          <strong style="font-size:.72rem;color:#e6e6ea">${escapeHtml((opened && stagedProfileName) || profile.name || `Profile ${profile.sector}`)}${tags ? ` · ${tags}` : ""}</strong>
+          <small style="color:#77777c;font-size:.62rem">${escapeHtml(detail)}</small>
+        </span>
+      </button>
+      <button type="button" data-profile-rename="${profile.sector}" ${locked || !nameable || !profileContentsWritable ? "disabled" : ""} title="${!nameable ? "This profile format has no name field" : !profileContentsWritable ? "Profile-content writes have not been verified on hardware" : "Rename this profile"}" aria-label="Rename profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked || !nameable || !profileContentsWritable ? "not-allowed" : "pointer"};opacity:${locked || !nameable || !profileContentsWritable ? ".4" : "1"}">
+        ${ICON_RENAME}
+      </button>
+      <button type="button" data-profile-activate="${profile.sector}" ${locked || running || !profile.enabled ? "disabled" : ""} title="${running ? "The mouse is running this profile" : !profile.enabled ? "Enable this profile before switching to it" : "Switch the mouse to this profile"}" aria-label="Switch to profile ${profile.sector}" aria-pressed="${running}" style="display:flex;padding:.3rem;border:1px solid ${running ? "#4a4a52" : "#3a3a3f"};border-radius:5px;background:#19191c;cursor:${locked || running || !profile.enabled ? "not-allowed" : "pointer"};opacity:${locked || !profile.enabled ? ".4" : "1"}">
+        ${running ? ICON_RUNNING : ICON_ACTIVATE}
+      </button>
+      <button type="button" data-profile-enabled="${profile.sector}" data-enabled="${profile.enabled}" ${locked ? "disabled" : ""} title="${locked ? "This profile layout has not been verified on hardware" : profile.enabled ? "Disable this profile" : "Enable this profile"}" aria-label="${profile.enabled ? "Disable" : "Enable"} profile ${profile.sector}" style="display:flex;padding:.3rem;border:1px solid #3a3a3f;border-radius:5px;background:#19191c;cursor:${locked ? "not-allowed" : "pointer"};opacity:${locked ? ".4" : "1"}">
+        ${profile.enabled ? ICON_ENABLED : ICON_DISABLED}
+      </button>
+    </div>`;
+  }).join("");
+
+  if (!profileLayoutVerified) {
+    setText("#onboard-status", `Profile format ${lastProfileFormat?.id ?? "?"} has not been verified on hardware — shown for reference only, and locked. Send a capture so it can be confirmed.`);
+    syncDisclosureHeight();
+    return;
+  }
+  const active = onboardProfiles.find((profile) => profile.isCurrent);
+  setText("#onboard-status", hostOpened
+    ? "Running live from software. Stored profiles are unchanged."
+    : active
+      ? `Running from ${active.name ?? `slot ${active.sector}`}. Profile contents are read-only for now.`
+      : "Profile contents are read-only for now.");
+  // Last, so the animation measures the list that was just rendered.
+  syncDisclosureHeight();
+}
+
+
+function applyLogitechAnalogButtons(): void {
+  if (!activeClient) return;
+  const tuning = readAnalogTuning("both");
+  stageAnalogButton(0, tuning);
+  stageAnalogButton(1, tuning);
+}
+
+function applyPollingRate(rate: number): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "polling-rate",
+    label: `${rate.toLocaleString()} Hz`,
+    command: `Set polling rate to ${rate.toLocaleString()} Hz`,
+    progress: `Setting ${rate.toLocaleString()} Hz…`,
+    preview: (status) => {
+      status.pollingRateHz = rate;
+    },
+    apply: async () => {
+      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
+    },
+  });
+}
+
+function applyLiftOffDistance(lod: NonNullable<MouseStatus["liftOffDistance"]>): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "lift-off-distance",
+    label: `${lod} lift-off`,
+    command: `Set lift-off distance to ${lod}`,
+    progress: `Setting ${lod.toLowerCase()} lift-off distance…`,
+    preview: (status) => {
+      status.liftOffDistance = lod;
+      // Writing a tracking level is also how a mouse with a pair leaves
+      // asymmetric mode, so the switch has to follow.
+      if (status.asymmetricLiftOff) status.asymmetricLiftOff = { ...status.asymmetricLiftOff, enabled: false };
+    },
+    apply: async () => {
+      await requireClientMethod("setLiftOffDistance", "the lift-off distance").setLiftOffDistance(lod);
+    },
+  });
+}
+
+function describeLighting(lighting: MouseLighting): string {
+  if (!lighting.mode) return "No effect";
+  const parts: string[] = [lighting.mode];
+  if (lighting.colorModes.includes(lighting.mode) && lighting.color) parts.push(lighting.color.toUpperCase());
+  if (lighting.dualColorModes.includes(lighting.mode) && lighting.color2) parts.push(lighting.color2.toUpperCase());
+  if (lighting.reactiveModes.includes(lighting.mode) && lighting.speed !== null) parts.push(`speed ${lighting.speed}`);
+  if (lighting.brightness != null) parts.push(`${lighting.brightness}%`);
+  return parts.join(" · ");
+}
+
+function lightingCommand(lighting: MouseLighting): string {
+  return `Set lighting to ${describeLighting(lighting)}`;
+}
+
+/**
+ * Lighting is staged like any other setting, but a driver may mark it
+ * `writeOnly`, in which case the mouse cannot report the effect back and the
+ * preview is the only source of the current value.
+ */
+function applyLighting(patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>): void {
+  if (!hasActiveClient() || !latestDeviceStatus?.lighting) {
+    setText("#read-status", "Lighting is not available for this mouse.");
+    return;
+  }
+  const staged = { ...withPendingChanges(latestDeviceStatus).lighting!, ...patch } as MouseLighting;
+  if (!staged.mode) {
+    setText("#read-status", "Pick an effect first.");
+    return;
+  }
+  stageChange({
+    key: "lighting",
+    label: `Lighting ${staged.mode.toLowerCase()}`,
+    command: lightingCommand(staged),
+    progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
+    preview: (status) => {
+      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
+    },
+    apply: async () => {
+      await requireClientMethod("setLighting", "the lighting").setLighting(staged);
+    },
+  });
+}
+
+function applyNinjutsoSetting(setting: "system" | "hyper" | "optical" | "slam", value: string | boolean): void {
+  if (!hasActiveClient() || latestDeviceStatus?.brand !== "Ninjutso") return;
+  const config = {
+    system: ["ninjutso-system", "System mode", "ninjutsoSystemMode", "setNinjutsoSystemMode"],
+    hyper: ["ninjutso-hyper", "HyperClick", "ninjutsoHyperClick", "setNinjutsoHyperClick"],
+    optical: ["ninjutso-optical", "Optical Engine", "ninjutsoOpticalEngine", "setNinjutsoOpticalEngine"],
+    slam: ["ninjutso-slam", "Slam-Click", "ninjutsoSlamClick", "setNinjutsoSlamClick"],
+  }[setting]!;
+  const [key, label, field, method] = config;
+  stageChange({
+    key,
+    label: `${label} ${String(value)}`,
+    command: `Set ${label} to ${String(value)}`,
+    progress: `Setting ${label}…`,
+    preview: (status) => { (status as unknown as Record<string, unknown>)[field] = value; },
+    apply: async () => {
+      const client = requireClientMethod(method, label) as unknown as Record<string, (next: never) => Promise<unknown>>;
+      await client[method]!(value as never);
+    },
+  });
+}
+
+/**
+ * Mice that expose separate cut-off and re-engage heights get a mode switch, in
+ * the shape the vendor software uses: one control or the other, never both.
+ * Drivers that do not report the pair never see the switch and keep the plain
+ * three-stop control.
+ */
+function renderAsymmetricLiftOff(status: MouseStatus, settingsPending: boolean): void {
+  const pair = status.asymmetricLiftOff;
+  const modeRow = document.querySelector<HTMLElement>("#lod-mode-row");
+  const single = document.querySelector<HTMLElement>("#lod-single");
+  const asymmetric = document.querySelector<HTMLElement>("#lod-asymmetric");
+  if (!modeRow || !single || !asymmetric) return;
+  modeRow.hidden = !pair;
+  // A driver that cannot establish the mode leaves both buttons unselected
+  // rather than claiming one, and the single control stays visible. Choosing
+  // either mode writes it, so one click makes the display true.
+  const showPair = pair?.enabled === true;
+  single.hidden = Boolean(pair) && showPair;
+  asymmetric.hidden = !showPair;
+  document.querySelectorAll<HTMLButtonElement>("[data-lod-mode]").forEach((button) => {
+    const isPair = button.dataset.lodMode === "asymmetric";
+    setSelected(button, pair?.enabled === null ? false : isPair === showPair);
+    button.disabled = settingsPending || !pair;
+  });
+  if (!pair) return;
+  for (const [selector, value, range] of [
+    ["#lod-lift-off", pair.liftOff, pair.liftOffRange],
+    ["#lod-landing", pair.landing, pair.landingRange],
+  ] as const) {
+    const input = document.querySelector<HTMLInputElement>(selector);
+    if (!input) continue;
+    input.min = String(range.min);
+    input.max = String(range.max);
+    input.value = String(value);
+    input.disabled = settingsPending;
+  }
+  capLandingToLiftOff();
+}
+
+/**
+ * Landing is bounded by lift-off on the device, and the vendor software caps its
+ * own slider the same way. Enforcing it on the control means an invalid pair is
+ * not expressible, rather than accepted and then quietly altered — the firmware
+ * stores an inverted pair without complaint, so nothing downstream would catch
+ * it. The driver still caps as a backstop.
+ */
+export function capLandingToLiftOff(): void {
+  const liftOff = document.querySelector<HTMLInputElement>("#lod-lift-off");
+  const landing = document.querySelector<HTMLInputElement>("#lod-landing");
+  if (!liftOff || !landing) return;
+  // Clamp the value, never the range. A range input positions its thumb
+  // relative to its own bounds, so narrowing `max` to the ceiling made the
+  // thumb slide across the track whenever lift-off moved even though the
+  // number under it had not changed. Both sliders keep the device's full range,
+  // which also lines the two tracks up: they are the same 24 steps wide, offset
+  // by one, so a landing sitting just below its lift-off reads that way.
+  const ceiling = Math.max(Number(landing.min), Number(liftOff.value) - 1);
+  if (Number(landing.value) > ceiling) landing.value = String(ceiling);
+  setText("#lod-lift-off-value", liftOff.value);
+  setText("#lod-landing-value", landing.value);
+}
+
+/** Both modes are set by writing one, because the mouse honours the last write. */
+function applyLiftOffMode(mode: "single" | "asymmetric"): void {
+  const status = withPendingChanges(latestDeviceStatus ?? ({} as MouseStatus));
+  const pair = status.asymmetricLiftOff;
+  if (!latestDeviceStatus || !pair) return;
+  if (mode === "asymmetric") applyAsymmetricLiftOff(pair.liftOff, pair.landing);
+  else applyLiftOffDistance(status.liftOffDistance ?? "Medium");
+}
+
+function applyAsymmetricLiftOff(liftOff: number, requested: number): void {
+  if (!hasActiveClient()) return;
+  // Capped here too, so the staged label and the preview show what will actually
+  // be written rather than what was asked for.
+  const landing = Math.min(requested, liftOff - 1);
+  stageChange({
+    key: "lift-off-distance",
+    label: `Lift-off ${liftOff} / landing ${landing}`,
+    command: `Set lift-off to ${liftOff} and landing to ${landing}`,
+    progress: `Setting lift-off ${liftOff} and landing ${landing}…`,
+    preview: (status) => {
+      if (!status.asymmetricLiftOff) return;
+      status.asymmetricLiftOff = { ...status.asymmetricLiftOff, enabled: true, liftOff, landing };
+    },
+    apply: async () => {
+      await requireClientMethod("setLiftOff", "the lift-off distance").setLiftOff(liftOff, landing);
+    },
+  });
+}
+
+/**
+ * Gaming surface and LightForce are two fields of one 0x8090 byte, so they are
+ * staged as a group and written together. Each apply sends the whole group's
+ * staged state; whichever runs is the last one staged.
+ */
+const MODE_STATUS_GROUP = "logitech-mode-status";
+let stagedGamingSurface: MouseStatus["gamingSurfaceMode"] = null;
+let stagedLightforce: MouseStatus["lightforceSwitchMode"] = null;
+
+async function writeStagedModeStatus(): Promise<void> {
+  if (!activeClient) throw new Error("The mouse is no longer connected.");
+  await activeClient.setModeStatus({
+    gamingSurface: stagedGamingSurface,
+    lightforce: stagedLightforce,
+  });
+}
+
+function applyGamingSurfaceMode(mode: NonNullable<MouseStatus["gamingSurfaceMode"]>): void {
+  if (!activeClient) return;
+  stagedGamingSurface = mode;
+  stageChange({
+    key: "gaming-surface",
+    group: MODE_STATUS_GROUP,
+    label: `Gaming surface ${mode.toLowerCase()}`,
+    command: `Set gaming surface to ${mode}`,
+    progress: `Setting gaming surface to ${mode.toLowerCase()}…`,
+    preview: (status) => { status.gamingSurfaceMode = mode; },
+    apply: writeStagedModeStatus,
+  });
+}
+
+function applyLightforceSwitchMode(mode: NonNullable<MouseStatus["lightforceSwitchMode"]>): void {
+  if (!activeClient) return;
+  stagedLightforce = mode;
+  stageChange({
+    key: "lightforce-switch-mode",
+    group: MODE_STATUS_GROUP,
+    label: `LightForce ${mode.toLowerCase()}`,
+    command: `Set LightForce switches to ${mode}`,
+    progress: `Setting LightForce switches to ${mode.toLowerCase()}…`,
+    preview: (status) => { status.lightforceSwitchMode = mode; },
+    apply: writeStagedModeStatus,
+  });
+}
+
+function toggleDongleLed(): void {
+  const button = document.querySelector<HTMLButtonElement>("#dongle-led-toggle");
+  if (!button || !activePulsarClient) return;
+  const enabled = button.dataset.enabled !== "true";
+  stageChange({
+    key: "dongle-led",
+    label: `Receiver LED ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} receiver LED`,
+    progress: `${enabled ? "Enabling" : "Disabling"} the receiver LED…`,
+    preview: (status) => {
+      status.dongleLedEnabled = enabled;
+    },
+    apply: async () => {
+      if (!activePulsarClient) throw new Error("The receiver is no longer connected.");
+      await activePulsarClient.setDongleLed(enabled);
+    },
+  });
 }
 
 type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
 
-async function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): Promise<void> {
-  const client = activePulsarClient ?? activeEggClient ?? activeWLMouseClient;
-  if (!client || settingInProgress) return;
-  settingInProgress = true;
-  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`);
-  try {
-    if (setting === "motionSync") await client.setMotionSync(enabled);
-    if (setting === "angleSnapping") await client.setAngleSnapping(enabled);
-    if (setting === "rippleControl") await client.setRippleControl(enabled);
-    if (setting === "performanceMode" && !activePulsarClient) throw new Error("Performance mode is not exposed by this device's protocol.");
-    if (setting === "performanceMode" && activePulsarClient) await activePulsarClient.setPerformanceMode(enabled);
-    showStatus(await client.readStatus());
-  } catch (error) {
-    const status = await client.readStatus().catch(() => null);
-    if (status) showStatus(status);
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar setting.");
-  } finally {
-    settingInProgress = false;
-  }
+function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: setting,
+    label: `${settingLabel(setting)} ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} ${settingLabel(setting)}`,
+    progress: `${enabled ? "Enabling" : "Disabling"} ${settingLabel(setting)}…`,
+    preview: (status) => {
+      status[setting] = enabled;
+    },
+    apply: async () => {
+      if (setting === "motionSync") await requireClientMethod("setMotionSync", "Motion Sync").setMotionSync(enabled);
+      if (setting === "angleSnapping") await requireClientMethod("setAngleSnapping", "angle snapping").setAngleSnapping(enabled);
+      if (setting === "rippleControl") await requireClientMethod("setRippleControl", "ripple control").setRippleControl(enabled);
+      if (setting === "performanceMode") await requireClientMethod("setPerformanceMode", "performance mode").setPerformanceMode(enabled);
+    },
+  });
 }
 
 function settingLabel(setting: PulsarToggleSetting): string {
@@ -1474,42 +3681,113 @@ function settingLabel(setting: PulsarToggleSetting): string {
     motionSync: "Motion Sync",
     angleSnapping: "angle snapping",
     rippleControl: "ripple control",
-    performanceMode: "performance mode",
+    performanceMode: activeTeevolutionClient ? "highest performance" : "performance mode",
   } as const)[setting];
 }
 
-async function applyEggFilter(setting: "slamclick" | "motionJitter", enabled: boolean): Promise<void> {
-  if (!activeEggClient || settingInProgress) return;
-  settingInProgress = true;
-  const label = setting === "slamclick" ? "slamclick filter" : "motion-jitter filter";
-  setText("#read-status", `${enabled ? "Enabling" : "Disabling"} ${label}…`);
-  try {
-    if (setting === "slamclick") await activeEggClient.setSlamclickFilter(enabled);
-    else await activeEggClient.setMotionJitterFilter(enabled);
-    showStatus(await activeEggClient.readStatus());
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${label}.`);
-    const status = await activeEggClient.readStatus().catch(() => null);
-    if (status) showStatus(status);
-  } finally {
-    settingInProgress = false;
-  }
+function applyTeevolutionSensorMode(mode: NonNullable<MouseStatus["sensorMode"]>): void {
+  if (!activeTeevolutionClient) return;
+  stageChange({
+    key: "teevolution-sensor-mode",
+    label: `Sensor mode ${mode}`,
+    command: `Set sensor mode to ${mode}`,
+    progress: `Setting sensor mode to ${mode}…`,
+    preview: (status) => {
+      status.sensorMode = mode;
+      status.sensorModeStored = mode === "High" ? 1 : 0;
+    },
+    apply: async () => {
+      await requireClientMethod("setSensorMode", "sensor mode").setSensorMode(mode);
+    },
+  });
 }
 
-async function applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): Promise<void> {
-  if (!activeEggClient || settingInProgress) return;
-  settingInProgress = true;
-  setText("#read-status", `Setting the ${button} button to ${mode}…`);
-  try {
-    await activeEggClient.setSpdtMode(button, mode);
-    showStatus(await activeEggClient.readStatus());
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : `Unable to change the ${button} button GX mode.`);
-    const status = await activeEggClient.readStatus().catch(() => null);
-    if (status) showStatus(status);
-  } finally {
-    settingInProgress = false;
+function applyTeevolutionPerformanceDuration(duration: number): void {
+  if (!activeTeevolutionClient) return;
+  const label = sleepLabel(duration * 10);
+  stageChange({
+    key: "teevolution-performance-duration",
+    label: `Highest performance ${label}`,
+    command: `Set highest-performance duration to ${label}`,
+    progress: "Setting highest-performance duration…",
+    preview: (status) => {
+      status.performanceDuration = duration;
+    },
+    apply: async () => {
+      await requireClientMethod("setPerformanceDuration", "highest-performance duration").setPerformanceDuration(duration);
+    },
+  });
+}
+
+const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
+
+async function writeStagedTeevolutionDpiLighting(): Promise<void> {
+  if (!activeTeevolutionClient || !latestDeviceStatus) {
+    throw new Error("The Teevolution mouse is no longer connected.");
   }
+  const status = withPendingChanges(latestDeviceStatus);
+  await activeTeevolutionClient.setDpiLighting(
+    status.dpiLedMode ?? 0,
+    status.dpiLedBrightness ?? 5,
+    status.dpiLedSpeed ?? 3,
+  );
+}
+
+function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
+  if (!activeTeevolutionClient) return;
+  const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
+  const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
+  stageChange({
+    key: `teevolution-dpi-light-${setting}`,
+    group: TEEVOLUTION_DPI_LIGHT_GROUP,
+    label: `DPI light ${names[setting]} ${display}`,
+    command: `Set DPI light ${names[setting]} to ${display}`,
+    progress: `Setting DPI light ${names[setting]}…`,
+    preview: (status) => {
+      if (setting === "mode") status.dpiLedMode = value;
+      if (setting === "brightness") status.dpiLedBrightness = value;
+      if (setting === "speed") status.dpiLedSpeed = value;
+    },
+    apply: writeStagedTeevolutionDpiLighting,
+  });
+}
+
+function applyEggFilter(setting: "slamclick" | "motionJitter", enabled: boolean): void {
+  if (!activeEggClient) return;
+  const label = setting === "slamclick" ? "slamclick filter" : "motion-jitter filter";
+  stageChange({
+    key: `egg-${setting}`,
+    label: `${label} ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} ${label}`,
+    progress: `${enabled ? "Enabling" : "Disabling"} ${label}…`,
+    preview: (status) => {
+      if (setting === "slamclick") status.slamclickFilter = enabled;
+      else status.motionJitterFilter = enabled;
+    },
+    apply: async () => {
+      if (!activeEggClient) throw new Error("The mouse is no longer connected.");
+      if (setting === "slamclick") await activeEggClient.setSlamclickFilter(enabled);
+      else await activeEggClient.setMotionJitterFilter(enabled);
+    },
+  });
+}
+
+function applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): void {
+  if (!activeEggClient) return;
+  stageChange({
+    key: `egg-spdt-${button}`,
+    label: `${button === "left" ? "Left" : "Right"} GX ${mode}`,
+    command: `Set ${button} button GX mode to ${mode}`,
+    progress: `Setting the ${button} button to ${mode}…`,
+    preview: (status) => {
+      if (button === "left") status.leftSpdtMode = mode;
+      else status.rightSpdtMode = mode;
+    },
+    apply: async () => {
+      if (!activeEggClient) throw new Error("The mouse is no longer connected.");
+      await activeEggClient.setSpdtMode(button, mode);
+    },
+  });
 }
 
 function updateCustomPollingPreview(): void {
@@ -1519,136 +3797,185 @@ function updateCustomPollingPreview(): void {
     : "Enter a divider from 1 to 255.");
 }
 
-function renderEggCpiStages(status: MouseStatus): void {
-  const container = document.querySelector<HTMLElement>("#egg-cpi-stage-list");
-  const stages = status.eggCpiStages;
-  const levels = status.eggCpiLevels ?? 0;
-  if (!container || !stages) return;
-  container.innerHTML = stages.slice(0, levels).map((stage, index) => {
-    const split = stage.x !== stage.y;
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <strong style="font-size:.7rem">Stage ${index + 1}</strong>
-      <label style="display:flex;align-items:center;gap:.35rem;margin:.4rem 0;color:#8b8b90;font-size:.62rem"><input data-cpi-split="${index}" type="checkbox" ${split ? "checked" : ""} /> Separate X/Y</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.35rem">
-        <label style="color:#77777c;font-size:.58rem">X<input data-cpi-x="${index}" type="number" min="50" max="26000" step="50" value="${stage.x}" style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
-        <label style="color:#77777c;font-size:.58rem">Y<input data-cpi-y="${index}" type="number" min="50" max="26000" step="50" value="${stage.y}" ${split ? "" : "disabled"} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" /></label>
-      </div>
-      <button data-apply-cpi="${index}" type="button" style="margin-top:.4rem;padding:.3rem .5rem">Apply stage</button>
-    </div>`;
-  }).join("");
-  container.querySelectorAll<HTMLInputElement>("[data-cpi-split]").forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
-      const index = checkbox.dataset.cpiSplit;
-      const y = container.querySelector<HTMLInputElement>(`[data-cpi-y="${index}"]`);
-      if (y) y.disabled = !checkbox.checked;
-    });
-  });
-  container.querySelectorAll<HTMLButtonElement>("[data-apply-cpi]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const level = Number(button.dataset.applyCpi);
-      const x = Number(container.querySelector<HTMLInputElement>(`[data-cpi-x="${level}"]`)?.value);
-      const split = container.querySelector<HTMLInputElement>(`[data-cpi-split="${level}"]`)?.checked === true;
-      const y = split ? Number(container.querySelector<HTMLInputElement>(`[data-cpi-y="${level}"]`)?.value) : x;
-      void applyEggCpiStage(level, x, y);
-    });
+
+function applyEggCpiLevels(levels: number): void {
+  stageEggChange({
+    key: "egg-cpi-levels",
+    label: `${levels} CPI stage${levels === 1 ? "" : "s"}`,
+    what: "CPI stage count",
+    preview: (status) => {
+      status.eggCpiLevels = levels;
+    },
+    change: async (client) => client.setCpiLevels(levels),
   });
 }
 
-function renderEggButtons(status: MouseStatus): void {
-  const container = document.querySelector<HTMLElement>("#egg-button-list");
-  const filters = status.eggMulticlickFilters;
-  const mappings = status.eggButtonMappings;
-  if (!container || !filters || !mappings) return;
-  container.innerHTML = EGG_BUTTON_NAMES.map((name, index) => {
-    const gxActive = index === 0 ? status.leftSpdtMode !== "Off" : index === 1 ? status.rightSpdtMode !== "Off" : false;
-    const mappingOptions = EGG_BUTTON_MAPPINGS.map((mapping) =>
-      `<option ${mappings[index] === mapping ? "selected" : ""}>${mapping}</option>`).join("");
-    const unsupported = EGG_BUTTON_MAPPINGS.includes(mappings[index] as EggButtonMapping)
-      ? "" : `<option selected disabled>${mappings[index]}</option>`;
-    return `<div style="padding:.55rem;border:1px solid #303034;border-radius:6px">
-      <strong style="font-size:.7rem">${name}</strong>
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Multiclick filter
-        <input data-multiclick="${index}" type="number" min="0" max="25" step="1" value="${filters[index]}" ${gxActive ? "disabled" : ""} style="width:100%;box-sizing:border-box;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px" />
-      </label>
-      <label style="display:block;margin-top:.35rem;color:#77777c;font-size:.58rem">Mapping
-        <select data-button-mapping="${index}" style="width:100%;margin-top:.15rem;padding:.35rem;background:#171719;color:#eee;border:1px solid #343438;border-radius:5px">${unsupported}${mappingOptions}</select>
-      </label>
-    </div>`;
-  }).join("");
-  container.querySelectorAll<HTMLInputElement>("[data-multiclick]").forEach((input) => {
-    input.addEventListener("change", () => void applyEggMulticlick(Number(input.dataset.multiclick) as EggButtonIndex, Number(input.value)));
-  });
-  container.querySelectorAll<HTMLSelectElement>("[data-button-mapping]").forEach((select) => {
-    select.addEventListener("change", () => void applyEggButtonMapping(Number(select.dataset.buttonMapping) as EggButtonIndex, select.value as EggButtonMapping));
+function applyEggCpiStage(level: number, x: number, y: number): void {
+  stageEggChange({
+    key: `egg-cpi-stage-${level}`,
+    label: `CPI stage ${level + 1} → ${x === y ? x.toLocaleString() : `${x.toLocaleString()}/${y.toLocaleString()}`}`,
+    what: `CPI stage ${level + 1}`,
+    preview: (status) => {
+      const stage = status.eggCpiStages?.[level];
+      if (stage) {
+        stage.x = x;
+        stage.y = y;
+      }
+    },
+    change: async (client) => client.setCpiStage(level, x, y),
   });
 }
 
-async function applyEggCpiLevels(levels: number): Promise<void> {
-  await applyEggChange("CPI stage count", async (client) => client.setCpiLevels(levels));
+function applyEggPollingDivider(divider: number): void {
+  stageEggChange({
+    key: "egg-polling-divider",
+    label: `Polling divider ${divider}`,
+    what: "custom polling divider",
+    preview: (status) => {
+      status.eggPollingDivider = divider;
+    },
+    change: async (client) => client.setCustomPollingDivider(divider),
+  });
 }
 
-async function applyEggCpiStage(level: number, x: number, y: number): Promise<void> {
-  await applyEggChange(`CPI stage ${level + 1}`, async (client) => client.setCpiStage(level, x, y));
+function applyEggMulticlick(button: EggButtonIndex, value: number): void {
+  stageEggChange({
+    key: `egg-multiclick-${button}`,
+    label: `${EGG_BUTTON_NAMES[button]} multiclick ${value}`,
+    what: `${EGG_BUTTON_NAMES[button]} multiclick filter`,
+    preview: (status) => {
+      if (status.eggMulticlickFilters) status.eggMulticlickFilters[button] = value;
+    },
+    change: async (client) => client.setMulticlickFilter(button, value),
+  });
 }
 
-async function applyEggPollingDivider(divider: number): Promise<void> {
-  await applyEggChange("custom polling divider", async (client) => client.setCustomPollingDivider(divider));
+function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): void {
+  stageEggChange({
+    key: `egg-mapping-${button}`,
+    label: `${EGG_BUTTON_NAMES[button]} → ${mapping}`,
+    what: `${EGG_BUTTON_NAMES[button]} mapping`,
+    preview: (status) => {
+      if (status.eggButtonMappings) status.eggButtonMappings[button] = mapping;
+    },
+    change: async (client) => client.setButtonMapping(button, mapping),
+  });
 }
 
-async function applyEggMulticlick(button: EggButtonIndex, value: number): Promise<void> {
-  await applyEggChange(`${EGG_BUTTON_NAMES[button]} multiclick filter`, async (client) => client.setMulticlickFilter(button, value));
+function stageEggChange(options: {
+  key: string;
+  label: string;
+  what: string;
+  preview: PendingChange["preview"];
+  change: (client: EggOp1HidClient) => Promise<void>;
+}): void {
+  if (!activeEggClient) return;
+  stageChange({
+    key: options.key,
+    label: options.label,
+    command: `Change ${options.what}`,
+    progress: `Changing ${options.what}…`,
+    preview: options.preview,
+    apply: async () => {
+      if (!activeEggClient) throw new Error("The mouse is no longer connected.");
+      await options.change(activeEggClient);
+    },
+  });
 }
 
-async function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButtonMapping): Promise<void> {
-  await applyEggChange(`${EGG_BUTTON_NAMES[button]} mapping`, async (client) => client.setButtonMapping(button, mapping));
+function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
+  if (!(activePulsarClient ?? activeDmClient ?? activeOrbitalClient ?? activeRazerClient ?? activeViperClient ?? activeTeevolutionClient ?? activeVgnClient)) return;
+  const asleep = value !== WLMOUSE_SLEEP_NEVER;
+  stageChange({
+    key: setting,
+    label: setting === "debounce"
+      ? `${value} ms debounce`
+      : asleep ? `Auto sleep ${sleepLabel(value)}` : "Auto sleep off",
+    command: setting === "debounce" ? `Set debounce to ${value} ms` : `Set auto sleep to ${value} seconds`,
+    progress: `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`,
+    preview: (status) => {
+      if (setting === "debounce") status.debounceMs = value;
+      // Drivers report a disabled sleep timer as null, so mirror that here.
+      else status.sleepTimeout = asleep ? value : null;
+    },
+    // Checked per setting rather than per client: a driver may confirm the sleep
+    // command without confirming a debounce one, and the Razer driver does.
+    apply: async () => {
+      if (setting === "debounce") await requireClientMethod("setDebounceTime", "the debounce time").setDebounceTime(value);
+      else await requireClientMethod("setSleepTimeout", "auto sleep").setSleepTimeout(value);
+    },
+  });
 }
 
-async function applyEggChange(label: string, change: (client: EggOp1HidClient) => Promise<void>): Promise<void> {
-  if (!activeEggClient || settingInProgress) return;
-  settingInProgress = true;
-  setText("#read-status", `Changing ${label}…`);
-  try {
-    await change(activeEggClient);
-    showStatus(await activeEggClient.readStatus());
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : `Unable to change ${label}.`);
-    const status = await activeEggClient.readStatus().catch(() => null);
-    if (status) showStatus(status);
-  } finally {
-    settingInProgress = false;
-  }
+function applyLowPowerThreshold(percent: number): void {
+  if (!activeRazerClient) return;
+  stageChange({
+    key: "low-power",
+    label: `Low power below ${percent}%`,
+    command: `Set low power mode to ${percent}%`,
+    progress: "Setting low power mode…",
+    preview: (status) => {
+      status.lowBatteryWarning = percent;
+    },
+    apply: async () => {
+      await requireClientMethod("setLowPowerThreshold", "low power mode").setLowPowerThreshold(percent);
+    },
+  });
 }
 
-async function applyPulsarValue(setting: "debounce" | "sleep", value: number): Promise<void> {
-  const client = activePulsarClient ?? activeWLMouseClient;
-  if (!client || settingInProgress) return;
-  settingInProgress = true;
-  setText("#read-status", `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`);
-  try {
-    if (setting === "debounce") await client.setDebounceTime(value);
-    else await client.setSleepTimeout(value);
-    showStatus(await client.readStatus());
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change that setting.");
-  } finally {
-    settingInProgress = false;
-  }
+function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): void {
+  if (!(activePulsarClient instanceof PulsarProHidClient)) return;
+  const what = setting === "wheelAcceleration" ? "wheel acceleration" : setting === "angleTuning" ? "angle tuning" : "onboard profile";
+  stageChange({
+    key: `pro-${setting}`,
+    label: setting === "wheelAcceleration"
+      ? `Wheel acceleration ${value ? "on" : "off"}`
+      : setting === "angleTuning" ? `Angle tuning ${value}°` : `Profile ${value}`,
+    command: `Change ${what}`,
+    progress: `Changing ${what}…`,
+    preview: (status) => {
+      if (setting === "wheelAcceleration") status.wheelAcceleration = Boolean(value);
+      if (setting === "angleTuning") status.angleTuning = Number(value);
+      if (setting === "profile") status.activeProfile = Number(value);
+    },
+    apply: async () => {
+      if (!(activePulsarClient instanceof PulsarProHidClient)) throw new Error("The mouse is no longer connected.");
+      if (setting === "wheelAcceleration") await activePulsarClient.setWheelAcceleration(Boolean(value));
+      if (setting === "angleTuning") await activePulsarClient.setAngleTuning(Number(value));
+      if (setting === "profile") await activePulsarClient.setProfile(Number(value));
+    },
+  });
 }
 
-async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "profile", value: boolean | number): Promise<void> {
-  if (!(activePulsarClient instanceof PulsarProHidClient) || settingInProgress) return;
-  settingInProgress = true;
-  setText("#read-status", `Changing ${setting === "wheelAcceleration" ? "wheel acceleration" : setting === "angleTuning" ? "angle tuning" : "onboard profile"}…`);
-  try {
-    if (setting === "wheelAcceleration") await activePulsarClient.setWheelAcceleration(Boolean(value));
-    if (setting === "angleTuning") await activePulsarClient.setAngleTuning(Number(value));
-    if (setting === "profile") await activePulsarClient.setProfile(Number(value));
-    showStatus(await activePulsarClient.readStatus());
-  } catch (error) {
-    setText("#read-status", error instanceof Error ? error.message : "Unable to change the Pulsar Pro setting.");
-  } finally {
-    settingInProgress = false;
-  }
+function applyFinalmouseSetting(setting: "dongleLed" | "tournamentScroll" | "tournamentTimeout", value: number): void {
+  if (!activeFinalmouseClient) return;
+  const label = ({
+    dongleLed: "dongle LED mode",
+    tournamentScroll: "tournament scroll mode",
+    tournamentTimeout: "tournament scroll timeout",
+  } as const)[setting];
+  const key = ({
+    dongleLed: "finalmouse-dongle-led",
+    tournamentScroll: "finalmouse-tournament-scroll",
+    tournamentTimeout: "finalmouse-tournament-timeout",
+  } as const)[setting];
+  stageChange({
+    key,
+    label: `Finalmouse ${label}`,
+    command: `Change Finalmouse ${label}`,
+    progress: `Changing Finalmouse ${label}…`,
+    preview: (status) => {
+      if (setting === "dongleLed") status.finalmouseDongleLedMode = value;
+      if (setting === "tournamentScroll") status.finalmouseTournamentScrollMode = value;
+      if (setting === "tournamentTimeout") status.finalmouseTournamentScrollTimeoutMs = value;
+    },
+    apply: async () => {
+      if (!activeFinalmouseClient) throw new Error("The Finalmouse UltralightX is no longer connected.");
+      if (setting === "dongleLed") await activeFinalmouseClient.setDongleLedMode(value);
+      if (setting === "tournamentScroll") await activeFinalmouseClient.setTournamentScrollMode(value);
+      if (setting === "tournamentTimeout") await activeFinalmouseClient.setTournamentScrollTimeout(value);
+    },
+  });
 }
 
 function startAutomaticRefresh(): void {
@@ -1673,9 +4000,10 @@ async function refreshStatus(): Promise<void> {
     return;
   }
   refreshInProgress = true;
+  markHidActivity(BACKGROUND, { transient: true });
   try {
-    const status = activeWLMouseClient && client === activeWLMouseClient
-      ? await activeWLMouseClient.readStatus(true)
+    const status = activeDmClient && client === activeDmClient
+      ? await activeDmClient.readStatus(true)
       : await client.readStatus();
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
@@ -1690,7 +4018,8 @@ async function refreshStatus(): Promise<void> {
   }
 }
 
-window.addEventListener("beforeunload", () => {
+window.addEventListener("beforeunload", (event) => {
+  if (hasPendingChanges()) event.preventDefault();
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   navigator.hid?.removeEventListener("connect", handleHidConnect);
   navigator.hid?.removeEventListener("disconnect", handleHidDisconnect);
@@ -1698,7 +4027,38 @@ window.addEventListener("beforeunload", () => {
   void activePulsarClient?.close();
   void activeEggClient?.close();
   void activeEggWeClient?.close();
-  void activeWLMouseClient?.close();
+  void activeDmClient?.close();
+  void activeOrbitalClient?.close();
+  void activeRazerClient?.close();
+  void activeTeevolutionClient?.close();
+  void activeVgnClient?.close();
+  void activeViperClient?.close();
+  void activeFinalmouseClient?.close();
+  void activeKeychronClient?.close();
+  void activeModdoClient?.close();
 });
 
-renderControl();
+function isChromium(): boolean {
+  const brands = (navigator as Navigator & {
+    userAgentData?: { brands?: { brand: string }[] };
+  }).userAgentData?.brands;
+  if (brands) return brands.some((entry) => /chromium/i.test(entry.brand));
+  return /Chrom(e|ium)\/|Edg\//.test(navigator.userAgent);
+}
+
+const notice = unsupportedNotice({
+  hasWebHid: Boolean(navigator.hid),
+  handheld: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
+  secureContext: window.isSecureContext,
+  chromium: isChromium(),
+});
+if (import.meta.env.PROD) void navigator.serviceWorker?.register("/sw.js").catch(() => undefined);
+
+if (notice) {
+  appRoot.innerHTML = unsupportedTemplate(notice);
+} else {
+  renderControl();
+  if (isSuperstrikePreview) showSuperstrikePreview();
+  else if (isSlotsPreview) showSlotsPreview();
+  else if (previewMode !== null) void showFixturePreview(previewMode);
+}

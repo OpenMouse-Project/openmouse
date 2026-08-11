@@ -6,8 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test src/egg-we-protocol.test.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "size": "node build/check-bundle-size.ts",
+    "check": "npm run build && npm test",
     "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check and build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Bundle size
+        run: npm run size
+
+      - name: Audit
+        run: npm audit --audit-level=high
+
+      - name: Approved runtime dependencies
+        run: |
+          node <<'NODE'
+          const { dependencies = {} } = require("./package.json");
+          const approved = {
+            "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git",
+          };
+
+          if (JSON.stringify(dependencies) !== JSON.stringify(approved)) {
+            console.error("Runtime dependencies differ from the maintainer-approved list.");
+            console.error("Expected:", approved);
+            console.error("Received:", dependencies);
+            process.exit(1);
+          }
+          NODE
