@@ -67,11 +67,18 @@ if (found.length === 0) {
   process.exit(1);
 }
 
+// Insiders builds deliberately ship the lazy driver-preview renderer and its
+// fixture chunk. Stable builds tree-shake both and retain the original limit.
+const budgets = {
+  ...BUDGET_BYTES,
+  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 16_000 : 0),
+};
+
 const totals = new Map<string, number>();
 for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
 
 let failed = false;
-for (const [ext, budget] of Object.entries(BUDGET_BYTES)) {
+for (const [ext, budget] of Object.entries(budgets)) {
   const bytes = totals.get(ext) ?? 0;
   const percent = Math.round((bytes / budget) * 100);
   const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;

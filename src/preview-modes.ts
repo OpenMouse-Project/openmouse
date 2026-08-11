@@ -31,6 +31,12 @@ export const PREVIEW_KEYS = [
 export type PreviewMode = typeof PREVIEW_KEYS[number];
 export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike">;
 
+/** Preview fixtures are available locally and on the deployed insiders app,
+    but never on a stable production build. */
+export function previewsEnabled(buildChannel: string, viteDev: boolean): boolean {
+  return viteDev || buildChannel === "insiders";
+}
+
 /** Returns only trusted literals, breaking the data flow from the URL value. */
 export function parsePreviewMode(value: string | null): PreviewMode | null {
   switch (value) {

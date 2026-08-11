@@ -103,7 +103,7 @@ import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
-import { parsePreviewMode, type PreviewMode } from "./preview-modes";
+import { parsePreviewMode, previewsEnabled, type PreviewMode } from "./preview-modes";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -116,7 +116,8 @@ const appRoot = controlApp;
 const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
 const DEFAULT_TITLE = document.title;
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
-const previewMode = import.meta.env.DEV
+const previewModeEnabled = previewsEnabled(__BUILD_CHANNEL__, import.meta.env.DEV);
+const previewMode = previewModeEnabled
   ? parsePreviewMode(new URLSearchParams(window.location.search).get("preview"))
   : null;
 const isSuperstrikePreview = previewMode === "superstrike";
@@ -668,8 +669,8 @@ function showSlotsPreview(): void {
  * the same rendering path the real driver would.
  */
 async function showFixturePreview(name: PreviewMode): Promise<void> {
-  // Loaded on demand so the fixtures never reach a production bundle, where
-  // `previewMode` is always null and none of this is reachable.
+  // Loaded on demand so ordinary visitors do not pay to parse fixtures. Stable
+  // builds remove this path; the deployed insiders app keeps it for reviewers.
   const { PREVIEW_FIXTURES, PREVIEW_KEYS } = await import("./preview-fixtures");
   const fixture = name === "list" || name === "slots" || name === "superstrike"
     ? undefined
@@ -760,7 +761,7 @@ function closeInterfaceSettings(): void {
 async function populatePreviewLauncher(): Promise<void> {
   const section = document.querySelector<HTMLElement>("#preview-launcher");
   const list = document.querySelector<HTMLElement>("#preview-launcher-list");
-  if (!section || !list || !import.meta.env.DEV || list.childElementCount > 0) return;
+  if (!section || !list || !previewModeEnabled || list.childElementCount > 0) return;
 
   const { PREVIEW_FIXTURES } = await import("./preview-fixtures");
   const entries: Array<[string, string]> = [
