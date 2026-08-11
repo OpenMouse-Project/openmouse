@@ -12,6 +12,8 @@ export interface MouseUiHints {
   hideLodLow?: boolean;
   /** Hide poll rates not listed in supportedPollingRates. */
   hideUnsupportedPollingRates?: boolean;
+  /** Hide the whole lift-off distance card (device has no LOD control). */
+  hideLodCard?: boolean;
   /** Hide Motion Sync / angle snap / ripple card. */
   hideProcessingCard?: boolean;
   /** Always show battery column (even wired with null %). */
@@ -23,7 +25,7 @@ export interface MouseUiHints {
 }
 
 export interface MouseStatus {
-  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse";
+  brand: "Logitech" | "Pulsar" | "Endgame Gear" | "WLMouse" | "SteelSeries";
   name: string;
   /** Driver-supplied UI policy (optional; keeps control.ts brand-agnostic). */
   ui?: MouseUiHints;

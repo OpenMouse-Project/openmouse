@@ -25,6 +25,11 @@ import { LogitechHidppClient } from "./logitech-hidpp";
 import type { MouseStatus } from "./mouse-types";
 import { PulsarHidClient } from "./pulsar-hid";
 import { PulsarProHidClient } from "./pulsar-pro-hid";
+import {
+  RIVAL600_LED_ZONES,
+  SteelSeriesRival600Client,
+  steelSeriesLedZoneLabel,
+} from "./steelseries-rival600-hid";
 import { SUPPORTED_HID_FILTERS } from "./vendors";
 import { WLMouseHidClient } from "./wlmouse-hid";
 
@@ -49,6 +54,7 @@ let activePulsarClient: PulsarClient | null = null;
 let activeEggClient: EggOp1HidClient | null = null;
 let activeEggWeClient: EggWeHidClient | null = null;
 let activeWLMouseClient: WLMouseHidClient | null = null;
+let activeSteelSeriesClient: SteelSeriesRival600Client | null = null;
 let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
@@ -60,10 +66,21 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let reconnectInFlight = false;
 
 type PulsarClient = PulsarHidClient | PulsarProHidClient;
-type SupportedClient = LogitechHidppClient | PulsarClient | EggOp1HidClient | EggWeHidClient | WLMouseHidClient;
+type SupportedClient =
+  | LogitechHidppClient
+  | PulsarClient
+  | EggOp1HidClient
+  | EggWeHidClient
+  | WLMouseHidClient
+  | SteelSeriesRival600Client;
 
 function activeSettingsClient(): SupportedClient | null {
-  return activeClient ?? activePulsarClient ?? activeEggClient ?? activeEggWeClient ?? activeWLMouseClient;
+  return activeClient
+    ?? activePulsarClient
+    ?? activeEggClient
+    ?? activeEggWeClient
+    ?? activeWLMouseClient
+    ?? activeSteelSeriesClient;
 }
 
 function hasActiveClient(): boolean {
@@ -320,6 +337,7 @@ function renderControl(): void {
           <details id="egg-cpi-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>SENSOR</small>CPI stages</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><label style="display:block;max-width:160px;color:#77777c;font-size:.62rem">Enabled stages<select id="egg-cpi-levels"><option value="1">1 stage</option><option value="2">2 stages</option><option value="3">3 stages</option><option value="4">4 stages</option></select></label><div id="egg-cpi-stage-list" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.55rem"></div></article></div></details>
           <details id="egg-button-settings" class="egg-collapsible" style="display:none;grid-column:1/-1"><summary><span><small>BUTTONS</small>Multiclick and mapping</span><i aria-hidden="true"></i></summary><div class="egg-collapsible-body"><article class="setting-card"><div id="egg-button-list" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem"></div></article></div></details>
           <article id="pulsar-pro-settings" class="setting-card" style="display:none;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>PRO</p><h2>Advanced</h2></div></div><div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.2rem 0;color:#b3b3b7;font-size:.7rem"><span>Wheel acceleration</span><button id="wheel-acceleration-toggle" type="button" role="switch" aria-checked="false" style="min-width:42px;padding:.2rem .45rem;border:1px solid #3a3a3f;border-radius:999px;background:#202023;color:#8b8b90;font-size:.58rem">Off</button></div><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Angle tuning<select id="angle-tuning-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"></select></label><label style="display:block;margin-top:.35rem;color:#77777c;font-size:.62rem">Onboard profile<select id="profile-select" style="width:100%;margin-top:.2rem;padding:.4rem;border:1px solid #343438;border-radius:6px;background:#171719;color:#eee"><option value="1">Profile 1</option><option value="2">Profile 2</option><option value="3">Profile 3</option><option value="4">Profile 4</option><option value="5">Profile 5</option><option value="6">Profile 6</option></select></label></article>
+          <article id="steelseries-lighting" class="setting-card" style="display:none;grid-column:1/-1;min-height:0;padding:.8rem"><div class="setting-heading" style="margin-bottom:.55rem"><div><p>STEELSERIES LIGHTING</p><h2>LED zones</h2></div></div><div id="steelseries-zone-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem"></div><small class="setting-note" style="display:block;margin-top:.6rem;color:#8b8b90;line-height:1.5">Each zone applies a static color. The Rival 600 protocol is write-only, so OpenMouse shows the last values you applied rather than reading them back — DPI is written to both on-board presets so the change is active either way.</small></article>
         </section>
         <footer class="panel-footer device-data"><span class="live-status-label"><i></i>LIVE STATUS</span><span id="read-status">Add a supported device from the sidebar to read its current status.</span></footer>
         <section id="interface-settings-page" class="interface-settings-page" aria-labelledby="interface-settings-title">
@@ -442,6 +460,19 @@ function renderControl(): void {
   document.querySelector<HTMLButtonElement>("#apply-egg-polling")?.addEventListener("click", () => {
     const divider = Number(document.querySelector<HTMLInputElement>("#egg-polling-divider")?.value);
     void applyEggPollingDivider(divider);
+  });
+  const steelSeriesZoneGrid = document.querySelector<HTMLElement>("#steelseries-zone-grid");
+  steelSeriesZoneGrid?.addEventListener("input", (event) => {
+    const input = (event.target as HTMLElement).closest<HTMLInputElement>("[data-zone-color]");
+    if (!input) return;
+    scheduleSteelSeriesColor(Number(input.dataset.zoneColor), input.value);
+  });
+  steelSeriesZoneGrid?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-zone-apply]");
+    if (!button) return;
+    const zoneId = Number(button.dataset.zoneApply);
+    const input = steelSeriesZoneGrid.querySelector<HTMLInputElement>(`[data-zone-color="${zoneId}"]`);
+    if (input) void applySteelSeriesColor(zoneId, input.value);
   });
   document.querySelector<HTMLButtonElement>("#wheel-acceleration-toggle")?.addEventListener("click", (event) => {
     void applyProSetting("wheelAcceleration", (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
@@ -619,10 +650,15 @@ function resetDeviceSpecificPanels(): void {
     "#egg-cpi-settings",
     "#egg-button-settings",
     "#pulsar-pro-settings",
+    "#steelseries-lighting",
   ]) {
     const element = document.querySelector<HTMLElement>(selector);
     if (element) element.style.display = "none";
   }
+  const zoneGrid = document.querySelector<HTMLElement>("#steelseries-zone-grid");
+  if (zoneGrid) zoneGrid.replaceChildren();
+  for (const timer of steelSeriesColorTimers.values()) window.clearTimeout(timer);
+  steelSeriesColorTimers.clear();
   document.querySelector<HTMLElement>("#pulsar-advanced")?.classList.remove("egg-advanced-layout");
 }
 
@@ -635,6 +671,7 @@ function showStatus(status: MouseStatus): void {
   const isEggWe = ui?.family === "egg-we" || activeEggWeClient !== null;
   const isEgg = isEgg8k || isEggWe;
   const isWLMouse = ui?.family === "wlmouse" || activeWLMouseClient !== null;
+  const isSteelSeries = ui?.family === "steelseries-rival600" || activeSteelSeriesClient !== null;
   const settingsPending = ui?.settingsReady === false;
   const isWired = status.connectionType === "Wired";
   // Always clear device-specific panels first. A status read from the previous
@@ -665,7 +702,7 @@ function showStatus(status: MouseStatus): void {
   }
   for (const selector of ["#signal-settings", "#sleep-settings"]) {
     const element = document.querySelector<HTMLElement>(selector);
-    if (element) element.hidden = isEgg;
+    if (element) element.hidden = isEgg || isSteelSeries;
   }
   const debounceSettings = document.querySelector<HTMLElement>("#debounce-settings");
   if (debounceSettings) {
@@ -677,7 +714,7 @@ function showStatus(status: MouseStatus): void {
   if (signalSettings) signalSettings.hidden = isEgg || isWLMouse;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isWLMouse;
+    const hidePerformanceMode = isEgg || isWLMouse || isSteelSeries;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
   }
@@ -709,9 +746,16 @@ function showStatus(status: MouseStatus): void {
   }
   const advanced = document.querySelector<HTMLElement>("#pulsar-advanced");
   if (advanced) {
-    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse;
+    const showAdvanced = status.brand === "Pulsar" || isEgg8k || isWLMouse || isSteelSeries;
     advanced.style.display = showAdvanced ? "grid" : "none";
     advanced.classList.toggle("egg-advanced-layout", isEgg8k);
+  }
+  const lodCard = document.querySelector<HTMLElement>("[data-lod]")?.closest<HTMLElement>(".setting-card");
+  if (lodCard) lodCard.style.display = ui?.hideLodCard === true ? "none" : "";
+  const steelSeriesLighting = document.querySelector<HTMLElement>("#steelseries-lighting");
+  if (steelSeriesLighting) {
+    steelSeriesLighting.style.display = isSteelSeries ? "block" : "none";
+    if (isSteelSeries) renderSteelSeriesLighting();
   }
   const settingsGrid = document.querySelector<HTMLElement>(".settings-grid.device-data");
   if (settingsGrid) settingsGrid.style.display = settingsPending ? "none" : "";
@@ -908,6 +952,7 @@ function createSupportedClient(device: HIDDevice): SupportedClient | null {
   if (PulsarHidClient.isSupported(device)) return new PulsarHidClient(device);
   if (LogitechHidppClient.isSupported(device)) return new LogitechHidppClient(device);
   if (WLMouseHidClient.isSupported(device)) return new WLMouseHidClient(device);
+  if (SteelSeriesRival600Client.isSupported(device)) return new SteelSeriesRival600Client(device);
   return null;
 }
 
@@ -915,6 +960,7 @@ function deviceBrand(client: SupportedClient): string {
   if (client instanceof EggOp1HidClient || isEggWeClient(client)) return "Endgame Gear";
   if (client instanceof LogitechHidppClient) return "Logitech";
   if (client instanceof WLMouseHidClient) return "WLMouse";
+  if (client instanceof SteelSeriesRival600Client) return "SteelSeries";
   return "Pulsar";
 }
 
@@ -993,6 +1039,7 @@ async function activateClient(client: SupportedClient): Promise<void> {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeSteelSeriesClient = null;
   activeDevice = client.device;
   lastRenderedStatusKey = null;
   if (client instanceof WLMouseHidClient) {
@@ -1027,6 +1074,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     dpiOptions = await client.getDpiOptions();
     configureDpiControl(status.dpi);
     showStatus(status);
+  } else if (client instanceof SteelSeriesRival600Client) {
+    activeSteelSeriesClient = client;
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
   } else {
     activePulsarClient = client;
     await showPulsarExplorer(client);
@@ -1047,6 +1101,7 @@ function showDisconnectedState(): void {
   activeEggClient = null;
   activeEggWeClient = null;
   activeWLMouseClient = null;
+  activeSteelSeriesClient = null;
   activeDevice = null;
   lastRenderedStatusKey = null;
   resetDeviceSpecificPanels();
@@ -1169,6 +1224,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
 function clientSupportScore(device: HIDDevice): number {
   if (EggOp1HidClient.isSupported(device)) return 10;
   if (eggWeIsSupported(device)) return eggWeSupportScore(device);
+  if (SteelSeriesRival600Client.isSupported(device)) return 9;
   if (PulsarProHidClient.isSupported(device)) return 8;
   if (PulsarHidClient.isSupported(device)) return 7;
   if (LogitechHidppClient.isSupported(device)) return 6;
@@ -1651,6 +1707,57 @@ async function applyProSetting(setting: "wheelAcceleration" | "angleTuning" | "p
   }
 }
 
+const steelSeriesColorTimers = new Map<number, number>();
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+function colorHex(color: readonly [number, number, number]): string {
+  return `#${color.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function renderSteelSeriesLighting(): void {
+  const grid = document.querySelector<HTMLElement>("#steelseries-zone-grid");
+  if (!grid || grid.children.length > 0) return;
+  grid.innerHTML = RIVAL600_LED_ZONES.map((zone) => `
+    <div style="padding:.5rem;border:1px solid #2f2f34;border-radius:7px;background:#141416">
+      <small style="display:block;margin-bottom:.35rem;color:#8b8b90;font-size:.56rem;letter-spacing:.05em">${zone.label.toUpperCase()}</small>
+      <div style="display:flex;gap:.35rem;align-items:center">
+        <input type="color" data-zone-color="${zone.id}" value="#ff0000" aria-label="${zone.label} color" style="flex:1;min-width:0;height:1.9rem;padding:0;border:1px solid #343438;border-radius:5px;background:transparent;cursor:pointer" />
+        <button data-zone-apply="${zone.id}" type="button" style="padding:.35rem .5rem;border:1px solid #45454a;border-radius:6px;background:#202023;color:#ececef;font-size:.58rem;font-weight:650;cursor:pointer">Apply</button>
+      </div>
+    </div>`).join("");
+}
+
+function scheduleSteelSeriesColor(zoneId: number, hex: string): void {
+  const existing = steelSeriesColorTimers.get(zoneId);
+  if (existing !== undefined) window.clearTimeout(existing);
+  steelSeriesColorTimers.set(zoneId, window.setTimeout(() => {
+    steelSeriesColorTimers.delete(zoneId);
+    void applySteelSeriesColor(zoneId, hex);
+  }, 140));
+}
+
+async function applySteelSeriesColor(zoneId: number, hex: string): Promise<void> {
+  const client = activeSteelSeriesClient;
+  if (!client || settingInProgress) return;
+  const color = hexToRgb(hex);
+  if (!color) return;
+  settingInProgress = true;
+  try {
+    await client.setLedColor(zoneId, color);
+    setText("#read-status", `Applied ${colorHex(color)} to the ${steelSeriesLedZoneLabel(zoneId)} LED.`);
+  } catch (error) {
+    setText("#read-status", error instanceof Error ? error.message : "Unable to change the LED color.");
+  } finally {
+    settingInProgress = false;
+  }
+}
+
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   const client = activeSettingsClient();
@@ -1699,6 +1806,7 @@ window.addEventListener("beforeunload", () => {
   void activeEggClient?.close();
   void activeEggWeClient?.close();
   void activeWLMouseClient?.close();
+  void activeSteelSeriesClient?.close();
 });
 
 renderControl();

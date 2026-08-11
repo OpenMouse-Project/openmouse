@@ -5,6 +5,7 @@ export const VENDOR_ID = {
   endgameGear: 0x3367,
   wlmouse: 0x36a7,
   logitech: 0x046d,
+  steelseries: 0x1038,
 } as const;
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
@@ -44,10 +45,17 @@ export const WLMOUSE_MAX_POLLING_HZ: ReadonlyMap<number, number> = new Map([
   [0xa882, 1000],
 ]);
 
+/** Rival 600 config surface: USB HID interface 0 (vendor collection 0xFFC0). */
+export const STEELSERIES_RIVAL600_HID_FILTERS: HIDDeviceFilter[] = [
+  { vendorId: VENDOR_ID.steelseries, productId: 0x1724, usagePage: 0xffc0 },
+  { vendorId: VENDOR_ID.steelseries, productId: 0x172e, usagePage: 0xffc0 },
+];
+
 export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.pulsar },
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
+  ...STEELSERIES_RIVAL600_HID_FILTERS,
 ];
