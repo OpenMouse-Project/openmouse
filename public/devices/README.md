@@ -56,3 +56,6 @@ a public release package.
 `zaunkoenig-m3k.png` was supplied from the OpenMouse product-image storage URL
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
 terms before including it in a public release package.
+
+`razer-viper.webp` was supplied from a Best Buy shopping page for the device. Confirm redistribution
+terms before including it in a public release package.
