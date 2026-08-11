@@ -1223,12 +1223,8 @@ function detectOs(): string {
     if (p.includes("windows")) return "Windows";
     if (p.includes("mac")) return "macOS";
     if (p.includes("linux")) return "Linux";
-    if (p.includes("android")) return "Android";
-    if (p.includes("ios")) return "iOS";
   }
   const ua = navigator.userAgent;
-  if (/Android/i.test(ua)) return "Android";
-  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS";
   if (/CrOS/i.test(ua)) return "ChromeOS";
   if (/Win/i.test(ua)) return "Windows";
   if (/Mac/i.test(ua)) return "macOS";
