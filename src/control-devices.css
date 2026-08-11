@@ -1,56 +1,56 @@
 #pulsar-advanced { margin-top: .65rem; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .65rem; padding-bottom: .4rem; }
 
 #pulsar-advanced > .setting-card { min-height: 0; padding: .8rem; }
-#pulsar-advanced input[type="number"], #pulsar-advanced select { width: 100%; box-sizing: border-box; margin-top: .2rem; padding: .48rem .55rem; border: 1px solid var(--line-strong); border-radius: 6px; outline: none; background: #171719; color: #eee; font: inherit; color-scheme: dark; }
+#pulsar-advanced input[type="number"], #pulsar-advanced select { width: 100%; box-sizing: border-box; margin-top: .2rem; padding: .48rem .55rem; border: 1px solid var(--line-strong); border-radius: 6px; outline: none; background: var(--surface-input); color: var(--text-input); font: inherit; color-scheme: dark; }
 #pulsar-advanced input[type="number"]:focus, #pulsar-advanced select:focus { border-color: var(--faint); box-shadow: 0 0 0 2px rgb(255 255 255 / 4%); }
 #pulsar-advanced input:disabled, #pulsar-advanced select:disabled { cursor: not-allowed; opacity: .45; }
-#pulsar-advanced input[type="checkbox"] { width: .85rem; height: .85rem; margin: 0; accent-color: #69d28d; }
+#pulsar-advanced input[type="checkbox"] { width: .85rem; height: .85rem; margin: 0; accent-color: var(--ui-accent); }
 
 #pulsar-advanced.egg-advanced-layout { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: .55rem !important; }
 #pulsar-advanced.egg-advanced-layout > .setting-card { min-height: 0 !important; padding: .72rem !important; }
 #egg-polling-settings, #egg-cpi-settings, #egg-button-settings { grid-column: 1 / -1; }
 #egg-cpi-stage-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin-top: .55rem; }
 #egg-button-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; }
-#egg-cpi-stage-list > div, #egg-button-list > div { min-width: 0; padding: .55rem; border: 1px solid #303034; border-radius: 6px; }
+#egg-cpi-stage-list > div, #egg-button-list > div { min-width: 0; padding: .55rem; border: 1px solid var(--border); border-radius: 6px; }
 #egg-cpi-stage-list strong, #egg-button-list strong { font-size: .7rem; }
 #egg-cpi-settings .field-label { max-width: 160px; }
 .egg-tile-pair { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
 .egg-tile-label.stacked { display: block; margin-top: .35rem; }
 .egg-tile-label { color: var(--faint); font-size: .58rem; }
-.egg-tile-field { width: 100%; box-sizing: border-box; margin-top: .15rem; padding: .35rem; border: 1px solid var(--line-strong); border-radius: 5px; background: #171719; color: #eee; }
-.egg-split-toggle { display: flex; align-items: center; gap: .35rem; margin: .4rem 0; color: #8b8b90; font-size: .62rem; }
+.egg-tile-field { width: 100%; box-sizing: border-box; margin-top: .15rem; padding: .35rem; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-input); color: var(--text-input); }
+.egg-split-toggle { display: flex; align-items: center; gap: .35rem; margin: .4rem 0; color: var(--text-soft); font-size: .62rem; }
 
 #logitech-device-details { flex: 0 0 auto; margin-top: .65rem; }
 #logitech-device-details .setting-card { min-height: 0; }
 #logitech-detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .55rem; }
 #logitech-analog-button-settings { flex: 0 0 auto; margin-top: .65rem; }
-#logitech-analog-button-settings .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, #29292d); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, #141416), #121214 62%); }
+#logitech-analog-button-settings .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, #29292d); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, var(--surface-menu)), #121214 62%); }
 #logitech-analog-button-settings .superstrike-tuning-heading { margin-bottom: .2rem; }
-#logitech-analog-button-settings .superstrike-tuning-description { max-width: 540px; margin: .1rem 0 0; color: #99999e; line-height: 1.45; }
-#logitech-analog-button-settings .superstrike-tabs { display: inline-flex; gap: .2rem; margin-top: .7rem; padding: .2rem; border: 1px solid #303035; border-radius: 7px; background: var(--well); }
+#logitech-analog-button-settings .superstrike-tuning-description { max-width: 540px; margin: .1rem 0 0; color: var(--text-soft); line-height: 1.45; }
+#logitech-analog-button-settings .superstrike-tabs { display: inline-flex; gap: .2rem; margin-top: .7rem; padding: .2rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
 #logitech-analog-button-settings .superstrike-tabs button { padding: .32rem .52rem; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: .58rem; font-weight: 700; }
 #logitech-analog-button-settings .superstrike-tabs button[aria-selected="true"] { background: var(--ui-accent-soft); color: var(--ui-accent); }
 #logitech-analog-button-settings .superstrike-tuning-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-top: 1rem; }
 #logitech-analog-button-settings fieldset.superstrike-both-panel { display: none; margin-top: 1rem; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; }
 #logitech-analog-button-settings fieldset.superstrike-both-panel legend { display: none; }
-#logitech-analog-button-settings fieldset.superstrike-both-panel::before { display: block; margin: 0 0 .55rem; color: #dfdfe3; font-size: .68rem; font-weight: 700; content: "●  Both primary buttons"; }
+#logitech-analog-button-settings fieldset.superstrike-both-panel::before { display: block; margin: 0 0 .55rem; color: var(--text-strong); font-size: .68rem; font-weight: 700; content: "●  Both primary buttons"; }
 #logitech-analog-button-settings .superstrike-tuning-panels[data-superstrike-mode="both"] .superstrike-independent-panel { display: none; }
 #logitech-analog-button-settings .superstrike-tuning-panels[data-superstrike-mode="both"] .superstrike-both-panel { display: block; }
 #logitech-analog-button-settings .superstrike-both-panel > p { margin: 0 0 .65rem; color: var(--muted); font-size: .61rem; line-height: 1.4; }
-#logitech-analog-button-settings .superstrike-button-card { min-width: 0; margin: 0; padding: .78rem; border: 1px solid #303035; border-radius: 9px; background: rgb(10 10 12 / 58%); }
-#logitech-analog-button-settings .superstrike-button-card legend { display: flex; align-items: center; gap: .38rem; padding: 0 .1rem; color: #dfdfe3; font-size: .68rem; font-weight: 700; }
+#logitech-analog-button-settings .superstrike-button-card { min-width: 0; margin: 0; padding: .78rem; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-superstrike); }
+#logitech-analog-button-settings .superstrike-button-card legend { display: flex; align-items: center; gap: .38rem; padding: 0 .1rem; color: var(--text-strong); font-size: .68rem; font-weight: 700; }
 #logitech-analog-button-settings .superstrike-button-dot { width: .42rem; height: .42rem; border-radius: 50%; background: var(--ui-accent); box-shadow: 0 0 0 3px var(--ui-accent-soft); }
 #logitech-analog-button-settings .superstrike-control-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 1.15fr); align-items: center; gap: .9rem; padding: .58rem 0; border-bottom: 1px solid var(--line); }
 #logitech-analog-button-settings .superstrike-control-row:first-of-type { margin-top: .22rem; }
-#logitech-analog-button-settings .superstrike-control-row label { min-width: 0; color: #c7c7cb; font-size: .65rem; font-weight: 600; }
+#logitech-analog-button-settings .superstrike-control-row label { min-width: 0; color: var(--text-strong); font-size: .65rem; font-weight: 600; }
 #logitech-analog-button-settings .superstrike-control-row label small { display: block; margin-top: .12rem; color: var(--faint); font-size: .52rem; font-weight: 500; }
 #logitech-analog-button-settings .superstrike-control-row label small span::before { content: " · "; }
 #logitech-analog-button-settings .superstrike-steps input { display: none; }
 #logitech-analog-button-settings .superstrike-steps > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(1.45rem, 1fr)); gap: .22rem; }
-#logitech-analog-button-settings .superstrike-steps button { min-width: 0; padding: .34rem .12rem; border: 1px solid #35353a; border-radius: 5px; background: var(--input); color: #96969b; font: 650 .59rem var(--font-mono); }
-#logitech-analog-button-settings .superstrike-steps button:hover { border-color: var(--ghost); color: #e8e8eb; }
+#logitech-analog-button-settings .superstrike-steps button { min-width: 0; padding: .34rem .12rem; border: 1px solid var(--border); border-radius: 5px; background: var(--input); color: var(--text-soft); font: 650 .59rem var(--font-mono); }
+#logitech-analog-button-settings .superstrike-steps button:hover { border-color: var(--ghost); color: var(--text-hover); }
 #logitech-analog-button-settings .superstrike-steps button[aria-pressed="true"] { border-color: var(--ui-accent); background: var(--ui-accent); color: var(--ui-accent-ink); }
-#logitech-analog-button-settings .superstrike-apply-button { width: 100%; margin-top: .7rem; padding: .48rem .62rem; border: 1px solid color-mix(in srgb, var(--ui-accent) 62%, #3b3b40); border-radius: 6px; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: .62rem; font-weight: 750; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+#logitech-analog-button-settings .superstrike-apply-button { width: 100%; margin-top: .7rem; padding: .48rem .62rem; border: 1px solid color-mix(in srgb, var(--ui-accent) 62%, var(--border)); border-radius: 6px; background: var(--ui-accent-soft); color: var(--ui-accent); font-size: .62rem; font-weight: 750; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 #logitech-analog-button-settings .superstrike-apply-button:hover { border-color: var(--ui-accent); background: var(--ui-accent); color: var(--ui-accent-ink); transform: translateY(-1px); }
 #logitech-analog-button-settings .superstrike-apply-button:disabled,
 #logitech-analog-button-settings .superstrike-control-row input:disabled { cursor: wait; opacity: .5; }
@@ -58,17 +58,17 @@
 #device-debug-details { flex: 0 0 auto; margin-top: .65rem; }
 .device-debug-card { min-height: 0 !important; }
 .device-debug-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .5rem; }
-.device-debug-overview > div { min-width: 0; padding: .55rem; border: 1px solid var(--line); border-radius: 7px; background: #141416; }
+.device-debug-overview > div { min-width: 0; padding: .55rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-menu); }
 .device-debug-overview small { display: block; margin-bottom: .24rem; color: var(--faint); font-size: .52rem; letter-spacing: .08em; }
-.device-debug-overview span { display: block; color: #d8d8dc; font: 600 .67rem/1.45 var(--font-mono); overflow-wrap: anywhere; }
+.device-debug-overview span { display: block; color: var(--text-strong); font: 600 .67rem/1.45 var(--font-mono); overflow-wrap: anywhere; }
 .device-debug-actions { display: flex; align-items: center; gap: .55rem; margin-top: .7rem; }
 .device-debug-actions button { padding: .42rem .62rem; border: 1px solid var(--ui-accent); border-radius: 6px; background: var(--ui-accent); color: var(--ui-accent-ink); font-size: .62rem; font-weight: 700; }
 .device-debug-actions button:disabled { cursor: default; opacity: .45; }
-.device-debug-actions span { color: #99999f; font-size: .62rem; }
+.device-debug-actions span { color: var(--text-soft); font-size: .62rem; }
 .device-debug-raw { margin-top: .7rem; border: 1px solid var(--line); border-radius: 7px; background: var(--well); }
 .device-debug-raw summary { padding: .55rem .65rem; cursor: pointer; color: var(--dim); font-size: .65rem; font-weight: 650; }
 .device-debug-raw .device-debug-snapshot { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
-.device-debug-snapshot { max-height: 26rem; margin: 0; padding: .8rem; overflow: auto; border: 1px solid var(--line); border-radius: 7px; background: var(--well); color: #d8d8dc; font: .64rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.device-debug-snapshot { max-height: 26rem; margin: 0; padding: .8rem; overflow: auto; border: 1px solid var(--line); border-radius: 7px; background: var(--well); color: var(--text-strong); font: .64rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 
 .testing-note { display: flex; align-items: flex-start; gap: .75rem; margin-top: .55rem; padding: .65rem .8rem; border: 1px solid #3b3428; border-radius: 8px; background: #16140f; color: #aaa08d; font-size: .65rem; line-height: 1.45; }
 .testing-note strong { flex: 0 0 auto; color: #d8c58f; font-family: var(--font-mono); font-size: .57rem; letter-spacing: .08em; text-transform: uppercase; }

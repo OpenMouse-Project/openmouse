@@ -1,5 +1,5 @@
 export type InterfaceDensity = "Compact" | "Comfortable";
-export type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono";
+export type InterfaceTheme = "Emerald" | "Violet" | "Ice" | "Ember" | "Mono" | "Miku";
 
 export interface InterfacePreferences {
   density: InterfaceDensity;
@@ -11,7 +11,7 @@ export interface InterfacePreferences {
 }
 
 const STORAGE_KEY = "openmouse-interface-settings-v1";
-const THEMES: readonly InterfaceTheme[] = ["Emerald", "Violet", "Ice", "Ember", "Mono"];
+const THEMES: readonly InterfaceTheme[] = ["Emerald", "Violet", "Ice", "Ember", "Mono", "Miku"];
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   density: "Compact",

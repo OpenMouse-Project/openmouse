@@ -10,8 +10,8 @@
    which is unreadable against the dark panel, so they are themed explicitly. */
 #capture-dialog { color-scheme:dark }
 #capture-dialog::backdrop { background:rgb(0 0 0 / 62%) }
-#capture-dialog button { padding:.4rem .62rem;border:1px solid #3a3a3f;border-radius:6px;background:#1c1c20;color:#d8d8dc;font-size:.62rem;font-weight:600;cursor:pointer }
-#capture-dialog button:hover { border-color:#4a4a52;background:#232328 }
+#capture-dialog button { padding:.4rem .62rem;border:1px solid #3a3a3f;border-radius:6px;background:var(--surface-dialog);color:var(--text-strong);font-size:.62rem;font-weight:600;cursor:pointer }
+#capture-dialog button:hover { border-color:var(--border-hover);background:var(--surface-dialog-hover) }
 #capture-dialog button:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
 #capture-dialog button.is-primary { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
 #capture-dialog textarea:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
@@ -19,7 +19,7 @@
 /* Marks settings stored in the selected onboard profile rather than globally,
    so it is clear which values follow the profile and which apply to the mouse
    as a whole. Global settings carry no badge. */
-.setting-scope { display:inline-block;margin-left:.5rem;padding:.12rem .38rem;border:1px solid #34343a;border-radius:999px;background:#18181b;color:#8b8b90;font-family:'JetBrains Mono',monospace;font-size:.53rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;vertical-align:middle;white-space:nowrap }
+.setting-scope { display:inline-block;margin-left:.5rem;padding:.12rem .38rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--text-soft);font-family:'JetBrains Mono',monospace;font-size:.53rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;vertical-align:middle;white-space:nowrap }
 .setting-heading h2 .setting-scope { position:relative;top:-.1em }
 
 /* Per-profile DPI slots. Each row is one slot: its number, X and Y DPI, and
@@ -27,13 +27,13 @@
 /* The slot count and its title sit together on the left, so the eye reads the
    label and the control it belongs to in one movement. The title uses the same
    overline treatment as the card headings above it. */
-.dpi-slot-header { display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;margin-bottom:.6rem;/*padding-left:.6rem;border-left:2px solid #2f2f34*/ }
-.dpi-slot-header > span { color:#8b8b90;font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap }
+.dpi-slot-header { display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;margin-bottom:.6rem;/*padding-left:.6rem;border-left:2px solid var(--border)*/ }
+.dpi-slot-header > span { color:var(--text-soft);font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap }
 /* Divides the slot picker from the table it sizes. */
-.dpi-slot-rule { height:1px;margin:0 0 .55rem;background:#26262a }
+.dpi-slot-rule { height:1px;margin:0 0 .55rem;background:var(--border-rule) }
 .dpi-slot-count { display:flex;gap:.22rem }
-.dpi-slot-count button { min-width:1.55rem;padding:.26rem 0;border:1px solid #303034;border-radius:6px;background:#18181b;color:#85858a;font-family:'JetBrains Mono',monospace;font-size:.62rem;cursor:pointer }
-.dpi-slot-count button:hover:not(:disabled) { border-color:#66666b;color:#fff }
+.dpi-slot-count button { min-width:1.55rem;padding:.26rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem;cursor:pointer }
+.dpi-slot-count button:hover:not(:disabled) { border-color:var(--ghost);color:var(--text-hover) }
 .dpi-slot-count button.selected { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
 .dpi-slot-count button:disabled { opacity:.5;cursor:not-allowed }
 
@@ -41,34 +41,34 @@
 /* One shared column template so the headings line up with the fields under
    them: slot number, X, axis link, Y, lift-off. */
 .dpi-slot-row { display:grid;grid-template-columns:1.7rem minmax(0,1fr) 1.5rem minmax(0,1fr) 4.6rem;gap:.3rem;align-items:center }
-.dpi-slot-head { padding:0 0 .1rem;color:#5c5c62;font-size:.53rem;letter-spacing:.06em;text-transform:uppercase }
+.dpi-slot-head { padding:0 0 .1rem;color:var(--text-faint);font-size:.53rem;letter-spacing:.06em;text-transform:uppercase }
 .dpi-slot-head span { padding-left:.15rem }
-.dpi-slot-row > button.dpi-slot-index { padding:.34rem 0;border:1px solid #343438;border-radius:6px;background:#18181b;color:#8b8b90;font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;cursor:pointer }
-.dpi-slot-row.is-default > button.dpi-slot-index { border-color:var(--ui-accent);background:color-mix(in srgb, var(--ui-accent) 16%, #18181b);color:var(--ui-accent) }
+.dpi-slot-row > button.dpi-slot-index { padding:.34rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--text-soft);font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;cursor:pointer }
+.dpi-slot-row.is-default > button.dpi-slot-index { border-color:var(--ui-accent);background:color-mix(in srgb, var(--ui-accent) 16%, var(--surface-raised));color:var(--ui-accent) }
 /* The link control sits between the two fields it joins, so the pairing is
    read from the layout rather than from a label. */
-.dpi-axis-lock { display:flex;align-items:center;justify-content:center;padding:.3rem 0;border:0;background:none;color:#5c5c62;cursor:pointer }
-.dpi-axis-lock:hover:not(:disabled) { color:#b3b3b7 }
+.dpi-axis-lock { display:flex;align-items:center;justify-content:center;padding:.3rem 0;border:0;background:none;color:var(--text-faint);cursor:pointer }
+.dpi-axis-lock:hover:not(:disabled) { color:var(--dim) }
 .dpi-axis-lock.is-locked { color:var(--ui-accent) }
 .dpi-axis-lock:disabled { opacity:.45;cursor:not-allowed }
-.dpi-slot-row input[type="number"] { width:100%;min-width:0;box-sizing:border-box;padding:.34rem .3rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#e6e6ea;font-size:.66rem }
-.dpi-slot-row input[type="number"]:hover:not(:disabled) { border-color:#66666b }
+.dpi-slot-row input[type="number"] { width:100%;min-width:0;box-sizing:border-box;padding:.34rem .3rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-input);font-size:.66rem }
+.dpi-slot-row input[type="number"]:hover:not(:disabled) { border-color:var(--ghost) }
 .dpi-slot-row input[type="number"]:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
 
 /* Lift-off picker. A native select cannot be themed or animated, so it is a
    button plus a listbox that shares the inputs' shape and colours. */
 .lod-select { position:relative;min-width:0 }
-.lod-select-value { display:flex;width:100%;box-sizing:border-box;align-items:center;justify-content:space-between;gap:.25rem;padding:.34rem .4rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#e6e6ea;font-size:.66rem;cursor:pointer;transition:border-color .16s ease,background .16s ease }
-.lod-select-value:hover:not(:disabled) { border-color:#66666b }
+.lod-select-value { display:flex;width:100%;box-sizing:border-box;align-items:center;justify-content:space-between;gap:.25rem;padding:.34rem .4rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-input);font-size:.66rem;cursor:pointer;transition:border-color .16s ease,background .16s ease }
+.lod-select-value:hover:not(:disabled) { border-color:var(--ghost) }
 .lod-select-value:disabled { opacity:.55;cursor:not-allowed }
 .lod-select-value span { overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
-.lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid #85858a;border-bottom:1.2px solid #85858a;transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
+.lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid var(--muted);border-bottom:1.2px solid var(--muted);transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
 .lod-select.is-open .lod-select-value { border-color:var(--ui-accent) }
 .lod-select.is-open .lod-select-value i { transform:translateY(1px) rotate(-135deg) }
-.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:#141416;box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
+.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
 .lod-select.is-open .lod-select-menu { opacity:1;transform:none;pointer-events:auto }
-.lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:#b3b3b7;font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
-.lod-select-menu li:hover { background:#1f1f23;color:#fff }
+.lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:var(--dim);font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
+.lod-select-menu li:hover { background:var(--surface-hover-soft);color:var(--text-hover) }
 .lod-select-menu li[aria-selected="true"] { color:var(--ui-accent) }
 @media (prefers-reduced-motion:reduce) {
   .lod-select-value, .lod-select-value i, .lod-select-menu, .lod-select-menu li { transition:none }
@@ -78,15 +78,15 @@
 /* Report rate as a slider with one stop per supported rate. */
 .rate-slider { display:grid;gap:.1rem }
 .rate-slider + .rate-slider { margin-top:.65rem }
-.rate-slider-head { display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;color:#77777c;font-size:.6rem }
-.rate-slider-head output { color:#e6e6ea;font-family:'JetBrains Mono',monospace;font-size:.68rem }
+.rate-slider-head { display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;color:var(--faint);font-size:.6rem }
+.rate-slider-head output { color:var(--text-input);font-family:'JetBrains Mono',monospace;font-size:.68rem }
 .rate-slider-input { width:100%;margin:0;accent-color:var(--ui-accent);cursor:pointer }
 .rate-slider-input:disabled { opacity:.5;cursor:not-allowed }
 .rate-slider-scale { position:relative;height:1.15rem;margin-top:.1rem }
 .rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:#3a3a3f;transform:translateX(-50%) }
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
-.rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:#66666b;font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
-.rate-slider-scale span.is-on { color:#e6e6ea }
+.rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
+.rate-slider-scale span.is-on { color:var(--text-input) }
 @media (max-width:640px) { .dpi-slot-row { grid-template-columns:auto minmax(0,1fr);row-gap:.4rem } }
 
 /* The compact layout pins the settings grid to a 176px row. Five slot rows are
@@ -110,12 +110,12 @@
 .profile-disclosure { flex:0 0 auto;margin-top:.65rem;overflow:hidden;border:1px solid #2b2b2f;border-radius:12px;background:#111113 }
 .profile-summary { display:flex;align-items:stretch;gap:.35rem;padding:.15rem .55rem .15rem .15rem }
 .profile-summary-main { display:flex;flex:1 1 auto;align-items:center;justify-content:space-between;gap:.75rem;min-width:0;padding:.6rem .55rem;border:0;border-radius:10px;background:none;color:inherit;text-align:left;cursor:pointer;transition:background .16s ease }
-.profile-summary-main:hover { background:#17171a }
+.profile-summary-main:hover { background:var(--surface-hover-strong) }
 .profile-summary-text { display:grid;min-width:0;gap:.1rem }
-.profile-summary-label { color:#5c5c62;font-family:'JetBrains Mono',monospace;font-size:.53rem;font-weight:600;letter-spacing:.09em }
-.profile-summary-text strong { overflow:hidden;color:#e6e6ea;font-size:.78rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap }
-.profile-summary-text small { overflow:hidden;color:#77777c;font-size:.62rem;text-overflow:ellipsis;white-space:nowrap }
-.profile-summary-chevron { width:.4rem;height:.4rem;flex:0 0 auto;border-right:1.4px solid #85858a;border-bottom:1.4px solid #85858a;transform:translateY(-2px) rotate(45deg);transition:transform .2s ease }
+.profile-summary-label { color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:.53rem;font-weight:600;letter-spacing:.09em }
+.profile-summary-text strong { overflow:hidden;color:var(--text-input);font-size:.78rem;font-weight:600;text-overflow:ellipsis;white-space:nowrap }
+.profile-summary-text small { overflow:hidden;color:var(--faint);font-size:.62rem;text-overflow:ellipsis;white-space:nowrap }
+.profile-summary-chevron { width:.4rem;height:.4rem;flex:0 0 auto;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .2s ease }
 .profile-disclosure.is-open .profile-summary-chevron { transform:translateY(1px) rotate(-135deg) }
 /* Height is animated as a measured max-height rather than a 0fr/1fr grid row:
    an fr track resolves against free space, and with an overflow-hidden child
@@ -130,13 +130,13 @@
    the text ellipsis do its job. */
 #onboard-profile-list { display:grid;grid-template-columns:minmax(0,1fr);gap:.3rem;padding-bottom:.5rem }
 #onboard-profile-list > * { min-width:0;box-sizing:border-box }
-#onboard-status { color:#66666b;font-size:.58rem;line-height:1.45 }
+#onboard-status { color:var(--ghost);font-size:.58rem;line-height:1.45 }
 .profile-row-text { overflow:hidden }
 .profile-row-text strong, .profile-row-text small { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
 
 /* Square icon buttons, matching the segmented controls' border and hover. */
-.icon-button { display:inline-flex;align-items:center;justify-content:center;align-self:center;padding:.34rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#8b8b90;cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease }
-.icon-button:hover:not(:disabled) { border-color:#66666b;background:#1f1f23;color:#e6e6ea }
+.icon-button { display:inline-flex;align-items:center;justify-content:center;align-self:center;padding:.34rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-soft);cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease }
+.icon-button:hover:not(:disabled) { border-color:var(--ghost);background:var(--surface-hover-soft);color:var(--text-input) }
 .icon-button:disabled { opacity:.45;cursor:not-allowed }
 .icon-button.profile-delete-button { border-color:#713038;background:#35171b;color:#ef8e96 }
 .icon-button.profile-delete-button:hover:not(:disabled) { border-color:#bd4650;background:#611f26;color:#fff1f2 }
@@ -144,11 +144,11 @@
 /* Bunny hop: a switch, a number and its unit on one line, sharing the shape of
    the DPI slot fields above them. */
 .bunny-hop-controls { display:flex;align-items:center;gap:.45rem;margin-top:.1rem }
-.bunny-hop-controls input[type="number"] { width:5rem;box-sizing:border-box;padding:.36rem .4rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#e6e6ea;font-size:.66rem }
-.bunny-hop-controls input[type="number"]:hover:not(:disabled) { border-color:#66666b }
+.bunny-hop-controls input[type="number"] { width:5rem;box-sizing:border-box;padding:.36rem .4rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-input);font-size:.66rem }
+.bunny-hop-controls input[type="number"]:hover:not(:disabled) { border-color:var(--ghost) }
 .bunny-hop-controls input[type="number"]:disabled { opacity:.5;cursor:not-allowed }
-.bunny-hop-controls > span { color:#77777c;font-size:.62rem }
-#bunny-hop-row { margin-top:.9rem;padding-top:.85rem;border-top:1px solid #26262a }
+.bunny-hop-controls > span { color:var(--faint);font-size:.62rem }
+#bunny-hop-row { margin-top:.9rem;padding-top:.85rem;border-top:1px solid var(--border-rule) }
 #bunny-hop-row .setting-heading { margin-bottom:.45rem }
 
 @media (prefers-reduced-motion:reduce) {
@@ -156,10 +156,10 @@
 }
 
 /* Divides the slot picker from the table it sizes. */
-.dpi-slot-rule { height:1px;margin:0 0 .55rem;background:#26262a }
+.dpi-slot-rule { height:1px;margin:0 0 .55rem;background:var(--border-rule) }
 .dpi-slot-count { display:flex;gap:.22rem }
-.dpi-slot-count button { min-width:1.55rem;padding:.26rem 0;border:1px solid #303034;border-radius:6px;background:#18181b;color:#85858a;font-family:'JetBrains Mono',monospace;font-size:.62rem;cursor:pointer }
-.dpi-slot-count button:hover:not(:disabled) { border-color:#66666b;color:#fff }
+.dpi-slot-count button { min-width:1.55rem;padding:.26rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem;cursor:pointer }
+.dpi-slot-count button:hover:not(:disabled) { border-color:var(--ghost);color:var(--text-hover) }
 .dpi-slot-count button.selected { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
 .dpi-slot-count button:disabled { opacity:.5;cursor:not-allowed }
 
@@ -167,34 +167,34 @@
 /* One shared column template so the headings line up with the fields under
    them: slot number, X, axis link, Y, lift-off. */
 .dpi-slot-row { display:grid;grid-template-columns:1.7rem minmax(0,1fr) 1.5rem minmax(0,1fr) 4.6rem;gap:.3rem;align-items:center }
-.dpi-slot-head { padding:0 0 .1rem;color:#5c5c62;font-size:.53rem;letter-spacing:.06em;text-transform:uppercase }
+.dpi-slot-head { padding:0 0 .1rem;color:var(--text-faint);font-size:.53rem;letter-spacing:.06em;text-transform:uppercase }
 .dpi-slot-head span { padding-left:.15rem }
-.dpi-slot-row > button.dpi-slot-index { padding:.34rem 0;border:1px solid #343438;border-radius:6px;background:#18181b;color:#8b8b90;font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;cursor:pointer }
-.dpi-slot-row.is-default > button.dpi-slot-index { border-color:var(--ui-accent);background:color-mix(in srgb, var(--ui-accent) 16%, #18181b);color:var(--ui-accent) }
+.dpi-slot-row > button.dpi-slot-index { padding:.34rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--text-soft);font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;cursor:pointer }
+.dpi-slot-row.is-default > button.dpi-slot-index { border-color:var(--ui-accent);background:color-mix(in srgb, var(--ui-accent) 16%, var(--surface-raised));color:var(--ui-accent) }
 /* The link control sits between the two fields it joins, so the pairing is
    read from the layout rather than from a label. */
-.dpi-axis-lock { display:flex;align-items:center;justify-content:center;padding:.3rem 0;border:0;background:none;color:#5c5c62;cursor:pointer }
-.dpi-axis-lock:hover:not(:disabled) { color:#b3b3b7 }
+.dpi-axis-lock { display:flex;align-items:center;justify-content:center;padding:.3rem 0;border:0;background:none;color:var(--text-faint);cursor:pointer }
+.dpi-axis-lock:hover:not(:disabled) { color:var(--dim) }
 .dpi-axis-lock.is-locked { color:var(--ui-accent) }
 .dpi-axis-lock:disabled { opacity:.45;cursor:not-allowed }
-.dpi-slot-row input[type="number"] { width:100%;min-width:0;box-sizing:border-box;padding:.34rem .3rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#e6e6ea;font-size:.66rem }
-.dpi-slot-row input[type="number"]:hover:not(:disabled) { border-color:#66666b }
+.dpi-slot-row input[type="number"] { width:100%;min-width:0;box-sizing:border-box;padding:.34rem .3rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-input);font-size:.66rem }
+.dpi-slot-row input[type="number"]:hover:not(:disabled) { border-color:var(--ghost) }
 .dpi-slot-row input[type="number"]:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
 
 /* Lift-off picker. A native select cannot be themed or animated, so it is a
    button plus a listbox that shares the inputs' shape and colours. */
 .lod-select { position:relative;min-width:0 }
-.lod-select-value { display:flex;width:100%;box-sizing:border-box;align-items:center;justify-content:space-between;gap:.25rem;padding:.34rem .4rem;border:1px solid #303034;border-radius:7px;background:#18181b;color:#e6e6ea;font-size:.66rem;cursor:pointer;transition:border-color .16s ease,background .16s ease }
-.lod-select-value:hover:not(:disabled) { border-color:#66666b }
+.lod-select-value { display:flex;width:100%;box-sizing:border-box;align-items:center;justify-content:space-between;gap:.25rem;padding:.34rem .4rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised);color:var(--text-input);font-size:.66rem;cursor:pointer;transition:border-color .16s ease,background .16s ease }
+.lod-select-value:hover:not(:disabled) { border-color:var(--ghost) }
 .lod-select-value:disabled { opacity:.55;cursor:not-allowed }
 .lod-select-value span { overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
-.lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid #85858a;border-bottom:1.2px solid #85858a;transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
+.lod-select-value i { width:.32rem;height:.32rem;flex:0 0 auto;border-right:1.2px solid var(--muted);border-bottom:1.2px solid var(--muted);transform:translateY(-1px) rotate(45deg);transition:transform .18s ease }
 .lod-select.is-open .lod-select-value { border-color:var(--ui-accent) }
 .lod-select.is-open .lod-select-value i { transform:translateY(1px) rotate(-135deg) }
-.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:#141416;box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
+.lod-select-menu { position:absolute;z-index:30;top:calc(100% + .25rem);right:0;left:0;margin:0;padding:.2rem;border:1px solid #3a3a3f;border-radius:8px;background:var(--surface-menu);box-shadow:0 10px 22px rgb(0 0 0 / 45%);list-style:none;opacity:0;transform:translateY(-.25rem) scale(.97);transform-origin:top center;pointer-events:none;transition:opacity .16s ease,transform .16s ease }
 .lod-select.is-open .lod-select-menu { opacity:1;transform:none;pointer-events:auto }
-.lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:#b3b3b7;font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
-.lod-select-menu li:hover { background:#1f1f23;color:#fff }
+.lod-select-menu li { padding:.32rem .42rem;border-radius:5px;color:var(--dim);font-size:.64rem;cursor:pointer;transition:background .12s ease,color .12s ease }
+.lod-select-menu li:hover { background:var(--surface-hover-soft);color:var(--text-hover) }
 .lod-select-menu li[aria-selected="true"] { color:var(--ui-accent) }
 @media (prefers-reduced-motion:reduce) {
   .lod-select-value, .lod-select-value i, .lod-select-menu, .lod-select-menu li { transition:none }
@@ -204,15 +204,15 @@
 /* Report rate as a slider with one stop per supported rate. */
 .rate-slider { display:grid;gap:.1rem }
 .rate-slider + .rate-slider { margin-top:.65rem }
-.rate-slider-head { display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;color:#77777c;font-size:.6rem }
-.rate-slider-head output { color:#e6e6ea;font-family:'JetBrains Mono',monospace;font-size:.68rem }
+.rate-slider-head { display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;color:var(--faint);font-size:.6rem }
+.rate-slider-head output { color:var(--text-input);font-family:'JetBrains Mono',monospace;font-size:.68rem }
 .rate-slider-input { width:100%;margin:0;accent-color:var(--ui-accent);cursor:pointer }
 .rate-slider-input:disabled { opacity:.5;cursor:not-allowed }
 .rate-slider-scale { position:relative;height:1.15rem;margin-top:.1rem }
 .rate-slider-scale i { position:absolute;top:0;width:5px;height:5px;border-radius:50%;background:#3a3a3f;transform:translateX(-50%) }
 .rate-slider-scale i.is-on { background:var(--ui-accent) }
-.rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:#66666b;font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
-.rate-slider-scale span.is-on { color:#e6e6ea }
+.rate-slider-scale span { position:absolute;top:.45rem;transform:translateX(-50%);color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.53rem;white-space:nowrap }
+.rate-slider-scale span.is-on { color:var(--text-input) }
 @media (max-width:640px) { .dpi-slot-row { grid-template-columns:auto minmax(0,1fr);row-gap:.4rem } }
 
 /* The compact layout pins the settings grid to a 176px row. Five slot rows are
@@ -230,8 +230,8 @@
    hidden and its fixtures are never fetched in a production build. */
 .preview-launcher { margin-top:.9rem }
 .preview-launcher-list { display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.4rem;margin-top:.7rem }
-.preview-launcher-link { display:grid;gap:.1rem;padding:.5rem .6rem;border:1px solid #2b2b2f;border-radius:9px;background:#141416;color:#d8d8dc;font-size:.7rem;text-decoration:none;transition:border-color .16s ease,background .16s ease }
-.preview-launcher-link:hover { border-color:#4a4a52;background:#1b1b1f;color:#fff }
-.preview-launcher-link small { color:#66666b;font-family:'JetBrains Mono',monospace;font-size:.55rem }
+.preview-launcher-link { display:grid;gap:.1rem;padding:.5rem .6rem;border:1px solid #2b2b2f;border-radius:9px;background:var(--surface-menu);color:var(--text-strong);font-size:.7rem;text-decoration:none;transition:border-color .16s ease,background .16s ease }
+.preview-launcher-link:hover { border-color:var(--border-hover);background:var(--surface-hover-soft);color:var(--text-hover) }
+.preview-launcher-link small { color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.55rem }
 .preview-launcher-link.is-active { border-color:var(--ui-accent);color:var(--ui-accent) }
 .preview-launcher-link.is-active small { color:var(--ui-accent) }
