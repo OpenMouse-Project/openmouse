@@ -187,6 +187,10 @@ let lastDiagnosticCommand: string | null = null;
 let lastDiagnosticError: string | null = null;
 /** Prevents overlapping reconnect loops from leaving the UI stuck on "Reconnecting…". */
 let reconnectInFlight = false;
+/** True while a device activation is mid-flight, so refreshes and connects queue instead of racing it. */
+let activationInProgress = false;
+/** Serializes device activation so two clients never open the same HID device at once. */
+let activationQueue: Promise<void> = Promise.resolve();
 let sidebarHidden = false;
 
 async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
@@ -1905,7 +1909,25 @@ function statusNameForClient(client: SupportedClient): string {
   return client.device.productName || "the selected mouse";
 }
 
-async function activateClient(client: SupportedClient): Promise<void> {
+async function activateClientNow(client: SupportedClient): Promise<void> {
+  // A refresh that started before this activation may still be reading the
+  // device this activation is about to take over. Let it drain first so the
+  // two HID++ request streams cannot consume each other's replies.
+  while (refreshInProgress) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+  }
+  // Only one client may stay open on a receiver at a time. HID++ replies carry
+  // no request identity, so two open clients on the same device answer each
+  // other's pending probes and corrupt the resolved feature indices (surfacing
+  // as "does not expose DPI/report-rate controls").
+  for (const previous of [
+    activeClient, activePulsarClient, activeEggClient, activeEggWeClient,
+    activeFinalmouseClient, activeDmClient, activeOrbitalClient, activeRazerClient,
+    activeViperClient, activeTeevolutionClient, activeVgnClient, activeKeychronClient,
+    activeModdoClient,
+  ]) {
+    if (previous && previous !== client) await previous.close().catch(() => undefined);
+  }
   resetDeviceSpecificPanels();
   // Staged changes belong to the mouse they were made on.
   clearPendingChanges();
@@ -2037,6 +2059,24 @@ async function activateClient(client: SupportedClient): Promise<void> {
   setConnectionButtons(false, "Add device");
 }
 
+/**
+ * Serializes activation: the browser can fire a connect event while a reconnect
+ * loop is already opening a client, and two activations would each open the
+ * same receiver at once (see the close loop in activateClientNow).
+ */
+function activateClient(client: SupportedClient): Promise<void> {
+  const run = activationQueue.then(async () => {
+    activationInProgress = true;
+    try {
+      await activateClientNow(client);
+    } finally {
+      activationInProgress = false;
+    }
+  });
+  activationQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 function showDisconnectedState(): void {
   if (refreshTimer !== null) {
     window.clearInterval(refreshTimer);
@@ -2074,6 +2114,14 @@ function showDisconnectedState(): void {
 }
 
 function handleHidConnect(event: HIDConnectionEvent): void {
+  // Reconnect paths can re-fire connect for the device that is already active.
+  // Re-activating would close and reopen the same receiver for nothing; worse,
+  // two clients on one receiver interleave their HID++ probes and corrupt each
+  // other's feature resolution, so skip unless this is a new device.
+  if (activeDevice === event.device) {
+    void renderDeviceSidebar();
+    return;
+  }
   const client = createSupportedClient(event.device);
   if (!client) {
     void renderDeviceSidebar();
@@ -4020,7 +4068,7 @@ function startAutomaticRefresh(): void {
 
 async function refreshStatus(): Promise<void> {
   const client = activeSettingsClient();
-  if (!client || refreshInProgress || settingInProgress) return;
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
   if ("pollIntervalMs" in client && Number((client as { pollIntervalMs: number }).pollIntervalMs) <= 0) {
     return;
   }
