@@ -254,7 +254,8 @@ export function App(): ReactNode {
     if (!element) return;
     const onWheel = (event: WheelEvent): void => {
       const target = panel.current;
-      if (!target || target.contains(event.target as Node) || event.deltaY === 0) return;
+      const source = event.target as Element;
+      if (!target || target.contains(source) || source.closest("dialog") || event.deltaY === 0) return;
       target.scrollTop += event.deltaY;
       event.preventDefault();
     };
