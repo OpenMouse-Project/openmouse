@@ -1126,4 +1126,12 @@ body { height: 100vh; overflow: hidden; }
   .workspace-tabs button { min-width: 6.1rem; padding-inline: .7rem; }
   .sidebar-product .device-thumbnail img { max-height: 42vh; }
 }
-
+.easy-switch-slots { display: flex; flex-wrap: wrap; gap: .35rem; }
+.easy-switch-slots > * { min-width: 2.1rem; padding: .28rem .5rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); color: var(--dim); font-size: .68rem; text-align: center; }
+.easy-switch-slots span { opacity: .5; cursor: default; }
+.easy-switch-slots button { cursor: pointer; }
+.easy-switch-slots .is-current { border-color: rgb(105 210 141 / 55%); background: rgb(105 210 141 / 12%); color: #8be3a9; }
+.easy-switch-confirm { margin-top: .55rem; padding: .55rem .65rem; border: 1px solid #5c4a2a; border-radius: 7px; background: #241f16; }
+.easy-switch-confirm p { margin: 0 0 .5rem; color: #e2c489; font-size: .66rem; line-height: 1.45; }
+.easy-switch-confirm-actions { display: flex; gap: .4rem; }
+.easy-switch-confirm-actions button { padding: .32rem .6rem; border: 1px solid #7a6234; border-radius: 6px; background: #2e2718; color: #f0d9a4; font-size: .64rem; }

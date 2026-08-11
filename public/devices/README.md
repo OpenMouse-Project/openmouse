@@ -28,6 +28,14 @@ product page.
 official PRO X SUPERLIGHT 2c product gallery. Confirm redistribution terms
 before including it in a public release package.
 
+`logitech-mx-master-4.png` is a line-art trace made for this repository, not a
+vendor render. Only geometry derives from the source: the outer silhouette and
+the shell seams — button split, scroll-wheel housing, thumb rest, thumb wheel,
+side-panel crease and the wheel-mode button — were authored as paths against a
+product image. No colour, shading, texture or lettering was carried over, and
+the Logitech wordmark on the shell was deliberately excluded rather than faded,
+since it is a trademark and this repository is public.
+
 `endgame-gear-op1-8k.png` was supplied from an Overclockers UK product-image
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
@@ -55,4 +63,7 @@ a public release package.
 
 `zaunkoenig-m3k.png` was supplied from the OpenMouse product-image storage URL
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
+terms before including it in a public release package.
+
+`razer-viper.webp` was supplied from a Best Buy shopping page for the device. Confirm redistribution
 terms before including it in a public release package.

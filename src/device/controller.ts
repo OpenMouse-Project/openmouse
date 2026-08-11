@@ -75,6 +75,12 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import {
+  LOGITECH_HAPTIC_EFFECTS,
+  LOGITECH_HAPTIC_PRESETS,
+  LOGITECH_SMART_SHIFT_OFF,
+  type LogitechHapticPreset,
+} from "@openmouse/protocol/logitech";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
@@ -183,6 +189,8 @@ let latestDeviceStatus: MouseStatus | null = null;
 let lastDiagnosticCommand: string | null = null;
 let lastDiagnosticError: string | null = null;
 let reconnectInFlight = false;
+let activationInProgress = false;
+let activationQueue: Promise<void> = Promise.resolve();
 let sidebarHidden = false;
 let interfaceSettingsOpen = false;
 let activeWorkspaceTab: WorkspaceTab = "performance";
@@ -450,6 +458,169 @@ export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
   clearPendingChanges();
   setReadStatus("Discarded the staged changes.");
+}
+
+const HAPTIC_GROUP = "logitech-haptic";
+const RATCHET_GROUP = "logitech-ratchet";
+const WHEEL_MODE_GROUP = "logitech-wheel-mode";
+let stagedHapticIntensity: number | null = null;
+let stagedHapticEnabled: boolean | null = null;
+let stagedHapticBatterySaving: boolean | null = null;
+let stagedWheelMode: MouseStatus["wheelMode"] = null;
+let stagedSmartShift: number | null | undefined;
+let stagedHiRes: boolean | null = null;
+let stagedInvertScroll: boolean | null = null;
+
+async function writeStagedHaptics(): Promise<void> {
+  const client = logitechClient();
+  if (!client) throw new Error("The mouse is no longer connected.");
+  if (stagedHapticEnabled !== null) await client.setHapticEnabled(stagedHapticEnabled);
+  if (stagedHapticBatterySaving !== null) await client.setHapticBatterySaving(stagedHapticBatterySaving);
+  if (stagedHapticIntensity !== null) await client.setHapticIntensity(stagedHapticIntensity);
+  if (stagedHapticIntensity !== null || stagedHapticEnabled === true) {
+    const effect = stagedHapticEnabled === true && stagedHapticIntensity === null
+      ? LOGITECH_HAPTIC_EFFECTS.enableConfirmation
+      : LOGITECH_HAPTIC_EFFECTS.strengthSample;
+    await client.playHapticEffect(effect).catch(() => undefined);
+  }
+}
+
+async function writeStagedRatchet(): Promise<void> {
+  const client = logitechClient();
+  if (!client) throw new Error("The mouse is no longer connected.");
+  if (stagedWheelMode) await client.setWheelMode(stagedWheelMode);
+  if (stagedSmartShift !== undefined) await client.setSmartShiftThreshold(stagedSmartShift);
+}
+
+async function writeStagedWheelMode(): Promise<void> {
+  const client = logitechClient();
+  if (!client) throw new Error("The mouse is no longer connected.");
+  if (stagedHiRes !== null) await client.setHiResScroll(stagedHiRes);
+  if (stagedInvertScroll !== null) await client.setInvertScroll(stagedInvertScroll);
+}
+
+export function applyHapticIntensity(preset: LogitechHapticPreset): void {
+  if (!logitechClient()) return;
+  stagedHapticIntensity = LOGITECH_HAPTIC_PRESETS[preset];
+  stageChange({
+    key: "haptic-strength", group: HAPTIC_GROUP, label: `Haptics ${preset.toLowerCase()}`,
+    command: `Set haptic strength to ${preset} (${stagedHapticIntensity})`,
+    progress: `Setting haptic strength to ${preset.toLowerCase()}…`,
+    preview: (status) => { status.hapticIntensity = LOGITECH_HAPTIC_PRESETS[preset]; },
+    apply: writeStagedHaptics,
+  });
+}
+
+export function applyHapticEnabled(enabled: boolean): void {
+  if (!logitechClient()) return;
+  stagedHapticEnabled = enabled;
+  stageChange({
+    key: "haptic-enabled", group: HAPTIC_GROUP, label: `Haptics ${enabled ? "on" : "off"}`,
+    command: `Turn haptic feedback ${enabled ? "on" : "off"}`,
+    progress: `Turning haptic feedback ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hapticEnabled = enabled; }, apply: writeStagedHaptics,
+  });
+}
+
+export function applyHapticBatterySaving(enabled: boolean): void {
+  if (!logitechClient()) return;
+  stagedHapticBatterySaving = enabled;
+  stageChange({
+    key: "haptic-battery-saving", group: HAPTIC_GROUP,
+    label: `Haptic battery saving ${enabled ? "on" : "off"}`,
+    command: `Turn haptic battery saving ${enabled ? "on" : "off"}`,
+    progress: `Turning haptic battery saving ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hapticBatterySaving = enabled; }, apply: writeStagedHaptics,
+  });
+}
+
+export function applyWheelMode(mode: NonNullable<MouseStatus["wheelMode"]>): void {
+  if (!logitechClient()) return;
+  stagedWheelMode = mode;
+  const wording = mode === "Freespin" ? "free-spin" : "ratchet";
+  stageChange({
+    key: "wheel-mode", group: RATCHET_GROUP, label: `Wheel ${wording}`,
+    command: `Set the wheel to ${wording}`, progress: `Setting the wheel to ${wording}…`,
+    preview: (status) => { status.wheelMode = mode; }, apply: writeStagedRatchet,
+  });
+}
+
+export function applySmartShiftThreshold(threshold: number | null): void {
+  if (!logitechClient()) return;
+  stagedSmartShift = threshold;
+  const off = threshold === null || threshold === LOGITECH_SMART_SHIFT_OFF;
+  stageChange({
+    key: "smart-shift", group: RATCHET_GROUP, label: off ? "SmartShift off" : `SmartShift ${threshold}`,
+    command: off ? "Turn SmartShift off" : `Set the SmartShift threshold to ${threshold}`,
+    progress: off ? "Turning SmartShift off…" : `Setting the SmartShift threshold to ${threshold}…`,
+    preview: (status) => { status.smartShiftThreshold = threshold ?? LOGITECH_SMART_SHIFT_OFF; },
+    apply: writeStagedRatchet,
+  });
+}
+
+export function applyHiResScroll(enabled: boolean): void {
+  if (!logitechClient()) return;
+  stagedHiRes = enabled;
+  stageChange({
+    key: "hi-res-scroll", group: WHEEL_MODE_GROUP,
+    label: `High-resolution scrolling ${enabled ? "on" : "off"}`,
+    command: `Turn high-resolution scrolling ${enabled ? "on" : "off"}`,
+    progress: `Turning high-resolution scrolling ${enabled ? "on" : "off"}…`,
+    preview: (status) => { status.hiResScroll = enabled; }, apply: writeStagedWheelMode,
+  });
+}
+
+export function applyInvertScroll(inverted: boolean): void {
+  if (!logitechClient()) return;
+  stagedInvertScroll = inverted;
+  stageChange({
+    key: "invert-scroll", group: WHEEL_MODE_GROUP,
+    label: inverted ? "Scroll inverted" : "Scroll normal",
+    command: `${inverted ? "Invert" : "Restore"} the scroll direction`,
+    progress: `${inverted ? "Inverting" : "Restoring"} the scroll direction…`,
+    preview: (status) => { status.invertScroll = inverted; }, apply: writeStagedWheelMode,
+  });
+}
+
+export function applyThumbWheelInverted(inverted: boolean): void {
+  if (!logitechClient()) return;
+  stageChange({
+    key: "thumb-wheel-invert", label: inverted ? "Thumb wheel inverted" : "Thumb wheel normal",
+    command: `${inverted ? "Invert" : "Restore"} the thumb-wheel direction`,
+    progress: `${inverted ? "Inverting" : "Restoring"} the thumb wheel…`,
+    preview: (status) => { status.thumbWheelInverted = inverted; },
+    apply: async () => {
+      const client = logitechClient();
+      if (!client) throw new Error("The mouse is no longer connected.");
+      await client.setThumbWheelInverted(inverted);
+    },
+  });
+}
+
+export function applyFriendlyName(name: string): void {
+  const trimmed = name.trim();
+  if (!logitechClient() || !trimmed) return;
+  stageChange({
+    key: "friendly-name", label: `Name "${trimmed}"`, command: `Rename the mouse to "${trimmed}"`,
+    progress: `Renaming the mouse to "${trimmed}"…`,
+    preview: (status) => { status.friendlyName = trimmed; },
+    apply: async () => {
+      const client = logitechClient();
+      if (!client) throw new Error("The mouse is no longer connected.");
+      await client.setFriendlyName(trimmed);
+    },
+  });
+}
+
+export async function requestHostSwitch(slot: number): Promise<void> {
+  const client = logitechClient();
+  if (!client) return;
+  try {
+    await client.requestHostSwitch(slot);
+    setReadStatus(`Switch to computer ${slot + 1} requested. Press the button underneath the mouse to bring it back.`);
+  } catch (error) {
+    setReadStatus(error instanceof Error ? error.message : "Unable to request the switch.");
+  }
 }
 
 async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
@@ -954,7 +1125,11 @@ function clearActiveClients(): void {
   active = null;
 }
 
-async function activateClient(client: SupportedClient): Promise<void> {
+async function activateClientNow(client: SupportedClient): Promise<void> {
+  while (refreshInProgress) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+  }
+  if (active && active !== client) await active.close().catch(() => undefined);
   clearPendingChanges();
   latestDeviceStatus = null;
   clearActiveClients();
@@ -990,6 +1165,19 @@ async function activateClient(client: SupportedClient): Promise<void> {
   setConnectionButtons(false, "Add device");
 }
 
+function activateClient(client: SupportedClient): Promise<void> {
+  const run = activationQueue.then(async () => {
+    activationInProgress = true;
+    try {
+      await activateClientNow(client);
+    } finally {
+      activationInProgress = false;
+    }
+  });
+  activationQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   await client.open();
   deviceStatusText = "Connected";
@@ -1023,6 +1211,10 @@ function showDisconnectedState(): void {
 }
 
 function handleHidConnect(event: HIDConnectionEvent): void {
+  if (activeDevice === event.device) {
+    void refreshSidebar();
+    return;
+  }
   const client = createSupportedClient(event.device);
   if (!client) {
     void refreshSidebar();
@@ -2405,7 +2597,7 @@ function startAutomaticRefresh(): void {
 
 async function refreshStatus(): Promise<void> {
   const client = activeSettingsClient();
-  if (!client || refreshInProgress || settingInProgress) return;
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
   if ("pollIntervalMs" in client && Number((client as { pollIntervalMs: number }).pollIntervalMs) <= 0) return;
   refreshInProgress = true;
   markHidActivity(BACKGROUND, { transient: true });
@@ -2565,6 +2757,13 @@ export function start(): void {
     }
     if (!isPendingChange("gaming-surface")) stagedGamingSurface = null;
     if (!isPendingChange("lightforce-switch-mode")) stagedLightforce = null;
+    if (!isPendingChange("haptic-strength")) stagedHapticIntensity = null;
+    if (!isPendingChange("haptic-enabled")) stagedHapticEnabled = null;
+    if (!isPendingChange("haptic-battery-saving")) stagedHapticBatterySaving = null;
+    if (!isPendingChange("wheel-mode")) stagedWheelMode = null;
+    if (!isPendingChange("smart-shift")) stagedSmartShift = undefined;
+    if (!isPendingChange("hi-res-scroll")) stagedHiRes = null;
+    if (!isPendingChange("invert-scroll")) stagedInvertScroll = null;
     emit();
   });
 

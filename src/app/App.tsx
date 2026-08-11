@@ -14,6 +14,7 @@ import { BatteryIcon } from "./ui";
 import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
+import { MxMasterCards } from "./cards/MxMasterCards";
 import {
   DebounceCard,
   EggButtonCard,
@@ -148,11 +149,13 @@ function Workspace({
   const showProfiles = show(has.profiles, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
   const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
+  const showMxMaster = on(tab, ["advanced"])
+    && (status.hapticIntensity != null || status.wheelMode != null || status.friendlyName != null || status.hostCount != null);
   const showDiagnostics = on(tab, ["advanced"]);
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
-    || showProfiles || showSuperstrike || showLogitechDetails || showDiagnostics || showOverview;
+    || showProfiles || showSuperstrike || showLogitechDetails || showMxMaster || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
   const showSeparateDpiAxes = snapshot.traits.logitech
@@ -203,6 +206,11 @@ function Workspace({
       ) : null}
 
       {showLogitechDetails ? <LogitechDetails snapshot={snapshot} /> : null}
+      {showMxMaster ? (
+        <section className="settings-grid device-data" data-workspace-host role="tabpanel" aria-label="MX Master settings">
+          <MxMasterCards snapshot={snapshot} />
+        </section>
+      ) : null}
       {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
 
       {advanced.length > 0 ? (
