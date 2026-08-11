@@ -97,6 +97,7 @@ import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
 import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid";
 import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
+import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid, teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
@@ -2012,6 +2013,13 @@ async function activateClient(client: SupportedClient): Promise<void> {
     showStatus(status);
   } else if (client instanceof ModdoHidClient) {
     activeModdoClient = client;
+    await client.open();
+    const status = await client.readStatus();
+    deviceStatuses.set(client.device, status);
+    dpiOptions = client.getDpiOptions();
+    configureDpiControl(status.dpi);
+    showStatus(status);
+  } else if (client instanceof ZaunkoenigHidClient) {
     await client.open();
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
