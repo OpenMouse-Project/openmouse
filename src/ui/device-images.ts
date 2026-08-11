@@ -34,6 +34,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["093a:e020", "/devices/ninjutso-ten.png"],
   ["093a:ea01", "/devices/ninjutso-ten.png"],
   ["093a:eb01", "/devices/ninjutso-ten.png"],
+  // Nape Pro wired / Link-KM receivers share the same shell artwork.
+  ["3434:0440", "/devices/keychron-nape-pro.png"],
+  ["3434:d026", "/devices/keychron-nape-pro.png"],
+  ["3434:d029", "/devices/keychron-nape-pro.png"],
   // Teevolution Terra Pro wired / receiver Compx transports.
   ["3554:f520", "/devices/teevolution-terra-pro.png"],
   ["3554:f522", "/devices/teevolution-terra-pro.png"],
@@ -51,5 +55,6 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (mapped) return mapped;
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\s*8k\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
+  if (/\bnape\s*pro\b/i.test(displayName)) return "/devices/keychron-nape-pro.png";
   return "/devices/unknown-device.png";
 }
