@@ -1244,9 +1244,21 @@ function showStatus(deviceStatus: MouseStatus): void {
   if (signalSettings) signalSettings.hidden = isEgg || isDmFamily || isFinalmouse || ui?.hideSignalCard === true;
   const performanceModeSetting = document.querySelector<HTMLElement>("#performance-mode-setting");
   if (performanceModeSetting) {
-    const hidePerformanceMode = isEgg || isDmFamily || isFinalmouse;
+    const hidePerformanceMode = status.performanceMode == null || isEgg || isFinalmouse;
     performanceModeSetting.hidden = hidePerformanceMode;
     performanceModeSetting.style.display = hidePerformanceMode ? "none" : "flex";
+  }
+  const performanceModeLabel = document.querySelector<HTMLElement>("#performance-mode-label");
+  if (performanceModeLabel) {
+    performanceModeLabel.textContent = status.brand === "CRDRAKO"
+      ? "Competitive mode"
+      : status.brand === "Teevolution" ? "Highest performance" : "Performance mode";
+  }
+  const hyperModeSetting = document.querySelector<HTMLElement>("#hyper-mode-setting");
+  if (hyperModeSetting) {
+    const hideHyperMode = status.hyperMode == null;
+    hyperModeSetting.hidden = hideHyperMode;
+    hyperModeSetting.style.display = hideHyperMode ? "none" : "flex";
   }
   const processingCard = document.querySelector<HTMLElement>("#processing-settings");
   for (const [selector, hidden] of [
@@ -1264,7 +1276,8 @@ function showStatus(deviceStatus: MouseStatus): void {
       (status.motionSync != null && ui?.hideMotionSync !== true)
       || (status.angleSnapping != null && ui?.hideAngleSnapping !== true)
       || (status.rippleControl != null && ui?.hideRippleControl !== true)
-      || (status.performanceMode != null && !isDmFamily && !isEgg && !isFinalmouse)
+      || (status.performanceMode != null && !isEgg && !isFinalmouse)
+      || status.hyperMode != null
       || status.sensorMode != null || status.performanceDuration != null
     );
     processingCard.hidden = !processingAvailable;
@@ -1320,6 +1333,8 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#motion-sync-toggle", status.motionSync);
     setToggleValue("#angle-snapping-toggle", status.angleSnapping);
     setToggleValue("#ripple-control-toggle", status.rippleControl);
+    setToggleValue("#performance-mode-toggle", status.performanceMode);
+    setToggleValue("#hyper-mode-toggle", status.hyperMode);
   }
   // Sleep and low-power commands are supported by the Viper V3 protocol,
   // but not by the legacy Viper Mini driver.
@@ -1365,8 +1380,6 @@ function showStatus(deviceStatus: MouseStatus): void {
     setToggleValue("#ripple-control-toggle", status.rippleControl);
     setToggleValue("#performance-mode-toggle", status.performanceMode);
     const isTeevolution = status.brand === "Teevolution";
-    const performanceModeLabel = document.querySelector<HTMLElement>("#performance-mode-label");
-    if (performanceModeLabel) performanceModeLabel.textContent = isTeevolution ? "Highest performance" : "Performance mode";
     const teevolutionSensorRow = document.querySelector<HTMLElement>("#teevolution-sensor-mode-row");
     const teevolutionDurationRow = document.querySelector<HTMLElement>("#teevolution-performance-duration-row");
     const teevolutionDpiLighting = document.querySelector<HTMLElement>("#teevolution-dpi-lighting");
@@ -3656,7 +3669,7 @@ function toggleDongleLed(): void {
   });
 }
 
-type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
+type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode" | "hyperMode";
 
 function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
   if (!hasActiveClient()) return;
@@ -3673,6 +3686,7 @@ function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void
       if (setting === "angleSnapping") await requireClientMethod("setAngleSnapping", "angle snapping").setAngleSnapping(enabled);
       if (setting === "rippleControl") await requireClientMethod("setRippleControl", "ripple control").setRippleControl(enabled);
       if (setting === "performanceMode") await requireClientMethod("setPerformanceMode", "performance mode").setPerformanceMode(enabled);
+      if (setting === "hyperMode") await requireClientMethod("setHyperMode", "Hyper mode").setHyperMode(enabled);
     },
   });
 }
@@ -3683,6 +3697,7 @@ function settingLabel(setting: PulsarToggleSetting): string {
     angleSnapping: "angle snapping",
     rippleControl: "ripple control",
     performanceMode: activeTeevolutionClient ? "highest performance" : "performance mode",
+    hyperMode: "Hyper mode",
   } as const)[setting];
 }
 

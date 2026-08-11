@@ -11,7 +11,7 @@ function closeLodMenus(): void {
     select.querySelector("[data-lod-toggle]")?.setAttribute("aria-expanded", "false");
   });
 }
-type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode";
+type PulsarToggleSetting = "motionSync" | "angleSnapping" | "rippleControl" | "performanceMode" | "hyperMode";
 type EggFilterSetting = "slamclick" | "motionJitter";
 
 export interface ControlEventHandlers {
@@ -176,7 +176,7 @@ export function bindControlEvents(handlers: ControlEventHandlers): void {
     void handlers.toggleSleep(enabled);
   });
 
-  for (const [selector, setting] of [["#motion-sync-toggle", "motionSync"], ["#angle-snapping-toggle", "angleSnapping"], ["#ripple-control-toggle", "rippleControl"], ["#performance-mode-toggle", "performanceMode"]] as const) {
+  for (const [selector, setting] of [["#motion-sync-toggle", "motionSync"], ["#angle-snapping-toggle", "angleSnapping"], ["#ripple-control-toggle", "rippleControl"], ["#performance-mode-toggle", "performanceMode"], ["#hyper-mode-toggle", "hyperMode"]] as const) {
     document.querySelector<HTMLButtonElement>(selector)?.addEventListener("click", (event) => {
       void handlers.applyPulsarToggle(setting, (event.currentTarget as HTMLButtonElement).getAttribute("aria-checked") !== "true");
     });
