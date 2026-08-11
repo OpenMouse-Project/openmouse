@@ -32,6 +32,11 @@ before including it in a public release package.
 URL for the OP1 8K. Confirm redistribution terms before including it in a
 public release package.
 
+`razer-viper-v2-pro.png` was supplied from Razer's support FAQ device-layout
+asset (`dl.razerzone.com/src/6048-1-en-v10.png`). Ideally replace it with a
+higher-resolution image if one is found. Confirm redistribution terms before
+including it in a public release package.
+
 `keychron-nape-pro.png` was supplied from Keychron's sysmgr cover CDN for the
 Nape Pro. Confirm redistribution terms before including it in a public release
 package.

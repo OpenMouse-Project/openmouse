@@ -10,6 +10,8 @@
  */
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Wired and receiver are separate product ids for the same mouse.
+  ["1532:00a5", "/devices/razer-viper-v2-pro.png"],
+  ["1532:00a6", "/devices/razer-viper-v2-pro.png"],
   ["1532:00c0", "/devices/razer-viper-v3-pro.png"],
   ["1532:00c1", "/devices/razer-viper-v3-pro.png"],
   ["1532:008a", "/devices/razer-viper-mini.webp"],
@@ -55,6 +57,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (mapped) return mapped;
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\s*8k\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
+  if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
   if (/\bnape\s*pro\b/i.test(displayName)) return "/devices/keychron-nape-pro.png";
   return "/devices/unknown-device.png";
 }
