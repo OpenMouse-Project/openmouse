@@ -25,17 +25,23 @@ function configuration(): { url: string; key: string } {
   return { url, key };
 }
 
+export async function decodeResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!response.ok) {
+    let detail: { message?: string } | null = null;
+    try { detail = text ? JSON.parse(text) as { message?: string } : null; } catch { /* use the HTTP fallback */ }
+    throw new Error(detail?.message ?? `Request service returned ${response.status}.`);
+  }
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const { url, key } = configuration();
   const response = await fetch(`${url}/rest/v1/${path}`, {
     ...init,
     headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...init?.headers },
   });
-  if (!response.ok) {
-    const detail = await response.json().catch(() => null) as { message?: string } | null;
-    throw new Error(detail?.message ?? `Request service returned ${response.status}.`);
-  }
-  return await response.json() as T;
+  return decodeResponse<T>(response);
 }
 
 export function voterToken(storage: Storage): string {
