@@ -208,7 +208,7 @@ function Workspace({
 
       {showLogitechDetails ? <LogitechDetails snapshot={snapshot} /> : null}
       {showMxMaster ? (
-        <section className="settings-grid device-data" data-workspace-host role="tabpanel" aria-label="MX Master settings">
+        <section id="logitech-mx-master-settings" className="settings-grid device-data" data-workspace-host role="tabpanel" aria-label="MX Master settings">
           <MxMasterCards snapshot={snapshot} />
         </section>
       ) : null}
