@@ -24,7 +24,8 @@ hash of the Cloudflare-provided client IP. Raw IP addresses are never stored.
    rolling 24-hour window. Run
    `supabase/migrations/20260812002000_protected_mouse_requests.sql` to enable
    protected submissions; each IP hash may create at most two requests per
-   rolling seven-day window.
+   rolling seven-day window. A new request starts with zero votes, and the
+   requester may vote through the normal protected vote button.
 
 Never prefix the service-role key, Turnstile secret, or voter-hash secret with
 `VITE_`; Vite variables are included in browser code.

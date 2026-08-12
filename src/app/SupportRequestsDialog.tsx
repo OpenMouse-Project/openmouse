@@ -95,7 +95,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       setSavedRequest(saved);
       setQuery(`${saved.manufacturer} ${saved.model}`);
       setShowForm(false);
-      setMessage("Request saved. Your vote was added too.");
+      setMessage("Request saved. You can now vote for it from the list.");
       form.reset();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save this request.");
