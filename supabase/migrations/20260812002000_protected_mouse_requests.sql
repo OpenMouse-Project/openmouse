@@ -59,7 +59,7 @@ begin
   perform public.cast_protected_mouse_vote(v_request_id, p_voter_hash);
   insert into public.protected_mouse_request_submissions(request_id, voter_hash)
   values (v_request_id, p_voter_hash)
-  on conflict (request_id, voter_hash) do nothing;
+  on conflict on constraint protected_mouse_request_submissions_pkey do nothing;
 
   return query select c.* from public.mouse_request_catalog c where c.id = v_request_id;
 end;
