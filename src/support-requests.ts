@@ -23,7 +23,6 @@ export interface NewSupportRequest {
  * submit_mouse_request also adds a vote, so both paths must remain closed
  * until voting is moved behind server-issued identities and rate limiting.
  */
-export const SUPPORT_REQUEST_VOTING_ENABLED = Boolean(import.meta.env?.VITE_TURNSTILE_SITE_KEY);
 export const SUPPORT_REQUEST_WRITES_ENABLED = false;
 
 function requireSupportRequestWrites(): void {
@@ -89,7 +88,6 @@ export async function submitSupportRequest(input: NewSupportRequest, token: stri
 }
 
 export async function voteForRequest(id: string, turnstileToken: string): Promise<void> {
-  if (!SUPPORT_REQUEST_VOTING_ENABLED) throw new Error("Voting protection is not configured for this build.");
   if (!turnstileToken) throw new Error("Complete the anti-spam check before voting.");
   const response = await fetch("/api/mouse-vote", {
     method: "POST",
@@ -97,6 +95,13 @@ export async function voteForRequest(id: string, turnstileToken: string): Promis
     body: JSON.stringify({ requestId: id, turnstileToken }),
   });
   await decodeResponse<unknown>(response);
+}
+
+export async function votingSiteKey(): Promise<string> {
+  const response = await fetch("/api/voting-config", { headers: { Accept: "application/json" } });
+  const config = await decodeResponse<{ siteKey?: string }>(response);
+  if (!config.siteKey) throw new Error("Voting protection is not configured.");
+  return config.siteKey;
 }
 
 export async function contributeDiagnostics(id: string, bundle: unknown, token: string): Promise<void> {

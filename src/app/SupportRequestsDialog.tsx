@@ -4,8 +4,8 @@ import {
   contributeDiagnostics,
   submitSupportRequest,
   voteForRequest,
+  votingSiteKey,
   type SupportRequest,
-  SUPPORT_REQUEST_VOTING_ENABLED,
   SUPPORT_REQUEST_WRITES_ENABLED,
 } from "../support-requests";
 import { loadTurnstile } from "../turnstile";
@@ -23,6 +23,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
   const turnstileHost = useRef<HTMLDivElement>(null);
   const turnstileWidget = useRef<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
 
   useEffect(() => {
     const element = dialog.current;
@@ -33,16 +34,18 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       setMessage("Loading requests…");
       void listSupportRequests().then((rows) => { setRequests(rows); setMessage(""); })
         .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Could not load requests."));
+      void votingSiteKey().then(setTurnstileSiteKey)
+        .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Voting protection is not configured."));
     }
   }, [open]);
 
   useEffect(() => {
-    if (!open || !SUPPORT_REQUEST_VOTING_ENABLED || !turnstileHost.current) return;
+    if (!open || !turnstileSiteKey || !turnstileHost.current) return;
     let disposed = false;
     void loadTurnstile().then((api) => {
       if (disposed || !turnstileHost.current || turnstileWidget.current) return;
       turnstileWidget.current = api.render(turnstileHost.current, {
-        sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+        sitekey: turnstileSiteKey,
         action: "mouse-vote",
         theme: "dark",
         callback: (token: string) => setTurnstileToken(token),
@@ -56,7 +59,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       turnstileWidget.current = null;
       setTurnstileToken("");
     };
-  }, [open]);
+  }, [open, turnstileSiteKey]);
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -116,14 +119,14 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
     <dialog ref={dialog} className="support-dialog" aria-labelledby="support-dialog-title" onClose={onClose} onClick={(event) => { if (event.target === dialog.current) onClose(); }}>
       <div className="support-dialog-inner">
         <header><div><p className="overline">DEVICE SUPPORT</p><h2 id="support-dialog-title">Request a mouse</h2></div><button type="button" onClick={onClose} aria-label="Close">×</button></header>
-        <p className="support-intro">{SUPPORT_REQUEST_VOTING_ENABLED
+        <p className="support-intro">{turnstileSiteKey
           ? "Complete the anti-spam check, then add one vote to a mouse already listed. New requests remain temporarily paused."
           : "Voting and new requests are temporarily paused while we add stronger abuse protection."}</p>
-        {SUPPORT_REQUEST_VOTING_ENABLED ? <div className="support-turnstile" ref={turnstileHost} aria-label="Anti-spam verification" /> : null}
+        <div className="support-turnstile" ref={turnstileHost} aria-label="Anti-spam verification" />
         {!showForm ? <>
           <input className="support-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Search manufacturer or model" aria-label="Search mouse requests" autoFocus />
           <div className="support-results">
-            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !SUPPORT_REQUEST_VOTING_ENABLED || !turnstileToken} onClick={() => void vote(item)} title={!SUPPORT_REQUEST_VOTING_ENABLED ? "Voting temporarily paused" : !turnstileToken ? "Complete the anti-spam check first" : undefined}><b>{item.vote_count}</b> {SUPPORT_REQUEST_VOTING_ENABLED ? "Vote" : "Paused"}</button></article>)}
+            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !turnstileSiteKey || !turnstileToken} onClick={() => void vote(item)} title={!turnstileSiteKey ? "Voting protection is loading" : !turnstileToken ? "Complete the anti-spam check first" : undefined}><b>{item.vote_count}</b> {turnstileSiteKey ? "Vote" : "Loading"}</button></article>)}
             {!message && matches.length === 0 ? <p>No matching requests yet.</p> : null}
           </div>
           <button className="support-primary" type="button" disabled={!SUPPORT_REQUEST_WRITES_ENABLED} onClick={() => setShowForm(true)}>{SUPPORT_REQUEST_WRITES_ENABLED ? "Request a different mouse" : "Requests temporarily paused"}</button>

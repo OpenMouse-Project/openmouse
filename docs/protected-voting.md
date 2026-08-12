@@ -10,9 +10,9 @@ hash of the Cloudflare-provided client IP. Raw IP addresses are never stored.
    Supabase SQL editor. The old anonymous vote, request, and diagnostic RPCs must
    remain revoked.
 2. Create a Turnstile widget for `openmouse.app`.
-3. Add `VITE_TURNSTILE_SITE_KEY` as a Cloudflare Pages build environment
-   variable. This is a public site key, not a secret. Rebuild the site after
-   setting it.
+3. Add `VITE_TURNSTILE_SITE_KEY` as a Cloudflare Pages text variable. This is a
+   public site key, not a secret. The Pages Function supplies it to the browser
+   at runtime.
 4. Add these encrypted Pages secrets for the Function:
    - `TURNSTILE_SECRET_KEY`: the Turnstile widget secret
    - `VOTER_HASH_SECRET`: at least 32 random bytes; generate with
