@@ -9,6 +9,9 @@
  * and its file belong in the same commit.
  */
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
+  ["046d:c07d", "/devices/logitech-g502.png"],
+  ["046d:c095", "/devices/logitech-g502-x-plus.png"],
+  ["046d:c099", "/devices/logitech-g502-x.png"],
   // M3K and M2K use the supplied M3K product artwork.
   ["0483:a462", "/devices/zaunkoenig-m3k.png"],
   ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
@@ -65,6 +68,11 @@ function deviceKey(device: HIDDevice): string {
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
+  // Lightspeed receivers are shared product IDs, so paired G502 X variants
+  // must use the friendly name read from the mouse itself.
+  if (/g502\s*x\s*plus/i.test(displayName)) return "/devices/logitech-g502-x-plus.png";
+  if (/g502\s*x/i.test(displayName)) return "/devices/logitech-g502-x.png";
+  if (/\bg502\b/i.test(displayName)) return "/devices/logitech-g502.png";
   // Matched on the name rather than the product id: a Logi Bolt receiver is
   // 046d:c548 whichever mouse is paired to it, so keying the id would put this
   // artwork on an MX Master 3S as well.

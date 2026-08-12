@@ -28,6 +28,12 @@ product page.
 official PRO X SUPERLIGHT 2c product gallery. Confirm redistribution terms
 before including it in a public release package.
 
+The three `logitech-g502*.png` files were supplied from Lenovo, Logitech G,
+and MyXprs product-image URLs. They were normalized to matching 700×700
+transparent canvases; the original G502 backdrop was extracted from its source
+render. Confirm redistribution terms before including them in a public release
+package.
+
 `logitech-mx-master-4.png` is a line-art trace made for this repository, not a
 vendor render. Only geometry derives from the source: the outer silhouette and
 the shell seams — button split, scroll-wheel housing, thumb rest, thumb wheel,
