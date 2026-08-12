@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decodeResponse, submitSupportRequest, voteForRequest, voterToken } from "./support-requests.ts";
+import { decodeResponse, submitSupportRequest, voterToken } from "./support-requests.ts";
 
 test("voter token is stable in browser storage", () => {
   const values = new Map<string, string>();
@@ -15,7 +15,6 @@ test("Supabase void RPC responses do not require a JSON body", async () => {
   assert.equal(await decodeResponse<void>(response), undefined);
 });
 
-test("the emergency switch blocks both public vote paths before fetch", async () => {
-  await assert.rejects(voteForRequest(crypto.randomUUID(), crypto.randomUUID()), /temporarily paused/);
+test("the emergency switch blocks public request submission before fetch", async () => {
   await assert.rejects(submitSupportRequest({ manufacturer: "Logitech", model: "G502", connection: "Wired" }, crypto.randomUUID()), /temporarily paused/);
 });

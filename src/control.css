@@ -565,6 +565,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-dialog-inner { display: grid; gap: 1rem; padding: 1.25rem; }
 .support-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .support-dialog h2 { margin: .15rem 0 0; color: var(--bright); font-size: 1.35rem; font-weight: 550; }
+.support-turnstile { min-height: 65px; }
 .support-dialog header button { width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-control); color: var(--muted); font-size: 1.15rem; }
 .support-intro, .support-message, .support-consent { margin: 0; color: var(--dim); font-size: .76rem; line-height: 1.5; }
 .support-search, .support-form input:not([type="checkbox"]), .support-form select { width: 100%; padding: .65rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-size: .78rem; }

@@ -23,6 +23,7 @@ export interface NewSupportRequest {
  * submit_mouse_request also adds a vote, so both paths must remain closed
  * until voting is moved behind server-issued identities and rate limiting.
  */
+export const SUPPORT_REQUEST_VOTING_ENABLED = Boolean(import.meta.env?.VITE_TURNSTILE_SITE_KEY);
 export const SUPPORT_REQUEST_WRITES_ENABLED = false;
 
 function requireSupportRequestWrites(): void {
@@ -87,12 +88,15 @@ export async function submitSupportRequest(input: NewSupportRequest, token: stri
   return rows[0];
 }
 
-export async function voteForRequest(id: string, token: string): Promise<void> {
-  requireSupportRequestWrites();
-  await request<unknown>("rpc/vote_mouse_request", {
+export async function voteForRequest(id: string, turnstileToken: string): Promise<void> {
+  if (!SUPPORT_REQUEST_VOTING_ENABLED) throw new Error("Voting protection is not configured for this build.");
+  if (!turnstileToken) throw new Error("Complete the anti-spam check before voting.");
+  const response = await fetch("/api/mouse-vote", {
     method: "POST",
-    body: JSON.stringify({ p_request_id: id, p_voter_token: token }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestId: id, turnstileToken }),
   });
+  await decodeResponse<unknown>(response);
 }
 
 export async function contributeDiagnostics(id: string, bundle: unknown, token: string): Promise<void> {
