@@ -1,3 +1,7 @@
+export function formatHex(value: number, width = 2): string {
+  return value.toString(16).toUpperCase().padStart(width, "0");
+}
+
 export function describeHidDevice(device: HIDDevice): string {
   const name = device.productName || "unknown";
   const ids = `VID 0x${device.vendorId.toString(16)} PID 0x${device.productId.toString(16)}`;

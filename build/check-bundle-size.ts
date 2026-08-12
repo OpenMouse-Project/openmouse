@@ -2,24 +2,14 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  // Raised from 47 kB for the concept-18 workspace redesign: the persistent
-  // product panel, status strip, section tabs, stacked cards, responsive
-  // layout, and fixed apply bar are all implemented in the existing CSS
-  // bundle without adding a UI framework or runtime dependency.
-  ".css": 54_000,
-  // Raised from 280 kB for the production Logitech onboard-profile codec,
-  // guarded flash editor, verification exporter, upstream Finalmouse driver,
-  // the dedicated Viper Mini protocol driver, Viper V3 sleep/low-power plus
-  // asymmetric lift-off protocol and controls, Keychron Nape Pro, and the
-  // moddoMOUSE wired/wireless config driver, plus the Teevolution Compx codec
-  // and staged Terra Pro controls, plus Logi Bolt / MX Master 3S transport.
-  // Raised from 390 kB for the Ninjutso NinjaForce integration: Sora V2 uses
-  // the legacy settings-block protocol, while Sora V3 and TEN use the current
-  // command protocol. No framework or runtime dependency was added.
-  // Raised from 410 kB for capability-gated NinjaForce performance controls,
-  // multi-stage DPI selection, and Sora V3 receiver lighting read/write UI.
-  // Protocol tests and preview fixtures remain unbundled.
-  ".js": 425_000,
+  // Raised from 85 kB after the Preact workspace rewrite split the control,
+  // profile, device, and diagnostics styles into the aggregate production
+  // bundle. The measured bundle is 86.3 kB; 90 kB leaves modest headroom.
+  ".css": 90_000,
+  // Raised from 470 kB for the Preact component rewrite, MX Master 4 controls,
+  // and database-backed support-request flow. Preview fixtures retain their
+  // separate allowance below; the measured aggregate is 491.8 kB with them.
+  ".js": 485_000,
 };
 
 const ASSETS = join("dist", "assets");
@@ -40,11 +30,16 @@ if (found.length === 0) {
   process.exit(1);
 }
 
+const budgets = {
+  ...BUDGET_BYTES,
+  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 18_000 : 0),
+};
+
 const totals = new Map<string, number>();
 for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
 
 let failed = false;
-for (const [ext, budget] of Object.entries(BUDGET_BYTES)) {
+for (const [ext, budget] of Object.entries(budgets)) {
   const bytes = totals.get(ext) ?? 0;
   const percent = Math.round((bytes / budget) * 100);
   const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;

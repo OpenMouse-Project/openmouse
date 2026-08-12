@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DEFAULT_INTERFACE_PREFERENCES, loadInterfacePreferences, saveInterfacePreferences } from "./interface-preferences.ts";
+import {
+  DEFAULT_INTERFACE_PREFERENCES,
+  interfaceThemeSlug,
+  loadInterfacePreferences,
+  saveInterfacePreferences,
+  type InterfaceTheme,
+} from "./interface-preferences.ts";
 
 class MemoryStorage implements Storage {
   #values = new Map<string, string>();
@@ -16,7 +22,6 @@ class MemoryStorage implements Storage {
 test("interface preferences restore only supported values", () => {
   const storage = new MemoryStorage();
   saveInterfacePreferences(storage, {
-    density: "Comfortable",
     theme: "Violet",
     reducedMotion: true,
     expandSections: true,
@@ -25,7 +30,6 @@ test("interface preferences restore only supported values", () => {
   });
 
   assert.deepEqual(loadInterfacePreferences(storage), {
-    density: "Comfortable",
     theme: "Violet",
     reducedMotion: true,
     expandSections: true,
@@ -39,4 +43,29 @@ test("interface preferences fall back safely for malformed storage", () => {
   storage.setItem("openmouse-interface-settings-v1", "not json");
 
   assert.deepEqual(loadInterfacePreferences(storage), DEFAULT_INTERFACE_PREFERENCES);
+});
+
+test("every interface theme persists and maps to its stylesheet slug", () => {
+  const themes: ReadonlyArray<[InterfaceTheme, string]> = [
+    ["Emerald", "emerald"],
+    ["Violet", "violet"],
+    ["Ice", "ice"],
+    ["Ember", "ember"],
+    ["Mono", "mono"],
+    ["Miku", "miku"],
+    ["Catppuccin Mocha", "catppuccin-mocha"],
+    ["Catppuccin Macchiato", "catppuccin-macchiato"],
+    ["Catppuccin Frappé", "catppuccin-frappe"],
+  ];
+
+  for (const [theme, slug] of themes) {
+    const storage = new MemoryStorage();
+    saveInterfacePreferences(storage, {
+      ...DEFAULT_INTERFACE_PREFERENCES,
+      theme,
+    });
+
+    assert.equal(loadInterfacePreferences(storage).theme, theme);
+    assert.equal(interfaceThemeSlug(theme), slug);
+  }
 });

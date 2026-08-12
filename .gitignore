@@ -7,3 +7,4 @@ supabase/migrations/
 .env
 .env.*
 !.env.example
+!.env.production
