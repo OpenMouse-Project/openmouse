@@ -81,5 +81,6 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/\bko-one\b/i.test(displayName)) return "/devices/crdrako-ko-one.png";
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "/devices/logitech-mx-master-3s.png";
+  if (/\bterra\s*pro\b/i.test(displayName)) return "/devices/teevolution-terra-pro.png";
   return "/devices/unknown-device.png";
 }
