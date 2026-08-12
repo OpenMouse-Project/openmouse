@@ -574,6 +574,6 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
   keychron: { label: "Keychron Nape Pro", status: KEYCHRON },
-  "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
+  "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };

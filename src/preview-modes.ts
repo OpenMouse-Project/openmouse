@@ -28,8 +28,8 @@ export const PREVIEW_KEYS = [
   "finalmouse",
   "ninjutso",
   "keychron",
-  "logitech-legacy",
   "mx-master-3s",
+  "logitech-legacy",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
@@ -67,8 +67,8 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "finalmouse": return "finalmouse";
     case "ninjutso": return "ninjutso";
     case "keychron": return "keychron";
-    case "logitech-legacy": return "logitech-legacy";
     case "mx-master-3s": return "mx-master-3s";
+    case "logitech-legacy": return "logitech-legacy";
     default: return null;
   }
 }
