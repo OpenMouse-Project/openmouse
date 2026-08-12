@@ -39,7 +39,6 @@ import {
   type EggSpdtMode,
 } from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
 import {
-  EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
   eggWeFromAuthorized,
   eggWeIsSupported,
@@ -49,6 +48,43 @@ import {
   isEggWeClient,
   type EggWeHidClient,
 } from "@openmouse/protocol/drivers/endgame/egg-we-control";
+
+function eggWeDisplayName(client: SupportedClient, devices?: HIDDevice[]): string {
+  if (!isEggWeClient(client)) return "";
+
+  const weClient = client as unknown as {
+    device?: HIDDevice;
+    cmdDevice?: HIDDevice;
+    notifyDevice?: HIDDevice;
+  };
+  const boundDevices = [weClient.device, weClient.cmdDevice, weClient.notifyDevice].filter(
+    (d): d is HIDDevice => Boolean(d)
+  );
+
+  const checkList = [...boundDevices, ...(devices || [])];
+  const isXm2 = checkList.some((d) => {
+    if ([0x1960, 0x1968, 0x1982].includes(d.productId)) return true;
+    return (d.productName || "").toLowerCase().includes("xm2");
+  });
+
+  return isXm2 ? "Endgame Gear XM2we" : "Endgame Gear OP1we";
+}
+
+function resolveDeviceStatus(client: SupportedClient, status: MouseStatus, devices?: HIDDevice[]): MouseStatus {
+  if (isEggWeClient(client)) {
+    const name = eggWeDisplayName(client, devices);
+    return {
+      ...status,
+      name,
+      ui: {
+        ...status.ui,
+        pollingNote: `${name} supports up to 1,000 Hz (125 / 250 / 500 / 1000).`,
+        defaultDisplayName: name,
+      },
+    };
+  }
+  return status;
+}
 import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
 import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import {
@@ -1071,7 +1107,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
       ?? (isEggWeClient(client)
-        ? EGG_WE_DISPLAY_NAME
+        ? eggWeDisplayName(client, devices)
         : client instanceof FinalmouseHidClient
           ? client.displayName()
           : (device.productName ?? `${deviceBrand(client)} mouse`));
@@ -1127,7 +1163,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 }
 
 function statusNameForClient(client: SupportedClient): string {
-  if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
+  if (isEggWeClient(client)) return eggWeDisplayName(client);
   if (client instanceof FinalmouseHidClient) return client.displayName();
   return client.device.productName || "the selected mouse";
 }
@@ -1156,7 +1192,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   if (pulsarClient() !== null) {
     await showPulsarExplorer(client as PulsarClient);
   } else {
-    const status = await client.readStatus();
+    const status = resolveDeviceStatus(client, await client.readStatus());
     dpiOptions = await client.getDpiOptions();
     const dm = dmClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
@@ -1240,7 +1276,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       if (result.action === "ignore") return;
       if (result.action === "refresh") {
         try {
-          const status = await result.client.readStatus();
+          const status = resolveDeviceStatus(result.client, await result.client.readStatus(), all);
           deviceStatuses.set(result.client.device, status);
           applyStatus(status);
           startAutomaticRefresh();
@@ -1251,7 +1287,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       deviceStatusText = result.reason === "path" ? "Switching path" : "New device detected";
       readStatus = result.reason === "path"
         ? "Preferring USB over receiver."
-        : `Reading ${EGG_WE_DISPLAY_NAME}.`;
+        : `Reading ${eggWeDisplayName(result.client, all)}.`;
       emit();
       await activateClient(result.client);
     })().catch((error: unknown) => {
@@ -2614,7 +2650,8 @@ async function refreshStatus(): Promise<void> {
   markHidActivity(BACKGROUND, { transient: true });
   try {
     const dm = dmClient();
-    const status = dm && client === dm ? await dm.readStatus(true) : await client.readStatus();
+    const rawStatus = dm && client === dm ? await dm.readStatus(true) : await client.readStatus();
+    const status = resolveDeviceStatus(client, rawStatus);
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     const key = JSON.stringify(status);
