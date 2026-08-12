@@ -20,6 +20,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         demo: resolve(__dirname, "demo.html"),
+        supported: resolve(__dirname, "supported.html"),
         control: resolve(__dirname, "control.html"),
         controlApp: resolve(__dirname, "control-app.html"),
       },
