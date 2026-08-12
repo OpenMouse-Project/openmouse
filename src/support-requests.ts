@@ -18,6 +18,19 @@ export interface NewSupportRequest {
   connection: string;
 }
 
+/**
+ * Emergency kill switch. Both public RPCs accept caller-supplied UUIDs, and
+ * submit_mouse_request also adds a vote, so both paths must remain closed
+ * until voting is moved behind server-issued identities and rate limiting.
+ */
+export const SUPPORT_REQUEST_WRITES_ENABLED = false;
+
+function requireSupportRequestWrites(): void {
+  if (!SUPPORT_REQUEST_WRITES_ENABLED) {
+    throw new Error("Mouse requests and voting are temporarily paused while abuse protection is added.");
+  }
+}
+
 function configuration(): { url: string; key: string } {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -58,6 +71,7 @@ export async function listSupportRequests(): Promise<SupportRequest[]> {
 }
 
 export async function submitSupportRequest(input: NewSupportRequest, token: string): Promise<SupportRequest> {
+  requireSupportRequestWrites();
   const rows = await request<SupportRequest[]>("rpc/submit_mouse_request", {
     method: "POST",
     body: JSON.stringify({
@@ -74,6 +88,7 @@ export async function submitSupportRequest(input: NewSupportRequest, token: stri
 }
 
 export async function voteForRequest(id: string, token: string): Promise<void> {
+  requireSupportRequestWrites();
   await request<unknown>("rpc/vote_mouse_request", {
     method: "POST",
     body: JSON.stringify({ p_request_id: id, p_voter_token: token }),
@@ -81,6 +96,7 @@ export async function voteForRequest(id: string, token: string): Promise<void> {
 }
 
 export async function contributeDiagnostics(id: string, bundle: unknown, token: string): Promise<void> {
+  requireSupportRequestWrites();
   await request<unknown>("rpc/contribute_mouse_diagnostics", {
     method: "POST",
     body: JSON.stringify({ p_request_id: id, p_voter_token: token, p_bundle: bundle }),

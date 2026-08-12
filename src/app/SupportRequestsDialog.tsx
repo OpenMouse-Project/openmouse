@@ -6,6 +6,7 @@ import {
   voteForRequest,
   voterToken,
   type SupportRequest,
+  SUPPORT_REQUEST_WRITES_ENABLED,
 } from "../support-requests";
 
 export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { open: boolean; onClose: () => void; diagnosticBundle: unknown | null }): ReactNode {
@@ -85,14 +86,16 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
     <dialog ref={dialog} className="support-dialog" aria-labelledby="support-dialog-title" onClose={onClose} onClick={(event) => { if (event.target === dialog.current) onClose(); }}>
       <div className="support-dialog-inner">
         <header><div><p className="overline">DEVICE SUPPORT</p><h2 id="support-dialog-title">Request a mouse</h2></div><button type="button" onClick={onClose} aria-label="Close">×</button></header>
-        <p className="support-intro">Search first. If your mouse is already here, add your vote; otherwise create a new request.</p>
+        <p className="support-intro">{SUPPORT_REQUEST_WRITES_ENABLED
+          ? "Search first. If your mouse is already here, add your vote; otherwise create a new request."
+          : "Voting and new requests are temporarily paused while we add stronger abuse protection."}</p>
         {!showForm ? <>
           <input className="support-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Search manufacturer or model" aria-label="Search mouse requests" autoFocus />
           <div className="support-results">
-            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy} onClick={() => void vote(item)}><b>{item.vote_count}</b> Vote</button></article>)}
+            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !SUPPORT_REQUEST_WRITES_ENABLED} onClick={() => void vote(item)} title={SUPPORT_REQUEST_WRITES_ENABLED ? undefined : "Voting temporarily paused"}><b>{item.vote_count}</b> {SUPPORT_REQUEST_WRITES_ENABLED ? "Vote" : "Paused"}</button></article>)}
             {!message && matches.length === 0 ? <p>No matching requests yet.</p> : null}
           </div>
-          <button className="support-primary" type="button" onClick={() => setShowForm(true)}>Request a different mouse</button>
+          <button className="support-primary" type="button" disabled={!SUPPORT_REQUEST_WRITES_ENABLED} onClick={() => setShowForm(true)}>{SUPPORT_REQUEST_WRITES_ENABLED ? "Request a different mouse" : "Requests temporarily paused"}</button>
         </> : <form className="support-form" onSubmit={(event) => void submit(event)}>
           <div className="support-two"><label>Manufacturer<input name="manufacturer" required placeholder="Pulsar" /></label><label>Model<input name="model" required placeholder="X2V2" /></label></div>
           <label>Connection<select name="connection"><option>Not sure</option><option>Wired USB</option><option>Wireless USB receiver</option><option>Bluetooth</option><option>Wired and wireless</option></select></label>
