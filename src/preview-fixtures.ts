@@ -400,6 +400,30 @@ const LOGITECH_LEGACY: MouseStatus = {
   firmware: ["MPM 12.01"],
 };
 
+/** Logi Bolt productivity mouse: DPI + battery, no report-rate or LOD feature. */
+const LOGITECH_MX_MASTER_3S: MouseStatus = {
+  brand: "Logitech",
+  name: "MX Master 3S",
+  ui: {
+    family: "logitech-hidpp",
+    lodRequiresSurface: true,
+    hideUnsupportedPollingRates: true,
+    pollingReadOnly: true,
+    pollingNote: "This mouse does not expose a HID++ polling-rate control.",
+  },
+  batteryPercent: 68,
+  batteryState: "Discharging",
+  dpi: 1000,
+  pollingRateHz: 0,
+  supportedPollingRates: [],
+  activeProfile: null,
+  liftOffDistance: null,
+  supportedLiftOffDistances: [],
+  connectionType: "Wireless",
+  connectionDetail: "Logi Bolt",
+  firmware: ["RQK 70.00"],
+};
+
 /**
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
@@ -421,4 +445,5 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
+  "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
 };
