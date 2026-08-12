@@ -6,6 +6,25 @@
 #pulsar-advanced input:disabled, #pulsar-advanced select:disabled { cursor: not-allowed; opacity: .45; }
 #pulsar-advanced input[type="checkbox"] { width: .85rem; height: .85rem; margin: 0; accent-color: var(--ui-accent); }
 
+/* Teevolution DPI indicator lives on the Lighting tab; keep select chrome
+   readable outside #pulsar-advanced. */
+#teevolution-dpi-lighting select {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: .2rem;
+  padding: .48rem .55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  outline: none;
+  background: var(--surface-input);
+  color: var(--text-input);
+  font: inherit;
+  color-scheme: dark;
+}
+#teevolution-dpi-lighting select:focus { border-color: var(--faint); box-shadow: 0 0 0 2px rgb(255 255 255 / 4%); }
+#teevolution-dpi-lighting select:disabled,
+#teevolution-dpi-lighting input:disabled { cursor: not-allowed; opacity: .45; }
+
 #pulsar-advanced.egg-advanced-layout { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: .55rem !important; }
 #pulsar-advanced.egg-advanced-layout > .setting-card { min-height: 0 !important; padding: .72rem !important; }
 #egg-polling-settings, #egg-cpi-settings, #egg-button-settings { grid-column: 1 / -1; }
