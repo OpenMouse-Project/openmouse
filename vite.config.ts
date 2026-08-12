@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
 
+import { pwa } from "./build/pwa-vite-plugin";
 import { sites } from "./build/sites-vite-plugin";
 
 const packageVersion = JSON.parse(
@@ -10,7 +11,7 @@ const packageVersion = JSON.parse(
 const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "insiders";
 
 export default defineConfig({
-  plugins: [sites()],
+  plugins: [sites(), pwa(packageVersion.version)],
   define: {
     __APP_VERSION__: JSON.stringify(packageVersion.version),
     __BUILD_CHANNEL__: JSON.stringify(buildChannel),

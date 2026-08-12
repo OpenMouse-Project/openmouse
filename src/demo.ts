@@ -1,4 +1,7 @@
 import "./demo.css";
+import { registerServiceWorker } from "./register-sw";
+
+registerServiceWorker();
 
 const demoApp = document.querySelector<HTMLDivElement>("#demo-app");
 
