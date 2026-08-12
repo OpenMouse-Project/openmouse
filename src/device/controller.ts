@@ -79,7 +79,9 @@ import {
   LOGITECH_HAPTIC_EFFECTS,
   LOGITECH_HAPTIC_PRESETS,
   LOGITECH_SMART_SHIFT_OFF,
+  logitechControlName,
   type LogitechHapticPreset,
+  type LogitechReprogrammableControl,
 } from "@openmouse/protocol/logitech";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
@@ -172,6 +174,7 @@ const pulsarClient = (): PulsarClient | null =>
     : null;
 
 let onboardProfiles: OnboardProfile[] | null = null;
+let buttons: LogitechReprogrammableControl[] | null = null;
 let onboardProfilesLoading = false;
 let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
 let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
@@ -327,6 +330,7 @@ function buildSnapshot(): ControlSnapshot {
     customDpiEditing,
     customDpiText,
     onboardProfiles,
+    buttons,
     editedProfile,
     profilesExpanded,
     deviceMode: lastDeviceMode,
@@ -336,6 +340,7 @@ function buildSnapshot(): ControlSnapshot {
     stagedBunnyHopMs,
     stagedProfileRates,
     stagedProfileName,
+    stagedButtonMappings: Object.fromEntries(stagedButtonMappings),
     analogTuning,
     eggPollingDivider,
     pending: {
@@ -620,6 +625,99 @@ export async function requestHostSwitch(slot: number): Promise<void> {
     setReadStatus(`Switch to computer ${slot + 1} requested. Press the button underneath the mouse to bring it back.`);
   } catch (error) {
     setReadStatus(error instanceof Error ? error.message : "Unable to request the switch.");
+  }
+}
+
+/**
+ * Reads the reprogrammable controls, if the mouse has any.
+ *
+ * Two round-trips per control puts this well outside what the refresh poll can
+ * afford, so it runs on connect and after a write. A mouse without 0x1B04
+ * answers with an empty list and the card stays hidden.
+ */
+async function readButtons(): Promise<void> {
+  const client = logitechClient();
+  if (!client) {
+    buttons = null;
+    return;
+  }
+  try {
+    const controls = await client.readButtons();
+    buttons = controls.length > 0 ? controls : null;
+  } catch {
+    // A mouse that will not answer keeps the card hidden rather than showing
+    // an empty one; the next connect tries again.
+    buttons = null;
+  }
+}
+
+const BUTTON_GROUP = "logitech-buttons";
+const stagedButtonMappings = new Map<number, number>();
+
+/**
+ * Stages a remap.
+ *
+ * There is no preview: the controls are not part of MouseStatus, so the card
+ * renders the staged mapping itself rather than mirroring it onto a status
+ * snapshot. Every staged remap shares one group and is written together, in
+ * the order it was staged.
+ */
+export function applyButtonMapping(controlId: number, targetControlId: number): void {
+  if (!logitechClient()) return;
+  const control = buttons?.find((candidate) => candidate.controlId === controlId);
+  if (!control) return;
+  if (control.mappedTo === targetControlId) {
+    stagedButtonMappings.delete(controlId);
+    dropPendingChange(`button-${controlId}`);
+    emit();
+    return;
+  }
+  stagedButtonMappings.set(controlId, targetControlId);
+  const target = logitechControlName(targetControlId);
+  stageChange({
+    key: `button-${controlId}`,
+    group: BUTTON_GROUP,
+    label: `${control.name} → ${target}`,
+    command: `Remap ${control.name} (0x${controlId.toString(16).padStart(4, "0")}) to ${target}`,
+    progress: `Remapping ${control.name} to ${target}…`,
+    apply: writeStagedButtonMappings,
+  });
+}
+
+async function writeStagedButtonMappings(): Promise<void> {
+  const client = logitechClient();
+  if (!client) return;
+  try {
+    for (const [controlId, targetControlId] of stagedButtonMappings) {
+      buttons = await client.setButtonMapping(controlId, targetControlId);
+    }
+  } finally {
+    stagedButtonMappings.clear();
+  }
+}
+
+/**
+ * Hands diverted buttons back to the hardware.
+ *
+ * Immediate rather than staged, unlike a remap. A diversion is state another
+ * application left in the mouse, not a preference this user expressed, and the
+ * button does nothing at all until it is cleared — staging a repair behind a
+ * flash step would leave a dead button dead for no reason.
+ */
+export async function restoreDivertedButtons(): Promise<void> {
+  const client = logitechClient();
+  if (!client || settingInProgress) return;
+  settingInProgress = true;
+  setReadStatus("Restoring buttons to hardware control…");
+  emit();
+  try {
+    buttons = await client.clearButtonDiversion();
+    setReadStatus("Buttons restored to hardware control.");
+  } catch (error) {
+    setReadStatus(error instanceof Error ? error.message : "Unable to restore the buttons.");
+  } finally {
+    settingInProgress = false;
+    emit();
   }
 }
 
@@ -1145,6 +1243,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   latestDeviceStatus = null;
   clearActiveClients();
   if (activeDevice !== client.device) onboardProfiles = null;
+  buttons = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1163,6 +1262,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     deviceStatuses.set(client.device, status);
     capabilities = readCapabilities();
     applyStatus(status);
+    await readButtons();
     if (dm) {
       await dm.startNotifications(() => {
         void refreshStatus();
@@ -2763,6 +2863,12 @@ export function start(): void {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
     if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
+    // A remap dropped from the pending bar (reverted, or the group flashed)
+    // must leave the side map, or its select stays on the staged value and a
+    // later flash would write a mapping the user took back.
+    for (const controlId of stagedButtonMappings.keys()) {
+      if (!isPendingChange(`button-${controlId}`)) stagedButtonMappings.delete(controlId);
+    }
     if (!isPendingChange(DPI_SLOTS_KEY)) {
       syncDpiSlotPlan();
     }

@@ -24,6 +24,7 @@ export interface CardAvailability {
   eggPolling: boolean;
   eggCpi: boolean;
   eggButtons: boolean;
+  mxMasterButtons: boolean;
   pulsarPro: boolean;
   profiles: boolean;
   logitechDetails: boolean;
@@ -52,6 +53,7 @@ const NOTHING: CardAvailability = {
   eggPolling: false,
   eggCpi: false,
   eggButtons: false,
+  mxMasterButtons: false,
   pulsarPro: false,
   profiles: false,
   logitechDetails: false,
@@ -118,6 +120,12 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     eggCpi: eggs,
     eggButtons: eggs
       && status.eggMulticlickFilters !== undefined && status.eggButtonMappings !== undefined,
+    // The driver reports an empty list for a mouse without 0x1B04, which the
+    // controller stores as null — so this is "the device has controls", not
+    // "the device is an MX Master".
+    // Not gated on `host`: Logitech opts out of the shared advanced section,
+    // and this card lives in the buttons tab regardless.
+    mxMasterButtons: traits.logitech && (snapshot.buttons?.length ?? 0) > 0,
     pulsarPro: host && isPulsarProProtocol(status),
   };
 }

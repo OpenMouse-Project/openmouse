@@ -20,6 +20,7 @@ function snapshot(overrides: {
   capabilities?: Partial<DeviceCapabilities>;
   settingsPending?: boolean;
   showExperimental?: boolean;
+  buttons?: ControlSnapshot["buttons"];
 }): ControlSnapshot {
   const status = overrides.status === null ? null : { ...STATUS, ...overrides.status };
   return {
@@ -27,9 +28,30 @@ function snapshot(overrides: {
     traits: traitsFor(status),
     capabilities: overrides.capabilities ?? null,
     settingsPending: overrides.settingsPending ?? false,
+    buttons: overrides.buttons ?? null,
     preferences: { showExperimental: overrides.showExperimental ?? true },
   } as unknown as ControlSnapshot;
 }
+
+const CONTROL = {
+  controlId: 0x00c3, taskId: 0x009c, flags: 0x31, group: 2, groupMask: 3,
+  name: "Gesture button", taskName: "Gesture button", reprogrammable: true,
+  mappedTo: 0x00c3, diverted: false, remappableTo: [0x0052], remapFlags: 0,
+} as unknown as NonNullable<ControlSnapshot["buttons"]>[number];
+
+test("the button card appears only when the mouse reports controls", () => {
+  // The driver answers with an empty list on a mouse without 0x1B04, so this
+  // must key on the controls themselves rather than on the brand.
+  assert.equal(cardAvailability(snapshot({})).mxMasterButtons, false);
+  assert.equal(cardAvailability(snapshot({ buttons: [] })).mxMasterButtons, false);
+  assert.equal(cardAvailability(snapshot({ buttons: [CONTROL] })).mxMasterButtons, true);
+});
+
+test("a non-Logitech mouse never gets the button card", () => {
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar" }, buttons: [CONTROL],
+  })).mxMasterButtons, false);
+});
 
 test("no device offers no cards at all", () => {
   const has = cardAvailability(snapshot({ status: null }));
