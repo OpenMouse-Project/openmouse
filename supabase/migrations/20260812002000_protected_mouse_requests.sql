@@ -40,10 +40,21 @@ begin
   where voter_hash = p_voter_hash and created_at >= now() - interval '7 days';
   if weekly_requests >= 2 then raise exception 'Weekly request limit reached'; end if;
 
-  insert into public.mouse_requests(manufacturer, model, connection, features, can_test)
-  values (trim(p_manufacturer), trim(p_model), left(coalesce(nullif(trim(p_connection), ''), 'Not sure'), 80), '{}', false)
-  on conflict (normalized_name) do update set can_test = public.mouse_requests.can_test
-  returning id into request_id;
+  select r.id into request_id
+  from public.mouse_requests r
+  where r.normalized_name = lower(regexp_replace(trim(p_manufacturer || ' ' || p_model), '\s+', ' ', 'g'));
+
+  if request_id is null then
+    begin
+      insert into public.mouse_requests(manufacturer, model, connection, features, can_test)
+      values (trim(p_manufacturer), trim(p_model), left(coalesce(nullif(trim(p_connection), ''), 'Not sure'), 80), '{}', false)
+      returning id into request_id;
+    exception when unique_violation then
+      select r.id into request_id
+      from public.mouse_requests r
+      where r.normalized_name = lower(regexp_replace(trim(p_manufacturer || ' ' || p_model), '\s+', ' ', 'g'));
+    end;
+  end if;
 
   perform public.cast_protected_mouse_vote(request_id, p_voter_hash);
   insert into public.protected_mouse_request_submissions(request_id, voter_hash)
@@ -59,3 +70,5 @@ grant execute on function public.cast_protected_mouse_request(text, text, text, 
 
 -- The caller-generated UUID version remains closed.
 revoke execute on function public.submit_mouse_request(text, text, text, text[], boolean, uuid) from public, anon, authenticated;
+
+notify pgrst, 'reload schema';

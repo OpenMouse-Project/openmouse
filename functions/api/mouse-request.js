@@ -59,11 +59,14 @@ export async function onRequest({ request, env }) {
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     const raw = detail.message ?? "";
+    console.error("Protected mouse request RPC failed", { status: response.status, code: detail.code, message: raw });
     const message = /request limit/i.test(raw) ? "Request limit reached. Try again next week."
       : /already voted/i.test(raw) ? "That mouse is already listed and you already voted for it."
       : /daily vote limit/i.test(raw) ? "Daily vote limit reached. Try again tomorrow."
+      : detail.code === "PGRST202" ? "Protected request database migration is not installed."
+      : detail.code === "42883" ? "Protected voting database migration is not installed."
       : "Could not save this request.";
-    return json({ message }, 409);
+    return json({ message, code: detail.code ?? "REQUEST_REJECTED" }, detail.code === "PGRST202" || detail.code === "42883" ? 503 : 409);
   }
   const rows = await response.json();
   if (!rows[0]) return json({ message: "The request was accepted but no record was returned." }, 502);
