@@ -85,6 +85,20 @@ test("Pulsar keeps the shared advanced cards", () => {
   assert.equal(has.eggFilter, false);
 });
 
+test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Keychron",
+      ui: { family: "keychron-nape", showAdvancedSection: true },
+      sleepTimeout: 600,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.sleep, true);
+  assert.equal(has.debounce, false);
+  assert.equal(has.signal, false);
+});
+
 test("a driver may opt into the advanced section and still suppress its cards", () => {
   const has = cardAvailability(snapshot({
     status: {

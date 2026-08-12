@@ -492,6 +492,7 @@ const KEYCHRON: MouseStatus = {
     hideUnsupportedPollingRates: true,
     hideProcessingCard: true,
     forceShowBattery: true,
+    showAdvancedSection: true,
     pollingNote: "Nape Pro exposes polling through Keychron's misc HID commands when the firmware allows it.",
   },
   batteryPercent: 76,
@@ -504,6 +505,7 @@ const KEYCHRON: MouseStatus = {
   connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5",
   liftOffDistance: null,
   supportedLiftOffDistances: [],
+  sleepTimeout: 600,
   firmware: ["v1.0.4"],
 };
 

@@ -165,6 +165,7 @@ const teevolutionClient = (): TeevolutionHidClient | null => activeAs(Teevolutio
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
+const keychronClient = (): KeychronHidClient | null => activeAs(KeychronHidClient);
 /** Pulsar is the fallback: any supported client no dedicated driver claims. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
@@ -365,6 +366,10 @@ function setReadStatus(text: string): void {
   emit();
 }
 
+export function reportStatus(text: string): void {
+  setReadStatus(text);
+}
+
 function setOnboardStatus(text: string): void {
   onboardStatus = text;
   emit();
@@ -401,9 +406,14 @@ function requireClientMethod<K extends string>(
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
+  const keychron = keychronClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
-    sleepOptions: dm ? [...dm.getSleepOptions()] : null,
+    sleepOptions: dm
+      ? [...dm.getSleepOptions()]
+      : keychron
+        ? [...keychron.getSleepOptions()]
+        : null,
     debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
@@ -1159,7 +1169,11 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     const status = await client.readStatus();
     dpiOptions = await client.getDpiOptions();
     const dm = dmClient();
+    const keychron = keychronClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
+    else if (keychron) {
+      lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+    }
     deviceStatuses.set(client.device, status);
     capabilities = readCapabilities();
     applyStatus(status);
@@ -2242,7 +2256,7 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
