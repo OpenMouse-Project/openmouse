@@ -21,7 +21,10 @@ hash of the Cloudflare-provided client IP. Raw IP addresses are never stored.
    - `SUPABASE_SERVICE_ROLE_KEY`: the legacy service-role JWT from Supabase
 5. Deploy the `dev` build and verify a vote. Reusing an IP for the same mouse is
    rejected, and each IP hash can vote for at most five different mice per
-   rolling 24-hour window.
+   rolling 24-hour window. Run
+   `supabase/migrations/20260812002000_protected_mouse_requests.sql` to enable
+   protected submissions; each IP hash may create at most two requests per
+   rolling seven-day window.
 
 Never prefix the service-role key, Turnstile secret, or voter-hash secret with
 `VITE_`; Vite variables are included in browser code.

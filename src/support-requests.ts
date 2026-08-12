@@ -25,12 +25,6 @@ export interface NewSupportRequest {
  */
 export const SUPPORT_REQUEST_WRITES_ENABLED = false;
 
-function requireSupportRequestWrites(): void {
-  if (!SUPPORT_REQUEST_WRITES_ENABLED) {
-    throw new Error("Mouse requests and voting are temporarily paused while abuse protection is added.");
-  }
-}
-
 function configuration(): { url: string; key: string } {
   const url = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -70,21 +64,19 @@ export async function listSupportRequests(): Promise<SupportRequest[]> {
   return request<SupportRequest[]>("mouse_request_catalog?select=*&order=vote_count.desc,created_at.desc");
 }
 
-export async function submitSupportRequest(input: NewSupportRequest, token: string): Promise<SupportRequest> {
-  requireSupportRequestWrites();
-  const rows = await request<SupportRequest[]>("rpc/submit_mouse_request", {
+export async function submitSupportRequest(input: NewSupportRequest, turnstileToken: string): Promise<SupportRequest> {
+  if (!turnstileToken) throw new Error("Complete the anti-spam check before submitting.");
+  const response = await fetch("/api/mouse-request", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      p_manufacturer: input.manufacturer,
-      p_model: input.model,
-      p_connection: input.connection,
-      p_features: [],
-      p_can_test: false,
-      p_voter_token: token,
+      manufacturer: input.manufacturer,
+      model: input.model,
+      connection: input.connection,
+      turnstileToken,
     }),
   });
-  if (!rows[0]) throw new Error("The request was accepted but no record was returned.");
-  return rows[0];
+  return decodeResponse<SupportRequest>(response);
 }
 
 export async function voteForRequest(id: string, turnstileToken: string): Promise<void> {
@@ -105,7 +97,7 @@ export async function votingSiteKey(): Promise<string> {
 }
 
 export async function contributeDiagnostics(id: string, bundle: unknown, token: string): Promise<void> {
-  requireSupportRequestWrites();
+  if (!SUPPORT_REQUEST_WRITES_ENABLED) throw new Error("Diagnostic uploads remain temporarily paused.");
   await request<unknown>("rpc/contribute_mouse_diagnostics", {
     method: "POST",
     body: JSON.stringify({ p_request_id: id, p_voter_token: token, p_bundle: bundle }),

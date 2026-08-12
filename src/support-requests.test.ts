@@ -15,6 +15,6 @@ test("Supabase void RPC responses do not require a JSON body", async () => {
   assert.equal(await decodeResponse<void>(response), undefined);
 });
 
-test("the emergency switch blocks public request submission before fetch", async () => {
-  await assert.rejects(submitSupportRequest({ manufacturer: "Logitech", model: "G502", connection: "Wired" }, crypto.randomUUID()), /temporarily paused/);
+test("protected request submission requires an anti-spam token before fetch", async () => {
+  await assert.rejects(submitSupportRequest({ manufacturer: "Logitech", model: "G502", connection: "Wired" }, ""), /anti-spam check/);
 });

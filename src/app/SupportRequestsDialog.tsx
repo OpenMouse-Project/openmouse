@@ -6,7 +6,6 @@ import {
   voteForRequest,
   votingSiteKey,
   type SupportRequest,
-  SUPPORT_REQUEST_WRITES_ENABLED,
 } from "../support-requests";
 import { loadTurnstile } from "../turnstile";
 
@@ -91,7 +90,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
         manufacturer: String(data.get("manufacturer") ?? "").trim(),
         model: String(data.get("model") ?? "").trim(),
         connection: String(data.get("connection") ?? "Not sure"),
-      }, "");
+      }, turnstileToken);
       setRequests((rows) => [saved, ...rows.filter((row) => row.id !== saved.id)]);
       setSavedRequest(saved);
       setQuery(`${saved.manufacturer} ${saved.model}`);
@@ -100,7 +99,11 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       form.reset();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save this request.");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      setTurnstileToken("");
+      if (turnstileWidget.current && window.turnstile) window.turnstile.reset(turnstileWidget.current);
+    }
   }
 
   async function uploadDiagnostics(): Promise<void> {
@@ -120,7 +123,7 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       <div className="support-dialog-inner">
         <header><div><p className="overline">DEVICE SUPPORT</p><h2 id="support-dialog-title">Request a mouse</h2></div><button type="button" onClick={onClose} aria-label="Close">×</button></header>
         <p className="support-intro">{turnstileSiteKey
-          ? "Complete the anti-spam check, then add one vote to a mouse already listed. New requests remain temporarily paused."
+          ? "Complete the anti-spam check, then vote for a listed mouse or submit a new request."
           : "Voting and new requests are temporarily paused while we add stronger abuse protection."}</p>
         <div className="support-turnstile" ref={turnstileHost} aria-label="Anti-spam verification" />
         {!showForm ? <>
@@ -129,13 +132,13 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
             {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !turnstileSiteKey || !turnstileToken} onClick={() => void vote(item)} title={!turnstileSiteKey ? "Voting protection is loading" : !turnstileToken ? "Complete the anti-spam check first" : undefined}><b>{item.vote_count}</b> {turnstileSiteKey ? "Vote" : "Loading"}</button></article>)}
             {!message && matches.length === 0 ? <p>No matching requests yet.</p> : null}
           </div>
-          <button className="support-primary" type="button" disabled={!SUPPORT_REQUEST_WRITES_ENABLED} onClick={() => setShowForm(true)}>{SUPPORT_REQUEST_WRITES_ENABLED ? "Request a different mouse" : "Requests temporarily paused"}</button>
+          <button className="support-primary" type="button" disabled={!turnstileSiteKey} onClick={() => setShowForm(true)}>Request a different mouse</button>
         </> : <form className="support-form" onSubmit={(event) => void submit(event)}>
           <div className="support-two"><label>Manufacturer<input name="manufacturer" required placeholder="Pulsar" /></label><label>Model<input name="model" required placeholder="X2V2" /></label></div>
           <label>Connection<select name="connection"><option>Not sure</option><option>Wired USB</option><option>Wireless USB receiver</option><option>Bluetooth</option><option>Wired and wireless</option></select></label>
           <p className="support-scope">A request covers the whole mouse: performance settings, buttons, profiles, lighting, battery information, and every other capability we can support.</p>
           <p className="support-consent">This submits only the fields shown here. Device diagnostics are never attached automatically.</p>
-          <div className="support-actions"><button type="button" onClick={() => setShowForm(false)}>Back</button><button className="support-primary" type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit request"}</button></div>
+          <div className="support-actions"><button type="button" onClick={() => setShowForm(false)}>Back</button><button className="support-primary" type="submit" disabled={busy || !turnstileToken}>{busy ? "Submitting…" : "Submit request"}</button></div>
         </form>}
         {message ? <p className="support-message" role="status">{message}</p> : null}
         {savedRequest && diagnosticBundle && !reviewDiagnostics ? <button className="support-secondary" type="button" onClick={() => setReviewDiagnostics(true)}>Help add support with diagnostics</button> : null}
