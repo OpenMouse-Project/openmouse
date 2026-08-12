@@ -2944,8 +2944,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     return;
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
-  // Populate brand capabilities (e.g. Teevolution DPI lighting profile) so
-  // preview cards that gate on capabilities still render.
+  // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   applyStatus(fixture.status);
   setConnectionButtons(true, "Preview mode");
