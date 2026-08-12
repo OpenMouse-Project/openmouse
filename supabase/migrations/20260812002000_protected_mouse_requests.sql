@@ -11,6 +11,43 @@ create index if not exists protected_mouse_request_submissions_voter_created_idx
 alter table public.protected_mouse_request_submissions enable row level security;
 revoke all on public.protected_mouse_request_submissions from public, anon, authenticated;
 
+-- Reinstall the nested vote function with every read column qualified. This is
+-- included here so rerunning this migration alone repairs older installations.
+create or replace function public.cast_protected_mouse_vote(p_request_id uuid, p_voter_hash text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_daily_votes integer;
+begin
+  if auth.role() <> 'service_role' then
+    raise exception 'Protected voting endpoint required' using errcode = '42501';
+  end if;
+  if p_voter_hash !~ '^[0-9a-f]{64}$' then raise exception 'Invalid voter identity'; end if;
+  if not exists (select 1 from public.mouse_requests r where r.id = p_request_id) then
+    raise exception 'Mouse request not found';
+  end if;
+
+  insert into public.mouse_vote_identities(voter_hash) values (p_voter_hash)
+    on conflict on constraint mouse_vote_identities_pkey do nothing;
+  perform 1 from public.mouse_vote_identities i where i.voter_hash = p_voter_hash for update;
+
+  if exists (select 1 from public.protected_mouse_votes pv where pv.request_id = p_request_id and pv.voter_hash = p_voter_hash) then
+    raise exception 'Already voted for this mouse';
+  end if;
+  select count(*) into v_daily_votes from public.protected_mouse_votes pv
+  where pv.voter_hash = p_voter_hash and pv.created_at >= now() - interval '24 hours';
+  if v_daily_votes >= 5 then raise exception 'Daily vote limit reached'; end if;
+
+  insert into public.protected_mouse_votes(request_id, voter_hash) values (p_request_id, p_voter_hash);
+  update public.mouse_vote_identities as i set last_vote_at = now() where i.voter_hash = p_voter_hash;
+end;
+$$;
+
+revoke all on function public.cast_protected_mouse_vote(uuid, text) from public, anon, authenticated;
+grant execute on function public.cast_protected_mouse_vote(uuid, text) to service_role;
+
 create or replace function public.cast_protected_mouse_request(
   p_manufacturer text, p_model text, p_connection text, p_voter_hash text
 ) returns setof public.mouse_request_catalog
@@ -32,8 +69,8 @@ begin
   end if;
 
   insert into public.mouse_vote_identities(voter_hash) values (p_voter_hash)
-    on conflict (voter_hash) do nothing;
-  perform 1 from public.mouse_vote_identities where voter_hash = p_voter_hash for update;
+    on conflict on constraint mouse_vote_identities_pkey do nothing;
+  perform 1 from public.mouse_vote_identities i where i.voter_hash = p_voter_hash for update;
 
   select count(*) into v_weekly_requests
   from public.protected_mouse_request_submissions s
