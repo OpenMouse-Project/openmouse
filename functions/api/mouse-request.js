@@ -63,6 +63,7 @@ export async function onRequest({ request, env }) {
     const message = /request limit/i.test(raw) ? "Request limit reached. Try again next week."
       : /already voted/i.test(raw) ? "That mouse is already listed and you already voted for it."
       : /daily vote limit/i.test(raw) ? "Daily vote limit reached. Try again tomorrow."
+      : detail.code === "42702" ? `Database query is ambiguous: ${raw}`
       : detail.code === "PGRST202" ? "Protected request database migration is not installed."
       : detail.code === "42883" ? "Protected voting database migration is not installed."
       : "Could not save this request.";
