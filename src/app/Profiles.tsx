@@ -67,8 +67,10 @@ function shortcutLabel(event: KeyboardEvent): string {
 export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const [assignmentLayer, setAssignmentLayer] = useState<"primary" | "g-shift">("primary");
   const [shortcutTarget, setShortcutTarget] = useState<{ layer: "primary" | "g-shift"; button: number } | null>(null);
-  const [shortcut, setShortcut] = useState<{ key: number; modifiers: number; label: string } | null>(null);
+  const [shortcutSteps, setShortcutSteps] = useState<Array<{ key: number; modifiers: number; label: string; delayMs: number }>>([]);
+  const [shortcutRecording, setShortcutRecording] = useState(false);
   const [shortcutError, setShortcutError] = useState("");
+  const lastShortcutAt = useRef(0);
   const inner = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const profiles = snapshot.onboardProfiles;
@@ -298,7 +300,8 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                           onChange={(event) => {
                             const value = event.currentTarget.value;
                             if (value === "keyboard") {
-                              setShortcut(null);
+                              setShortcutSteps([]);
+                              setShortcutRecording(false);
                               setShortcutError("");
                               setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
                             }
@@ -335,39 +338,68 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                     tabIndex={0}
                     autoFocus
                     onKeyDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (event.key === "Escape" && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
-                        setShortcutTarget(null);
+                      if (!shortcutRecording) {
+                        if (event.key === "Escape") setShortcutTarget(null);
                         return;
                       }
-                      if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
+                      event.preventDefault(); event.stopPropagation();
+                      if (event.key === "Escape" && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                        setShortcutRecording(false);
+                        setShortcutError("");
+                        return;
+                      }
+                      if (event.repeat || ["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
                       const key = hidKeyForCode(event.code);
                       if (key === null) {
-                        setShortcut(null);
                         setShortcutError(`${event.key} cannot be stored by this mouse.`);
                         return;
                       }
                       const modifiers = (event.ctrlKey ? 0x01 : 0) | (event.shiftKey ? 0x02 : 0)
                         | (event.altKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0);
-                      setShortcut({ key, modifiers, label: shortcutLabel(event) });
+                      const now = performance.now();
+                      setShortcutSteps((steps) => [...steps, {
+                        key, modifiers, label: shortcutLabel(event),
+                        delayMs: steps.length === 0 ? 0 : Math.min(9999, Math.round(now - lastShortcutAt.current)),
+                      }]);
+                      lastShortcutAt.current = now;
                       setShortcutError("");
                     }}
                   >
-                    <span className="shortcut-dialog-kicker">KEYBOARD SHORTCUT</span>
-                    <h3 id="shortcut-dialog-title">Press your shortcut</h3>
-                    <p>Hold any modifiers, then press the key you want assigned to G{shortcutTarget.button + 1}.</p>
-                    <div className={`shortcut-capture${shortcut ? " has-value" : ""}`}>
-                      {shortcut?.label ?? "Waiting for keys…"}
+                    <span className="shortcut-dialog-kicker">KEYBOARD RECORDER</span>
+                    <h3 id="shortcut-dialog-title">Record a command sequence</h3>
+                    <p>Start recording, press one shortcut or a sequence, then stop recording.</p>
+                    <button
+                      type="button"
+                      className={`shortcut-record-button${shortcutRecording ? " is-recording" : ""}`}
+                      onClick={() => {
+                        if (shortcutRecording) {
+                          setShortcutRecording(false);
+                        } else {
+                          setShortcutSteps([]);
+                          setShortcutError("");
+                          lastShortcutAt.current = performance.now();
+                          setShortcutRecording(true);
+                        }
+                      }}
+                    ><i aria-hidden="true" />{shortcutRecording ? "Stop recording" : "Record"}</button>
+                    <div className={`shortcut-capture${shortcutSteps.length ? " has-value" : ""}`} aria-live="polite">
+                      {shortcutSteps.length ? (
+                        <ol>{shortcutSteps.map((step, index) => <li key={`${step.label}-${index}`}>
+                          {index > 0 && step.delayMs > 0 ? <small>{step.delayMs} ms</small> : null}
+                          <kbd>{step.label}</kbd>
+                        </li>)}</ol>
+                      ) : shortcutRecording ? "Listening…" : "Nothing recorded yet"}
                     </div>
                     {shortcutError ? <small className="shortcut-error" role="alert">{shortcutError}</small> : null}
+                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">Sequence captured. Onboard macro saving stays disabled until the G502 macro sector is hardware-verified.</small> : null}
                     <div className="shortcut-dialog-actions">
                       <button type="button" onClick={() => setShortcutTarget(null)}>Cancel</button>
                       <button
                         type="button"
                         className="is-primary"
-                        disabled={!shortcut}
+                        disabled={shortcutRecording || shortcutSteps.length !== 1}
                         onClick={() => {
+                          const shortcut = shortcutSteps[0];
                           if (!shortcut) return;
                           control.applyLogitechKeyboardShortcut(shortcutTarget.layer, shortcutTarget.button, shortcut.key, shortcut.modifiers);
                           setShortcutTarget(null);

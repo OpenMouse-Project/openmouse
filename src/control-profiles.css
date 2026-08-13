@@ -118,9 +118,20 @@
 .shortcut-dialog-kicker { color:var(--ui-accent);font-family:var(--font-mono);font-size:.54rem;letter-spacing:.1em }
 .shortcut-dialog h3 { margin:.35rem 0 .3rem;color:var(--text-hover);font-size:1.05rem;font-weight:550 }
 .shortcut-dialog p { margin:0;color:var(--text-faint);font-size:.66rem;line-height:1.5 }
+.shortcut-record-button { display:flex;align-items:center;justify-content:center;gap:.45rem;width:100%;margin-top:1rem;padding:.55rem;border:1px solid var(--border-hover);border-radius:7px;background:var(--surface-control);color:var(--text-hover);font-size:.67rem;font-weight:650;cursor:pointer }
+.shortcut-record-button i { width:.55rem;height:.55rem;border-radius:50%;background:#e2686f;box-shadow:0 0 0 3px rgb(226 104 111 / 12%) }
+.shortcut-record-button.is-recording { border-color:#e2686f;color:#f08b91 }
+.shortcut-record-button.is-recording i { border-radius:2px;animation:shortcut-pulse 1s ease-in-out infinite }
+@keyframes shortcut-pulse { 50% { opacity:.45 } }
 .shortcut-capture { display:grid;min-height:3.25rem;margin:1rem 0 .45rem;place-items:center;border:1px dashed var(--border-hover);border-radius:8px;background:var(--surface-control);color:var(--muted);font-family:var(--font-mono);font-size:.78rem }
 .shortcut-capture.has-value { border-style:solid;border-color:var(--ui-accent);color:var(--text-hover);box-shadow:inset 0 0 18px color-mix(in srgb,var(--ui-accent) 8%,transparent) }
+.shortcut-capture ol { display:flex;width:100%;box-sizing:border-box;align-items:center;gap:.4rem;overflow-x:auto;margin:0;padding:.7rem;list-style:none }
+.shortcut-capture li { display:flex;flex:0 0 auto;align-items:center;gap:.35rem }
+.shortcut-capture li + li::before { color:var(--ghost);content:"→" }
+.shortcut-capture kbd { padding:.35rem .48rem;border:1px solid var(--border-hover);border-radius:5px;background:var(--surface-raised);color:var(--text-hover);font:600 .63rem var(--font-mono);box-shadow:0 2px 0 var(--border) }
+.shortcut-capture li small { color:var(--ghost);font-size:.48rem }
 .shortcut-error { display:block;color:#e2686f;font-size:.62rem }
+.shortcut-macro-note { display:block;margin-top:.45rem;color:var(--text-faint);font-size:.59rem;line-height:1.4 }
 .shortcut-dialog-actions { display:flex;justify-content:flex-end;gap:.45rem;margin-top:1rem }
 .shortcut-dialog-actions button { padding:.45rem .7rem;border:1px solid var(--border);border-radius:6px;background:var(--surface-control);color:var(--muted);font-size:.63rem;cursor:pointer }
 .shortcut-dialog-actions button.is-primary { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink);font-weight:650 }
