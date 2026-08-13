@@ -391,20 +391,25 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                       ) : shortcutRecording ? "Listening…" : "Nothing recorded yet"}
                     </div>
                     {shortcutError ? <small className="shortcut-error" role="alert">{shortcutError}</small> : null}
-                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">Sequence captured. Onboard macro saving stays disabled until the G502 macro sector is hardware-verified.</small> : null}
+                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">This sequence will be saved in the mouse's onboard macro memory.</small> : null}
                     <div className="shortcut-dialog-actions">
                       <button type="button" onClick={() => setShortcutTarget(null)}>Cancel</button>
                       <button
                         type="button"
                         className="is-primary"
-                        disabled={shortcutRecording || shortcutSteps.length !== 1}
+                        disabled={shortcutRecording || shortcutSteps.length === 0}
                         onClick={() => {
                           const shortcut = shortcutSteps[0];
                           if (!shortcut) return;
-                          control.applyLogitechKeyboardShortcut(shortcutTarget.layer, shortcutTarget.button, shortcut.key, shortcut.modifiers);
+                          if (shortcutSteps.length === 1) {
+                            control.applyLogitechKeyboardShortcut(shortcutTarget.layer, shortcutTarget.button, shortcut.key, shortcut.modifiers);
+                          } else {
+                            void control.applyLogitechKeyboardSequence(shortcutTarget.layer, shortcutTarget.button,
+                              shortcutSteps.map(({ key, modifiers, delayMs }) => ({ key, modifiers, delayMs })));
+                          }
                           setShortcutTarget(null);
                         }}
-                      >Assign shortcut</button>
+                      >{shortcutSteps.length > 1 ? "Assign sequence" : "Assign shortcut"}</button>
                     </div>
                   </div>
                 </div>

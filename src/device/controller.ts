@@ -74,6 +74,7 @@ import {
   type DpiStagePlan,
   type LogitechButtonAction,
   type LogitechButtonBinding,
+  type LogitechMacroStep,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -1958,6 +1959,29 @@ export function applyLogitechKeyboardShortcut(
   void applyLogitechButtonAssignment(layer, button, { kind: "keyboard", key, modifiers });
 }
 
+export async function applyLogitechKeyboardSequence(
+  layer: "primary" | "g-shift",
+  button: number,
+  steps: LogitechMacroStep[],
+): Promise<void> {
+  const client = logitechClient();
+  const entry = editedProfileEntry();
+  if (!client || !entry || settingInProgress || !steps.length) return;
+  settingInProgress = true;
+  setOnboardStatus(`Saving ${steps.length}-step macro to button ${button + 1}…`);
+  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`);
+  try {
+    await client.writeActiveProfile({ sector: entry.sector, buttonMacros: [{ layer, button, steps }] });
+    await reloadOnboardProfiles();
+    setOnboardStatus(`Button ${button + 1} now runs the recorded ${steps.length}-step macro.`);
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to save the onboard macro.");
+    setOnboardStatus(error instanceof Error ? error.message : "Unable to save the onboard macro.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
 export function renameOnboardProfile(sector: number): void {
   const entry = onboardProfiles?.find((profile) => profile.sector === sector);
   if (!entry || !logitechClient()) return;
@@ -2694,7 +2718,7 @@ function previewClient(): LogitechHidppClient {
   };
   // Real prototype: the driver accessors test with instanceof.
   return Object.assign(Object.create(LogitechHidppClient.prototype) as LogitechHidppClient, {
-    writeActiveProfile: refuse,
+    writeActiveProfile: async () => undefined,
     setBunnyHoppingMs: refuse,
     setProfileDpiStages: refuse,
     setModeStatus: refuse,
