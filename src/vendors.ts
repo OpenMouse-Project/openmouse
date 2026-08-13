@@ -6,6 +6,8 @@ export const VENDOR_ID = {
   wlmouse: 0x36a7,
   logitech: 0x046d,
   attackShark: 0x25a7,
+  // Attack Shark R5 Ultra / R3 and similar OEM variants share the Lamzu VID
+  attackSharkOem: 0x373e,
 } as const;
 
 export const LOGITECH_RECEIVER_FILTER: HIDDeviceFilter = {
@@ -50,6 +52,7 @@ export const SUPPORTED_HID_FILTERS: HIDDeviceFilter[] = [
   { vendorId: VENDOR_ID.endgameGear },
   { vendorId: VENDOR_ID.wlmouse },
   { vendorId: VENDOR_ID.attackShark },
+  { vendorId: VENDOR_ID.attackSharkOem },
   ...EGG_WE_HID_FILTERS,
   LOGITECH_RECEIVER_FILTER,
 ];
