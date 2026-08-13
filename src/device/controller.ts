@@ -73,6 +73,7 @@ import {
   type DpiStageCapabilities,
   type DpiStagePlan,
   type LogitechButtonAction,
+  type LogitechButtonBinding,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -1920,27 +1921,58 @@ export async function toggleOnboardProfileEnabled(sector: number, enabled: boole
 export async function applyLogitechButtonAssignment(
   layer: "primary" | "g-shift",
   button: number,
-  action: LogitechButtonAction,
+  binding: LogitechButtonAction | LogitechButtonBinding,
 ): Promise<void> {
   const client = logitechClient();
   const entry = editedProfileEntry();
   if (!client || !entry || settingInProgress) return;
   settingInProgress = true;
-  setOnboardStatus(`Assigning button ${button + 1} to ${action}…`);
-  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${action}`);
+  const label = typeof binding === "string" ? binding : binding.kind === "keyboard" ? "keyboard shortcut" : "media key";
+  setOnboardStatus(`Assigning button ${button + 1} to ${label}…`);
+  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${label}`);
   try {
     await client.writeActiveProfile({
       sector: entry.sector,
-      buttonAssignments: [{ layer, button, action }],
+      buttonAssignments: [{ layer, button, binding }],
     });
     await reloadOnboardProfiles();
-    setOnboardStatus(`Button ${button + 1} is now ${action}.`);
+    setOnboardStatus(`Button ${button + 1} is now ${label}.`);
   } catch (error) {
     recordDiagnosticError(error, "Unable to change the button assignment.");
     setOnboardStatus(error instanceof Error ? error.message : "Unable to change the button assignment.");
   } finally {
     endDeviceWrite();
   }
+}
+
+const KEYBOARD_KEYS: Readonly<Record<string, number>> = {
+  ENTER: 0x28, ESC: 0x29, BACKSPACE: 0x2a, TAB: 0x2b, SPACE: 0x2c,
+  RIGHT: 0x4f, LEFT: 0x50, DOWN: 0x51, UP: 0x52, DELETE: 0x4c,
+};
+
+export function promptLogitechKeyboardAssignment(layer: "primary" | "g-shift", button: number): void {
+  const input = window.prompt("Keyboard shortcut (examples: Ctrl+Shift+K, Alt+F4, Space)");
+  if (!input) return;
+  const parts = input.toUpperCase().split("+").map((part) => part.trim()).filter(Boolean);
+  const keyName = parts.pop();
+  let modifiers = 0;
+  for (const modifier of parts) {
+    const bit = { CTRL: 0x01, CONTROL: 0x01, SHIFT: 0x02, ALT: 0x04, META: 0x08, CMD: 0x08, WIN: 0x08 }[modifier];
+    if (!bit) { setOnboardStatus(`Unknown modifier: ${modifier}`); return; }
+    modifiers |= bit;
+  }
+  let key = keyName ? KEYBOARD_KEYS[keyName] : undefined;
+  if (keyName?.length === 1 && keyName >= "A" && keyName <= "Z") key = keyName.charCodeAt(0) - 61;
+  if (keyName?.length === 1 && keyName >= "1" && keyName <= "9") key = keyName.charCodeAt(0) - 19;
+  if (keyName === "0") key = 0x27;
+  const functionMatch = keyName?.match(/^F([1-9]|1[0-2])$/);
+  if (functionMatch) key = 0x39 + Number(functionMatch[1]);
+  if (key === undefined) { setOnboardStatus(`Unknown key: ${keyName ?? ""}`); return; }
+  void applyLogitechButtonAssignment(layer, button, { kind: "keyboard", key, modifiers });
+}
+
+export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", button: number, usage: number): void {
+  void applyLogitechButtonAssignment(layer, button, { kind: "consumer", usage });
 }
 
 export function renameOnboardProfile(sector: number): void {

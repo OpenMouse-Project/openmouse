@@ -261,10 +261,22 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                             value={assignment.action}
                             disabled={snapshot.settingInProgress}
                             title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
-                            onChange={(event) => void control.applyLogitechButtonAssignment(layer, assignment.button, event.currentTarget.value as LogitechButtonAction)}
+                            onChange={(event) => {
+                              const value = event.currentTarget.value;
+                              if (value === "keyboard") control.promptLogitechKeyboardAssignment(layer, assignment.button);
+                              else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(layer, assignment.button, Number(value.slice(9)));
+                              else void control.applyLogitechButtonAssignment(layer, assignment.button, value as LogitechButtonAction);
+                            }}
                           >
                             {assignment.action === "Custom" ? <option value="Custom">Custom (preserved)</option> : null}
                             {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+                            <option value="keyboard">Keyboard shortcut…</option>
+                            <option value="consumer:233">Volume up</option>
+                            <option value="consumer:234">Volume down</option>
+                            <option value="consumer:226">Mute</option>
+                            <option value="consumer:205">Play / pause</option>
+                            <option value="consumer:181">Next track</option>
+                            <option value="consumer:182">Previous track</option>
                           </select>
                         </label>
                       ))}
