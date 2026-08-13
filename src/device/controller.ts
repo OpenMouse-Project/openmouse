@@ -1945,32 +1945,6 @@ export async function applyLogitechButtonAssignment(
   }
 }
 
-const KEYBOARD_KEYS: Readonly<Record<string, number>> = {
-  ENTER: 0x28, ESC: 0x29, BACKSPACE: 0x2a, TAB: 0x2b, SPACE: 0x2c,
-  RIGHT: 0x4f, LEFT: 0x50, DOWN: 0x51, UP: 0x52, DELETE: 0x4c,
-};
-
-export function promptLogitechKeyboardAssignment(layer: "primary" | "g-shift", button: number): void {
-  const input = window.prompt("Keyboard shortcut (examples: Ctrl+Shift+K, Alt+F4, Space)");
-  if (!input) return;
-  const parts = input.toUpperCase().split("+").map((part) => part.trim()).filter(Boolean);
-  const keyName = parts.pop();
-  let modifiers = 0;
-  for (const modifier of parts) {
-    const bit = { CTRL: 0x01, CONTROL: 0x01, SHIFT: 0x02, ALT: 0x04, META: 0x08, CMD: 0x08, WIN: 0x08 }[modifier];
-    if (!bit) { setOnboardStatus(`Unknown modifier: ${modifier}`); return; }
-    modifiers |= bit;
-  }
-  let key = keyName ? KEYBOARD_KEYS[keyName] : undefined;
-  if (keyName?.length === 1 && keyName >= "A" && keyName <= "Z") key = keyName.charCodeAt(0) - 61;
-  if (keyName?.length === 1 && keyName >= "1" && keyName <= "9") key = keyName.charCodeAt(0) - 19;
-  if (keyName === "0") key = 0x27;
-  const functionMatch = keyName?.match(/^F([1-9]|1[0-2])$/);
-  if (functionMatch) key = 0x39 + Number(functionMatch[1]);
-  if (key === undefined) { setOnboardStatus(`Unknown key: ${keyName ?? ""}`); return; }
-  void applyLogitechButtonAssignment(layer, button, { kind: "keyboard", key, modifiers });
-}
-
 export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", button: number, usage: number): void {
   void applyLogitechButtonAssignment(layer, button, { kind: "consumer", usage });
 }
