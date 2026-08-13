@@ -198,6 +198,29 @@ const CRDRAKO: MouseStatus = {
   firmware: ["Mouse 1.0.3", "Dongle 1.0.2"],
 };
 
+const ATTACKSHARK: MouseStatus = {
+  brand: "Attack Shark" as MouseStatus["brand"],
+  name: "Attack Shark R5 Ultra",
+  ui: { family: "attack-shark", hideUnsupportedPollingRates: true, forceShowBattery: true },
+  batteryPercent: 82,
+  batteryState: "Discharging",
+  dpi: 1600,
+  dpiY: 1600,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 8000,
+  supportedPollingRates: [500, 1000, 2000, 4000, 8000],
+  activeProfile: 1,
+  liftOffDistance: "Medium",
+  connectionType: "Wireless",
+  connectionDetail: "2.4 GHz receiver",
+  motionSync: true,
+  angleSnapping: false,
+  rippleControl: false,
+  debounceMs: 3,
+  sleepTimeout: 60,
+  firmware: ["Mouse 1.0.4", "Dongle 1.0.3"],
+};
+
 const M3K: MouseStatus = {
   // The Zaunkoenig driver is being prepared in mouse-protocol. This assertion
   // can disappear when the website refreshes to that package revision.
@@ -537,6 +560,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
+  "attack-shark": { label: "Attack Shark R5 Ultra", status: ATTACKSHARK },
   crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
   m3k: { label: "Zaunkoenig M3K", status: M3K },
   atk: { label: "ATK A9 Ultra", status: ATK },
