@@ -26,6 +26,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "/devices/crdrako-ko-one.png"],
   ["373e:006b", "/devices/crdrako-ko-one.png"],
+  // Attack Shark R5 Ultra wired and wireless transports share the same shell.
+  ["373e:0046", "/devices/attackshark-r5-ultra.png"],
+  ["373e:0047", "/devices/attackshark-r5-ultra.png"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
@@ -82,6 +85,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
   if (/\bnape\s*pro\b/i.test(displayName)) return "/devices/keychron-nape-pro.png";
   if (/\bko-one\b/i.test(displayName)) return "/devices/crdrako-ko-one.png";
+  if (/\br5\s*ultra\b/i.test(displayName)) return "/devices/attackshark-r5-ultra.png";
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   return "/devices/unknown-device.png";
 }
