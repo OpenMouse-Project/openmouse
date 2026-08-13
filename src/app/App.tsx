@@ -145,7 +145,7 @@ function Workspace({
 
   const lightingZones = status.lightingZones?.length ? status.lightingZones : status.lighting ? [status.lighting] : [];
   const lighting = show(has.lighting, ["lighting"])
-    ? lightingZones.map((zone, index) => <LightingCard key={`lighting-tab-${index}`} snapshot={snapshot} variant="tab" lighting={zone} zoneIndex={index} />)
+    ? [<LightingCard key="lighting-tab" snapshot={snapshot} variant="tab" zones={lightingZones} />]
     : [];
 
   const showProfiles = show(has.profiles, ["profiles"]);

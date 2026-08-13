@@ -94,6 +94,25 @@
 .control-shell .settings-grid.has-dpi-slots { grid-template-rows:minmax(176px,auto) }
 .control-shell .settings-grid.has-dpi-slots .dpi-card { grid-row:auto }
 
+.profile-button-editor { margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-rule) }
+.profile-button-heading { display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:.8rem }
+.profile-button-heading p { margin:0 0 .3rem;color:var(--faint);font-family:var(--font-mono);font-size:.55rem;letter-spacing:.09em }
+.profile-button-heading h2 { margin:0;color:var(--text-hover);font-size:1rem;font-weight:550 }
+.profile-button-heading small { display:block;margin-top:.25rem;color:var(--text-faint);font-size:.62rem }
+.assignment-layer-tabs { display:flex;padding:.2rem;border:1px solid var(--border);border-radius:8px;background:var(--surface-control) }
+.assignment-layer-tabs button { min-width:5rem;padding:.38rem .55rem;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:.62rem;cursor:pointer }
+.assignment-layer-tabs button[aria-selected="true"] { background:var(--surface-raised);color:var(--ui-accent);box-shadow:0 1px 5px rgb(0 0 0 / 25%) }
+.assignment-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem }
+.assignment-card { display:grid;grid-template-columns:2rem minmax(5rem,.55fr) minmax(9rem,1fr);align-items:center;gap:.55rem;min-width:0;padding:.55rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised) }
+.assignment-button-number { display:grid;width:1.8rem;height:1.8rem;place-items:center;border:1px solid var(--border);border-radius:6px;background:var(--surface-control);color:var(--ui-accent);font-family:var(--font-mono);font-size:.55rem }
+.assignment-button-name { overflow:hidden;color:var(--text-hover);font-size:.65rem;text-overflow:ellipsis;white-space:nowrap }
+.assignment-select-wrap { position:relative;min-width:0 }
+.assignment-select-wrap select { width:100%;box-sizing:border-box;padding:.42rem 1.8rem .42rem .55rem;border:1px solid var(--border);border-radius:6px;appearance:none;background:var(--surface-control);color:var(--text-input);color-scheme:dark;font-size:.64rem;cursor:pointer }
+.assignment-select-wrap select:hover:not(:disabled),.assignment-select-wrap select:focus-visible { border-color:var(--ui-accent);outline:0 }
+.assignment-select-wrap i { position:absolute;top:50%;right:.65rem;width:.32rem;height:.32rem;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);pointer-events:none;transform:translateY(-65%) rotate(45deg) }
+@media (max-width:900px) { .assignment-grid { grid-template-columns:1fr } }
+@media (max-width:560px) { .profile-button-heading { align-items:stretch;flex-direction:column }.assignment-card { grid-template-columns:2rem 1fr }.assignment-select-wrap { grid-column:1 / -1 } }
+
 /* `.segmented` and friends set display, which outranks the user-agent
    `[hidden] { display: none }` rule — so hiding those rows by setting the
    hidden property silently did nothing. Make the attribute win everywhere. */

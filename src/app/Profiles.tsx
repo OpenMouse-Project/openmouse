@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { capabilitiesForFormat } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { LOGITECH_BUTTON_ACTIONS, type LogitechButtonAction } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../device/controller";
@@ -40,6 +40,7 @@ const ICON_BUTTON_STYLE = (disabled: boolean, active = false): CSSProperties => 
 });
 
 export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [assignmentLayer, setAssignmentLayer] = useState<"primary" | "g-shift">("primary");
   const inner = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const profiles = snapshot.onboardProfiles;
@@ -247,44 +248,49 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
           </div>
           {openedProfile && contentsWritable ? (
             <div className="profile-button-editor">
-              <div className="setting-heading"><div><p>BUTTONS</p><h2>Onboard assignments</h2></div></div>
-              {(["primary", "g-shift"] as const).map((layer) => {
-                const assignments = layer === "primary" ? openedProfile.buttonAssignments : openedProfile.gShiftAssignments;
-                return (
-                  <div key={layer} style={{ marginTop: ".65rem" }}>
-                    <strong style={{ fontSize: ".68rem" }}>{layer === "primary" ? "Normal layer" : "G-Shift layer"}</strong>
-                    <div style={{ display: "grid", gap: ".35rem", marginTop: ".35rem" }}>
-                      {assignments.map((assignment) => (
-                        <label key={`${layer}-${assignment.button}`} style={{ display: "grid", gridTemplateColumns: "6rem 1fr", alignItems: "center", gap: ".5rem", fontSize: ".65rem" }}>
-                          Button {assignment.button + 1}
-                          <select
-                            value={assignment.action}
-                            disabled={snapshot.settingInProgress}
-                            title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
-                            onChange={(event) => {
-                              const value = event.currentTarget.value;
-                              if (value === "keyboard") control.promptLogitechKeyboardAssignment(layer, assignment.button);
-                              else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(layer, assignment.button, Number(value.slice(9)));
-                              else void control.applyLogitechButtonAssignment(layer, assignment.button, value as LogitechButtonAction);
-                            }}
-                          >
-                            {assignment.action === "Custom" ? <option value="Custom">Custom (preserved)</option> : null}
-                            {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
-                            <option value="keyboard">Keyboard shortcut…</option>
-                            <option value="consumer:233">Volume up</option>
-                            <option value="consumer:234">Volume down</option>
-                            <option value="consumer:226">Mute</option>
-                            <option value="consumer:205">Play / pause</option>
-                            <option value="consumer:181">Next track</option>
-                            <option value="consumer:182">Previous track</option>
-                          </select>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-              <small className="setting-note">Assignments are stored in this profile. Custom macros and keyboard/consumer actions are preserved but are not overwritten until their full editor is available.</small>
+              <div className="profile-button-heading">
+                <div><p>BUTTONS</p><h2>Onboard assignments</h2><small>Choose what each physical control does in this profile.</small></div>
+                <div className="assignment-layer-tabs" role="tablist" aria-label="Assignment layer">
+                  <button type="button" role="tab" aria-selected={assignmentLayer === "primary"} onClick={() => setAssignmentLayer("primary")}>Normal</button>
+                  <button type="button" role="tab" aria-selected={assignmentLayer === "g-shift"} onClick={() => setAssignmentLayer("g-shift")}>G-Shift</button>
+                </div>
+              </div>
+              <div className="assignment-grid">
+                {(assignmentLayer === "primary" ? openedProfile.buttonAssignments : openedProfile.gShiftAssignments).map((assignment) => {
+                  const buttonNames = ["Left click", "Right click", "Wheel click", "Back", "Forward", "DPI Shift", "DPI up", "DPI down"];
+                  return (
+                    <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
+                      <span className="assignment-button-number">G{assignment.button + 1}</span>
+                      <span className="assignment-button-name">{buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}</span>
+                      <span className="assignment-select-wrap">
+                        <select
+                          value={assignment.action}
+                          disabled={snapshot.settingInProgress}
+                          title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            if (value === "keyboard") control.promptLogitechKeyboardAssignment(assignmentLayer, assignment.button);
+                            else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
+                            else void control.applyLogitechButtonAssignment(assignmentLayer, assignment.button, value as LogitechButtonAction);
+                          }}
+                        >
+                          {assignment.action === "Custom" ? <option value="Custom">Custom mapping (preserved)</option> : null}
+                          {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+                          <option value="keyboard">Keyboard shortcut…</option>
+                          <option value="consumer:233">Volume up</option>
+                          <option value="consumer:234">Volume down</option>
+                          <option value="consumer:226">Mute</option>
+                          <option value="consumer:205">Play / pause</option>
+                          <option value="consumer:181">Next track</option>
+                          <option value="consumer:182">Previous track</option>
+                        </select>
+                        <i aria-hidden="true" />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small className="setting-note">Changes are stored in this onboard profile. Existing custom macros are preserved byte-for-byte.</small>
             </div>
           ) : null}
           <small id="onboard-status">{snapshot.onboardStatus}</small>

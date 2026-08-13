@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { MouseLighting } from "@openmouse/protocol/drivers/mouse-types";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
@@ -9,23 +9,27 @@ export function LightingCard({
   snapshot,
   variant,
   lighting: suppliedLighting,
+  zones,
   zoneIndex = 0,
 }: {
   snapshot: ControlSnapshot;
   variant: "advanced" | "tab";
   lighting?: MouseLighting;
+  zones?: MouseLighting[];
   zoneIndex?: number;
 }): ReactNode {
-  const lighting = suppliedLighting ?? snapshot.status?.lighting;
+  const [selectedZone, setSelectedZone] = useState(zones && zones.length > 1 ? 1 : zoneIndex);
+  const activeZoneIndex = zones ? Math.min(selectedZone, zones.length - 1) : zoneIndex;
+  const lighting = zones?.[activeZoneIndex] ?? suppliedLighting ?? snapshot.status?.lighting;
   if (!lighting) return null;
-  const prefix = `${variant === "advanced" ? "lighting" : "lighting-tab"}-${zoneIndex}`;
+  const prefix = `${variant === "advanced" ? "lighting" : "lighting-tab"}-${activeZoneIndex}`;
   const disabled = snapshot.settingsPending;
   const mode = lighting.mode;
   const usesColor = mode !== null && lighting.colorModes.includes(mode);
   const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
   const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
   const brightnessLevels = lighting.brightnessLevels ?? [];
-  const pendingKey = `lighting-${zoneIndex}`;
+  const pendingKey = `lighting-${activeZoneIndex}`;
   const staged = snapshot.pending.keys.includes(pendingKey);
   const sliderSpeeds = lighting.speeds.length > 8;
 
@@ -47,6 +51,30 @@ export function LightingCard({
         </div>
       </div>
 
+      {zones && zones.length > 1 ? (
+        <div className="lighting-zone-picker" aria-label="RGB part">
+          <div className="lighting-zone-copy">
+            <span>RGB parts</span>
+            <strong>{lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone}</strong>
+          </div>
+          <div className="lighting-strip" role="list" aria-label="G502 X Plus lightstrip LEDs">
+            {zones.map((zone, index) => (
+              <button
+                key={`${zone.zone}-${index}`}
+                type="button"
+                role="listitem"
+                className={index === activeZoneIndex ? "is-selected" : ""}
+                style={{ "--zone-color": zone.mode === "Off" ? "#15171a" : zone.color ?? "#15171a" } as CSSProperties}
+                title={zone.group ? `${zone.group} ${zone.zone}` : `${zone.zone} effects`}
+                aria-label={zone.group ? `${zone.group} ${zone.zone}` : zone.zone}
+                aria-pressed={index === activeZoneIndex}
+                onClick={() => setSelectedZone(index)}
+              >{zone.hardwareZoneId ?? "FX"}</button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <Segmented
         id={`${prefix}-modes`}
         className="lighting-modes"
@@ -54,7 +82,7 @@ export function LightingCard({
         options={lighting.modes.map((candidate) => ({ value: candidate, label: candidate }))}
         value={mode}
         disabled={disabled}
-        onChange={(next) => control.applyLighting({ mode: next as typeof mode }, zoneIndex)}
+        onChange={(next) => control.applyLighting({ mode: next as typeof mode }, activeZoneIndex)}
       />
 
       {brightnessLevels.length > 0 ? (
@@ -66,7 +94,7 @@ export function LightingCard({
             options={brightnessLevels.map((level) => ({ value: level, label: `${level}%` }))}
             value={lighting.brightness}
             disabled={disabled}
-            onChange={(brightness) => control.applyLighting({ brightness }, zoneIndex)}
+            onChange={(brightness) => control.applyLighting({ brightness }, activeZoneIndex)}
           />
         </div>
       ) : null}
@@ -83,7 +111,7 @@ export function LightingCard({
                   value={lighting.color ?? "#00ff00"}
                   disabled={disabled}
                   aria-label="Lighting colour"
-                  onChange={(event) => control.applyLighting({ color: event.currentTarget.value }, zoneIndex)}
+                  onChange={(event) => control.applyLighting({ color: event.currentTarget.value }, activeZoneIndex)}
                 />
               </label>
               {usesColor2 ? (
@@ -95,7 +123,7 @@ export function LightingCard({
                     value={lighting.color2 ?? "#ff0000"}
                     disabled={disabled}
                     aria-label="Second lighting colour"
-                    onChange={(event) => control.applyLighting({ color2: event.currentTarget.value }, zoneIndex)}
+                    onChange={(event) => control.applyLighting({ color2: event.currentTarget.value }, activeZoneIndex)}
                   />
                 </label>
               ) : null}
@@ -109,7 +137,7 @@ export function LightingCard({
                   value={lighting.color ?? "#00ff00"}
                   disabled={disabled}
                   ariaLabel="Lighting colour"
-                  onChange={(color) => control.applyLighting({ color }, zoneIndex)}
+                  onChange={(color) => control.applyLighting({ color }, activeZoneIndex)}
                 />
               </div>
               {usesColor2 ? (
@@ -120,7 +148,7 @@ export function LightingCard({
                     value={lighting.color2 ?? "#ff0000"}
                     disabled={disabled}
                     ariaLabel="Second lighting colour"
-                    onChange={(color2) => control.applyLighting({ color2 }, zoneIndex)}
+                    onChange={(color2) => control.applyLighting({ color2 }, activeZoneIndex)}
                   />
                 </div>
               ) : null}
@@ -143,7 +171,7 @@ export function LightingCard({
               key={`speed-${lighting.speed}`}
               disabled={disabled}
               aria-label="Effect speed"
-              onChange={(event) => control.applyLighting({ speed: Number(event.currentTarget.value) }, zoneIndex)}
+              onChange={(event) => control.applyLighting({ speed: Number(event.currentTarget.value) }, activeZoneIndex)}
             />
           ) : (
             <Segmented
@@ -152,7 +180,7 @@ export function LightingCard({
               options={lighting.speeds.map((speed) => ({ value: speed, label: String(speed) }))}
               value={lighting.speed}
               disabled={disabled}
-              onChange={(speed) => control.applyLighting({ speed }, zoneIndex)}
+              onChange={(speed) => control.applyLighting({ speed }, activeZoneIndex)}
             />
           )}
         </div>
