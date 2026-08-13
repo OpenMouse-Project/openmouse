@@ -2698,7 +2698,7 @@ async function loadPreviewEntries(): Promise<void> {
   if (!previewModeEnabled || previewEntries.length > 0) return;
   const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
   previewEntries = [
-    ["slots", "Logitech PRO X Superlight 2"],
+    ["slots", "Logitech G502 X PLUS"],
     ["superstrike", "Logitech PRO X 2 Superstrike"],
     ...Object.entries(PREVIEW_FIXTURES).map(([key, fixture]) => [key, fixture.label] as [string, string]),
   ];
@@ -2728,6 +2728,8 @@ function showSlotsPreview(): void {
     { x: 2400, y: 2400, lod: 2 },
     { x: 3200, y: 3200, lod: 3 },
   ];
+  const normalActions = ["Left click", "Right click", "Middle click", "Back", "Forward", "DPI Shift", "Next DPI", "Cycle profiles"] as const;
+  const shiftedActions = ["Previous profile", "Next profile", "Battery indicator", "Tilt left", "Tilt right", "Default DPI", "Previous DPI", "Disabled"] as const;
   onboardProfiles = [1, 2, 3].map((index) => ({
     sector: index,
     enabled: index !== 3,
@@ -2741,12 +2743,15 @@ function showSlotsPreview(): void {
     powerSaveTimeoutSeconds: 60,
     powerOffTimeoutSeconds: 300,
     bunnyHoppingMs: 100,
+    buttonAssignments: normalActions.map((action, button) => ({ button, action, raw: [0x90, 0, 0, 0] })),
+    gShiftAssignments: shiftedActions.map((action, button) => ({ button, action, raw: [0x90, 0, 0, 0] })),
     crcValid: true,
+    raw: new Uint8Array(255),
   } as OnboardProfile));
   active = previewClient();
   applyStatus({
     brand: "Logitech",
-    name: "PRO X SUPERLIGHT 2",
+    name: "G502 X PLUS",
     ui: { family: "logitech-hidpp", lodRequiresSurface: true },
     batteryPercent: 72,
     batteryState: "Discharging",
@@ -2760,13 +2765,27 @@ function showSlotsPreview(): void {
     onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true, writable: true },
     gamingSurfaceMode: "Auto",
     lightforceSwitchMode: "Hybrid",
+    lighting: {
+      zone: "Combined", modes: ["Off", "Static", "Cycling", "Wave", "Breathing single"], mode: "Static",
+      color: "#7c5cff", color2: null, colorModes: ["Static", "Breathing single"], dualColorModes: [],
+      reactiveModes: ["Cycling", "Wave", "Breathing single"], speeds: [1000, 2000, 3000, 5000, 10000], speed: 5000,
+      writeOnly: true,
+    },
+    lightingZones: [
+      {
+        zone: "Combined", modes: ["Off", "Static", "Cycling", "Wave", "Breathing single"], mode: "Static",
+        color: "#7c5cff", color2: null, colorModes: ["Static", "Breathing single"], dualColorModes: [],
+        reactiveModes: ["Cycling", "Wave", "Breathing single"], speeds: [1000, 2000, 3000, 5000, 10000], speed: 5000,
+        writeOnly: true,
+      },
+    ],
     activeProfile: 1,
     deviceMode: "Onboard",
     connectionType: "Wireless",
     firmware: ["MPM 39.00.B0004"],
   });
   setConnectionButtons(true, "Preview mode");
-  setReadStatus("Preview: profile format 7 with five DPI slots.");
+  setReadStatus("Preview: G502 X PLUS performance, onboard profiles, button remapping and RGB lighting.");
 }
 
 function showSuperstrikePreview(): void {
