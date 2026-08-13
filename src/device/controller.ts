@@ -72,6 +72,7 @@ import {
   validateBunnyHoppingMs,
   type DpiStageCapabilities,
   type DpiStagePlan,
+  type LogitechButtonAction,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -1916,6 +1917,32 @@ export async function toggleOnboardProfileEnabled(sector: number, enabled: boole
   }
 }
 
+export async function applyLogitechButtonAssignment(
+  layer: "primary" | "g-shift",
+  button: number,
+  action: LogitechButtonAction,
+): Promise<void> {
+  const client = logitechClient();
+  const entry = editedProfileEntry();
+  if (!client || !entry || settingInProgress) return;
+  settingInProgress = true;
+  setOnboardStatus(`Assigning button ${button + 1} to ${action}…`);
+  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${action}`);
+  try {
+    await client.writeActiveProfile({
+      sector: entry.sector,
+      buttonAssignments: [{ layer, button, action }],
+    });
+    await reloadOnboardProfiles();
+    setOnboardStatus(`Button ${button + 1} is now ${action}.`);
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to change the button assignment.");
+    setOnboardStatus(error instanceof Error ? error.message : "Unable to change the button assignment.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
 export function renameOnboardProfile(sector: number): void {
   const entry = onboardProfiles?.find((profile) => profile.sector === sector);
   if (!entry || !logitechClient()) return;
@@ -2294,23 +2321,29 @@ export function describeLighting(lighting: MouseLighting): string {
 
 export function applyLighting(
   patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>,
+  zoneIndex = 0,
 ): void {
-  if (!hasActiveClient() || !latestDeviceStatus?.lighting) {
+  const deviceStatus = latestDeviceStatus;
+  const source = deviceStatus?.lightingZones?.[zoneIndex] ?? (zoneIndex === 0 ? deviceStatus?.lighting : undefined);
+  if (!hasActiveClient() || !deviceStatus || !source) {
     setReadStatus("Lighting is not available for this mouse.");
     return;
   }
-  const staged = { ...withPendingChanges(latestDeviceStatus).lighting!, ...patch } as MouseLighting;
+  const pendingStatus = withPendingChanges(deviceStatus);
+  const stagedSource = pendingStatus.lightingZones?.[zoneIndex] ?? pendingStatus.lighting!;
+  const staged = { ...stagedSource, ...patch } as MouseLighting;
   if (!staged.mode) {
     setReadStatus("Pick an effect first.");
     return;
   }
   stageChange({
-    key: "lighting",
-    label: `Lighting ${staged.mode.toLowerCase()}`,
-    command: `Set lighting to ${describeLighting(staged)}`,
+    key: `lighting-${zoneIndex}`,
+    label: `${staged.zone} lighting ${staged.mode.toLowerCase()}`,
+    command: `Set ${staged.zone} lighting to ${describeLighting(staged)}`,
     progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
     preview: (status) => {
-      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
+      if (status.lightingZones?.[zoneIndex]) status.lightingZones[zoneIndex] = { ...staged };
+      if (zoneIndex === 0 && status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);

@@ -143,8 +143,9 @@ function Workspace({
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
+  const lightingZones = status.lightingZones?.length ? status.lightingZones : status.lighting ? [status.lighting] : [];
   const lighting = show(has.lighting, ["lighting"])
-    ? [<LightingCard key="lighting-tab" snapshot={snapshot} variant="tab" />]
+    ? lightingZones.map((zone, index) => <LightingCard key={`lighting-tab-${index}`} snapshot={snapshot} variant="tab" lighting={zone} zoneIndex={index} />)
     : [];
 
   const showProfiles = show(has.profiles, ["profiles"]);

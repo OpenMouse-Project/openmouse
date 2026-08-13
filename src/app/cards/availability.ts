@@ -93,8 +93,8 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     sensor: sensor && ready,
     lightforce: Boolean(status.lightforceSwitchMode),
     superstrike: traits.logitech && status.analogButtonTuning?.buttons.length === 2,
-    lighting: Boolean(status.lighting),
-    lightingAdvanced: host && Boolean(status.lighting),
+    lighting: Boolean(status.lighting || status.lightingZones?.length),
+    lightingAdvanced: host && Boolean(status.lighting || status.lightingZones?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
     logitechDetails: traits.logitech,

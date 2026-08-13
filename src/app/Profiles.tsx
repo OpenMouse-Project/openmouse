@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { capabilitiesForFormat } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
+import { LOGITECH_BUTTON_ACTIONS, type LogitechButtonAction } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import { IconActivate, IconDisabled, IconEnabled, IconRefresh, IconRename, IconRunning, IconTrash } from "./icons";
@@ -56,6 +57,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
   const contentsWritable = format?.writable === true;
   const nameLimit = format ? capabilitiesForFormat(format.id).maxNameLength : null;
   const hostTags = [hostRunning ? "active" : null, hostOpened ? "editing" : null].filter(Boolean).join(" · ");
+  const openedProfile = typeof snapshot.editedProfile === "number"
+    ? profiles?.find((profile) => profile.sector === snapshot.editedProfile) ?? null
+    : null;
 
   return (
     <section
@@ -241,6 +245,36 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
               </>
             )}
           </div>
+          {openedProfile && contentsWritable ? (
+            <div className="profile-button-editor">
+              <div className="setting-heading"><div><p>BUTTONS</p><h2>Onboard assignments</h2></div></div>
+              {(["primary", "g-shift"] as const).map((layer) => {
+                const assignments = layer === "primary" ? openedProfile.buttonAssignments : openedProfile.gShiftAssignments;
+                return (
+                  <div key={layer} style={{ marginTop: ".65rem" }}>
+                    <strong style={{ fontSize: ".68rem" }}>{layer === "primary" ? "Normal layer" : "G-Shift layer"}</strong>
+                    <div style={{ display: "grid", gap: ".35rem", marginTop: ".35rem" }}>
+                      {assignments.map((assignment) => (
+                        <label key={`${layer}-${assignment.button}`} style={{ display: "grid", gridTemplateColumns: "6rem 1fr", alignItems: "center", gap: ".5rem", fontSize: ".65rem" }}>
+                          Button {assignment.button + 1}
+                          <select
+                            value={assignment.action}
+                            disabled={snapshot.settingInProgress}
+                            title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
+                            onChange={(event) => void control.applyLogitechButtonAssignment(layer, assignment.button, event.currentTarget.value as LogitechButtonAction)}
+                          >
+                            {assignment.action === "Custom" ? <option value="Custom">Custom (preserved)</option> : null}
+                            {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <small className="setting-note">Assignments are stored in this profile. Custom macros and keyboard/consumer actions are preserved but are not overwritten until their full editor is available.</small>
+            </div>
+          ) : null}
           <small id="onboard-status">{snapshot.onboardStatus}</small>
         </div>
       </div>
