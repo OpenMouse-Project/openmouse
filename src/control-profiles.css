@@ -112,6 +112,19 @@
 .assignment-select-wrap i { position:absolute;top:50%;right:.65rem;width:.32rem;height:.32rem;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);pointer-events:none;transform:translateY(-65%) rotate(45deg) }
 @media (max-width:900px) { .assignment-grid { grid-template-columns:1fr } }
 @media (max-width:560px) { .profile-button-heading { align-items:stretch;flex-direction:column }.assignment-card { grid-template-columns:2rem 1fr }.assignment-select-wrap { grid-column:1 / -1 } }
+.shortcut-dialog-backdrop { position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:1rem;background:rgb(0 0 0 / 68%);backdrop-filter:blur(4px) }
+.shortcut-dialog { width:min(25rem,100%);box-sizing:border-box;padding:1.2rem;border:1px solid var(--border-hover);border-radius:11px;background:var(--surface-menu);box-shadow:0 20px 60px rgb(0 0 0 / 60%);outline:0 }
+.shortcut-dialog:focus-visible { border-color:var(--ui-accent) }
+.shortcut-dialog-kicker { color:var(--ui-accent);font-family:var(--font-mono);font-size:.54rem;letter-spacing:.1em }
+.shortcut-dialog h3 { margin:.35rem 0 .3rem;color:var(--text-hover);font-size:1.05rem;font-weight:550 }
+.shortcut-dialog p { margin:0;color:var(--text-faint);font-size:.66rem;line-height:1.5 }
+.shortcut-capture { display:grid;min-height:3.25rem;margin:1rem 0 .45rem;place-items:center;border:1px dashed var(--border-hover);border-radius:8px;background:var(--surface-control);color:var(--muted);font-family:var(--font-mono);font-size:.78rem }
+.shortcut-capture.has-value { border-style:solid;border-color:var(--ui-accent);color:var(--text-hover);box-shadow:inset 0 0 18px color-mix(in srgb,var(--ui-accent) 8%,transparent) }
+.shortcut-error { display:block;color:#e2686f;font-size:.62rem }
+.shortcut-dialog-actions { display:flex;justify-content:flex-end;gap:.45rem;margin-top:1rem }
+.shortcut-dialog-actions button { padding:.45rem .7rem;border:1px solid var(--border);border-radius:6px;background:var(--surface-control);color:var(--muted);font-size:.63rem;cursor:pointer }
+.shortcut-dialog-actions button.is-primary { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink);font-weight:650 }
+.shortcut-dialog-actions button:disabled { opacity:.4;cursor:default }
 
 /* `.segmented` and friends set display, which outranks the user-agent
    `[hidden] { display: none }` rule — so hiding those rows by setting the

@@ -1975,6 +1975,15 @@ export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", bu
   void applyLogitechButtonAssignment(layer, button, { kind: "consumer", usage });
 }
 
+export function applyLogitechKeyboardShortcut(
+  layer: "primary" | "g-shift",
+  button: number,
+  key: number,
+  modifiers: number,
+): void {
+  void applyLogitechButtonAssignment(layer, button, { kind: "keyboard", key, modifiers });
+}
+
 export function renameOnboardProfile(sector: number): void {
   const entry = onboardProfiles?.find((profile) => profile.sector === sector);
   if (!entry || !logitechClient()) return;
