@@ -77,9 +77,6 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/g502\s*x\s*plus/i.test(displayName)) return "/devices/logitech-g502-x-plus.png";
   if (/g502\s*x/i.test(displayName)) return "/devices/logitech-g502-x.png";
   if (/\bg502\b/i.test(displayName)) return "/devices/logitech-g502.png";
-  // Matched on the name rather than the product id: a Logi Bolt receiver is
-  // 046d:c548 whichever mouse is paired to it, so keying the id would put this
-  // artwork on an MX Master 3S as well.
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
   if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
@@ -91,5 +88,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/\bko-one\b/i.test(displayName)) return "/devices/crdrako-ko-one.png";
   if (/\br5\s*ultra\b/i.test(displayName)) return "/devices/attackshark-r5-ultra.png";
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
+  if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "/devices/logitech-mx-master-3s.png";
+  if (/\bterra\s*pro\b/i.test(displayName)) return "/devices/teevolution-terra-pro.png";
   return "/devices/unknown-device.png";
 }

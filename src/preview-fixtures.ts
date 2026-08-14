@@ -317,6 +317,45 @@ const RAZER: MouseStatus = {
   firmware: ["1.01.00"],
 };
 
+/** Wireless Viper V2 Pro: Focus Pro 30K, stock receiver (1 kHz), asymmetric LOD. */
+const RAZER_VIPER_V2: MouseStatus = {
+  brand: "Razer",
+  name: "Viper V2 Pro",
+  ui: {
+    family: "razer",
+    settingsReady: true,
+    valuesVerified: true,
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    hideSignalCard: true,
+    showAdvancedSection: true,
+    forceShowBattery: true,
+    defaultDisplayName: "Viper V2 Pro",
+  },
+  batteryPercent: 71,
+  batteryState: "Discharging",
+  dpi: 1600,
+  dpiY: 1600,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 500, 1000],
+  activeProfile: null,
+  liftOffDistance: "Medium",
+  supportedLiftOffDistances: ["Low", "Medium", "High"],
+  asymmetricLiftOff: {
+    enabled: true,
+    liftOff: 10,
+    landing: 5,
+    liftOffRange: { min: 2, max: 26 },
+    landingRange: { min: 1, max: 25 },
+  },
+  sleepTimeout: 180,
+  lowBatteryWarning: 15,
+  connectionType: "Wireless",
+  connectionDetail: "HyperSpeed receiver",
+  firmware: ["Mouse 1.00.00"],
+};
+
 const RAZER_VIPER_V4: MouseStatus = {
   ...RAZER,
   name: "Viper V4 Pro",
@@ -570,6 +609,30 @@ const LOGITECH_LEGACY: MouseStatus = {
   firmware: ["MPM 12.01"],
 };
 
+/** Logi Bolt productivity mouse: DPI + battery, no report-rate or LOD feature. */
+const LOGITECH_MX_MASTER_3S: MouseStatus = {
+  brand: "Logitech",
+  name: "MX Master 3S",
+  ui: {
+    family: "logitech-hidpp",
+    lodRequiresSurface: true,
+    hideUnsupportedPollingRates: true,
+    pollingReadOnly: true,
+    pollingNote: "This mouse does not expose a HID++ polling-rate control.",
+  },
+  batteryPercent: 68,
+  batteryState: "Discharging",
+  dpi: 1000,
+  pollingRateHz: 0,
+  supportedPollingRates: [],
+  activeProfile: null,
+  liftOffDistance: null,
+  supportedLiftOffDistances: [],
+  connectionType: "Wireless",
+  connectionDetail: "Logi Bolt",
+  firmware: ["RQK 70.00"],
+};
+
 /**
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
@@ -588,6 +651,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   atk: { label: "ATK A9 Ultra", status: ATK },
   orbital: { label: "Orbital One", status: ORBITAL },
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
+  "razer-viper-v2": { label: "Razer Viper V2 Pro", status: RAZER_VIPER_V2 },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
@@ -596,5 +660,6 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
   keychron: { label: "Keychron Nape Pro", status: KEYCHRON },
+  "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };

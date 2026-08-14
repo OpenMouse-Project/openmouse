@@ -28,6 +28,8 @@ test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "Zaunkoenig M2K"), "/devices/zaunkoenig-m3k.png");
   assert.equal(deviceImage(null, "Viper Mini"), "/devices/razer-viper-mini.webp");
   assert.equal(deviceImage(null, "Cobra"), "/devices/razer-cobra.webp");
+  assert.equal(deviceImage(null, "Terra Pro"), "/devices/teevolution-terra-pro.png");
+  assert.equal(deviceImage(null, "MX Master 3S"), "/devices/logitech-mx-master-3s.png");
 });
 
 test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {

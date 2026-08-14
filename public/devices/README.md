@@ -83,3 +83,7 @@ including it in a public release package.
 
 `razer-viper.webp` was supplied from a Best Buy shopping page for the device. Confirm redistribution
 terms before including it in a public release package.
+
+`logitech-mx-master-3s.png` was supplied from Logitech's product CDN (MX Master
+3S Bluetooth Edition graphite top view). Confirm redistribution terms before
+including it in a public release package.
