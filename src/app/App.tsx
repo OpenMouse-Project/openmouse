@@ -15,7 +15,7 @@ import { BatteryIcon } from "./ui";
 import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
-import { MxMasterCards } from "./cards/MxMasterCards";
+import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
 import {
   DebounceCard,
   EggButtonCard,
@@ -138,6 +138,8 @@ function Workspace({
     show(has.eggPolling, ["performance"]) ? <EggPollingCard key="eggpolling" snapshot={snapshot} /> : null,
     show(has.eggCpi, ["performance"]) ? <EggCpiCard key="eggcpi" snapshot={snapshot} /> : null,
     show(has.eggButtons, ["buttons"]) ? <EggButtonCard key="eggbuttons" snapshot={snapshot} /> : null,
+    show(has.mxMasterButtons, ["buttons"])
+      ? <MxMasterButtonsCard key="mxmaster-buttons" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
