@@ -132,8 +132,6 @@ function Workspace({
       ? <NinjutsoClickCard key="ninjutso-click" snapshot={snapshot} /> : null,
     show(has.lowPower, ["advanced"]) ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
     show(has.processing, ["performance"]) ? <ProcessingCard key="processing" snapshot={snapshot} /> : null,
-    show(has.teevolutionDpiLighting, ["advanced"])
-      ? <TeevolutionDpiLightingCard key="teevo" snapshot={snapshot} /> : null,
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
     show(has.eggFilter, ["performance"]) ? <EggFilterCard key="eggfilter" snapshot={snapshot} /> : null,
     show(has.eggSpdt, ["buttons"]) ? <EggSpdtCard key="eggspdt" snapshot={snapshot} /> : null,
@@ -144,9 +142,12 @@ function Workspace({
   ].filter((node) => node !== null);
 
   const lightingZones = status.lightingZones?.length ? status.lightingZones : status.lighting ? [status.lighting] : [];
-  const lighting = show(has.lighting, ["lighting"])
-    ? [<LightingCard key="lighting-tab" snapshot={snapshot} variant="tab" zones={lightingZones} />]
-    : [];
+  const lighting = [
+    show(has.lighting, ["lighting"])
+      ? <LightingCard key="lighting-tab" snapshot={snapshot} variant="tab" zones={lightingZones} /> : null,
+    show(has.teevolutionDpiLighting, ["lighting"])
+      ? <TeevolutionDpiLightingCard key="teevo" snapshot={snapshot} /> : null,
+  ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
@@ -160,6 +161,10 @@ function Workspace({
     || showProfiles || showSuperstrike || showLogitechDetails || showMxMaster || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
+  const stagesAvailable = Boolean(status.ui?.dpiStageEditor)
+    && Array.isArray(status.dpiStages)
+    && status.dpiStages.length > 0
+    && !slotsAvailable;
   const showSeparateDpiAxes = snapshot.traits.logitech
     && status.supportsSeparateDpiAxes === true
     && !slotsAvailable;
@@ -185,7 +190,7 @@ function Workspace({
           className={[
             "settings-grid device-data",
             showSeparateDpiAxes ? "has-logitech-axis-controls" : "",
-            slotsAvailable ? "has-dpi-slots" : "",
+            slotsAvailable || stagesAvailable ? "has-dpi-slots" : "",
           ].filter(Boolean).join(" ")}
           data-workspace-host
           role="tabpanel"

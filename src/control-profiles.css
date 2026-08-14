@@ -262,6 +262,14 @@
 .control-shell .settings-grid.has-dpi-slots { grid-template-rows:minmax(176px,auto) }
 .control-shell .settings-grid.has-dpi-slots .dpi-card { grid-row:auto }
 
+/* Compx/Keychron simple stages reuse the slot row chrome with a 2-column grid. */
+#dpi-stages { margin-top: .65rem; }
+.dpi-stage-list .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) }
+.dpi-stage-list .dpi-slot-head { grid-template-columns:1.7rem minmax(0,1fr) }
+@media (max-width:640px) {
+  .dpi-stage-list .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) }
+}
+
 /* `.segmented` and friends set display, which outranks the user-agent
    `[hidden] { display: none }` rule — so hiding those rows by setting the
    hidden property silently did nothing. Make the attribute win everywhere. */

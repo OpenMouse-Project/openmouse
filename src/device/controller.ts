@@ -1497,12 +1497,98 @@ export function applyDpiValue(dpi: number): boolean {
     preview: (status) => {
       status.dpi = dpi;
       if (status.dpiY !== undefined) status.dpiY = dpi;
+      // Stage-aware mice: presets write the active stage; keep the table in sync.
+      if (status.dpiStages && status.activeDpiStage != null && status.activeDpiStage < status.dpiStages.length) {
+        status.dpiStages = status.dpiStages.map((value, index) => (
+          index === status.activeDpiStage ? dpi : value
+        ));
+      }
     },
     apply: async () => {
       await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
   return true;
+}
+
+export function applyDpiStageCount(count: number): void {
+  if (!hasActiveClient()) return;
+  const editor = latestDeviceStatus?.ui?.dpiStageEditor;
+  if (!editor || editor.countEditable !== true) return;
+  if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
+  if (!("setDpiStageCount" in requireSettingsClient())) return;
+  stageChange({
+    key: "dpi-stage-count",
+    label: `${count} DPI stage${count === 1 ? "" : "s"}`,
+    command: `Set DPI stage count to ${count}`,
+    progress: `Setting ${count} DPI stages…`,
+    preview: (status) => {
+      const current = status.dpiStages?.slice() ?? [];
+      if (count <= current.length) status.dpiStages = current.slice(0, count);
+      else {
+        const padded = current.slice();
+        while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
+        status.dpiStages = padded;
+      }
+      if ((status.activeDpiStage ?? 0) >= count) {
+        status.activeDpiStage = count - 1;
+        status.dpi = status.dpiStages[count - 1] ?? status.dpi;
+      }
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageCount", "DPI stage count").setDpiStageCount(count);
+    },
+  });
+}
+
+export function applyActiveDpiStage(stage: number): void {
+  if (!hasActiveClient()) return;
+  const stages = latestDeviceStatus ? withPendingChanges(latestDeviceStatus).dpiStages : undefined;
+  if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
+  stageChange({
+    key: "dpi-active-stage",
+    label: `DPI stage ${stage + 1}`,
+    command: `Set active DPI stage to ${stage + 1}`,
+    progress: `Selecting DPI stage ${stage + 1}…`,
+    preview: (status) => {
+      status.activeDpiStage = stage;
+      status.dpi = status.dpiStages?.[stage] ?? status.dpi;
+    },
+    apply: async () => {
+      await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
+    },
+  });
+}
+
+export function applyDpiStageValue(stage: number, rawDpi: number): void {
+  if (!hasActiveClient()) return;
+  const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
+  if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
+  const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
+  if (!dpiOptions.includes(dpi)) {
+    setReadStatus(`${rawDpi.toLocaleString()} DPI is not supported by this mouse.`);
+    emit();
+    return;
+  }
+  stageChange({
+    key: `dpi-stage-${stage}`,
+    label: `Stage ${stage + 1} · ${dpi.toLocaleString()} DPI`,
+    command: `Set DPI stage ${stage + 1} to ${dpi.toLocaleString()}`,
+    progress: `Setting stage ${stage + 1} to ${dpi.toLocaleString()} DPI…`,
+    preview: (status) => {
+      // Pad first so a newly added stage (only present via a staged count
+      // increase) still diffs against the device snapshot in matchesDeviceStatus.
+      const next = status.dpiStages?.slice() ?? [];
+      while (next.length <= stage) next.push(next.at(-1) ?? status.dpi);
+      next[stage] = dpi;
+      status.dpiStages = next;
+      if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+    },
+  });
 }
 
 export function applyLogitechAxisDpi(dpiX: number, dpiY: number): void {
@@ -2864,6 +2950,8 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     return;
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
+  // Populate brand capabilities so preview cards that gate on capabilities still render.
+  capabilities = readCapabilities();
   applyStatus(fixture.status);
   setConnectionButtons(true, "Preview mode");
   setReadStatus(`Preview: ${fixture.label}. Nothing is written.`);
