@@ -2,15 +2,14 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  // Raised from 90 kB for the G502 redesign (per-LED RGB controls), Logitech
-  // keyboard/media remapping, and shortcut recorder + onboard macro panels.
-  // The measured bundle is 93.7 kB; 98 kB leaves modest headroom.
-  ".css": 98_000,
-  // Raised from 485 kB for the G502 per-LED RGB controls, Logitech keyboard
-  // and media remapping, and the keyboard shortcut recorder with onboard
-  // macro storage. Preview fixtures retain their separate allowance below;
-  // the measured aggregate is 515.2 kB with them.
-  ".js": 505_000,
+  // Raised from 98 kB for Bridge status, application profile controls, and
+  // native application icons. The measured bundle is 98.7 kB; 103 kB keeps
+  // the guardrail close while leaving modest headroom.
+  ".css": 103_000,
+  // Raised from 505 kB for Bridge discovery, profile editing, automatic
+  // reconnection, and recent device support. Preview fixtures retain their
+  // separate allowance below; the measured aggregate is 525.8 kB with them.
+  ".js": 510_000,
 };
 
 const ASSETS = join("dist", "assets");
