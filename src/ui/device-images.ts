@@ -12,6 +12,7 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c07d", "/devices/logitech-g502.png"],
   ["046d:c095", "/devices/logitech-g502-x-plus.png"],
   ["046d:c099", "/devices/logitech-g502-x.png"],
+  ["046d:c0a8", "/devices/logitech-pro-x2-superstrike.png"],
   // M3K and M2K use the supplied M3K product artwork.
   ["0483:a462", "/devices/zaunkoenig-m3k.png"],
   ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
@@ -80,6 +81,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   // 046d:c548 whichever mouse is paired to it, so keying the id would put this
   // artwork on an MX Master 3S as well.
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
+  if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
   if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
