@@ -2,14 +2,15 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  // Raised from 85 kB after the Preact workspace rewrite split the control,
-  // profile, device, and diagnostics styles into the aggregate production
-  // bundle. The measured bundle is 86.3 kB; 90 kB leaves modest headroom.
-  ".css": 90_000,
-  // Raised from 470 kB for the Preact component rewrite, MX Master 4 controls,
-  // and database-backed support-request flow. Preview fixtures retain their
-  // separate allowance below; the measured aggregate is 491.8 kB with them.
-  ".js": 485_000,
+  // Raised from 90 kB for the G502 redesign (per-LED RGB controls), Logitech
+  // keyboard/media remapping, and shortcut recorder + onboard macro panels.
+  // The measured bundle is 93.7 kB; 98 kB leaves modest headroom.
+  ".css": 98_000,
+  // Raised from 485 kB for the G502 per-LED RGB controls, Logitech keyboard
+  // and media remapping, and the keyboard shortcut recorder with onboard
+  // macro storage. Preview fixtures retain their separate allowance below;
+  // the measured aggregate is 515.2 kB with them.
+  ".js": 505_000,
 };
 
 const ASSETS = join("dist", "assets");
