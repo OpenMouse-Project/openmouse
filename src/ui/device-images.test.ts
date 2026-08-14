@@ -16,6 +16,12 @@ test("G502 X receiver artwork follows the paired mouse name", () => {
   assert.equal(deviceImage(hid(0xc547), "G502 X"), "/devices/logitech-g502-x.png");
 });
 
+test("PRO X 2 Superstrike uses its own artwork over USB and shared receivers", () => {
+  assert.equal(deviceImage(hid(0xc0a8)), "/devices/logitech-pro-x2-superstrike.png");
+  assert.equal(deviceImage(hid(0xc547), "PRO X 2 Superstrike"), "/devices/logitech-pro-x2-superstrike.png");
+  assert.equal(deviceImage(null, "Logitech PRO X2 SUPERSTRIKE"), "/devices/logitech-pro-x2-superstrike.png");
+});
+
 test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "CRDRAKO KO-ONE"), "/devices/crdrako-ko-one.png");
   assert.equal(deviceImage(null, "Zaunkoenig M3K"), "/devices/zaunkoenig-m3k.png");

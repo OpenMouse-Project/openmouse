@@ -28,6 +28,10 @@ product page.
 official PRO X SUPERLIGHT 2c product gallery. Confirm redistribution terms
 before including it in a public release package.
 
+`logitech-pro-x2-superstrike.png` was supplied from Logitech G's official
+PRO X2 SUPERSTRIKE product gallery. Confirm redistribution terms before
+including it in a public release package.
+
 The three `logitech-g502*.png` files were supplied from Lenovo, Logitech G,
 and MyXprs product-image URLs. They were normalized to matching 700×700
 transparent canvases; the original G502 backdrop was extracted from its source
