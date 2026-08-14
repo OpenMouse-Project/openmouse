@@ -1,4 +1,14 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  bridgeApplications,
+  bridgeApplicationIconUrl,
+  bridgeProfiles,
+  bridgeStatus,
+  saveBridgeProfiles,
+  type BridgeApplication,
+  type BridgeProfile,
+  type BridgeStatus,
+} from "../bridge";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import type { InterfacePreferences } from "../interface-preferences";
@@ -42,8 +52,97 @@ function SwitchCard({
 
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
+  const [bridge, setBridge] = useState<BridgeStatus | null>(null);
+  const [bridgeApplicationsList, setBridgeApplicationsList] = useState<BridgeApplication[]>([]);
+  const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
+  const [selectedApplicationPath, setSelectedApplicationPath] = useState("");
+  const [bridgeChecking, setBridgeChecking] = useState(false);
+  const [bridgeMessage, setBridgeMessage] = useState("");
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
+  const checkBridge = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    setBridgeChecking(true);
+    try {
+      const [status, applications, profiles] = await Promise.all([
+        bridgeStatus(signal),
+        bridgeApplications(signal),
+        bridgeProfiles(signal),
+      ]);
+      setBridge(status);
+      setBridgeApplicationsList(applications);
+      setBridgeProfilesList(profiles);
+      setSelectedApplicationPath((current) => current
+        || applications.find((application) => application.foreground)?.path
+        || applications[0]?.path
+        || "");
+      setBridgeMessage("");
+    } catch {
+      if (!signal?.aborted) {
+        setBridge(null);
+        setBridgeApplicationsList([]);
+        setBridgeProfilesList([]);
+      }
+    } finally {
+      if (!signal?.aborted) setBridgeChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let reconnecting = false;
+    const reconnect = (): void => {
+      if (document.visibilityState !== "visible" || reconnecting) return;
+      reconnecting = true;
+      void checkBridge(controller.signal).finally(() => {
+        reconnecting = false;
+      });
+    };
+    reconnect();
+    window.addEventListener("focus", reconnect);
+    document.addEventListener("visibilitychange", reconnect);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", reconnect);
+      document.removeEventListener("visibilitychange", reconnect);
+    };
+  }, [checkBridge]);
+
+  const selectedApplication = bridgeApplicationsList.find(
+    (application) => application.path === selectedApplicationPath,
+  ) ?? null;
+  const status = snapshot.status;
+  const deviceId = status ? `${status.brand}:${status.name}` : "";
+  const selectedProfile = selectedApplication
+    ? bridgeProfilesList.find((profile) =>
+      profile.application.path === selectedApplication.path && profile.device.id === deviceId) ?? null
+    : null;
+  const captureApplicationProfile = async (): Promise<void> => {
+    if (!selectedApplication || !status) return;
+    const profile: BridgeProfile = {
+      application: {
+        name: selectedApplication.name,
+        executable: selectedApplication.executable,
+        path: selectedApplication.path,
+      },
+      device: { id: deviceId, name: status.name },
+      settings: {
+        dpi: status.dpi ?? null,
+        pollingRateHz: status.pollingRateHz ?? null,
+      },
+    };
+    const next = [
+      ...bridgeProfilesList.filter((entry) =>
+        entry.application.path !== selectedApplication.path || entry.device.id !== deviceId),
+      profile,
+    ];
+    try {
+      await saveBridgeProfiles(next);
+      setBridgeProfilesList(next);
+      setBridgeMessage(`Saved ${selectedApplication.name} for ${status.name}.`);
+    } catch (error) {
+      setBridgeMessage(error instanceof Error ? error.message : "Could not save the application profile.");
+    }
+  };
 
   return (
     <section
@@ -54,7 +153,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       <header className="interface-settings-header">
         <div>
           <p className="overline">OPENMOUSE</p>
-          <h2 id="interface-settings-title">Interface settings</h2>
+          <h2 id="interface-settings-title">Settings</h2>
         </div>
         <button
           id="close-interface-settings"
@@ -67,6 +166,110 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       </header>
 
       <div className="interface-settings-grid">
+        {snapshot.previewEnabled ? (
+          <article className="interface-setting-card openmouse-bridge-card">
+            <div className="openmouse-bridge-copy">
+              <span>OPENMOUSE BRIDGE</span>
+              <h3>Automatic game detection and battery alerts</h3>
+              <p>
+                OpenMouse Bridge is a lightweight background service that works with the OpenMouse
+                control panel to detect when games start and send battery notifications for your mice.
+              </p>
+              <ul>
+                <li>Runs quietly in the background</li>
+                <li>Detects active games automatically</li>
+                <li>Sends mouse battery notifications</li>
+              </ul>
+            </div>
+            <div className="openmouse-bridge-action">
+              <span>{bridge ? `VERSION ${bridge.version}` : "IN DEVELOPMENT"}</span>
+              <div className="openmouse-bridge-status" role="status" data-connected={bridge !== null}>
+                <i aria-hidden="true" />
+                <span>
+                  {bridgeChecking
+                    ? "Checking for Bridge…"
+                    : bridge
+                      ? `${bridge.platform} · ${bridge.activeGames.length > 0 ? bridge.activeGames.join(", ") : "No game detected"}`
+                      : "Bridge not connected"}
+                </span>
+              </div>
+              <button type="button" disabled>Download coming soon</button>
+              <button
+                className="openmouse-bridge-connect"
+                type="button"
+                disabled={bridgeChecking}
+                onClick={() => void checkBridge()}
+              >
+                {bridge ? "Refresh Bridge" : "Connect Bridge"}
+              </button>
+              <small>
+                {bridge
+                  ? `${bridge.trackedGameCount} games tracked · battery alerts at ${bridge.batteryThresholdPercent}%`
+                  : "Install OpenMouse Bridge before connecting it to this control panel."}
+              </small>
+            </div>
+            {bridge ? (
+              <div className="openmouse-bridge-applications">
+                <div className="openmouse-bridge-app-heading">
+                  <div>
+                    <span>VISIBLE APPLICATIONS</span>
+                    <h4>Choose what should use a custom mouse profile</h4>
+                  </div>
+                  <small>{bridgeApplicationsList.length} open</small>
+                </div>
+                {bridgeApplicationsList.length > 0 ? (
+                  <div className="openmouse-bridge-app-grid">
+                    {bridgeApplicationsList.map((application) => {
+                      const assigned = bridgeProfilesList.some((profile) =>
+                        profile.application.path === application.path && profile.device.id === deviceId);
+                      return (
+                        <button
+                          key={application.path}
+                          type="button"
+                          className={selectedApplicationPath === application.path ? "is-selected" : ""}
+                          onClick={() => setSelectedApplicationPath(application.path)}
+                        >
+                          <i aria-hidden="true">
+                            <span>{application.name.slice(0, 1).toUpperCase()}</span>
+                            <img
+                              src={bridgeApplicationIconUrl(application)}
+                              alt=""
+                              onLoad={(event) => event.currentTarget.parentElement?.classList.add("has-icon")}
+                              onError={(event) => event.currentTarget.parentElement?.classList.remove("has-icon")}
+                            />
+                          </i>
+                          <span><strong>{application.name}</strong><small>{application.executable}</small></span>
+                          <em>{application.foreground ? "Active" : assigned ? "Profile saved" : "Open"}</em>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p>Bridge has not found any visible Windows applications yet.</p>
+                )}
+                {selectedApplication ? (
+                  <div className="openmouse-bridge-profile-editor">
+                    <div>
+                      <strong>{selectedApplication.name}</strong>
+                      <small>
+                        {selectedProfile
+                          ? `${selectedProfile.settings.dpi ?? "—"} DPI · ${selectedProfile.settings.pollingRateHz ?? "—"} Hz`
+                          : status
+                            ? `Capture ${status.dpi ?? "—"} DPI · ${status.pollingRateHz ?? "—"} Hz from ${status.name}`
+                            : "Connect a mouse to create a profile."}
+                      </small>
+                    </div>
+                    <button type="button" disabled={!status} onClick={() => void captureApplicationProfile()}>
+                      {selectedProfile ? "Update profile" : "Create profile"}
+                    </button>
+                  </div>
+                ) : null}
+                {bridgeMessage ? <p className="openmouse-bridge-message" role="status">{bridgeMessage}</p> : null}
+              </div>
+            ) : null}
+          </article>
+        ) : null}
+
         <article className="interface-setting-card interface-theme-card">
           <span>APPEARANCE</span>
           <h3>Accent theme</h3>

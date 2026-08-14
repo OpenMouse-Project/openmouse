@@ -72,6 +72,9 @@ import {
   validateBunnyHoppingMs,
   type DpiStageCapabilities,
   type DpiStagePlan,
+  type LogitechButtonAction,
+  type LogitechButtonBinding,
+  type LogitechMacroStep,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -1916,6 +1919,69 @@ export async function toggleOnboardProfileEnabled(sector: number, enabled: boole
   }
 }
 
+export async function applyLogitechButtonAssignment(
+  layer: "primary" | "g-shift",
+  button: number,
+  binding: LogitechButtonAction | LogitechButtonBinding,
+): Promise<void> {
+  const client = logitechClient();
+  const entry = editedProfileEntry();
+  if (!client || !entry || settingInProgress) return;
+  settingInProgress = true;
+  const label = typeof binding === "string" ? binding : binding.kind === "keyboard" ? "keyboard shortcut" : "media key";
+  setOnboardStatus(`Assigning button ${button + 1} to ${label}…`);
+  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${label}`);
+  try {
+    await client.writeActiveProfile({
+      sector: entry.sector,
+      buttonAssignments: [{ layer, button, binding }],
+    });
+    await reloadOnboardProfiles();
+    setOnboardStatus(`Button ${button + 1} is now ${label}.`);
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to change the button assignment.");
+    setOnboardStatus(error instanceof Error ? error.message : "Unable to change the button assignment.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", button: number, usage: number): void {
+  void applyLogitechButtonAssignment(layer, button, { kind: "consumer", usage });
+}
+
+export function applyLogitechKeyboardShortcut(
+  layer: "primary" | "g-shift",
+  button: number,
+  key: number,
+  modifiers: number,
+): void {
+  void applyLogitechButtonAssignment(layer, button, { kind: "keyboard", key, modifiers });
+}
+
+export async function applyLogitechKeyboardSequence(
+  layer: "primary" | "g-shift",
+  button: number,
+  steps: LogitechMacroStep[],
+): Promise<void> {
+  const client = logitechClient();
+  const entry = editedProfileEntry();
+  if (!client || !entry || settingInProgress || !steps.length) return;
+  settingInProgress = true;
+  setOnboardStatus(`Saving ${steps.length}-step macro to button ${button + 1}…`);
+  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`);
+  try {
+    await client.writeActiveProfile({ sector: entry.sector, buttonMacros: [{ layer, button, steps }] });
+    await reloadOnboardProfiles();
+    setOnboardStatus(`Button ${button + 1} now runs the recorded ${steps.length}-step macro.`);
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to save the onboard macro.");
+    setOnboardStatus(error instanceof Error ? error.message : "Unable to save the onboard macro.");
+  } finally {
+    endDeviceWrite();
+  }
+}
+
 export function renameOnboardProfile(sector: number): void {
   const entry = onboardProfiles?.find((profile) => profile.sector === sector);
   if (!entry || !logitechClient()) return;
@@ -2294,23 +2360,29 @@ export function describeLighting(lighting: MouseLighting): string {
 
 export function applyLighting(
   patch: Partial<Pick<MouseLighting, "mode" | "color" | "color2" | "speed" | "brightness">>,
+  zoneIndex = 0,
 ): void {
-  if (!hasActiveClient() || !latestDeviceStatus?.lighting) {
+  const deviceStatus = latestDeviceStatus;
+  const source = deviceStatus?.lightingZones?.[zoneIndex] ?? (zoneIndex === 0 ? deviceStatus?.lighting : undefined);
+  if (!hasActiveClient() || !deviceStatus || !source) {
     setReadStatus("Lighting is not available for this mouse.");
     return;
   }
-  const staged = { ...withPendingChanges(latestDeviceStatus).lighting!, ...patch } as MouseLighting;
+  const pendingStatus = withPendingChanges(deviceStatus);
+  const stagedSource = pendingStatus.lightingZones?.[zoneIndex] ?? pendingStatus.lighting!;
+  const staged = { ...stagedSource, ...patch } as MouseLighting;
   if (!staged.mode) {
     setReadStatus("Pick an effect first.");
     return;
   }
   stageChange({
-    key: "lighting",
-    label: `Lighting ${staged.mode.toLowerCase()}`,
-    command: `Set lighting to ${describeLighting(staged)}`,
+    key: `lighting-${zoneIndex}`,
+    label: `${staged.zone} lighting ${staged.mode.toLowerCase()}`,
+    command: `Set ${staged.zone} lighting to ${describeLighting(staged)}`,
     progress: `Setting ${staged.mode.toLowerCase()} lighting…`,
     preview: (status) => {
-      if (status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
+      if (status.lightingZones?.[zoneIndex]) status.lightingZones[zoneIndex] = { ...staged };
+      if (zoneIndex === 0 && status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
       await requireClientMethod("setLighting", "the lighting").setLighting(staged);
@@ -2633,7 +2705,7 @@ async function loadPreviewEntries(): Promise<void> {
   if (!previewModeEnabled || previewEntries.length > 0) return;
   const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
   previewEntries = [
-    ["slots", "Logitech PRO X Superlight 2"],
+    ["slots", "Logitech G502 X PLUS"],
     ["superstrike", "Logitech PRO X 2 Superstrike"],
     ...Object.entries(PREVIEW_FIXTURES).map(([key, fixture]) => [key, fixture.label] as [string, string]),
   ];
@@ -2646,7 +2718,7 @@ function previewClient(): LogitechHidppClient {
   };
   // Real prototype: the driver accessors test with instanceof.
   return Object.assign(Object.create(LogitechHidppClient.prototype) as LogitechHidppClient, {
-    writeActiveProfile: refuse,
+    writeActiveProfile: async () => undefined,
     setBunnyHoppingMs: refuse,
     setProfileDpiStages: refuse,
     setModeStatus: refuse,
@@ -2663,6 +2735,8 @@ function showSlotsPreview(): void {
     { x: 2400, y: 2400, lod: 2 },
     { x: 3200, y: 3200, lod: 3 },
   ];
+  const normalActions = ["Left click", "Right click", "Middle click", "Back", "Forward", "DPI Shift", "Next DPI", "Cycle profiles"] as const;
+  const shiftedActions = ["Previous profile", "Next profile", "Battery indicator", "Tilt left", "Tilt right", "Default DPI", "Previous DPI", "Disabled"] as const;
   onboardProfiles = [1, 2, 3].map((index) => ({
     sector: index,
     enabled: index !== 3,
@@ -2676,12 +2750,15 @@ function showSlotsPreview(): void {
     powerSaveTimeoutSeconds: 60,
     powerOffTimeoutSeconds: 300,
     bunnyHoppingMs: 100,
+    buttonAssignments: normalActions.map((action, button) => ({ button, action, raw: [0x90, 0, 0, 0] })),
+    gShiftAssignments: shiftedActions.map((action, button) => ({ button, action, raw: [0x90, 0, 0, 0] })),
     crcValid: true,
+    raw: new Uint8Array(255),
   } as OnboardProfile));
   active = previewClient();
   applyStatus({
     brand: "Logitech",
-    name: "PRO X SUPERLIGHT 2",
+    name: "G502 X PLUS",
     ui: { family: "logitech-hidpp", lodRequiresSurface: true },
     batteryPercent: 72,
     batteryState: "Discharging",
@@ -2695,13 +2772,42 @@ function showSlotsPreview(): void {
     onboardProfileFormat: { id: 7, name: "unnamed (v6 + bunny hopping)", base: "v6", supported: true, verified: true, writable: true },
     gamingSurfaceMode: "Auto",
     lightforceSwitchMode: "Hybrid",
+    lighting: {
+      zone: "Combined", modes: ["Off", "Static", "Cycling", "Wave", "Breathing single"], mode: "Static",
+      color: "#7c5cff", color2: null, colorModes: ["Static", "Breathing single"], dualColorModes: [],
+      reactiveModes: ["Cycling", "Wave", "Breathing single"], speeds: [1000, 2000, 3000, 5000, 10000], speed: 5000,
+      writeOnly: true,
+    },
+    lightingZones: [
+      {
+        zone: "Combined", modes: ["Off", "Static", "Cycling", "Wave", "Breathing single"], mode: "Static",
+        color: "#7c5cff", color2: null, colorModes: ["Static", "Breathing single"], dualColorModes: [],
+        reactiveModes: ["Cycling", "Wave", "Breathing single"], speeds: [1000, 2000, 3000, 5000, 10000], speed: 5000,
+        writeOnly: true,
+      },
+      ...["#7c5cff", "#5f78ff", "#39a7ff", "#2bc8d4", "#35d59a", "#a0dc55", "#f0c247", "#ff744f"].map((color, index) => ({
+        zone: `LED ${index + 1}`,
+        group: "Lightstrip",
+        hardwareZoneId: index + 1,
+        modes: ["Off", "Static"] as const,
+        mode: "Static" as const,
+        color,
+        color2: null,
+        colorModes: ["Static"] as const,
+        dualColorModes: [] as const,
+        reactiveModes: [] as const,
+        speeds: [] as const,
+        speed: null,
+        writeOnly: true,
+      })),
+    ],
     activeProfile: 1,
     deviceMode: "Onboard",
     connectionType: "Wireless",
     firmware: ["MPM 39.00.B0004"],
   });
   setConnectionButtons(true, "Preview mode");
-  setReadStatus("Preview: profile format 7 with five DPI slots.");
+  setReadStatus("Preview: G502 X PLUS performance, onboard profiles, button remapping and RGB lighting.");
 }
 
 function showSuperstrikePreview(): void {

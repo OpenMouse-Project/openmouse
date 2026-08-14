@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#09090b" />
+    <script>
+      (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("openmouse-interface-settings-v1") || "{}");
+          const dark = saved.colorMode === "Dark" || (saved.colorMode !== "Light" && matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.colorScheme = dark ? "dark" : "light";
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />

@@ -28,6 +28,10 @@ product page.
 official PRO X SUPERLIGHT 2c product gallery. Confirm redistribution terms
 before including it in a public release package.
 
+`logitech-pro-x2-superstrike.png` was supplied from Logitech G's official
+PRO X2 SUPERSTRIKE product gallery. Confirm redistribution terms before
+including it in a public release package.
+
 The three `logitech-g502*.png` files were supplied from Lenovo, Logitech G,
 and MyXprs product-image URLs. They were normalized to matching 700×700
 transparent canvases; the original G502 backdrop was extracted from its source
@@ -70,6 +74,12 @@ a public release package.
 `zaunkoenig-m3k.png` was supplied from the OpenMouse product-image storage URL
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
 terms before including it in a public release package.
+
+`attackshark-r5-ultra.png` is the top-down render of the Attack Shark R5 Ultra
+extracted from Attack Shark's official product gallery
+(`cdn.shopify.com/s/files/1/0823/5050/6282/files/R5ULTRA_C06_3.png`), keyed
+out of its white backdrop and downscaled. Confirm redistribution terms before
+including it in a public release package.
 
 `razer-viper.webp` was supplied from a Best Buy shopping page for the device. Confirm redistribution
 terms before including it in a public release package.

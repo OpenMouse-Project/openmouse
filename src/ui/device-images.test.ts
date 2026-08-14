@@ -16,9 +16,25 @@ test("G502 X receiver artwork follows the paired mouse name", () => {
   assert.equal(deviceImage(hid(0xc547), "G502 X"), "/devices/logitech-g502-x.png");
 });
 
+test("PRO X 2 Superstrike uses its own artwork over USB and shared receivers", () => {
+  assert.equal(deviceImage(hid(0xc0a8)), "/devices/logitech-pro-x2-superstrike.png");
+  assert.equal(deviceImage(hid(0xc547), "PRO X 2 Superstrike"), "/devices/logitech-pro-x2-superstrike.png");
+  assert.equal(deviceImage(null, "Logitech PRO X2 SUPERSTRIKE"), "/devices/logitech-pro-x2-superstrike.png");
+});
+
 test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "CRDRAKO KO-ONE"), "/devices/crdrako-ko-one.png");
   assert.equal(deviceImage(null, "Zaunkoenig M3K"), "/devices/zaunkoenig-m3k.png");
   assert.equal(deviceImage(null, "Zaunkoenig M2K"), "/devices/zaunkoenig-m3k.png");
+  assert.equal(deviceImage(null, "Viper Mini"), "/devices/razer-viper-mini.webp");
+  assert.equal(deviceImage(null, "Cobra"), "/devices/razer-cobra.webp");
   assert.equal(deviceImage(null, "Terra Pro"), "/devices/teevolution-terra-pro.png");
+  assert.equal(deviceImage(null, "MX Master 3S"), "/devices/logitech-mx-master-3s.png");
+});
+
+test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
+  const hid373e = (productId: number): HIDDevice => ({ vendorId: 0x373e, productId } as HIDDevice);
+  assert.equal(deviceImage(hid373e(0x0046)), "/devices/attackshark-r5-ultra.png");
+  assert.equal(deviceImage(hid373e(0x0047)), "/devices/attackshark-r5-ultra.png");
+  assert.equal(deviceImage(null, "Attack Shark R5 Ultra"), "/devices/attackshark-r5-ultra.png");
 });

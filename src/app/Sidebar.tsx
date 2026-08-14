@@ -140,7 +140,7 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
           aria-current={snapshot.interfaceSettingsOpen}
           onClick={control.openInterfaceSettings}
         >
-          Interface settings
+          Settings
         </button>
         <a className="nav-item" href="/check.html">Mouse Check</a>
         <button className="nav-item mouse-request-button" type="button" onClick={onOpenSupportRequests}>Request a mouse</button>

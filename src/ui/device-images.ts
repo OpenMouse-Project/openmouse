@@ -12,6 +12,7 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c07d", "/devices/logitech-g502.png"],
   ["046d:c095", "/devices/logitech-g502-x-plus.png"],
   ["046d:c099", "/devices/logitech-g502-x.png"],
+  ["046d:c0a8", "/devices/logitech-pro-x2-superstrike.png"],
   // M3K and M2K use the supplied M3K product artwork.
   ["0483:a462", "/devices/zaunkoenig-m3k.png"],
   ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
@@ -26,6 +27,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "/devices/crdrako-ko-one.png"],
   ["373e:006b", "/devices/crdrako-ko-one.png"],
+  // Attack Shark R5 Ultra wired and wireless transports share the same shell.
+  ["373e:0046", "/devices/attackshark-r5-ultra.png"],
+  ["373e:0047", "/devices/attackshark-r5-ultra.png"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
@@ -74,11 +78,15 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/g502\s*x/i.test(displayName)) return "/devices/logitech-g502-x.png";
   if (/\bg502\b/i.test(displayName)) return "/devices/logitech-g502.png";
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
+  if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
   if (/\bop1\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
   if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
+  if (/\bviper\s*mini\b/i.test(displayName)) return "/devices/razer-viper-mini.webp";
+  if (/\bcobra\b/i.test(displayName)) return "/devices/razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "/devices/keychron-nape-pro.png";
   if (/\bko-one\b/i.test(displayName)) return "/devices/crdrako-ko-one.png";
+  if (/\br5\s*ultra\b/i.test(displayName)) return "/devices/attackshark-r5-ultra.png";
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "/devices/logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "/devices/teevolution-terra-pro.png";

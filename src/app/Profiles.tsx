@@ -1,5 +1,6 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { capabilitiesForFormat } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
+import { LOGITECH_BUTTON_ACTIONS, type LogitechButtonAction } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import { IconActivate, IconDisabled, IconEnabled, IconRefresh, IconRename, IconRunning, IconTrash } from "./icons";
@@ -38,7 +39,38 @@ const ICON_BUTTON_STYLE = (disabled: boolean, active = false): CSSProperties => 
   opacity: disabled ? 0.4 : 1,
 });
 
+const SPECIAL_HID_KEYS: Readonly<Record<string, number>> = {
+  Enter: 0x28, Escape: 0x29, Backspace: 0x2a, Tab: 0x2b, Space: 0x2c,
+  Minus: 0x2d, Equal: 0x2e, BracketLeft: 0x2f, BracketRight: 0x30,
+  Backslash: 0x31, Semicolon: 0x33, Quote: 0x34, Backquote: 0x35,
+  Comma: 0x36, Period: 0x37, Slash: 0x38, CapsLock: 0x39,
+  PrintScreen: 0x46, ScrollLock: 0x47, Pause: 0x48, Insert: 0x49,
+  Home: 0x4a, PageUp: 0x4b, Delete: 0x4c, End: 0x4d, PageDown: 0x4e,
+  ArrowRight: 0x4f, ArrowLeft: 0x50, ArrowDown: 0x51, ArrowUp: 0x52,
+};
+
+function hidKeyForCode(code: string): number | null {
+  if (/^Key[A-Z]$/.test(code)) return 0x04 + code.charCodeAt(3) - 65;
+  if (/^Digit[1-9]$/.test(code)) return 0x1e + Number(code[5]) - 1;
+  if (code === "Digit0") return 0x27;
+  const functionKey = code.match(/^F([1-9]|1[0-2])$/);
+  if (functionKey) return 0x3a + Number(functionKey[1]) - 1;
+  return SPECIAL_HID_KEYS[code] ?? null;
+}
+
+function shortcutLabel(event: KeyboardEvent): string {
+  return [event.ctrlKey ? "Ctrl" : null, event.shiftKey ? "Shift" : null, event.altKey ? "Alt" : null,
+    event.metaKey ? "Meta" : null, event.key.length === 1 ? event.key.toUpperCase() : event.key]
+    .filter(Boolean).join(" + ");
+}
+
 export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [assignmentLayer, setAssignmentLayer] = useState<"primary" | "g-shift">("primary");
+  const [shortcutTarget, setShortcutTarget] = useState<{ layer: "primary" | "g-shift"; button: number } | null>(null);
+  const [shortcutSteps, setShortcutSteps] = useState<Array<{ key: number; modifiers: number; label: string; delayMs: number }>>([]);
+  const [shortcutRecording, setShortcutRecording] = useState(false);
+  const [shortcutError, setShortcutError] = useState("");
+  const lastShortcutAt = useRef(0);
   const inner = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const profiles = snapshot.onboardProfiles;
@@ -56,6 +88,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
   const contentsWritable = format?.writable === true;
   const nameLimit = format ? capabilitiesForFormat(format.id).maxNameLength : null;
   const hostTags = [hostRunning ? "active" : null, hostOpened ? "editing" : null].filter(Boolean).join(" · ");
+  const openedProfile = typeof snapshot.editedProfile === "number"
+    ? profiles?.find((profile) => profile.sector === snapshot.editedProfile) ?? null
+    : null;
 
   return (
     <section
@@ -241,6 +276,146 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
               </>
             )}
           </div>
+          {openedProfile && contentsWritable ? (
+            <div className="profile-button-editor">
+              <div className="profile-button-heading">
+                <div><p>BUTTONS</p><h2>Onboard assignments</h2><small>Choose what each physical control does in this profile.</small></div>
+                <div className="assignment-layer-tabs" role="tablist" aria-label="Assignment layer">
+                  <button type="button" role="tab" aria-selected={assignmentLayer === "primary"} onClick={() => setAssignmentLayer("primary")}>Normal</button>
+                  <button type="button" role="tab" aria-selected={assignmentLayer === "g-shift"} onClick={() => setAssignmentLayer("g-shift")}>G-Shift</button>
+                </div>
+              </div>
+              <div className="assignment-grid">
+                {(assignmentLayer === "primary" ? openedProfile.buttonAssignments : openedProfile.gShiftAssignments).map((assignment) => {
+                  const buttonNames = ["Left click", "Right click", "Wheel click", "Back", "Forward", "DPI Shift", "DPI up", "DPI down"];
+                  return (
+                    <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
+                      <span className="assignment-button-number">G{assignment.button + 1}</span>
+                      <span className="assignment-button-name">{buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}</span>
+                      <span className="assignment-select-wrap">
+                        <select
+                          value={assignment.action}
+                          disabled={snapshot.settingInProgress}
+                          title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            if (value === "keyboard") {
+                              setShortcutSteps([]);
+                              setShortcutRecording(false);
+                              setShortcutError("");
+                              setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
+                            }
+                            else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
+                            else void control.applyLogitechButtonAssignment(assignmentLayer, assignment.button, value as LogitechButtonAction);
+                          }}
+                        >
+                          {assignment.action === "Custom" ? <option value="Custom">Custom mapping (preserved)</option> : null}
+                          {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+                          <option value="keyboard">Keyboard shortcut…</option>
+                          <option value="consumer:233">Volume up</option>
+                          <option value="consumer:234">Volume down</option>
+                          <option value="consumer:226">Mute</option>
+                          <option value="consumer:205">Play / pause</option>
+                          <option value="consumer:181">Next track</option>
+                          <option value="consumer:182">Previous track</option>
+                        </select>
+                        <i aria-hidden="true" />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small className="setting-note">Changes are stored in this onboard profile. Existing custom macros are preserved byte-for-byte.</small>
+              {shortcutTarget ? (
+                <div className="shortcut-dialog-backdrop" role="presentation" onMouseDown={(event) => {
+                  if (event.currentTarget === event.target) setShortcutTarget(null);
+                }}>
+                  <div
+                    className="shortcut-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="shortcut-dialog-title"
+                    tabIndex={0}
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (!shortcutRecording) {
+                        if (event.key === "Escape") setShortcutTarget(null);
+                        return;
+                      }
+                      event.preventDefault(); event.stopPropagation();
+                      if (event.key === "Escape" && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                        setShortcutRecording(false);
+                        setShortcutError("");
+                        return;
+                      }
+                      if (event.repeat || ["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
+                      const key = hidKeyForCode(event.code);
+                      if (key === null) {
+                        setShortcutError(`${event.key} cannot be stored by this mouse.`);
+                        return;
+                      }
+                      const modifiers = (event.ctrlKey ? 0x01 : 0) | (event.shiftKey ? 0x02 : 0)
+                        | (event.altKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0);
+                      const now = performance.now();
+                      setShortcutSteps((steps) => [...steps, {
+                        key, modifiers, label: shortcutLabel(event),
+                        delayMs: steps.length === 0 ? 0 : Math.min(9999, Math.round(now - lastShortcutAt.current)),
+                      }]);
+                      lastShortcutAt.current = now;
+                      setShortcutError("");
+                    }}
+                  >
+                    <span className="shortcut-dialog-kicker">KEYBOARD RECORDER</span>
+                    <h3 id="shortcut-dialog-title">Record a command sequence</h3>
+                    <p>Start recording, press one shortcut or a sequence, then stop recording.</p>
+                    <button
+                      type="button"
+                      className={`shortcut-record-button${shortcutRecording ? " is-recording" : ""}`}
+                      onClick={() => {
+                        if (shortcutRecording) {
+                          setShortcutRecording(false);
+                        } else {
+                          setShortcutSteps([]);
+                          setShortcutError("");
+                          lastShortcutAt.current = performance.now();
+                          setShortcutRecording(true);
+                        }
+                      }}
+                    ><i aria-hidden="true" />{shortcutRecording ? "Stop recording" : "Record"}</button>
+                    <div className={`shortcut-capture${shortcutSteps.length ? " has-value" : ""}`} aria-live="polite">
+                      {shortcutSteps.length ? (
+                        <ol>{shortcutSteps.map((step, index) => <li key={`${step.label}-${index}`}>
+                          {index > 0 && step.delayMs > 0 ? <small>{step.delayMs} ms</small> : null}
+                          <kbd>{step.label}</kbd>
+                        </li>)}</ol>
+                      ) : shortcutRecording ? "Listening…" : "Nothing recorded yet"}
+                    </div>
+                    {shortcutError ? <small className="shortcut-error" role="alert">{shortcutError}</small> : null}
+                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">This sequence will be saved in the mouse's onboard macro memory.</small> : null}
+                    <div className="shortcut-dialog-actions">
+                      <button type="button" onClick={() => setShortcutTarget(null)}>Cancel</button>
+                      <button
+                        type="button"
+                        className="is-primary"
+                        disabled={shortcutRecording || shortcutSteps.length === 0}
+                        onClick={() => {
+                          const shortcut = shortcutSteps[0];
+                          if (!shortcut) return;
+                          if (shortcutSteps.length === 1) {
+                            control.applyLogitechKeyboardShortcut(shortcutTarget.layer, shortcutTarget.button, shortcut.key, shortcut.modifiers);
+                          } else {
+                            void control.applyLogitechKeyboardSequence(shortcutTarget.layer, shortcutTarget.button,
+                              shortcutSteps.map(({ key, modifiers, delayMs }) => ({ key, modifiers, delayMs })));
+                          }
+                          setShortcutTarget(null);
+                        }}
+                      >{shortcutSteps.length > 1 ? "Assign sequence" : "Assign shortcut"}</button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <small id="onboard-status">{snapshot.onboardStatus}</small>
         </div>
       </div>
