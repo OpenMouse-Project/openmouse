@@ -54,7 +54,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       <header className="interface-settings-header">
         <div>
           <p className="overline">OPENMOUSE</p>
-          <h2 id="interface-settings-title">Interface settings</h2>
+          <h2 id="interface-settings-title">Settings</h2>
         </div>
         <button
           id="close-interface-settings"
@@ -67,6 +67,30 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       </header>
 
       <div className="interface-settings-grid">
+        {snapshot.previewEnabled ? (
+          <article className="interface-setting-card openmouse-bridge-card">
+            <div className="openmouse-bridge-copy">
+              <span>OPENMOUSE BRIDGE</span>
+              <h3>Native device access, connected to OpenMouse</h3>
+              <p>
+                OpenMouse Bridge is a lightweight background service that will connect your mice to
+                this control panel over a secure WebSocket. It is being built for browsers and devices
+                that need native hardware access beyond WebHID.
+              </p>
+              <ul>
+                <li>Runs quietly in the background</li>
+                <li>Connects directly to the OpenMouse control panel</li>
+                <li>Keeps device commands permissioned and authenticated</li>
+              </ul>
+            </div>
+            <div className="openmouse-bridge-action">
+              <span>IN DEVELOPMENT</span>
+              <button type="button" disabled>Download coming soon</button>
+              <small>Desktop builds are not available yet.</small>
+            </div>
+          </article>
+        ) : null}
+
         <article className="interface-setting-card interface-theme-card">
           <span>APPEARANCE</span>
           <h3>Accent theme</h3>
