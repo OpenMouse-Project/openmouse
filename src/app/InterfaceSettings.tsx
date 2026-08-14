@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   bridgeApplications,
   bridgeApplicationIconUrl,
@@ -86,6 +86,26 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       if (!signal?.aborted) setBridgeChecking(false);
     }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let reconnecting = false;
+    const reconnect = (): void => {
+      if (document.visibilityState !== "visible" || reconnecting) return;
+      reconnecting = true;
+      void checkBridge(controller.signal).finally(() => {
+        reconnecting = false;
+      });
+    };
+    reconnect();
+    window.addEventListener("focus", reconnect);
+    document.addEventListener("visibilitychange", reconnect);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", reconnect);
+      document.removeEventListener("visibilitychange", reconnect);
+    };
+  }, [checkBridge]);
 
   const selectedApplication = bridgeApplicationsList.find(
     (application) => application.path === selectedApplicationPath,
