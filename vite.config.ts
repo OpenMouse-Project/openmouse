@@ -27,6 +27,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         check: resolve(__dirname, "check.html"),
+        supported: resolve(__dirname, "supported.html"),
       },
     },
   },
