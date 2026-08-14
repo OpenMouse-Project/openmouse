@@ -1,5 +1,11 @@
 /* ── Supported Devices Page ────────────────────────────────────────────── */
 
+:root { color-scheme: light; font-family: "DM Sans", system-ui, sans-serif; color: #18181b; background: #fff; }
+:root[data-theme="dark"] { color-scheme: dark; color: #f4f4f5; background: #09090b; }
+* { box-sizing: border-box; }
+body { min-width: 320px; margin: 0; background: inherit; color: inherit; }
+button, input { font: inherit; }
+
 .devices-hero {
   max-width: 720px;
   margin: 0 auto 3rem;
