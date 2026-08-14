@@ -1,0 +1,59 @@
+const BRIDGE_URL = "http://127.0.0.1:17846";
+const BRIDGE_TIMEOUT_MS = 1_500;
+
+export interface BridgeStatus {
+  version: string;
+  platform: string;
+  uptimeSeconds: number;
+  activeGames: string[];
+  trackedGameCount: number;
+  batteryThresholdPercent: number;
+  autostartEnabled: boolean;
+  foregroundApplication: BridgeApplication | null;
+  profileCount: number;
+}
+
+export interface BridgeApplication {
+  name: string;
+  executable: string;
+  path: string;
+  foreground: boolean;
+}
+
+export interface BridgeProfile {
+  application: Pick<BridgeApplication, "name" | "executable" | "path">;
+  device: { id: string; name: string };
+  settings: { dpi: number | null; pollingRateHz: number | null };
+}
+
+export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
+  return bridgeRequest<BridgeStatus>("/v1/status", undefined, signal);
+}
+
+export async function bridgeApplications(signal?: AbortSignal): Promise<BridgeApplication[]> {
+  return bridgeRequest<BridgeApplication[]>("/v1/applications", undefined, signal);
+}
+
+export async function bridgeProfiles(signal?: AbortSignal): Promise<BridgeProfile[]> {
+  return bridgeRequest<BridgeProfile[]>("/v1/profiles", undefined, signal);
+}
+
+export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {
+  await bridgeRequest("/v1/profiles", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profiles }),
+  });
+}
+
+async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
+  const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const response = await fetch(`${BRIDGE_URL}${path}`, {
+    headers: { Accept: "application/json" },
+    ...init,
+    signal: combined,
+  });
+  if (!response.ok) throw new Error(`Bridge returned HTTP ${response.status}.`);
+  return await response.json() as T;
+}
