@@ -445,7 +445,9 @@ function queueInstantFlash(): void {
   instantFlashQueued = true;
   window.setTimeout(() => {
     instantFlashQueued = false;
-    void flashPendingChanges();
+    // The preference can be switched off before this deferred callback runs.
+    // In that case leave the change staged for the Apply bar.
+    if (interfacePreferences.instantFlash) void flashPendingChanges();
   });
 }
 
@@ -1581,10 +1583,15 @@ const PROFILE_SECTOR_GROUP = "logitech-profile-sector";
 const DPI_SLOTS_KEY = "logitech-dpi-slots";
 const PROFILE_NAME_KEY = "logitech-profile-name";
 const PROFILE_RATE_KEY = "logitech-profile-rate";
+const PROFILE_BUTTON_KEY_PREFIX = "logitech-profile-button";
 
 let stagedBunnyHopMs: number | null = null;
 let stagedProfileName: string | null = null;
 let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
+type StagedProfileButtonEdit =
+  | { kind: "assignment"; layer: "primary" | "g-shift"; button: number; binding: LogitechButtonAction | LogitechButtonBinding }
+  | { kind: "macro"; layer: "primary" | "g-shift"; button: number; steps: LogitechMacroStep[] };
+const stagedProfileButtonEdits = new Map<string, StagedProfileButtonEdit>();
 /**
  * DPI slots live in the active profile's stage table. The plan is edited as a
  * whole because the slot count is expressed by zeroing the stages that fall out
@@ -1600,6 +1607,9 @@ async function writeStagedProfileSector(): Promise<void> {
   const entry = editedProfileEntry();
   if (!entry) throw new Error("No profile is open for editing.");
   const ratesStaged = isPendingChange(PROFILE_RATE_KEY);
+  const buttonEdits = [...stagedProfileButtonEdits.entries()]
+    .filter(([key]) => isPendingChange(key))
+    .map(([, edit]) => edit);
   await client.writeActiveProfile({
     sector: entry.sector,
     bunnyHoppingMs: isPendingChange(BUNNY_HOP_KEY) ? stagedBunnyHopMs : null,
@@ -1607,6 +1617,12 @@ async function writeStagedProfileSector(): Promise<void> {
     reportRateWirelessHz: ratesStaged ? stagedProfileRates.wireless : null,
     reportRateWiredHz: ratesStaged ? stagedProfileRates.wired : null,
     name: isPendingChange(PROFILE_NAME_KEY) ? stagedProfileName : null,
+    buttonAssignments: buttonEdits
+      .filter((edit): edit is Extract<StagedProfileButtonEdit, { kind: "assignment" }> => edit.kind === "assignment")
+      .map(({ layer, button, binding }) => ({ layer, button, binding })),
+    buttonMacros: buttonEdits
+      .filter((edit): edit is Extract<StagedProfileButtonEdit, { kind: "macro" }> => edit.kind === "macro")
+      .map(({ layer, button, steps }) => ({ layer, button, steps })),
   });
   onboardProfiles = null;
   await reloadOnboardProfiles();
@@ -1924,26 +1940,20 @@ export async function applyLogitechButtonAssignment(
   button: number,
   binding: LogitechButtonAction | LogitechButtonBinding,
 ): Promise<void> {
-  const client = logitechClient();
   const entry = editedProfileEntry();
-  if (!client || !entry || settingInProgress) return;
-  settingInProgress = true;
+  if (!logitechClient() || !entry || settingInProgress) return;
   const label = typeof binding === "string" ? binding : binding.kind === "keyboard" ? "keyboard shortcut" : "media key";
-  setOnboardStatus(`Assigning button ${button + 1} to ${label}…`);
-  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${label}`);
-  try {
-    await client.writeActiveProfile({
-      sector: entry.sector,
-      buttonAssignments: [{ layer, button, binding }],
-    });
-    await reloadOnboardProfiles();
-    setOnboardStatus(`Button ${button + 1} is now ${label}.`);
-  } catch (error) {
-    recordDiagnosticError(error, "Unable to change the button assignment.");
-    setOnboardStatus(error instanceof Error ? error.message : "Unable to change the button assignment.");
-  } finally {
-    endDeviceWrite();
-  }
+  const key = `${PROFILE_BUTTON_KEY_PREFIX}-${layer}-${button}`;
+  stagedProfileButtonEdits.set(key, { kind: "assignment", layer, button, binding });
+  stageChange({
+    key,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Button ${button + 1} ${label}`,
+    command: `Map ${layer} button ${button + 1} to ${label}`,
+    progress: `Assigning button ${button + 1} to ${label}…`,
+    apply: writeStagedProfileSector,
+  });
+  setOnboardStatus(`Button ${button + 1} assignment staged.`);
 }
 
 export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", button: number, usage: number): void {
@@ -1964,22 +1974,19 @@ export async function applyLogitechKeyboardSequence(
   button: number,
   steps: LogitechMacroStep[],
 ): Promise<void> {
-  const client = logitechClient();
   const entry = editedProfileEntry();
-  if (!client || !entry || settingInProgress || !steps.length) return;
-  settingInProgress = true;
-  setOnboardStatus(`Saving ${steps.length}-step macro to button ${button + 1}…`);
-  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`);
-  try {
-    await client.writeActiveProfile({ sector: entry.sector, buttonMacros: [{ layer, button, steps }] });
-    await reloadOnboardProfiles();
-    setOnboardStatus(`Button ${button + 1} now runs the recorded ${steps.length}-step macro.`);
-  } catch (error) {
-    recordDiagnosticError(error, "Unable to save the onboard macro.");
-    setOnboardStatus(error instanceof Error ? error.message : "Unable to save the onboard macro.");
-  } finally {
-    endDeviceWrite();
-  }
+  if (!logitechClient() || !entry || settingInProgress || !steps.length) return;
+  const key = `${PROFILE_BUTTON_KEY_PREFIX}-${layer}-${button}`;
+  stagedProfileButtonEdits.set(key, { kind: "macro", layer, button, steps });
+  stageChange({
+    key,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Button ${button + 1} ${steps.length}-step macro`,
+    command: `Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`,
+    progress: `Saving ${steps.length}-step macro to button ${button + 1}…`,
+    apply: writeStagedProfileSector,
+  });
+  setOnboardStatus(`Button ${button + 1} macro staged.`);
 }
 
 export function renameOnboardProfile(sector: number): void {
