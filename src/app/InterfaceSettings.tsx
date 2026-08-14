@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import {
   bridgeApplications,
   bridgeProfiles,
@@ -85,13 +85,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       if (!signal?.aborted) setBridgeChecking(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (!snapshot.previewEnabled || !snapshot.interfaceSettingsOpen) return;
-    const abort = new AbortController();
-    void checkBridge(abort.signal);
-    return () => abort.abort();
-  }, [checkBridge, snapshot.interfaceSettingsOpen, snapshot.previewEnabled]);
 
   const selectedApplication = bridgeApplicationsList.find(
     (application) => application.path === selectedApplicationPath,
