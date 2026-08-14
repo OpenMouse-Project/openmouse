@@ -73,13 +73,13 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
               <span>OPENMOUSE BRIDGE</span>
               <h3>Native device access, connected to OpenMouse</h3>
               <p>
-                OpenMouse Bridge is a lightweight background service that will connect your mice to
-                this control panel over a secure WebSocket. It is being built for browsers and devices
-                that need native hardware access beyond WebHID.
+                OpenMouse Bridge is a lightweight background service that connects your mice to the
+                OpenMouse control panel over a secure WebSocket. It gives the web app native hardware
+                access while using the same device protocols, controls, and interface as WebHID.
               </p>
               <ul>
                 <li>Runs quietly in the background</li>
-                <li>Connects directly to the OpenMouse control panel</li>
+                <li>Shares OpenMouse&apos;s existing device protocol support</li>
                 <li>Keeps device commands permissioned and authenticated</li>
               </ul>
             </div>
