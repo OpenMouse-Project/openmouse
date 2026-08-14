@@ -773,7 +773,10 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-card ul { display: flex; flex-wrap: wrap; gap: .35rem .85rem; margin: 0; padding: 0; color: var(--text-soft); font-size: .62rem; list-style: none; }
 .openmouse-bridge-card li::before { content: "·"; margin-right: .35rem; color: var(--ui-accent); }
 .openmouse-bridge-action { display: grid; min-width: 180px; justify-items: stretch; gap: .45rem; padding-left: 1.1rem; border-left: 1px solid var(--border); }
+.openmouse-bridge-status { display: flex; align-items: center; gap: .45rem; color: var(--text-soft); font-size: .62rem; }
+.openmouse-bridge-status i { width: .48rem; height: .48rem; border: 1px solid var(--border-hover); border-radius: 50%; background: var(--surface-raised); }
 .openmouse-bridge-action button { padding: .58rem .78rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
+.openmouse-bridge-action .openmouse-bridge-connect { border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--border)); background: var(--ui-accent-soft); color: var(--text-strong); }
 .openmouse-bridge-action small { color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
 .interface-theme-card { grid-column: 1 / -1; }
 .theme-studio { display: grid; grid-template-columns: minmax(0, .9fr) minmax(280px, 1.1fr); gap: 1rem; }

@@ -84,8 +84,13 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
             </div>
             <div className="openmouse-bridge-action">
               <span>IN DEVELOPMENT</span>
+              <div className="openmouse-bridge-status" role="status">
+                <i aria-hidden="true" />
+                <span>Bridge not connected</span>
+              </div>
               <button type="button" disabled>Download coming soon</button>
-              <small>Desktop builds are not available yet.</small>
+              <button className="openmouse-bridge-connect" type="button" disabled>Connect Bridge</button>
+              <small>Install OpenMouse Bridge before connecting it to this control panel.</small>
             </div>
           </article>
         ) : null}
