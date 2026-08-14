@@ -39,7 +39,6 @@ import {
   type EggSpdtMode,
 } from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
 import {
-  EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
   eggWeFromAuthorized,
   eggWeIsSupported,
@@ -1076,7 +1075,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
       ?? (isEggWeClient(client)
-        ? EGG_WE_DISPLAY_NAME
+        ? client.displayName()
         : client instanceof FinalmouseHidClient
           ? client.displayName()
           : (device.productName ?? `${deviceBrand(client)} mouse`));
@@ -1132,7 +1131,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 }
 
 function statusNameForClient(client: SupportedClient): string {
-  if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
+  if (isEggWeClient(client)) return client.displayName();
   if (client instanceof FinalmouseHidClient) return client.displayName();
   return client.device.productName || "the selected mouse";
 }
@@ -1256,7 +1255,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       deviceStatusText = result.reason === "path" ? "Switching path" : "New device detected";
       readStatus = result.reason === "path"
         ? "Preferring USB over receiver."
-        : `Reading ${EGG_WE_DISPLAY_NAME}.`;
+        : `Reading ${result.client.displayName()}.`;
       emit();
       await activateClient(result.client);
     })().catch((error: unknown) => {
