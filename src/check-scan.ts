@@ -21,7 +21,7 @@ export const BRANDS: Record<number, string> = {
   0x3710: "Pulsar",
   0x3367: "Endgame Gear",
   0x36A7: "WLMouse",
-  0x373E: "Lamzu",
+  0x373E: "Lamzu / CRDRAKO / Attack Shark",
   0x3554: "Teevolution / VGN",
   0x373B: "ATK",
   0x361D: "Finalmouse",

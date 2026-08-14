@@ -41,6 +41,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   vgn: SHARED_ADVANCED,
   wlmouse: DIRECT_MODE,
   lamzu: DIRECT_MODE,
+  "attack-shark": DIRECT_MODE,
   crdrako: DIRECT_MODE,
   atk: DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
@@ -52,6 +53,7 @@ const BY_BRAND: Readonly<Record<string, string>> = {
   Pulsar: "pulsar",
   VGN: "vgn",
   Logitech: "logitech-hidpp",
+  "Attack Shark": "attack-shark",
 };
 
 export function familyOf(status: MouseStatus): string {

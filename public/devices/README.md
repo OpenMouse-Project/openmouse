@@ -71,5 +71,10 @@ a public release package.
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
 terms before including it in a public release package.
 
+`attackshark-r5-ultra.png` was supplied from a Discord attachment URL as a
+transparent render of the Attack Shark R5 Ultra and was cropped to its content
+bounds and downscaled. Confirm redistribution terms before including it in a
+public release package.
+
 `razer-viper.webp` was supplied from a Best Buy shopping page for the device. Confirm redistribution
 terms before including it in a public release package.
