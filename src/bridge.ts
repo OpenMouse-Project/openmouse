@@ -18,6 +18,11 @@ export interface BridgeApplication {
   executable: string;
   path: string;
   foreground: boolean;
+  iconId: string;
+}
+
+export function bridgeApplicationIconUrl(application: BridgeApplication): string {
+  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(application.iconId)}/icon`;
 }
 
 export interface BridgeProfile {

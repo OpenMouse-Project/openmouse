@@ -789,6 +789,10 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-app-grid > button { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; min-width: 0; padding: .5rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); color: var(--text-soft); text-align: left; cursor: pointer; }
 .openmouse-bridge-app-grid > button:hover, .openmouse-bridge-app-grid > button.is-selected { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
 .openmouse-bridge-app-grid i { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 6px; background: var(--surface-raised); color: var(--text-strong); font: 700 .65rem var(--font-mono); font-style: normal; }
+.openmouse-bridge-app-grid i > * { grid-area: 1 / 1; }
+.openmouse-bridge-app-grid i img { width: 1.5rem; height: 1.5rem; object-fit: contain; opacity: 0; }
+.openmouse-bridge-app-grid i.has-icon img { opacity: 1; }
+.openmouse-bridge-app-grid i.has-icon span { visibility: hidden; }
 .openmouse-bridge-app-grid span { min-width: 0; }
 .openmouse-bridge-app-grid strong, .openmouse-bridge-app-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .openmouse-bridge-app-grid strong { color: var(--text-strong); font-size: .62rem; }

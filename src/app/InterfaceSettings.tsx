@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import {
   bridgeApplications,
+  bridgeApplicationIconUrl,
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
@@ -208,7 +209,15 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                           className={selectedApplicationPath === application.path ? "is-selected" : ""}
                           onClick={() => setSelectedApplicationPath(application.path)}
                         >
-                          <i aria-hidden="true">{application.name.slice(0, 1).toUpperCase()}</i>
+                          <i aria-hidden="true">
+                            <span>{application.name.slice(0, 1).toUpperCase()}</span>
+                            <img
+                              src={bridgeApplicationIconUrl(application)}
+                              alt=""
+                              onLoad={(event) => event.currentTarget.parentElement?.classList.add("has-icon")}
+                              onError={(event) => event.currentTarget.parentElement?.classList.remove("has-icon")}
+                            />
+                          </i>
                           <span><strong>{application.name}</strong><small>{application.executable}</small></span>
                           <em>{application.foreground ? "Active" : assigned ? "Profile saved" : "Open"}</em>
                         </button>
