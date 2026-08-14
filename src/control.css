@@ -1113,6 +1113,10 @@ body { height: 100vh; overflow: hidden; }
 #performance-settings { order: 3; }
 #lighting-settings { order: 4; }
 #logitech-onboard { order: 5; }
+/* The MX Master feature cards are the primary Advanced-tab content; without an
+   order they fall to 0 and render above the sticky tab nav (order 1), pushing
+   it into the middle of the page. Place them just before Device details. */
+#logitech-mx-master-settings { order: 5; }
 #logitech-device-details { order: 6; }
 #logitech-analog-button-settings { order: 7; }
 #pulsar-advanced { order: 8; }
