@@ -27,6 +27,39 @@ function GitHubIcon(): ReactNode {
   );
 }
 
+function NavIcon({ path }: { path: ReactNode }): ReactNode {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {path}
+    </svg>
+  );
+}
+
+const SETTINGS_PATH = (
+  <>
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </>
+);
+
+const REQUEST_PATH = <path d="M12 5v14M5 12h14" />;
+
+const DEBUG_PATH = (
+  <>
+    <path d="M8 6a4 4 0 0 1 8 0" />
+    <rect x="8" y="6" width="8" height="12" rx="4" />
+    <path d="M8 10H4M20 10h-4M8 15H4.5M20 15h-3.5M9 19l-1.5 2M15 19l1.5 2" />
+  </>
+);
+
 export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: ControlSnapshot; onOpenSupportRequests: () => void }): ReactNode {
   const { status, deviceArtwork, preferences } = snapshot;
   const [unreachable, setUnreachable] = useState<ReadonlySet<string>>(new Set());
@@ -61,15 +94,6 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
         <div className="sidebar-product-heading">
           <span>SELECTED DEVICE</span>
           <strong id="sidebar-device-title">{status?.name ?? "Connected mouse"}</strong>
-          {preferences.theme === "NieR: Automata" ? (
-            <span className="nier-brand">
-              NieR
-              <svg className="nier-glyph" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2 21 7v10l-9 5-9-5V7z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M12 7v10M7.5 9.5l9 5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              </svg>
-            </span>
-          ) : null}
         </div>
         <article id="device-thumbnail" className="device-thumbnail" hidden={!showArtwork}>
           {deviceArtwork ? (
@@ -144,18 +168,29 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
         </button>
       </div>
 
-      <nav aria-label="Sections">
+      <nav className="section-nav" aria-label="Sections">
         <button
           id="interface-settings-button"
           className="nav-item interface-settings-button"
           type="button"
+          title="Settings"
+          aria-label="Settings"
           aria-current={snapshot.interfaceSettingsOpen}
           onClick={control.openInterfaceSettings}
         >
-          Settings
+          <NavIcon path={SETTINGS_PATH} />
         </button>
-        <a className="nav-item" href="/check.html">Mouse Check</a>
-        <button className="nav-item mouse-request-button" type="button" onClick={onOpenSupportRequests}>Request a mouse</button>
+        <button
+          className="nav-item has-label mouse-request-button"
+          type="button"
+          onClick={onOpenSupportRequests}
+        >
+          <NavIcon path={REQUEST_PATH} />
+          Request a mouse
+        </button>
+        <a className="nav-item is-debug" href="/check.html" title="Mouse Check" aria-label="Mouse Check">
+          <NavIcon path={DEBUG_PATH} />
+        </a>
       </nav>
       <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
       <small className="build-note">Development build - not the final product</small>

@@ -103,13 +103,14 @@ export interface ProfileView {
   bunnyHopSupported: boolean;
 }
 
-export type ToastKind = "success" | "error" | "info";
+export type ToastKind = "success" | "error" | "warning" | "info";
 
 export interface Toast {
   id: number;
   kind: ToastKind;
   title: string;
   detail?: string;
+  leaving?: boolean;
 }
 
 export interface ControlSnapshot {

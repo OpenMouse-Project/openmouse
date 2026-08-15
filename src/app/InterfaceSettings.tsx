@@ -13,12 +13,25 @@ import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import type { InterfacePreferences } from "../interface-preferences";
 
-const THEME_CHOICES: ReadonlyArray<readonly [string, string]> = [
-  ["Emerald", "#69d28d"], ["Violet", "#a78bfa"], ["Ice", "#67d8ff"],
-  ["Ember", "#ff9b62"], ["Mono", "#f1f1f3"], ["Miku", "#39c5bb"],
-  ["Catppuccin Mocha", "#cba6f7"], ["Catppuccin Macchiato", "#c6a0f6"], ["Catppuccin Frappé", "#ca9ee6"],
-  ["NieR: Automata", "#d1cdb7"],
-  ["Liquid Glass", "#f4c95d"],
+interface ThemeSwatch {
+  name: string;
+  accent: string;
+  canvas: string;
+  surface: string;
+}
+
+const THEME_CHOICES: readonly ThemeSwatch[] = [
+  { name: "Emerald", accent: "#69d28d", canvas: "#08090a", surface: "#18181b" },
+  { name: "Violet", accent: "#a78bfa", canvas: "#08090a", surface: "#18181b" },
+  { name: "Ice", accent: "#67d8ff", canvas: "#08090a", surface: "#18181b" },
+  { name: "Ember", accent: "#ff9b62", canvas: "#08090a", surface: "#18181b" },
+  { name: "Mono", accent: "#f1f1f3", canvas: "#08090a", surface: "#18181b" },
+  { name: "Miku", accent: "#39c5bb", canvas: "#0b1618", surface: "#17292c" },
+  { name: "Catppuccin Mocha", accent: "#cba6f7", canvas: "#1e1e2e", surface: "#313244" },
+  { name: "Catppuccin Macchiato", accent: "#c6a0f6", canvas: "#24273a", surface: "#363a4f" },
+  { name: "Catppuccin Frappé", accent: "#ca9ee6", canvas: "#303446", surface: "#414559" },
+  { name: "NieR: Automata", accent: "#d1cdb7", canvas: "#282620", surface: "#36342c" },
+  { name: "Liquid Glass", accent: "#f4c95d", canvas: "#080a0c", surface: "#151a1e" },
 ];
 
 function SwitchCard({
@@ -279,42 +292,28 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         <article className="interface-setting-card interface-theme-card">
           <span>APPEARANCE</span>
           <h3>Accent theme</h3>
-          <p>Choose a theme and preview it across a miniature OpenMouse workspace.</p>
-          <div className="theme-studio">
-            <fieldset id="interface-theme" className="theme-choices" aria-label="Accent theme">
-              {THEME_CHOICES.map(([name, swatch]) => (
-                <label key={name} className="theme-choice" style={{ "--theme-swatch": swatch }}>
-                  <input
-                    type="radio"
-                    name="interface-theme"
-                    value={name}
-                    checked={preferences.theme === name}
-                    onChange={() => control.setInterfaceTheme(name)}
-                  />
-                  <i aria-hidden="true" />
-                  <span>{name}</span>
-                </label>
-              ))}
-            </fieldset>
-            <div className="theme-demo">
-              <div className="theme-demo-window" aria-hidden="true">
-                <header>OPENMOUSE</header>
-                <div className="theme-demo-body">
-                  <nav><i /><i /><i /></nav>
-                  <main>
-                    <small>PROFILE 1</small>
-                    <strong>Performance</strong>
-                    <div><span>Polling rate</span><b>1000 Hz</b></div>
-                    <em>Apply changes</em>
-                  </main>
-                  {preferences.theme === "Miku" ? (
-                    <img id="miku-theme-preview-mascot" src="/miku-mascot.gif" alt="" />
-                  ) : null}
-                </div>
-              </div>
-              <p id="theme-preview-name" aria-live="polite">{preferences.theme} preview</p>
-            </div>
-          </div>
+          <p>Each tile is painted in its own theme.</p>
+          <fieldset id="interface-theme" className="theme-tiles" aria-label="Accent theme">
+            {THEME_CHOICES.map(({ name, accent, canvas, surface }) => (
+              <label
+                key={name}
+                className="theme-tile"
+                style={{ "--tile-accent": accent, "--tile-canvas": canvas, "--tile-surface": surface }}
+              >
+                <input
+                  type="radio"
+                  name="interface-theme"
+                  value={name}
+                  checked={preferences.theme === name}
+                  onChange={() => control.setInterfaceTheme(name)}
+                />
+                <i className="theme-tile-proof" aria-hidden="true">
+                  <b /><b /><b />
+                </i>
+                <span>{name}</span>
+              </label>
+            ))}
+          </fieldset>
         </article>
 
         {preferences.theme === "Liquid Glass" ? (

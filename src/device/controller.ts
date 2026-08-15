@@ -397,21 +397,35 @@ function setReadStatus(text: string): void {
 const TOAST_TIMEOUT_MS: Record<ToastKind, number> = {
   success: 4200,
   info: 5200,
+  warning: 6500,
   error: 8000,
 };
 
+const TOAST_LIMIT = 4;
+const TOAST_EXIT_MS = 180;
+
 function pushToast(kind: ToastKind, title: string, detail?: string): void {
+  const duplicate = toasts.findIndex((entry) => entry.kind === kind && entry.title === title);
+  if (duplicate !== -1) toasts.splice(duplicate, 1);
+
   const id = nextToastId++;
   toasts.unshift({ id, kind, title, detail });
+  if (toasts.length > TOAST_LIMIT) toasts.length = TOAST_LIMIT;
   window.setTimeout(() => dismissToast(id), TOAST_TIMEOUT_MS[kind]);
   emit();
 }
 
 export function dismissToast(id: number): void {
-  const index = toasts.findIndex((entry) => entry.id === id);
-  if (index === -1) return;
-  toasts.splice(index, 1);
+  const toast = toasts.find((entry) => entry.id === id);
+  if (!toast || toast.leaving) return;
+  toast.leaving = true;
   emit();
+  window.setTimeout(() => {
+    const index = toasts.findIndex((entry) => entry.id === id);
+    if (index === -1) return;
+    toasts.splice(index, 1);
+    emit();
+  }, TOAST_EXIT_MS);
 }
 
 function toastForError(title: string, error: unknown): void {
