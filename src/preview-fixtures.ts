@@ -22,7 +22,7 @@ export interface PreviewFixture {
 
 const PULSAR: MouseStatus = {
   brand: "Pulsar",
-  name: "X2H Mini",
+  name: "Pulsar X2H Mini",
   ui: { family: "pulsar", hideUnsupportedPollingRates: true },
   batteryPercent: 64,
   batteryState: "Discharging",
@@ -45,7 +45,7 @@ const PULSAR: MouseStatus = {
 
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
-  name: "X2H Mini Pro",
+  name: "Pulsar X2H Mini Pro",
   performanceMode: true,
   angleTuning: 0,
   wheelAcceleration: false,
