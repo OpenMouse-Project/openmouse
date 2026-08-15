@@ -83,6 +83,12 @@ export interface AnalogTuningState {
   both: AnalogTuning;
 }
 
+export interface StagedProfileButtonAssignment {
+  layer: "primary" | "g-shift";
+  button: number;
+  value: string;
+}
+
 export interface ProfileView {
   entry: OnboardProfile | null;
   summary: { name: string; detail: string };
@@ -143,6 +149,7 @@ export interface ControlSnapshot {
   stagedProfileName: string | null;
   /** Control id → staged remap target, for controls with an unflashed remap. */
   stagedButtonMappings: Record<number, number>;
+  stagedProfileButtonAssignments: StagedProfileButtonAssignment[];
   analogTuning: AnalogTuningState;
   eggPollingDivider: number | null;
 

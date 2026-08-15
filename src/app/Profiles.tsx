@@ -288,13 +288,16 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
               <div className="assignment-grid">
                 {(assignmentLayer === "primary" ? openedProfile.buttonAssignments : openedProfile.gShiftAssignments).map((assignment) => {
                   const buttonNames = ["Left click", "Right click", "Wheel click", "Back", "Forward", "DPI Shift", "DPI up", "DPI down"];
+                  const stagedAssignment = snapshot.stagedProfileButtonAssignments.find(
+                    (staged) => staged.layer === assignmentLayer && staged.button === assignment.button,
+                  );
                   return (
                     <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
                       <span className="assignment-button-number">G{assignment.button + 1}</span>
                       <span className="assignment-button-name">{buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}</span>
                       <span className="assignment-select-wrap">
                         <select
-                          value={assignment.action}
+                          value={stagedAssignment?.value ?? assignment.action}
                           disabled={snapshot.settingInProgress}
                           title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
                           onChange={(event) => {

@@ -39,6 +39,7 @@ import {
   type EggSpdtMode,
 } from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
 import {
+  EGG_WE_DISPLAY_NAME,
   eggWeAuthorizedPool,
   eggWeFromAuthorized,
   eggWeIsSupported,
@@ -344,6 +345,19 @@ function buildSnapshot(): ControlSnapshot {
     stagedProfileRates,
     stagedProfileName,
     stagedButtonMappings: Object.fromEntries(stagedButtonMappings),
+    stagedProfileButtonAssignments: [...stagedProfileButtonEdits.entries()]
+      .filter(([key]) => isPendingChange(key))
+      .map(([, edit]) => ({
+        layer: edit.layer,
+        button: edit.button,
+        value: edit.kind === "macro"
+          ? "keyboard"
+          : typeof edit.binding === "string"
+            ? edit.binding
+            : edit.binding.kind === "consumer"
+              ? `consumer:${edit.binding.usage}`
+              : "keyboard",
+      })),
     analogTuning,
     eggPollingDivider,
     pending: {
@@ -1183,7 +1197,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
       ?? (isEggWeClient(client)
-        ? client.displayName()
+        ? EGG_WE_DISPLAY_NAME
         : client instanceof FinalmouseHidClient
           ? client.displayName()
           : (device.productName ?? `${deviceBrand(client)} mouse`));
@@ -1239,7 +1253,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 }
 
 function statusNameForClient(client: SupportedClient): string {
-  if (isEggWeClient(client)) return client.displayName();
+  if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
   if (client instanceof FinalmouseHidClient) return client.displayName();
   return client.device.productName || "the selected mouse";
 }
@@ -1369,7 +1383,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       deviceStatusText = result.reason === "path" ? "Switching path" : "New device detected";
       readStatus = result.reason === "path"
         ? "Preferring USB over receiver."
-        : `Reading ${result.client.displayName()}.`;
+        : `Reading ${EGG_WE_DISPLAY_NAME}.`;
       emit();
       await activateClient(result.client);
     })().catch((error: unknown) => {
