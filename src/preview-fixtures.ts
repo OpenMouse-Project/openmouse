@@ -22,7 +22,7 @@ export interface PreviewFixture {
 
 const PULSAR: MouseStatus = {
   brand: "Pulsar",
-  name: "Pulsar X2H Mini",
+  name: "Pulsar X2 V2",
   ui: { family: "pulsar", hideUnsupportedPollingRates: true },
   batteryPercent: 64,
   batteryState: "Discharging",
@@ -45,7 +45,7 @@ const PULSAR: MouseStatus = {
 
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
-  name: "Pulsar X2H Mini Pro",
+  name: "Pulsar X2 V2 Pro",
   performanceMode: true,
   angleTuning: 0,
   wheelAcceleration: false,
@@ -640,8 +640,8 @@ const LOGITECH_MX_MASTER_3S: MouseStatus = {
  * separately because they drive panels beyond a plain status.
  */
 export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
-  pulsar: { label: "Pulsar X2H Mini", status: PULSAR },
-  "pulsar-pro": { label: "Pulsar X2H Mini Pro", status: PULSAR_PRO },
+  pulsar: { label: "Pulsar X2 V2", status: PULSAR },
+  "pulsar-pro": { label: "Pulsar X2 V2 Pro", status: PULSAR_PRO },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },

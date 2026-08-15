@@ -34,8 +34,8 @@ test("fixture previews resolve product art without a HID device", () => {
 
 test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
   assert.equal(deviceImage(null, "Pulsar 4K Wireless Receiver"), "/devices/pulsar-x2-v2.png");
-  assert.equal(deviceImage(null, "Pulsar X2H Mini"), "/devices/pulsar-x2-v2.png");
-  assert.equal(deviceImage(null, "Pulsar X2H Mini Pro"), "/devices/pulsar-x2-v2.png");
+  assert.equal(deviceImage(null, "Pulsar X2 V2"), "/devices/pulsar-x2-v2.png");
+  assert.equal(deviceImage(null, "Pulsar X2 V2 Pro"), "/devices/pulsar-x2-v2.png");
 });
 
 test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
