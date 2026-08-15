@@ -88,7 +88,7 @@ terms before including it in a public release package.
 3S Bluetooth Edition graphite top view). Confirm redistribution terms before
 including it in a public release package.
 
-`pulsar-x2-v2.png` was supplied from Pulsar Gaming Gears' product CDN for the
-X2 v2 Wireless Gaming Mouse (top-down view of the Medium Black shell),
-downscaled from 1600px to 800px. Confirm redistribution terms before including
-it in a public release package.
+`pulsar-x2-v2.png` was supplied from Pulsar Gaming Gears' Japan CDN product
+render for the X2 v2 [Red Edition] Gaming Mouse (top-down view of the Medium
+shell), cropped to the mouse, resized, and centered on a transparent canvas.
+Confirm redistribution terms before including it in a public release package.
