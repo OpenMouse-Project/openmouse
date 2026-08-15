@@ -23,6 +23,37 @@
   </head>
   <body>
     <div id="control-app"></div>
+    <!--
+      Liquid Glass refraction engine (Zettersten/skills · liquid-glass).
+
+      Two shared SVG filters reference a displacement map whose R channel
+      drives horizontal shift and G channel drives vertical shift. 128 = no
+      movement, so the neutral center stays flat and only the rounded edges
+      bend the backdrop inward (negative scale = Apple-style magnifying
+      lens). The maps are inline SVG gradients (black→red for X, black→green
+      for Y, screen-blended) with a blurred neutral-gray rounded-rect mask,
+      stretched to each element via preserveAspectRatio="none".
+
+      Only the liquid-glass theme references these ids; every other theme is
+      untouched. Firefox/Safari ignore the url() part of backdrop-filter and
+      keep the blur — graceful degradation.
+    -->
+    <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="lg-panel-filter" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
+          <feImage result="dispMap" x="0" y="0" width="720" height="140" preserveAspectRatio="none" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'720'%20height%3D'140'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'gx'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'100%25'%20y2%3D'0%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%23f00'%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D'gy'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'0%25'%20y2%3D'100%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230f0'%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D'b'%3E%3CfeGaussianBlur%20stdDeviation%3D'14'%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D'720'%20height%3D'140'%20rx%3D'40'%20fill%3D'url(%23gx)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'720'%20height%3D'140'%20rx%3D'40'%20fill%3D'url(%23gy)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'720'%20height%3D'140'%20rx%3D'40'%20fill%3D'%23808080'%20filter%3D'url(%23b)'%2F%3E%3C%2Fsvg%3E" />
+          <feDisplacementMap in="SourceGraphic" in2="dispMap" scale="-30" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="lg-chip-filter" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
+          <feImage result="dispMap" x="0" y="0" width="200" height="56" preserveAspectRatio="none" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'200'%20height%3D'56'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'gx'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'100%25'%20y2%3D'0%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%23f00'%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D'gy'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'0%25'%20y2%3D'100%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230f0'%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D'b'%3E%3CfeGaussianBlur%20stdDeviation%3D'10'%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D'200'%20height%3D'56'%20rx%3D'28'%20fill%3D'url(%23gx)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'200'%20height%3D'56'%20rx%3D'28'%20fill%3D'url(%23gy)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'200'%20height%3D'56'%20rx%3D'28'%20fill%3D'%23808080'%20filter%3D'url(%23b)'%2F%3E%3C%2Fsvg%3E" />
+          <feDisplacementMap in="SourceGraphic" in2="dispMap" scale="-24" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+        <filter id="lg-sheet-filter" color-interpolation-filters="sRGB" x="0%" y="0%" width="100%" height="100%">
+          <feImage result="dispMap" x="0" y="0" width="1024" height="512" preserveAspectRatio="none" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'1024'%20height%3D'512'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'gx'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'100%25'%20y2%3D'0%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%23f00'%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D'gy'%20x1%3D'0%25'%20y1%3D'0%25'%20x2%3D'0%25'%20y2%3D'100%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23000'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230f0'%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D'b'%3E%3CfeGaussianBlur%20stdDeviation%3D'10'%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D'1024'%20height%3D'512'%20rx%3D'24'%20fill%3D'url(%23gx)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'1024'%20height%3D'512'%20rx%3D'24'%20fill%3D'url(%23gy)'%20style%3D'mix-blend-mode%3Ascreen'%2F%3E%3Crect%20width%3D'1024'%20height%3D'512'%20rx%3D'24'%20fill%3D'%23808080'%20filter%3D'url(%23b)'%2F%3E%3C%2Fsvg%3E" />
+          <feDisplacementMap in="SourceGraphic" in2="dispMap" scale="-14" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
     <script type="module" src="/src/control.tsx"></script>
   </body>
 </html>

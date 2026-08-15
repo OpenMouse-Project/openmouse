@@ -103,40 +103,48 @@ function AsymmetricLiftOff({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
    */
   const ceiling = Math.max(pair.landingRange.min, liftOff - 1);
   const cappedLanding = Math.min(landing, ceiling);
+  const liftSpan = Math.max(1, pair.liftOffRange.max - pair.liftOffRange.min);
+  const landSpan = Math.max(1, pair.landingRange.max - pair.landingRange.min);
 
   return (
     <div id="lod-asymmetric" className="lod-sliders">
       <label>
         Lift-off
         <output id="lod-lift-off-value">{liftOff}</output>
-        <input
-          id="lod-lift-off"
-          type="range"
-          min={pair.liftOffRange.min}
-          max={pair.liftOffRange.max}
-          step={1}
-          value={liftOff}
-          disabled={snapshot.settingsPending}
-          onChange={(event) => setLiftOff(Number(event.currentTarget.value))}
-          onPointerUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
-          onKeyUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
-        />
+        <span className="glass-slider-rail">
+          <input
+            id="lod-lift-off"
+            type="range"
+            min={pair.liftOffRange.min}
+            max={pair.liftOffRange.max}
+            step={1}
+            value={liftOff}
+            disabled={snapshot.settingsPending}
+            style={{ "--fill": `${((liftOff - pair.liftOffRange.min) / liftSpan) * 100}%` }}
+            onChange={(event) => setLiftOff(Number(event.currentTarget.value))}
+            onPointerUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
+            onKeyUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
+          />
+        </span>
       </label>
       <label>
         Landing
         <output id="lod-landing-value">{cappedLanding}</output>
-        <input
-          id="lod-landing"
-          type="range"
-          min={pair.landingRange.min}
-          max={pair.landingRange.max}
-          step={1}
-          value={cappedLanding}
-          disabled={snapshot.settingsPending}
-          onChange={(event) => setLanding(Number(event.currentTarget.value))}
-          onPointerUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
-          onKeyUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
-        />
+        <span className="glass-slider-rail">
+          <input
+            id="lod-landing"
+            type="range"
+            min={pair.landingRange.min}
+            max={pair.landingRange.max}
+            step={1}
+            value={cappedLanding}
+            disabled={snapshot.settingsPending}
+            style={{ "--fill": `${((cappedLanding - pair.landingRange.min) / landSpan) * 100}%` }}
+            onChange={(event) => setLanding(Number(event.currentTarget.value))}
+            onPointerUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
+            onKeyUp={() => control.applyAsymmetricLiftOff(liftOff, cappedLanding)}
+          />
+        </span>
       </label>
     </div>
   );

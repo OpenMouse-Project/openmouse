@@ -275,32 +275,44 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
           <output id="teevolution-dpi-light-brightness-output">
             {status.dpiLedBrightness == null ? "—" : status.dpiLedBrightness}
           </output>
-          <input
-            id="teevolution-dpi-light-brightness"
-            type="range"
-            min={profile.dpiLighting.brightness.min}
-            max={profile.dpiLighting.brightness.max}
-            step={1}
-            value={status.dpiLedBrightness ?? profile.dpiLighting.brightness.min}
-            disabled={lightMode !== 1 || status.dpiLedBrightness == null}
-            onChange={(event) => control.applyTeevolutionDpiLighting("brightness", Number(event.currentTarget.value))}
-          />
+          <span className="glass-slider-rail">
+            <input
+              id="teevolution-dpi-light-brightness"
+              type="range"
+              min={profile.dpiLighting.brightness.min}
+              max={profile.dpiLighting.brightness.max}
+              step={1}
+              value={status.dpiLedBrightness ?? profile.dpiLighting.brightness.min}
+              disabled={lightMode !== 1 || status.dpiLedBrightness == null}
+              style={{
+                "--fill": `${((status.dpiLedBrightness ?? profile.dpiLighting.brightness.min) - profile.dpiLighting.brightness.min)
+                  / Math.max(1, profile.dpiLighting.brightness.max - profile.dpiLighting.brightness.min) * 100}%`,
+              }}
+              onChange={(event) => control.applyTeevolutionDpiLighting("brightness", Number(event.currentTarget.value))}
+            />
+          </span>
         </label>
         <label>
           Speed
           <output id="teevolution-dpi-light-speed-output">
             {status.dpiLedSpeed == null ? "—" : status.dpiLedSpeed}
           </output>
-          <input
-            id="teevolution-dpi-light-speed"
-            type="range"
-            min={profile.dpiLighting.speed.min}
-            max={profile.dpiLighting.speed.max}
-            step={1}
-            value={status.dpiLedSpeed ?? profile.dpiLighting.speed.min}
-            disabled={lightMode !== 2 || status.dpiLedSpeed == null}
-            onChange={(event) => control.applyTeevolutionDpiLighting("speed", Number(event.currentTarget.value))}
-          />
+          <span className="glass-slider-rail">
+            <input
+              id="teevolution-dpi-light-speed"
+              type="range"
+              min={profile.dpiLighting.speed.min}
+              max={profile.dpiLighting.speed.max}
+              step={1}
+              value={status.dpiLedSpeed ?? profile.dpiLighting.speed.min}
+              disabled={lightMode !== 2 || status.dpiLedSpeed == null}
+              style={{
+                "--fill": `${((status.dpiLedSpeed ?? profile.dpiLighting.speed.min) - profile.dpiLighting.speed.min)
+                  / Math.max(1, profile.dpiLighting.speed.max - profile.dpiLighting.speed.min) * 100}%`,
+              }}
+              onChange={(event) => control.applyTeevolutionDpiLighting("speed", Number(event.currentTarget.value))}
+            />
+          </span>
         </label>
       </div>
       <small className="setting-note">Uses the active DPI stage colour stored by the mouse.</small>

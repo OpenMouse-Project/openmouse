@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./check.css";
+import { interfaceThemeSlug, loadInterfacePreferences } from "./interface-preferences";
 import {
   SCAN_FILTERS,
   VERDICT_LABEL,
@@ -11,6 +12,11 @@ import {
   usagePageLabel,
   type DeviceResult,
 } from "./check-scan";
+
+document.documentElement.setAttribute(
+  "data-interface-theme",
+  interfaceThemeSlug(loadInterfacePreferences(window.localStorage).theme),
+);
 
 function DeviceCard({ result }: { result: DeviceResult }): ReactNode {
   const name = result.device.productName || `${result.brand} Mouse`;

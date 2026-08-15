@@ -18,6 +18,7 @@ const THEME_CHOICES: ReadonlyArray<readonly [string, string]> = [
   ["Ember", "#ff9b62"], ["Mono", "#f1f1f3"], ["Miku", "#39c5bb"],
   ["Catppuccin Mocha", "#cba6f7"], ["Catppuccin Macchiato", "#c6a0f6"], ["Catppuccin Frappé", "#ca9ee6"],
   ["NieR: Automata", "#d1cdb7"],
+  ["Liquid Glass", "#f4c95d"],
 ];
 
 function SwitchCard({
@@ -310,6 +311,30 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
             </div>
           </div>
         </article>
+
+        {preferences.theme === "Liquid Glass" ? (
+          <article className="interface-setting-card">
+            <span>LIQUID GLASS</span>
+            <h3>Glass intensity</h3>
+            <p>Dial the frosted material from fully transparent panels to the full acrylic finish.</p>
+            <div className="glass-intensity-row">
+              <span className={`glass-intensity-caption${preferences.glassIntensity <= 25 ? " is-active" : ""}`}>Transparent</span>
+              <span className="glass-slider-rail">
+                <input
+                  id="interface-glass-intensity"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={preferences.glassIntensity}
+                  style={{ "--fill": `${preferences.glassIntensity}%` }}
+                  onChange={(event) => set("glassIntensity")(Number(event.currentTarget.value))}
+                />
+              </span>
+              <span className={`glass-intensity-caption${preferences.glassIntensity >= 75 ? " is-active" : ""}`}>Acrylic</span>
+            </div>
+          </article>
+        ) : null}
 
         <SwitchCard
           overline="MOTION"

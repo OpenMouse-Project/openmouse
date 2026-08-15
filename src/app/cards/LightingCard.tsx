@@ -161,18 +161,24 @@ export function LightingCard({
         <div id={`${prefix}-speed-row`} className="lighting-speed-row">
           <div className="setting-heading tight"><div><h2>Effect speed</h2></div></div>
           {sliderSpeeds ? (
-            <input
-              id={`${prefix}-speed-slider`}
-              type="range"
-              min={Math.min(...lighting.speeds)}
-              max={Math.max(...lighting.speeds)}
-              step={1}
-              defaultValue={lighting.speed ?? lighting.speeds[0] ?? 0}
-              key={`speed-${lighting.speed}`}
-              disabled={disabled}
-              aria-label="Effect speed"
-              onChange={(event) => control.applyLighting({ speed: Number(event.currentTarget.value) }, activeZoneIndex)}
-            />
+            <span className="glass-slider-rail">
+              <input
+                id={`${prefix}-speed-slider`}
+                type="range"
+                min={Math.min(...lighting.speeds)}
+                max={Math.max(...lighting.speeds)}
+                step={1}
+                defaultValue={lighting.speed ?? lighting.speeds[0] ?? 0}
+                key={`speed-${lighting.speed}`}
+                disabled={disabled}
+                aria-label="Effect speed"
+                style={{
+                  "--fill": `${(((lighting.speed ?? lighting.speeds[0] ?? 0) - Math.min(...lighting.speeds))
+                    / Math.max(1, Math.max(...lighting.speeds) - Math.min(...lighting.speeds))) * 100}%`,
+                }}
+                onChange={(event) => control.applyLighting({ speed: Number(event.currentTarget.value) }, activeZoneIndex)}
+              />
+            </span>
           ) : (
             <Segmented
               id={`${prefix}-speeds`}
