@@ -7,10 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "node --test src/egg-we-protocol.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1"
   }
 }
