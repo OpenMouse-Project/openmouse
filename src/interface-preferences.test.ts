@@ -28,6 +28,7 @@ test("interface preferences restore only supported values", () => {
     expandSections: true,
     showExperimental: false,
     instantFlash: true,
+    glassIntensity: 100,
   });
 
   assert.deepEqual(loadInterfacePreferences(storage), {
@@ -37,7 +38,29 @@ test("interface preferences restore only supported values", () => {
     expandSections: true,
     showExperimental: false,
     instantFlash: true,
+    glassIntensity: 100,
   });
+});
+
+test("interface preferences clamp glass intensity to 0..100", () => {
+  const storage = new MemoryStorage();
+  saveInterfacePreferences(storage, {
+    ...DEFAULT_INTERFACE_PREFERENCES,
+    glassIntensity: 247,
+  });
+  assert.equal(loadInterfacePreferences(storage).glassIntensity, 100);
+
+  saveInterfacePreferences(storage, {
+    ...DEFAULT_INTERFACE_PREFERENCES,
+    glassIntensity: -14,
+  });
+  assert.equal(loadInterfacePreferences(storage).glassIntensity, 0);
+
+  saveInterfacePreferences(storage, {
+    ...DEFAULT_INTERFACE_PREFERENCES,
+    glassIntensity: 66.4,
+  });
+  assert.equal(loadInterfacePreferences(storage).glassIntensity, 66);
 });
 
 test("interface preferences fall back safely for malformed storage", () => {
@@ -58,6 +81,8 @@ test("every interface theme persists and maps to its stylesheet slug", () => {
     ["Catppuccin Mocha", "catppuccin-mocha"],
     ["Catppuccin Macchiato", "catppuccin-macchiato"],
     ["Catppuccin Frappé", "catppuccin-frappe"],
+    ["NieR: Automata", "nier-automata"],
+    ["Liquid Glass", "liquid-glass"],
   ];
 
   for (const [theme, slug] of themes) {

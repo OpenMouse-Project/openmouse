@@ -35,6 +35,9 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
 
   return (
     <aside className="sidebar">
+      <i className="lg-glass__refract" aria-hidden="true" />
+      <i className="lg-glass__tint" aria-hidden="true" />
+      <i className="lg-glass__specular" aria-hidden="true" />
       <span className="demo-wordmark">
         <img src="/logo.png" alt="" width={181} height={268} />
         OpenMouse
@@ -58,6 +61,15 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
         <div className="sidebar-product-heading">
           <span>SELECTED DEVICE</span>
           <strong id="sidebar-device-title">{status?.name ?? "Connected mouse"}</strong>
+          {preferences.theme === "NieR: Automata" ? (
+            <span className="nier-brand">
+              NieR
+              <svg className="nier-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2 21 7v10l-9 5-9-5V7z" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M12 7v10M7.5 9.5l9 5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </span>
+          ) : null}
         </div>
         <article id="device-thumbnail" className="device-thumbnail" hidden={!showArtwork}>
           {deviceArtwork ? (

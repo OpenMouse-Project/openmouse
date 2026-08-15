@@ -7,7 +7,9 @@ export type InterfaceTheme =
   | "Miku"
   | "Catppuccin Mocha"
   | "Catppuccin Macchiato"
-  | "Catppuccin Frappé";
+  | "Catppuccin Frappé"
+  | "NieR: Automata"
+  | "Liquid Glass";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
 
 export interface InterfacePreferences {
@@ -17,6 +19,7 @@ export interface InterfacePreferences {
   expandSections: boolean;
   showExperimental: boolean;
   instantFlash: boolean;
+  glassIntensity: number;
 }
 
 const STORAGE_KEY = "openmouse-interface-settings-v1";
@@ -30,6 +33,8 @@ const THEMES: readonly InterfaceTheme[] = [
   "Catppuccin Mocha",
   "Catppuccin Macchiato",
   "Catppuccin Frappé",
+  "NieR: Automata",
+  "Liquid Glass",
 ];
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
@@ -39,7 +44,14 @@ export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   expandSections: false,
   showExperimental: true,
   instantFlash: false,
+  glassIntensity: 100,
 };
+
+function clampGlassIntensity(value: unknown): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return DEFAULT_INTERFACE_PREFERENCES.glassIntensity;
+  return Math.min(100, Math.max(0, Math.round(number)));
+}
 
 export function loadInterfacePreferences(storage: Storage): InterfacePreferences {
   try {
@@ -51,6 +63,7 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,
       instantFlash: saved.instantFlash === true,
+      glassIntensity: clampGlassIntensity(saved.glassIntensity),
     };
   } catch {
     return { ...DEFAULT_INTERFACE_PREFERENCES };
@@ -61,8 +74,13 @@ export function saveInterfacePreferences(storage: Storage, preferences: Interfac
   storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
 }
 
-/** Dataset value for the theme selector. Display names carry spaces (and one
-    accent) for the dropdown, but the stylesheet matches slugs. */
+/** Dataset value for the theme selector. Display names carry spaces, one
+    accent, and a colon; the stylesheet matches lowercase hyphenated slugs,
+    so every run of non-alphanumerics collapses to a single dash. */
 export function interfaceThemeSlug(theme: InterfaceTheme): string {
-  return theme.toLowerCase().replace("é", "e").replace(/\s+/g, "-");
+  return theme
+    .toLowerCase()
+    .replace("é", "e")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }

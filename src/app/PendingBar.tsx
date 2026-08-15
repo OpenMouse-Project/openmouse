@@ -13,6 +13,9 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       role="region"
       aria-label="Unsaved changes"
     >
+      <i className="lg-glass__refract" aria-hidden="true" />
+      <i className="lg-glass__tint" aria-hidden="true" />
+      <i className="lg-glass__specular" aria-hidden="true" />
       <div className="pending-bar-inner">
         <span className="pending-bar-progress" aria-hidden="true" />
         <span className="pending-bar-dot" aria-hidden="true" />

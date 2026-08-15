@@ -346,6 +346,99 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   --tone-s1: var(--nier-raised);
 }
 
+/* NieR: Automata — the animated menu lattice. One oversized fixed layer
+   carries a sparse flattened-hex grid that slowly rotates and drifts behind
+   the workspace, echoing the game's menu screens. The transform-only
+   animation stays on the compositor; the in-app reduced-motion toggle and
+   the OS media query below freeze it back to a still texture. */
+.control-shell[data-interface-theme="nier-automata"]::before {
+  content: "";
+  position: fixed;
+  inset: -30%;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' fill='none' stroke='%23d1cdb7' stroke-opacity='0.15' stroke-width='1'/%3E%3Cpath d='M28 0L28 34L0 50L0 84L28 100L56 84L56 50L28 34' fill='none' stroke='%23d1cdb7' stroke-opacity='0.15' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 168px 300px;
+  animation: nier-lattice 200s linear infinite;
+  will-change: transform;
+}
+@keyframes nier-lattice {
+  from { transform: rotate(0deg) translateY(0); }
+  to { transform: rotate(360deg) translateY(-6%); }
+}
+@keyframes nier-lattice {
+  from { transform: rotate(0deg) translateY(0); }
+  to { transform: rotate(360deg) translateY(-6%); }
+}
+
+/* Workspace surfaces sit slightly translucent so the lattice shimmers
+   behind them; text stays on the dark 76% wash and never drops contrast. */
+.control-shell[data-interface-theme="nier-automata"] :is(
+  .setting-card,
+  .profile-disclosure,
+  .egg-collapsible,
+  .egg-experimental,
+  .workspace-tab-empty,
+  .interface-setting-card,
+  .device-overview,
+  .empty-state
+) {
+  background: color-mix(in srgb, var(--nier-surface) 76%, transparent);
+}
+
+/* NieR: Automata — the small product wordmark sits on the right of the
+   selected-device heading in the sidebar mouse card, echoing the game's
+   spare menu labels. */
+.control-shell[data-interface-theme="nier-automata"] .sidebar-product-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+}
+.control-shell[data-interface-theme="nier-automata"] .sidebar-product-heading > span {
+  grid-area: 1 / 1;
+}
+.control-shell[data-interface-theme="nier-automata"] .sidebar-product-heading > strong {
+  grid-area: 2 / 1;
+}
+.control-shell[data-interface-theme="nier-automata"] .nier-brand {
+  grid-area: 1 / 2 / 3 / 3;
+  align-self: center;
+  justify-self: end;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 4.8rem;
+  padding-left: .5rem;
+  opacity: .92;
+  pointer-events: none;
+  color: var(--nier-text);
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: .02em;
+  text-align: right;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.control-shell[data-interface-theme="nier-automata"] .nier-glyph {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: .9rem;
+  height: .9rem;
+  color: var(--nier-text);
+  opacity: .75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .control-shell[data-interface-theme="nier-automata"]::before { animation: none; }
+}
+
+
+
 /* Shared semantic mapping for the whole family. The accents stay understated:
    surfaces own ~85% of the screen, text ~10%, mauve/blue interactions ~5%. */
 .control-shell[data-interface-theme^="catppuccin-"] {
@@ -844,6 +937,11 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 }
 .interface-switch-row input:checked { border-color: var(--ui-accent); background-color: var(--ui-accent); background-image: radial-gradient(circle at calc(100% - .56rem) 50%, #07120b 0 .34rem, transparent .36rem); }
 .interface-switch-row input:focus-visible { box-shadow: 0 0 0 3px var(--ui-accent-soft); }
+/* Liquid Glass → Glass intensity. Captions on the flanks keep the slide in
+   the middle and readable at both extremes. */
+.glass-intensity-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .7rem; margin-top: .7rem; }
+.glass-intensity-caption { color: var(--text-faint); font-family: var(--font-mono); font-size: .5rem; letter-spacing: .06em; text-transform: uppercase; }
+.glass-intensity-caption.is-active { color: var(--text-strong); }
 .interface-reset { margin-top: .75rem; padding: .55rem .75rem; border: 1px solid #4a3436; border-radius: 7px; background: #1c1315; color: #e7a7aa; font-size: .68rem; font-weight: 650; }
 
 @media (max-width: 720px) {
@@ -1229,6 +1327,1274 @@ body { height: 100vh; overflow: hidden; }
 .easy-switch-confirm-actions { display: flex; gap: .4rem; }
 .easy-switch-confirm-actions button { padding: .32rem .6rem; border: 1px solid #7a6234; border-radius: 6px; background: #2e2718; color: #f0d9a4; font-size: .64rem; }
 
+/* ============================================================
+   Liquid Glass — Golden Gate. A translucent, luminous dark theme
+   modelled on the Liquid Glass language introduced in macOS Tahoe
+   26, warmed with the amber light of the Golden Gate at dusk. The
+   palette is mapped onto the same semantic tokens every theme
+   inherits, so no component is recolored case by case. Glass is
+   reserved for navigation and controls; configuration content
+   stays dark and readable underneath, keeping the hierarchy of
+   background → content → glass controls → interaction. Gold is an
+   accent and an environmental tint, never a wall of colour.
+   ============================================================ */
+.control-shell[data-interface-theme="liquid-glass"] {
+  /* Golden Gate palette */
+  --gg-gold: #f4c95d;
+  --gg-gold-warm: #e8b84a;
+  --gg-champagne: #f6d98b;
+  --gg-amber: #dfa64a;
+  --gg-orange: #d9823b;
+  --gg-deep-amber: #9a6428;
+  --gg-glow: rgb(244 201 93 / .22);
+  --gg-glow-soft: rgb(244 201 93 / .11);
+  --gg-warm-tint: rgb(244 201 93 / .05);
+  --gg-warm-tint-strong: rgb(244 201 93 / .12);
+  --gg-fill: linear-gradient(90deg, #dfa64a 0%, #f6d98b 100%);
+
+  /* Liquid-glass material levels */
+  /* Regular glass — navigation, toolbars, standard controls: moderate
+     translucency, medium blur, a neutral-warm tint, thin border. */
+  --glass-bg: rgb(255 255 255 / .06);
+  --glass-bg-hover: rgb(255 255 255 / .10);
+  --glass-bg-active: rgb(255 255 255 / .14);
+  --glass-border: rgb(255 255 255 / .13);
+  --glass-highlight: rgb(255 255 255 / .28);
+  --glass-blur: 22px;
+  --glass-saturation: 140%;
+  --glass-shadow: 0 18px 48px rgb(0 0 0 / .45);
+  --glass-shadow-soft: 0 6px 18px rgb(0 0 0 / .26);
+  /* Clear glass — floating controls, media-like elements: higher
+     transparency, stronger background visibility, pronounced highlights. */
+  --glass-bg-clear: rgb(255 255 255 / .035);
+  --glass-border-clear: rgb(255 255 255 / .20);
+  --glass-blur-clear: 14px;
+  /* Elevated glass — popovers, dropdowns, modals: higher opacity,
+     stronger blur, deeper shadow, a warmer and more pronounced edge. */
+  --glass-bg-elevated: rgb(24 21 16 / .9);
+  --glass-border-elevated: rgb(244 201 93 / .22);
+  --glass-blur-elevated: 34px;
+  --glass-shadow-elevated: 0 32px 90px rgb(0 0 0 / .6);
+
+  /* Mapped onto the semantic accent tokens every component inherits, so
+     selected states, staged borders, status lights and focus rings all
+     pick up the Golden Gate gold. */
+  --ui-accent: #f4c95d;
+  --ui-accent-ink: #241a04;
+  --ui-accent-soft: rgb(244 201 93 / .16);
+  --accent-glow: rgb(244 201 93 / .20);
+
+  --success: #34c759;
+  --warning: #ffd60a;
+  --destructive: #ff453a;
+  --info: #dfa64a;
+
+  --ink: #080a0c;
+  --sidebar: rgb(13 16 18 / .72);
+  --well: #0d1013;
+  --card: #111418;
+  --raised: #151a1e;
+  --input: #0d1013;
+  --control: #101316;
+  --hover: #171c20;
+
+  --line: rgb(255 255 255 / .09);
+  --line-soft: rgb(255 255 255 / .07);
+  --line-strong: rgb(255 255 255 / .13);
+  --edge: rgb(255 255 255 / .18);
+
+  --text: #f5f3ed;
+  --bright: #faf8f2;
+  --dim: #b9b5ab;
+  --muted: #7d7a73;
+  --faint: #64605a;
+  --ghost: #4c4944;
+
+  --surface-bg: #080a0c;
+  --surface-bg-tint: rgb(8 10 12 / .72);
+  --surface-tabs: rgb(17 20 22 / .5);
+  --surface-sidebar: rgb(13 16 18 / .72);
+  --surface-panel: #111418;
+  --surface-panel-soft: #0d1013;
+  --surface-panel-strong: #151a1e;
+  --surface-menu: rgb(20 21 17 / .92);
+  --surface-control: #101316;
+  --surface-input: #0d1013;
+  --surface-raised: #151a1e;
+  --surface-strong: #1b2125;
+  --surface-hover: #171c20;
+  --surface-hover-soft: #1b2125;
+  --surface-hover-strong: #13171a;
+  --surface-hover-alt: #121519;
+  --surface-dialog: rgb(20 21 17 / .92);
+  --surface-dialog-hover: rgb(30 31 25 / .92);
+  --surface-superstrike: rgb(16 19 20 / .5);
+
+  --border: rgb(255 255 255 / .09);
+  --border-rule: rgb(255 255 255 / .07);
+  --border-soft: rgb(255 255 255 / .06);
+  --border-hover: rgb(255 255 255 / .20);
+
+  --text-input: #f5f3ed;
+  --text-strong: #ddd9cf;
+  --text-soft: #a9a59b;
+  --text-faint: #7d7a73;
+  --text-hover: #ffffff;
+
+  --tone-dim: #4c4944;
+  --tone-ghost: #64605a;
+  --tone-text: #f5f3ed;
+  --tone-sub: #b9b5ab;
+  --tone-deep: #080a0c;
+  --tone-base: #111418;
+  --tone-mantle: #0d1013;
+  --tone-s0: #151a1e;
+  --tone-s1: #1b2125;
+
+  /* Glass intensity — 0..100, driven by the theme slider (set inline on the
+     shell). 100 is the full acrylic look; lower values fade the frosted
+     material toward fully transparent panels. */
+  --glass-intensity: 100;
+  --glass-intensity-frac: calc(var(--glass-intensity) / 100);
+  --glass-tint-alpha: calc(.18 + .58 * var(--glass-intensity-frac));
+}
+
+/* Ambient light: a very diffuse golden dusk. Warmth enters from the upper
+   corner and a faint orange ember rises from the lower edge — so quiet that
+   the eye reads the room rather than the gradient. */
+.control-shell[data-interface-theme="liquid-glass"] {
+  background:
+    radial-gradient(1400px 760px at 10% -12%, rgb(244 201 93 / .045), transparent 62%),
+    radial-gradient(1000px 640px at 94% 108%, rgb(217 130 59 / .038), transparent 62%),
+    radial-gradient(760px 540px at 78% 4%, rgb(160 110 55 / .028), transparent 62%),
+    var(--surface-bg);
+}
+
+/* Focus stays obvious: accent outline with a soft glow ring. */
+.control-shell[data-interface-theme="liquid-glass"] :is(button, select, input, a):focus-visible {
+  outline-color: var(--ui-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------
+   Liquid-glass layer system. Every glass surface is four stacked layers
+   (the same recipe the skill prescribes) instead of a single blurred
+   background:
+     • .lg-glass__refract  — backdrop blur + SVG feDisplacementMap that
+       physically bends the page behind the panel (negative scale = the
+       Apple-style magnifying lens). Isolated so it composites as its own
+       layer, it also hosts a champagne sheen that travels across the
+       glass on hover — light moving over a surface, not a neon shine.
+     • .lg-glass__tint     — the warm translucent material that sits over
+       the refracted backdrop.
+     • .lg-glass__specular — the thin bright rim that catches light.
+   Content paints above all three, so the glass reads behind the text.
+   Only the liquid-glass theme references the SVG filters in index.html;
+   other themes never load this machinery.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__refract,
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__tint,
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__specular {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+}
+/* Each surface tries blur-only first; the url() displacement version is
+   declared after it and wins in Chromium, while Firefox/Safari drop the
+   invalid declaration and keep the plain blur — graceful degradation.
+   The Glass intensity slider (interface → Liquid Glass) drives every
+   material parameter through --glass-intensity-frac: the refraction fades
+   and its blur shrinks toward zero, and the tint keeps only a whisper of
+   material so text never loses all contrast. */
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__refract {
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  isolation: isolate;
+}
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__tint {
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(255 255 255 / .05), rgb(255 255 255 / .02));
+}
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__specular {
+  opacity: var(--glass-intensity-frac);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .22),
+    inset 0 -1px 0 rgb(255 255 255 / .05),
+    inset 1px 0 0 rgb(255 255 255 / .07),
+    inset -1px 0 0 rgb(255 255 255 / .07);
+}
+/* Champagne sheen riding above the tint layer, below the content. */
+.control-shell[data-interface-theme="liquid-glass"] .lg-glass__tint::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 24%, rgb(255 250 235 / .05) 46%, transparent 66%);
+  background-size: 240% 100%;
+  background-position: 130% 0;
+  content: "";
+  pointer-events: none;
+  transition: background-position .9s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(.sidebar, .workspace-tabs, .pending-bar):hover .lg-glass__tint::after {
+  background-position: -30% 0;
+}
+
+/* ------------------------------------------------------------------
+   Sidebar — a floating glass navigation layer above the content.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .sidebar {
+  margin: .9rem 0 .9rem .9rem;
+  height: calc(100vh - 1.8rem);
+  border: 1px solid var(--glass-border);
+  border-right-color: var(--glass-border);
+  border-radius: 16px;
+  background: transparent;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow);
+  transition: border-color .25s ease, box-shadow .25s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .sidebar:hover {
+  border-color: var(--glass-highlight);
+  box-shadow: 0 20px 54px rgb(0 0 0 / .46);
+}
+/* A warm golden dusk breathes at the top of the glass, over the refracted
+   backdrop, before content paints. */
+.control-shell[data-interface-theme="liquid-glass"] .sidebar .lg-glass__tint {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(244 201 93 / .06), transparent 46%),
+    linear-gradient(180deg, rgb(13 16 18 / .5), rgb(13 16 18 / .68));
+}
+
+/* Device list inside the sidebar: a quiet translucent well under the glass —
+   Clear Glass material. No nested backdrop-filter, so the sidebar's single
+   blur stays cheap (the clear blur value is meant for standalone panes). */
+.control-shell[data-interface-theme="liquid-glass"] .device-panel {
+  border-color: var(--glass-border-clear);
+  background: var(--glass-bg-clear);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .04);
+}
+.control-shell[data-interface-theme="liquid-glass"] .device-row { transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.control-shell[data-interface-theme="liquid-glass"] .device-row:hover { background: var(--glass-bg-hover); }
+/* Selected device: a slightly brighter glass capsule with a whisper of
+   turquoise, a thin illuminated border and a soft accent glow. */
+.control-shell[data-interface-theme="liquid-glass"] .device-row.is-selected {
+  border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--glass-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 15%, rgb(255 255 255 / .05)), color-mix(in srgb, var(--ui-accent) 8%, rgb(255 255 255 / .03)));
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ui-accent) 10%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / .08);
+}
+.control-shell[data-interface-theme="liquid-glass"] .device-add:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+}
+
+/* The hardware stays the hero: a soft golden dusk behind it. */
+.control-shell[data-interface-theme="liquid-glass"] .sidebar-product .device-thumbnail {
+  background:
+    radial-gradient(circle at 50% 38%, rgb(244 201 93 / .10), transparent 56%),
+    radial-gradient(circle at 50% 70%, rgb(217 130 59 / .05), transparent 58%),
+    radial-gradient(circle at 50% 62%, rgb(255 255 255 / .03), transparent 60%);
+}
+.control-shell[data-interface-theme="liquid-glass"] .sidebar-product .device-thumbnail img {
+  filter: drop-shadow(0 22px 32px rgb(0 0 0 / .45)) drop-shadow(0 0 26px rgb(244 201 93 / .14));
+}
+
+/* Navigation items: neutral glass, active reads as a raised glass chip. */
+.control-shell[data-interface-theme="liquid-glass"] .nav-item {
+  border-radius: 8px;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .nav-item:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+}
+.control-shell[data-interface-theme="liquid-glass"] .nav-item[aria-current="true"] {
+  background: linear-gradient(180deg, rgb(255 255 255 / .09), rgb(255 255 255 / .05));
+  color: var(--ui-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .08);
+}
+
+/* ------------------------------------------------------------------
+   Workspace tabs — a floating glass container with a capsule active
+   state that reads like a piece of glass settling between positions.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs {
+  gap: .2rem;
+  border-color: var(--glass-border);
+  border-radius: 999px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  isolation: isolate;
+  box-shadow: var(--glass-shadow-soft);
+}
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs .lg-glass__tint {
+  background:
+    radial-gradient(120% 150% at 50% -40%, rgb(244 201 93 / .05), transparent 55%),
+    linear-gradient(180deg, rgb(17 20 22 / .42), rgb(17 20 22 / .55));
+}
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button {
+  border-radius: 999px;
+  isolation: isolate;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+}
+/* The active tab is a nested piece of glass settling between the others: an
+   inner bubble with its own blur and a bright lift, but no displacement map
+   (it is small and already inside glass). */
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button[aria-selected="true"] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 18%, rgb(255 255 255 / .10)), color-mix(in srgb, var(--ui-accent) 9%, rgb(255 255 255 / .05)));
+  color: var(--text-hover);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .16),
+    0 2px 8px rgb(0 0 0 / .22);
+}
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button[aria-selected="true"]::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(8px * var(--glass-intensity-frac))) brightness(calc(1.06 + .12 * var(--glass-intensity-frac)));
+  -webkit-backdrop-filter: blur(calc(8px * var(--glass-intensity-frac))) brightness(calc(1.06 + .12 * var(--glass-intensity-frac)));
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button[aria-selected="true"]::after { display: none; }
+
+/* ------------------------------------------------------------------
+   The whole panel is one continuous sheet of acrylic. Its own box is the
+   visible scrollport, so a single refraction filter on the panel stays in
+   place as content scrolls above it: blur + a wide displacement map sized
+   for the sheet, with a translucent tint on top. The Glass intensity
+   slider drives both; at 0 the sheet is effectively clear glass.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .control-panel {
+  background:
+    linear-gradient(180deg, rgb(244 201 93 / .02), transparent 34%),
+    linear-gradient(180deg, rgb(13 17 21 / var(--glass-tint-alpha)), rgb(13 17 21 / calc(var(--glass-tint-alpha) + .12)));
+  isolation: isolate;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(.05 * var(--glass-intensity-frac)));
+  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-sheet-filter) brightness(calc(1 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-sheet-filter) brightness(calc(1 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+}
+
+/* ------------------------------------------------------------------
+   Content surfaces — translucent sheets sitting on the acrylic, so the
+   material shows through. Cards keep a whisper of fill and a hairline
+   edge to stay legible as surfaces; nothing here is solid anymore.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .setting-card,
+  #pulsar-advanced > .setting-card,
+  .profile-disclosure,
+  .egg-collapsible,
+  .egg-experimental,
+  .workspace-tab-empty,
+  .interface-setting-card,
+  .device-overview,
+  .live-status,
+  .empty-state
+) {
+  border-color: var(--line-soft);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgb(244 201 93 / .02), transparent 34%),
+    linear-gradient(180deg, rgb(255 255 255 / .03), rgb(255 255 255 / .01));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .03);
+}
+
+/* ------------------------------------------------------------------
+   Buttons — physical pieces of glass responding to interaction.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .empty-connect-action,
+  .setting-action button:not(:disabled),
+  .segmented button.selected,
+  .dpi-header-actions button:not(:disabled),
+  .device-debug-actions button,
+  .support-primary,
+  .shortcut-dialog-actions button.is-primary,
+  #capture-dialog button.is-primary,
+  .dpi-slot-count button.selected,
+  #logitech-analog-button-settings .superstrike-steps button[aria-pressed="true"],
+  #logitech-analog-button-settings .superstrike-apply-button
+) {
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 55%, var(--glass-border));
+  border-radius: 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 26%, rgb(255 255 255 / .08)), color-mix(in srgb, var(--ui-accent) 20%, rgb(255 255 255 / .04)));
+  color: #fff3ce;
+  text-shadow: 0 1px 2px rgb(0 0 0 / .3);
+  box-shadow:
+    0 0 14px var(--accent-glow),
+    inset 0 1px 0 rgb(255 255 255 / .18);
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease, filter .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .empty-connect-action,
+  .setting-action button:not(:disabled),
+  .segmented button.selected,
+  .dpi-header-actions button:not(:disabled),
+  .device-debug-actions button,
+  .support-primary,
+  .shortcut-dialog-actions button.is-primary,
+  #capture-dialog button.is-primary,
+  .dpi-slot-count button.selected,
+  #logitech-analog-button-settings .superstrike-steps button[aria-pressed="true"],
+  #logitech-analog-button-settings .superstrike-apply-button
+):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ui-accent) 75%, var(--glass-highlight));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 42%, rgb(255 255 255 / .10)), color-mix(in srgb, var(--ui-accent) 30%, rgb(255 255 255 / .05)));
+  filter: none;
+  transform: translateY(-1px);
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .empty-connect-action,
+  .setting-action button:not(:disabled),
+  .segmented button.selected,
+  .dpi-header-actions button:not(:disabled),
+  .device-debug-actions button,
+  .support-primary,
+  .shortcut-dialog-actions button.is-primary,
+  #capture-dialog button.is-primary,
+  .dpi-slot-count button.selected,
+  #logitech-analog-button-settings .superstrike-steps button[aria-pressed="true"],
+  #logitech-analog-button-settings .superstrike-apply-button
+):active:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-accent) 22%, rgb(255 255 255 / .06));
+  transform: translateY(1px) scale(.985);
+  box-shadow: 0 0 8px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / .22);
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .empty-connect-action,
+  .setting-action button:not(:disabled),
+  .segmented button.selected,
+  .dpi-header-actions button:not(:disabled),
+  .device-debug-actions button,
+  .support-primary,
+  .shortcut-dialog-actions button.is-primary,
+  #capture-dialog button.is-primary,
+  .dpi-slot-count button.selected,
+  #logitech-analog-button-settings .superstrike-steps button[aria-pressed="true"],
+  #logitech-analog-button-settings .superstrike-apply-button
+):disabled {
+  opacity: .45;
+  box-shadow: none;
+}
+
+/* Neutral glass buttons. */
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .pending-revert,
+  .interface-settings-back,
+  .support-actions > button:not(.support-primary),
+  .support-secondary,
+  #capture-dialog button:not(.is-primary),
+  .shortcut-dialog-actions button:not(.is-primary),
+  .icon-button:not(.profile-delete-button),
+  .egg-action-button,
+  #egg-cpi-stage-list button,
+  .axis-apply,
+  .sidebar-menu-toggle,
+  .support-dialog header button,
+  .support-results button
+) {
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  color: var(--dim);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07);
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .pending-revert,
+  .interface-settings-back,
+  .support-actions > button:not(.support-primary),
+  .support-secondary,
+  #capture-dialog button:not(.is-primary),
+  .shortcut-dialog-actions button:not(.is-primary),
+  .icon-button:not(.profile-delete-button),
+  .egg-action-button,
+  #egg-cpi-stage-list button,
+  .axis-apply,
+  .sidebar-menu-toggle,
+  .support-dialog header button,
+  .support-results button
+):hover:not(:disabled) {
+  border-color: var(--glass-highlight);
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+  transform: translateY(-1px);
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .pending-revert,
+  .interface-settings-back,
+  .support-actions > button:not(.support-primary),
+  .support-secondary,
+  #capture-dialog button:not(.is-primary),
+  .shortcut-dialog-actions button:not(.is-primary),
+  .icon-button:not(.profile-delete-button),
+  .egg-action-button,
+  #egg-cpi-stage-list button,
+  .axis-apply,
+  .sidebar-menu-toggle,
+  .support-dialog header button,
+  .support-results button
+):active:not(:disabled) {
+  background: var(--glass-bg-active);
+  transform: translateY(1px) scale(.985);
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(
+  .pending-revert,
+  .interface-settings-back,
+  .support-actions > button:not(.support-primary),
+  .support-secondary,
+  #capture-dialog button:not(.is-primary),
+  .shortcut-dialog-actions button:not(.is-primary),
+  .icon-button:not(.profile-delete-button),
+  .egg-action-button,
+  #egg-cpi-stage-list button,
+  .axis-apply,
+  .sidebar-menu-toggle,
+  .support-dialog header button,
+  .support-results button
+):disabled {
+  opacity: .5;
+  box-shadow: none;
+}
+
+/* Unselected segmented options become quiet glass chips. */
+.control-shell[data-interface-theme="liquid-glass"] .segmented {
+  gap: .3rem;
+}
+.control-shell[data-interface-theme="liquid-glass"] .segmented button {
+  border-color: var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .segmented button:hover:not(.selected) {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-highlight);
+  color: var(--text-hover);
+}
+.control-shell[data-interface-theme="liquid-glass"] .theme-choice { border-radius: 9px; }
+
+/* ------------------------------------------------------------------
+   Sliders — real liquid-glass controls, not native inputs with a blur
+   behind them. Each control sits in a small glass capsule (.glass-slider-rail
+   or the polling-rate .rate-slider-rail): the same four layers as the big
+   panels — a refracted backdrop (blur + chip displacement map), a warm
+   tint, and a specular rim — holding a recessed glass track with a golden
+   fill that brightens ahead of the thumb, a floating glass-bead thumb
+   with an inner reflection, and minimal ticks. The fill follows the
+   --fill custom property that range controls set from their value; where
+   it is absent the neutral track remains.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:disabled { cursor: not-allowed; }
+
+/* Rail — a small piece of liquid glass wrapping the control. */
+.control-shell[data-interface-theme="liquid-glass"] :is(.glass-slider-rail, .rate-slider-rail) {
+  position: relative;
+  display: block;
+  padding: 0 .7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  isolation: isolate;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .28);
+}
+.control-shell[data-interface-theme="liquid-glass"] .glass-slider-rail { overflow: hidden; }
+.control-shell[data-interface-theme="liquid-glass"] :is(.glass-slider-rail, .rate-slider-rail)::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur-clear) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-clear) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  backdrop-filter: blur(calc(var(--glass-blur-clear) * var(--glass-intensity-frac))) url(#lg-chip-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-clear) * var(--glass-intensity-frac))) url(#lg-chip-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(.glass-slider-rail, .rate-slider-rail)::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / .03));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .14),
+    inset 0 -1px 0 rgb(0 0 0 / .22);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .lod-sliders label > .glass-slider-rail {
+  grid-column: 1 / -1;
+}
+.control-shell[data-interface-theme="liquid-glass"] :is(.glass-slider-rail, .rate-slider-rail):has(input:not(:disabled)):hover {
+  border-color: var(--glass-highlight);
+}
+
+/* Track — a thin translucent capsule sitting above the content. */
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 1px solid rgb(255 255 255 / .10);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--gg-amber) 0%, var(--gg-champagne) var(--fill, 0%), transparent var(--fill, 0%)),
+    linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / .02));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .14),
+    inset 0 -1px 0 rgb(0 0 0 / .32),
+    0 1px 2px rgb(0 0 0 / .3);
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:not(:disabled):hover::-webkit-slider-runnable-track {
+  border-color: rgb(255 255 255 / .16);
+}
+
+/* Thumb — a small physical piece of glass resting on the track: bright
+   translucent surface, white/champagne highlight, thin bright border, a
+   soft shadow underneath and a faint golden inner reflection. */
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px;
+  border: 1px solid rgb(255 255 255 / .48);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 22%, rgb(255 255 255 / .95), rgb(255 255 255 / .38) 34%, color-mix(in srgb, var(--ui-accent) 18%, rgb(255 255 255 / .04)) 70%, rgb(255 255 255 / .02));
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / .5),
+    0 1px 2px rgb(0 0 0 / .4),
+    inset 0 1px 1px rgb(255 255 255 / .6),
+    inset 0 -2px 3px color-mix(in srgb, var(--ui-accent) 30%, transparent);
+  transition: transform .18s cubic-bezier(.2, .8, .3, 1), border-color .18s ease, box-shadow .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:not(:disabled):hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+  border-color: color-mix(in srgb, var(--ui-accent) 55%, rgb(255 255 255 / .5));
+  box-shadow:
+    0 4px 12px rgb(0 0 0 / .55),
+    0 1px 3px rgb(0 0 0 / .4),
+    inset 0 1px 1px rgb(255 255 255 / .7),
+    inset 0 -2px 3px color-mix(in srgb, var(--ui-accent) 40%, transparent),
+    0 0 0 4px var(--gg-glow-soft);
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.16);
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 5px 14px rgb(0 0 0 / .6),
+    0 2px 4px rgb(0 0 0 / .45),
+    inset 0 1px 1px rgb(255 255 255 / .75),
+    inset 0 -2px 4px color-mix(in srgb, var(--ui-accent) 45%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--ui-accent) 16%, transparent),
+    0 0 18px var(--accent-glow);
+}
+
+/* Firefox fills natively, so only the neutral track needs the gradient;
+   the golden progress is its own pseudo-element. */
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]::-moz-range-track {
+  height: 6px;
+  border: 1px solid rgb(255 255 255 / .10);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / .02));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .14),
+    inset 0 -1px 0 rgb(0 0 0 / .32),
+    0 1px 2px rgb(0 0 0 / .3);
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gg-amber), var(--gg-champagne));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .22);
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgb(255 255 255 / .48);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 22%, rgb(255 255 255 / .95), rgb(255 255 255 / .38) 34%, color-mix(in srgb, var(--ui-accent) 18%, rgb(255 255 255 / .04)) 70%, rgb(255 255 255 / .02));
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / .5),
+    0 1px 2px rgb(0 0 0 / .4),
+    inset 0 1px 1px rgb(255 255 255 / .6),
+    inset 0 -2px 3px color-mix(in srgb, var(--ui-accent) 30%, transparent);
+  transition: transform .18s cubic-bezier(.2, .8, .3, 1), border-color .18s ease, box-shadow .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:not(:disabled):hover::-moz-range-thumb {
+  transform: scale(1.1);
+  border-color: color-mix(in srgb, var(--ui-accent) 55%, rgb(255 255 255 / .5));
+  box-shadow:
+    0 4px 12px rgb(0 0 0 / .55),
+    0 1px 3px rgb(0 0 0 / .4),
+    inset 0 1px 1px rgb(255 255 255 / .7),
+    inset 0 -2px 3px color-mix(in srgb, var(--ui-accent) 40%, transparent),
+    0 0 0 4px var(--gg-glow-soft);
+}
+.control-shell[data-interface-theme="liquid-glass"] input[type="range"]:not(:disabled):active::-moz-range-thumb {
+  transform: scale(1.16);
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 5px 14px rgb(0 0 0 / .6),
+    0 2px 4px rgb(0 0 0 / .45),
+    inset 0 1px 1px rgb(255 255 255 / .75),
+    inset 0 -2px 4px color-mix(in srgb, var(--ui-accent) 45%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--ui-accent) 16%, transparent),
+    0 0 18px var(--accent-glow);
+}
+
+/* Polling-rate slider — glass track, golden progress, floating thumb,
+   minimal ticks and an elevated value bubble that rides the thumb while
+   dragging. */
+/* The polling-rate bubble floats above the rail on a stronger piece of
+   elevated glass: refraction (blur + chip displacement) behind a warm,
+   near-opaque tint with a bright top edge. */
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-bubble {
+  position: absolute;
+  bottom: calc(100% + .6rem);
+  padding: .26rem .5rem;
+  border: 1px solid var(--glass-border-elevated);
+  border-radius: 8px;
+  isolation: isolate;
+  color: #fff3ce;
+  font: 600 .6rem var(--font-mono);
+  letter-spacing: .02em;
+  white-space: nowrap;
+  box-shadow: var(--glass-shadow-elevated);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px);
+  transition: opacity .16s ease, transform .18s cubic-bezier(.2, .8, .3, 1);
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-bubble::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-chip-filter) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-chip-filter) saturate(150%);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-bubble::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(28 25 18 / .8), rgb(24 21 16 / .92));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .16);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider.is-dragging .rate-slider-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider.is-dragging .rate-slider-head output {
+  color: var(--ui-accent);
+}
+/* Ticks — minimal, low contrast, the selected one lit in gold. */
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-scale i {
+  width: 1px;
+  height: 5px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / .18);
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-scale i.is-on {
+  background: var(--ui-accent);
+  box-shadow: 0 0 6px var(--gg-glow-soft);
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-scale span {
+  color: var(--ghost);
+}
+.control-shell[data-interface-theme="liquid-glass"] .rate-slider-scale span.is-on {
+  color: #f5f3ed;
+}
+
+/* ------------------------------------------------------------------
+   DPI control — the presets are individual glass capsules. Selected
+   is golden glass with an illuminated border; the rest are quiet dark
+   glass that brighten on hover. Current value reads with strong text.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .dpi-presets {
+  gap: .25rem;
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-presets button {
+  border-color: var(--glass-border);
+  border-radius: 8px;
+  background: rgb(255 255 255 / .045);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07);
+  transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-presets button:hover:not(:disabled):not(.selected) {
+  border-color: var(--glass-highlight);
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+  transform: translateY(-1px);
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-presets button.selected {
+  border-color: color-mix(in srgb, var(--ui-accent) 65%, var(--glass-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 26%, rgb(255 255 255 / .09)), color-mix(in srgb, var(--ui-accent) 16%, rgb(255 255 255 / .05)));
+  color: #fff7df;
+  box-shadow:
+    0 0 12px var(--accent-glow),
+    0 0 0 3px color-mix(in srgb, var(--ui-accent) 10%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / .18);
+}
+
+/* DPI slot counter and header readout get the same quiet glass. */
+.control-shell[data-interface-theme="liquid-glass"] .dpi-slot-count button {
+  border-color: var(--glass-border);
+  border-radius: 7px;
+  background: rgb(255 255 255 / .045);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07);
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-slot-count button:hover:not(:disabled):not(.selected) {
+  border-color: var(--glass-highlight);
+  background: var(--glass-bg-hover);
+  color: var(--text-hover);
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-header-actions input {
+  border-color: var(--glass-border);
+  border-radius: 7px;
+  background: rgb(255 255 255 / .04);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07);
+}
+.control-shell[data-interface-theme="liquid-glass"] .dpi-header-actions input:not([readonly]) {
+  border-color: color-mix(in srgb, var(--ui-accent) 65%, var(--glass-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 10%, transparent);
+}
+
+
+/* ------------------------------------------------------------------
+   Toggles — rounded liquid-glass switches.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .switch-button {
+  position: relative;
+  border-radius: 999px;
+  isolation: isolate;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .3);
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, color .18s ease, opacity .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled) { background: transparent !important; }
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled):hover { transform: translateY(-1px); }
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled):active { transform: translateY(1px) scale(.97); }
+/* Refraction layer — the toggle is a small piece of glass. */
+.control-shell[data-interface-theme="liquid-glass"] .switch-button::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(10px * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(10px * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  backdrop-filter: blur(calc(10px * var(--glass-intensity-frac))) url(#lg-chip-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(calc(10px * var(--glass-intensity-frac))) url(#lg-chip-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  content: "";
+  pointer-events: none;
+}
+/* Tint + specular — OFF is quiet dark glass, ON is lit golden glass. */
+.control-shell[data-interface-theme="liquid-glass"] .switch-button::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled)[aria-checked="false"] {
+  border-color: var(--glass-border) !important;
+  color: var(--dim) !important;
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled)[aria-checked="false"]::after {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10), rgb(255 255 255 / .04));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .16),
+    inset 0 -1px 0 rgb(0 0 0 / .25);
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled)[aria-checked="true"] {
+  border-color: color-mix(in srgb, var(--ui-accent) 60%, var(--glass-border)) !important;
+  color: #fff3ce !important;
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:not(:disabled)[aria-checked="true"]::after {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 42%, rgb(255 255 255 / .12)), color-mix(in srgb, var(--ui-accent) 26%, rgb(255 255 255 / .06)));
+  box-shadow:
+    0 0 14px var(--accent-glow),
+    inset 0 1px 0 rgb(255 255 255 / .26),
+    inset 0 -1px 0 color-mix(in srgb, var(--ui-accent) 22%, rgb(0 0 0 / .3));
+}
+.control-shell[data-interface-theme="liquid-glass"] .switch-button:disabled { opacity: .45; }
+
+/* Settings-page toggles: glass track, bright glass thumb. */
+.control-shell[data-interface-theme="liquid-glass"] .interface-switch-row input {
+  border-color: var(--glass-border);
+  background-color: rgb(255 255 255 / .06);
+  background-image: radial-gradient(circle at .56rem 50%, rgb(255 255 255 / .68) 0 .34rem, transparent .36rem);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .08), 0 1px 3px rgb(0 0 0 / .3);
+}
+.control-shell[data-interface-theme="liquid-glass"] .interface-switch-row input:checked {
+  border-color: color-mix(in srgb, var(--ui-accent) 70%, var(--glass-border));
+  background-color: color-mix(in srgb, var(--ui-accent) 45%, rgb(255 255 255 / .08));
+  background-image: radial-gradient(circle at calc(100% - .56rem) 50%, rgb(255 255 255 / .92) 0 .34rem, transparent .36rem);
+  box-shadow: 0 0 12px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / .25);
+}
+.control-shell[data-interface-theme="liquid-glass"] .interface-switch-row input:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ------------------------------------------------------------------
+   Bottom action bar — a floating glass toolbar instead of a solid
+   full-width strip.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .pending-bar {
+  left: calc(370px + .95rem);
+  right: .95rem;
+  bottom: 1rem;
+  justify-content: stretch;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: transparent;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow);
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-bar .lg-glass__tint {
+  background: linear-gradient(180deg, rgb(11 16 20 / .52), rgb(11 16 20 / .64));
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-bar-inner {
+  width: 100%;
+  max-width: none;
+  min-height: 4.1rem;
+  padding: .6rem 1.1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-revert {
+  background: rgb(255 255 255 / .05);
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-flash {
+  border-color: color-mix(in srgb, var(--ui-accent) 60%, var(--glass-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 32%, rgb(255 255 255 / .10)), color-mix(in srgb, var(--ui-accent) 24%, rgb(255 255 255 / .05)));
+  color: #fff3ce;
+  text-shadow: 0 1px 2px rgb(0 0 0 / .3);
+  box-shadow: 0 0 16px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / .2);
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-flash:hover:not(:disabled) {
+  border-color: var(--ui-accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 46%, rgb(255 255 255 / .12)), color-mix(in srgb, var(--ui-accent) 34%, rgb(255 255 255 / .06)));
+}
+.control-shell[data-interface-theme="liquid-glass"] .pending-spinner {
+  border-color: rgb(244 201 93 / .35);
+  border-top-color: #fff3ce;
+}
+
+/* Elevated glass — popovers, dropdowns and modals are a stronger, thicker
+   material: higher opacity, deeper blur, a warmer and more pronounced edge,
+   and layered shadows that separate them from the page. */
+.control-shell[data-interface-theme="liquid-glass"] .support-dialog,
+.control-shell[data-interface-theme="liquid-glass"] .shortcut-dialog {
+  border-color: var(--glass-border-elevated);
+  border-radius: 14px;
+  background: transparent;
+  isolation: isolate;
+  box-shadow: var(--glass-shadow-elevated);
+}
+/* Refraction layer — the page warps behind the modal. */
+.control-shell[data-interface-theme="liquid-glass"] :is(.support-dialog, .shortcut-dialog)::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(150%);
+  content: "";
+  pointer-events: none;
+}
+/* Tint + specular — the elevated material, thicker and warmer. */
+.control-shell[data-interface-theme="liquid-glass"] :is(.support-dialog, .shortcut-dialog)::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(28 25 18 / .62), rgb(24 21 16 / .82));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .14);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .support-dialog::backdrop {
+  background: rgb(0 0 0 / .6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.control-shell[data-interface-theme="liquid-glass"] .shortcut-dialog-backdrop {
+  background: rgb(0 0 0 / .6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.control-shell[data-interface-theme="liquid-glass"] #capture-dialog::backdrop {
+  background: rgb(0 0 0 / .6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.control-shell[data-interface-theme="liquid-glass"] .lod-select-menu {
+  border-color: var(--glass-border);
+  border-radius: 10px;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow-elevated);
+}
+.control-shell[data-interface-theme="liquid-glass"] .lod-select-menu::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-panel-filter) brightness(calc(.9 + .15 * var(--glass-intensity-frac))) saturate(150%);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .lod-select-menu::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(28 25 18 / .72), rgb(24 21 16 / .86));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .12);
+  content: "";
+  pointer-events: none;
+}
+
+/* Secondary tab groups inside profile and superstrike editors get the same
+   quiet glass treatment as the workspace tabs. */
+.control-shell[data-interface-theme="liquid-glass"] .assignment-layer-tabs,
+.control-shell[data-interface-theme="liquid-glass"] #logitech-analog-button-settings .superstrike-tabs {
+  border-color: var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass-bg);
+}
+.control-shell[data-interface-theme="liquid-glass"] .assignment-layer-tabs button,
+.control-shell[data-interface-theme="liquid-glass"] #logitech-analog-button-settings .superstrike-tabs button {
+  border-radius: 7px;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.control-shell[data-interface-theme="liquid-glass"] .assignment-layer-tabs button[aria-selected="true"],
+.control-shell[data-interface-theme="liquid-glass"] #logitech-analog-button-settings .superstrike-tabs button[aria-selected="true"] {
+  background: var(--glass-bg-active);
+  color: var(--ui-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .10);
+}
+
+/* ------------------------------------------------------------------
+   Status touches. Status colours stay recognizable and the destructive
+   and warning notes adopt the Liquid Glass error/warning hues.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"] .interface-reset {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--destructive) 10%, var(--surface-panel-strong));
+  color: color-mix(in srgb, var(--destructive) 78%, #fff);
+}
+.control-shell[data-interface-theme="liquid-glass"] .build-note {
+  color: color-mix(in srgb, var(--warning) 45%, var(--tone-ghost));
+}
+.control-shell[data-interface-theme="liquid-glass"] .easy-switch-slots .is-current {
+  border-color: color-mix(in srgb, var(--ui-accent) 55%, var(--glass-border));
+  background: color-mix(in srgb, var(--ui-accent) 12%, var(--glass-bg));
+  color: color-mix(in srgb, var(--ui-accent) 72%, #fff);
+}
+
+/* ------------------------------------------------------------------
+   Toast notifications — transient status messages stacked in the top
+   right corner, above the workspace. Kind colour rides the left edge.
+   ------------------------------------------------------------------ */
+.toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  width: min(23rem, calc(100vw - 2rem));
+  flex-direction: column;
+  gap: .55rem;
+  pointer-events: none;
+}
+.toast {
+  --toast-accent: var(--ui-accent);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: .65rem;
+  padding: .72rem .78rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--toast-accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-panel) 88%, transparent);
+  color: var(--text-strong);
+  box-shadow: 0 12px 34px rgb(0 0 0 / .38);
+  pointer-events: auto;
+  animation: toast-in .24s cubic-bezier(.2, .8, .3, 1);
+}
+.toast-success { --toast-accent: #3ddc84; }
+.toast-error { --toast-accent: #ff5f57; }
+.toast-glyph {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--toast-accent) 16%, transparent);
+  color: var(--toast-accent);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.toast-copy { min-width: 0; }
+.toast-copy strong {
+  display: block;
+  color: var(--text-hover);
+  font-size: .78rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.toast-copy p {
+  margin: .2rem 0 0;
+  color: var(--text-soft);
+  font-size: .68rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.toast-dismiss {
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: .7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast-dismiss:hover { background: var(--surface-hover); color: var(--text-hover); }
+.toast-dismiss:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(1rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Toasts pick up the elevated glass material so they read as floating
+   pieces over the acrylic sheet. */
+.control-shell[data-interface-theme="liquid-glass"] .toast {
+  border-color: var(--glass-border-elevated);
+  background: transparent;
+  isolation: isolate;
+  box-shadow: var(--glass-shadow-elevated);
+}
+.control-shell[data-interface-theme="liquid-glass"] .toast::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: var(--glass-intensity-frac);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) saturate(150%);
+  backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-chip-filter) saturate(150%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-elevated) * var(--glass-intensity-frac))) url(#lg-chip-filter) saturate(150%);
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .toast::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: calc(.18 + .82 * var(--glass-intensity-frac));
+  background: linear-gradient(180deg, rgb(28 25 18 / .78), rgb(24 21 16 / .9));
+  content: "";
+  pointer-events: none;
+}
+.control-shell[data-interface-theme="liquid-glass"] .toast-dismiss:hover {
+  background: var(--glass-bg-hover);
+  color: #fff3ce;
+}
+
+/* ------------------------------------------------------------------
+   Fallback: when backdrop blur is unavailable, glass layers drop back
+   to near-opaque surfaces while keeping the same visual hierarchy, so
+   text never loses contrast.
+   ------------------------------------------------------------------ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .control-shell[data-interface-theme="liquid-glass"] :is(
+    .sidebar,
+    .workspace-tabs,
+    .pending-bar
+  ) .lg-glass__tint {
+    background: var(--surface-panel-strong);
+  }
+  .control-shell[data-interface-theme="liquid-glass"] .control-panel {
+    background: var(--surface-panel);
+  }
+  .control-shell[data-interface-theme="liquid-glass"] :is(
+    .support-dialog,
+    .shortcut-dialog,
+    .lod-select-menu,
+    .glass-slider-rail,
+    .rate-slider-rail,
+    .rate-slider-bubble,
+    .switch-button
+  )::after {
+    background: var(--surface-panel-strong);
+  }
+}
 .button-remap-list { display: flex; flex-direction: column; gap: .3rem; }
 .button-remap-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .3rem .45rem; border: 1px solid transparent; border-radius: 6px; color: var(--faint); font-size: .66rem; }
 .button-remap-row select { max-width: 11rem; }

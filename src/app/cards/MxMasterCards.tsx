@@ -55,7 +55,16 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           {smartShiftOn ? (
             <label className="field-label spaced">
               <span>Switch threshold</span>
-              <input type="range" min={1} max={100} value={status.smartShiftThreshold ?? 50} onChange={(event) => control.applySmartShiftThreshold(Number(event.currentTarget.value))} />
+              <span className="glass-slider-rail">
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={status.smartShiftThreshold ?? 50}
+                  style={{ "--fill": `${((status.smartShiftThreshold ?? 50) - 1) / 99 * 100}%` }}
+                  onChange={(event) => control.applySmartShiftThreshold(Number(event.currentTarget.value))}
+                />
+              </span>
               <output>{status.smartShiftThreshold}</output>
             </label>
           ) : null}

@@ -118,6 +118,8 @@ import type {
   PulsarToggleSetting,
   SidebarDevice,
   TeevolutionProfile,
+  Toast,
+  ToastKind,
   WorkspaceTab,
 } from "./types";
 
@@ -166,6 +168,7 @@ const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | Ninjutso
 const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null =>
   activeAs<RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient>(...RAZER_CLASSES);
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
+
 const teevolutionClient = (): TeevolutionHidClient | null => activeAs(TeevolutionHidClient);
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
@@ -214,6 +217,9 @@ let readStatus = "Add a supported device from the sidebar to read its current st
 let onboardStatus = "Profiles load when the mouse is in onboard mode.";
 let connectDisabled = false;
 let connectLabel = "Add device";
+
+const toasts: Toast[] = [];
+let nextToastId = 1;
 let diagnosticsOpen = false;
 let diagnosticDownloadStatus = "";
 let diagnosticsView: DiagnosticsView = {
@@ -322,6 +328,7 @@ function buildSnapshot(): ControlSnapshot {
     onboardStatus,
     connectDisabled,
     connectLabel,
+    toasts,
     devices: sidebarDevices,
     hasActiveDevice: activeDevice !== null,
     deviceArtwork: deviceArtwork(status),
@@ -385,6 +392,30 @@ function buildSnapshot(): ControlSnapshot {
 function setReadStatus(text: string): void {
   readStatus = text;
   emit();
+}
+
+const TOAST_TIMEOUT_MS: Record<ToastKind, number> = {
+  success: 4200,
+  info: 5200,
+  error: 8000,
+};
+
+function pushToast(kind: ToastKind, title: string, detail?: string): void {
+  const id = nextToastId++;
+  toasts.unshift({ id, kind, title, detail });
+  window.setTimeout(() => dismissToast(id), TOAST_TIMEOUT_MS[kind]);
+  emit();
+}
+
+export function dismissToast(id: number): void {
+  const index = toasts.findIndex((entry) => entry.id === id);
+  if (index === -1) return;
+  toasts.splice(index, 1);
+  emit();
+}
+
+function toastForError(title: string, error: unknown): void {
+  pushToast("error", title, error instanceof Error ? error.message : title);
 }
 
 export function reportStatus(text: string): void {
@@ -650,9 +681,12 @@ export async function requestHostSwitch(slot: number): Promise<void> {
   if (!client) return;
   try {
     await client.requestHostSwitch(slot);
-    setReadStatus(`Switch to computer ${slot + 1} requested. Press the button underneath the mouse to bring it back.`);
+    const message = `Switch to computer ${slot + 1} requested. Press the button underneath the mouse to bring it back.`;
+    setReadStatus(message);
+    pushToast("info", `Switching to computer ${slot + 1}`, "Press the button underneath the mouse to bring it back.");
   } catch (error) {
     setReadStatus(error instanceof Error ? error.message : "Unable to request the switch.");
+    toastForError("Unable to request the switch", error);
   }
 }
 
@@ -788,12 +822,15 @@ export async function flashPendingChanges(): Promise<void> {
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
+    pushToast("error", "Flash failed", failure);
     return;
   }
   pendingStatusText = null;
-  setReadStatus(written === 1
+  const flashed = written === 1
     ? "Flashed 1 change to the mouse."
-    : `Flashed ${written} changes to the mouse.`);
+    : `Flashed ${written} changes to the mouse.`;
+  setReadStatus(flashed);
+  pushToast("success", flashed);
 }
 
 function endDeviceWrite(): void {
@@ -1248,6 +1285,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
   } catch (error) {
     deviceStatusText = "Connection failed";
     readStatus = error instanceof Error ? error.message : "Unable to switch devices.";
+    toastForError("Connection failed", error);
     await refreshSidebar();
   }
 }
@@ -1306,6 +1344,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   rememberActiveDevice(client.device);
   startAutomaticRefresh();
   setConnectionButtons(false, "Add device");
+  pushToast("success", `Connected to ${statusNameForClient(client)}`);
 }
 
 function activateClient(client: SupportedClient): Promise<void> {
@@ -1389,6 +1428,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
     })().catch((error: unknown) => {
       deviceStatusText = "Connection failed";
       readStatus = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+      toastForError("Connection failed", error);
       void refreshSidebar();
     });
     return;
@@ -1400,6 +1440,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
   void activateClient(client).catch((error: unknown) => {
     deviceStatusText = "Connection failed";
     readStatus = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+    toastForError("Connection failed", error);
     void refreshSidebar();
   });
 }
@@ -1412,6 +1453,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
     return;
   }
   showDisconnectedState();
+  pushToast("info", "Mouse disconnected", event.device.productName || "The device was removed.");
   void (async () => {
     const devices = (await navigator.hid?.getDevices() ?? [])
       .filter((device) => device !== event.device);
@@ -1500,6 +1542,7 @@ export async function connect(): Promise<void> {
     }
     deviceStatusText = wrongDevice ? "Not a mouse" : "Connection failed";
     readStatus = message;
+    toastForError(wrongDevice ? "Not a mouse" : "Connection failed", error);
   } finally {
     setConnectionButtons(false, "Add device");
   }
@@ -1551,6 +1594,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
     if (!hasActiveClient()) {
       deviceStatusText = "Not connected";
       readStatus = lastError?.message ?? "Use Add device if the mouse does not reconnect automatically.";
+      if (lastError) pushToast("error", "Could not reconnect the mouse", lastError.message);
       emit();
     }
   } finally {

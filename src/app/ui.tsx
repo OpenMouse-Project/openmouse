@@ -144,35 +144,42 @@ export function RateSlider({
   const index = dragging ?? settled;
   const last = Math.max(1, options.length - 1);
   const position = (step: number): string => `calc(7px + (100% - 14px) * ${step} / ${last})`;
+  const fill = `${(index / last) * 100}%`;
 
   return (
-    <div id={id} className="rate-slider" hidden={hidden}>
+    <div id={id} className={`rate-slider${dragging !== null ? " is-dragging" : ""}`} hidden={hidden}>
       {label ? (
         <div className="rate-slider-head">
           <span>{label}</span>
           <output>{options[index]?.toLocaleString() ?? "—"} Hz</output>
         </div>
       ) : null}
-      <input
-        type="range"
-        className="rate-slider-input"
-        min={0}
-        max={last}
-        step={1}
-        value={index}
-        disabled={disabled}
-        aria-label={label ?? "Report rate"}
-        aria-valuetext={`${options[index] ?? 0} Hz`}
-        // "change" fires on release, so a drag stages one change rather than
-        // thirty; "input" only moves the readout and the lit dots.
-        onInput={(event) => setDragging(Number(event.currentTarget.value))}
-        onChange={(event) => {
-          const hz = options[Number(event.currentTarget.value)];
-          setDragging(null);
-          if (hz !== undefined) onChange(hz);
-        }}
-        onBlur={() => setDragging(null)}
-      />
+      <div className="rate-slider-rail">
+        <input
+          type="range"
+          className="rate-slider-input"
+          style={{ "--fill": fill }}
+          min={0}
+          max={last}
+          step={1}
+          value={index}
+          disabled={disabled}
+          aria-label={label ?? "Report rate"}
+          aria-valuetext={`${options[index] ?? 0} Hz`}
+          // "change" fires on release, so a drag stages one change rather than
+          // thirty; "input" only moves the readout and the lit dots.
+          onInput={(event) => setDragging(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const hz = options[Number(event.currentTarget.value)];
+            setDragging(null);
+            if (hz !== undefined) onChange(hz);
+          }}
+          onBlur={() => setDragging(null)}
+        />
+        <output className="rate-slider-bubble" style={{ left: position(index) }} aria-hidden="true">
+          {options[index]?.toLocaleString() ?? "—"} Hz
+        </output>
+      </div>
       <div className="rate-slider-scale">
         {options.map((rate, step) => (
           <Fragment key={rate}>

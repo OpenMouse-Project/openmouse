@@ -103,6 +103,15 @@ export interface ProfileView {
   bunnyHopSupported: boolean;
 }
 
+export type ToastKind = "success" | "error" | "info";
+
+export interface Toast {
+  id: number;
+  kind: ToastKind;
+  title: string;
+  detail?: string;
+}
+
 export interface ControlSnapshot {
   deviceStatus: MouseStatus | null;
   status: MouseStatus | null;
@@ -115,6 +124,8 @@ export interface ControlSnapshot {
   onboardStatus: string;
   connectDisabled: boolean;
   connectLabel: string;
+
+  toasts: Toast[];
 
   devices: SidebarDevice[];
   hasActiveDevice: boolean;

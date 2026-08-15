@@ -10,6 +10,7 @@ import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
 import { SupportRequestsDialog } from "./SupportRequestsDialog";
+import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
 import { BatteryIcon } from "./ui";
 import { DpiCard } from "./cards/DpiCard";
@@ -300,6 +301,7 @@ export function App(): ReactNode {
         snapshot.pending.count > 0 ? "has-pending-changes" : "",
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
+      style={{ "--glass-intensity": preferences.glassIntensity }}
     >
       <Sidebar snapshot={snapshot} onOpenSupportRequests={() => setSupportRequestsOpen(true)} />
 
@@ -360,6 +362,9 @@ export function App(): ReactNode {
 
         {status ? (
           <nav className="workspace-tabs device-data" role="tablist" aria-label="Device sections">
+            <i className="lg-glass__refract" aria-hidden="true" />
+            <i className="lg-glass__tint" aria-hidden="true" />
+            <i className="lg-glass__specular" aria-hidden="true" />
             {tabs.map((tab) => (
               <button
                 key={tab}
@@ -384,6 +389,7 @@ export function App(): ReactNode {
       <PendingBar snapshot={snapshot} />
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <SupportRequestsDialog open={supportRequestsOpen} onClose={() => setSupportRequestsOpen(false)} diagnosticBundle={control.supportDiagnosticBundle()} />
+      <ToastHost toasts={snapshot.toasts} />
     </div>
   );
 }
