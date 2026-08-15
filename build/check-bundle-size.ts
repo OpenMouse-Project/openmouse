@@ -2,14 +2,18 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
-  // Raised from 98 kB for Bridge status, application profile controls, and
-  // native application icons. The measured bundle is 98.7 kB; 103 kB keeps
-  // the guardrail close while leaving modest headroom.
-  ".css": 103_000,
-  // Raised from 505 kB for Bridge discovery, profile editing, automatic
-  // reconnection, and recent device support. Preview fixtures retain their
-  // separate allowance below; the measured aggregate is 525.8 kB with them.
-  ".js": 510_000,
+  // Raised from 103 kB for the interface themes: NieR: Automata and Liquid
+  // Glass each ship their own token block, and the liquid-glass material
+  // layer (SVG displacement filters plus their component rules) adds the
+  // largest share. The measured bundle is 153.7 kB; 160 kB keeps the
+  // guardrail close while leaving modest headroom.
+  ".css": 160_000,
+  // Raised from 510 kB for Bridge discovery, profile editing, automatic
+  // reconnection, and recent device support, which have since grown further
+  // with the supported-device page and MX Master remap controls. Preview
+  // fixtures retain their separate allowance below; the measured aggregate
+  // is 573.4 kB with them.
+  ".js": 565_000,
 };
 
 const ASSETS = join("dist", "assets");
