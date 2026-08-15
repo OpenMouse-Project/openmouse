@@ -90,5 +90,8 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "/devices/logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "/devices/teevolution-terra-pro.png";
+  // Pulsar 4K Wireless Receiver ships with the X2 V2 4K dongle kit; the receiver
+  // product id is not yet published, so match the name reported by WebHID.
+  if (/pulsar/i.test(displayName)) return "/devices/pulsar-x2-v2.png";
   return "/devices/unknown-device.png";
 }
