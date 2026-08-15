@@ -82,7 +82,9 @@ import {
   LOGITECH_HAPTIC_EFFECTS,
   LOGITECH_HAPTIC_PRESETS,
   LOGITECH_SMART_SHIFT_OFF,
+  logitechControlName,
   type LogitechHapticPreset,
+  type LogitechReprogrammableControl,
 } from "@openmouse/protocol/logitech";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
@@ -171,6 +173,7 @@ const teevolutionClient = (): TeevolutionHidClient | null => activeAs(Teevolutio
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
+const keychronClient = (): KeychronHidClient | null => activeAs(KeychronHidClient);
 /** Pulsar is the fallback: any supported client no dedicated driver claims. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
@@ -178,6 +181,7 @@ const pulsarClient = (): PulsarClient | null =>
     : null;
 
 let onboardProfiles: OnboardProfile[] | null = null;
+let buttons: LogitechReprogrammableControl[] | null = null;
 let onboardProfilesLoading = false;
 let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
 let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
@@ -337,6 +341,7 @@ function buildSnapshot(): ControlSnapshot {
     customDpiEditing,
     customDpiText,
     onboardProfiles,
+    buttons,
     editedProfile,
     profilesExpanded,
     deviceMode: lastDeviceMode,
@@ -346,6 +351,20 @@ function buildSnapshot(): ControlSnapshot {
     stagedBunnyHopMs,
     stagedProfileRates,
     stagedProfileName,
+    stagedButtonMappings: Object.fromEntries(stagedButtonMappings),
+    stagedProfileButtonAssignments: [...stagedProfileButtonEdits.entries()]
+      .filter(([key]) => isPendingChange(key))
+      .map(([, edit]) => ({
+        layer: edit.layer,
+        button: edit.button,
+        value: edit.kind === "macro"
+          ? "keyboard"
+          : typeof edit.binding === "string"
+            ? edit.binding
+            : edit.binding.kind === "consumer"
+              ? `consumer:${edit.binding.usage}`
+              : "keyboard",
+      })),
     analogTuning,
     eggPollingDivider,
     pending: {
@@ -399,6 +418,10 @@ function toastForError(title: string, error: unknown): void {
   pushToast("error", title, error instanceof Error ? error.message : title);
 }
 
+export function reportStatus(text: string): void {
+  setReadStatus(text);
+}
+
 function setOnboardStatus(text: string): void {
   onboardStatus = text;
   emit();
@@ -435,9 +458,14 @@ function requireClientMethod<K extends string>(
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
+  const keychron = keychronClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
-    sleepOptions: dm ? [...dm.getSleepOptions()] : null,
+    sleepOptions: dm
+      ? [...dm.getSleepOptions()]
+      : keychron
+        ? [...keychron.getSleepOptions()]
+        : null,
     debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
@@ -476,7 +504,9 @@ function queueInstantFlash(): void {
   instantFlashQueued = true;
   window.setTimeout(() => {
     instantFlashQueued = false;
-    void flashPendingChanges();
+    // The preference can be switched off before this deferred callback runs.
+    // In that case leave the change staged for the Apply bar.
+    if (interfacePreferences.instantFlash) void flashPendingChanges();
   });
 }
 
@@ -657,6 +687,99 @@ export async function requestHostSwitch(slot: number): Promise<void> {
   } catch (error) {
     setReadStatus(error instanceof Error ? error.message : "Unable to request the switch.");
     toastForError("Unable to request the switch", error);
+  }
+}
+
+/**
+ * Reads the reprogrammable controls, if the mouse has any.
+ *
+ * Two round-trips per control puts this well outside what the refresh poll can
+ * afford, so it runs on connect and after a write. A mouse without 0x1B04
+ * answers with an empty list and the card stays hidden.
+ */
+async function readButtons(): Promise<void> {
+  const client = logitechClient();
+  if (!client) {
+    buttons = null;
+    return;
+  }
+  try {
+    const controls = await client.readButtons();
+    buttons = controls.length > 0 ? controls : null;
+  } catch {
+    // A mouse that will not answer keeps the card hidden rather than showing
+    // an empty one; the next connect tries again.
+    buttons = null;
+  }
+}
+
+const BUTTON_GROUP = "logitech-buttons";
+const stagedButtonMappings = new Map<number, number>();
+
+/**
+ * Stages a remap.
+ *
+ * There is no preview: the controls are not part of MouseStatus, so the card
+ * renders the staged mapping itself rather than mirroring it onto a status
+ * snapshot. Every staged remap shares one group and is written together, in
+ * the order it was staged.
+ */
+export function applyButtonMapping(controlId: number, targetControlId: number): void {
+  if (!logitechClient()) return;
+  const control = buttons?.find((candidate) => candidate.controlId === controlId);
+  if (!control) return;
+  if (control.mappedTo === targetControlId) {
+    stagedButtonMappings.delete(controlId);
+    dropPendingChange(`button-${controlId}`);
+    emit();
+    return;
+  }
+  stagedButtonMappings.set(controlId, targetControlId);
+  const target = logitechControlName(targetControlId);
+  stageChange({
+    key: `button-${controlId}`,
+    group: BUTTON_GROUP,
+    label: `${control.name} → ${target}`,
+    command: `Remap ${control.name} (0x${controlId.toString(16).padStart(4, "0")}) to ${target}`,
+    progress: `Remapping ${control.name} to ${target}…`,
+    apply: writeStagedButtonMappings,
+  });
+}
+
+async function writeStagedButtonMappings(): Promise<void> {
+  const client = logitechClient();
+  if (!client) return;
+  try {
+    for (const [controlId, targetControlId] of stagedButtonMappings) {
+      buttons = await client.setButtonMapping(controlId, targetControlId);
+    }
+  } finally {
+    stagedButtonMappings.clear();
+  }
+}
+
+/**
+ * Hands diverted buttons back to the hardware.
+ *
+ * Immediate rather than staged, unlike a remap. A diversion is state another
+ * application left in the mouse, not a preference this user expressed, and the
+ * button does nothing at all until it is cleared — staging a repair behind a
+ * flash step would leave a dead button dead for no reason.
+ */
+export async function restoreDivertedButtons(): Promise<void> {
+  const client = logitechClient();
+  if (!client || settingInProgress) return;
+  settingInProgress = true;
+  setReadStatus("Restoring buttons to hardware control…");
+  emit();
+  try {
+    buttons = await client.clearButtonDiversion();
+    setReadStatus("Buttons restored to hardware control.");
+  } catch (error) {
+    setReadStatus(error instanceof Error ? error.message : "Unable to restore the buttons.");
+  } finally {
+    settingInProgress = false;
+    emit();
   }
 }
 
@@ -1186,6 +1309,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   latestDeviceStatus = null;
   clearActiveClients();
   if (activeDevice !== client.device) onboardProfiles = null;
+  buttons = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1200,10 +1324,15 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     const status = await client.readStatus();
     dpiOptions = await client.getDpiOptions();
     const dm = dmClient();
+    const keychron = keychronClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
+    else if (keychron) {
+      lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+    }
     deviceStatuses.set(client.device, status);
     capabilities = readCapabilities();
     applyStatus(status);
+    await readButtons();
     if (dm) {
       await dm.startNotifications(() => {
         void refreshStatus();
@@ -1540,12 +1669,98 @@ export function applyDpiValue(dpi: number): boolean {
     preview: (status) => {
       status.dpi = dpi;
       if (status.dpiY !== undefined) status.dpiY = dpi;
+      // Stage-aware mice: presets write the active stage; keep the table in sync.
+      if (status.dpiStages && status.activeDpiStage != null && status.activeDpiStage < status.dpiStages.length) {
+        status.dpiStages = status.dpiStages.map((value, index) => (
+          index === status.activeDpiStage ? dpi : value
+        ));
+      }
     },
     apply: async () => {
       await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
   return true;
+}
+
+export function applyDpiStageCount(count: number): void {
+  if (!hasActiveClient()) return;
+  const editor = latestDeviceStatus?.ui?.dpiStageEditor;
+  if (!editor || editor.countEditable !== true) return;
+  if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
+  if (!("setDpiStageCount" in requireSettingsClient())) return;
+  stageChange({
+    key: "dpi-stage-count",
+    label: `${count} DPI stage${count === 1 ? "" : "s"}`,
+    command: `Set DPI stage count to ${count}`,
+    progress: `Setting ${count} DPI stages…`,
+    preview: (status) => {
+      const current = status.dpiStages?.slice() ?? [];
+      if (count <= current.length) status.dpiStages = current.slice(0, count);
+      else {
+        const padded = current.slice();
+        while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
+        status.dpiStages = padded;
+      }
+      if ((status.activeDpiStage ?? 0) >= count) {
+        status.activeDpiStage = count - 1;
+        status.dpi = status.dpiStages[count - 1] ?? status.dpi;
+      }
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageCount", "DPI stage count").setDpiStageCount(count);
+    },
+  });
+}
+
+export function applyActiveDpiStage(stage: number): void {
+  if (!hasActiveClient()) return;
+  const stages = latestDeviceStatus ? withPendingChanges(latestDeviceStatus).dpiStages : undefined;
+  if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
+  stageChange({
+    key: "dpi-active-stage",
+    label: `DPI stage ${stage + 1}`,
+    command: `Set active DPI stage to ${stage + 1}`,
+    progress: `Selecting DPI stage ${stage + 1}…`,
+    preview: (status) => {
+      status.activeDpiStage = stage;
+      status.dpi = status.dpiStages?.[stage] ?? status.dpi;
+    },
+    apply: async () => {
+      await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
+    },
+  });
+}
+
+export function applyDpiStageValue(stage: number, rawDpi: number): void {
+  if (!hasActiveClient()) return;
+  const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
+  if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
+  const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
+  if (!dpiOptions.includes(dpi)) {
+    setReadStatus(`${rawDpi.toLocaleString()} DPI is not supported by this mouse.`);
+    emit();
+    return;
+  }
+  stageChange({
+    key: `dpi-stage-${stage}`,
+    label: `Stage ${stage + 1} · ${dpi.toLocaleString()} DPI`,
+    command: `Set DPI stage ${stage + 1} to ${dpi.toLocaleString()}`,
+    progress: `Setting stage ${stage + 1} to ${dpi.toLocaleString()} DPI…`,
+    preview: (status) => {
+      // Pad first so a newly added stage (only present via a staged count
+      // increase) still diffs against the device snapshot in matchesDeviceStatus.
+      const next = status.dpiStages?.slice() ?? [];
+      while (next.length <= stage) next.push(next.at(-1) ?? status.dpi);
+      next[stage] = dpi;
+      status.dpiStages = next;
+      if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+    },
+  });
 }
 
 export function applyLogitechAxisDpi(dpiX: number, dpiY: number): void {
@@ -1625,10 +1840,15 @@ const PROFILE_SECTOR_GROUP = "logitech-profile-sector";
 const DPI_SLOTS_KEY = "logitech-dpi-slots";
 const PROFILE_NAME_KEY = "logitech-profile-name";
 const PROFILE_RATE_KEY = "logitech-profile-rate";
+const PROFILE_BUTTON_KEY_PREFIX = "logitech-profile-button";
 
 let stagedBunnyHopMs: number | null = null;
 let stagedProfileName: string | null = null;
 let stagedProfileRates: { wireless: number | null; wired: number | null } = { wireless: null, wired: null };
+type StagedProfileButtonEdit =
+  | { kind: "assignment"; layer: "primary" | "g-shift"; button: number; binding: LogitechButtonAction | LogitechButtonBinding }
+  | { kind: "macro"; layer: "primary" | "g-shift"; button: number; steps: LogitechMacroStep[] };
+const stagedProfileButtonEdits = new Map<string, StagedProfileButtonEdit>();
 /**
  * DPI slots live in the active profile's stage table. The plan is edited as a
  * whole because the slot count is expressed by zeroing the stages that fall out
@@ -1644,6 +1864,9 @@ async function writeStagedProfileSector(): Promise<void> {
   const entry = editedProfileEntry();
   if (!entry) throw new Error("No profile is open for editing.");
   const ratesStaged = isPendingChange(PROFILE_RATE_KEY);
+  const buttonEdits = [...stagedProfileButtonEdits.entries()]
+    .filter(([key]) => isPendingChange(key))
+    .map(([, edit]) => edit);
   await client.writeActiveProfile({
     sector: entry.sector,
     bunnyHoppingMs: isPendingChange(BUNNY_HOP_KEY) ? stagedBunnyHopMs : null,
@@ -1651,6 +1874,12 @@ async function writeStagedProfileSector(): Promise<void> {
     reportRateWirelessHz: ratesStaged ? stagedProfileRates.wireless : null,
     reportRateWiredHz: ratesStaged ? stagedProfileRates.wired : null,
     name: isPendingChange(PROFILE_NAME_KEY) ? stagedProfileName : null,
+    buttonAssignments: buttonEdits
+      .filter((edit): edit is Extract<StagedProfileButtonEdit, { kind: "assignment" }> => edit.kind === "assignment")
+      .map(({ layer, button, binding }) => ({ layer, button, binding })),
+    buttonMacros: buttonEdits
+      .filter((edit): edit is Extract<StagedProfileButtonEdit, { kind: "macro" }> => edit.kind === "macro")
+      .map(({ layer, button, steps }) => ({ layer, button, steps })),
   });
   onboardProfiles = null;
   await reloadOnboardProfiles();
@@ -1968,26 +2197,20 @@ export async function applyLogitechButtonAssignment(
   button: number,
   binding: LogitechButtonAction | LogitechButtonBinding,
 ): Promise<void> {
-  const client = logitechClient();
   const entry = editedProfileEntry();
-  if (!client || !entry || settingInProgress) return;
-  settingInProgress = true;
+  if (!logitechClient() || !entry || settingInProgress) return;
   const label = typeof binding === "string" ? binding : binding.kind === "keyboard" ? "keyboard shortcut" : "media key";
-  setOnboardStatus(`Assigning button ${button + 1} to ${label}…`);
-  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to ${label}`);
-  try {
-    await client.writeActiveProfile({
-      sector: entry.sector,
-      buttonAssignments: [{ layer, button, binding }],
-    });
-    await reloadOnboardProfiles();
-    setOnboardStatus(`Button ${button + 1} is now ${label}.`);
-  } catch (error) {
-    recordDiagnosticError(error, "Unable to change the button assignment.");
-    setOnboardStatus(error instanceof Error ? error.message : "Unable to change the button assignment.");
-  } finally {
-    endDeviceWrite();
-  }
+  const key = `${PROFILE_BUTTON_KEY_PREFIX}-${layer}-${button}`;
+  stagedProfileButtonEdits.set(key, { kind: "assignment", layer, button, binding });
+  stageChange({
+    key,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Button ${button + 1} ${label}`,
+    command: `Map ${layer} button ${button + 1} to ${label}`,
+    progress: `Assigning button ${button + 1} to ${label}…`,
+    apply: writeStagedProfileSector,
+  });
+  setOnboardStatus(`Button ${button + 1} assignment staged.`);
 }
 
 export function applyLogitechConsumerAssignment(layer: "primary" | "g-shift", button: number, usage: number): void {
@@ -2008,22 +2231,19 @@ export async function applyLogitechKeyboardSequence(
   button: number,
   steps: LogitechMacroStep[],
 ): Promise<void> {
-  const client = logitechClient();
   const entry = editedProfileEntry();
-  if (!client || !entry || settingInProgress || !steps.length) return;
-  settingInProgress = true;
-  setOnboardStatus(`Saving ${steps.length}-step macro to button ${button + 1}…`);
-  recordDiagnosticCommand(`Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`);
-  try {
-    await client.writeActiveProfile({ sector: entry.sector, buttonMacros: [{ layer, button, steps }] });
-    await reloadOnboardProfiles();
-    setOnboardStatus(`Button ${button + 1} now runs the recorded ${steps.length}-step macro.`);
-  } catch (error) {
-    recordDiagnosticError(error, "Unable to save the onboard macro.");
-    setOnboardStatus(error instanceof Error ? error.message : "Unable to save the onboard macro.");
-  } finally {
-    endDeviceWrite();
-  }
+  if (!logitechClient() || !entry || settingInProgress || !steps.length) return;
+  const key = `${PROFILE_BUTTON_KEY_PREFIX}-${layer}-${button}`;
+  stagedProfileButtonEdits.set(key, { kind: "macro", layer, button, steps });
+  stageChange({
+    key,
+    group: PROFILE_SECTOR_GROUP,
+    label: `Button ${button + 1} ${steps.length}-step macro`,
+    command: `Map ${layer} button ${button + 1} to a ${steps.length}-step onboard macro`,
+    progress: `Saving ${steps.length}-step macro to button ${button + 1}…`,
+    apply: writeStagedProfileSector,
+  });
+  setOnboardStatus(`Button ${button + 1} macro staged.`);
 }
 
 export function renameOnboardProfile(sector: number): void {
@@ -2352,7 +2572,7 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -2902,6 +3122,8 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     return;
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
+  // Populate brand capabilities so preview cards that gate on capabilities still render.
+  capabilities = readCapabilities();
   applyStatus(fixture.status);
   setConnectionButtons(true, "Preview mode");
   setReadStatus(`Preview: ${fixture.label}. Nothing is written.`);
@@ -2913,6 +3135,12 @@ export function start(): void {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
     if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
+    // A remap dropped from the pending bar (reverted, or the group flashed)
+    // must leave the side map, or its select stays on the staged value and a
+    // later flash would write a mapping the user took back.
+    for (const controlId of stagedButtonMappings.keys()) {
+      if (!isPendingChange(`button-${controlId}`)) stagedButtonMappings.delete(controlId);
+    }
     if (!isPendingChange(DPI_SLOTS_KEY)) {
       syncDpiSlotPlan();
     }

@@ -1,0 +1,244 @@
+/* ── Supported Devices Page ────────────────────────────────────────────── */
+
+:root { color-scheme: light; font-family: "DM Sans", system-ui, sans-serif; color: #18181b; background: #fff; }
+:root[data-theme="dark"] { color-scheme: dark; color: #f4f4f5; background: #09090b; }
+* { box-sizing: border-box; }
+body { min-width: 320px; margin: 0; background: inherit; color: inherit; }
+button, input { font: inherit; }
+
+.devices-hero {
+  max-width: 720px;
+  margin: 0 auto 3rem;
+  padding: 4rem 1.5rem 0;
+  text-align: center;
+}
+
+.devices-hero .eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-muted, #888);
+  text-transform: uppercase;
+  margin: 0 0 0.75rem;
+}
+
+.devices-hero h1 {
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.08;
+  margin: 0 0 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.devices-hero h1 em {
+  font-style: normal;
+  color: var(--color-accent, #6366f1);
+}
+
+.devices-hero .lead {
+  font-size: 1.05rem;
+  color: var(--color-muted, #888);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+.filter-bar {
+  max-width: 900px;
+  margin: 0 auto 1.5rem;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border, #e4e4e7);
+  background: var(--color-surface, #fff);
+  color: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus {
+  border-color: var(--color-accent, #6366f1);
+}
+
+.ftabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ftab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border, #e4e4e7);
+  background: transparent;
+  color: var(--color-muted, #888);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.ftab:hover { background: var(--color-hover, #f4f4f5); color: inherit; }
+.ftab.on { background: var(--color-accent, #6366f1); color: #fff; border-color: var(--color-accent, #6366f1); }
+
+.ftab-n {
+  background: rgba(0,0,0,.08);
+  border-radius: 10px;
+  padding: 0 5px;
+  font-size: 0.72rem;
+}
+
+.ftab.on .ftab-n { background: rgba(255,255,255,.25); }
+
+/* ── Stat row ────────────────────────────────────────────────────────────── */
+.stat-row {
+  max-width: 900px;
+  margin: 0 auto 2rem;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--color-muted, #888);
+}
+
+.sdot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.sdot-supported { background: #22c55e; }
+.sdot-pr        { background: #a855f7; }
+.sdot-quickwin  { background: #3b82f6; }
+.sdot-likely    { background: #f59e0b; }
+.sdot-driver    { background: #f97316; }
+.sdot-unknown   { background: #94a3b8; }
+
+/* ── Device list ─────────────────────────────────────────────────────────── */
+#device-list {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.brand-grp { margin-bottom: 1.75rem; }
+
+.brand-lbl {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted, #888);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-reqs {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.72rem;
+}
+
+.device-card {
+  border: 1.5px solid var(--color-border, #e4e4e7);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.device-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border, #e4e4e7);
+}
+
+.device-row:last-child { border-bottom: none; }
+
+.device-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-note {
+  font-size: 0.75rem;
+  color: var(--color-muted, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.spill-supported { background: #dcfce7; color: #15803d; }
+.spill-pr        { background: #f3e8ff; color: #7e22ce; }
+.spill-quickwin  { background: #dbeafe; color: #1d4ed8; }
+.spill-likely    { background: #fef3c7; color: #b45309; }
+.spill-driver    { background: #ffedd5; color: #c2410c; }
+.spill-unknown   { background: #f1f5f9; color: #475569; }
+
+[data-theme="dark"] .spill-supported { background: #14532d; color: #86efac; }
+[data-theme="dark"] .spill-pr        { background: #3b0764; color: #d8b4fe; }
+[data-theme="dark"] .spill-quickwin  { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .spill-likely    { background: #451a03; color: #fcd34d; }
+[data-theme="dark"] .spill-driver    { background: #431407; color: #fdba74; }
+[data-theme="dark"] .spill-unknown   { background: #1e293b; color: #94a3b8; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .spill-supported { background: #14532d; color: #86efac; }
+  :root:not([data-theme="light"]) .spill-pr        { background: #3b0764; color: #d8b4fe; }
+  :root:not([data-theme="light"]) .spill-quickwin  { background: #1e3a5f; color: #93c5fd; }
+  :root:not([data-theme="light"]) .spill-likely    { background: #451a03; color: #fcd34d; }
+  :root:not([data-theme="light"]) .spill-driver    { background: #431407; color: #fdba74; }
+  :root:not([data-theme="light"]) .spill-unknown   { background: #1e293b; color: #94a3b8; }
+}
+
+.req-n {
+  font-size: 0.72rem;
+  color: var(--color-muted, #888);
+  white-space: nowrap;
+  min-width: 38px;
+  text-align: right;
+}
+
+.req-n.hot { color: #ef4444; font-weight: 700; }
+
+.no-results {
+  text-align: center;
+  color: var(--color-muted, #888);
+  padding: 3rem 0;
+}

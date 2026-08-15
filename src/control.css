@@ -1211,6 +1211,10 @@ body { height: 100vh; overflow: hidden; }
 #performance-settings { order: 3; }
 #lighting-settings { order: 4; }
 #logitech-onboard { order: 5; }
+/* The MX Master feature cards are the primary Advanced-tab content; without an
+   order they fall to 0 and render above the sticky tab nav (order 1), pushing
+   it into the middle of the page. Place them just before Device details. */
+#logitech-mx-master-settings { order: 5; }
 #logitech-device-details { order: 6; }
 #logitech-analog-button-settings { order: 7; }
 #pulsar-advanced { order: 8; }
@@ -2591,3 +2595,12 @@ body { height: 100vh; overflow: hidden; }
     background: var(--surface-panel-strong);
   }
 }
+.button-remap-list { display: flex; flex-direction: column; gap: .3rem; }
+.button-remap-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .3rem .45rem; border: 1px solid transparent; border-radius: 6px; color: var(--faint); font-size: .66rem; }
+.button-remap-row select { max-width: 11rem; }
+/* A control the firmware will not let anything point at reads as a fact about
+   the mouse, not a disabled input the user should try to enable. */
+.button-remap-row output { color: var(--dim); font-size: .64rem; }
+.button-remap-diverted { margin-top: .6rem; padding: .55rem .65rem; border: 1px solid #5c4a2a; border-radius: 7px; background: #241f16; }
+.button-remap-diverted p { margin: 0 0 .5rem; color: #e2c489; font-size: .66rem; line-height: 1.45; }
+.button-remap-diverted button { padding: .32rem .6rem; border: 1px solid #7a6234; border-radius: 6px; background: #2e2718; color: #f0d9a4; font-size: .64rem; }

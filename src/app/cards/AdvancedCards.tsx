@@ -9,11 +9,94 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
-import { selectableValues, sleepLabel } from "../../device/options";
+import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
 import type { ControlSnapshot } from "../../device/types";
 import { Collapsible, Segmented, SwitchRow } from "../ui";
 
 const SIGNAL_WORDS = ["Very weak", "Weak", "Fair", "Good", "Excellent"];
+
+function KeychronSleepPicker({
+  sleepTimeout,
+  disabled,
+}: {
+  sleepTimeout: number;
+  disabled: boolean;
+}): ReactNode {
+  const synced = sleepParts(sleepTimeout);
+  const [hours, setHours] = useState(synced.hours);
+  const [minutes, setMinutes] = useState(synced.minutes);
+  const [seconds, setSeconds] = useState(synced.seconds);
+
+  useEffect(() => {
+    const next = sleepParts(sleepTimeout);
+    setHours(next.hours);
+    setMinutes(next.minutes);
+    setSeconds(next.seconds);
+  }, [sleepTimeout]);
+
+  const total = sleepTotalSeconds(hours, minutes, seconds);
+  const dirty = total !== sleepTimeout;
+
+  function commit(): void {
+    if (disabled || !dirty) return;
+    if (total < KEYCHRON_SLEEP_MIN_SECONDS) {
+      control.reportStatus("The sleep time cannot be less than 1 minute.");
+      return;
+    }
+    if (total > KEYCHRON_SLEEP_MAX_SECONDS) return;
+    control.applyPulsarValue("sleep", total);
+  }
+
+  function bind(
+    value: number,
+    setValue: (next: number) => void,
+    max: number,
+  ) {
+    return {
+      value,
+      disabled,
+      min: 0,
+      max,
+      inputMode: "numeric" as const,
+      onChange: (event: { currentTarget: HTMLInputElement }) => {
+        const raw = event.currentTarget.value;
+        if (raw === "") {
+          setValue(0);
+          return;
+        }
+        const next = Number(raw);
+        if (!Number.isInteger(next)) return;
+        setValue(Math.min(max, Math.max(0, next)));
+      },
+      onBlur: () => commit(),
+      onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+        }
+      },
+    };
+  }
+
+  return (
+    <div className="sleep-time-picker" role="group" aria-label="Auto sleep timeout">
+      <label>
+        <input id="sleep-hours" type="number" aria-label="Hours" {...bind(hours, setHours, KEYCHRON_SLEEP_MAX_HOURS)} />
+        <span>h</span>
+      </label>
+      <span className="sleep-time-sep" aria-hidden="true">:</span>
+      <label>
+        <input id="sleep-minutes" type="number" aria-label="Minutes" {...bind(minutes, setMinutes, 59)} />
+        <span>m</span>
+      </label>
+      <span className="sleep-time-sep" aria-hidden="true">:</span>
+      <label>
+        <input id="sleep-seconds" type="number" aria-label="Seconds" {...bind(seconds, setSeconds, 59)} />
+        <span>s</span>
+      </label>
+    </div>
+  );
+}
 
 export function SignalCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const strength = snapshot.status?.signalStrength;
@@ -57,12 +140,14 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const status = snapshot.status;
   if (!status) return null;
   const { traits, capabilities } = snapshot;
+  const keychronSleep = status.ui?.family === "keychron-nape";
 
   let options: ReadonlyArray<readonly [number, string]> = PULSAR_SLEEP_OPTIONS;
-  if (traits.directMode) {
-    const seconds = capabilities?.sleepOptions ?? [10, 30, 60, 300, 600, 1800];
+  if (!keychronSleep && traits.directMode) {
+    const offered = capabilities?.sleepOptions ?? [10, 30, 60, 300, 600, 1800];
+    const seconds = selectableValues(offered, status.sleepTimeout) ?? offered;
     options = seconds.map((value) => [value, sleepLabel(value)] as const);
-  } else if (capabilities?.razerSleepOptions != null) {
+  } else if (!keychronSleep && capabilities?.razerSleepOptions != null) {
     // Seconds throughout — sleepLabel, the staged command text and
     // setSleepTimeout all read seconds, which Pulsar's option values are not.
     // Sleep and low power are Viper V3 protocol; the legacy Viper Mini driver
@@ -70,7 +155,7 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     const seconds = selectableValues(capabilities.razerSleepOptions, status.sleepTimeout);
     if (seconds === null) return null;
     options = seconds.map((value) => [value, sleepLabel(value)] as const);
-  } else if (traits.teevolution && capabilities?.teevolutionProfile && status.connectionType) {
+  } else if (!keychronSleep && traits.teevolution && capabilities?.teevolutionProfile && status.connectionType) {
     options = capabilities.teevolutionProfile.sleepOptions.map(
       (value) => [value, sleepLabel(value * 10)] as const,
     );
@@ -100,14 +185,21 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
           </button>
         ) : null}
       </div>
-      <select
-        id="sleep-select"
-        value={status.sleepTimeout ?? ""}
-        disabled={!asleep}
-        onChange={(event) => control.applyPulsarValue("sleep", Number(event.currentTarget.value))}
-      >
-        {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
+      {keychronSleep && asleep ? (
+        <KeychronSleepPicker
+          sleepTimeout={status.sleepTimeout!}
+          disabled={snapshot.settingsPending}
+        />
+      ) : (
+        <select
+          id="sleep-select"
+          value={status.sleepTimeout ?? ""}
+          disabled={!asleep}
+          onChange={(event) => control.applyPulsarValue("sleep", Number(event.currentTarget.value))}
+        >
+          {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      )}
     </article>
   );
 }

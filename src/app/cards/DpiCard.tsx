@@ -157,6 +157,87 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   );
 }
 
+/** Shared Compx/Keychron-style stages: one DPI value per stage + active highlight. */
+function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const editor = status?.ui?.dpiStageEditor;
+  const stages = status?.dpiStages;
+  if (!status || !editor || !stages || stages.length === 0) return null;
+
+  const countEditable = editor.countEditable === true;
+  const active = Math.min(status.activeDpiStage ?? 0, stages.length - 1);
+  const disabled = snapshot.settingsPending;
+
+  return (
+    <div id="dpi-stages">
+      {countEditable ? (
+        <>
+          <div id="dpi-stage-count-header" className="dpi-slot-header">
+            <span>Stages in use</span>
+            <div id="dpi-stage-count" className="dpi-slot-count" role="group" aria-label="Number of DPI stages">
+              {Array.from({ length: editor.maxStages }, (_, step) => {
+                const value = step + 1;
+                const on = value === stages.length;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={disabled}
+                    className={on ? "selected" : ""}
+                    aria-pressed={on}
+                    onClick={() => control.applyDpiStageCount(value)}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="dpi-slot-rule" />
+        </>
+      ) : null}
+      <div id="dpi-stage-list" className="dpi-slot-list dpi-stage-list">
+        <div className="dpi-slot-row dpi-slot-head">
+          <span /><span>DPI</span>
+        </div>
+        {stages.map((dpi, index) => {
+          const isActive = index === active;
+          return (
+            <div key={index} className={`dpi-slot-row${isActive ? " is-default" : ""}`}>
+              <button
+                type="button"
+                className="dpi-slot-index"
+                disabled={disabled}
+                title={isActive ? "Active stage" : "Make this the active stage"}
+                aria-pressed={isActive}
+                onClick={() => control.applyActiveDpiStage(index)}
+              >
+                {index + 1}
+              </button>
+              <input
+                type="number"
+                aria-label={`Stage ${index + 1} DPI`}
+                min={editor.minDpi}
+                max={editor.maxDpi}
+                step={editor.stepDpi}
+                defaultValue={dpi}
+                key={`stage-${index}-${dpi}`}
+                disabled={disabled}
+                onChange={(event) => control.applyDpiStageValue(index, Number(event.currentTarget.value))}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <small id="dpi-stage-note" className="setting-note">
+        {countEditable
+          ? `Presets and Custom edit the highlighted stage. ${editor.minDpi.toLocaleString()}–${editor.maxDpi.toLocaleString()} DPI. The DPI button on the mouse cycles through these stages.`
+          : `Presets and Custom edit the highlighted stage. ${editor.minDpi.toLocaleString()}–${editor.maxDpi.toLocaleString()} DPI in steps of ${editor.stepDpi}. The DPI button on the mouse cycles through all ${editor.maxStages} stages.`}
+      </small>
+    </div>
+  );
+}
+
 function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
   const [x, setX] = useState(String(status.dpi));
@@ -211,8 +292,15 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const status = snapshot.status;
   const deviceStatus = snapshot.deviceStatus;
   if (!status || !deviceStatus) return null;
-  const staged = snapshot.pending.keys.includes("dpi");
+  const staged = snapshot.pending.keys.includes("dpi")
+    || snapshot.pending.keys.includes("dpi-stage-count")
+    || snapshot.pending.keys.includes("dpi-active-stage")
+    || snapshot.pending.keys.some((key) => key.startsWith("dpi-stage-"));
   const slotsAvailable = snapshot.profile.slotsAvailable;
+  const stagesAvailable = Boolean(status.ui?.dpiStageEditor)
+    && Array.isArray(status.dpiStages)
+    && status.dpiStages.length > 0
+    && !slotsAvailable;
   const showSeparateDpiAxes = snapshot.traits.logitech
     && status.supportsSeparateDpiAxes === true
     && !slotsAvailable;
@@ -225,7 +313,10 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     : `${source.dpi.toLocaleString()} DPI`;
 
   return (
-    <article className={`setting-card dpi-card${staged ? " is-staged" : ""}`} data-pending-key="dpi">
+    <article
+      className={`setting-card dpi-card${staged ? " is-staged" : ""}`}
+      data-pending-key="dpi dpi-stage-count dpi-active-stage"
+    >
       <div className="setting-heading">
         <div>
           <p>DPI</p>
@@ -285,6 +376,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
       {showSeparateDpiAxes ? <AxisControls snapshot={snapshot} /> : null}
       {slotsAvailable ? <DpiSlots snapshot={snapshot} /> : null}
+      {stagesAvailable ? <DpiStages snapshot={snapshot} /> : null}
 
       <div className="setting-action">
         <span id="dpi-pending">

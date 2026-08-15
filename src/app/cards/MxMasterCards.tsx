@@ -124,6 +124,93 @@ function EasySwitchCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
+/**
+ * Reprogrammable controls.
+ *
+ * Only the controls the device says are reprogrammable get a dropdown, and the
+ * targets in it come from the device's own group mask. Left and right click
+ * report an empty mask, so the firmware — not this card — is what keeps the
+ * primary buttons where they are; they are still listed with a note, so the
+ * absence of a dropdown reads as a restriction rather than a missing button.
+ *
+ * Virtual controls are left out entirely. A device reports them (the MX Master
+ * 4's "virtual gesture button" is the event its gesture button emits when held
+ * and dragged), but they are not something anyone can press, so a row for one
+ * is noise rather than a restriction worth showing.
+ */
+export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const all = snapshot.buttons;
+  if (!all || all.length === 0) return null;
+  const controls = all.filter((button) => !button.virtual);
+  if (controls.length === 0) return null;
+  const diverted = controls.filter((button) => button.diverted);
+  const firmwareLocked = controls.filter((button) => !button.reprogrammable);
+  const busy = snapshot.settingInProgress;
+  const nameOf = (controlId: number): string =>
+    all.find((candidate) => candidate.controlId === controlId)?.name
+    ?? `Control 0x${controlId.toString(16).padStart(4, "0").toUpperCase()}`;
+  const anyStaged = snapshot.pending.keys.some((key) => key.startsWith("button-"));
+  return (
+    <article className={`setting-card${anyStaged ? " is-staged" : ""}`}>
+      <div className="setting-heading compact">
+        <div><p>BUTTONS</p><h2>Remapping</h2></div>
+        <output>{controls.length}</output>
+      </div>
+      <div className="button-remap-list">
+        {controls.map((button) => {
+          const staged = snapshot.pending.keys.includes(`button-${button.controlId}`);
+          const canRemap = button.reprogrammable && button.remappableTo.length > 0;
+          return (
+            <label
+              key={button.controlId}
+              className={`button-remap-row${staged ? " is-staged" : ""}`}
+              data-pending-key={`button-${button.controlId}`}
+            >
+              <span>{button.name}</span>
+              {canRemap ? (
+                <select
+                  value={snapshot.stagedButtonMappings[button.controlId] ?? button.mappedTo}
+                  disabled={busy}
+                  onChange={(event) => control.applyButtonMapping(
+                    button.controlId,
+                    Number(event.currentTarget.value),
+                  )}
+                >
+                  {button.remappableTo.map((target) => (
+                    <option key={target} value={target}>{nameOf(target)}</option>
+                  ))}
+                </select>
+              ) : (
+                <output>{button.taskName}</output>
+              )}
+            </label>
+          );
+        })}
+      </div>
+      {firmwareLocked.length > 0 ? (
+        <small className="setting-note">
+          {firmwareLocked.map((button) => button.name).join(" and ")}
+          {firmwareLocked.length === 1 ? " is" : " are"} locked by the mouse's firmware and cannot be
+          remapped.
+        </small>
+      ) : null}
+      {diverted.length > 0 ? (
+        <div className="button-remap-diverted">
+          <p>
+            {diverted.length === 1
+              ? `${diverted[0]!.name} is being handled by another application, so it does nothing here.`
+              : `${diverted.map((button) => button.name).join(", ")} are being handled by another `
+                + "application, so they do nothing here."}
+          </p>
+          <button type="button" disabled={busy} onClick={() => void control.restoreDivertedButtons()}>
+            Restore to hardware control
+          </button>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 export function MxMasterCards({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   return <><HapticsCard snapshot={snapshot} /><WheelCard snapshot={snapshot} /><DeviceNameCard snapshot={snapshot} /><EasySwitchCard snapshot={snapshot} /></>;
 }

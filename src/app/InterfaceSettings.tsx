@@ -57,6 +57,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridgeApplicationsList, setBridgeApplicationsList] = useState<BridgeApplication[]>([]);
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
   const [selectedApplicationPath, setSelectedApplicationPath] = useState("");
+  const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(false);
   const [bridgeChecking, setBridgeChecking] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
@@ -89,6 +90,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   }, []);
 
   useEffect(() => {
+    if (!bridgeConnectionRequested) return;
     const controller = new AbortController();
     let reconnecting = false;
     const reconnect = (): void => {
@@ -106,7 +108,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       window.removeEventListener("focus", reconnect);
       document.removeEventListener("visibilitychange", reconnect);
     };
-  }, [checkBridge]);
+  }, [bridgeConnectionRequested, checkBridge]);
 
   const selectedApplication = bridgeApplicationsList.find(
     (application) => application.path === selectedApplicationPath,
@@ -199,7 +201,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                 className="openmouse-bridge-connect"
                 type="button"
                 disabled={bridgeChecking}
-                onClick={() => void checkBridge()}
+                onClick={() => {
+                  if (bridgeConnectionRequested) void checkBridge();
+                  else setBridgeConnectionRequested(true);
+                }}
               >
                 {bridge ? "Refresh Bridge" : "Connect Bridge"}
               </button>

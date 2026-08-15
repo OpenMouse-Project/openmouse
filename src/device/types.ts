@@ -1,4 +1,5 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../interface-preferences";
 import type { PreviewMode } from "../preview-modes";
@@ -82,6 +83,12 @@ export interface AnalogTuningState {
   both: AnalogTuning;
 }
 
+export interface StagedProfileButtonAssignment {
+  layer: "primary" | "g-shift";
+  button: number;
+  value: string;
+}
+
 export interface ProfileView {
   entry: OnboardProfile | null;
   summary: { name: string; detail: string };
@@ -135,6 +142,12 @@ export interface ControlSnapshot {
   customDpiText: string;
 
   onboardProfiles: OnboardProfile[] | null;
+  /**
+   * Reprogrammable controls, or null on a mouse that has none. Two round-trips
+   * per control is too much for the refresh poll, so this is read on connect
+   * and after a write rather than alongside the status.
+   */
+  buttons: LogitechReprogrammableControl[] | null;
   editedProfile: number | "host" | null;
   profilesExpanded: boolean;
   deviceMode: MouseStatus["deviceMode"];
@@ -145,6 +158,9 @@ export interface ControlSnapshot {
   stagedBunnyHopMs: number | null;
   stagedProfileRates: { wireless: number | null; wired: number | null };
   stagedProfileName: string | null;
+  /** Control id → staged remap target, for controls with an unflashed remap. */
+  stagedButtonMappings: Record<number, number>;
+  stagedProfileButtonAssignments: StagedProfileButtonAssignment[];
   analogTuning: AnalogTuningState;
   eggPollingDivider: number | null;
 
