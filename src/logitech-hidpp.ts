@@ -1,4 +1,5 @@
 import type { MouseStatus } from "./mouse-types";
+import { hid } from "./hardware/bridge";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 const LOGITECH_RECEIVER_PRODUCT_ID = 0xc54d;
@@ -111,11 +112,7 @@ export class LogitechHidppClient {
   }
 
   static async requestReceiver(): Promise<LogitechHidppClient | null> {
-    if (!navigator.hid) {
-      throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
-    }
-
-    const devices = await navigator.hid.requestDevice({
+    const devices = await hid.requestDevice({
       filters: [{
         vendorId: LOGITECH_VENDOR_ID,
         productId: LOGITECH_RECEIVER_PRODUCT_ID,
@@ -128,11 +125,7 @@ export class LogitechHidppClient {
   }
 
   static async reconnectAuthorizedReceiver(): Promise<LogitechHidppClient | null> {
-    if (!navigator.hid) {
-      return null;
-    }
-
-    const devices = await navigator.hid.getDevices();
+    const devices = await hid.getDevices();
     const device = devices.find((candidate) => this.isSupported(candidate));
     return device ? new LogitechHidppClient(device) : null;
   }

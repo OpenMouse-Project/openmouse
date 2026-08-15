@@ -4,6 +4,7 @@
  * Keeps multi-collection HID discovery, peer bind, and connect coalescing out
  * of control.ts so other brand PRs do not touch WE-specific paths.
  */
+import { hid } from "./hardware/bridge";
 import { EggWeHidClient } from "./egg-we-hid";
 
 export type { EggWeHidClient };
@@ -47,9 +48,7 @@ export function eggWeFromAuthorized(devices: readonly HIDDevice[]): EggWeHidClie
 export async function eggWeAuthorizedPool(
   selected: readonly HIDDevice[],
 ): Promise<HIDDevice[]> {
-  const granted = typeof navigator !== "undefined" && navigator.hid
-    ? await navigator.hid.getDevices()
-    : [];
+  const granted = await hid.getDevices();
   return [...selected, ...granted].filter(
     (device, index, list) => list.indexOf(device) === index,
   );
@@ -59,10 +58,7 @@ export async function eggWePrepare(
   client: EggWeHidClient,
   devices?: readonly HIDDevice[],
 ): Promise<void> {
-  const all = devices
-    ?? (typeof navigator !== "undefined" && navigator.hid
-      ? await navigator.hid.getDevices()
-      : []);
+  const all = devices ?? await hid.getDevices();
   client.bindPeers(all);
 }
 

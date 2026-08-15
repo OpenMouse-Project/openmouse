@@ -1,4 +1,5 @@
 import type { MouseStatus } from "./mouse-types";
+import { hid } from "./hardware/bridge";
 import {
   WE_CMD_GET_POWER,
   WE_CMD_READ_EEPROM,
@@ -171,10 +172,7 @@ export class EggWeHidClient {
 
   async open(): Promise<void> {
     if (!this.channelsResolved) {
-      const authorized = typeof navigator !== "undefined" && navigator.hid
-        ? await navigator.hid.getDevices()
-        : [];
-      this.bindPeers(authorized);
+      this.bindPeers(await hid.getDevices());
     }
     const channels = this.resolvedChannels();
     if (!channels) {

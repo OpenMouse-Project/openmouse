@@ -1,4 +1,5 @@
 import "./control.css";
+import { hid } from "./hardware/bridge";
 import {
   EGG_BUTTON_MAPPINGS,
   EGG_BUTTON_NAMES,
@@ -513,8 +514,8 @@ function renderControl(): void {
   });
   populateInterfaceSettings();
   applyInterfacePreferences();
-  navigator.hid?.addEventListener("connect", handleHidConnect);
-  navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
+  hid.addEventListener("connect", handleHidConnect);
+  hid.addEventListener("disconnect", handleHidDisconnect);
   void reconnectAuthorizedDevice();
 }
 
@@ -981,7 +982,7 @@ function listLogicalDevices(devices?: HIDDevice[]): HIDDevice[] {
 async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
   const list = document.querySelector<HTMLElement>("#sidebar-device-list");
   if (!list) return;
-  const all = devices ?? await navigator.hid?.getDevices() ?? [];
+  const all = devices ?? await hid.getDevices();
   const supportedDevices = listLogicalDevices(all);
   if (supportedDevices.length === 0) {
     list.innerHTML = `<div class="device-select"><span class="device-dot is-idle"></span><span><strong>No device connected</strong><small>Choose a supported device</small></span></div>`;
@@ -1006,7 +1007,7 @@ async function renderDeviceSidebar(devices?: HIDDevice[]): Promise<void> {
 
 async function selectAuthorizedDevice(index: number): Promise<void> {
   if (settingInProgress || refreshInProgress) return;
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  const devices = listLogicalDevices(await hid.getDevices());
   const device = devices[index];
   if (!device || device === activeDevice) return;
   const client = createSupportedClient(device);
@@ -1111,7 +1112,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
 
   if (isEggWeClient(client)) {
     void (async () => {
-      const all = await navigator.hid?.getDevices() ?? [];
+      const all = await hid.getDevices();
       await renderDeviceSidebar(all);
       const result = await eggWeResolveConnect(event.device, activeEggWeClient, activeDevice, all);
       if (result.action === "ignore") return;
@@ -1159,7 +1160,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   }
   showDisconnectedState();
   void (async () => {
-    const devices = (await navigator.hid?.getDevices() ?? [])
+    const devices = (await hid.getDevices())
       .filter((device) => device !== event.device);
     const logical = listLogicalDevices(devices);
     const replacement = logical
@@ -1177,8 +1178,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
 }
 
 async function requestSupportedClient(): Promise<SupportedClient | null> {
-  if (!navigator.hid) throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
-  const devices = await navigator.hid.requestDevice({
+  const devices = await hid.requestDevice({
     filters: SUPPORTED_HID_FILTERS,
   });
   if (devices.length === 0) return null;
@@ -1298,7 +1298,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (delay) await waitForHidChange(delay);
       if (hasActiveClient()) return;
 
-      const devices = await navigator.hid?.getDevices() ?? [];
+      const devices = await hid.getDevices();
       const clients = listLogicalDevices(devices)
         .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
         .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
@@ -1339,13 +1339,7 @@ function setConnectionButtons(disabled: boolean, label: string): void {
   });
 }
 
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
 function waitForHidChange(milliseconds: number): Promise<void> {
-  const hid = navigator.hid;
-  if (!hid) return wait(milliseconds);
   return new Promise((resolve) => {
     const finish = (): void => {
       window.clearTimeout(timer);
@@ -1840,8 +1834,8 @@ async function sendStatusToDiscord(): Promise<void> {
 
 window.addEventListener("beforeunload", () => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
-  navigator.hid?.removeEventListener("connect", handleHidConnect);
-  navigator.hid?.removeEventListener("disconnect", handleHidDisconnect);
+  hid.removeEventListener("connect", handleHidConnect);
+  hid.removeEventListener("disconnect", handleHidDisconnect);
   void activeClient?.close();
   void activePulsarClient?.close();
   void activeEggClient?.close();

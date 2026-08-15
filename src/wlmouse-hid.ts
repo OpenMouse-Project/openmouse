@@ -1,4 +1,5 @@
 import type { MouseStatus } from "./mouse-types";
+import { hid } from "./hardware/bridge";
 import { VENDOR_ID, WLMOUSE_MAX_POLLING_HZ, WLMOUSE_PRODUCTS } from "./vendors";
 
 export const WLMOUSE_VENDOR_ID = VENDOR_ID.wlmouse;
@@ -138,7 +139,7 @@ export class WLMouseHidClient {
 
   async startNotifications(onChange: () => void): Promise<boolean> {
     if (this.notifier) return true;
-    const devices = await navigator.hid?.getDevices() ?? [];
+    const devices = await hid.getDevices();
     const sibling = devices.find((candidate) =>
       candidate !== this.device
       && candidate.vendorId === this.device.vendorId
