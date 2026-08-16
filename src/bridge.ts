@@ -10,6 +10,8 @@ export interface BridgeStatus {
   batteryThresholdPercent: number;
   autostartEnabled: boolean;
   foregroundApplication: BridgeApplication | null;
+  activeProfile: BridgeProfile | null;
+  visibleApplicationCount: number;
   profileCount: number;
 }
 
@@ -31,6 +33,11 @@ export interface BridgeProfile {
   settings: { dpi: number | null; pollingRateHz: number | null };
 }
 
+export interface BridgeGame {
+  name: string;
+  executables: string[];
+}
+
 export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
   return bridgeRequest<BridgeStatus>("/v1/status", undefined, signal);
 }
@@ -41,6 +48,10 @@ export async function bridgeApplications(signal?: AbortSignal): Promise<BridgeAp
 
 export async function bridgeProfiles(signal?: AbortSignal): Promise<BridgeProfile[]> {
   return bridgeRequest<BridgeProfile[]>("/v1/profiles", undefined, signal);
+}
+
+export async function bridgeGames(signal?: AbortSignal): Promise<BridgeGame[]> {
+  return bridgeRequest<BridgeGame[]>("/v1/games", undefined, signal);
 }
 
 export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {

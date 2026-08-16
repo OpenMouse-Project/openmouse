@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   bridgeApplications,
   bridgeApplicationIconUrl,
+  bridgeGames,
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
   type BridgeApplication,
+  type BridgeGame,
   type BridgeProfile,
   type BridgeStatus,
 } from "../bridge";
@@ -69,6 +71,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
   const [bridgeApplicationsList, setBridgeApplicationsList] = useState<BridgeApplication[]>([]);
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
+  const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
   const [selectedApplicationPath, setSelectedApplicationPath] = useState("");
   const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(false);
   const [bridgeChecking, setBridgeChecking] = useState(false);
@@ -78,14 +81,16 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const checkBridge = useCallback(async (signal?: AbortSignal): Promise<void> => {
     setBridgeChecking(true);
     try {
-      const [status, applications, profiles] = await Promise.all([
+      const [status, applications, profiles, games] = await Promise.all([
         bridgeStatus(signal),
         bridgeApplications(signal),
         bridgeProfiles(signal),
+        bridgeGames(signal),
       ]);
       setBridge(status);
       setBridgeApplicationsList(applications);
       setBridgeProfilesList(profiles);
+      setBridgeGamesList(games);
       setSelectedApplicationPath((current) => current
         || applications.find((application) => application.foreground)?.path
         || applications[0]?.path
@@ -96,6 +101,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         setBridge(null);
         setBridgeApplicationsList([]);
         setBridgeProfilesList([]);
+        setBridgeGamesList([]);
       }
     } finally {
       if (!signal?.aborted) setBridgeChecking(false);
@@ -223,7 +229,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
               </button>
               <small>
                 {bridge
-                  ? `${bridge.trackedGameCount} games tracked · battery alerts at ${bridge.batteryThresholdPercent}%`
+                  ? `${bridgeGamesList.length} games tracked · ${bridge.profileCount} profiles · battery alerts at ${bridge.batteryThresholdPercent}%`
                   : "Install OpenMouse Bridge before connecting it to this control panel."}
               </small>
             </div>
@@ -236,6 +242,18 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                   </div>
                   <small>{bridgeApplicationsList.length} open</small>
                 </div>
+                {bridgeGamesList.length > 0 ? (
+                  <details className="openmouse-bridge-game-catalog">
+                    <summary>Supported games ({bridgeGamesList.length})</summary>
+                    <div>
+                      {bridgeGamesList.map((game) => (
+                        <span key={game.name} data-active={bridge.activeGames.includes(game.name)}>
+                          {game.name}
+                        </span>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
                 {bridgeApplicationsList.length > 0 ? (
                   <div className="openmouse-bridge-app-grid">
                     {bridgeApplicationsList.map((application) => {
@@ -282,6 +300,11 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                       {selectedProfile ? "Update profile" : "Create profile"}
                     </button>
                   </div>
+                ) : null}
+                {bridge.activeProfile ? (
+                  <p className="openmouse-bridge-message" role="status">
+                    Active profile: {bridge.activeProfile.application.name} · {bridge.activeProfile.settings.dpi ?? "—"} DPI · {bridge.activeProfile.settings.pollingRateHz ?? "—"} Hz
+                  </p>
                 ) : null}
                 {bridgeMessage ? <p className="openmouse-bridge-message" role="status">{bridgeMessage}</p> : null}
               </div>

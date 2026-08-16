@@ -800,6 +800,11 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-app-heading span { color: var(--ui-accent); font: 600 .52rem var(--font-mono); letter-spacing: .09em; }
 .openmouse-bridge-app-heading h4 { margin: .2rem 0 0; color: var(--text-strong); font-size: .76rem; }
 .openmouse-bridge-app-heading > small { color: var(--faint); font: .55rem var(--font-mono); }
+.openmouse-bridge-game-catalog { padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
+.openmouse-bridge-game-catalog summary { color: var(--text-soft); font: 600 .55rem var(--font-mono); cursor: pointer; }
+.openmouse-bridge-game-catalog > div { display: flex; flex-wrap: wrap; gap: .35rem; padding-top: .55rem; }
+.openmouse-bridge-game-catalog span { padding: .24rem .4rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: .5rem; }
+.openmouse-bridge-game-catalog span[data-active="true"] { border-color: var(--ui-accent); background: var(--ui-accent-soft); color: var(--text-strong); }
 .openmouse-bridge-app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .4rem; max-height: 13rem; overflow: auto; }
 .openmouse-bridge-app-grid > button { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; min-width: 0; padding: .5rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); color: var(--text-soft); text-align: left; cursor: pointer; }
 .openmouse-bridge-app-grid > button:hover, .openmouse-bridge-app-grid > button.is-selected { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
