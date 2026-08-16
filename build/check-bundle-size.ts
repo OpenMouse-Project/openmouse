@@ -5,15 +5,16 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised from 103 kB for the interface themes: NieR: Automata and Liquid
   // Glass each ship their own token block, and the liquid-glass material
   // layer (SVG displacement filters plus their component rules) adds the
-  // largest share. The measured bundle is 153.7 kB; 160 kB keeps the
-  // guardrail close while leaving modest headroom.
-  ".css": 160_000,
+  // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
+  // the Developer Hall of Fame page (~15 kB of animated card and hero
+  // styles that load only on /contributors.html).
+  ".css": 175_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
-  // is 573.4 kB with them.
-  ".js": 565_000,
+  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk.
+  ".js": 590_000,
 };
 
 const ASSETS = join("dist", "assets");

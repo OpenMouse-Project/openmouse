@@ -52,6 +52,14 @@ const SETTINGS_PATH = (
 
 const REQUEST_PATH = <path d="M12 5v14M5 12h14" />;
 
+const FAME_PATH = (
+  <>
+    <path d="M6 9a6 6 0 0 0 12 0" />
+    <path d="M7.5 3h9l-.5 6a4.5 4.5 0 0 1-8 0l-.5-6Z" />
+    <path d="M12 15v4M8.5 21h7" />
+  </>
+);
+
 const DEBUG_PATH = (
   <>
     <path d="M8 6a4 4 0 0 1 8 0" />
@@ -188,6 +196,10 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
           <NavIcon path={REQUEST_PATH} />
           Request a mouse
         </button>
+        <a className="nav-item has-label" href="/contributors.html" title="Developer Hall of Fame" aria-label="Developer Hall of Fame">
+          <NavIcon path={FAME_PATH} />
+          Hall of Fame
+        </a>
         <a className="nav-item is-debug" href="/check.html" title="Mouse Check" aria-label="Mouse Check">
           <NavIcon path={DEBUG_PATH} />
         </a>
