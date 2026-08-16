@@ -182,3 +182,14 @@ test("low power needs the Razer capability, not merely a reported threshold", ()
     capabilities: { razerLowPowerOptions: [5, 10, 15, 20] },
   })).lowPower, true);
 });
+
+test("the Razer buttons card appears only when the driver reported mappings", () => {
+  const withMappings = cardAvailability(snapshot({
+    status: { brand: "Razer", razerButtonMappings: { leftClick: "Left Click" } },
+  }));
+  assert.equal(withMappings.razerButtons, true);
+
+  // A Razer that never answered the class 0x02 read leaves the field undefined
+  // — the tab must stay empty rather than render a card with no rows.
+  assert.equal(cardAvailability(snapshot({ status: { brand: "Razer" } })).razerButtons, false);
+});

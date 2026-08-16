@@ -6,6 +6,17 @@ import {
   type EggButtonMapping,
   type EggSpdtMode,
 } from "@openmouse/protocol/drivers/endgame/egg-op1-hid";
+import {
+  RAZER_BUTTON_CONTROLS,
+  RAZER_BUTTON_CONTROL_LABEL,
+  RAZER_BUTTON_MAPPINGS,
+  RAZER_LOCKED_BUTTON_CONTROL,
+  RAZER_TOGGLE_CONTROLS,
+  RAZER_TOGGLE_CONTROL_INFO,
+  type RazerButtonControl,
+  type RazerButtonMapping,
+  type RazerToggleControl,
+} from "@openmouse/protocol/razer";
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
@@ -737,6 +748,111 @@ export function EggCpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
         </div>
       </article>
     </Collapsible>
+  );
+}
+
+/**
+ * Two genuinely different kinds of control share one card.
+ *
+ * `RAZER_BUTTON_CONTROLS` are cross-assignable to each other's action or
+ * Disabled. `RAZER_TOGGLE_CONTROLS` only switch between their own captured
+ * factory action and Disabled — cross-assigning those has never been tested on
+ * hardware, so the driver does not offer it and neither does this. The two
+ * families deliberately share no control names and no option labels, which is
+ * what keeps one group's rows from reading the other's state out of the single
+ * `razerButtonMappings` dict.
+ *
+ * Laid out with `button-remap-list`/`button-remap-row` to match
+ * `MxMasterButtonsCard`, the other remap card in this same tab.
+ */
+export function RazerButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const mappings = snapshot.status?.razerButtonMappings;
+  if (!mappings) return null;
+  const busy = snapshot.settingInProgress;
+  const rows: Array<{ key: string; name: string; current: string; options: readonly string[]; locked: boolean }> = [];
+  for (const con of RAZER_BUTTON_CONTROLS) {
+    const current = mappings[con];
+    if (!current) continue;
+    rows.push({
+      key: `razer-button-${con}`,
+      name: RAZER_BUTTON_CONTROL_LABEL[con],
+      current,
+      options: RAZER_BUTTON_MAPPINGS,
+      // Left Click is fixed on the Standard layer — Synapse enforces the same
+      // restriction, and the driver throws rather than send it.
+      locked: con === RAZER_LOCKED_BUTTON_CONTROL,
+    });
+  }
+  for (const con of RAZER_TOGGLE_CONTROLS) {
+    const current = mappings[con];
+    if (!current) continue;
+    const info = RAZER_TOGGLE_CONTROL_INFO[con];
+    rows.push({
+      key: `razer-toggle-${con}`,
+      name: info.label,
+      current,
+      options: [info.enabledLabel, "Disabled"],
+      locked: false,
+    });
+  }
+  if (rows.length === 0) return null;
+  const anyStaged = snapshot.pending.keys.some((key) => key.startsWith("razer-button-") || key.startsWith("razer-toggle-"));
+  const lockedName = rows.find((row) => row.locked)?.name;
+  return (
+    <article id="razer-button-settings" className={`setting-card${anyStaged ? " is-staged" : ""}`}>
+      {/*
+        No count badge here, unlike MxMasterButtonsCard. Its control count is
+        worth showing because it varies per device once virtual and
+        firmware-locked controls are filtered out; this set is fixed at seven,
+        so a badge would only ever read "7".
+      */}
+      <div className="setting-heading compact">
+        <div><p>BUTTONS</p><h2>Mapping</h2></div>
+      </div>
+      <div className="button-remap-list">
+        {rows.map((row) => {
+          const staged = snapshot.pending.keys.includes(row.key);
+          const known = row.options.includes(row.current);
+          return (
+            <label
+              key={row.key}
+              className={`button-remap-row${staged ? " is-staged" : ""}`}
+              data-pending-key={row.key}
+            >
+              <span>{row.name}</span>
+              {row.locked ? <output>{row.current}</output> : (
+                <select
+                  value={row.current}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    if (row.key.startsWith("razer-button-")) {
+                      control.applyRazerButtonMapping(
+                        row.key.slice("razer-button-".length) as RazerButtonControl,
+                        value as RazerButtonMapping,
+                      );
+                    } else {
+                      control.applyRazerToggleControl(
+                        row.key.slice("razer-toggle-".length) as RazerToggleControl,
+                        value,
+                      );
+                    }
+                  }}
+                >
+                  {known ? null : <option value={row.current} disabled>{row.current}</option>}
+                  {row.options.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              )}
+            </label>
+          );
+        })}
+      </div>
+      {lockedName ? (
+        <small className="setting-note">
+          {lockedName} is fixed on the Standard layer and cannot be reassigned or disabled.
+        </small>
+      ) : null}
+    </article>
   );
 }
 

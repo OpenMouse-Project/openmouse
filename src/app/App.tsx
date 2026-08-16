@@ -29,6 +29,7 @@ import {
   NinjutsoClickCard,
   NinjutsoSensorCard,
   ProcessingCard,
+  RazerButtonCard,
   PulsarProCard,
   SignalCard,
   SleepCard,
@@ -139,6 +140,7 @@ function Workspace({
     show(has.eggPolling, ["performance"]) ? <EggPollingCard key="eggpolling" snapshot={snapshot} /> : null,
     show(has.eggCpi, ["performance"]) ? <EggCpiCard key="eggcpi" snapshot={snapshot} /> : null,
     show(has.eggButtons, ["buttons"]) ? <EggButtonCard key="eggbuttons" snapshot={snapshot} /> : null,
+    show(has.razerButtons, ["buttons"]) ? <RazerButtonCard key="razerbuttons" snapshot={snapshot} /> : null,
     show(has.mxMasterButtons, ["buttons"])
       ? <MxMasterButtonsCard key="mxmaster-buttons" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,

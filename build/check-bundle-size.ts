@@ -13,8 +13,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
-  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk.
-  ".js": 590_000,
+  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
+  // from 590 kB for the Razer button-mapping card and its codec: the measured
+  // aggregate is 588.2 kB, which left under 2 kB of headroom.
+  ".js": 600_000,
 };
 
 const ASSETS = join("dist", "assets");
