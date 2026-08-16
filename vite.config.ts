@@ -28,6 +28,7 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         check: resolve(__dirname, "check.html"),
         supported: resolve(__dirname, "supported.html"),
+        contributors: resolve(__dirname, "contributors.html"),
       },
     },
   },
