@@ -2558,6 +2558,9 @@ export function toggleDongleLed(): void {
     apply: async () => {
       const client = pulsarClient();
       if (!client) throw new Error("The receiver is no longer connected.");
+      if (!("setDongleLed" in client)) {
+        throw new Error("This Pulsar device does not expose a receiver LED control.");
+      }
       await client.setDongleLed(enabled);
     },
   });
