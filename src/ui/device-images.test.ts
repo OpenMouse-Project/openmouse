@@ -37,6 +37,7 @@ test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "Cobra"), "/devices/razer-cobra.webp");
   assert.equal(deviceImage(null, "Terra Pro"), "/devices/teevolution-terra-pro.png");
   assert.equal(deviceImage(null, "MX Master 3S"), "/devices/logitech-mx-master-3s.png");
+  assert.equal(deviceImage(null, "G703"), "/devices/logitech-g703.png");
 });
 
 test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
