@@ -15,13 +15,14 @@ const BUDGET_BYTES: Record<string, number> = {
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
-  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk.
-  //
-  // Raised again from 590 kB (+2 kB) for native Bridge device control: the
-  // /v1/devices client and the "Native devices" panel that lists Bridge-
-  // reached mice (e.g. the Attack Shark X11, unreachable over WebHID) and
-  // sets their polling rate. Measured aggregate 609.9 kB.
-  ".js": 612_000,
+  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised from
+  // 590 kB for the Razer button-mapping card and its codec, and the Pulsar
+  // XS-1 feature-report driver plus 4K receiver support (mouse-protocol
+  // 3c3a445). Raised again for native Bridge device control: the /v1/devices
+  // client and the "Native devices" panel that lists Bridge-reached mice (e.g.
+  // the Attack Shark X11, unreachable over WebHID) and drives their DPI and
+  // polling. Measured aggregate after merging both lines of work.
+  ".js": 614_000,
 };
 
 const ASSETS = join("dist", "assets");

@@ -3,7 +3,7 @@ import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 
-import type { Mouse } from "./supported-mice.ts";
+import { MICE, type Mouse } from "./supported-mice.ts";
 import { listSupportRequests, type SupportRequest } from "./support-requests.ts";
 
 /**
@@ -24,8 +24,46 @@ export function normalizeKey(part: string): string {
   return part.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
 }
 
+/**
+ * Canonical display names come from the static table, keyed by their
+ * normalized form, so any casing/spacing variant of a known brand renders
+ * with the same name. Spelling typos need explicit aliases on top.
+ */
+const CANONICAL_BRAND_BY_KEY = new Map(
+  [...new Set(MICE.map((m) => m.brand))].map((brand) => [normalizeKey(brand), brand] as const),
+);
+
+const BRAND_TYPOS: Record<string, string> = {
+  reddragon: "Redragon",
+  redrasgon: "Redragon",
+  logitec: "Logitech",
+  logitechg: "Logitech",
+  glorius: "Glorious",
+  raser: "Razer",
+  razerbasilisk: "Razer",
+  razerviper8k: "Razer",
+  thecosmicbyte: "Cosmic Byte",
+  dunevoyger: "Dune Voyager",
+  hsxj: "HXSJ",
+  rapoovpro: "Rapoo",
+  mxanywhere2: "Logitech",
+  mxanywhere3: "Logitech",
+  mxanywhere3s: "Logitech",
+  hyperxpulsefirehastle2: "HyperX",
+  rog: "ASUS ROG",
+};
+
+/**
+ * Catalog submissions carry free-text manufacturer names, so brand typos and
+ * aliases collapse onto the canonical name used by the static table.
+ */
+export function canonicalBrand(brand: string): string {
+  const key = normalizeKey(brand);
+  return BRAND_TYPOS[key] ?? CANONICAL_BRAND_BY_KEY.get(key) ?? brand;
+}
+
 function brandModelKey(brand: string, model: string): string {
-  return `${normalizeKey(brand)}|${normalizeKey(model)}`;
+  return `${normalizeKey(canonicalBrand(brand))}|${normalizeKey(model)}`;
 }
 
 /**
@@ -122,7 +160,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
       if (r.status === "supported") {
         if (known.has(key)) continue;
         rows.push({
-          brand: r.manufacturer,
+          brand: canonicalBrand(r.manufacturer),
           model: r.model,
           status: "supported",
           req: r.vote_count,
@@ -134,7 +172,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
       if (!PENDING_CATALOG_STATUSES.has(r.status)) continue;
       if (known.has(key)) continue;
       rows.push({
-        brand: r.manufacturer,
+        brand: canonicalBrand(r.manufacturer),
         model: r.model,
         status: "pending",
         req: r.vote_count,

@@ -408,7 +408,8 @@ export const MICE: Mouse[] = [
   { brand: "Pulsar", model: "X2 V3 ES Mini",            status: "supported", req: 2,
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
   { brand: "Pulsar", model: "X3 Medium",                status: "supported", req: 1,
-    note: "Pulsar driver (VID 0x3710) — collection-based detection" },
+    pids: [0x3409, 0x3410, 0x5402, 0x5403],
+    note: "XS-1 feature-report driver (usage 0xffff:1) — PIDs pinned in the protocol registry" },
   { brand: "Pulsar", model: "X2F",                      status: "supported", req: 1,
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
 
@@ -548,7 +549,7 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "Solakaka",      model: "SM802 Pro",         status: "unknown",   req: 1,
     note: "Has its own web configurator" },
-  { brand: "Eyooso",        model: "X-44 Lite",         status: "unknown",   req: 1,
+  { brand: "E-YOOSO",       model: "X-44 Lite",         status: "unknown",   req: 1,
     note: "Protocol unknown" },
   { brand: "HAVIT",         model: "Gamenote",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
@@ -556,6 +557,6 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "DeadSkull",     model: "Orbit Wired",       status: "unknown",   req: 1,
     note: "Protocol unknown" },
-  { brand: "IGM",           model: "IGM-6000",          status: "unknown",   req: 1,
+  { brand: "ISY",           model: "IGM-6000",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
 ];

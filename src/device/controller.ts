@@ -90,6 +90,13 @@ import {
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
+import {
+  RAZER_BUTTON_CONTROL_LABEL,
+  RAZER_TOGGLE_CONTROL_INFO,
+  type RazerButtonControl,
+  type RazerButtonMapping,
+  type RazerToggleControl,
+} from "@openmouse/protocol/razer";
 import { RazerViperMiniHidClient } from "@openmouse/protocol/drivers/razer/viper-mini-hid";
 import { RazerCobraHidClient } from "@openmouse/protocol/drivers/razer/cobra-hid";
 import { RazerViperHidClient } from "@openmouse/protocol/drivers/razer/viper-hid";
@@ -2815,6 +2822,9 @@ export function toggleDongleLed(): void {
     apply: async () => {
       const client = pulsarClient();
       if (!client) throw new Error("The receiver is no longer connected.");
+      if (!("setDongleLed" in client)) {
+        throw new Error("This Pulsar device does not expose a receiver LED control.");
+      }
       await client.setDongleLed(enabled);
     },
   });
@@ -2892,6 +2902,52 @@ export function applyLowPowerThreshold(percent: number): void {
     },
     apply: async () => {
       await requireClientMethod("setLowPowerThreshold", "low power mode").setLowPowerThreshold(percent);
+    },
+  });
+}
+
+/**
+ * Only the base `RazerHidClient` carries the class `0x02` button commands —
+ * the Viper Mini, Viper and Cobra siblings claim their own single product ids
+ * and have never been checked against it.
+ */
+function razerButtonClient(): RazerHidClient | null {
+  return activeAs<RazerHidClient>(RazerHidClient);
+}
+
+export function applyRazerButtonMapping(control: RazerButtonControl, mapping: RazerButtonMapping): void {
+  if (!razerButtonClient()) return;
+  stageChange({
+    key: `razer-button-${control}`,
+    label: `${RAZER_BUTTON_CONTROL_LABEL[control]} → ${mapping}`,
+    command: `Change ${RAZER_BUTTON_CONTROL_LABEL[control]} mapping`,
+    progress: `Changing ${RAZER_BUTTON_CONTROL_LABEL[control]} mapping…`,
+    preview: (status) => {
+      if (status.razerButtonMappings) status.razerButtonMappings[control] = mapping;
+    },
+    apply: async () => {
+      const client = razerButtonClient();
+      if (!client) throw new Error("The mouse is no longer connected.");
+      await client.setButtonMapping(control, mapping);
+    },
+  });
+}
+
+export function applyRazerToggleControl(control: RazerToggleControl, label: string): void {
+  if (!razerButtonClient()) return;
+  const name = RAZER_TOGGLE_CONTROL_INFO[control].label;
+  stageChange({
+    key: `razer-toggle-${control}`,
+    label: `${name} → ${label}`,
+    command: `Change ${name}`,
+    progress: `Changing ${name}…`,
+    preview: (status) => {
+      if (status.razerButtonMappings) status.razerButtonMappings[control] = label;
+    },
+    apply: async () => {
+      const client = razerButtonClient();
+      if (!client) throw new Error("The mouse is no longer connected.");
+      await client.setToggleControl(control, label);
     },
   });
 }

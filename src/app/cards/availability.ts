@@ -24,6 +24,7 @@ export interface CardAvailability {
   eggPolling: boolean;
   eggCpi: boolean;
   eggButtons: boolean;
+  razerButtons: boolean;
   mxMasterButtons: boolean;
   pulsarPro: boolean;
   profiles: boolean;
@@ -53,6 +54,7 @@ const NOTHING: CardAvailability = {
   eggPolling: false,
   eggCpi: false,
   eggButtons: false,
+  razerButtons: false,
   mxMasterButtons: false,
   pulsarPro: false,
   profiles: false,
@@ -125,6 +127,11 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // "the device is an MX Master".
     // Not gated on `host`: Logitech opts out of the shared advanced section,
     // and this card lives in the buttons tab regardless.
+    // Razer has no BY_FAMILY entry in traits.ts — it reaches the advanced
+    // section through the ui.showAdvancedSection escape hatch — so this reads
+    // the driver's own field directly. Only the base RazerHidClient populates
+    // it, and only for a product whose profile sets buttonMapping.
+    razerButtons: status.razerButtonMappings != null,
     mxMasterButtons: traits.logitech && (snapshot.buttons?.length ?? 0) > 0,
     pulsarPro: host && isPulsarProProtocol(status),
   };
