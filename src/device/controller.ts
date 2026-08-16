@@ -102,6 +102,7 @@ import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hi
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { attackSharkNativeOnlyMessage } from "@openmouse/protocol/drivers/attackshark/hid";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
@@ -1528,6 +1529,10 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
       + "Synapse app, so this mouse needs a native client.",
     );
   }
+  // The Attack Shark X11 family has the same problem: its settings channel is
+  // on browser-protected collections, so no granted entry can ever answer.
+  const x11Message = attackSharkNativeOnlyMessage(devices);
+  if (x11Message) throw new Error(x11Message);
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
     + "Pick a vendor control interface (not a plain boot mouse). "
