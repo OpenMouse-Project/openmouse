@@ -537,10 +537,127 @@ async function writeBridgeX11Dpi(id: string): Promise<void> {
   const stages = staged?.dpiStages ?? activeBridgeX11?.dpiStages ?? [];
   const activeStage = (staged?.activeDpiStage ?? 0) + 1;
   await setBridgeDeviceDpi(id, stages, activeStage);
+  if (activeBridgeX11?.id === id) {
+    activeBridgeX11 = { ...activeBridgeX11, dpiStages: [...stages], activeDpiStage: activeStage };
+  }
+}
+
+// ── Bridge devices as first-class sidebar entries ──────────────────────────
+// A Bridge-controlled X11 has no WebHID entry (its interface is bound to
+// WinUSB), so it appears in the sidebar straight from the Bridge and activates
+// without a browser step. `active`/`activeDevice` stay null; `activeBridgeX11`
+// marks the mode and the setters route to the Bridge.
+
+let bridgeDeviceCache: BridgeDevice[] = [];
+let bridgeCacheKey = "";
+let bridgePollTimer: number | null = null;
+
+/** Build a full MouseStatus from a Bridge device so the normal cards render. */
+function bridgeStatusFor(device: BridgeDevice): MouseStatus {
+  const activeStage = Math.max(0, Math.min(device.activeDpiStage - 1, device.dpiStages.length - 1));
+  return {
+    brand: "Attack Shark",
+    name: device.name,
+    ui: {
+      family: "attackshark",
+      settingsReady: true,
+      valuesVerified: true,
+      hideProcessingCard: true,
+      hideUnsupportedPollingRates: true,
+      forceShowBattery: device.connection === "wireless",
+      dpiStageEditor: {
+        maxStages: device.dpiStages.length,
+        countEditable: false,
+        minDpi: device.dpiMin,
+        maxDpi: device.dpiMax,
+        stepDpi: device.dpiStep,
+      },
+    },
+    batteryPercent: device.batteryPercent,
+    batteryState: device.batteryPercent != null ? "Discharging" : "Unknown",
+    dpi: device.dpiStages[activeStage] ?? 0,
+    dpiStages: device.dpiStages.slice(),
+    activeDpiStage: activeStage,
+    pollingRateHz: device.pollingRateHz ?? 0,
+    supportedPollingRates: device.supportedPollingRates,
+    supportedLiftOffDistances: [],
+    activeProfile: null,
+    connectionType: device.connection === "wireless" ? "Wireless" : "Wired",
+    liftOffDistance: null,
+    firmware: [],
+  };
+}
+
+/** Activate a Bridge device (no WebHID). Renders it in the main control panel. */
+export async function selectBridgeDevice(id: string): Promise<void> {
+  if (settingInProgress || refreshInProgress) return;
+  let device: BridgeDevice | undefined;
+  try {
+    device = (await bridgeDevices()).find((entry) => entry.id === id && entry.controllable);
+  } catch {
+    toastForError("Connection failed", new Error("The OpenMouse Bridge is not reachable."));
+    return;
+  }
+  if (!device || activeBridgeX11?.id === id) return;
+
+  await active?.close().catch(() => undefined);
+  active = null;
+  activeDevice = null;
+  activeBridgeX11 = device;
+  clearPendingChanges();
+  onboardProfiles = null;
+
+  const options: number[] = [];
+  for (let value = device.dpiMin; value <= device.dpiMax; value += device.dpiStep) options.push(value);
+  dpiOptions = options;
+
+  capabilities = readCapabilities();
+  deviceStatusText = "Connected";
+  applyStatus(bridgeStatusFor(device));
+  await refreshSidebar();
+  startAutomaticRefresh();
+  setConnectionButtons(false, "Add device");
+  pushToast("success", `Connected to ${device.name}`);
+}
+
+/** Poll the Bridge so its devices stay listed in the sidebar and live-updated. */
+function startBridgePolling(): void {
+  if (bridgePollTimer !== null) return;
+  const poll = async (): Promise<void> => {
+    let list: BridgeDevice[] = [];
+    try {
+      list = (await bridgeDevices()).filter((entry) => entry.controllable);
+    } catch {
+      list = [];
+    }
+    const key = JSON.stringify(
+      list.map((d) => [d.id, d.name, d.connection, d.batteryPercent, d.pollingRateHz, d.dpiStages, d.activeDpiStage]),
+    );
+    if (key === bridgeCacheKey) return;
+    bridgeCacheKey = key;
+    bridgeDeviceCache = list;
+    // Keep the active Bridge device's status live (battery, etc.), or drop it
+    // if it was unplugged.
+    if (activeBridgeX11) {
+      const current = list.find((entry) => entry.id === activeBridgeX11!.id);
+      if (current) {
+        activeBridgeX11 = current;
+        const status = bridgeStatusFor(current);
+        const statusKey = JSON.stringify(status);
+        if (statusKey !== lastRenderedStatusKey && !hasPendingChanges()) applyStatus(status, statusKey);
+      } else {
+        showDisconnectedState();
+        emit();
+      }
+    }
+    void refreshSidebar();
+  };
+  void poll();
+  bridgePollTimer = window.setInterval(() => void poll(), 5_000);
 }
 
 function hasActiveClient(): boolean {
-  return activeSettingsClient() !== null;
+  return activeSettingsClient() !== null || activeBridgeX11 !== null;
 }
 
 function requireSettingsClient(): SupportedClient {
@@ -1357,7 +1474,17 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
 
 async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
   const all = devices ?? await navigator.hid?.getDevices() ?? [];
-  sidebarDevices = sidebarEntries(all);
+  const webhid = sidebarEntries(all);
+  // Bridge-only devices (e.g. the WinUSB-bound X11) have no WebHID entry, so add
+  // them from the cached Bridge list. Negative indices keep them distinct.
+  const bridge: SidebarDevice[] = bridgeDeviceCache.map((device, index) => ({
+    index: -1 - index,
+    bridgeId: device.id,
+    name: device.name,
+    detail: `Attack Shark · ${device.connection === "wireless" ? "Wireless" : "Wired"}`,
+    selected: activeBridgeX11?.id === device.id,
+  }));
+  sidebarDevices = [...webhid, ...bridge];
   emit();
 }
 
@@ -1421,6 +1548,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   if (activeDevice !== client.device) onboardProfiles = null;
   buttons = null;
   activeDevice = client.device;
+  activeBridgeX11 = null; // Switching to a WebHID device leaves Bridge mode.
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   active = client;
@@ -2572,7 +2700,10 @@ export function applyPollingRate(rate: number): void {
     apply: async () => {
       const bridgeId = bridgeX11Target();
       if (bridgeId) {
-        await setBridgeDevicePolling(bridgeId, rate);
+        const confirmed = await setBridgeDevicePolling(bridgeId, rate);
+        if (activeBridgeX11?.id === bridgeId) {
+          activeBridgeX11 = { ...activeBridgeX11, pollingRateHz: confirmed };
+        }
         return;
       }
       await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
@@ -3096,6 +3227,8 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
+  // Bridge devices refresh from the Bridge poll, not a WebHID client.
+  if (activeBridgeX11) return;
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
   if ("pollIntervalMs" in client && Number((client as { pollIntervalMs: number }).pollIntervalMs) <= 0) return;
@@ -3318,6 +3451,8 @@ export function start(): void {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
     void reconnectAuthorizedDevice();
+    // List Bridge-only devices (e.g. the WinUSB-bound X11) in the sidebar.
+    startBridgePolling();
   }
 
   window.addEventListener("beforeunload", (event) => {

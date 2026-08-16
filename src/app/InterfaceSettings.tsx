@@ -427,8 +427,8 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                         </div>
                         {device.controllable ? (
                           <small className="openmouse-bridge-device-note">
-                            Ready. Add this mouse from the sidebar to change DPI and polling rate
-                            under Overview and Performance, like any other mouse.
+                            Ready. It appears in the sidebar — select it to change DPI and polling
+                            rate under Overview and Performance, like any other mouse.
                           </small>
                         ) : (
                           <small className="openmouse-bridge-device-note">{device.note}</small>
