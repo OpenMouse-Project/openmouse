@@ -16,6 +16,7 @@ import {
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import type { InterfacePreferences } from "../interface-preferences";
+import { compareVersions, latestRelease, type GitHubRelease } from "../updates";
 
 interface ThemeSwatch {
   name: string;
@@ -37,6 +38,42 @@ const THEME_CHOICES: readonly ThemeSwatch[] = [
   { name: "NieR: Automata", accent: "#d1cdb7", canvas: "#282620", surface: "#36342c" },
   { name: "Liquid Glass", accent: "#f4c95d", canvas: "#080a0c", surface: "#151a1e" },
 ];
+
+function UpdateRelease({ name, current, release }: {
+  name: string;
+  current: string | null;
+  release: GitHubRelease | null;
+}): ReactNode {
+  const state = current && release ? compareVersions(current, release.version) : "unknown";
+  const label = !release
+    ? "No stable release published"
+    : !current
+      ? `Latest v${release.version}`
+      : state === "update-available"
+        ? `Update available · v${release.version}`
+        : state === "ahead"
+          ? `Development build · latest stable v${release.version}`
+          : state === "up-to-date"
+            ? `Up to date · v${current}`
+            : `Current v${current} · latest v${release.version}`;
+  return (
+    <section className="openmouse-update-release" data-update={state === "update-available"}>
+      <div>
+        <strong>{name}</strong>
+        <small>{label}</small>
+      </div>
+      {release ? (
+        <details>
+          <summary>What’s new</summary>
+          <pre>{release.notes}</pre>
+          <a href={release.url} target="_blank" rel="noreferrer">
+            {state === "update-available" ? "View update" : "View release"}
+          </a>
+        </details>
+      ) : null}
+    </section>
+  );
+}
 
 function SwitchCard({
   overline,
@@ -78,8 +115,40 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
   const [bridgeChecking, setBridgeChecking] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [openMouseRelease, setOpenMouseRelease] = useState<GitHubRelease | null>(null);
+  const [bridgeRelease, setBridgeRelease] = useState<GitHubRelease | null>(null);
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
+  const checkForUpdates = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    setUpdateChecking(true);
+    setUpdateMessage("");
+    try {
+      const [openMouse, bridgeUpdate] = await Promise.all([
+        latestRelease("OpenMouse-Project/openmouse", signal),
+        latestRelease("OpenMouse-Project/OpenMouse-Bridge", signal),
+      ]);
+      setOpenMouseRelease(openMouse);
+      setBridgeRelease(bridgeUpdate);
+      setUpdateMessage("Release information is current.");
+    } catch (error) {
+      if (!signal?.aborted) {
+        setUpdateMessage(error instanceof Error ? error.message : "Could not check for updates.");
+      }
+    } finally {
+      if (!signal?.aborted) setUpdateChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (sessionStorage.getItem("openmouse-update-check") !== "done") {
+      sessionStorage.setItem("openmouse-update-check", "done");
+      void checkForUpdates(controller.signal);
+    }
+    return () => controller.abort();
+  }, [checkForUpdates]);
   const checkBridge = useCallback(async (signal?: AbortSignal): Promise<void> => {
     setBridgeChecking(true);
     try {
@@ -182,8 +251,19 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       setBridgeMessage(error instanceof Error ? error.message : "Could not save the application profile.");
     }
   };
+  const availableUpdates = [
+    openMouseRelease && compareVersions(__APP_VERSION__, openMouseRelease.version) === "update-available" ? "OpenMouse" : null,
+    bridge && bridgeRelease && compareVersions(bridge.version, bridgeRelease.version) === "update-available" ? "Bridge" : null,
+  ].filter((name): name is string => name !== null);
 
   return (
+    <>
+    {availableUpdates.length > 0 && !snapshot.interfaceSettingsOpen ? (
+      <button className="openmouse-update-toast" type="button" onClick={control.openInterfaceSettings}>
+        <strong>Update available</strong>
+        <span>{availableUpdates.join(" and ")} · View changelog</span>
+      </button>
+    ) : null}
     <section
       id="interface-settings-page"
       className={`interface-settings-page${snapshot.interfaceSettingsOpen ? " is-open" : ""}`}
@@ -205,6 +285,23 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       </header>
 
       <div className="interface-settings-grid">
+        <article className="interface-setting-card openmouse-update-card">
+          <div className="openmouse-update-heading">
+            <div>
+              <span>LATEST UPDATES</span>
+              <h3>OpenMouse release status</h3>
+              <p>Checks release versions and changelogs. Updates are never downloaded or installed automatically.</p>
+            </div>
+            <button type="button" disabled={updateChecking} onClick={() => void checkForUpdates()}>
+              {updateChecking ? "Checking…" : "Check for updates"}
+            </button>
+          </div>
+          <div className="openmouse-update-list">
+            <UpdateRelease name="OpenMouse" current={__APP_VERSION__} release={openMouseRelease} />
+            <UpdateRelease name="OpenMouse Bridge" current={bridge?.version ?? null} release={bridgeRelease} />
+          </div>
+          {updateMessage ? <small className="openmouse-update-message">{updateMessage}</small> : null}
+        </article>
         {snapshot.previewEnabled ? (
           <article className="interface-setting-card openmouse-bridge-card">
             <div className="openmouse-bridge-copy">
@@ -232,7 +329,13 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                       : "Bridge not connected"}
                 </span>
               </div>
-              <button type="button" disabled>Download coming soon</button>
+              {bridgeRelease ? (
+                <a className="openmouse-bridge-download" href={bridgeRelease.url} target="_blank" rel="noreferrer">
+                  Download Bridge v{bridgeRelease.version}
+                </a>
+              ) : (
+                <button type="button" disabled>Release unavailable</button>
+              )}
               <button
                 className="openmouse-bridge-connect"
                 type="button"
@@ -452,5 +555,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         Reset interface preferences
       </button>
     </section>
+    </>
   );
 }

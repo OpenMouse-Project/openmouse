@@ -781,6 +781,25 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-setting-card h3 { margin: .35rem 0 .3rem; font-size: 1rem; font-weight: 550; }
 .interface-setting-card p { margin: 0 0 .8rem; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .interface-setting-card select { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); color-scheme: dark; }
+.openmouse-update-card { grid-column: 1 / -1; min-height: 0; }
+.openmouse-update-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.openmouse-update-heading > div > span { color: var(--ui-accent); font: 600 .55rem var(--font-mono); letter-spacing: .09em; }
+.openmouse-update-heading button { padding: .58rem .78rem; border: 1px solid var(--ui-accent); border-radius: 7px; background: var(--ui-accent-soft); color: var(--text-strong); font-size: .65rem; font-weight: 700; cursor: pointer; }
+.openmouse-update-heading button:disabled { cursor: wait; opacity: .55; }
+.openmouse-update-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.openmouse-update-release { padding: .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.openmouse-update-release[data-update="true"] { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
+.openmouse-update-release strong, .openmouse-update-release small { display: block; }
+.openmouse-update-release strong { color: var(--text-strong); font-size: .7rem; }
+.openmouse-update-release small { margin-top: .15rem; color: var(--muted); font: .54rem var(--font-mono); }
+.openmouse-update-release details { margin-top: .55rem; color: var(--text-soft); font-size: .58rem; }
+.openmouse-update-release summary { cursor: pointer; }
+.openmouse-update-release pre { max-height: 12rem; overflow: auto; margin: .55rem 0; padding: .55rem; border-radius: 6px; background: var(--surface-raised); color: var(--text-soft); font: .52rem/1.5 var(--font-mono); white-space: pre-wrap; }
+.openmouse-update-release a { color: var(--ui-accent); font-weight: 700; }
+.openmouse-update-message { display: block; margin-top: .55rem; color: var(--faint); font: .52rem var(--font-mono); }
+.openmouse-update-toast { position: fixed; z-index: 30; right: 1rem; bottom: 1rem; display: grid; gap: .15rem; min-width: 220px; padding: .75rem .85rem; border: 1px solid var(--ui-accent); border-radius: 9px; background: color-mix(in srgb, var(--card) 92%, var(--ui-accent)); color: var(--text-strong); text-align: left; box-shadow: 0 12px 35px #0008; cursor: pointer; }
+.openmouse-update-toast strong { font-size: .7rem; }
+.openmouse-update-toast span { color: var(--muted); font-size: .56rem; }
 .openmouse-bridge-card { grid-column: 1 / -1; display: grid; min-height: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.25rem; border-color: color-mix(in srgb, var(--ui-accent) 32%, var(--border)); background: linear-gradient(120deg, var(--card), color-mix(in srgb, var(--ui-accent) 8%, var(--card))); }
 .openmouse-bridge-copy > span, .openmouse-bridge-action > span { color: var(--ui-accent); font-family: var(--font-mono); font-size: .55rem; letter-spacing: .09em; }
 .openmouse-bridge-card h3 { max-width: 34rem; font-size: 1.12rem; }
@@ -792,6 +811,8 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-status i { width: .48rem; height: .48rem; border: 1px solid var(--border-hover); border-radius: 50%; background: var(--surface-raised); }
 .openmouse-bridge-status[data-connected="true"] i { border-color: color-mix(in srgb, #5fdb8b 72%, var(--border)); background: #5fdb8b; box-shadow: 0 0 0 3px color-mix(in srgb, #5fdb8b 18%, transparent); }
 .openmouse-bridge-action button { padding: .58rem .78rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
+.openmouse-bridge-download { padding: .58rem .78rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; text-align: center; text-decoration: none; }
+.openmouse-bridge-download:hover { border-color: var(--ui-accent); color: var(--text-strong); }
 .openmouse-bridge-action .openmouse-bridge-connect { border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--border)); background: var(--ui-accent-soft); color: var(--text-strong); }
 .openmouse-bridge-action .openmouse-bridge-connect:not(:disabled) { cursor: pointer; opacity: 1; }
 .openmouse-bridge-action small { color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
@@ -864,6 +885,8 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-reset { margin-top: .75rem; padding: .55rem .75rem; border: 1px solid #4a3436; border-radius: 7px; background: #1c1315; color: #e7a7aa; font-size: .68rem; font-weight: 650; }
 
 @media (max-width: 720px) {
+  .openmouse-update-heading { display: grid; }
+  .openmouse-update-list { grid-template-columns: 1fr; }
   .openmouse-bridge-card { grid-template-columns: 1fr; }
   .openmouse-bridge-action { padding: .85rem 0 0; border-top: 1px solid var(--border); border-left: 0; }
 }

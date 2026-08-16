@@ -1,0 +1,42 @@
+name: OpenMouse Stable Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify tag matches package version
+        if: github.ref_type == 'tag'
+        run: test "v$(node -p 'require(\"./package.json\").version')" = "${{ github.ref_name }}"
+      - name: Build stable website
+        env:
+          OPENMOUSE_BUILD_CHANNEL: stable
+        run: npm run check
+      - name: Package website
+        run: |
+          cd dist
+          zip -r ../openmouse-web-v$(node -p 'require("../package.json").version').zip .
+          cd ..
+          sha256sum openmouse-web-v*.zip > openmouse-web.sha256
+      - name: Publish changelog and website archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          --verify-tag
+          --generate-notes
+          --latest
+          openmouse-web-v*.zip
+          openmouse-web.sha256
