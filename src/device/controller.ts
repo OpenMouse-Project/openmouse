@@ -8,6 +8,7 @@ import {
   type PulsarClient,
   type SupportedClient,
 } from "../device-clients";
+import { bridgeDevices } from "../bridge";
 import { closestDpiOption } from "../dpi-presets";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
@@ -1534,12 +1535,38 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   // The Attack Shark X11 family has the same problem: its settings channel is
   // on browser-protected collections, so no granted entry can ever answer.
   const x11Message = attackSharkNativeOnlyMessage(devices);
-  if (x11Message) throw new Error(x11Message);
+  if (x11Message) throw new Error(await x11MessageForBridge(devices, x11Message));
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
+}
+
+/**
+ * Tailor the X11 "browser can't reach this" message to the Bridge's state: if
+ * the Bridge already has native control enabled for this exact mouse, point the
+ * user at the Native devices panel instead of telling them to enable something
+ * that is already on. Falls back to the setup message when the Bridge is not
+ * running or does not (yet) control this device.
+ */
+async function x11MessageForBridge(devices: HIDDevice[], fallback: string): Promise<string> {
+  try {
+    const bridgeList = await bridgeDevices();
+    const enabled = devices.some((device) =>
+      bridgeList.some((entry) =>
+        entry.controllable
+        && entry.vendorId === device.vendorId
+        && entry.productId === device.productId));
+    if (enabled) {
+      return "This Attack Shark X11 already has native control enabled in the OpenMouse Bridge. "
+        + "Change its DPI, polling rate and lighting in Interface settings → Bridge → Native "
+        + "devices; the browser view stays read-only for this mouse.";
+    }
+  } catch {
+    // Bridge not running or unreachable — fall through to the setup message.
+  }
+  return fallback;
 }
 
 export async function connect(): Promise<void> {
