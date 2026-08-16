@@ -102,7 +102,7 @@ import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hi
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
-import { attackSharkNativeOnlyMessage } from "@openmouse/protocol/drivers/attackshark/hid";
+import { AttackSharkHidClient, attackSharkNativeOnlyMessage } from "@openmouse/protocol/drivers/attackshark/hid";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
@@ -158,6 +158,7 @@ const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronHidClient, Mod
 const DEDICATED = [
   ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
   EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
+  AttackSharkHidClient,
 ] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
