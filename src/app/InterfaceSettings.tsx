@@ -7,8 +7,6 @@ import {
   bridgeStatus,
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
-  setBridgeDeviceDpi,
-  setBridgeDevicePolling,
   setBridgeDriver,
   type BridgeDevice,
   type BridgeGame,
@@ -109,76 +107,6 @@ function SwitchCard({
   );
 }
 
-/**
- * Editor for a Bridge device's six DPI stages. Holds a local draft and only
- * writes on "Apply", so editing a value doesn't fire a USB command per
- * keystroke. Re-seeds when the device's stored values change.
- */
-function DpiEditor({ device, busy, onApply }: {
-  device: BridgeDevice;
-  busy: boolean;
-  onApply: (stages: number[], activeStage: number) => void;
-}): ReactNode {
-  const [stages, setStages] = useState<number[]>(device.dpiStages);
-  const [active, setActive] = useState<number>(device.activeDpiStage);
-  const storedKey = device.dpiStages.join(",");
-  useEffect(() => {
-    setStages(device.dpiStages);
-    setActive(device.activeDpiStage);
-  }, [storedKey, device.activeDpiStage]);
-
-  const clamp = (value: number): number => {
-    if (!Number.isFinite(value)) return device.dpiMin;
-    const stepped = Math.round(value / device.dpiStep) * device.dpiStep;
-    return Math.min(device.dpiMax, Math.max(device.dpiMin, stepped));
-  };
-  const dirty = stages.join(",") !== storedKey || active !== device.activeDpiStage;
-
-  return (
-    <div className="openmouse-bridge-dpi">
-      <span>DPI stages</span>
-      <ul>
-        {stages.map((dpi, index) => (
-          <li key={index}>
-            <input
-              type="radio"
-              name={`dpi-active-${device.id}`}
-              checked={active === index + 1}
-              disabled={busy}
-              onChange={() => setActive(index + 1)}
-              aria-label={`Make stage ${index + 1} active`}
-            />
-            <input
-              type="number"
-              value={dpi}
-              min={device.dpiMin}
-              max={device.dpiMax}
-              step={device.dpiStep}
-              disabled={busy}
-              onChange={(event) => {
-                const value = Number(event.currentTarget.value);
-                setStages((current) => current.map((entry, other) => (other === index ? value : entry)));
-              }}
-              onBlur={(event) => {
-                const value = clamp(Number(event.currentTarget.value));
-                setStages((current) => current.map((entry, other) => (other === index ? value : entry)));
-              }}
-            />
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        className="openmouse-bridge-device-enable"
-        disabled={busy || !dirty}
-        onClick={() => onApply(stages.map(clamp), active)}
-      >
-        {busy ? "Applying…" : "Apply DPI"}
-      </button>
-    </div>
-  );
-}
-
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
@@ -274,40 +202,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       document.removeEventListener("visibilitychange", reconnect);
     };
   }, [bridgeConnectionRequested, checkBridge]);
-
-  const changeDevicePolling = useCallback(async (device: BridgeDevice, hz: number): Promise<void> => {
-    setBridgeDeviceBusy(device.id);
-    setBridgeMessage("");
-    try {
-      const confirmed = await setBridgeDevicePolling(device.id, hz);
-      setBridgeDeviceList((list) =>
-        list.map((entry) => (entry.id === device.id ? { ...entry, pollingRateHz: confirmed } : entry)));
-      setBridgeMessage(`${device.name} set to ${confirmed.toLocaleString()} Hz.`);
-    } catch (error) {
-      setBridgeMessage(error instanceof Error ? error.message : "Could not change the polling rate.");
-    } finally {
-      setBridgeDeviceBusy(null);
-    }
-  }, []);
-
-  const changeDeviceDpi = useCallback(
-    async (device: BridgeDevice, stages: number[], activeStage: number): Promise<void> => {
-      setBridgeDeviceBusy(device.id);
-      setBridgeMessage("");
-      try {
-        await setBridgeDeviceDpi(device.id, stages, activeStage);
-        setBridgeDeviceList((list) =>
-          list.map((entry) =>
-            entry.id === device.id ? { ...entry, dpiStages: stages, activeDpiStage: activeStage } : entry));
-        setBridgeMessage(`${device.name} DPI set to ${stages[activeStage - 1]?.toLocaleString()}.`);
-      } catch (error) {
-        setBridgeMessage(error instanceof Error ? error.message : "Could not change the DPI.");
-      } finally {
-        setBridgeDeviceBusy(null);
-      }
-    },
-    [],
-  );
 
   const changeDriver = useCallback(async (action: "install" | "uninstall"): Promise<void> => {
     setBridgeDeviceBusy(`driver-${action}`);
@@ -531,32 +425,14 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                             {device.controllable ? "" : " · needs setup"}
                           </span>
                         </div>
-                        {device.controllable && device.supportedPollingRates.length > 0 ? (
-                          <label className="openmouse-bridge-device-control">
-                            <span>Polling rate</span>
-                            <select
-                              value={device.pollingRateHz ?? ""}
-                              disabled={bridgeDeviceBusy === device.id}
-                              onChange={(event) => {
-                                const hz = Number(event.currentTarget.value);
-                                if (Number.isFinite(hz) && hz > 0) void changeDevicePolling(device, hz);
-                              }}
-                            >
-                              {device.pollingRateHz === null ? <option value="">Select…</option> : null}
-                              {device.supportedPollingRates.map((hz) => (
-                                <option key={hz} value={hz}>{hz.toLocaleString()} Hz</option>
-                              ))}
-                            </select>
-                          </label>
-                        ) : null}
-                        {device.controllable && device.dpiStages.length > 0 ? (
-                          <DpiEditor
-                            device={device}
-                            busy={bridgeDeviceBusy === device.id}
-                            onApply={(stages, active) => void changeDeviceDpi(device, stages, active)}
-                          />
-                        ) : null}
-                        <small className="openmouse-bridge-device-note">{device.note}</small>
+                        {device.controllable ? (
+                          <small className="openmouse-bridge-device-note">
+                            Ready. Add this mouse from the sidebar to change DPI and polling rate
+                            under Overview and Performance, like any other mouse.
+                          </small>
+                        ) : (
+                          <small className="openmouse-bridge-device-note">{device.note}</small>
+                        )}
                         {bridge?.platform === "windows" ? (
                           <div className="openmouse-bridge-device-actions">
                             {device.controllable ? (

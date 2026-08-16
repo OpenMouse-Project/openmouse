@@ -8,7 +8,7 @@ import {
   type PulsarClient,
   type SupportedClient,
 } from "../device-clients";
-import { bridgeDevices } from "../bridge";
+import { bridgeDevices, setBridgeDeviceDpi, setBridgeDevicePolling, type BridgeDevice } from "../bridge";
 import { closestDpiOption } from "../dpi-presets";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
@@ -451,6 +451,92 @@ async function statusAfterWrite(client: SupportedClient): Promise<MouseStatus> {
 
 function activeSettingsClient(): SupportedClient | null {
   return active;
+}
+
+// ── Attack Shark X11: settings via the Bridge ──────────────────────────────
+// The X11 connects over WebHID as a read-only shell; its DPI/polling live on a
+// USB interface the browser cannot reach, so the OpenMouse Bridge drives them.
+// When the active device is a Bridge-controlled X11 we fold the Bridge's state
+// into its status (so the normal DPI/polling cards render) and route those
+// setters to the Bridge. Every branch is additive: it only fires for this
+// device, so no other mouse's code path changes.
+
+const ATTACK_SHARK_X11_VID = 0x1d57;
+const ATTACK_SHARK_X11_PIDS = new Set([0xfa55, 0xfa60, 0xfa61]);
+
+/** The Bridge device currently backing the active X11, or null. */
+let activeBridgeX11: BridgeDevice | null = null;
+
+function bridgeDeviceId(device: HIDDevice): string {
+  const hex = (value: number): string => value.toString(16).padStart(4, "0");
+  return `${hex(device.vendorId)}:${hex(device.productId)}`;
+}
+
+/**
+ * If the active client is a Bridge-controlled X11, merge the Bridge's DPI,
+ * polling and battery into `status` and populate `dpiOptions`, so the standard
+ * cards render. Sets `activeBridgeX11` for setter routing. No-op (and leaves the
+ * device read-only) when it isn't an X11 or the Bridge can't reach it.
+ */
+async function applyBridgeX11(client: SupportedClient, status: MouseStatus): Promise<void> {
+  activeBridgeX11 = null;
+  if (!(client instanceof AttackSharkHidClient)) return;
+  const { vendorId, productId } = client.device;
+  if (vendorId !== ATTACK_SHARK_X11_VID || !ATTACK_SHARK_X11_PIDS.has(productId)) return;
+
+  const id = bridgeDeviceId(client.device);
+  let device: BridgeDevice | undefined;
+  try {
+    device = (await bridgeDevices()).find((entry) => entry.id === id && entry.controllable);
+  } catch {
+    return; // Bridge not running — keep the read-only shell.
+  }
+  if (!device || device.dpiStages.length === 0) return;
+  activeBridgeX11 = device;
+
+  const activeStage = Math.max(0, Math.min(device.activeDpiStage - 1, device.dpiStages.length - 1));
+  status.dpiStages = device.dpiStages.slice();
+  status.activeDpiStage = activeStage;
+  status.dpi = device.dpiStages[activeStage] ?? status.dpi;
+  status.pollingRateHz = device.pollingRateHz ?? status.pollingRateHz;
+  status.supportedPollingRates = device.supportedPollingRates;
+  status.batteryPercent = device.batteryPercent ?? status.batteryPercent;
+  status.batteryState = device.batteryPercent != null ? "Discharging" : status.batteryState;
+  // An empty LOD list hides the sensor card (see cardAvailability).
+  status.supportedLiftOffDistances = [];
+  status.ui = {
+    ...status.ui,
+    settingsReady: true,
+    valuesVerified: true,
+    hideProcessingCard: true,
+    forceShowBattery: device.connection === "wireless",
+    statusNote: undefined,
+    dpiStageEditor: {
+      maxStages: device.dpiStages.length,
+      countEditable: false,
+      minDpi: device.dpiMin,
+      maxDpi: device.dpiMax,
+      stepDpi: device.dpiStep,
+    },
+  };
+
+  // The stage editor validates against dpiOptions, so list every supported step.
+  const options: number[] = [];
+  for (let value = device.dpiMin; value <= device.dpiMax; value += device.dpiStep) options.push(value);
+  dpiOptions = options;
+}
+
+/** Bridge id to route settings to when the active device is a controlled X11. */
+function bridgeX11Target(): string | null {
+  return activeBridgeX11?.id ?? null;
+}
+
+/** Push the current (staged) DPI stages and active stage to the Bridge. */
+async function writeBridgeX11Dpi(id: string): Promise<void> {
+  const staged = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  const stages = staged?.dpiStages ?? activeBridgeX11?.dpiStages ?? [];
+  const activeStage = (staged?.activeDpiStage ?? 0) + 1;
+  await setBridgeDeviceDpi(id, stages, activeStage);
 }
 
 function hasActiveClient(): boolean {
@@ -1347,6 +1433,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   } else {
     const status = await client.readStatus();
     dpiOptions = await client.getDpiOptions();
+    await applyBridgeX11(client, status);
     const dm = dmClient();
     const keychron = keychronClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
@@ -1405,6 +1492,7 @@ function showDisconnectedState(): void {
   }
   clearActiveClients();
   activeDevice = null;
+  activeBridgeX11 = null;
   onboardProfiles = null;
   lastRenderedStatusKey = null;
   capabilities = null;
@@ -1731,6 +1819,8 @@ export function applyDpiValue(dpi: number): boolean {
       }
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
@@ -1781,6 +1871,8 @@ export function applyActiveDpiStage(stage: number): void {
       status.dpi = status.dpiStages?.[stage] ?? status.dpi;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
     },
   });
@@ -1812,6 +1904,8 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
       if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
     },
   });
@@ -2476,6 +2570,11 @@ export function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) {
+        await setBridgeDevicePolling(bridgeId, rate);
+        return;
+      }
       await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
@@ -3005,6 +3104,7 @@ async function refreshStatus(): Promise<void> {
   try {
     const dm = dmClient();
     const status = dm && client === dm ? await dm.readStatus(true) : await client.readStatus();
+    await applyBridgeX11(client, status);
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     const key = JSON.stringify(status);
