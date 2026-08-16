@@ -92,3 +92,7 @@ including it in a public release package.
 render for the X2 v2 [Red Edition] Gaming Mouse (top-down view of the Medium
 shell), cropped to the mouse, resized, and centered on a transparent canvas.
 Confirm redistribution terms before including it in a public release package.
+
+`pulsar-pro-dongle.png` was supplied from Tomauri's Shopify CDN product render
+for the Pulsar 8K Polling Wireless Dongle. Confirm redistribution terms before
+including it in a public release package.

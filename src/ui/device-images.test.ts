@@ -44,3 +44,8 @@ test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
   assert.equal(deviceImage(hid373e(0x0047)), "/devices/attackshark-r5-ultra.png");
   assert.equal(deviceImage(null, "Attack Shark R5 Ultra"), "/devices/attackshark-r5-ultra.png");
 });
+
+test("Pulsar Pro receiver uses its dongle artwork", () => {
+  const device = { vendorId: 0x3710, productId: 0x5405 } as HIDDevice;
+  assert.equal(deviceImage(device, "Pulsar PRO Dongle"), "/devices/pulsar-pro-dongle.png");
+});

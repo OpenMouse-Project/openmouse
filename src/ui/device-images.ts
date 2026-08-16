@@ -9,6 +9,7 @@
  * and its file belong in the same commit.
  */
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
+  ["3710:5405", "/devices/pulsar-pro-dongle.png"],
   ["046d:c07d", "/devices/logitech-g502.png"],
   ["046d:c095", "/devices/logitech-g502-x-plus.png"],
   ["046d:c099", "/devices/logitech-g502-x.png"],
