@@ -108,7 +108,17 @@ import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid"
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
-import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
+import {
+  KEYCHRON_NAPE_KEYCODE,
+  KEYCHRON_NAPE_KEY_CONTROLS,
+  keychronActionForKeycode,
+  keychronKeycodeForAction,
+  keychronLayerKeymapFromCodes,
+  keychronLayerLabel,
+  type KeychronNapeButtonAction,
+  type KeychronNapeLayerKeymap,
+} from "@openmouse/protocol/keychron";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
@@ -121,9 +131,11 @@ import type {
   ProfileView,
   DeviceCapabilities,
   DiagnosticsView,
+  NapeAssignmentControl,
   LiftOffLevel,
   PulsarToggleSetting,
   SidebarDevice,
+  StagedNapeAssignment,
   TeevolutionProfile,
   Toast,
   ToastKind,
@@ -160,7 +172,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronHidClient, ModdoHidClient, ZaunkoenigHidClient] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, ModdoHidClient, ZaunkoenigHidClient] as const;
 const DEDICATED = [
   ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
   EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
@@ -180,7 +192,7 @@ const teevolutionClient = (): TeevolutionHidClient | null => activeAs(Teevolutio
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
-const keychronClient = (): KeychronHidClient | null => activeAs(KeychronHidClient);
+const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 /** Pulsar is the fallback: any supported client no dedicated driver claims. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
@@ -189,6 +201,10 @@ const pulsarClient = (): PulsarClient | null =>
 
 let onboardProfiles: OnboardProfile[] | null = null;
 let buttons: LogitechReprogrammableControl[] | null = null;
+let napeKeymap: KeychronNapeLayerKeymap | null = null;
+const napeKeymaps = new Map<number, KeychronNapeLayerKeymap>();
+const stagedNapeAssignments = new Map<string, StagedNapeAssignment>();
+let keymapReadToken = 0;
 let onboardProfilesLoading = false;
 let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
 let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
@@ -372,7 +388,9 @@ function buildSnapshot(): ControlSnapshot {
               ? `consumer:${edit.binding.usage}`
               : "keyboard",
       })),
-    editedKeychronLayer,
+    napeKeymap,
+    stagedNapeAssignments: [...stagedNapeAssignments.values()],
+    editedNapeLayer,
     analogTuning,
     eggPollingDivider,
     pending: {
@@ -480,7 +498,7 @@ function requireClientMethod<K extends string>(
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
-  const keychron = keychronClient();
+  const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
     sleepOptions: dm
@@ -1249,7 +1267,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
     if (onboardProfiles === null && !onboardProfilesLoading) void reloadOnboardProfiles();
     else syncProfileDerivedState();
   }
-  syncEditedKeychronLayer(deviceStatus);
+  syncEditedNapeLayer(deviceStatus);
 
   renderDeviceDiagnostics(deviceStatus);
   emit();
@@ -1339,9 +1357,10 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   clearActiveClients();
   if (activeDevice !== client.device) {
     onboardProfiles = null;
-    editedKeychronLayer = null;
+    editedNapeLayer = null;
   }
   buttons = null;
+  clearNapeKeymaps();
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
@@ -1356,7 +1375,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     const status = await client.readStatus();
     dpiOptions = await client.getDpiOptions();
     const dm = dmClient();
-    const keychron = keychronClient();
+    const keychron = keychronNapeClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
     else if (keychron) {
       lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
@@ -1365,6 +1384,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     capabilities = readCapabilities();
     applyStatus(status);
     await readButtons();
+    await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
     if (dm) {
       await dm.startNotifications(() => {
         void refreshStatus();
@@ -1414,11 +1434,13 @@ function showDisconnectedState(): void {
   clearActiveClients();
   activeDevice = null;
   onboardProfiles = null;
-  editedKeychronLayer = null;
+  editedNapeLayer = null;
   lastRenderedStatusKey = null;
   capabilities = null;
   clearPendingChanges();
   latestDeviceStatus = null;
+  buttons = null;
+  clearNapeKeymaps();
   setPageTitle();
   deviceStatusText = "No device connected";
   readStatus = "Add a supported device from the sidebar to read its current status.";
@@ -1890,7 +1912,7 @@ const stagedProfileButtonEdits = new Map<string, StagedProfileButtonEdit>();
 let dpiSlotPlan: DpiStagePlan | null = null;
 let dpiAxisLocks: boolean[] = [];
 let editedProfile: number | "host" | null = null;
-let editedKeychronLayer: number | null = null;
+let editedNapeLayer: number | null = null;
 
 async function writeStagedProfileSector(): Promise<void> {
   const client = logitechClient();
@@ -2196,33 +2218,205 @@ export async function selectOnboardProfile(sector: number): Promise<void> {
   }
 }
 
-function syncEditedKeychronLayer(status: MouseStatus): void {
-  const count = status.keychronLayerCount;
-  if (count == null || count < 1) {
-    editedKeychronLayer = null;
-    return;
-  }
-  if (editedKeychronLayer == null) profilesExpanded = true;
-  if (editedKeychronLayer == null || editedKeychronLayer < 1 || editedKeychronLayer > count) {
-    editedKeychronLayer = status.keychronLayer ?? 1;
-  }
-  const active = status.keychronLayer ?? 1;
-  onboardStatus = `Running from Layer ${active}. ${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`;
+const NAPE_REMAP_GROUP = "keychron-nape-remap";
+
+function napeAssignmentKey(layer: number, control: NapeAssignmentControl): string {
+  return control.kind === "key"
+    ? `nape-${layer}-col-${control.col}`
+    : `nape-${layer}-wheel-${control.clockwise ? "cw" : "ccw"}`;
 }
 
-export function openKeychronLayer(layer: number): void {
-  const count = latestDeviceStatus?.keychronLayerCount;
-  if (count == null || layer < 1 || layer > count) return;
-  editedKeychronLayer = layer;
-  emit();
+function napeControlLabel(control: NapeAssignmentControl): string {
+  if (control.kind === "wheel") return control.clockwise ? "Scroll wheel CW" : "Scroll wheel CCW";
+  return KEYCHRON_NAPE_KEY_CONTROLS.find((entry) => entry.col === control.col)?.name ?? `0${control.col}`;
 }
 
-export async function reloadKeychronLayers(): Promise<void> {
+function previewNapeKeymap(layer: number): KeychronNapeLayerKeymap {
+  return keychronLayerKeymapFromCodes(
+    layer,
+    [
+      KEYCHRON_NAPE_KEYCODE.leftClick,
+      KEYCHRON_NAPE_KEYCODE.scrollMode,
+      KEYCHRON_NAPE_KEYCODE.rightClick,
+      KEYCHRON_NAPE_KEYCODE.dpiCycle,
+      KEYCHRON_NAPE_KEYCODE.forward,
+      KEYCHRON_NAPE_KEYCODE.backward,
+    ],
+    KEYCHRON_NAPE_KEYCODE.volumeDown,
+    KEYCHRON_NAPE_KEYCODE.volumeUp,
+  );
+}
+
+function clearNapeKeymaps(): void {
+  napeKeymaps.clear();
+  napeKeymap = null;
+  stagedNapeAssignments.clear();
+}
+
+function rememberNapeKeymap(map: KeychronNapeLayerKeymap): void {
+  napeKeymaps.set(map.layer, map);
+  if (editedNapeLayer == null || editedNapeLayer === map.layer) {
+    napeKeymap = map;
+  }
+}
+
+function installPreviewNapeKeymap(layer: number, force = false): void {
+  const existing = force ? undefined : napeKeymaps.get(layer);
+  rememberNapeKeymap(existing ?? previewNapeKeymap(layer));
+}
+
+function currentNapeKeycode(layer: number, control: NapeAssignmentControl): number | null {
+  const map = napeKeymaps.get(layer) ?? (napeKeymap?.layer === layer ? napeKeymap : null);
+  if (!map) return null;
+  if (control.kind === "key") return map.keys.find((entry) => entry.col === control.col)?.keycode ?? null;
+  return control.clockwise ? map.wheel.cw.keycode : map.wheel.ccw.keycode;
+}
+
+function patchNapeKeymap(layer: number, control: NapeAssignmentControl, keycode: number): void {
+  const map = napeKeymaps.get(layer);
+  if (!map) return;
+  const columns = KEYCHRON_NAPE_KEY_CONTROLS.map((entry) => {
+    if (control.kind === "key" && entry.col === control.col) return keycode;
+    return map.keys.find((key) => key.col === entry.col)?.keycode ?? 0;
+  });
+  const next = keychronLayerKeymapFromCodes(
+    layer,
+    columns,
+    control.kind === "wheel" && !control.clockwise ? keycode : map.wheel.ccw.keycode,
+    control.kind === "wheel" && control.clockwise ? keycode : map.wheel.cw.keycode,
+  );
+  napeKeymaps.set(layer, next);
+  if (napeKeymap?.layer === layer) napeKeymap = next;
+}
+
+async function loadNapeKeymap(layer: number, force = false): Promise<void> {
+  if (!Number.isInteger(layer) || layer < 1) return;
   if (isAnyPreview) {
+    installPreviewNapeKeymap(layer, force);
     emit();
     return;
   }
-  const client = keychronClient();
+  const client = keychronNapeClient();
+  if (!client) return;
+  if (!force) {
+    const cached = napeKeymaps.get(layer);
+    if (cached) {
+      napeKeymap = cached;
+      emit();
+      return;
+    }
+  }
+  const token = ++keymapReadToken;
+  try {
+    const map = await client.readLayerKeymap(layer);
+    if (token !== keymapReadToken) return;
+    rememberNapeKeymap(map);
+  } catch (error) {
+    if (token !== keymapReadToken) return;
+    if (napeKeymap?.layer !== layer) napeKeymap = null;
+    recordDiagnosticError(error, "Unable to read Keychron button assignments.");
+  }
+  emit();
+}
+
+function dropStaleNapeAssignments(): void {
+  for (const [key, staged] of stagedNapeAssignments) {
+    if (!isPendingChange(napeAssignmentKey(staged.layer, staged.control))) {
+      stagedNapeAssignments.delete(key);
+    }
+  }
+}
+
+export function applyNapeAssignment(
+  layer: number,
+  control: NapeAssignmentControl,
+  action: KeychronNapeButtonAction,
+): void {
+  if (!isAnyPreview && !keychronNapeClient()) return;
+  const keycode = keychronKeycodeForAction(action);
+  const current = currentNapeKeycode(layer, control);
+  const key = napeAssignmentKey(layer, control);
+  if (current === keycode) {
+    stagedNapeAssignments.delete(key);
+    dropPendingChange(key);
+    emit();
+    return;
+  }
+  stagedNapeAssignments.set(key, {
+    layer,
+    control,
+    action: keychronActionForKeycode(keycode),
+    keycode,
+  });
+  const name = napeControlLabel(control);
+  stageChange({
+    key,
+    group: NAPE_REMAP_GROUP,
+    label: `${keychronLayerLabel(layer)} · ${name} → ${action}`,
+    command: `Remap ${keychronLayerLabel(layer)} ${name} to ${action}`,
+    progress: `Remapping ${keychronLayerLabel(layer)} ${name} to ${action}…`,
+    apply: writeStagedNapeAssignments,
+  });
+}
+
+async function writeStagedNapeAssignments(): Promise<void> {
+  const edits = [...stagedNapeAssignments.values()];
+  try {
+    if (isAnyPreview) {
+      for (const edit of edits) patchNapeKeymap(edit.layer, edit.control, edit.keycode);
+      return;
+    }
+    const client = keychronNapeClient();
+    if (!client) return;
+    for (const edit of edits) {
+      if (edit.control.kind === "key") {
+        await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
+      } else {
+        await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
+      }
+      patchNapeKeymap(edit.layer, edit.control, edit.keycode);
+    }
+    const layer = editedNapeLayer ?? napeKeymap?.layer;
+    if (layer != null) {
+      rememberNapeKeymap(await client.readLayerKeymap(layer));
+    }
+  } finally {
+    stagedNapeAssignments.clear();
+  }
+}
+
+function syncEditedNapeLayer(status: MouseStatus): void {
+  const count = status.napeLayerCount;
+  if (count == null || count < 1) {
+    editedNapeLayer = null;
+    return;
+  }
+  if (editedNapeLayer == null) profilesExpanded = true;
+  if (editedNapeLayer == null || editedNapeLayer < 1 || editedNapeLayer > count) {
+    editedNapeLayer = status.napeLayer ?? 1;
+  }
+  const active = status.napeLayer ?? 1;
+  onboardStatus = `Running from ${keychronLayerLabel(active)}. ${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`;
+}
+
+export function openNapeLayer(layer: number): void {
+  const count = latestDeviceStatus?.napeLayerCount;
+  if (count == null || layer < 1 || layer > count) return;
+  editedNapeLayer = layer;
+  const cached = napeKeymaps.get(layer);
+  if (cached) napeKeymap = cached;
+  emit();
+  void loadNapeKeymap(layer);
+}
+
+export async function reloadNapeLayers(): Promise<void> {
+  if (isAnyPreview) {
+    const layer = editedNapeLayer ?? latestDeviceStatus?.napeLayer ?? 1;
+    installPreviewNapeKeymap(layer, true);
+    emit();
+    return;
+  }
+  const client = keychronNapeClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
   onboardStatus = "Reading onboard layers…";
@@ -2230,10 +2424,13 @@ export async function reloadKeychronLayers(): Promise<void> {
   recordDiagnosticCommand("Read Keychron layers");
   try {
     applyStatus(await statusAfterWrite(client));
-    const count = latestDeviceStatus?.keychronLayerCount;
+    const count = latestDeviceStatus?.napeLayerCount;
     onboardStatus = count != null
       ? `${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`
       : "The mouse did not report onboard layers.";
+    napeKeymaps.clear();
+    const layer = editedNapeLayer ?? latestDeviceStatus?.napeLayer ?? 1;
+    await loadNapeKeymap(layer, true);
   } catch (error) {
     recordDiagnosticError(error, "Unable to read onboard layers.");
     onboardStatus = error instanceof Error ? error.message : "Unable to read onboard layers.";
@@ -2242,28 +2439,30 @@ export async function reloadKeychronLayers(): Promise<void> {
   }
 }
 
-export async function switchKeychronLayer(layer: number): Promise<void> {
-  const count = latestDeviceStatus?.keychronLayerCount;
+export async function switchNapeLayer(layer: number): Promise<void> {
+  const count = latestDeviceStatus?.napeLayerCount;
   if (count == null || layer < 1 || layer > count) return;
   if (isAnyPreview) {
     const status = latestDeviceStatus;
     if (!status) return;
-    editedKeychronLayer = layer;
-    applyStatus({ ...status, keychronLayer: layer });
-    setReadStatus(`Preview: switched to Layer ${layer}. Nothing is written.`);
+    editedNapeLayer = layer;
+    applyStatus({ ...status, napeLayer: layer });
+    installPreviewNapeKeymap(layer);
+    setReadStatus(`Preview: switched to ${keychronLayerLabel(layer)}. Nothing is written.`);
     return;
   }
-  const client = keychronClient();
+  const client = keychronNapeClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
-  readStatus = `Switching to Layer ${layer}…`;
+  readStatus = `Switching to ${keychronLayerLabel(layer)}…`;
   emit();
   recordDiagnosticCommand(`Select Keychron layer ${layer}`);
   try {
     await client.setLayer(layer);
-    editedKeychronLayer = layer;
+    editedNapeLayer = layer;
     applyStatus(await statusAfterWrite(client));
-    onboardStatus = `Running from Layer ${layer}.`;
+    onboardStatus = `Running from ${keychronLayerLabel(layer)}.`;
+    await loadNapeKeymap(layer);
   } catch (error) {
     recordDiagnosticError(error, "Unable to switch layer.");
     readStatus = error instanceof Error ? error.message : "Unable to switch layer.";
@@ -2685,7 +2884,7 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3284,6 +3483,11 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   applyStatus(fixture.status);
+  if (name === "keychron-nape") {
+    const layer = fixture.status.napeLayer ?? 1;
+    editedNapeLayer = layer;
+    installPreviewNapeKeymap(layer, true);
+  }
   setConnectionButtons(true, "Preview mode");
   setReadStatus(`Preview: ${fixture.label}. Nothing is written.`);
 }
@@ -3300,6 +3504,7 @@ export function start(): void {
     for (const controlId of stagedButtonMappings.keys()) {
       if (!isPendingChange(`button-${controlId}`)) stagedButtonMappings.delete(controlId);
     }
+    dropStaleNapeAssignments();
     if (!isPendingChange(DPI_SLOTS_KEY)) {
       syncDpiSlotPlan();
     }

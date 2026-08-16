@@ -1,6 +1,6 @@
 import { WLMOUSE_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
-import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
+import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 
 import type { Mouse } from "./supported-mice.ts";
@@ -51,7 +51,7 @@ export function registrySupportedModels(): Mouse[] {
       pids: [pid],
     });
   }
-  for (const [pid, info] of KEYCHRON_PRODUCTS) {
+  for (const [pid, info] of KEYCHRON_NAPE_PRODUCTS) {
     if (info.receiver) continue;
     rows.push({ brand: "Keychron", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
   }

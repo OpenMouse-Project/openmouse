@@ -468,7 +468,7 @@ export const MICE: Mouse[] = [
     pids: [0x0440],
     note: "PID 0x0440 in Keychron driver" },
   { brand: "Keychron", model: "M6",                     status: "quickwin",  req: 1,
-    note: "Keychron vendor covered; M6 PID not yet in KEYCHRON_PRODUCT_IDS" },
+    note: "Nape VIA driver only; M6 uses a different Keychron mouse protocol" },
 
   // ASUS ROG ────────────────────────────────────────────────────────────
   { brand: "ASUS ROG", model: "Harpe Ace Aim Lab",      status: "driver",    req: 5,

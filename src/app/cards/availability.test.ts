@@ -152,18 +152,18 @@ test("Keychron Nape Pro layers appear on the profiles tab when VIA reports a cou
   const withoutLayers = cardAvailability(snapshot({
     status: { brand: "Keychron", ui: { family: "keychron-nape", showAdvancedSection: true } },
   }));
-  assert.equal(withoutLayers.keychronLayers, false);
+  assert.equal(withoutLayers.keychronNapeLayers, false);
   assert.equal(withoutLayers.profiles, false);
 
   const withLayers = cardAvailability(snapshot({
     status: {
       brand: "Keychron",
       ui: { family: "keychron-nape", showAdvancedSection: true },
-      keychronLayer: 2,
-      keychronLayerCount: 8,
+      napeLayer: 2,
+      napeLayerCount: 8,
     },
   }));
-  assert.equal(withLayers.keychronLayers, true);
+  assert.equal(withLayers.keychronNapeLayers, true);
   assert.equal(withLayers.profiles, false);
 });
 

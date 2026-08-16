@@ -6,7 +6,7 @@ import { CaptureDialog } from "./CaptureDialog";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { InterfaceSettings } from "./InterfaceSettings";
 import { PendingBar } from "./PendingBar";
-import { KeychronLayers } from "./KeychronLayers";
+import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
@@ -156,7 +156,7 @@ function Workspace({
   ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
-  const showKeychronLayers = show(has.keychronLayers, ["profiles"]);
+  const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
   const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
   const showMxMaster = on(tab, ["advanced"])
@@ -165,7 +165,7 @@ function Workspace({
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
-    || showProfiles || showKeychronLayers || showSuperstrike || showLogitechDetails || showMxMaster
+    || showProfiles || showNapeLayers || showSuperstrike || showLogitechDetails || showMxMaster
     || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
@@ -191,7 +191,7 @@ function Workspace({
       ) : null}
 
       {showProfiles ? <Profiles snapshot={snapshot} /> : null}
-      {showKeychronLayers ? <KeychronLayers snapshot={snapshot} /> : null}
+      {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
       {performance.length > 0 ? (
         <section

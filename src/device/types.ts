@@ -1,4 +1,5 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../interface-preferences";
@@ -89,6 +90,17 @@ export interface StagedProfileButtonAssignment {
   value: string;
 }
 
+export type NapeAssignmentControl =
+  | { kind: "key"; col: number }
+  | { kind: "wheel"; clockwise: boolean };
+
+export interface StagedNapeAssignment {
+  layer: number;
+  control: NapeAssignmentControl;
+  action: string;
+  keycode: number;
+}
+
 export interface ProfileView {
   entry: OnboardProfile | null;
   summary: { name: string; detail: string };
@@ -162,8 +174,12 @@ export interface ControlSnapshot {
   /** Control id → staged remap target, for controls with an unflashed remap. */
   stagedButtonMappings: Record<number, number>;
   stagedProfileButtonAssignments: StagedProfileButtonAssignment[];
+  /** Nape Pro VIA keymap for the layer currently open in the Buttons tab. */
+  napeKeymap: KeychronNapeLayerKeymap | null;
+  /** Unflashed Nape Pro button and wheel remaps, including other layers. */
+  stagedNapeAssignments: StagedNapeAssignment[];
   /** Nape Pro layer currently open in the Profiles tab, or null when unread. */
-  editedKeychronLayer: number | null;
+  editedNapeLayer: number | null;
   analogTuning: AnalogTuningState;
   eggPollingDivider: number | null;
 

@@ -595,12 +595,12 @@ const KEYCHRON: MouseStatus = {
   supportedPollingRates: [500, 1000, 2000, 4000, 8000],
   activeProfile: null,
   connectionType: "Wired",
-  connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5 · Layer 1",
+  connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5 · Layer 0",
   liftOffDistance: null,
   supportedLiftOffDistances: [],
   sleepTimeout: 600,
-  keychronLayer: 1,
-  keychronLayerCount: 8,
+  napeLayer: 1,
+  napeLayerCount: 8,
   firmware: ["v1.0.4"],
 };
 
@@ -672,7 +672,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   vgn: { label: "VGN F2 Master Plus", status: VGN },
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
-  keychron: { label: "Keychron Nape Pro", status: KEYCHRON },
+  "keychron-nape": { label: "Keychron Nape Pro", status: KEYCHRON },
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };

@@ -4,7 +4,7 @@ import test from "node:test";
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
 import { WLMOUSE_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
-import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
+import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import {
   LOGITECH_BOLT_PRODUCT_IDS,
@@ -88,7 +88,7 @@ const PID_UNIVERSE = new Set<number>([
   // RAZER_PRODUCTS registry (drivers/razer/devices.ts): Cobra, Viper Mini,
   // Viper V4 Pro.
   0x00a3, 0x008a, 0x00e5, 0x00e6,
-  ...KEYCHRON_PRODUCTS.keys(),
+  ...KEYCHRON_NAPE_PRODUCTS.keys(),
   ...TEEVOLUTION_PRODUCT_IDS,
   ...ZAUNKOENIG_PRODUCT_IDS,
   ...NINJUTSO_LEGACY_MOUSE_PRODUCT_IDS,
