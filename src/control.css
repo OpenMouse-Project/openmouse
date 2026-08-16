@@ -833,6 +833,14 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-device-enable:disabled { opacity: .55; cursor: default; }
 .openmouse-bridge-device-secondary { padding: .34rem .6rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--faint); font-size: .56rem; cursor: pointer; }
 .openmouse-bridge-device-secondary:disabled { opacity: .55; cursor: default; }
+.openmouse-bridge-dpi { display: grid; gap: .4rem; }
+.openmouse-bridge-dpi > span { color: var(--text-soft); font-size: .62rem; }
+.openmouse-bridge-dpi ul { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem .5rem; margin: 0; padding: 0; list-style: none; }
+.openmouse-bridge-dpi li { display: flex; align-items: center; gap: .3rem; }
+.openmouse-bridge-dpi li input[type="number"] { width: 100%; min-width: 0; padding: .25rem .3rem; border: 1px solid var(--border); border-radius: 5px; background: var(--surface, #16181b); color: var(--text-strong); font-size: .6rem; }
+.openmouse-bridge-dpi li input[type="radio"] { flex: none; }
+.openmouse-bridge-dpi li input:disabled { opacity: .55; }
+.openmouse-bridge-dpi > button { justify-self: start; }
 .openmouse-arch-udev { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .55rem .75rem; align-items: center; padding: .7rem; border: 1px solid #8a6a38; border-radius: 8px; background: #211b12; }
 .openmouse-arch-udev strong, .openmouse-arch-udev small { display: block; }
 .openmouse-arch-udev strong { color: #edca8d; font-size: .68rem; }

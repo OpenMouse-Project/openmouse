@@ -76,6 +76,13 @@ export interface BridgeDevice {
   batteryPercent: number | null;
   pollingRateHz: number | null;
   supportedPollingRates: number[];
+  /** DPI stages as last written through the Bridge (the mouse doesn't report them). */
+  dpiStages: number[];
+  /** Active DPI stage, 1-based. */
+  activeDpiStage: number;
+  dpiMin: number;
+  dpiMax: number;
+  dpiStep: number;
   note: string;
 }
 
@@ -93,6 +100,22 @@ export async function setBridgeDevicePolling(id: string, hz: number): Promise<nu
     },
   );
   return result.pollingRateHz;
+}
+
+/** Write the six DPI stages and the active stage (1-based) to a Bridge device. */
+export async function setBridgeDeviceDpi(
+  id: string,
+  stages: number[],
+  activeStage: number,
+): Promise<void> {
+  await bridgeRequest(
+    `/v1/devices/${encodeURIComponent(id)}/dpi`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stages, activeStage }),
+    },
+  );
 }
 
 /**
