@@ -804,10 +804,16 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 
 export async function flashPendingChanges(): Promise<void> {
   const batches = pendingChangeBatches();
-  if (batches.length === 0 || settingInProgress || refreshInProgress) return;
+  if (batches.length === 0 || settingInProgress) return;
   settingInProgress = true;
   pendingBusy = true;
   emit();
+  if (refreshInProgress) {
+    pendingStatusText = "Waiting for the current device refresh…";
+    readStatus = pendingStatusText;
+    emit();
+    while (refreshInProgress) await wait(25);
+  }
   let written = 0;
   let failure: string | null = null;
   try {
