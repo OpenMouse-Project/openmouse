@@ -314,6 +314,15 @@ const RAZER: MouseStatus = {
   supportedLiftOffDistances: [],
   connectionType: "Wireless",
   connectionDetail: "HyperSpeed receiver",
+  razerButtonMappings: {
+    leftClick: "Left Click",
+    rightClick: "Right Click",
+    mouse4: "Disabled",
+    mouse5: "Mouse Button 5",
+    scrollUp: "Scroll Up",
+    scrollDown: "Disabled",
+    sensitivityButton: "Cycle Up Sensitivity Stages",
+  },
   firmware: ["1.01.00"],
 };
 
