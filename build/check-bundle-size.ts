@@ -15,8 +15,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // fixtures retain their separate allowance below; the measured aggregate
   // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
   // from 590 kB for the Razer button-mapping card and its codec: the measured
-  // aggregate is 588.2 kB, which left under 2 kB of headroom.
-  ".js": 600_000,
+  // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
+  // 610 kB for the Pulsar XS-1 feature-report driver and 4K receiver support
+  // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
+  // adds ~1.3 kB to the measured aggregate.
+  ".js": 610_000,
 };
 
 const ASSETS = join("dist", "assets");

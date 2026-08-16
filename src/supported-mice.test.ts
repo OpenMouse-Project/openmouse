@@ -17,6 +17,7 @@ import {
   NINJUTSO_RECEIVER_PRODUCT_IDS,
 } from "@openmouse/protocol/ninjutso";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
+import { PULSAR_XS1_PRODUCT_IDS } from "@openmouse/protocol/pulsar";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
 import { TEEVOLUTION_PRODUCT_IDS } from "@openmouse/protocol/teevolution";
 import { ZAUNKOENIG_PRODUCT_IDS } from "@openmouse/protocol/zaunkoenig";
@@ -100,6 +101,8 @@ const PID_UNIVERSE = new Set<number>([
   0x1960, 0x1961, 0x1962, 0x1968, 0x1970, 0x1972, 0x1982,
   // VGN Dragonfly F2 Master+ (drivers/vgn/hid.ts).
   0xfb56, 0xfb57,
+  // Pulsar X3 family on the Sonix XS-1 feature interface (drivers/pulsar/pulsar-xs1-hid.ts).
+  ...PULSAR_XS1_PRODUCT_IDS,
   // Finalmouse ULX dongle (drivers/finalmouse/hid.ts).
   0x0100,
 ]);
