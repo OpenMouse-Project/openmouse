@@ -407,8 +407,9 @@ export const MICE: Mouse[] = [
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
   { brand: "Pulsar", model: "X2 V3 ES Mini",            status: "supported", req: 2,
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
-  { brand: "Pulsar", model: "X3 Medium",                status: "supported", req: 1,
-    note: "Pulsar driver (VID 0x3710) — collection-based detection" },
+  { brand: "Pulsar", model: "X3 Medium",                status: "likely",    req: 1,
+    pids: [0x3409, 0x3410, 0x5402, 0x5403],
+    note: "XS-1 driver written for PIDs 0x3409/0x3410/0x5402/0x5403 — pending merge + hardware test" },
   { brand: "Pulsar", model: "X2F",                      status: "supported", req: 1,
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
 
