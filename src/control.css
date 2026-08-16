@@ -786,7 +786,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-update-heading > div > span { color: var(--ui-accent); font: 600 .55rem var(--font-mono); letter-spacing: .09em; }
 .openmouse-update-heading button { padding: .58rem .78rem; border: 1px solid var(--ui-accent); border-radius: 7px; background: var(--ui-accent-soft); color: var(--text-strong); font-size: .65rem; font-weight: 700; cursor: pointer; }
 .openmouse-update-heading button:disabled { cursor: wait; opacity: .55; }
-.openmouse-update-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.openmouse-update-list { display: grid; grid-template-columns: 1fr; gap: .5rem; }
 .openmouse-update-release { padding: .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
 .openmouse-update-release[data-update="true"] { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
 .openmouse-update-release strong, .openmouse-update-release small { display: block; }
@@ -817,10 +817,24 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-action .openmouse-bridge-connect:not(:disabled) { cursor: pointer; opacity: 1; }
 .openmouse-bridge-action small { color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
 .openmouse-bridge-applications { grid-column: 1 / -1; display: grid; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.openmouse-arch-udev { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .55rem .75rem; align-items: center; padding: .7rem; border: 1px solid #8a6a38; border-radius: 8px; background: #211b12; }
+.openmouse-arch-udev strong, .openmouse-arch-udev small { display: block; }
+.openmouse-arch-udev strong { color: #edca8d; font-size: .68rem; }
+.openmouse-arch-udev small { margin-top: .14rem; color: #bba77f; font-size: .54rem; }
+.openmouse-arch-udev code { grid-column: 1 / -1; overflow: auto; padding: .5rem; border-radius: 6px; background: #0d0e10; color: var(--text-soft); font: .5rem/1.45 var(--font-mono); white-space: nowrap; }
+.openmouse-arch-udev button { padding: .4rem .55rem; border: 1px solid #8a6a38; border-radius: 6px; background: #2d2417; color: #edca8d; font-size: .55rem; cursor: pointer; }
 .openmouse-bridge-app-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
 .openmouse-bridge-app-heading span { color: var(--ui-accent); font: 600 .52rem var(--font-mono); letter-spacing: .09em; }
 .openmouse-bridge-app-heading h4 { margin: .2rem 0 0; color: var(--text-strong); font-size: .76rem; }
 .openmouse-bridge-app-heading > small { color: var(--faint); font: .55rem var(--font-mono); }
+.openmouse-profile-manager label { display: grid; gap: .3rem; color: var(--muted); font-size: .55rem; }
+.openmouse-profile-manager select { width: 100%; padding: .55rem .6rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--well); color: var(--text-strong); }
+.openmouse-saved-profiles { display: grid; gap: .4rem; }
+.openmouse-saved-profiles article { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
+.openmouse-saved-profiles strong, .openmouse-saved-profiles small { display: block; }
+.openmouse-saved-profiles strong { color: var(--text-strong); font-size: .64rem; }
+.openmouse-saved-profiles small { margin-top: .14rem; color: var(--muted); font: .52rem var(--font-mono); }
+.openmouse-saved-profiles button { padding: .38rem .55rem; border: 1px solid #634044; border-radius: 6px; background: #251719; color: #e3a4a8; font-size: .54rem; cursor: pointer; }
 .openmouse-bridge-game-catalog { padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
 .openmouse-bridge-game-catalog summary { color: var(--text-soft); font: 600 .55rem var(--font-mono); cursor: pointer; }
 .openmouse-bridge-game-catalog > div { display: flex; flex-wrap: wrap; gap: .35rem; padding-top: .55rem; }

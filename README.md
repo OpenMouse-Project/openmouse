@@ -20,16 +20,12 @@ Run the full local check before pushing changes:
 npm run check
 ```
 
-## Stable releases and updates
+## Bridge updates
 
-The Settings page checks the latest stable GitHub releases for OpenMouse and
-OpenMouse Bridge. It only retrieves version numbers, changelogs, and download
-links; it never downloads or installs an update in the background. Users can
+The Settings page compares the connected OpenMouse Bridge against its latest
+stable GitHub release. It only retrieves the version, changelog, and download
+link; it never downloads or installs an update in the background. Users can
 also run the check manually.
-
-Pushing a version tag such as `v1.0.0` builds the stable website archive and
-publishes it as the latest GitHub release with generated changelog notes and a
-SHA-256 checksum.
 
 The control panel is organized by responsibility: `control.ts` coordinates the
 application, while the template, events, DOM helpers, persisted preferences,

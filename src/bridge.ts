@@ -4,6 +4,7 @@ const BRIDGE_TIMEOUT_MS = 1_500;
 export interface BridgeStatus {
   version: string;
   platform: string;
+  linuxDistribution: string | null;
   uptimeSeconds: number;
   activeGames: string[];
   trackedGameCount: number;

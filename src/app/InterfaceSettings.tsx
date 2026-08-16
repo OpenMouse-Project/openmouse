@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  bridgeApplications,
-  bridgeApplicationIconUrl,
   bridgeGames,
   bridgeHandshake,
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
-  type BridgeApplication,
   type BridgeGame,
   type BridgeProfile,
   type BridgeStatus,
@@ -38,6 +35,8 @@ const THEME_CHOICES: readonly ThemeSwatch[] = [
   { name: "NieR: Automata", accent: "#d1cdb7", canvas: "#282620", surface: "#36342c" },
   { name: "Liquid Glass", accent: "#f4c95d", canvas: "#080a0c", surface: "#151a1e" },
 ];
+
+const ARCH_UDEV_COMMAND = `echo 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-openmouse.rules >/dev/null && sudo udevadm control --reload-rules && sudo udevadm trigger`;
 
 function UpdateRelease({ name, current, release }: {
   name: string;
@@ -108,16 +107,14 @@ function SwitchCard({
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
-  const [bridgeApplicationsList, setBridgeApplicationsList] = useState<BridgeApplication[]>([]);
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
   const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
-  const [selectedApplicationPath, setSelectedApplicationPath] = useState("");
+  const [selectedGameName, setSelectedGameName] = useState("");
   const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
   const [bridgeChecking, setBridgeChecking] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
   const [updateChecking, setUpdateChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
-  const [openMouseRelease, setOpenMouseRelease] = useState<GitHubRelease | null>(null);
   const [bridgeRelease, setBridgeRelease] = useState<GitHubRelease | null>(null);
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
@@ -125,11 +122,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     setUpdateChecking(true);
     setUpdateMessage("");
     try {
-      const [openMouse, bridgeUpdate] = await Promise.all([
-        latestRelease("OpenMouse-Project/openmouse", signal),
-        latestRelease("OpenMouse-Project/OpenMouse-Bridge", signal),
-      ]);
-      setOpenMouseRelease(openMouse);
+      const bridgeUpdate = await latestRelease("OpenMouse-Project/OpenMouse-Bridge", signal);
       setBridgeRelease(bridgeUpdate);
       setUpdateMessage("Release information is current.");
     } catch (error) {
@@ -153,25 +146,19 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     setBridgeChecking(true);
     try {
       await bridgeHandshake(signal);
-      const [status, applications, profiles, games] = await Promise.all([
+      const [status, profiles, games] = await Promise.all([
         bridgeStatus(signal),
-        bridgeApplications(signal),
         bridgeProfiles(signal),
         bridgeGames(signal),
       ]);
       setBridge(status);
-      setBridgeApplicationsList(applications);
       setBridgeProfilesList(profiles);
       setBridgeGamesList(games);
-      setSelectedApplicationPath((current) => current
-        || applications.find((application) => application.foreground)?.path
-        || applications[0]?.path
-        || "");
+      setSelectedGameName((current) => current || status.activeGames[0] || games[0]?.name || "");
       setBridgeMessage("");
     } catch {
       if (!signal?.aborted) {
         setBridge(null);
-        setBridgeApplicationsList([]);
         setBridgeProfilesList([]);
         setBridgeGamesList([]);
       }
@@ -203,9 +190,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     };
   }, [bridgeConnectionRequested, checkBridge]);
 
-  const selectedApplication = bridgeApplicationsList.find(
-    (application) => application.path === selectedApplicationPath,
-  ) ?? null;
+  const selectedGame = bridgeGamesList.find((game) => game.name === selectedGameName) ?? null;
   const status = snapshot.status;
   const deviceId = status ? `${status.brand}:${status.name}` : "";
   const bridgeConnected = bridge !== null;
@@ -220,17 +205,17 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       },
     }).catch(() => undefined);
   }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
-  const selectedProfile = selectedApplication
+  const selectedProfile = selectedGame
     ? bridgeProfilesList.find((profile) =>
-      profile.application.path === selectedApplication.path && profile.device.id === deviceId) ?? null
+      profile.application.name === selectedGame.name && profile.device.id === deviceId) ?? null
     : null;
   const captureApplicationProfile = async (): Promise<void> => {
-    if (!selectedApplication || !status) return;
+    if (!selectedGame || !status) return;
     const profile: BridgeProfile = {
       application: {
-        name: selectedApplication.name,
-        executable: selectedApplication.executable,
-        path: selectedApplication.path,
+        name: selectedGame.name,
+        executable: selectedGame.executables[0] ?? selectedGame.name,
+        path: `openmouse-game:${selectedGame.name}`,
       },
       device: { id: deviceId, name: status.name },
       settings: {
@@ -240,21 +225,31 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     };
     const next = [
       ...bridgeProfilesList.filter((entry) =>
-        entry.application.path !== selectedApplication.path || entry.device.id !== deviceId),
+        entry.application.name !== selectedGame.name || entry.device.id !== deviceId),
       profile,
     ];
     try {
       await saveBridgeProfiles(next);
       setBridgeProfilesList(next);
-      setBridgeMessage(`Saved ${selectedApplication.name} for ${status.name}.`);
+      setBridgeMessage(`Saved ${selectedGame.name} for ${status.name}.`);
     } catch (error) {
       setBridgeMessage(error instanceof Error ? error.message : "Could not save the application profile.");
     }
   };
+  const deleteProfile = async (profile: BridgeProfile): Promise<void> => {
+    const next = bridgeProfilesList.filter((entry) => entry !== profile);
+    try {
+      await saveBridgeProfiles(next);
+      setBridgeProfilesList(next);
+      setBridgeMessage(`Removed ${profile.application.name} for ${profile.device.name}.`);
+    } catch (error) {
+      setBridgeMessage(error instanceof Error ? error.message : "Could not remove the profile.");
+    }
+  };
   const availableUpdates = [
-    openMouseRelease && compareVersions(__APP_VERSION__, openMouseRelease.version) === "update-available" ? "OpenMouse" : null,
     bridge && bridgeRelease && compareVersions(bridge.version, bridgeRelease.version) === "update-available" ? "Bridge" : null,
   ].filter((name): name is string => name !== null);
+  const isArchLinux = bridge?.linuxDistribution?.split(/\s+/).includes("arch") ?? false;
 
   return (
     <>
@@ -289,15 +284,14 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
           <div className="openmouse-update-heading">
             <div>
               <span>LATEST UPDATES</span>
-              <h3>OpenMouse release status</h3>
-              <p>Checks release versions and changelogs. Updates are never downloaded or installed automatically.</p>
+              <h3>OpenMouse Bridge release status</h3>
+              <p>Checks the latest Bridge version and changelog. Updates are never downloaded or installed automatically.</p>
             </div>
             <button type="button" disabled={updateChecking} onClick={() => void checkForUpdates()}>
               {updateChecking ? "Checking…" : "Check for updates"}
             </button>
           </div>
           <div className="openmouse-update-list">
-            <UpdateRelease name="OpenMouse" current={__APP_VERSION__} release={openMouseRelease} />
             <UpdateRelease name="OpenMouse Bridge" current={bridge?.version ?? null} release={bridgeRelease} />
           </div>
           {updateMessage ? <small className="openmouse-update-message">{updateMessage}</small> : null}
@@ -353,61 +347,49 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                   : "Install OpenMouse Bridge before connecting it to this control panel."}
               </small>
             </div>
+            {isArchLinux ? (
+              <aside className="openmouse-arch-udev">
+                <div>
+                  <strong>Arch Linux needs a WebHID udev rule</strong>
+                  <small>Run this once, then unplug and reconnect the mouse.</small>
+                </div>
+                <code>{ARCH_UDEV_COMMAND}</code>
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(ARCH_UDEV_COMMAND).then(
+                    () => setBridgeMessage("Copied the Arch Linux udev command."),
+                    () => setBridgeMessage("Could not copy automatically. Select the command manually."),
+                  )}
+                >
+                  Copy command
+                </button>
+              </aside>
+            ) : null}
             {bridge ? (
               <div className="openmouse-bridge-applications">
                 <div className="openmouse-bridge-app-heading">
                   <div>
-                    <span>RUNNING GAMES</span>
-                    <h4>Create a mouse profile for a supported game</h4>
+                    <span>GAME PROFILES</span>
+                    <h4>Create and manage every Bridge profile here</h4>
                   </div>
-                  <small>{bridgeApplicationsList.length} detected</small>
+                  <small>{bridgeProfilesList.length} saved</small>
                 </div>
-                {bridgeGamesList.length > 0 ? (
-                  <details className="openmouse-bridge-game-catalog">
-                    <summary>Supported games ({bridgeGamesList.length})</summary>
-                    <div>
+                <div className="openmouse-profile-manager">
+                  <label>
+                    <span>Supported game</span>
+                    <select value={selectedGameName} onChange={(event) => setSelectedGameName(event.currentTarget.value)}>
                       {bridgeGamesList.map((game) => (
-                        <span key={game.name} data-active={bridge.activeGames.includes(game.name)}>
-                          {game.name}
-                        </span>
+                        <option key={game.name} value={game.name}>
+                          {game.name}{bridge.activeGames.includes(game.name) ? " · Running" : ""}
+                        </option>
                       ))}
-                    </div>
-                  </details>
-                ) : null}
-                {bridgeApplicationsList.length > 0 ? (
-                  <div className="openmouse-bridge-app-grid">
-                    {bridgeApplicationsList.map((application) => {
-                      const assigned = bridgeProfilesList.some((profile) =>
-                        profile.application.path === application.path && profile.device.id === deviceId);
-                      return (
-                        <button
-                          key={application.path}
-                          type="button"
-                          className={selectedApplicationPath === application.path ? "is-selected" : ""}
-                          onClick={() => setSelectedApplicationPath(application.path)}
-                        >
-                          <i aria-hidden="true">
-                            <span>{application.name.slice(0, 1).toUpperCase()}</span>
-                            <img
-                              src={bridgeApplicationIconUrl(application)}
-                              alt=""
-                              onLoad={(event) => event.currentTarget.parentElement?.classList.add("has-icon")}
-                              onError={(event) => event.currentTarget.parentElement?.classList.remove("has-icon")}
-                            />
-                          </i>
-                          <span><strong>{application.name}</strong><small>{application.executable}</small></span>
-                          <em>{application.foreground ? "Active" : assigned ? "Profile saved" : "Open"}</em>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p>No supported games are currently running. Your selected OpenMouse settings remain the default profile.</p>
-                )}
-                {selectedApplication ? (
+                    </select>
+                  </label>
+                </div>
+                {selectedGame ? (
                   <div className="openmouse-bridge-profile-editor">
                     <div>
-                      <strong>{selectedApplication.name}</strong>
+                      <strong>{selectedGame.name}</strong>
                       <small>
                         {selectedProfile
                           ? `${selectedProfile.settings.dpi ?? "—"} DPI · ${selectedProfile.settings.pollingRateHz ?? "—"} Hz`
@@ -421,6 +403,21 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                     </button>
                   </div>
                 ) : null}
+                {bridgeProfilesList.length > 0 ? (
+                  <div className="openmouse-saved-profiles">
+                    {bridgeProfilesList.map((profile) => (
+                      <article key={`${profile.application.path}:${profile.device.id}`}>
+                        <div>
+                          <strong>{profile.application.name}</strong>
+                          <small>{profile.device.name} · {profile.settings.dpi ?? "—"} DPI · {profile.settings.pollingRateHz ?? "—"} Hz</small>
+                        </div>
+                        <button type="button" onClick={() => void deleteProfile(profile)}>Delete</button>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No game profiles yet. Choose any supported game above and capture the selected mouse settings.</p>
+                )}
                 {bridge.activeProfile ? (
                   <p className="openmouse-bridge-message" role="status">
                     Active profile: {bridge.activeProfile.application.name} · {bridge.activeProfile.settings.dpi ?? "—"} DPI · {bridge.activeProfile.settings.pollingRateHz ?? "—"} Hz
