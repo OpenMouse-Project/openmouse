@@ -60,6 +60,39 @@ export async function bridgeGames(signal?: AbortSignal): Promise<BridgeGame[]> {
   return bridgeRequest<BridgeGame[]>("/v1/games", undefined, signal);
 }
 
+/**
+ * A mouse the Bridge can reach natively — used for devices whose config
+ * channel the browser cannot touch (e.g. the Attack Shark X11, whose settings
+ * live on HID collections Chrome protects). `null` fields mean "not readable".
+ */
+export interface BridgeDevice {
+  id: string;
+  name: string;
+  vendorId: number;
+  productId: number;
+  connection: "wired" | "wireless";
+  batteryPercent: number | null;
+  pollingRateHz: number | null;
+  supportedPollingRates: number[];
+  note: string;
+}
+
+export async function bridgeDevices(signal?: AbortSignal): Promise<BridgeDevice[]> {
+  return bridgeRequest<BridgeDevice[]>("/v1/devices", undefined, signal);
+}
+
+export async function setBridgeDevicePolling(id: string, hz: number): Promise<number> {
+  const result = await bridgeRequest<{ ok: boolean; pollingRateHz: number }>(
+    `/v1/devices/${encodeURIComponent(id)}/polling`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hz }),
+    },
+  );
+  return result.pollingRateHz;
+}
+
 export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {
   await bridgeRequest("/v1/profiles", {
     method: "PUT",

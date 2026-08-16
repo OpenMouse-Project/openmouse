@@ -14,7 +14,12 @@ const BUDGET_BYTES: Record<string, number> = {
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
   // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk.
-  ".js": 590_000,
+  //
+  // Raised again from 590 kB (+2 kB) for native Bridge device control: the
+  // /v1/devices client and the "Native devices" panel that lists Bridge-
+  // reached mice (e.g. the Attack Shark X11, unreachable over WebHID) and
+  // sets their polling rate. Measured aggregate 609.9 kB.
+  ".js": 612_000,
 };
 
 const ASSETS = join("dist", "assets");
