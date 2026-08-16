@@ -35,9 +35,22 @@ const CANONICAL_BRAND_BY_KEY = new Map(
 
 const BRAND_TYPOS: Record<string, string> = {
   reddragon: "Redragon",
+  redrasgon: "Redragon",
   logitec: "Logitech",
+  logitechg: "Logitech",
   glorius: "Glorious",
+  raser: "Razer",
+  razerbasilisk: "Razer",
+  razerviper8k: "Razer",
+  thecosmicbyte: "Cosmic Byte",
+  dunevoyger: "Dune Voyager",
+  hsxj: "HXSJ",
   rapoovpro: "Rapoo",
+  mxanywhere2: "Logitech",
+  mxanywhere3: "Logitech",
+  mxanywhere3s: "Logitech",
+  hyperxpulsefirehastle2: "HyperX",
+  rog: "ASUS ROG",
 };
 
 /**

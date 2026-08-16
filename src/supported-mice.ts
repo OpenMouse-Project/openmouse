@@ -557,6 +557,6 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "DeadSkull",     model: "Orbit Wired",       status: "unknown",   req: 1,
     note: "Protocol unknown" },
-  { brand: "IGM",           model: "IGM-6000",          status: "unknown",   req: 1,
+  { brand: "ISY",           model: "IGM-6000",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
 ];
