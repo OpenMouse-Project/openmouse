@@ -3,6 +3,7 @@ import {
   bridgeApplications,
   bridgeApplicationIconUrl,
   bridgeGames,
+  bridgeHandshake,
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
@@ -82,6 +83,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const checkBridge = useCallback(async (signal?: AbortSignal): Promise<void> => {
     setBridgeChecking(true);
     try {
+      await bridgeHandshake(signal);
       const [status, applications, profiles, games] = await Promise.all([
         bridgeStatus(signal),
         bridgeApplications(signal),
@@ -121,10 +123,12 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       });
     };
     reconnect();
+    const heartbeat = window.setInterval(reconnect, 5_000);
     window.addEventListener("focus", reconnect);
     document.addEventListener("visibilitychange", reconnect);
     return () => {
       controller.abort();
+      window.clearInterval(heartbeat);
       window.removeEventListener("focus", reconnect);
       document.removeEventListener("visibilitychange", reconnect);
     };

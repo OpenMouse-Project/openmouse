@@ -13,6 +13,7 @@ export interface BridgeStatus {
   activeProfile: BridgeProfile | null;
   visibleApplicationCount: number;
   profileCount: number;
+  clientConnected: boolean;
 }
 
 export interface BridgeApplication {
@@ -40,6 +41,10 @@ export interface BridgeGame {
 
 export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
   return bridgeRequest<BridgeStatus>("/v1/status", undefined, signal);
+}
+
+export async function bridgeHandshake(signal?: AbortSignal): Promise<void> {
+  await bridgeRequest("/v1/handshake", { method: "PUT" }, signal);
 }
 
 export async function bridgeApplications(signal?: AbortSignal): Promise<BridgeApplication[]> {
