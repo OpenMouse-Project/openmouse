@@ -18,7 +18,10 @@ export function LightingCard({
   zones?: MouseLighting[];
   zoneIndex?: number;
 }): ReactNode {
-  const [selectedZone, setSelectedZone] = useState(zones && zones.length > 1 ? 1 : zoneIndex);
+  const hasLightstrip = Boolean(zones?.some((zone) => zone.hardwareZoneId != null));
+  const [selectedZone, setSelectedZone] = useState(
+    hasLightstrip && zones && zones.length > 1 ? 1 : zoneIndex,
+  );
   const activeZoneIndex = zones ? Math.min(selectedZone, zones.length - 1) : zoneIndex;
   const lighting = zones?.[activeZoneIndex] ?? suppliedLighting ?? snapshot.status?.lighting;
   if (!lighting) return null;
@@ -57,7 +60,11 @@ export function LightingCard({
             <span>RGB parts</span>
             <strong>{lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone}</strong>
           </div>
-          <div className="lighting-strip" role="list" aria-label="G502 X Plus lightstrip LEDs">
+          <div
+            className={`lighting-strip${hasLightstrip ? " is-lightstrip" : ""}`}
+            role="list"
+            aria-label={hasLightstrip ? "Lightstrip LEDs" : "RGB zones"}
+          >
             {zones.map((zone, index) => (
               <button
                 key={`${zone.zone}-${index}`}

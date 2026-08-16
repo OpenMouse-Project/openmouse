@@ -14,6 +14,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c095", "/devices/logitech-g502-x-plus.png"],
   ["046d:c099", "/devices/logitech-g502-x.png"],
   ["046d:c0a8", "/devices/logitech-pro-x2-superstrike.png"],
+  // Original G703 (0xc087) and G703 HERO wired (0xc090) share the same shell.
+  ["046d:c087", "/devices/logitech-g703.png"],
+  ["046d:c090", "/devices/logitech-g703.png"],
   // M3K and M2K use the supplied M3K product artwork.
   ["0483:a462", "/devices/zaunkoenig-m3k.png"],
   ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
@@ -78,6 +81,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/g502\s*x\s*plus/i.test(displayName)) return "/devices/logitech-g502-x-plus.png";
   if (/g502\s*x/i.test(displayName)) return "/devices/logitech-g502-x.png";
   if (/\bg502\b/i.test(displayName)) return "/devices/logitech-g502.png";
+  if (/\bg703\b/i.test(displayName)) return "/devices/logitech-g703.png";
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
   if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";

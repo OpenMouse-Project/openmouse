@@ -38,6 +38,11 @@ transparent canvases; the original G502 backdrop was extracted from its source
 render. Confirm redistribution terms before including them in a public release
 package.
 
+`logitech-g703.png` was supplied from Logitech G's official G703 HERO product
+gallery (`resource.logitechg.com` DAM `g703-mouse-top-angle-gallery-1.png`)
+and normalized to the same 700×700 transparent canvas as the G502 set. Confirm
+redistribution terms before including it in a public release package.
+
 `logitech-mx-master-4.png` is a line-art trace made for this repository, not a
 vendor render. Only geometry derives from the source: the outer silhouette and
 the shell seams — button split, scroll-wheel housing, thumb rest, thumb wheel,
