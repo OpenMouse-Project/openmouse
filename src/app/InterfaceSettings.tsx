@@ -247,8 +247,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       application: { name: status.name, executable: "", path: "" },
       device: { id: deviceId, name: status.name },
       settings: {
-        dpi: status.dpi ?? null,
-        pollingRateHz: status.pollingRateHz ?? null,
+        // 0 means "not readable" (e.g. the browser-read-only Attack Shark X11),
+        // so store null rather than a bogus 0 DPI / 0 Hz profile.
+        dpi: status.dpi || null,
+        pollingRateHz: status.pollingRateHz || null,
       },
     }).catch(() => undefined);
   }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
@@ -266,8 +268,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       },
       device: { id: deviceId, name: status.name },
       settings: {
-        dpi: status.dpi ?? null,
-        pollingRateHz: status.pollingRateHz ?? null,
+        // 0 means "not readable" (e.g. the browser-read-only Attack Shark X11),
+        // so store null rather than a bogus 0 DPI / 0 Hz profile.
+        dpi: status.dpi || null,
+        pollingRateHz: status.pollingRateHz || null,
       },
     };
     const next = [
