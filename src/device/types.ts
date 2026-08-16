@@ -92,7 +92,8 @@ export interface StagedProfileButtonAssignment {
 
 export type NapeAssignmentControl =
   | { kind: "key"; col: number }
-  | { kind: "wheel"; clockwise: boolean };
+  | { kind: "wheel"; clockwise: boolean }
+  | { kind: "orientation" };
 
 export interface StagedNapeAssignment {
   layer: number;

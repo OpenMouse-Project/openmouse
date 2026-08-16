@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import {
   KEYCHRON_NAPE_BUTTON_ACTIONS,
+  KEYCHRON_NAPE_ORIENTATION_OPTIONS,
   keychronLayerLabel,
   type KeychronNapeButtonAction,
 } from "@openmouse/protocol/keychron";
@@ -51,6 +52,7 @@ const KEY_ROWS = [
 ] as const;
 
 function pendingKey(layer: number, target: NapeAssignmentControl): string {
+  if (target.kind === "orientation") return `nape-${layer}-orientation`;
   return target.kind === "key"
     ? `nape-${layer}-col-${target.col}`
     : `nape-${layer}-wheel-${target.clockwise ? "cw" : "ccw"}`;
@@ -63,6 +65,7 @@ function stagedFor(
 ): StagedNapeAssignment | undefined {
   return staged.find((entry) => {
     if (entry.layer !== layer) return false;
+    if (entry.control.kind === "orientation" && target.kind === "orientation") return true;
     if (entry.control.kind === "key" && target.kind === "key") return entry.control.col === target.col;
     if (entry.control.kind === "wheel" && target.kind === "wheel") {
       return entry.control.clockwise === target.clockwise;
@@ -113,17 +116,42 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
   const map = snapshot.napeKeymap;
   const busy = snapshot.settingInProgress;
   const ready = map != null && map.layer === layer;
+  const orientationTarget: NapeAssignmentControl = { kind: "orientation" };
+  const stagedOrientation = ready && map
+    ? stagedFor(snapshot.stagedNapeAssignments, layer, orientationTarget)
+    : undefined;
   return (
     <div className="profile-button-editor">
       <div className="profile-button-heading">
         <div>
           <p>BUTTONS</p>
           <h2>Onboard assignments</h2>
-          <small>Choose what each physical control does on this layer.</small>
+          <small>Choose this layer's sensor orientation and what each physical control does.</small>
         </div>
       </div>
       {ready && map ? (
         <div className="assignment-grid">
+          <label
+            className={`assignment-card is-wide${stagedOrientation ? " is-staged" : ""}`}
+            data-pending-key={pendingKey(layer, orientationTarget)}
+          >
+            <span className="assignment-button-number">0</span>
+            <span className="assignment-button-name">Orientation</span>
+            <span className="assignment-select-wrap">
+              <select
+                value={stagedOrientation?.keycode ?? map.orientationIndex}
+                disabled={busy}
+                onChange={(event) => {
+                  control.applyNapeOrientation(layer, Number(event.currentTarget.value));
+                }}
+              >
+                {KEYCHRON_NAPE_ORIENTATION_OPTIONS.map((option) => (
+                  <option key={option.index} value={option.index}>{option.label}</option>
+                ))}
+              </select>
+              <i aria-hidden="true" />
+            </span>
+          </label>
           {KEY_ROWS.map((row) => {
             const key = map.keys.find((entry) => entry.col === row.col);
             if (!key) return null;
@@ -178,7 +206,7 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
         <small className="setting-note">Reading {keychronLayerLabel(layer)}…</small>
       )}
       <small className="setting-note">
-        Changes stay on this layer until you apply them. Clockwise and counter-clockwise scroll can be set independently.
+        Changes stay on this layer until you apply them. Orientation is stored per layer in 45° steps. Clockwise and counter-clockwise scroll can be set independently.
       </small>
     </div>
   );

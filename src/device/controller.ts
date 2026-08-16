@@ -116,6 +116,8 @@ import {
   keychronKeycodeForAction,
   keychronLayerKeymapFromCodes,
   keychronLayerLabel,
+  keychronOrientationIndex,
+  keychronOrientationLabel,
   type KeychronNapeButtonAction,
   type KeychronNapeLayerKeymap,
 } from "@openmouse/protocol/keychron";
@@ -2221,12 +2223,14 @@ export async function selectOnboardProfile(sector: number): Promise<void> {
 const NAPE_REMAP_GROUP = "keychron-nape-remap";
 
 function napeAssignmentKey(layer: number, control: NapeAssignmentControl): string {
+  if (control.kind === "orientation") return `nape-${layer}-orientation`;
   return control.kind === "key"
     ? `nape-${layer}-col-${control.col}`
     : `nape-${layer}-wheel-${control.clockwise ? "cw" : "ccw"}`;
 }
 
 function napeControlLabel(control: NapeAssignmentControl): string {
+  if (control.kind === "orientation") return "Orientation";
   if (control.kind === "wheel") return control.clockwise ? "Scroll wheel CW" : "Scroll wheel CCW";
   return KEYCHRON_NAPE_KEY_CONTROLS.find((entry) => entry.col === control.col)?.name ?? `0${control.col}`;
 }
@@ -2244,6 +2248,7 @@ function previewNapeKeymap(layer: number): KeychronNapeLayerKeymap {
     ],
     KEYCHRON_NAPE_KEYCODE.volumeDown,
     KEYCHRON_NAPE_KEYCODE.volumeUp,
+    2,
   );
 }
 
@@ -2268,6 +2273,7 @@ function installPreviewNapeKeymap(layer: number, force = false): void {
 function currentNapeKeycode(layer: number, control: NapeAssignmentControl): number | null {
   const map = napeKeymaps.get(layer) ?? (napeKeymap?.layer === layer ? napeKeymap : null);
   if (!map) return null;
+  if (control.kind === "orientation") return map.orientationIndex;
   if (control.kind === "key") return map.keys.find((entry) => entry.col === control.col)?.keycode ?? null;
   return control.clockwise ? map.wheel.cw.keycode : map.wheel.ccw.keycode;
 }
@@ -2275,6 +2281,12 @@ function currentNapeKeycode(layer: number, control: NapeAssignmentControl): numb
 function patchNapeKeymap(layer: number, control: NapeAssignmentControl, keycode: number): void {
   const map = napeKeymaps.get(layer);
   if (!map) return;
+  if (control.kind === "orientation") {
+    const next = { ...map, orientationIndex: keycode };
+    napeKeymaps.set(layer, next);
+    if (napeKeymap?.layer === layer) napeKeymap = next;
+    return;
+  }
   const columns = KEYCHRON_NAPE_KEY_CONTROLS.map((entry) => {
     if (control.kind === "key" && entry.col === control.col) return keycode;
     return map.keys.find((key) => key.col === entry.col)?.keycode ?? 0;
@@ -2284,6 +2296,7 @@ function patchNapeKeymap(layer: number, control: NapeAssignmentControl, keycode:
     columns,
     control.kind === "wheel" && !control.clockwise ? keycode : map.wheel.ccw.keycode,
     control.kind === "wheel" && control.clockwise ? keycode : map.wheel.cw.keycode,
+    map.orientationIndex,
   );
   napeKeymaps.set(layer, next);
   if (napeKeymap?.layer === layer) napeKeymap = next;
@@ -2334,6 +2347,21 @@ export function applyNapeAssignment(
 ): void {
   if (!isAnyPreview && !keychronNapeClient()) return;
   const keycode = keychronKeycodeForAction(action);
+  applyNapeAssignmentValue(layer, control, keychronActionForKeycode(keycode), keycode);
+}
+
+export function applyNapeOrientation(layer: number, index: number): void {
+  if (!isAnyPreview && !keychronNapeClient()) return;
+  const next = keychronOrientationIndex(index);
+  applyNapeAssignmentValue(layer, { kind: "orientation" }, keychronOrientationLabel(next), next);
+}
+
+function applyNapeAssignmentValue(
+  layer: number,
+  control: NapeAssignmentControl,
+  action: string,
+  keycode: number,
+): void {
   const current = currentNapeKeycode(layer, control);
   const key = napeAssignmentKey(layer, control);
   if (current === keycode) {
@@ -2342,19 +2370,16 @@ export function applyNapeAssignment(
     emit();
     return;
   }
-  stagedNapeAssignments.set(key, {
-    layer,
-    control,
-    action: keychronActionForKeycode(keycode),
-    keycode,
-  });
+  stagedNapeAssignments.set(key, { layer, control, action, keycode });
   const name = napeControlLabel(control);
+  const verb = control.kind === "orientation" ? "Set" : "Remap";
+  const gerund = control.kind === "orientation" ? "Setting" : "Remapping";
   stageChange({
     key,
     group: NAPE_REMAP_GROUP,
     label: `${keychronLayerLabel(layer)} · ${name} → ${action}`,
-    command: `Remap ${keychronLayerLabel(layer)} ${name} to ${action}`,
-    progress: `Remapping ${keychronLayerLabel(layer)} ${name} to ${action}…`,
+    command: `${verb} ${keychronLayerLabel(layer)} ${name} to ${action}`,
+    progress: `${gerund} ${keychronLayerLabel(layer)} ${name} to ${action}…`,
     apply: writeStagedNapeAssignments,
   });
 }
@@ -2369,7 +2394,9 @@ async function writeStagedNapeAssignments(): Promise<void> {
     const client = keychronNapeClient();
     if (!client) return;
     for (const edit of edits) {
-      if (edit.control.kind === "key") {
+      if (edit.control.kind === "orientation") {
+        await client.setLayerOrientation(edit.layer, edit.keycode);
+      } else if (edit.control.kind === "key") {
         await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
       } else {
         await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
