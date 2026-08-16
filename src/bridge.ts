@@ -62,6 +62,14 @@ export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<voi
   });
 }
 
+export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<void> {
+  await bridgeRequest("/v1/default-profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+}
+
 async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;

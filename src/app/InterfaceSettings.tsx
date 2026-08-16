@@ -6,6 +6,7 @@ import {
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
+  saveBridgeDefaultProfile,
   type BridgeApplication,
   type BridgeGame,
   type BridgeProfile,
@@ -134,6 +135,18 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   ) ?? null;
   const status = snapshot.status;
   const deviceId = status ? `${status.brand}:${status.name}` : "";
+  const bridgeConnected = bridge !== null;
+  useEffect(() => {
+    if (!bridgeConnected || !status) return;
+    void saveBridgeDefaultProfile({
+      application: { name: status.name, executable: "", path: "" },
+      device: { id: deviceId, name: status.name },
+      settings: {
+        dpi: status.dpi ?? null,
+        pollingRateHz: status.pollingRateHz ?? null,
+      },
+    }).catch(() => undefined);
+  }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
   const selectedProfile = selectedApplication
     ? bridgeProfilesList.find((profile) =>
       profile.application.path === selectedApplication.path && profile.device.id === deviceId) ?? null
@@ -237,10 +250,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
               <div className="openmouse-bridge-applications">
                 <div className="openmouse-bridge-app-heading">
                   <div>
-                    <span>VISIBLE APPLICATIONS</span>
-                    <h4>Choose what should use a custom mouse profile</h4>
+                    <span>RUNNING GAMES</span>
+                    <h4>Create a mouse profile for a supported game</h4>
                   </div>
-                  <small>{bridgeApplicationsList.length} open</small>
+                  <small>{bridgeApplicationsList.length} detected</small>
                 </div>
                 {bridgeGamesList.length > 0 ? (
                   <details className="openmouse-bridge-game-catalog">
@@ -282,7 +295,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                     })}
                   </div>
                 ) : (
-                  <p>Bridge has not found any visible Windows applications yet.</p>
+                  <p>No supported games are currently running. Your selected OpenMouse settings remain the default profile.</p>
                 )}
                 {selectedApplication ? (
                   <div className="openmouse-bridge-profile-editor">
