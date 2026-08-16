@@ -43,23 +43,39 @@ interface BranchData {
   authors: BranchAuthor[];
 }
 
+interface PullAuthor {
+  login: string;
+  avatar: string | null;
+  htmlUrl: string | null;
+  prs: number;
+}
+
+interface RepoPulls {
+  key: RepoKey;
+  repo: string;
+  prs: number;
+  authors: PullAuthor[];
+}
+
 interface MergedContributor {
   login: string;
   avatar: string | null;
   htmlUrl: string | null;
   total: number;
   repos: Partial<Record<RepoKey, number>>;
+  prs: Partial<Record<RepoKey, number>>;
 }
 
 interface CachedData {
   fetchedAt: number;
   branches: BranchData[];
+  pulls: RepoPulls[];
   repos: Partial<Record<RepoKey, RepoMeta>>;
   repoList: RepoInfo[];
   merged: MergedContributor[];
 }
 
-const CACHE_KEY = "openmouse-hall-of-fame-v3";
+const CACHE_KEY = "openmouse-hall-of-fame-v4";
 const REFRESH_MS = 15 * 60 * 1000;
 const GITHUB_API = "https://api.github.com";
 const PER_PAGE = 100;
@@ -70,7 +86,7 @@ function readCache(): CachedData | null {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedData;
-    if (!Array.isArray(parsed.branches) || parsed.branches.length === 0 || !Array.isArray(parsed.repoList) || !parsed.merged) return null;
+    if (!Array.isArray(parsed.branches) || parsed.branches.length === 0 || !Array.isArray(parsed.repoList) || !Array.isArray(parsed.pulls) || !parsed.merged) return null;
     return parsed;
   } catch {
     return null;
@@ -158,6 +174,50 @@ async function fetchBranch(source: BranchSource): Promise<BranchData> {
   };
 }
 
+interface ApiPull {
+  merged_at: string | null;
+  user: { login: string; avatar_url: string; html_url: string; type: string } | null;
+}
+
+async function fetchPulls(repo: RepoInfo): Promise<RepoPulls> {
+  const pages: ApiPull[][] = [];
+  const path = `/repos/${repo.fullName}/pulls?state=closed&sort=updated&direction=desc&per_page=${PER_PAGE}`;
+  const first = await githubJson<ApiPull[]>(`${path}&page=1`);
+  pages.push(first.data);
+  const last = lastPageNumber(first.link);
+  for (let page = 2; page <= last; page += 1) {
+    const { data } = await githubJson<ApiPull[]>(`${path}&page=${page}`);
+    pages.push(data);
+    if (data.length < PER_PAGE) break;
+  }
+
+  const authors = new Map<string, PullAuthor>();
+  let mergedPrs = 0;
+  for (const pull of pages.flat()) {
+    if (!pull.merged_at) continue;
+    mergedPrs += 1;
+    const user = pull.user;
+    // PRs that don't show up on GitHub's contributors graph (squash/rebase
+    // merges, unlinked emails, rewritten history) still count here.
+    if (!user || user.type === "Bot" || /\[bot\]$/.test(user.login)) continue;
+    const entry = authors.get(user.login) ?? {
+      login: user.login,
+      avatar: avatarWithSize(user.avatar_url),
+      htmlUrl: user.html_url,
+      prs: 0,
+    };
+    entry.prs += 1;
+    authors.set(user.login, entry);
+  }
+
+  return {
+    key: repo.key,
+    repo: repo.fullName,
+    prs: mergedPrs,
+    authors: [...authors.values()].sort((a, b) => b.prs - a.prs),
+  };
+}
+
 interface ApiOrgRepo {
   name: string;
   full_name: string;
@@ -214,30 +274,51 @@ function repoMetaOf(repo: ApiOrgRepo): RepoMeta {
   };
 }
 
-function mergeBranches(branches: BranchData[]): MergedContributor[] {
+function contributionsOf(person: MergedContributor): number {
+  let prs = 0;
+  for (const count of Object.values(person.prs)) prs += count ?? 0;
+  return person.total + prs;
+}
+
+function mergeContributors(branches: BranchData[], pulls: RepoPulls[]): MergedContributor[] {
   const merged = new Map<string, MergedContributor>();
+  const upsert = (login: string, avatar: string | null, htmlUrl: string | null): MergedContributor => {
+    const entry = merged.get(login) ?? {
+      login,
+      avatar,
+      htmlUrl,
+      total: 0,
+      repos: {},
+      prs: {},
+    };
+    if (!entry.avatar) entry.avatar = avatar;
+    if (!entry.htmlUrl) entry.htmlUrl = htmlUrl;
+    merged.set(login, entry);
+    return entry;
+  };
+
   for (const branch of branches) {
     for (const author of branch.authors) {
-      const entry = merged.get(author.login) ?? {
-        login: author.login,
-        avatar: author.avatar,
-        htmlUrl: author.htmlUrl,
-        total: 0,
-        repos: {},
-      };
-      if (!entry.avatar) entry.avatar = author.avatar;
-      if (!entry.htmlUrl) entry.htmlUrl = author.htmlUrl;
+      const entry = upsert(author.login, author.avatar, author.htmlUrl);
       const previous = entry.repos[branch.key] ?? 0;
       entry.repos[branch.key] = Math.max(previous, author.count);
-      merged.set(author.login, entry);
     }
   }
+
+  for (const repoPulls of pulls) {
+    for (const author of repoPulls.authors) {
+      const entry = upsert(author.login, author.avatar, author.htmlUrl);
+      entry.prs[repoPulls.key] = (entry.prs[repoPulls.key] ?? 0) + author.prs;
+    }
+  }
+
   for (const entry of merged.values()) {
     let total = 0;
     for (const count of Object.values(entry.repos)) total += count ?? 0;
     entry.total = total;
   }
-  return [...merged.values()].sort((a, b) => b.total - a.total);
+
+  return [...merged.values()].sort((a, b) => contributionsOf(b) - contributionsOf(a));
 }
 
 async function loadData(): Promise<{ data: CachedData; remaining: number | null; cached: boolean }> {
@@ -254,12 +335,17 @@ async function loadData(): Promise<{ data: CachedData; remaining: number | null;
   for (const source of branchSources(orgRepos)) {
     branches.push(await fetchBranch(source));
   }
+  const pulls: RepoPulls[] = [];
+  for (const info of repoList) {
+    pulls.push(await fetchPulls(info));
+  }
   const data: CachedData = {
     fetchedAt: Date.now(),
     branches,
+    pulls,
     repos,
     repoList,
-    merged: mergeBranches(branches),
+    merged: mergeContributors(branches, pulls),
   };
   writeCache(data);
   return { data, remaining: null, cached };
@@ -304,7 +390,7 @@ function useInView<T extends HTMLElement>(): { ref: (node: T | null) => void; in
 }
 
 type SortMode = "top" | "az";
-type FilterMode = "all" | "both" | RepoKey;
+type FilterMode = "all" | RepoKey;
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -322,9 +408,12 @@ function timeAgo(ms: number, nowMs = Date.now()): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function RepoCard({ repoKey, label, meta, branches, index }: { repoKey: RepoKey; label: string; meta: RepoMeta; branches: BranchData[]; index: number }): ReactNode {
+function RepoCard({ repoKey, label, meta, branches, pulls, index }: { repoKey: RepoKey; label: string; meta: RepoMeta; branches: BranchData[]; pulls: RepoPulls[]; index: number }): ReactNode {
   const { ref, inView } = useInView<HTMLAnchorElement>();
-  const contributors = new Set(branches.flatMap((b) => b.authors.map((a) => a.login))).size;
+  const authors = new Set(branches.flatMap((b) => b.authors.map((a) => a.login)));
+  for (const pull of pulls) for (const a of pull.authors) authors.add(a.login);
+  const contributors = authors.size;
+  const mergedPrs = pulls.reduce((sum, pull) => sum + pull.prs, 0);
   return (
     <a
       ref={ref}
@@ -363,6 +452,12 @@ function RepoCard({ repoKey, label, meta, branches, index }: { repoKey: RepoKey;
             {b.label} · {b.commits} commits
           </span>
         ))}
+        {mergedPrs > 0 ? (
+          <span className="repo-branch">
+            <i className="branch-dot" aria-hidden="true" />
+            {mergedPrs} merged PR{mergedPrs === 1 ? "" : "s"}
+          </span>
+        ) : null}
       </span>
       <span className="repo-foot">
         <span><strong>{contributors}</strong> contributors</span>
@@ -509,17 +604,17 @@ function ContributorCard({ person, repoList, index }: { person: MergedContributo
       ) : (
         <span className="contributor-login">{person.login}</span>
       )}
-      <span className="contributor-total" aria-label={`${person.total} total contributions`}>
+      <span className="contributor-total" aria-label={`${person.total} total commits`}>
         {person.total} <em>commits</em>
       </span>
       <span className="contributor-repos">
         {repoList.map((repo) => {
-          const count = person.repos[repo.key];
-          if (!count) return null;
+          const commits = person.repos[repo.key] ?? 0;
+          if (commits <= 0) return null;
           return (
             <span key={repo.key} className={`repo-chip chip-${repo.key}`}>
               <i className="chip-dot" aria-hidden="true" />
-              {repo.label} · {count}
+              {repo.label} · {commits}
             </span>
           );
         })}
@@ -589,8 +684,7 @@ function ContributorsApp(): ReactNode {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = merged;
-    if (filter === "both") list = list.filter((c) => Object.keys(c.repos).length >= 2);
-    else if (filter !== "all") list = list.filter((c) => c.repos[filter]);
+    if (filter !== "all") list = list.filter((c) => c.repos[filter] || c.prs[filter]);
     if (q) list = list.filter((c) => c.login.toLowerCase().includes(q));
     if (sort === "az") list = [...list].sort((a, b) => a.login.localeCompare(b.login));
     return list;
@@ -632,7 +726,7 @@ function ContributorsApp(): ReactNode {
           <p className="hof-eyebrow">OPENMOUSE PROJECT · OPENSOURCE</p>
           <h1>Developer Hall<br />of <em>Fame</em></h1>
           <p className="hof-lead">
-            Every developer who shaped the <strong>OpenMouse Project</strong> — combined into one live leaderboard.
+            Every developer who shaped the <strong>OpenMouse Project</strong> — commit authors and merged-PR authors, combined into one live leaderboard.
           </p>
 
           <div className="hof-stats">
@@ -684,6 +778,7 @@ function ContributorsApp(): ReactNode {
                 label={info.label}
                 meta={meta}
                 branches={(data?.branches ?? []).filter((b) => b.key === info.key)}
+                pulls={(data?.pulls ?? []).filter((p) => p.key === info.key)}
                 index={index}
               />
             );
@@ -708,7 +803,6 @@ function ContributorsApp(): ReactNode {
             {([
               { key: "all", label: "All" },
               ...repoList.map((info) => ({ key: info.key, label: info.label })),
-              { key: "both", label: "Both" },
             ] as { key: FilterMode; label: string }[]).map((f) => (
               <button
                 key={f.key}
