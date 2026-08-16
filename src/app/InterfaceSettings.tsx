@@ -75,7 +75,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
   const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
   const [selectedApplicationPath, setSelectedApplicationPath] = useState("");
-  const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(false);
+  const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
   const [bridgeChecking, setBridgeChecking] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
@@ -116,7 +116,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     const controller = new AbortController();
     let reconnecting = false;
     const reconnect = (): void => {
-      if (document.visibilityState !== "visible" || reconnecting) return;
+      if (reconnecting) return;
       reconnecting = true;
       void checkBridge(controller.signal).finally(() => {
         reconnecting = false;
