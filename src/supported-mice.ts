@@ -549,7 +549,7 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "Solakaka",      model: "SM802 Pro",         status: "unknown",   req: 1,
     note: "Has its own web configurator" },
-  { brand: "Eyooso",        model: "X-44 Lite",         status: "unknown",   req: 1,
+  { brand: "E-YOOSO",       model: "X-44 Lite",         status: "unknown",   req: 1,
     note: "Protocol unknown" },
   { brand: "HAVIT",         model: "Gamenote",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
