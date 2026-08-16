@@ -372,6 +372,7 @@ function buildSnapshot(): ControlSnapshot {
               ? `consumer:${edit.binding.usage}`
               : "keyboard",
       })),
+    editedKeychronLayer,
     analogTuning,
     eggPollingDivider,
     pending: {
@@ -1248,6 +1249,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
     if (onboardProfiles === null && !onboardProfilesLoading) void reloadOnboardProfiles();
     else syncProfileDerivedState();
   }
+  syncEditedKeychronLayer(deviceStatus);
 
   renderDeviceDiagnostics(deviceStatus);
   emit();
@@ -1335,7 +1337,10 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   clearPendingChanges();
   latestDeviceStatus = null;
   clearActiveClients();
-  if (activeDevice !== client.device) onboardProfiles = null;
+  if (activeDevice !== client.device) {
+    onboardProfiles = null;
+    editedKeychronLayer = null;
+  }
   buttons = null;
   activeDevice = client.device;
   recordDiagnosticCommand("Read device status");
@@ -1409,6 +1414,7 @@ function showDisconnectedState(): void {
   clearActiveClients();
   activeDevice = null;
   onboardProfiles = null;
+  editedKeychronLayer = null;
   lastRenderedStatusKey = null;
   capabilities = null;
   clearPendingChanges();
@@ -1884,6 +1890,7 @@ const stagedProfileButtonEdits = new Map<string, StagedProfileButtonEdit>();
 let dpiSlotPlan: DpiStagePlan | null = null;
 let dpiAxisLocks: boolean[] = [];
 let editedProfile: number | "host" | null = null;
+let editedKeychronLayer: number | null = null;
 
 async function writeStagedProfileSector(): Promise<void> {
   const client = logitechClient();
@@ -2184,6 +2191,82 @@ export async function selectOnboardProfile(sector: number): Promise<void> {
   } catch (error) {
     recordDiagnosticError(error, "Unable to select that profile.");
     readStatus = error instanceof Error ? error.message : "Unable to select that profile.";
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+function syncEditedKeychronLayer(status: MouseStatus): void {
+  const count = status.keychronLayerCount;
+  if (count == null || count < 1) {
+    editedKeychronLayer = null;
+    return;
+  }
+  if (editedKeychronLayer == null) profilesExpanded = true;
+  if (editedKeychronLayer == null || editedKeychronLayer < 1 || editedKeychronLayer > count) {
+    editedKeychronLayer = status.keychronLayer ?? 1;
+  }
+  const active = status.keychronLayer ?? 1;
+  onboardStatus = `Running from Layer ${active}. ${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`;
+}
+
+export function openKeychronLayer(layer: number): void {
+  const count = latestDeviceStatus?.keychronLayerCount;
+  if (count == null || layer < 1 || layer > count) return;
+  editedKeychronLayer = layer;
+  emit();
+}
+
+export async function reloadKeychronLayers(): Promise<void> {
+  if (isAnyPreview) {
+    emit();
+    return;
+  }
+  const client = keychronClient();
+  if (!client || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
+  onboardStatus = "Reading onboard layers…";
+  emit();
+  recordDiagnosticCommand("Read Keychron layers");
+  try {
+    applyStatus(await statusAfterWrite(client));
+    const count = latestDeviceStatus?.keychronLayerCount;
+    onboardStatus = count != null
+      ? `${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`
+      : "The mouse did not report onboard layers.";
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to read onboard layers.");
+    onboardStatus = error instanceof Error ? error.message : "Unable to read onboard layers.";
+  } finally {
+    endDeviceWrite();
+  }
+}
+
+export async function switchKeychronLayer(layer: number): Promise<void> {
+  const count = latestDeviceStatus?.keychronLayerCount;
+  if (count == null || layer < 1 || layer > count) return;
+  if (isAnyPreview) {
+    const status = latestDeviceStatus;
+    if (!status) return;
+    editedKeychronLayer = layer;
+    applyStatus({ ...status, keychronLayer: layer });
+    setReadStatus(`Preview: switched to Layer ${layer}. Nothing is written.`);
+    return;
+  }
+  const client = keychronClient();
+  if (!client || refreshInProgress || settingInProgress) return;
+  settingInProgress = true;
+  readStatus = `Switching to Layer ${layer}…`;
+  emit();
+  recordDiagnosticCommand(`Select Keychron layer ${layer}`);
+  try {
+    await client.setLayer(layer);
+    editedKeychronLayer = layer;
+    applyStatus(await statusAfterWrite(client));
+    onboardStatus = `Running from Layer ${layer}.`;
+  } catch (error) {
+    recordDiagnosticError(error, "Unable to switch layer.");
+    readStatus = error instanceof Error ? error.message : "Unable to switch layer.";
   } finally {
     endDeviceWrite();
   }

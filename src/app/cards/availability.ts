@@ -28,6 +28,7 @@ export interface CardAvailability {
   mxMasterButtons: boolean;
   pulsarPro: boolean;
   profiles: boolean;
+  keychronLayers: boolean;
   logitechDetails: boolean;
   advancedHost: boolean;
 }
@@ -58,6 +59,7 @@ const NOTHING: CardAvailability = {
   mxMasterButtons: false,
   pulsarPro: false,
   profiles: false,
+  keychronLayers: false,
   logitechDetails: false,
   advancedHost: false,
 };
@@ -101,6 +103,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lightingAdvanced: host && Boolean(status.lighting || status.lightingZones?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
+    keychronLayers: status.keychronLayerCount != null && status.keychronLayerCount >= 1,
     logitechDetails: traits.logitech,
     advancedHost: host,
 

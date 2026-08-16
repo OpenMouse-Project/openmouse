@@ -162,6 +162,8 @@ export interface ControlSnapshot {
   /** Control id → staged remap target, for controls with an unflashed remap. */
   stagedButtonMappings: Record<number, number>;
   stagedProfileButtonAssignments: StagedProfileButtonAssignment[];
+  /** Nape Pro layer currently open in the Profiles tab, or null when unread. */
+  editedKeychronLayer: number | null;
   analogTuning: AnalogTuningState;
   eggPollingDivider: number | null;
 

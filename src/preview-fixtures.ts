@@ -595,10 +595,12 @@ const KEYCHRON: MouseStatus = {
   supportedPollingRates: [500, 1000, 2000, 4000, 8000],
   activeProfile: null,
   connectionType: "Wired",
-  connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5",
+  connectionDetail: "Wired USB · 90° orientation · DPI stage 2/5 · Layer 1",
   liftOffDistance: null,
   supportedLiftOffDistances: [],
   sleepTimeout: 600,
+  keychronLayer: 1,
+  keychronLayerCount: 8,
   firmware: ["v1.0.4"],
 };
 

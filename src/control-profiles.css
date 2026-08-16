@@ -170,8 +170,8 @@
 /* An auto column sizes to the widest row, which let rows run past the panel
    instead of shrinking into it. A capped 1fr track forces them to fit and lets
    the text ellipsis do its job. */
-#onboard-profile-list { display:grid;grid-template-columns:minmax(0,1fr);gap:.3rem;padding-bottom:.5rem }
-#onboard-profile-list > * { min-width:0;box-sizing:border-box }
+#onboard-profile-list, #keychron-layer-list { display:grid;grid-template-columns:minmax(0,1fr);gap:.3rem;padding-bottom:.5rem }
+#onboard-profile-list > *, #keychron-layer-list > * { min-width:0;box-sizing:border-box }
 #onboard-status { color:var(--ghost);font-size:.58rem;line-height:1.45 }
 .profile-row-text { overflow:hidden }
 .profile-row-text strong, .profile-row-text small { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
