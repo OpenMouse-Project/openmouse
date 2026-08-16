@@ -1214,9 +1214,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
     const summary = deviceStatus.batteryPercent === null
       ? "Connected"
       : `Battery ${deviceStatus.batteryPercent}%`;
-    readStatus = status.ui?.valuesVerified
+    const base = status.ui?.valuesVerified
       ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
       : summary;
+    readStatus = status.ui?.statusNote ? `${base} · ${status.ui.statusNote}` : base;
   } else if (!hasPendingChanges()) {
     readStatus = `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`;
   }
