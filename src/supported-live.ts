@@ -24,8 +24,20 @@ export function normalizeKey(part: string): string {
   return part.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
 }
 
+/**
+ * Catalog submissions carry free-text manufacturer names, so brand typos and
+ * aliases collapse onto the canonical name used by the static table.
+ */
+export function canonicalBrand(brand: string): string {
+  const canonical: Record<string, string> = {
+    reddragon: "Redragon",
+    eyooso: "E-YOOSO",
+  };
+  return canonical[normalizeKey(brand)] ?? brand;
+}
+
 function brandModelKey(brand: string, model: string): string {
-  return `${normalizeKey(brand)}|${normalizeKey(model)}`;
+  return `${normalizeKey(canonicalBrand(brand))}|${normalizeKey(model)}`;
 }
 
 /**
@@ -122,7 +134,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
       if (r.status === "supported") {
         if (known.has(key)) continue;
         rows.push({
-          brand: r.manufacturer,
+          brand: canonicalBrand(r.manufacturer),
           model: r.model,
           status: "supported",
           req: r.vote_count,
@@ -134,7 +146,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
       if (!PENDING_CATALOG_STATUSES.has(r.status)) continue;
       if (known.has(key)) continue;
       rows.push({
-        brand: r.manufacturer,
+        brand: canonicalBrand(r.manufacturer),
         model: r.model,
         status: "pending",
         req: r.vote_count,
