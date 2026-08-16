@@ -8,6 +8,7 @@ import {
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
   setBridgeDevicePolling,
+  setBridgeDriver,
   type BridgeDevice,
   type BridgeGame,
   type BridgeProfile,
@@ -218,6 +219,24 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     }
   }, []);
 
+  const changeDriver = useCallback(async (action: "install" | "uninstall"): Promise<void> => {
+    setBridgeDeviceBusy(`driver-${action}`);
+    setBridgeMessage(action === "install"
+      ? "Approve the Windows prompt to enable native control…"
+      : "Approve the Windows prompt to remove the driver…");
+    try {
+      await setBridgeDriver(action);
+      setBridgeMessage(action === "install"
+        ? "Driver installed. Reconnect the mouse if it does not appear as controllable."
+        : "Driver removed. The mouse is back to its normal driver.");
+      await checkBridge();
+    } catch (error) {
+      setBridgeMessage(error instanceof Error ? error.message : "The driver change did not complete.");
+    } finally {
+      setBridgeDeviceBusy(null);
+    }
+  }, [checkBridge]);
+
   const selectedGame = bridgeGamesList.find((game) => game.name === selectedGameName) ?? null;
   const status = snapshot.status;
   const deviceId = status ? `${status.brand}:${status.name}` : "";
@@ -409,15 +428,16 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                 ) : (
                   <ul className="openmouse-bridge-device-list">
                     {bridgeDeviceList.map((device) => (
-                      <li key={device.id} className="openmouse-bridge-device">
+                      <li key={device.id} className="openmouse-bridge-device" data-controllable={device.controllable}>
                         <div className="openmouse-bridge-device-head">
                           <strong>{device.name}</strong>
                           <span className="openmouse-bridge-device-meta">
                             {device.connection === "wireless" ? "Wireless" : "Wired"}
                             {device.batteryPercent !== null ? ` · ${device.batteryPercent}% battery` : ""}
+                            {device.controllable ? "" : " · needs setup"}
                           </span>
                         </div>
-                        {device.supportedPollingRates.length > 0 ? (
+                        {device.controllable && device.supportedPollingRates.length > 0 ? (
                           <label className="openmouse-bridge-device-control">
                             <span>Polling rate</span>
                             <select
@@ -428,7 +448,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                                 if (Number.isFinite(hz) && hz > 0) void changeDevicePolling(device, hz);
                               }}
                             >
-                              {device.pollingRateHz === null ? <option value="">—</option> : null}
+                              {device.pollingRateHz === null ? <option value="">Select…</option> : null}
                               {device.supportedPollingRates.map((hz) => (
                                 <option key={hz} value={hz}>{hz.toLocaleString()} Hz</option>
                               ))}
@@ -436,6 +456,29 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                           </label>
                         ) : null}
                         <small className="openmouse-bridge-device-note">{device.note}</small>
+                        {bridge?.platform === "windows" ? (
+                          <div className="openmouse-bridge-device-actions">
+                            {device.controllable ? (
+                              <button
+                                type="button"
+                                className="openmouse-bridge-device-secondary"
+                                disabled={bridgeDeviceBusy !== null}
+                                onClick={() => void changeDriver("uninstall")}
+                              >
+                                Remove driver
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="openmouse-bridge-device-enable"
+                                disabled={bridgeDeviceBusy !== null}
+                                onClick={() => void changeDriver("install")}
+                              >
+                                {bridgeDeviceBusy === "driver-install" ? "Enabling…" : "Enable native control"}
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

@@ -71,6 +71,8 @@ export interface BridgeDevice {
   vendorId: number;
   productId: number;
   connection: "wired" | "wireless";
+  /** True when the Bridge claimed the control interface and can send commands. */
+  controllable: boolean;
   batteryPercent: number | null;
   pollingRateHz: number | null;
   supportedPollingRates: number[];
@@ -93,6 +95,25 @@ export async function setBridgeDevicePolling(id: string, hz: number): Promise<nu
   return result.pollingRateHz;
 }
 
+/**
+ * Install or remove the WinUSB driver package (Windows only) that lets the
+ * Bridge reach a mouse whose config interface the HID stack blocks — e.g. the
+ * Attack Shark X11. This shows a Windows UAC prompt, so it is given a long
+ * timeout to allow for the elevation dialog.
+ */
+export async function setBridgeDriver(action: "install" | "uninstall"): Promise<void> {
+  await bridgeRequest(
+    "/v1/driver",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    },
+    undefined,
+    180_000,
+  );
+}
+
 export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {
   await bridgeRequest("/v1/profiles", {
     method: "PUT",
@@ -109,14 +130,24 @@ export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<
   });
 }
 
-async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
-  const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
+async function bridgeRequest<T>(
+  path: string,
+  init?: RequestInit,
+  signal?: AbortSignal,
+  timeoutMs: number = BRIDGE_TIMEOUT_MS,
+): Promise<T> {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const response = await fetch(`${BRIDGE_URL}${path}`, {
     headers: { Accept: "application/json" },
     ...init,
     signal: combined,
   });
-  if (!response.ok) throw new Error(`Bridge returned HTTP ${response.status}.`);
+  if (!response.ok) {
+    // The Bridge returns a plain-text reason for 4xx/5xx (e.g. a signing error
+    // from the driver install); surface it instead of a bare status code.
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail.trim() || `Bridge returned HTTP ${response.status}.`);
+  }
   return await response.json() as T;
 }
