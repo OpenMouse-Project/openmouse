@@ -487,9 +487,7 @@ export const MICE: Mouse[] = [
     note: "A4tech / Bloody protocol — not implemented" },
   { brand: "Fantech",       model: "THOR II X16",       status: "driver",    req: 1,
     note: "Fantech protocol — not implemented" },
-  { brand: "Fantech",       model: "WG14P Yari Pro Wireless 8K Gaming Mouse", status: "supported", req: 1,
-    pids: [0x503d],
-    note: "PID 0x503d — wired and wireless; vendor interface (0xFFFF:0x02) in Fantech driver" },
+  // Fantech WG14P is auto-listed from the @openmouse/protocol driver registry.
   { brand: "Cooler Master", model: "MasterMouse MM720", status: "driver",    req: 1,
     note: "CM protocol — not implemented" },
   { brand: "Cooler Master", model: "MM711",             status: "driver",    req: 1,
