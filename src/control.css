@@ -827,38 +827,50 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-app-heading span { color: var(--ui-accent); font: 600 .52rem var(--font-mono); letter-spacing: .09em; }
 .openmouse-bridge-app-heading h4 { margin: .2rem 0 0; color: var(--text-strong); font-size: .76rem; }
 .openmouse-bridge-app-heading > small { color: var(--faint); font: .55rem var(--font-mono); }
-.openmouse-profile-manager label { display: grid; gap: .3rem; color: var(--muted); font-size: .55rem; }
-.openmouse-profile-manager select { width: 100%; padding: .55rem .6rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--well); color: var(--text-strong); }
-.openmouse-saved-profiles { display: grid; gap: .4rem; }
-.openmouse-saved-profiles article { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
-.openmouse-saved-profiles strong, .openmouse-saved-profiles small { display: block; }
-.openmouse-saved-profiles strong { color: var(--text-strong); font-size: .64rem; }
-.openmouse-saved-profiles small { margin-top: .14rem; color: var(--muted); font: .52rem var(--font-mono); }
-.openmouse-saved-profiles button { padding: .38rem .55rem; border: 1px solid #634044; border-radius: 6px; background: #251719; color: #e3a4a8; font-size: .54rem; cursor: pointer; }
-.openmouse-bridge-game-catalog { padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
-.openmouse-bridge-game-catalog summary { color: var(--text-soft); font: 600 .55rem var(--font-mono); cursor: pointer; }
-.openmouse-bridge-game-catalog > div { display: flex; flex-wrap: wrap; gap: .35rem; padding-top: .55rem; }
-.openmouse-bridge-game-catalog span { padding: .24rem .4rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: .5rem; }
-.openmouse-bridge-game-catalog span[data-active="true"] { border-color: var(--ui-accent); background: var(--ui-accent-soft); color: var(--text-strong); }
-.openmouse-bridge-app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .4rem; max-height: 13rem; overflow: auto; }
-.openmouse-bridge-app-grid > button { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: .5rem; min-width: 0; padding: .5rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); color: var(--text-soft); text-align: left; cursor: pointer; }
-.openmouse-bridge-app-grid > button:hover, .openmouse-bridge-app-grid > button.is-selected { border-color: var(--ui-accent); background: var(--ui-accent-soft); }
-.openmouse-bridge-app-grid i { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 6px; background: var(--surface-raised); color: var(--text-strong); font: 700 .65rem var(--font-mono); font-style: normal; }
-.openmouse-bridge-app-grid i > * { grid-area: 1 / 1; }
-.openmouse-bridge-app-grid i img { width: 1.5rem; height: 1.5rem; object-fit: contain; opacity: 0; }
-.openmouse-bridge-app-grid i.has-icon img { opacity: 1; }
-.openmouse-bridge-app-grid i.has-icon span { visibility: hidden; }
-.openmouse-bridge-app-grid span { min-width: 0; }
-.openmouse-bridge-app-grid strong, .openmouse-bridge-app-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.openmouse-bridge-app-grid strong { color: var(--text-strong); font-size: .62rem; }
-.openmouse-bridge-app-grid small { margin-top: .08rem; color: var(--faint); font: .5rem var(--font-mono); }
-.openmouse-bridge-app-grid em { color: var(--ui-accent); font-size: .48rem; font-style: normal; }
-.openmouse-bridge-profile-editor { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); }
-.openmouse-bridge-profile-editor strong, .openmouse-bridge-profile-editor small { display: block; }
-.openmouse-bridge-profile-editor strong { color: var(--text-strong); font-size: .68rem; }
-.openmouse-bridge-profile-editor small { margin-top: .14rem; color: var(--muted); font-size: .54rem; }
-.openmouse-bridge-profile-editor button { padding: .48rem .7rem; border: 1px solid var(--ui-accent); border-radius: 6px; background: var(--ui-accent-soft); color: var(--text-strong); font-size: .58rem; font-weight: 700; cursor: pointer; }
-.openmouse-bridge-profile-editor button:disabled { cursor: not-allowed; opacity: .5; }
+/* Bridge game profiles — one scannable card per game, colour-coded by state. */
+.bridge-profile-legend { display: flex; flex-wrap: wrap; gap: .3rem .85rem; margin: 0; }
+.bridge-profile-legend span { display: inline-flex; align-items: center; gap: .3rem; color: var(--faint); font-size: .5rem; }
+.bridge-profile-legend span::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--profile-dot, var(--border-hover)); }
+.bridge-profile-legend span[data-state="active"] { --profile-dot: #5fdb8b; }
+.bridge-profile-legend span[data-state="running"] { --profile-dot: var(--ui-accent); }
+.bridge-profile-legend span[data-state="saved"] { --profile-dot: var(--text-faint); }
+.bridge-profile-legend span[data-state="empty"] { --profile-dot: transparent; box-shadow: none; }
+.bridge-profile-legend span[data-state="empty"]::before { border: 1px solid var(--border-hover); }
+
+.bridge-profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr)); gap: .45rem; }
+.bridge-profile-card { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "dot head" "editor editor"; column-gap: .55rem; align-items: center; padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.bridge-profile-card.is-default { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "dot body tag"; border-style: dashed; background: var(--surface-raised); }
+.bridge-profile-card[data-state="active"] { border-color: color-mix(in srgb, #5fdb8b 55%, var(--border)); background: color-mix(in srgb, #5fdb8b 10%, var(--well)); }
+.bridge-profile-card[data-state="running"] { border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--border)); }
+.bridge-profile-card[data-state="empty"] { opacity: .9; }
+.bridge-profile-dot { grid-area: dot; width: .55rem; height: .55rem; border: 1px solid var(--border-hover); border-radius: 50%; background: var(--surface-raised); }
+.bridge-profile-card[data-state="active"] .bridge-profile-dot { border-color: #5fdb8b; background: #5fdb8b; box-shadow: 0 0 0 3px color-mix(in srgb, #5fdb8b 22%, transparent); }
+.bridge-profile-card[data-state="running"] .bridge-profile-dot { border-color: var(--ui-accent); background: var(--ui-accent); }
+.bridge-profile-card[data-state="saved"] .bridge-profile-dot { border-color: var(--text-faint); background: var(--text-faint); }
+.bridge-profile-body { grid-area: body; min-width: 0; }
+.bridge-profile-head { grid-area: head; min-width: 0; }
+.bridge-profile-body strong, .bridge-profile-head strong { display: flex; align-items: center; gap: .4rem; overflow: hidden; color: var(--text-strong); font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-profile-body small, .bridge-profile-head small { display: block; margin-top: .12rem; overflow: hidden; color: var(--muted); font: .52rem var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.bridge-profile-body em, .bridge-profile-head em { flex: none; padding: .08rem .34rem; border-radius: 999px; background: var(--surface-strong); color: var(--text-soft); font: 600 .46rem/1.4 var(--font-mono); font-style: normal; letter-spacing: .04em; text-transform: uppercase; }
+.bridge-profile-body em.is-active, .bridge-profile-head em.is-active { background: color-mix(in srgb, #5fdb8b 22%, transparent); color: #7fe6a3; }
+.bridge-profile-auto-tag { grid-area: tag; flex: none; color: var(--faint); font: .48rem var(--font-mono); }
+.bridge-profile-editor { grid-area: editor; display: flex; flex-wrap: wrap; align-items: flex-end; gap: .4rem; margin-top: .5rem; }
+.bridge-field { display: grid; gap: .16rem; }
+.bridge-field > span { color: var(--faint); font: .46rem var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.bridge-field select { padding: .34rem .45rem; border: 1px solid var(--border-hover); border-radius: 6px; background: var(--surface-raised); color: var(--text-strong); font: .6rem var(--font-mono); cursor: pointer; }
+.bridge-field select:disabled { opacity: .5; cursor: not-allowed; }
+.bridge-match { align-self: flex-end; padding: .38rem .5rem; border: 1px solid var(--border-hover); border-radius: 6px; background: var(--surface-strong); color: var(--text-soft); font: 600 .52rem var(--font-mono); cursor: pointer; }
+.bridge-match:hover:not(:disabled) { border-color: var(--ui-accent); color: var(--text-strong); }
+.bridge-match:disabled { opacity: .5; cursor: not-allowed; }
+.bridge-profile-editor .is-danger { align-self: flex-end; margin-left: auto; padding: .38rem .5rem; border: 1px solid #634044; border-radius: 6px; background: #251719; color: #e3a4a8; font: 700 .52rem var(--font-mono); cursor: pointer; }
+
+.bridge-other-profiles { padding: .5rem .65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
+.bridge-other-profiles summary { color: var(--text-soft); font: 600 .55rem var(--font-mono); cursor: pointer; }
+.bridge-other-profiles > div { display: grid; gap: .35rem; padding-top: .55rem; }
+.bridge-other-profiles article { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.bridge-other-profiles strong { display: block; color: var(--text-strong); font-size: .62rem; }
+.bridge-other-profiles small { display: block; margin-top: .1rem; color: var(--muted); font: .5rem var(--font-mono); }
+.bridge-other-profiles button { padding: .34rem .5rem; border: 1px solid #634044; border-radius: 6px; background: #251719; color: #e3a4a8; font-size: .52rem; cursor: pointer; }
 .openmouse-bridge-message { margin: 0 !important; color: var(--ui-accent) !important; font-size: .56rem !important; }
 .interface-theme-card { grid-column: 1 / -1; }
 .theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .45rem; margin: 0; padding: 0; border: 0; }
