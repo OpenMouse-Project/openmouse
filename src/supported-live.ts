@@ -3,7 +3,7 @@ import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 
-import type { Mouse } from "./supported-mice.ts";
+import { MICE, type Mouse } from "./supported-mice.ts";
 import { listSupportRequests, type SupportRequest } from "./support-requests.ts";
 
 /**
@@ -25,15 +25,41 @@ export function normalizeKey(part: string): string {
 }
 
 /**
+ * Canonical display names come from the static table, keyed by their
+ * normalized form, so any casing/spacing variant of a known brand renders
+ * with the same name. Spelling typos need explicit aliases on top.
+ */
+const CANONICAL_BRAND_BY_KEY = new Map(
+  [...new Set(MICE.map((m) => m.brand))].map((brand) => [normalizeKey(brand), brand] as const),
+);
+
+const BRAND_TYPOS: Record<string, string> = {
+  reddragon: "Redragon",
+  redrasgon: "Redragon",
+  logitec: "Logitech",
+  logitechg: "Logitech",
+  glorius: "Glorious",
+  raser: "Razer",
+  razerbasilisk: "Razer",
+  razerviper8k: "Razer",
+  thecosmicbyte: "Cosmic Byte",
+  dunevoyger: "Dune Voyager",
+  hsxj: "HXSJ",
+  rapoovpro: "Rapoo",
+  mxanywhere2: "Logitech",
+  mxanywhere3: "Logitech",
+  mxanywhere3s: "Logitech",
+  hyperxpulsefirehastle2: "HyperX",
+  rog: "ASUS ROG",
+};
+
+/**
  * Catalog submissions carry free-text manufacturer names, so brand typos and
  * aliases collapse onto the canonical name used by the static table.
  */
 export function canonicalBrand(brand: string): string {
-  const canonical: Record<string, string> = {
-    reddragon: "Redragon",
-    eyooso: "E-YOOSO",
-  };
-  return canonical[normalizeKey(brand)] ?? brand;
+  const key = normalizeKey(brand);
+  return BRAND_TYPOS[key] ?? CANONICAL_BRAND_BY_KEY.get(key) ?? brand;
 }
 
 function brandModelKey(brand: string, model: string): string {
