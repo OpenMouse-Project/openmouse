@@ -46,6 +46,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   atk: DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
   "keychron-nape": { advancedSection: true, sleep: true, directMode: true },
+  fantech: { advancedSection: true, sleep: true, directMode: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

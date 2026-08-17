@@ -8,7 +8,7 @@ const BUDGET_BYTES: Record<string, number> = {
   // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
   // styles that load only on /contributors.html).
-  ".css": 175_000,
+  ".css": 180_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview

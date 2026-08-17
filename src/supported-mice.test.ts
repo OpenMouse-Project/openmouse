@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
-import { WLMOUSE_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
+import { WLMOUSE_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
@@ -105,6 +105,8 @@ const PID_UNIVERSE = new Set<number>([
   ...PULSAR_XS1_PRODUCT_IDS,
   // Finalmouse ULX dongle (drivers/finalmouse/hid.ts).
   0x0100,
+  // Fantech WG14P Yari Pro (drivers/fantech/hid.ts).
+  0x503d,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(

@@ -487,6 +487,7 @@ export const MICE: Mouse[] = [
     note: "A4tech / Bloody protocol — not implemented" },
   { brand: "Fantech",       model: "THOR II X16",       status: "driver",    req: 1,
     note: "Fantech protocol — not implemented" },
+  // Fantech WG14P is auto-listed from the @openmouse/protocol driver registry.
   { brand: "Cooler Master", model: "MasterMouse MM720", status: "driver",    req: 1,
     note: "CM protocol — not implemented" },
   { brand: "Cooler Master", model: "MM711",             status: "driver",    req: 1,
@@ -549,7 +550,7 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "Solakaka",      model: "SM802 Pro",         status: "unknown",   req: 1,
     note: "Has its own web configurator" },
-  { brand: "Eyooso",        model: "X-44 Lite",         status: "unknown",   req: 1,
+  { brand: "E-YOOSO",       model: "X-44 Lite",         status: "unknown",   req: 1,
     note: "Protocol unknown" },
   { brand: "HAVIT",         model: "Gamenote",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
@@ -557,6 +558,6 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "DeadSkull",     model: "Orbit Wired",       status: "unknown",   req: 1,
     note: "Protocol unknown" },
-  { brand: "IGM",           model: "IGM-6000",          status: "unknown",   req: 1,
+  { brand: "ISY",           model: "IGM-6000",          status: "unknown",   req: 1,
     note: "Protocol unknown" },
 ];
