@@ -489,7 +489,7 @@ export const MICE: Mouse[] = [
     note: "Fantech protocol — not implemented" },
   { brand: "Fantech",       model: "WG14P Yari Pro",    status: "supported", req: 1,
     pids: [0x503d],
-    note: "PID 0x503d — vendor interface (0xFFFF:0x02) in Fantech driver" },
+    note: "PID 0x503d — wired and wireless; vendor interface (0xFFFF:0x02) in Fantech driver" },
   { brand: "Cooler Master", model: "MasterMouse MM720", status: "driver",    req: 1,
     note: "CM protocol — not implemented" },
   { brand: "Cooler Master", model: "MM711",             status: "driver",    req: 1,
