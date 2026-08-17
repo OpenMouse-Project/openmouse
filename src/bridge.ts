@@ -76,6 +76,24 @@ export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<
   });
 }
 
+export interface BridgeBatteryReading {
+  deviceId: string;
+  deviceName: string;
+  percent: number;
+  charging: boolean;
+}
+
+export async function saveBridgeBattery(
+  reading: BridgeBatteryReading,
+  signal?: AbortSignal,
+): Promise<void> {
+  await bridgeRequest("/v1/battery", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(reading),
+  }, signal);
+}
+
 async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   bridgeGames,
   bridgeHandshake,
   bridgeProfiles,
   bridgeStatus,
+  saveBridgeBattery,
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
+  type BridgeBatteryReading,
   type BridgeGame,
   type BridgeProfile,
   type BridgeStatus,
@@ -121,6 +123,22 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [updateChecking, setUpdateChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
   const [bridgeRelease, setBridgeRelease] = useState<GitHubRelease | null>(null);
+  // Latest mouse battery, kept in a ref so the []-dependency checkBridge loop
+  // always reads the current value without being re-created on every reading.
+  const batteryRef = useRef<BridgeBatteryReading | null>(null);
+  const mouse = snapshot.status;
+  batteryRef.current =
+    mouse && mouse.batteryPercent != null
+      ? {
+          deviceId: `${mouse.brand}:${mouse.name}`,
+          deviceName: mouse.name,
+          percent: mouse.batteryPercent,
+          charging:
+            mouse.batteryState === "Charging" ||
+            mouse.batteryState === "Charging slowly" ||
+            mouse.batteryState === "Almost full",
+        }
+      : null;
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
   const checkForUpdates = useCallback(async (signal?: AbortSignal): Promise<void> => {
@@ -160,6 +178,16 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       setBridgeProfilesList(profiles);
       setBridgeGamesList(games);
       setBridgeMessage("");
+      // Best-effort: push the current battery so Bridge can show it and warn
+      // on low charge. A failure here must not mark the Bridge disconnected.
+      const battery = batteryRef.current;
+      if (battery) {
+        try {
+          await saveBridgeBattery(battery, signal);
+        } catch {
+          /* ignore — battery sync is optional */
+        }
+      }
     } catch {
       if (!signal?.aborted) {
         setBridge(null);
