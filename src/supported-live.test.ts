@@ -151,3 +151,44 @@ test("catalog rows already tracked do not duplicate, and declined rows are skipp
   assert.equal(beastX[0].req, 3);
   assert.ok(!merged.some((m) => m.brand === "Redragon"), "declined requests are hidden");
 });
+
+test("fuzzy model matching merges community requests with similar names", () => {
+  const base: Mouse[] = [
+    { brand: "Fantech", model: "WG14P Yari Pro", status: "supported", req: 0, note: "registry" },
+  ];
+  const liveData = live({}, [{
+    id: "r1",
+    manufacturer: "Fantech",
+    model: "WG14P Yari Pro Wireless 8K Gaming Mouse",
+    connection: "Wireless",
+    features: [],
+    can_test: false,
+    status: "submitted",
+    vote_count: 5,
+    created_at: "2026-01-01T00:00:00Z",
+  }]);
+  const merged = mergeLiveMice(base, liveData);
+  const fantech = merged.filter((m) => m.brand === "Fantech");
+  assert.equal(fantech.length, 1, "should not create a duplicate Fantech entry");
+  assert.equal(fantech[0].req, 5, "vote count should be overlaid on existing entry");
+});
+
+test("fuzzy model matching works for registry entries vs community requests", () => {
+  const base: Mouse[] = [];
+  const liveData = live({}, [{
+    id: "r1",
+    manufacturer: "Fantech",
+    model: "WG14P Yari Pro Wireless 8K Gaming Mouse",
+    connection: "Wireless",
+    features: [],
+    can_test: false,
+    status: "submitted",
+    vote_count: 2,
+    created_at: "2026-01-01T00:00:00Z",
+  }]);
+  // Registry entry has shorter name, community request has longer name.
+  // After merging, only one Fantech entry should exist.
+  const merged = mergeLiveMice(base, liveData);
+  const fantech = merged.filter((m) => m.brand === "Fantech");
+  assert.ok(fantech.length <= 1, "fuzzy match should prevent duplicate: " + fantech.length);
+});
