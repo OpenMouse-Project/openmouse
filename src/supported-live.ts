@@ -51,7 +51,10 @@ const BRAND_TYPOS: Record<string, string> = {
   mxanywhere3: "Logitech",
   mxanywhere3s: "Logitech",
   hyperxpulsefirehastle2: "HyperX",
-  rog: "ASUS ROG",
+  rog: "Asus",
+  asus: "Asus",
+  asusrog: "Asus",
+  tuf: "Asus",
 };
 
 /**

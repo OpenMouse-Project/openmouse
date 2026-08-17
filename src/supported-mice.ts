@@ -470,16 +470,16 @@ export const MICE: Mouse[] = [
   { brand: "Keychron", model: "M6",                     status: "quickwin",  req: 1,
     note: "Keychron vendor covered; M6 PID not yet in KEYCHRON_PRODUCT_IDS" },
 
-  // ASUS ROG ────────────────────────────────────────────────────────────
-  { brand: "ASUS ROG", model: "Harpe Ace Aim Lab",      status: "driver",    req: 5,
+  // Asus ────────────────────────────────────────────────────────────────
+  { brand: "Asus",     model: "Harpe Ace Aim Lab",      status: "driver",    req: 5,
     note: "Armoury Crate protocol — not implemented" },
-  { brand: "ASUS ROG", model: "TUF Gaming M5",          status: "driver",    req: 2,
+  { brand: "Asus",     model: "TUF Gaming M5",          status: "driver",    req: 2,
     note: "Armoury Crate protocol — not implemented" },
-  { brand: "ASUS ROG", model: "Gladius II Core",        status: "driver",    req: 1,
+  { brand: "Asus",     model: "Gladius II Core",        status: "driver",    req: 1,
     note: "Armoury Crate protocol — not implemented" },
-  { brand: "ASUS ROG", model: "Strix Impact III",       status: "driver",    req: 1,
+  { brand: "Asus",     model: "Strix Impact III",       status: "driver",    req: 1,
     note: "Armoury Crate protocol — not implemented" },
-  { brand: "ASUS ROG", model: "TUF Gaming M3 Gen 1",    status: "driver",    req: 1,
+  { brand: "Asus",     model: "TUF Gaming M3 Gen 1",    status: "driver",    req: 1,
     note: "Armoury Crate protocol — not implemented" },
 
   // OTHER DRIVER-NEEDED ─────────────────────────────────────────────────

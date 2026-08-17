@@ -12,7 +12,7 @@ export const BRANDS: Record<number, string> = {
   0x1038: "SteelSeries",
   0x1B1C: "Corsair",
   0x0951: "HyperX / Kingston",
-  0x0B05: "ASUS ROG",
+  0x0B05: "Asus",
   0x1E7D: "Roccat",
   0x258A: "SinoWealth / Glorious",
   0x30FA: "SinoWealth",
