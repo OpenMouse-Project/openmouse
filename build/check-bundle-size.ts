@@ -7,19 +7,22 @@ const BUDGET_BYTES: Record<string, number> = {
   // layer (SVG displacement filters plus their component rules) adds the
   // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
-  // styles that load only on /contributors.html).
+  // styles that load only on /contributors.html). Raised to 180 kB upstream;
+  // this also covers the Bridge "Native devices" panel (per-device rows,
+  // polling control, and the Enable/Remove-driver buttons).
   ".css": 180_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
-  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
-  // from 590 kB for the Razer button-mapping card and its codec: the measured
-  // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
-  // 610 kB for the Pulsar XS-1 feature-report driver and 4K receiver support
-  // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
-  // adds ~1.3 kB to the measured aggregate.
-  ".js": 610_000,
+  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised from
+  // 590 kB for the Razer button-mapping card and its codec, and the Pulsar
+  // XS-1 feature-report driver plus 4K receiver support (mouse-protocol
+  // 3c3a445). Raised again for native Bridge device control: the /v1/devices
+  // client and the "Native devices" panel that lists Bridge-reached mice (e.g.
+  // the Attack Shark X11, unreachable over WebHID) and drives their DPI and
+  // polling. Measured aggregate after merging both lines of work.
+  ".js": 614_000,
 };
 
 const ASSETS = join("dist", "assets");

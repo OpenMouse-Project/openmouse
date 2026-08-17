@@ -817,6 +817,18 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-action .openmouse-bridge-connect:not(:disabled) { cursor: pointer; opacity: 1; }
 .openmouse-bridge-action small { color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
 .openmouse-bridge-applications { grid-column: 1 / -1; display: grid; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.openmouse-bridge-devices { grid-column: 1 / -1; display: grid; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.openmouse-bridge-device-list { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+.openmouse-bridge-device { display: grid; gap: .4rem; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken, #0d0e10); }
+.openmouse-bridge-device-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.openmouse-bridge-device-head strong { color: var(--text-strong); font-size: .74rem; }
+.openmouse-bridge-device-meta { color: var(--faint); font: .55rem var(--font-mono); }
+.openmouse-bridge-device-note { color: var(--faint); font-size: .52rem; line-height: 1.4; }
+.openmouse-bridge-device-actions { display: flex; gap: .5rem; }
+.openmouse-bridge-device-enable { padding: .38rem .7rem; border: 1px solid var(--ui-accent); border-radius: 6px; background: color-mix(in srgb, var(--ui-accent) 16%, transparent); color: var(--text-strong); font-size: .6rem; cursor: pointer; }
+.openmouse-bridge-device-enable:disabled { opacity: .55; cursor: default; }
+.openmouse-bridge-device-secondary { padding: .34rem .6rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--faint); font-size: .56rem; cursor: pointer; }
+.openmouse-bridge-device-secondary:disabled { opacity: .55; cursor: default; }
 .openmouse-arch-udev { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .55rem .75rem; align-items: center; padding: .7rem; border: 1px solid #8a6a38; border-radius: 8px; background: #211b12; }
 .openmouse-arch-udev strong, .openmouse-arch-udev small { display: block; }
 .openmouse-arch-udev strong { color: #edca8d; font-size: .68rem; }

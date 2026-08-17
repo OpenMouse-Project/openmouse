@@ -51,6 +51,8 @@ export interface SidebarDevice {
   name: string;
   detail: string;
   selected: boolean;
+  /** Set for devices reached through the Bridge (no WebHID entry), e.g. the X11. */
+  bridgeId?: string;
 }
 
 export interface DiagnosticsView {

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  bridgeDevices,
   bridgeGames,
   bridgeHandshake,
   bridgeProfiles,
   bridgeStatus,
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
+  setBridgeDriver,
+  type BridgeDevice,
   type BridgeGame,
   type BridgeProfile,
   type BridgeStatus,
@@ -109,6 +112,8 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
   const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
+  const [bridgeDeviceList, setBridgeDeviceList] = useState<BridgeDevice[]>([]);
+  const [bridgeDeviceBusy, setBridgeDeviceBusy] = useState<string | null>(null);
   const [selectedGameName, setSelectedGameName] = useState("");
   const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
   const [bridgeChecking, setBridgeChecking] = useState(false);
@@ -146,14 +151,21 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     setBridgeChecking(true);
     try {
       await bridgeHandshake(signal);
-      const [status, profiles, games] = await Promise.all([
+      const [status, profiles, games, devices] = await Promise.all([
         bridgeStatus(signal),
         bridgeProfiles(signal),
         bridgeGames(signal),
+        bridgeDevices(signal).catch(() => [] as BridgeDevice[]),
       ]);
       setBridge(status);
       setBridgeProfilesList(profiles);
       setBridgeGamesList(games);
+      // Leave the list untouched while a polling write is settling so the
+      // control does not flicker back to the pre-write value mid-request.
+      setBridgeDeviceBusy((busy) => {
+        if (busy === null) setBridgeDeviceList(devices);
+        return busy;
+      });
       setSelectedGameName((current) => current || status.activeGames[0] || games[0]?.name || "");
       setBridgeMessage("");
     } catch {
@@ -161,6 +173,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         setBridge(null);
         setBridgeProfilesList([]);
         setBridgeGamesList([]);
+        setBridgeDeviceList([]);
       }
     } finally {
       if (!signal?.aborted) setBridgeChecking(false);
@@ -190,6 +203,24 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     };
   }, [bridgeConnectionRequested, checkBridge]);
 
+  const changeDriver = useCallback(async (action: "install" | "uninstall"): Promise<void> => {
+    setBridgeDeviceBusy(`driver-${action}`);
+    setBridgeMessage(action === "install"
+      ? "Approve the Windows prompt to enable native control…"
+      : "Approve the Windows prompt to remove the driver…");
+    try {
+      await setBridgeDriver(action);
+      setBridgeMessage(action === "install"
+        ? "Driver installed. Reconnect the mouse if it does not appear as controllable."
+        : "Driver removed. The mouse is back to its normal driver.");
+      await checkBridge();
+    } catch (error) {
+      setBridgeMessage(error instanceof Error ? error.message : "The driver change did not complete.");
+    } finally {
+      setBridgeDeviceBusy(null);
+    }
+  }, [checkBridge]);
+
   const selectedGame = bridgeGamesList.find((game) => game.name === selectedGameName) ?? null;
   const status = snapshot.status;
   const deviceId = status ? `${status.brand}:${status.name}` : "";
@@ -200,8 +231,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       application: { name: status.name, executable: "", path: "" },
       device: { id: deviceId, name: status.name },
       settings: {
-        dpi: status.dpi ?? null,
-        pollingRateHz: status.pollingRateHz ?? null,
+        // 0 means "not readable" (e.g. the browser-read-only Attack Shark X11),
+        // so store null rather than a bogus 0 DPI / 0 Hz profile.
+        dpi: status.dpi || null,
+        pollingRateHz: status.pollingRateHz || null,
       },
     }).catch(() => undefined);
   }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
@@ -219,8 +252,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       },
       device: { id: deviceId, name: status.name },
       settings: {
-        dpi: status.dpi ?? null,
-        pollingRateHz: status.pollingRateHz ?? null,
+        // 0 means "not readable" (e.g. the browser-read-only Attack Shark X11),
+        // so store null rather than a bogus 0 DPI / 0 Hz profile.
+        dpi: status.dpi || null,
+        pollingRateHz: status.pollingRateHz || null,
       },
     };
     const next = [
@@ -364,6 +399,68 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                   Copy command
                 </button>
               </aside>
+            ) : null}
+            {bridge ? (
+              <div className="openmouse-bridge-devices">
+                <div className="openmouse-bridge-app-heading">
+                  <div>
+                    <span>NATIVE DEVICES</span>
+                    <h4>Mice the Bridge reaches directly, bypassing the browser</h4>
+                  </div>
+                </div>
+                {bridgeDeviceList.length === 0 ? (
+                  <p className="openmouse-bridge-message" role="status">
+                    No Bridge-controlled mice detected. Plug in an Attack Shark X11 — it needs the Bridge because its
+                    settings channel is not reachable from a browser.
+                  </p>
+                ) : (
+                  <ul className="openmouse-bridge-device-list">
+                    {bridgeDeviceList.map((device) => (
+                      <li key={device.id} className="openmouse-bridge-device" data-controllable={device.controllable}>
+                        <div className="openmouse-bridge-device-head">
+                          <strong>{device.name}</strong>
+                          <span className="openmouse-bridge-device-meta">
+                            {device.connection === "wireless" ? "Wireless" : "Wired"}
+                            {device.batteryPercent !== null ? ` · ${device.batteryPercent}% battery` : ""}
+                            {device.controllable ? "" : " · needs setup"}
+                          </span>
+                        </div>
+                        {device.controllable ? (
+                          <small className="openmouse-bridge-device-note">
+                            Ready. It appears in the sidebar — select it to change DPI and polling
+                            rate under Overview and Performance, like any other mouse.
+                          </small>
+                        ) : (
+                          <small className="openmouse-bridge-device-note">{device.note}</small>
+                        )}
+                        {bridge?.platform === "windows" ? (
+                          <div className="openmouse-bridge-device-actions">
+                            {device.controllable ? (
+                              <button
+                                type="button"
+                                className="openmouse-bridge-device-secondary"
+                                disabled={bridgeDeviceBusy !== null}
+                                onClick={() => void changeDriver("uninstall")}
+                              >
+                                Remove driver
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="openmouse-bridge-device-enable"
+                                disabled={bridgeDeviceBusy !== null}
+                                onClick={() => void changeDriver("install")}
+                              >
+                                {bridgeDeviceBusy === "driver-install" ? "Enabling…" : "Enable native control"}
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ) : null}
             {bridge ? (
               <div className="openmouse-bridge-applications">
