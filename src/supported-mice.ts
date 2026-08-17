@@ -360,10 +360,10 @@ export const MICE: Mouse[] = [
     note: "egg-we driver (0x3367) covers OP1we/XM2we family" },
   { brand: "Endgame Gear", model: "OP1w 4K v2",         status: "likely",    req: 7,
     note: "egg-we driver (0x3367) covers OP1we/XM2we family — needs hardware test" },
-  { brand: "Endgame Gear", model: "OP1 8K",             status: "supported", req: 0,
+  { brand: "Endgame Gear", model: "OP1 8K",             status: "supported", req: 1,
     pids: [0x1964, 0x1976, 0x1978],
     note: "Egg OP1 driver — PIDs 0x1964/0x1976/0x1978" },
-  { brand: "Endgame Gear", model: "XM2 8K",             status: "supported", req: 0,
+  { brand: "Endgame Gear", model: "XM2 8K",             status: "supported", req: 1,
     pids: [0x1966, 0x1980],
     note: "Egg OP1 driver — PIDs 0x1966/0x1980" },
 
@@ -382,7 +382,7 @@ export const MICE: Mouse[] = [
     note: "ATK driver (0x373b) likely covers — needs hardware test" },
   { brand: "ATK", model: "VXE Zero Normal",             status: "likely",    req: 1,
     note: "ATK driver (0x373b) likely covers — needs hardware test" },
-  { brand: "VGN", model: "Dragonfly F2 Master+",        status: "supported", req: 0,
+  { brand: "VGN", model: "Dragonfly F2 Master+",        status: "supported", req: 1,
     pids: [0xfb56, 0xfb57],
     note: "VGN F2 driver — PIDs 0xfb56/0xfb57" },
 
@@ -390,13 +390,13 @@ export const MICE: Mouse[] = [
   { brand: "WLMouse", model: "Beast X",                 status: "supported", req: 1,
     pids: [0xa883, 0xa884],
     note: "PIDs 0xa883 / 0xa884 already in WLMouse driver" },
-  { brand: "WLMouse", model: "Beast Mini",              status: "supported", req: 0,
+  { brand: "WLMouse", model: "Beast Mini",              status: "supported", req: 1,
     pids: [0xa885, 0xa886],
     note: "PIDs 0xa885 / 0xa886 in WLMouse driver" },
-  { brand: "WLMouse", model: "Beast X Pro",             status: "supported", req: 0,
+  { brand: "WLMouse", model: "Beast X Pro",             status: "supported", req: 1,
     pids: [0xa870, 0xa871],
     note: "PIDs 0xa870 / 0xa871 in WLMouse driver" },
-  { brand: "WLMouse", model: "Sword X",                 status: "supported", req: 0,
+  { brand: "WLMouse", model: "Sword X",                 status: "supported", req: 1,
     pids: [0xa878, 0xa879],
     note: "PIDs 0xa878 / 0xa879 in WLMouse driver" },
 
@@ -414,57 +414,57 @@ export const MICE: Mouse[] = [
     note: "Pulsar driver (VID 0x3710) — collection-based detection" },
 
   // LAMZU / CRDRAKO ─────────────────────────────────────────────────────
-  { brand: "Lamzu", model: "Maya X",                    status: "supported", req: 0,
+  { brand: "Lamzu", model: "Maya X",                    status: "supported", req: 1,
     pids: [0x001c, 0x001d, 0x001e],
     note: "PIDs 0x001c/0x001d/0x001e in Lamzu driver" },
   { brand: "Lamzu", model: "Inca",                      status: "quickwin",  req: 1,
     note: "CompX protocol implemented; Inca PID not yet in driver" },
   { brand: "Lamzu", model: "Thorn",                     status: "quickwin",  req: 1,
     note: "CompX protocol implemented; Thorn PID not yet in driver" },
-  { brand: "CRDRAKO", model: "KO-ONE",                  status: "supported", req: 0,
+  { brand: "CRDRAKO", model: "KO-ONE",                  status: "supported", req: 1,
     pids: [0x006a, 0x006b],
     note: "PIDs 0x006a/0x006b in Lamzu/CompX driver" },
 
   // NINJUTSO ────────────────────────────────────────────────────────────
-  { brand: "Ninjutso", model: "Sora V2",                status: "supported", req: 0,
+  { brand: "Ninjutso", model: "Sora V2",                status: "supported", req: 1,
     pids: [0xae11, 0xae12, 0xae13, 0xae14, 0xae15, 0xae16],
     note: "Legacy 0x1915 PIDs in Ninjutso driver" },
-  { brand: "Ninjutso", model: "Sora V3",                status: "supported", req: 0,
+  { brand: "Ninjutso", model: "Sora V3",                status: "supported", req: 1,
     pids: [0xe010],
     note: "PID 0xe010 in Ninjutso driver" },
-  { brand: "Ninjutso", model: "TEN",                    status: "supported", req: 0,
+  { brand: "Ninjutso", model: "TEN",                    status: "supported", req: 1,
     pids: [0xe020, 0xea01],
     note: "PIDs 0xe020/0xea01 in Ninjutso driver" },
   { brand: "Ninjutso", model: "Sora",                   status: "likely",    req: 1,
     note: "Driver covers Sora V2/V3; original Sora PID not listed — needs test" },
 
   // TEEVOLUTION ─────────────────────────────────────────────────────────
-  { brand: "Teevolution", model: "Terra Pro",           status: "supported", req: 0,
+  { brand: "Teevolution", model: "Terra Pro",           status: "supported", req: 1,
     pids: [0xf520, 0xf523, 0xf5bb, 0xf522],
     note: "PIDs 0xf520/0xf523/0xf5bb/0xf522 in Teevolution driver" },
 
   // FINALMOUSE ──────────────────────────────────────────────────────────
-  { brand: "Finalmouse", model: "Starlight-12 / ULX",   status: "supported", req: 0,
+  { brand: "Finalmouse", model: "Starlight-12 / ULX",   status: "supported", req: 1,
     pids: [0x0100],
     note: "ULX dongle PID 0x0100 in Finalmouse driver" },
 
   // ZAUNKOENIG ──────────────────────────────────────────────────────────
-  { brand: "Zaunkoenig", model: "M3K",                  status: "supported", req: 0,
+  { brand: "Zaunkoenig", model: "M3K",                  status: "supported", req: 1,
     pids: [0xa462],
     note: "PID 0xa462 in Zaunkoenig driver" },
-  { brand: "Zaunkoenig", model: "M2K",                  status: "supported", req: 0,
+  { brand: "Zaunkoenig", model: "M2K",                  status: "supported", req: 1,
     pids: [0xa3cf],
     note: "PID 0xa3cf in Zaunkoenig driver" },
 
   // MODDO / ORBITAL ─────────────────────────────────────────────────────
-  { brand: "moddoMOUSE", model: "moddoMOUSE",           status: "supported", req: 0,
+  { brand: "moddoMOUSE", model: "moddoMOUSE",           status: "supported", req: 1,
     note: "Vendor config interface (0x2fe3) in moddo driver" },
-  { brand: "Orbital", model: "Ghost / Pathfinder V2",   status: "supported", req: 0,
+  { brand: "Orbital", model: "Ghost / Pathfinder V2",   status: "supported", req: 1,
     pids: [0x080c],
     note: "PID 0x080c in Orbital driver" },
 
   // KEYCHRON ────────────────────────────────────────────────────────────
-  { brand: "Keychron", model: "Nape Pro",               status: "supported", req: 0,
+  { brand: "Keychron", model: "Nape Pro",               status: "supported", req: 1,
     pids: [0x0440],
     note: "PID 0x0440 in Keychron driver" },
   { brand: "Keychron", model: "M6",                     status: "quickwin",  req: 1,
