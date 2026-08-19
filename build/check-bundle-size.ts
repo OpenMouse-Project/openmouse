@@ -18,8 +18,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
   // 610 kB for the Pulsar XS-1 feature-report driver and 4K receiver support
   // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
-  // adds ~1.3 kB to the measured aggregate.
-  ".js": 610_000,
+  // adds ~1.3 kB to the measured aggregate. Raised to 632 kB for the Attack
+  // Shark GearHub (0x25a7) protocol routed to 0x1d57 VID devices (+1.6 kB).
+  ".js": 632_000,
 };
 
 const ASSETS = join("dist", "assets");
