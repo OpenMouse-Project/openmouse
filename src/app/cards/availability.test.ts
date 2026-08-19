@@ -148,6 +148,25 @@ test("onboard profiles need a Logitech mouse reporting a known mode", () => {
   })).profiles, false);
 });
 
+test("Keychron Nape Pro layers appear on the profiles tab when VIA reports a count", () => {
+  const withoutLayers = cardAvailability(snapshot({
+    status: { brand: "Keychron", ui: { family: "keychron-nape", showAdvancedSection: true } },
+  }));
+  assert.equal(withoutLayers.keychronNapeLayers, false);
+  assert.equal(withoutLayers.profiles, false);
+
+  const withLayers = cardAvailability(snapshot({
+    status: {
+      brand: "Keychron",
+      ui: { family: "keychron-nape", showAdvancedSection: true },
+      napeLayer: 2,
+      napeLayerCount: 8,
+    },
+  }));
+  assert.equal(withLayers.keychronNapeLayers, true);
+  assert.equal(withLayers.profiles, false);
+});
+
 test("HITS tuning needs exactly the two primary buttons", () => {
   const tuning = { maxActuation: 10, maxRapidTrigger: 5, maxHaptics: 5 };
   assert.equal(cardAvailability(snapshot({
