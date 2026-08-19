@@ -36,6 +36,7 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
+import type { MouseStatus } from "@openmouse/protocol/drivers";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
@@ -278,7 +279,14 @@ export function App(): ReactNode {
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [snapshot.workspaceTab]);
 
-  const tabs = WORKSPACE_TAB_ORDER;
+  const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {
+    var tempTabs = WORKSPACE_TAB_ORDER;
+    if(status==null)return tempTabs;
+    if(!status.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!status.analogButtonTuning)tempTabs=tempTabs.filter(tab=>tab!="buttons")
+    return tempTabs
+  }
+  const tabs = filterTabs(status);
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
     const index = tabs.indexOf(current);
     let next: number;
