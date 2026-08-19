@@ -443,6 +443,11 @@ export const MICE: Mouse[] = [
     pids: [0xf520, 0xf523, 0xf5bb, 0xf522],
     note: "PIDs 0xf520/0xf523/0xf5bb/0xf522 in Teevolution driver" },
 
+  // WALLHACK ─────────────────────────────────────
+  { brand: "WALLHACK", model: "M-001",                  status: "supported", req: 1,
+    pids: [0x1110, 0x0807],
+    note: "Full read/write: DPI, polling, LOD, processing, battery. PIDs 0x1110 (0x0807 demo) in WALLHACK mouse driver" },
+
   // FINALMOUSE ──────────────────────────────────────────────────────────
   { brand: "Finalmouse", model: "Starlight-12 / ULX",   status: "supported", req: 1,
     pids: [0x0100],

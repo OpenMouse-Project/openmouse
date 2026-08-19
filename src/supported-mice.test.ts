@@ -107,6 +107,8 @@ const PID_UNIVERSE = new Set<number>([
   0x0100,
   // Fantech WG14P Yari Pro (drivers/fantech/hid.ts).
   0x503d,
+  // WALLHACK M-001 mouse: real config PID and in-app demo PID (drivers/wallhack/mouse-hid.ts).
+  0x1110, 0x0807,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
