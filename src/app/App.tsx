@@ -113,7 +113,7 @@ function Workspace({
   const tab = snapshot.workspaceTab;
   if (!status) return null;
   const has = cardAvailability(snapshot);
-
+  console.log(has)
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
 
   const performance = [
@@ -281,10 +281,18 @@ export function App(): ReactNode {
 
   const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {
     var tempTabs = WORKSPACE_TAB_ORDER;
+    const has = cardAvailability(snapshot);
     if(status==null)return tempTabs;
-    if(!status.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
-    if(!status.analogButtonTuning)tempTabs=tempTabs.filter(tab=>tab!="buttons")
-    return tempTabs
+    if(!has.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!has.eggButtons&&
+       !has.razerButtons&&
+       !has.mxMasterButtons&&
+       !has.debounce&&
+       !has.lightforce&&
+       !has.eggSpdt&&
+       !has.superstrike
+    )tempTabs=tempTabs.filter(tab=>tab!="buttons")
+    return tempTabs;
   }
   const tabs = filterTabs(status);
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
