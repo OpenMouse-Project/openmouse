@@ -202,7 +202,7 @@ export const MICE: Mouse[] = [
   { brand: "Attack Shark", model: "X8 Ultra",           status: "likely",    req: 3,
     note: "0x25a7 GearHub protocol — needs hardware test" },
   { brand: "Attack Shark", model: "X8 SE",              status: "supported", req: 2,
-    note: "0x25a7 GearHub protocol — DPI, polling, firmware" },
+    note: "0x1d57 VID, GearHub protocol — DPI, polling, firmware" },
   { brand: "Attack Shark", model: "X1",                 status: "likely",    req: 2,
     note: "0x25a7 GearHub protocol — needs hardware test" },
   { brand: "Attack Shark", model: "V3 Pro",             status: "likely",    req: 1,
