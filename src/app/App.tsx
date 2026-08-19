@@ -113,7 +113,6 @@ function Workspace({
   const tab = snapshot.workspaceTab;
   if (!status) return null;
   const has = cardAvailability(snapshot);
-  console.log(has)
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
 
   const performance = [
