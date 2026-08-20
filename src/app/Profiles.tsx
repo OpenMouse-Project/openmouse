@@ -267,6 +267,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                   const stagedAssignment = snapshot.stagedProfileButtonAssignments.find(
                     (staged) => staged.layer === assignmentLayer && staged.button === assignment.button,
                   );
+                  const primaryLocked = assignmentLayer === "primary" && assignment.button <= 1;
                   return (
                     <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
                       <span className="assignment-button-number">G{assignment.button + 1}</span>
@@ -274,8 +275,10 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                       <span className="assignment-select-wrap">
                         <select
                           value={stagedAssignment?.value ?? assignment.action}
-                          disabled={snapshot.settingInProgress}
-                          title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
+                          disabled={snapshot.settingInProgress || primaryLocked}
+                          title={primaryLocked
+                            ? "Primary click buttons cannot be remapped to prevent losing control of the mouse."
+                            : assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
                           onChange={(event) => {
                             const value = event.currentTarget.value;
                             if (value === "keyboard") {
@@ -283,23 +286,6 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                               setShortcutRecording(false);
                               setShortcutError("");
                               setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
-                              return;
-                            }
-                            const defaultAction = assignmentLayer === "primary"
-                              ? (["Left click", "Right click", "Middle click", "Back", "Forward", "Disabled", "Disabled", "Disabled"] as const)[assignment.button]
-                              : null;
-                            if (
-                              defaultAction !== null
-                              && assignment.button <= 1
-                              && value !== defaultAction
-                              && value !== (stagedAssignment?.value ?? assignment.action)
-                              && !window.confirm(
-                                `Remap ${buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}?\n\n`
-                                + "This button is used for primary mouse interaction. "
-                                + "Remapping it may make your mouse difficult or impossible to use normally.",
-                              )
-                            ) {
-                              event.currentTarget.value = stagedAssignment?.value ?? assignment.action;
                               return;
                             }
                             if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
