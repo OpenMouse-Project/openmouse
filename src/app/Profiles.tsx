@@ -292,7 +292,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                             else void control.applyLogitechButtonAssignment(assignmentLayer, assignment.button, value as LogitechButtonAction);
                           }}
                         >
-                          {assignment.action === "Custom" ? <option value="Custom">Custom mapping (preserved)</option> : null}
+                          {assignment.action === "Custom"
+                            ? <option value="Custom">{assignment.raw[0] === 0x80 && assignment.raw[1] === 0x02 ? "Keyboard shortcut" : "Custom mapping (preserved)"}</option>
+                            : null}
                           {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
                           <option value="keyboard">Keyboard shortcut…</option>
                           <option value="consumer:233">Volume up</option>
