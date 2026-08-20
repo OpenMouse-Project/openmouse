@@ -283,8 +283,26 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                               setShortcutRecording(false);
                               setShortcutError("");
                               setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
+                              return;
                             }
-                            else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
+                            const defaultAction = assignmentLayer === "primary"
+                              ? (["Left click", "Right click", "Middle click", "Back", "Forward", "Disabled", "Disabled", "Disabled"] as const)[assignment.button]
+                              : null;
+                            if (
+                              defaultAction !== null
+                              && assignment.button <= 1
+                              && value !== defaultAction
+                              && value !== (stagedAssignment?.value ?? assignment.action)
+                              && !window.confirm(
+                                `Remap ${buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}?\n\n`
+                                + "This button is used for primary mouse interaction. "
+                                + "Remapping it may make your mouse difficult or impossible to use normally.",
+                              )
+                            ) {
+                              event.currentTarget.value = stagedAssignment?.value ?? assignment.action;
+                              return;
+                            }
+                            if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
                             else void control.applyLogitechButtonAssignment(assignmentLayer, assignment.button, value as LogitechButtonAction);
                           }}
                         >
