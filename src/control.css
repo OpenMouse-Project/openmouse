@@ -707,12 +707,13 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .lighting-zone-copy { display:grid;gap:.25rem }
 .lighting-zone-copy span { color:var(--faint);font-family:var(--font-mono);font-size:.55rem;letter-spacing:.09em;text-transform:uppercase }
 .lighting-zone-copy strong { color:var(--text-hover);font-size:.82rem;font-weight:550 }
-.lighting-strip { display:grid;grid-template-columns:1.15fr repeat(8,1fr);gap:.3rem;align-items:center }
+.lighting-strip { display:grid;grid-template-columns:repeat(auto-fit,minmax(2.6rem,4rem));gap:.3rem;align-items:center }
+.lighting-strip.is-lightstrip { grid-template-columns:1.15fr repeat(8,1fr) }
 .lighting-strip button { position:relative;min-width:0;height:2.2rem;padding:0;border:1px solid color-mix(in srgb,var(--zone-color) 45%,var(--border));border-radius:7px;background:color-mix(in srgb,var(--zone-color) 74%,#090b0d);color:#fff;font-family:var(--font-mono);font-size:.52rem;box-shadow:inset 0 0 14px color-mix(in srgb,var(--zone-color) 50%,transparent);cursor:pointer }
-.lighting-strip button:first-child { margin-right:.2rem;background:var(--surface-control);box-shadow:none;color:var(--muted) }
+.lighting-strip.is-lightstrip button:first-child { margin-right:.2rem;background:var(--surface-control);box-shadow:none;color:var(--muted) }
 .lighting-strip button:hover,.lighting-strip button.is-selected { border-color:var(--ui-accent);outline:1px solid color-mix(in srgb,var(--ui-accent) 35%,transparent);outline-offset:1px }
 .lighting-strip button.is-selected::after { position:absolute;right:25%;bottom:-.48rem;left:25%;height:2px;border-radius:2px;background:var(--ui-accent);content:"" }
-@media (max-width:760px) { .lighting-zone-picker { grid-template-columns:1fr }.lighting-strip { overflow-x:auto;grid-template-columns:3.5rem repeat(8,minmax(2.2rem,1fr)) } }
+@media (max-width:760px) { .lighting-zone-picker { grid-template-columns:1fr }.lighting-strip { overflow-x:auto }.lighting-strip.is-lightstrip { grid-template-columns:3.5rem repeat(8,minmax(2.2rem,1fr)) } }
 
 .dpi-header-actions { display: flex; align-items: center; gap: .45rem; }
 .dpi-header-actions button { padding: .38rem .6rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-input); color: var(--dim); font-size: .62rem; font-weight: 700; white-space: nowrap; }

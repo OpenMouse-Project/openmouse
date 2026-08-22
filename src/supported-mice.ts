@@ -92,6 +92,8 @@ export const MICE: Mouse[] = [
   { brand: "Logitech", model: "G403 HERO (wired)",      status: "supported", req: 1,
     pids: [0xc08f],
     note: "PID 0xc08f — HID++ direct, DPI feature 0x2202" },
+  { brand: "Logitech", model: "G703 (wired)",           status: "supported", req: 1,
+    note: "PID 0xc087 — HID++ direct, legacy DPI 0x2201, onboard format 3 (HEAT) writable" },
   { brand: "Logitech", model: "G Pro X Superlight",     status: "supported", req: 4,
     pids: [0xc094],
     note: "PID 0xc094 — HID++ direct" },
