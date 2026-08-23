@@ -41,7 +41,10 @@ test("canonicalBrand folds brand aliases onto the canonical name", () => {
   assert.equal(canonicalBrand("HSXJ"), "HXSJ");
   assert.equal(canonicalBrand("Razer Basilisk"), "Razer");
   assert.equal(canonicalBrand("MX Anywhere 3s"), "Logitech");
-  assert.equal(canonicalBrand("ROG"), "ASUS ROG");
+  assert.equal(canonicalBrand("ROG"), "Asus");
+  assert.equal(canonicalBrand("ASUS"), "Asus");
+  assert.equal(canonicalBrand("TUF"), "Asus");
+  assert.equal(canonicalBrand("ASUS ROG"), "Asus");
   assert.equal(canonicalBrand("rapoo Vpro"), "Rapoo");
   assert.equal(canonicalBrand("Eyooso"), "E-YOOSO");
   assert.equal(canonicalBrand("e-yooso"), "E-YOOSO");

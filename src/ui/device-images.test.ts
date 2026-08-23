@@ -11,6 +11,13 @@ test("G502 family USB interfaces use their matching normalized artwork", () => {
   assert.equal(deviceImage(hid(0xc099)), "/devices/logitech-g502-x.png");
 });
 
+test("G703 wired PIDs and Lightspeed name fallback use the G703 render", () => {
+  assert.equal(deviceImage(hid(0xc087)), "/devices/logitech-g703.png");
+  assert.equal(deviceImage(hid(0xc090)), "/devices/logitech-g703.png");
+  assert.equal(deviceImage(hid(0xc539), "G703 HERO"), "/devices/logitech-g703.png");
+  assert.equal(deviceImage(null, "G703 Wired/Wireless Gaming Mouse"), "/devices/logitech-g703.png");
+});
+
 test("G502 X receiver artwork follows the paired mouse name", () => {
   assert.equal(deviceImage(hid(0xc547), "G502 X PLUS"), "/devices/logitech-g502-x-plus.png");
   assert.equal(deviceImage(hid(0xc547), "G502 X"), "/devices/logitech-g502-x.png");
@@ -30,6 +37,7 @@ test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "Cobra"), "/devices/razer-cobra.webp");
   assert.equal(deviceImage(null, "Terra Pro"), "/devices/teevolution-terra-pro.png");
   assert.equal(deviceImage(null, "MX Master 3S"), "/devices/logitech-mx-master-3s.png");
+  assert.equal(deviceImage(null, "G703"), "/devices/logitech-g703.png");
 });
 
 test("Pulsar 4K receiver artwork follows the reported mouse name", () => {

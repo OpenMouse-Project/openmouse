@@ -267,6 +267,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                   const stagedAssignment = snapshot.stagedProfileButtonAssignments.find(
                     (staged) => staged.layer === assignmentLayer && staged.button === assignment.button,
                   );
+                  const primaryLocked = assignmentLayer === "primary" && assignment.button <= 1;
                   return (
                     <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
                       <span className="assignment-button-number">G{assignment.button + 1}</span>
@@ -274,8 +275,10 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                       <span className="assignment-select-wrap">
                         <select
                           value={stagedAssignment?.value ?? assignment.action}
-                          disabled={snapshot.settingInProgress}
-                          title={assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
+                          disabled={snapshot.settingInProgress || primaryLocked}
+                          title={primaryLocked
+                            ? "Primary click buttons cannot be remapped to prevent losing control of the mouse."
+                            : assignment.action === "Custom" ? `Unknown mapping: ${assignment.raw.map((byte) => byte.toString(16).padStart(2, "0")).join(" ")}` : undefined}
                           onChange={(event) => {
                             const value = event.currentTarget.value;
                             if (value === "keyboard") {
@@ -283,12 +286,15 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                               setShortcutRecording(false);
                               setShortcutError("");
                               setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
+                              return;
                             }
-                            else if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
+                            if (value.startsWith("consumer:")) control.applyLogitechConsumerAssignment(assignmentLayer, assignment.button, Number(value.slice(9)));
                             else void control.applyLogitechButtonAssignment(assignmentLayer, assignment.button, value as LogitechButtonAction);
                           }}
                         >
-                          {assignment.action === "Custom" ? <option value="Custom">Custom mapping (preserved)</option> : null}
+                          {assignment.action === "Custom"
+                            ? <option value="Custom">{assignment.raw[0] === 0x80 && assignment.raw[1] === 0x02 ? "Keyboard shortcut" : "Custom mapping (preserved)"}</option>
+                            : null}
                           {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
                           <option value="keyboard">Keyboard shortcut…</option>
                           <option value="consumer:233">Volume up</option>

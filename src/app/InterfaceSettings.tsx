@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   bridgeGames,
   bridgeHandshake,
   bridgeProfiles,
   bridgeStatus,
+  saveBridgeBattery,
   saveBridgeProfiles,
   saveBridgeDefaultProfile,
+  type BridgeBatteryReading,
   type BridgeGame,
   type BridgeProfile,
   type BridgeStatus,
@@ -37,6 +39,12 @@ const THEME_CHOICES: readonly ThemeSwatch[] = [
 ];
 
 const ARCH_UDEV_COMMAND = `echo 'KERNEL=="hidraw*", SUBSYSTEM=="hidraw", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-openmouse.rules >/dev/null && sudo udevadm control --reload-rules && sudo udevadm trigger`;
+
+const DEFAULT_POLLING_RATES = [125, 250, 500, 1000] as const;
+
+function uniqueSorted(values: Array<number | null>): number[] {
+  return [...new Set(values.filter((value): value is number => value !== null))].sort((a, b) => a - b);
+}
 
 function UpdateRelease({ name, current, release }: {
   name: string;
@@ -109,13 +117,28 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
   const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
   const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
-  const [selectedGameName, setSelectedGameName] = useState("");
   const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
   const [bridgeChecking, setBridgeChecking] = useState(false);
   const [bridgeMessage, setBridgeMessage] = useState("");
   const [updateChecking, setUpdateChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
   const [bridgeRelease, setBridgeRelease] = useState<GitHubRelease | null>(null);
+  // Latest mouse battery, kept in a ref so the []-dependency checkBridge loop
+  // always reads the current value without being re-created on every reading.
+  const batteryRef = useRef<BridgeBatteryReading | null>(null);
+  const mouse = snapshot.status;
+  batteryRef.current =
+    mouse && mouse.batteryPercent != null
+      ? {
+          deviceId: `${mouse.brand}:${mouse.name}`,
+          deviceName: mouse.name,
+          percent: mouse.batteryPercent,
+          charging:
+            mouse.batteryState === "Charging" ||
+            mouse.batteryState === "Charging slowly" ||
+            mouse.batteryState === "Almost full",
+        }
+      : null;
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
   const checkForUpdates = useCallback(async (signal?: AbortSignal): Promise<void> => {
@@ -154,8 +177,17 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       setBridge(status);
       setBridgeProfilesList(profiles);
       setBridgeGamesList(games);
-      setSelectedGameName((current) => current || status.activeGames[0] || games[0]?.name || "");
       setBridgeMessage("");
+      // Best-effort: push the current battery so Bridge can show it and warn
+      // on low charge. A failure here must not mark the Bridge disconnected.
+      const battery = batteryRef.current;
+      if (battery) {
+        try {
+          await saveBridgeBattery(battery, signal);
+        } catch {
+          /* ignore — battery sync is optional */
+        }
+      }
     } catch {
       if (!signal?.aborted) {
         setBridge(null);
@@ -190,7 +222,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     };
   }, [bridgeConnectionRequested, checkBridge]);
 
-  const selectedGame = bridgeGamesList.find((game) => game.name === selectedGameName) ?? null;
   const status = snapshot.status;
   const deviceId = status ? `${status.brand}:${status.name}` : "";
   const bridgeConnected = bridge !== null;
@@ -205,33 +236,43 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       },
     }).catch(() => undefined);
   }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
-  const selectedProfile = selectedGame
-    ? bridgeProfilesList.find((profile) =>
-      profile.application.name === selectedGame.name && profile.device.id === deviceId) ?? null
+  const profileForGame = (gameName: string): BridgeProfile | null =>
+    bridgeProfilesList.find((profile) =>
+      profile.application.name === gameName && profile.device.id === deviceId) ?? null;
+  const gameNames = new Set(bridgeGamesList.map((game) => game.name));
+  const activeGameName = bridge?.activeProfile && gameNames.has(bridge.activeProfile.application.name)
+    ? bridge.activeProfile.application.name
     : null;
-  const captureApplicationProfile = async (): Promise<void> => {
-    if (!selectedGame || !status) return;
+  const defaultActive = bridge?.activeProfile != null && activeGameName === null;
+  const otherDeviceProfiles = bridgeProfilesList.filter((profile) => profile.device.id !== deviceId);
+  const dpiChoices = uniqueSorted([...snapshot.dpiOptions, status?.dpi ?? null]);
+  const pollingChoices = uniqueSorted([
+    ...(status?.supportedPollingRates ?? DEFAULT_POLLING_RATES),
+    status?.pollingRateHz ?? null,
+  ]);
+  const saveGameProfile = async (
+    game: BridgeGame,
+    settings: { dpi: number | null; pollingRateHz: number | null },
+  ): Promise<void> => {
+    if (!status) return;
     const profile: BridgeProfile = {
       application: {
-        name: selectedGame.name,
-        executable: selectedGame.executables[0] ?? selectedGame.name,
-        path: `openmouse-game:${selectedGame.name}`,
+        name: game.name,
+        executable: game.executables[0] ?? game.name,
+        path: `openmouse-game:${game.name}`,
       },
       device: { id: deviceId, name: status.name },
-      settings: {
-        dpi: status.dpi ?? null,
-        pollingRateHz: status.pollingRateHz ?? null,
-      },
+      settings,
     };
     const next = [
       ...bridgeProfilesList.filter((entry) =>
-        entry.application.name !== selectedGame.name || entry.device.id !== deviceId),
+        entry.application.name !== game.name || entry.device.id !== deviceId),
       profile,
     ];
     try {
       await saveBridgeProfiles(next);
       setBridgeProfilesList(next);
-      setBridgeMessage(`Saved ${selectedGame.name} for ${status.name}.`);
+      setBridgeMessage(`Saved ${game.name} · ${settings.dpi ?? "—"} DPI · ${settings.pollingRateHz ?? "—"} Hz for ${status.name}.`);
     } catch (error) {
       setBridgeMessage(error instanceof Error ? error.message : "Could not save the application profile.");
     }
@@ -370,59 +411,140 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                 <div className="openmouse-bridge-app-heading">
                   <div>
                     <span>GAME PROFILES</span>
-                    <h4>Create and manage every Bridge profile here</h4>
+                    <h4>Per-game DPI and polling, switched automatically</h4>
                   </div>
-                  <small>{bridgeProfilesList.length} saved</small>
+                  <small>
+                    {bridgeProfilesList.length} saved
+                    {status ? ` · ${status.name}` : ""}
+                  </small>
                 </div>
-                <div className="openmouse-profile-manager">
-                  <label>
-                    <span>Supported game</span>
-                    <select value={selectedGameName} onChange={(event) => setSelectedGameName(event.currentTarget.value)}>
-                      {bridgeGamesList.map((game) => (
-                        <option key={game.name} value={game.name}>
-                          {game.name}{bridge.activeGames.includes(game.name) ? " · Running" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                {selectedGame ? (
-                  <div className="openmouse-bridge-profile-editor">
-                    <div>
-                      <strong>{selectedGame.name}</strong>
-                      <small>
-                        {selectedProfile
-                          ? `${selectedProfile.settings.dpi ?? "—"} DPI · ${selectedProfile.settings.pollingRateHz ?? "—"} Hz`
-                          : status
-                            ? `Capture ${status.dpi ?? "—"} DPI · ${status.pollingRateHz ?? "—"} Hz from ${status.name}`
-                            : "Connect a mouse to create a profile."}
-                      </small>
-                    </div>
-                    <button type="button" disabled={!status} onClick={() => void captureApplicationProfile()}>
-                      {selectedProfile ? "Update profile" : "Create profile"}
-                    </button>
+
+                <p className="bridge-profile-legend" aria-hidden="true">
+                  <span data-state="active">Active now</span>
+                  <span data-state="running">Game running</span>
+                  <span data-state="saved">Profile saved</span>
+                  <span data-state="empty">No profile</span>
+                </p>
+
+                <article className="bridge-profile-card is-default" data-state={defaultActive ? "active" : "saved"}>
+                  <span className="bridge-profile-dot" />
+                  <div className="bridge-profile-body">
+                    <strong>
+                      Default
+                      {defaultActive ? <em className="is-active">Active</em> : null}
+                    </strong>
+                    <small>
+                      {status
+                        ? `Applied when no game matches · ${status.dpi ?? "—"} DPI · ${status.pollingRateHz ?? "—"} Hz`
+                        : "Connect a mouse to set the fallback settings."}
+                    </small>
                   </div>
-                ) : null}
-                {bridgeProfilesList.length > 0 ? (
-                  <div className="openmouse-saved-profiles">
-                    {bridgeProfilesList.map((profile) => (
-                      <article key={`${profile.application.path}:${profile.device.id}`}>
-                        <div>
-                          <strong>{profile.application.name}</strong>
-                          <small>{profile.device.name} · {profile.settings.dpi ?? "—"} DPI · {profile.settings.pollingRateHz ?? "—"} Hz</small>
+                  <span className="bridge-profile-auto-tag">Auto · tracks live mouse</span>
+                </article>
+
+                <div className="bridge-profile-grid">
+                  {bridgeGamesList.map((game) => {
+                    const saved = profileForGame(game.name);
+                    const running = bridge.activeGames.includes(game.name);
+                    const active = activeGameName === game.name;
+                    const state = active ? "active" : running ? "running" : saved ? "saved" : "empty";
+                    const dpiValue = saved ? saved.settings.dpi : status?.dpi ?? null;
+                    const pollValue = saved ? saved.settings.pollingRateHz : status?.pollingRateHz ?? null;
+                    const dpiOptions = uniqueSorted([...dpiChoices, dpiValue]);
+                    const pollOptions = uniqueSorted([...pollingChoices, pollValue]);
+                    return (
+                      <article key={game.name} className="bridge-profile-card" data-state={state}>
+                        <span className="bridge-profile-dot" />
+                        <div className="bridge-profile-head">
+                          <strong>
+                            {game.name}
+                            {active ? <em className="is-active">Active</em> : running ? <em>Running</em> : null}
+                          </strong>
+                          <small>
+                            {!status
+                              ? "Connect a mouse to edit this profile"
+                              : saved
+                                ? "Saved · applied automatically when this game runs"
+                                : "Not saved — pick values or match your mouse"}
+                          </small>
                         </div>
-                        <button type="button" onClick={() => void deleteProfile(profile)}>Delete</button>
+                        <div className="bridge-profile-editor">
+                          <label className="bridge-field">
+                            <span>DPI</span>
+                            <select
+                              value={dpiValue === null ? "" : String(dpiValue)}
+                              disabled={!status}
+                              onChange={(event) => {
+                                const raw = event.currentTarget.value;
+                                if (raw === "") return;
+                                void saveGameProfile(game, { dpi: Number(raw), pollingRateHz: pollValue });
+                              }}
+                            >
+                              {dpiValue === null ? <option value="">—</option> : null}
+                              {dpiOptions.map((dpi) => <option key={dpi} value={dpi}>{dpi.toLocaleString()}</option>)}
+                            </select>
+                          </label>
+                          <label className="bridge-field">
+                            <span>Polling</span>
+                            <select
+                              value={pollValue === null ? "" : String(pollValue)}
+                              disabled={!status}
+                              onChange={(event) => {
+                                const raw = event.currentTarget.value;
+                                if (raw === "") return;
+                                void saveGameProfile(game, { dpi: dpiValue, pollingRateHz: Number(raw) });
+                              }}
+                            >
+                              {pollValue === null ? <option value="">—</option> : null}
+                              {pollOptions.map((rate) => <option key={rate} value={rate}>{rate.toLocaleString()} Hz</option>)}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className="bridge-match"
+                            disabled={!status}
+                            title="Copy the mouse's current DPI and polling into this profile"
+                            onClick={() => void saveGameProfile(game, {
+                              dpi: status?.dpi ?? null,
+                              pollingRateHz: status?.pollingRateHz ?? null,
+                            })}
+                          >
+                            Match mouse
+                          </button>
+                          {saved ? (
+                            <button
+                              type="button"
+                              className="is-danger"
+                              aria-label={`Delete the ${game.name} profile`}
+                              title="Remove this game profile"
+                              onClick={() => void deleteProfile(saved)}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
                       </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p>No game profiles yet. Choose any supported game above and capture the selected mouse settings.</p>
-                )}
-                {bridge.activeProfile ? (
-                  <p className="openmouse-bridge-message" role="status">
-                    Active profile: {bridge.activeProfile.application.name} · {bridge.activeProfile.settings.dpi ?? "—"} DPI · {bridge.activeProfile.settings.pollingRateHz ?? "—"} Hz
-                  </p>
+                    );
+                  })}
+                </div>
+
+                {otherDeviceProfiles.length > 0 ? (
+                  <details className="bridge-other-profiles">
+                    <summary>{otherDeviceProfiles.length} profile{otherDeviceProfiles.length === 1 ? "" : "s"} for other mice</summary>
+                    <div>
+                      {otherDeviceProfiles.map((profile) => (
+                        <article key={`${profile.application.path}:${profile.device.id}`}>
+                          <div>
+                            <strong>{profile.application.name}</strong>
+                            <small>{profile.device.name} · {profile.settings.dpi ?? "—"} DPI · {profile.settings.pollingRateHz ?? "—"} Hz</small>
+                          </div>
+                          <button type="button" className="is-danger" onClick={() => void deleteProfile(profile)}>Delete</button>
+                        </article>
+                      ))}
+                    </div>
+                  </details>
                 ) : null}
+
                 {bridgeMessage ? <p className="openmouse-bridge-message" role="status">{bridgeMessage}</p> : null}
               </div>
             ) : null}

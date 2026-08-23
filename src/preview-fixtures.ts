@@ -622,6 +622,58 @@ const LOGITECH_LEGACY: MouseStatus = {
   firmware: ["MPM 12.01"],
 };
 
+const LOGITECH_G703_ZONE = (zone: string, color: string): MouseLighting => ({
+  zone,
+  modes: ["Off", "Static", "Cycling", "Wave", "Breathing single"],
+  mode: "Static",
+  color,
+  color2: null,
+  colorModes: ["Static", "Breathing single"],
+  dualColorModes: [],
+  reactiveModes: ["Cycling", "Wave", "Breathing single"],
+  speeds: [1000, 2000, 3000, 5000, 10000],
+  speed: 5000,
+  writeOnly: true,
+});
+
+/** Wired G703 capture: legacy DPI, format-3 HEAT, Primary/Logo write-only RGB. */
+const LOGITECH_G703: MouseStatus = {
+  brand: "Logitech",
+  name: "G703",
+  ui: {
+    family: "logitech-hidpp",
+    lodRequiresSurface: true,
+    hideUnsupportedPollingRates: true,
+    defaultDisplayName: "G703",
+  },
+  batteryPercent: 78,
+  batteryState: "Charging",
+  dpi: 450,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: 3,
+  deviceMode: "Onboard",
+  liftOffDistance: null,
+  supportedLiftOffDistances: [],
+  connectionType: "Wired",
+  connectionDetail: "Wired USB",
+  transportIds: { USB: "C087" },
+  onboardProfileFormat: {
+    id: 3,
+    name: "HEAT",
+    base: "v1",
+    supported: true,
+    verified: true,
+    writable: true,
+  },
+  lighting: LOGITECH_G703_ZONE("Primary", "#7c5cff"),
+  lightingZones: [
+    LOGITECH_G703_ZONE("Primary", "#7c5cff"),
+    LOGITECH_G703_ZONE("Logo", "#35d59a"),
+  ],
+  firmware: ["MPM 14.02", "BOT 64.00", "RQI 04.00"],
+};
+
 /** Logi Bolt productivity mouse: DPI + battery, no report-rate or LOD feature. */
 const LOGITECH_MX_MASTER_3S: MouseStatus = {
   brand: "Logitech",
@@ -668,11 +720,12 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
-  teevolution: { label: "Teevolution Terra Pro", status: TEEVOLUTION },
+  "terra-pro": { label: "Teevolution Terra Pro", status: TEEVOLUTION },
   vgn: { label: "VGN F2 Master Plus", status: VGN },
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
-  "keychron-nape": { label: "Keychron Nape Pro", status: KEYCHRON },
+  "nape-pro": { label: "Keychron Nape Pro", status: KEYCHRON },
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
+  g703: { label: "Logitech G703", status: LOGITECH_G703 },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };

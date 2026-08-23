@@ -14,6 +14,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c095", "/devices/logitech-g502-x-plus.png"],
   ["046d:c099", "/devices/logitech-g502-x.png"],
   ["046d:c0a8", "/devices/logitech-pro-x2-superstrike.png"],
+  // Original G703 (0xc087) and G703 HERO wired (0xc090) share the same shell.
+  ["046d:c087", "/devices/logitech-g703.png"],
+  ["046d:c090", "/devices/logitech-g703.png"],
   // M3K and M2K use the supplied M3K product artwork.
   ["0483:a462", "/devices/zaunkoenig-m3k.png"],
   ["0483:a3cf", "/devices/zaunkoenig-m3k.png"],
@@ -63,6 +66,12 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3554:f522", "/devices/teevolution-terra-pro.png"],
   ["3554:f523", "/devices/teevolution-terra-pro.png"],
   ["3554:f5bb", "/devices/teevolution-terra-pro.png"],
+  // WALLHACK M-001 wireless mouse (real config id and in-app demo id).
+  ["3879:1110", "/devices/wallhack-m-001.png"],
+  ["3879:0807", "/devices/wallhack-m-001.png"],
+  // WALLHACK K-001 analog keyboard (both enumerated vendor ids).
+  ["3879:0806", "/devices/wallhack-k-001.png"],
+  ["1caa:0806", "/devices/wallhack-k-001.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -78,6 +87,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/g502\s*x\s*plus/i.test(displayName)) return "/devices/logitech-g502-x-plus.png";
   if (/g502\s*x/i.test(displayName)) return "/devices/logitech-g502-x.png";
   if (/\bg502\b/i.test(displayName)) return "/devices/logitech-g502.png";
+  if (/\bg703\b/i.test(displayName)) return "/devices/logitech-g703.png";
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
   if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
@@ -91,6 +101,8 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/\bm[23]k\b/i.test(displayName)) return "/devices/zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "/devices/logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "/devices/teevolution-terra-pro.png";
+  if (/\bm-001\b/i.test(displayName)) return "/devices/wallhack-m-001.png";
+  if (/\bk-001\b/i.test(displayName)) return "/devices/wallhack-k-001.png";
   // Pulsar 4K Wireless Receiver ships with the X2 V2 4K dongle kit; the receiver
   // product id is not yet published, so match the name reported by WebHID.
   if (/pulsar/i.test(displayName)) return "/devices/pulsar-x2-v2.png";

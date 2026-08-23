@@ -110,6 +110,8 @@ import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
+import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
+import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
 import {
   KEYCHRON_NAPE_KEYCODE,
   KEYCHRON_NAPE_KEY_CONTROLS,
@@ -175,7 +177,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient] as const;
 const DEDICATED = [
   ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
   EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
@@ -196,6 +198,7 @@ const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHi
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
+const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
 /** Pulsar is the fallback: any supported client no dedicated driver claims. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
@@ -2912,7 +2915,7 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3496,6 +3499,31 @@ function showSuperstrikePreview(): void {
   setReadStatus("Current: 800 DPI · 4,000 Hz");
 }
 
+function showG703PreviewProfiles(): void {
+  const actions = ["Left click", "Right click", "Middle click", "Back", "Forward", "DPI Shift", "Next DPI"] as const;
+  const currentStages = [450, 800, 1600, 12000].map((dpi) => ({ x: dpi, y: dpi, lod: 0 }));
+  onboardProfiles = [1, 2, 3].map((index) => ({
+    sector: index,
+    enabled: true,
+    isCurrent: index === 3,
+    name: `Profile ${index}`,
+    dpiStages: index === 3 ? currentStages : currentStages.slice(0, 2),
+    defaultDpiIndex: 0,
+    reportRateWireless: 1000,
+    reportRateWired: 1000,
+    angleSnapping: false,
+    powerSaveTimeoutSeconds: 60,
+    powerOffTimeoutSeconds: 300,
+    bunnyHoppingMs: null,
+    buttonAssignments: actions.map((action, button) => ({ button, action, raw: [0x80, 0, 0, 0] })),
+    gShiftAssignments: actions.map((action, button) => ({ button, action, raw: [0x80, 0, 0, 0] })),
+    crcValid: true,
+    raw: new Uint8Array(255),
+  } as OnboardProfile));
+  dpiOptions = [50, 100, 200, 400, 450, 800, 1600, 3200, 6400, 12000];
+  active = previewClient();
+}
+
 async function showFixturePreview(name: PreviewMode): Promise<void> {
   const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
   await loadPreviewEntries();
@@ -3508,10 +3536,11 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     return;
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
+  if (name === "g703") showG703PreviewProfiles();
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   applyStatus(fixture.status);
-  if (name === "keychron-nape") {
+  if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;
     editedNapeLayer = layer;
     installPreviewNapeKeymap(layer, true);
