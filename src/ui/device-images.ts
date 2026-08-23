@@ -57,6 +57,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // WLMouse Beast G receiver / wired transports share the same shell.
   ["36a7:a860", "/devices/wlmouse-beast-g.png"],
   ["36a7:a861", "/devices/wlmouse-beast-g.png"],
+  // Beast Max wired / 4K8K receiver transports share the same shell.
+  ["36a7:a881", "/devices/wlmouse-beast-max.png"],
+  ["36a7:a880", "/devices/wlmouse-beast-max.png"],
   // Nape Pro wired / Link-KM receivers share the same shell artwork.
   ["3434:0440", "/devices/keychron-nape-pro.png"],
   ["3434:d026", "/devices/keychron-nape-pro.png"],

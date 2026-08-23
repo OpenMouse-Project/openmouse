@@ -101,3 +101,9 @@ Confirm redistribution terms before including it in a public release package.
 `pulsar-pro-dongle.png` was supplied from Tomauri's Shopify CDN product render
 for the Pulsar 8K Polling Wireless Dongle. Confirm redistribution terms before
 including it in a public release package.
+
+`wlmouse-beast-max.png` is the black colorway, extracted from WL Mouse Hub
+(`gm.wlmouse.gg`, the official WLMouse configurator) after pairing a Beast Max
+over WebHID — the driver only serves the connected device's own product
+renders, so this can't be fetched without real hardware. Confirm
+redistribution terms before including it in a public release package.
