@@ -5,6 +5,7 @@ import "./launch.css";
 import { App } from "./app/App";
 import { LaunchCountdown } from "./app/LaunchCountdown";
 import { UnsupportedNotice } from "./app/UnsupportedNotice";
+import { installBridgeHid } from "./bridge-hid";
 import { unsupportedNotice } from "./browser-support";
 import { start } from "./device/controller";
 import { isBeforeLaunch } from "./launch";
@@ -26,13 +27,6 @@ function isChromium(): boolean {
   if (brands) return brands.some((entry) => /chromium/i.test(entry.brand));
   return /Chrom(e|ium)\/|Edg\//.test(navigator.userAgent);
 }
-
-const notice = unsupportedNotice({
-  hasWebHid: Boolean(navigator.hid),
-  handheld: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
-  secureContext: window.isSecureContext,
-  chromium: isChromium(),
-});
 
 registerServiceWorker();
 mountOfflineBanner();
@@ -68,9 +62,22 @@ function Root(): ReactNode {
 const root = createRoot(controlApp);
 if (import.meta.env.PROD && isBeforeLaunch()) {
   root.render(<LaunchHero />);
-} else if (notice) {
-  root.render(<UnsupportedNotice notice={notice} />);
 } else {
-  start();
-  root.render(<Root />);
+  // A browser without WebHID can still reach a mouse through OpenMouse Bridge,
+  // so whether this browser is supported is only known once that has been tried.
+  // Bridge answers on loopback in a few milliseconds, or not at all.
+  void installBridgeHid().then((hasHid) => {
+    const notice = unsupportedNotice({
+      hasWebHid: hasHid,
+      handheld: window.matchMedia("(pointer: coarse) and (hover: none)").matches,
+      secureContext: window.isSecureContext,
+      chromium: isChromium(),
+    });
+    if (notice) {
+      root.render(<UnsupportedNotice notice={notice} />);
+      return;
+    }
+    start();
+    root.render(<Root />);
+  });
 }
