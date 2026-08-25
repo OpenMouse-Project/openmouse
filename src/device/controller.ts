@@ -109,6 +109,7 @@ import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hi
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -163,7 +164,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronHidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient] as const;
 const DEDICATED = [
   ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
   EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
