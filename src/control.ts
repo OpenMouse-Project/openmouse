@@ -1083,6 +1083,8 @@ function showDisconnectedState(): void {
     window.clearInterval(refreshTimer);
     refreshTimer = null;
   }
+  const client = activeSettingsClient();
+  if (client) void client.close().catch(() => undefined);
   activeClient = null;
   activePulsarClient = null;
   activeEggClient = null;
