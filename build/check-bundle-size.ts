@@ -15,6 +15,7 @@ const BUDGET_BYTES: Record<string, number> = {
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
+<<<<<<< HEAD
   // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised from
   // 590 kB for the Razer button-mapping card and its codec, and the Pulsar
   // XS-1 feature-report driver plus 4K receiver support (mouse-protocol
@@ -23,6 +24,16 @@ const BUDGET_BYTES: Record<string, number> = {
   // the Attack Shark X11, unreachable over WebHID) and drives their DPI and
   // polling. Measured aggregate after merging both lines of work.
   ".js": 614_000,
+=======
+  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
+  // from 590 kB for the Razer button-mapping card and its codec: the measured
+  // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
+  // 610 kB for the Pulsar XS-1 feature-report driver and 4K receiver support
+  // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
+  // adds ~1.3 kB to the measured aggregate. Raised to 632 kB for the Attack
+  // Shark GearHub (0x25a7) protocol routed to 0x1d57 VID devices (+1.6 kB).
+  ".js": 632_000,
+>>>>>>> upstream/dev
 };
 
 const ASSETS = join("dist", "assets");

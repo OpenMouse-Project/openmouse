@@ -51,7 +51,10 @@ const BRAND_TYPOS: Record<string, string> = {
   mxanywhere3: "Logitech",
   mxanywhere3s: "Logitech",
   hyperxpulsefirehastle2: "HyperX",
-  rog: "ASUS ROG",
+  rog: "Asus",
+  asus: "Asus",
+  asusrog: "Asus",
+  tuf: "Asus",
 };
 
 /**
@@ -216,7 +219,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
 
   const rows: Mouse[] = base.map((m) => {
     const votes = live?.reqByKey.get(brandModelKey(m.brand, m.model));
-    return votes && votes > m.req ? { ...m, req: votes } : m;
+    return votes != null ? { ...m, req: votes } : m;
   });
 
   for (const model of registrySupportedModels()) {
@@ -242,7 +245,7 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
       // Overlay vote count on an existing row (exact or fuzzy).
       const existing = findExisting(r.manufacturer, r.model);
       if (existing) {
-        if (r.vote_count > existing.req) existing.req = r.vote_count;
+        existing.req = r.vote_count;
         continue;
       }
       if (known.has(key)) continue;

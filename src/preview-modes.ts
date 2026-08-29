@@ -25,12 +25,13 @@ export const PREVIEW_KEYS = [
   "razer-viper-mini",
   "razer-cobra",
   "razer-viper-v4",
-  "teevolution",
   "vgn",
   "finalmouse",
   "ninjutso",
-  "keychron",
+  "nape-pro",
   "mx-master-3s",
+  "g703",
+  "terra-pro",
   "logitech-legacy",
 ] as const;
 
@@ -66,12 +67,13 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "razer-viper-mini": return "razer-viper-mini";
     case "razer-cobra": return "razer-cobra";
     case "razer-viper-v4": return "razer-viper-v4";
-    case "teevolution": return "teevolution";
+    case "terra-pro": return "terra-pro";
     case "vgn": return "vgn";
     case "finalmouse": return "finalmouse";
     case "ninjutso": return "ninjutso";
-    case "keychron": return "keychron";
+    case "nape-pro": return "nape-pro";
     case "mx-master-3s": return "mx-master-3s";
+    case "g703": return "g703";
     case "logitech-legacy": return "logitech-legacy";
     default: return null;
   }

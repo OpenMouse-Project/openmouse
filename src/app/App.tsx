@@ -36,6 +36,7 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
+import type { MouseStatus } from "@openmouse/protocol/drivers";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
@@ -112,7 +113,6 @@ function Workspace({
   const tab = snapshot.workspaceTab;
   if (!status) return null;
   const has = cardAvailability(snapshot);
-
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
 
   const performance = [
@@ -278,7 +278,22 @@ export function App(): ReactNode {
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [snapshot.workspaceTab]);
 
-  const tabs = WORKSPACE_TAB_ORDER;
+  const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {
+    var tempTabs = WORKSPACE_TAB_ORDER;
+    const has = cardAvailability(snapshot);
+    if(status==null)return tempTabs;
+    if(!has.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!has.eggButtons&&
+       !has.razerButtons&&
+       !has.mxMasterButtons&&
+       !has.debounce&&
+       !has.lightforce&&
+       !has.eggSpdt&&
+       !has.superstrike
+    )tempTabs=tempTabs.filter(tab=>tab!="buttons")
+    return tempTabs;
+  }
+  const tabs = filterTabs(status);
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
     const index = tabs.indexOf(current);
     let next: number;
