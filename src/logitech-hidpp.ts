@@ -195,6 +195,10 @@ export class LogitechHidppClient {
 
   async close(): Promise<void> {
     this.device.removeEventListener("inputreport", this.onInputReport);
+    this.waiters.forEach((waiter) => waiter.reject(new Error("The Logitech device was closed.")));
+    this.waiters.length = 0;
+    this.rateChangeWaiters.forEach((waiter) => waiter.reject(new Error("The Logitech device was closed.")));
+    this.rateChangeWaiters.length = 0;
     if (this.device.opened) {
       await this.device.close();
     }
