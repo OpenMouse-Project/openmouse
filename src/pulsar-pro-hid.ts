@@ -164,8 +164,8 @@ export class PulsarProHidClient {
   }
 
   async setPollingRate(value: number): Promise<number> {
-    if (!Number.isInteger(value) || ![125, 250, 500, 1000, 2000, 4000, 8000].includes(value)) {
-      throw new Error("Unsupported Pulsar Pro polling rate.");
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error("Polling rate must be a positive integer.");
     }
     await this.setValue(COMMAND.polling, new Uint8Array([value & 0xff, value >> 8]));
     const confirmed = this.readUint16LE(await this.query(COMMAND.polling), 2);
@@ -233,8 +233,8 @@ export class PulsarProHidClient {
   }
 
   async setDebounceTime(value: number): Promise<number> {
-    if (!Number.isInteger(value) || value < 0 || value > 255) {
-      throw new Error("Pulsar Pro debounce time must be between 0 and 255 ms.");
+    if (!Number.isInteger(value) || value < 0 || value > 20) {
+      throw new Error("Pulsar Pro debounce time must be between 0 and 20 ms.");
     }
     await this.setValue(COMMAND.debounce, new Uint8Array([value]));
     return (await this.query(COMMAND.debounce))[2];
