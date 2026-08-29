@@ -20,7 +20,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
   // adds ~1.3 kB to the measured aggregate. Raised to 632 kB for the Attack
   // Shark GearHub (0x25a7) protocol routed to 0x1d57 VID devices (+1.6 kB).
-  ".js": 632_000,
+  // Raised to 700 kB for four new drivers landing together: Keychron M6,
+  // Keychron Nape Pro (layer/keymap/orientation controls), Glorious Model O
+  // 2/I 2 lighting, and SteelSeries Rival 3 Gen 1. Measured aggregate is
+  // 689.0 kB, which leaves about 11 kB of headroom.
+  ".js": 700_000,
 };
 
 const ASSETS = join("dist", "assets");
