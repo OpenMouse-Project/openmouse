@@ -28,7 +28,13 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; transition: background-color .35s ease, color .35s ease; }
+body { margin: 0; min-width: 320px; overflow-x: clip; transition: background-color .35s ease, color .35s ease; }
+/* Hide scrollbars while keeping scroll functionality.
+   overflow-x: clip on body prevents horizontal overflow from 100vw elements (e.g. .brand-marquee)
+   without creating a new scroll context (unlike overflow-x: hidden).
+   scrollbar-width: none (Firefox/Chrome) + ::-webkit-scrollbar (Safari) hides the vertical scrollbar. */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 a { color: inherit; text-decoration: none; }
 button:focus-visible, a:focus-visible, summary:focus-visible {
   outline: 2px solid var(--accent-dark);
