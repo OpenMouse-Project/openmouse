@@ -71,6 +71,8 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "vgn": return "vgn";
     case "finalmouse": return "finalmouse";
     case "ninjutso": return "ninjutso";
+    case "keychron":
+    case "keychron-nape":
     case "nape-pro": return "nape-pro";
     case "mx-master-3s": return "mx-master-3s";
     case "g703": return "g703";
