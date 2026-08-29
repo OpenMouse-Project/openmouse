@@ -38,6 +38,9 @@ test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "Terra Pro"), "/devices/teevolution-terra-pro.png");
   assert.equal(deviceImage(null, "MX Master 3S"), "/devices/logitech-mx-master-3s.png");
   assert.equal(deviceImage(null, "G703"), "/devices/logitech-g703.png");
+  assert.equal(deviceImage(null, "OP1we"), "/devices/endgame-gear-op1we.png");
+  assert.equal(deviceImage(null, "Endgame Gear OP1we"), "/devices/endgame-gear-op1we.png");
+  assert.equal(deviceImage(null, "OP1 8K"), "/devices/endgame-gear-op1-8k.png");
 });
 
 test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
@@ -51,6 +54,15 @@ test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
   assert.equal(deviceImage(hid373e(0x0046)), "/devices/attackshark-r5-ultra.png");
   assert.equal(deviceImage(hid373e(0x0047)), "/devices/attackshark-r5-ultra.png");
   assert.equal(deviceImage(null, "Attack Shark R5 Ultra"), "/devices/attackshark-r5-ultra.png");
+});
+
+test("OP1we wired and wireless share the same artwork, distinct from OP1 8K", () => {
+  const hid3367 = (productId: number): HIDDevice => ({ vendorId: 0x3367, productId } as HIDDevice);
+  assert.equal(deviceImage(hid3367(0x1961)), "/devices/endgame-gear-op1we.png");
+  assert.equal(deviceImage(hid3367(0x1962)), "/devices/endgame-gear-op1we.png");
+  assert.equal(deviceImage(null, "OP1we"), "/devices/endgame-gear-op1we.png");
+  assert.equal(deviceImage(hid3367(0x1964)), "/devices/endgame-gear-op1-8k.png");
+  assert.equal(deviceImage(null, "OP1 8K"), "/devices/endgame-gear-op1-8k.png");
 });
 
 test("Pulsar Pro receiver uses its dongle artwork", () => {
