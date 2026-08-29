@@ -108,8 +108,9 @@ import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid"
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
-import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { KeychronNapeHidClient as KeychronHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
 import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
+import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -2730,7 +2731,7 @@ export function applyLighting(
       if (zoneIndex === 0 && status.lighting) status.lighting = { ...status.lighting, ...staged } as MouseLighting;
     },
     apply: async () => {
-      await requireClientMethod("setLighting", "the lighting").setLighting(staged);
+      await requireClientMethod("setLighting", "the lighting").setLighting(staged as MouseLighting & GloriousLighting);
     },
   });
 }
