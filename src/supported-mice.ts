@@ -360,6 +360,9 @@ export const MICE: Mouse[] = [
   // ENDGAME GEAR ────────────────────────────────────────────────────────
   { brand: "Endgame Gear", model: "XM2w 4K",            status: "supported", req: 3,
     note: "egg-we driver (0x3367) covers OP1we/XM2we family" },
+  { brand: "Endgame Gear", model: "OP1we",            status: "supported", req: 1,
+    pids: [0x1961, 0x1962],
+    note: "egg-we driver (0x3367) covers OP1we/XM2we family" },
   { brand: "Endgame Gear", model: "OP1w 4K v2",         status: "likely",    req: 7,
     note: "egg-we driver (0x3367) covers OP1we/XM2we family — needs hardware test" },
   { brand: "Endgame Gear", model: "OP1 8K",             status: "supported", req: 1,

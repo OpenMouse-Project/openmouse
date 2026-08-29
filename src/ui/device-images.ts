@@ -38,6 +38,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3367:1964", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1976", "/devices/endgame-gear-op1-8k.png"],
   ["3367:1978", "/devices/endgame-gear-op1-8k.png"],
+  // OP1we
+  ["3367:1961", "/devices/endgame-gear-op1we.png"],
+  ["3367:1962", "/devices/endgame-gear-op1we.png"],
   // NinjaForce exposes separate wired and receiver ids for Sora V2, Sora V3,
   // and the TEN family. Receiver variants show the paired mouse artwork.
   ["1915:ae11", "/devices/ninjutso-sora-v2.png"],
@@ -94,6 +97,7 @@ export function deviceImage(device: HIDDevice | null | undefined, displayName = 
   if (/mx\s*master\s*4/i.test(displayName)) return "/devices/logitech-mx-master-4.png";
   if (/superstrike/i.test(displayName)) return "/devices/logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "/devices/logitech-pro-x-superlight-2c.png";
+  if (/op1we/i.test(displayName)) return "/devices/endgame-gear-op1we.png";
   if (/\bop1\b/i.test(displayName)) return "/devices/endgame-gear-op1-8k.png";
   if (/\bviper\s*v2\s*pro\b/i.test(displayName)) return "/devices/razer-viper-v2-pro.png";
   if (/\bviper\s*mini\b/i.test(displayName)) return "/devices/razer-viper-mini.webp";

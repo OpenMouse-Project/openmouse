@@ -282,7 +282,7 @@ export function App(): ReactNode {
     var tempTabs = WORKSPACE_TAB_ORDER;
     const has = cardAvailability(snapshot);
     if(status==null)return tempTabs;
-    if(!has.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!has.lighting&&!has.teevolutionDpiLighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
     if(!has.eggButtons&&
        !has.razerButtons&&
        !has.mxMasterButtons&&
