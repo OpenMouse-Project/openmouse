@@ -5,6 +5,8 @@ import { App } from "./app/App";
 import { UnsupportedNotice } from "./app/UnsupportedNotice";
 import { unsupportedNotice } from "./browser-support";
 import { start } from "./device/controller";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
@@ -28,7 +30,8 @@ const notice = unsupportedNotice({
   chromium: isChromium(),
 });
 
-if (import.meta.env.PROD) void navigator.serviceWorker?.register("/sw.js").catch(() => undefined);
+registerServiceWorker();
+mountOfflineBanner();
 
 function Root(): ReactNode {
   const tooSmall = useViewportTooSmall();

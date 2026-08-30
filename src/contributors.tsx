@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./contributors.css";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 
 const ORG = "OpenMouse-Project";
 
@@ -1191,3 +1193,6 @@ function ContributorsApp(): ReactNode {
 const root = document.querySelector<HTMLDivElement>("#contributors-app");
 if (!root) throw new Error("contributors-app root not found");
 createRoot(root).render(<ContributorsApp />);
+
+registerServiceWorker();
+mountOfflineBanner();

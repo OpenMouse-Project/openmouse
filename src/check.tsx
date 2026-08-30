@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./check.css";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 import { interfaceThemeSlug, loadInterfacePreferences } from "./interface-preferences";
 import {
   SCAN_FILTERS,
@@ -197,3 +199,6 @@ function CheckApp(): ReactNode {
 const root = document.querySelector<HTMLDivElement>("#check-app");
 if (!root) throw new Error("check-app root not found");
 createRoot(root).render(<CheckApp />);
+
+registerServiceWorker();
+mountOfflineBanner();

@@ -1,8 +1,6 @@
 /**
  * Registers the generated service worker so the public pages stay available
- * without a connection. The worker only exists in a production build, and it
- * deliberately never caches the licensed control app — see
- * build/pwa-vite-plugin.ts.
+ * without a connection. The worker only exists in a production build.
  */
 export function registerServiceWorker(): void {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;

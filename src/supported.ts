@@ -1,4 +1,6 @@
 import "./supported.css";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 import { MICE, STATUS, TABS, type Mouse, type Status } from "./supported-mice.ts";
 import { fetchLiveData, mergeLiveMice, type LiveData } from "./supported-live.ts";
 
@@ -264,3 +266,6 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") void refresh();
 });
 window.addEventListener("focus", () => void refresh());
+
+registerServiceWorker();
+mountOfflineBanner();
