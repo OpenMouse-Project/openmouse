@@ -1561,9 +1561,10 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     return product?.nativeOnly === true;
   });
   if (nativeOnly) {
-    // A nativeOnly model (e.g. DeathAdder V4 Pro) moves its control channel to
-    // a collection the browser refuses to expose, so the picker filters should
-    // not offer it at all. If one was granted anyway, say why it cannot work.
+    // A nativeOnly model (e.g. the Viper Ultimate wireless receiver) moves its
+    // control channel to a collection the browser refuses to expose, so the
+    // picker filters should not offer it at all. If one was granted anyway,
+    // say why it cannot work.
     const product = RAZER_PRODUCTS.get(nativeOnly.productId);
     throw new Error(
       `The ${product?.model ?? "mouse"} cannot be read in the browser: its control channel `
