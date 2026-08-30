@@ -3,6 +3,7 @@ import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 import { FANTECH_PRODUCTS } from "@openmouse/protocol/fantech";
+import { GWOLVES_PRODUCTS } from "@openmouse/protocol/drivers/gwolves/products";
 
 import { MICE, type Mouse } from "./supported-mice.ts";
 import { listSupportRequests, type SupportRequest } from "./support-requests.ts";
@@ -139,6 +140,10 @@ export function registrySupportedModels(): Mouse[] {
   }
   for (const [pid, info] of FANTECH_PRODUCTS) {
     rows.push({ brand: "Fantech", model: info.model, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GWOLVES_PRODUCTS) {
+    if (info.wireless) continue;
+    rows.push({ brand: "G-Wolves", model: info.model, status: "supported", req: 0, note: "", pids: [pid] });
   }
 
   const seen = new Set<string>();
