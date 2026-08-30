@@ -212,6 +212,7 @@
 [data-theme="dark"] .spill-driver    { background: #431407; color: #fdba74; }
 [data-theme="dark"] .spill-unknown   { background: #1e293b; color: #94a3b8; }
 [data-theme="dark"] .search-input    { background: #ffffff; color: #000000; }
+[data-theme="dark"] .ftab:hover      { background: #ffffff; color: #000000; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .spill-supported { background: #14532d; color: #86efac; }
