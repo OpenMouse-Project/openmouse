@@ -71,23 +71,17 @@ library. Its codec entry points remain transport-independent, while its
 application-facing status conversion. OpenMouse consumes the same public
 exports that external consumers use.
 
-## Mouse Check — Diagnostics & Discord Reporting
+## Mouse Check — HID Diagnostics
 
-**Mouse Check** is a companion Tauri desktop app for checking whether a mouse is WebHID compatible.
-It scans native HID devices, tests the Razer protocol over every interface, and generates a full diagnostic report.
+**Mouse Check** is an in-browser HID diagnostics page (see
+[`check.html`](https://dev.openmouse.app/check.html)). It scans your connected
+devices directly over WebHID, checks whether each one works with the browser or
+requires a native driver, and produces a report you can share with the team.
 
-### Where to enter your Discord Webhook URL
-
-1. Open **Mouse Check**
-2. Select your mouse from the device list and click **Run Diagnostics**
-3. When the **Discord Report** section appears at the bottom, paste your Discord Webhook URL into the field labeled *"Discord Webhook URL (saved locally)"*
-4. Click **Send to Discord**
-
-The webhook URL is saved in your browser's `localStorage` under the key `om-discord-webhook`.
-It is **never** stored in the app code, never committed to the repository, and never sent anywhere other than Discord.
-
-**How to create a webhook:**
-Discord server → Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL
+- No install — runs in Chrome or Edge, right in the browser.
+- Scans connected devices and reports a verdict for each one.
+- Generates a Discord-formatted report via **Copy for Discord**, ready to paste
+  to the OpenMouse team for help.
 
 ## Stack
 
