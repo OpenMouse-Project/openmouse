@@ -708,6 +708,7 @@ function ContributorsApp(): ReactNode {
           <a href="/supported.html">Devices</a>
           <a href="/contributors.html" aria-current="page" className="is-current">Hall of Fame</a>
           <a href="/check.html">Mouse Check</a>
+          <a href="/contribute.html">Contribute</a>
         </nav>
         <div className="hof-actions">
           <a className="hof-github" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">

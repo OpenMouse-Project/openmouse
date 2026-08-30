@@ -29,6 +29,7 @@ export default defineConfig({
         check: resolve(__dirname, "check.html"),
         supported: resolve(__dirname, "supported.html"),
         contributors: resolve(__dirname, "contributors.html"),
+        contribute: resolve(__dirname, "contribute.html"),
       },
     },
   },

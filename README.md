@@ -20,6 +20,17 @@ Run the full local check before pushing changes:
 npm run check
 ```
 
+## Contributing
+
+OpenMouse is one repository in a family — with the **Desktop** app,
+**mouse-protocol**, and **OpenMouse-Bridge**.
+
+Before you start, read the all-in-one contribution guide at
+[`contribute.html`](https://openmouse.app/contribute.html). It explains how the
+repositories fit together, per-repo setup and conventions, safe
+reverse-engineering practices, and the project's AI-assistance disclosure
+policy.
+
 ## Bridge updates
 
 The Settings page compares the connected OpenMouse Bridge against its latest
