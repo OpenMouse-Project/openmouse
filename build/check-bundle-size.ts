@@ -28,8 +28,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 700 kB for four new drivers landing together: Keychron M6,
   // Keychron Nape Pro (layer/keymap/orientation controls), Glorious Model O
   // 2/I 2 lighting, and SteelSeries Rival 3 Gen 1. Measured aggregate is
-  // 689.0 kB, which leaves about 11 kB of headroom.
-  ".js": 700_000,
+  // 689.0 kB, which leaves about 11 kB of headroom. Raised to 710 kB for the
+  // offline work: the shared service worker registration helper and the
+  // offline notice add 577 B across the four page entries, and dev had
+  // already grown into 717.7 kB of the 718 kB effective ceiling on its own,
+  // leaving 343 B. The measured aggregate is 718.2 kB, so 710 kB (728 kB
+  // with the preview allowance) restores about 10 kB of headroom.
+  ".js": 710_000,
 };
 
 const ASSETS = join("dist", "assets");
