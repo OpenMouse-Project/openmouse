@@ -7,8 +7,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // layer (SVG displacement filters plus their component rules) adds the
   // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
-  // styles that load only on /contributors.html).
-  ".css": 180_000,
+  // styles that load only on /contributors.html). Raised to 180 kB in the
+  // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
+  // Fame overhaul: the blocky token block (plank textures, bevels, item-frame
+  // avatars), the animated day/night scene (sun/moon/star/cloud/bonfire
+  // keyframes) and the credits-style quote widget push the measured CSS
+  // aggregate to 183.7 kB.
+  ".css": 195_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview

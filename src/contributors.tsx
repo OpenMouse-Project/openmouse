@@ -4,6 +4,73 @@ import "./contributors.css";
 
 const ORG = "OpenMouse-Project";
 
+interface McQuote {
+  text: string;
+  source: string;
+}
+
+const MC_QUOTES: McQuote[] = [
+  { text: "Twenty years from now you will be more disappointed by the things that you didn't do than by the ones you did do. So throw off the bowlines. Sail away from the safe harbor. Catch the trade winds in your sails. Explore. Dream. Discover.", source: "mark twain" },
+  { text: "I see the player you mean.", source: "the end poem" },
+  { text: "It has reached a higher level now.", source: "the end poem" },
+  { text: "I like this player. It played well. It did not give up.", source: "the end poem" },
+  { text: "This player dreamed of sunlight and trees. Of fire and water. It dreamed it created, and it dreamed it destroyed.", source: "the end poem" },
+  { text: "Does it know that we love it? That the universe is kind?", source: "the end poem" },
+  { text: "A story that contains the truth safely, in a cage of words.", source: "the end poem" },
+  { text: "I will not tell the player how to live.", source: "the end poem" },
+  { text: "That, it must achieve in the long dream of life, not the short dream of a game.", source: "the end poem" },
+  { text: "The words change. We do not change.", source: "the end poem" },
+  { text: "We are the universe. We are everything you think isn't you.", source: "the end poem" },
+  { text: "Death was a temporary inconvenience.", source: "the end poem" },
+  { text: "It was alive, it was alive… You. You. You are alive.", source: "the end poem" },
+  { text: "and the universe said I love you, because you are love.", source: "the end poem" },
+  { text: "and the universe said you are not alone", source: "the end poem" },
+  { text: "and the universe said you are the universe, tasting itself, talking to itself, reading its own code.", source: "the end poem" },
+  { text: "You are the player. Wake up.", source: "the end poem" },
+  { text: "Plant a tree!", source: "title screen" },
+  { text: "Read more books!", source: "title screen" },
+  { text: "Take frequent breaks!", source: "title screen" },
+  { text: "Never dig down!", source: "title screen" },
+  { text: "Don't worry, be happy!", source: "title screen" },
+  { text: "Stay a while, stay forever!", source: "title screen" },
+  { text: "Stay a while and listen!", source: "title screen" },
+  { text: "The sky is the limit!", source: "title screen" },
+  { text: "It's groundbreaking!", source: "title screen" },
+  { text: "Do it all, everything!", source: "title screen" },
+  { text: "You are valid!", source: "title screen" },
+  { text: "You are welcome here!", source: "title screen" },
+  { text: "I'm glad you're here!", source: "title screen" },
+  { text: "One day, somewhere in the future, my work will be quoted!", source: "title screen" },
+  { text: "That's no moon!", source: "title screen" },
+  { text: "Kiss the sky!", source: "title screen" },
+  { text: "Cogito ergo sum!", source: "title screen" },
+  { text: "Full of stars!", source: "title screen" },
+  { text: "sqrt(-1) love you!", source: "title screen" },
+  { text: "20 GOTO 10!", source: "title screen" },
+  { text: "Reticulating splines!", source: "title screen" },
+  { text: "The bee's knees!", source: "title screen" },
+  { text: "Khaaaaaaaaan!", source: "title screen" },
+  { text: "Rise from your grave!", source: "title screen" },
+  { text: "My life for Aiur!", source: "title screen" },
+  { text: "An illusion! What are you hiding?", source: "title screen" },
+  { text: "Where there is not light, there can spider!", source: "title screen" },
+  { text: "Falling with style!", source: "title screen" },
+  { text: "Get to the coppah!", source: "title screen" },
+  { text: "Follow the train, CJ!", source: "title screen" },
+  { text: "Any computer is a laptop if you're brave enough!", source: "title screen" },
+  { text: "Stop, hammertime!", source: "title screen" },
+  { text: "Boots with the fur!", source: "title screen" },
+  { text: "Technoblade never dies!", source: "title screen" },
+  { text: "Ph1lza had a good run!", source: "title screen" },
+  { text: "Jeb has amazing hair!", source: "title screen" },
+  { text: "Also try Terraria!", source: "title screen" },
+  { text: "Aww man!", source: "title screen" },
+  { text: "And my pickaxe!", source: "title screen" },
+  { text: "Do you want to join my server?", source: "title screen" },
+  { text: "The creeper is a spy!", source: "title screen" },
+  { text: "This message will never appear on the splash screen, isn't that weird?", source: "title screen" },
+];
+
 type RepoKey = string;
 
 interface RepoInfo {
@@ -469,114 +536,377 @@ function RepoCard({ repoKey, label, meta, branches, pulls, index }: { repoKey: R
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-function DotGrid(): ReactNode {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+interface SkyPhase {
+  sky: { offset: number; color: string }[];
+  sunVisible?: boolean;
+  sunX: number;
+  sunY: number;
+  sunColor: string;
+  coreColor: string;
+  glowColor: string;
+  moonVisible?: boolean;
+  stars?: boolean;
+  starColor: string;
+  cloudFill: string;
+  cloudOpacity: number;
+  terrainColor: string;
+  trunkColor: string;
+  leafA: string;
+  leafB: string;
+  groundRim: string;
+  groundBody: string;
+  fireLow: number;
+  fireHigh: number;
+}
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+const SKY_NIGHT: SkyPhase = {
+  sky: [
+    { offset: 0, color: "#05060f" },
+    { offset: 0.25, color: "#0a0f2e" },
+    { offset: 0.5, color: "#131841" },
+    { offset: 0.75, color: "#1b2454" },
+    { offset: 1, color: "#232e63" },
+  ],
+  sunVisible: false,
+  sunX: 0,
+  sunY: 0,
+  sunColor: "#ffffff",
+  coreColor: "#ffffff",
+  glowColor: "#ffffff",
+  moonVisible: true,
+  stars: true,
+  starColor: "#dfe8ff",
+  cloudFill: "#aeb8d0",
+  cloudOpacity: 0.32,
+  terrainColor: "#10162c",
+  trunkColor: "#070a18",
+  leafA: "#1a2140",
+  leafB: "#161b36",
+  groundRim: "#20294a",
+  groundBody: "#0d1226",
+  fireLow: 0.75,
+  fireHigh: 1,
+};
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const accent = getComputedStyle(document.documentElement).getPropertyValue("--hof-accent").trim() || "#69d28d";
-    const spacing = 32;
-    const radius = 140;
-    const maxDisplace = 24;
-    const dots: { bx: number; by: number; x: number; y: number }[] = [];
-    let width = 0;
-    let height = 0;
-    let mouseX = -10000;
-    let mouseY = -10000;
-    let raf = 0;
+const SKY_DAWN: SkyPhase = {
+  sky: [
+    { offset: 0, color: "#131a45" },
+    { offset: 0.3, color: "#4a2f6e" },
+    { offset: 0.55, color: "#a24957" },
+    { offset: 0.78, color: "#e0713a" },
+    { offset: 1, color: "#f7a14f" },
+  ],
+  sunVisible: true,
+  sunX: 600,
+  sunY: 468,
+  sunColor: "#ffd9a0",
+  coreColor: "#fff2d0",
+  glowColor: "#ff9a4a",
+  moonVisible: false,
+  stars: false,
+  starColor: "#dfe8ff",
+  cloudFill: "#f2c9a8",
+  cloudOpacity: 0.5,
+  terrainColor: "#2a1d40",
+  trunkColor: "#100b1e",
+  leafA: "#241a3c",
+  leafB: "#1f1634",
+  groundRim: "#402a52",
+  groundBody: "#1a0f28",
+  fireLow: 0.55,
+  fireHigh: 0.8,
+};
 
-    const build = (): void => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      dots.length = 0;
-      const cols = Math.ceil(width / spacing);
-      const rows = Math.ceil(height / spacing);
-      for (let row = 0; row <= rows; row += 1) {
-        for (let col = 0; col <= cols; col += 1) {
-          const bx = col * spacing;
-          const by = row * spacing;
-          dots.push({ bx, by, x: bx, y: by });
-        }
+const SKY_DAY: SkyPhase = {
+  sky: [
+    { offset: 0, color: "#1e66b8" },
+    { offset: 0.3, color: "#3f8fd4" },
+    { offset: 0.55, color: "#74bae6" },
+    { offset: 0.8, color: "#b4e0f2" },
+    { offset: 1, color: "#d9f0fa" },
+  ],
+  sunVisible: true,
+  sunX: 600,
+  sunY: 212,
+  sunColor: "#ffeebf",
+  coreColor: "#fffbe8",
+  glowColor: "#f7d774",
+  moonVisible: false,
+  stars: false,
+  starColor: "#dfe8ff",
+  cloudFill: "#ffffff",
+  cloudOpacity: 0.85,
+  terrainColor: "#3b2a52",
+  trunkColor: "#150b1c",
+  leafA: "#2b1b40",
+  leafB: "#261838",
+  groundRim: "#52386e",
+  groundBody: "#241534",
+  fireLow: 0.22,
+  fireHigh: 0.4,
+};
+
+const SKY_NOON: SkyPhase = {
+  sky: [
+    { offset: 0, color: "#0c5cad" },
+    { offset: 0.3, color: "#1e7dce" },
+    { offset: 0.55, color: "#55aee4" },
+    { offset: 0.8, color: "#93d7f0" },
+    { offset: 1, color: "#bceafb" },
+  ],
+  sunVisible: true,
+  sunX: 600,
+  sunY: 122,
+  sunColor: "#fff8d6",
+  coreColor: "#ffffff",
+  glowColor: "#ffef9e",
+  moonVisible: false,
+  stars: false,
+  starColor: "#dfe8ff",
+  cloudFill: "#ffffff",
+  cloudOpacity: 0.92,
+  terrainColor: "#45325e",
+  trunkColor: "#180d24",
+  leafA: "#302046",
+  leafB: "#2b1c3f",
+  groundRim: "#5e4278",
+  groundBody: "#2a1a3a",
+  fireLow: 0.15,
+  fireHigh: 0.3,
+};
+
+const SKY_DUSK: SkyPhase = {
+  sky: [
+    { offset: 0, color: "#35206a" },
+    { offset: 0.3, color: "#8a3a6e" },
+    { offset: 0.55, color: "#d24f34" },
+    { offset: 0.78, color: "#f78a2b" },
+    { offset: 1, color: "#fcbd46" },
+  ],
+  sunVisible: true,
+  sunX: 600,
+  sunY: 426,
+  sunColor: "#ffe3a7",
+  coreColor: "#fff6d6",
+  glowColor: "#ff8a3d",
+  moonVisible: false,
+  stars: false,
+  starColor: "#dfe8ff",
+  cloudFill: "#ffe9c4",
+  cloudOpacity: 0.55,
+  terrainColor: "#2a1736",
+  trunkColor: "#150b14",
+  leafA: "#241233",
+  leafB: "#21102e",
+  groundRim: "#332047",
+  groundBody: "#1c0f24",
+  fireLow: 0.65,
+  fireHigh: 0.9,
+};
+
+function getSkyPhase(hour: number): SkyPhase {
+  if (hour >= 5 && hour <= 6) return SKY_DAWN;
+  if (hour >= 7 && hour <= 11) return SKY_DAY;
+  if (hour >= 12 && hour <= 15) return SKY_NOON;
+  if (hour >= 16 && hour <= 18) return SKY_DUSK;
+  return SKY_NIGHT;
+}
+
+function MinecraftQuote(): ReactNode {
+  const [quote, setQuote] = useState(() => MC_QUOTES[Math.floor(Math.random() * MC_QUOTES.length)]);
+  const bagRef = useRef<number[]>([]);
+
+  const next = (): void => {
+    if (bagRef.current.length === 0) {
+      const bag = MC_QUOTES.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = bag[i];
+        bag[i] = bag[j];
+        bag[j] = tmp;
       }
-    };
-
-    const draw = (): void => {
-      ctx.clearRect(0, 0, width, height);
-      for (const dot of dots) {
-        const dx = mouseX - dot.x;
-        const dy = mouseY - dot.y;
-        const dist = Math.hypot(dx, dy);
-        let tx = dot.bx;
-        let ty = dot.by;
-        if (dist < radius && dist > 0.001) {
-          const pull = (1 - dist / radius) * maxDisplace;
-          tx = dot.bx + (dx / dist) * pull;
-          ty = dot.by + (dy / dist) * pull;
-        }
-        dot.x += (tx - dot.x) * 0.14;
-        dot.y += (ty - dot.y) * 0.14;
-        const near = dist < radius;
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, near ? 2.4 : 1.4, 0, Math.PI * 2);
-        ctx.fillStyle = near ? accent : "rgba(158, 170, 164, 0.32)";
-        ctx.fill();
-      }
-      raf = requestAnimationFrame(draw);
-    };
-
-    const drawStatic = (): void => {
-      ctx.clearRect(0, 0, width, height);
-      for (const dot of dots) {
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, 1.4, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(158, 170, 164, 0.32)";
-        ctx.fill();
-      }
-    };
-
-    const onMove = (event: MouseEvent): void => {
-      mouseX = event.clientX;
-      mouseY = event.clientY;
-    };
-    const onLeave = (): void => {
-      mouseX = -10000;
-      mouseY = -10000;
-    };
-    const onResize = (): void => {
-      build();
-      if (reduced) drawStatic();
-    };
-
-    build();
-    if (reduced) {
-      drawStatic();
-    } else {
-      window.addEventListener("mousemove", onMove, { passive: true });
-      document.documentElement.addEventListener("mouseleave", onLeave);
-      draw();
+      bagRef.current = bag;
     }
-    window.addEventListener("resize", onResize);
+    const idx = bagRef.current.pop() ?? 0;
+    setQuote(MC_QUOTES[idx]);
+  };
 
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("mousemove", onMove);
-      document.documentElement.removeEventListener("mouseleave", onLeave);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
+  return (
+    <figure className="mc-quote" key={quote.text} aria-live="polite">
+      <blockquote>{quote.text}</blockquote>
+      <figcaption>— {quote.source}</figcaption>
+      <button type="button" className="mc-quote-btn" onClick={next}>▶ next quote</button>
+    </figure>
+  );
+}
 
-  return <canvas ref={canvasRef} className="hof-dotgrid" aria-hidden="true" />;
+function MinecraftScene({ phase }: { phase: SkyPhase }): ReactNode {
+  return (
+    <svg
+      className="mc-scene"
+      viewBox="0 0 1200 640"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="mcSky" x1="0" y1="0" x2="0" y2="1">
+          {phase.sky.map((s) => <stop key={s.offset} offset={String(s.offset)} stopColor={s.color} />)}
+        </linearGradient>
+        <radialGradient id="mcFireGlow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#ff9b3d" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#ff9b3d" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect width="1200" height="640" fill="url(#mcSky)" />
+
+      {phase.moonVisible ? (
+        <g className="mc-moon-group">
+          <rect x="140" y="66" width="96" height="96" fill="#ffffff" opacity="0.12" />
+          <rect x="154" y="80" width="68" height="68" fill="#eef3fc" opacity="0.5" />
+          <rect x="166" y="92" width="44" height="44" fill="#dfe7f5" />
+          <rect x="178" y="104" width="20" height="20" fill="#c3d0e9" />
+        </g>
+      ) : null}
+
+      {phase.stars ? (
+        <g className="mc-stars" fill={phase.starColor}>
+          <rect x="90" y="60" width="4" height="4" style={{ animationDelay: "0.1s" }} />
+          <rect x="210" y="150" width="3" height="3" style={{ animationDelay: "0.55s" }} />
+          <rect x="320" y="80" width="5" height="5" style={{ animationDelay: "0.9s" }} />
+          <rect x="460" y="52" width="3" height="3" style={{ animationDelay: "0.35s" }} />
+          <rect x="700" y="70" width="4" height="4" style={{ animationDelay: "0.7s" }} />
+          <rect x="820" y="48" width="3" height="3" style={{ animationDelay: "1.2s" }} />
+          <rect x="930" y="110" width="5" height="5" style={{ animationDelay: "0.25s" }} />
+          <rect x="1050" y="60" width="4" height="4" style={{ animationDelay: "0.85s" }} />
+          <rect x="1140" y="130" width="3" height="3" style={{ animationDelay: "1.05s" }} />
+          <rect x="380" y="180" width="3" height="3" style={{ animationDelay: "1.4s" }} />
+          <rect x="980" y="170" width="4" height="4" style={{ animationDelay: "0.15s" }} />
+          <rect x="110" y="120" width="3" height="3" style={{ animationDelay: "1.6s" }} />
+        </g>
+      ) : null}
+
+      {phase.sunVisible ? (
+        <g className="mc-sun-group">
+          <rect x={phase.sunX - 70} y={phase.sunY} width="140" height="140" fill={phase.glowColor} opacity="0.26" />
+          <rect x={phase.sunX - 56} y={phase.sunY + 14} width="112" height="112" fill={phase.glowColor} opacity="0.48" />
+          <rect x={phase.sunX - 44} y={phase.sunY + 26} width="88" height="88" fill={phase.sunColor} />
+          <rect x={phase.sunX - 28} y={phase.sunY + 42} width="56" height="56" fill={phase.coreColor} />
+        </g>
+      ) : null}
+
+      <g className="mc-cloud mc-cloud-3">
+        <rect x="356" y="306" width="48" height="18" fill={phase.cloudFill} opacity={phase.cloudOpacity} />
+        <rect x="368" y="294" width="24" height="12" fill={phase.cloudFill} opacity={phase.cloudOpacity} />
+      </g>
+      <g className="mc-cloud mc-cloud-1">
+        <rect x="150" y="174" width="72" height="24" fill={phase.cloudFill} />
+        <rect x="174" y="150" width="24" height="24" fill={phase.cloudFill} />
+        <rect x="162" y="162" width="48" height="24" fill={phase.cloudFill} />
+        <rect x="186" y="162" width="24" height="24" fill={phase.cloudFill} opacity={phase.cloudOpacity} />
+        <rect x="198" y="174" width="24" height="24" fill={phase.cloudFill} opacity={phase.cloudOpacity} />
+      </g>
+      <g className="mc-cloud mc-cloud-2">
+        <rect x="756" y="130" width="60" height="20" fill={phase.cloudFill} />
+        <rect x="768" y="118" width="36" height="24" fill={phase.cloudFill} />
+        <rect x="780" y="106" width="18" height="18" fill={phase.cloudFill} />
+      </g>
+
+      <g className="mc-terrain-back">
+        <rect x="0" y="548" width="40" height="92" fill={phase.terrainColor} />
+        <rect x="0" y="560" width="120" height="80" fill={phase.terrainColor} />
+        <rect x="120" y="572" width="140" height="68" fill={phase.terrainColor} />
+        <rect x="260" y="584" width="120" height="56" fill={phase.terrainColor} />
+        <rect x="380" y="596" width="160" height="44" fill={phase.terrainColor} />
+        <rect x="540" y="596" width="120" height="44" fill={phase.terrainColor} />
+        <rect x="780" y="584" width="140" height="56" fill={phase.terrainColor} />
+        <rect x="920" y="572" width="120" height="68" fill={phase.terrainColor} />
+        <rect x="1040" y="560" width="120" height="80" fill={phase.terrainColor} />
+        <rect x="1160" y="548" width="40" height="92" fill={phase.terrainColor} />
+      </g>
+
+      <g className="mc-trees">
+        <g>
+          <rect x="173" y="472" width="20" height="14" fill={phase.leafA} />
+          <rect x="153" y="486" width="60" height="14" fill={phase.leafA} />
+          <rect x="153" y="500" width="60" height="16" fill={phase.leafA} />
+          <rect x="177" y="502" width="12" height="58" fill={phase.trunkColor} />
+        </g>
+        <g>
+          <rect x="231" y="484" width="20" height="14" fill={phase.leafB} />
+          <rect x="211" y="498" width="60" height="14" fill={phase.leafB} />
+          <rect x="211" y="512" width="60" height="16" fill={phase.leafB} />
+          <rect x="235" y="514" width="12" height="58" fill={phase.trunkColor} />
+        </g>
+        <g>
+          <rect x="942" y="484" width="20" height="14" fill={phase.leafA} />
+          <rect x="922" y="498" width="60" height="14" fill={phase.leafA} />
+          <rect x="922" y="512" width="60" height="16" fill={phase.leafA} />
+          <rect x="946" y="514" width="12" height="58" fill={phase.trunkColor} />
+        </g>
+        <g>
+          <rect x="998" y="484" width="20" height="14" fill={phase.leafB} />
+          <rect x="978" y="498" width="60" height="14" fill={phase.leafB} />
+          <rect x="978" y="512" width="60" height="16" fill={phase.leafB} />
+          <rect x="1002" y="514" width="12" height="58" fill={phase.trunkColor} />
+        </g>
+      </g>
+
+      <g className="mc-ground">
+        <rect x="0" y="600" width="1200" height="40" fill={phase.groundBody} />
+        <rect x="0" y="600" width="1200" height="9" fill={phase.groundRim} />
+      </g>
+
+      <g className="mc-fire-glow">
+        <circle cx="600" cy="598" r="150" fill="url(#mcFireGlow)" style={{ "--fire-low": phase.fireLow, "--fire-high": phase.fireHigh } as CSSProperties} />
+      </g>
+
+      <g className="mc-bonfire">
+        <g transform="translate(600 630) rotate(-34)">
+          <rect x="-62" y="-8" width="124" height="16" fill="#7a471d" />
+          <rect x="54" y="-8" width="8" height="16" fill="#8f5a26" />
+        </g>
+        <g transform="translate(600 630) rotate(30)">
+          <rect x="-62" y="-8" width="124" height="16" fill="#5e3413" />
+          <rect x="-62" y="-8" width="8" height="16" fill="#78441a" />
+        </g>
+        <rect x="556" y="636" width="88" height="12" fill="#8f5a26" />
+      </g>
+
+      <g className="mc-flame mc-flame-1">
+        <rect x="574" y="600" width="52" height="28" fill="#ff7b1c" />
+        <rect x="580" y="580" width="40" height="22" fill="#ff7b1c" />
+        <rect x="586" y="562" width="28" height="20" fill="#ff8f26" />
+        <rect x="590" y="548" width="20" height="16" fill="#ff8f26" />
+        <rect x="556" y="606" width="18" height="16" fill="#ff7b1c" />
+        <rect x="626" y="606" width="18" height="16" fill="#ff7b1c" />
+      </g>
+      <g className="mc-flame mc-flame-2">
+        <rect x="584" y="606" width="32" height="22" fill="#ffa03a" />
+        <rect x="590" y="590" width="20" height="18" fill="#ffa03a" />
+        <rect x="592" y="576" width="16" height="16" fill="#ffb452" />
+      </g>
+      <g className="mc-flame mc-flame-core">
+        <rect x="594" y="600" width="12" height="24" fill="#ffe288" />
+        <rect x="596" y="586" width="8" height="16" fill="#fff1ba" />
+      </g>
+
+      <g className="mc-smoke">
+        <rect x="592" y="538" width="10" height="10" fill="#cdb8c8" style={{ "--sx": "-8px" } as CSSProperties} />
+        <rect x="598" y="516" width="10" height="10" fill="#cdb8c8" style={{ "--sx": "7px", animationDelay: "0.7s" } as CSSProperties} />
+        <rect x="590" y="524" width="10" height="10" fill="#cdb8c8" style={{ "--sx": "-4px", animationDelay: "1.4s" } as CSSProperties} />
+        <rect x="602" y="504" width="10" height="10" fill="#cdb8c8" style={{ "--sx": "10px", animationDelay: "2.1s" } as CSSProperties} />
+      </g>
+
+      <g className="mc-ember">
+        <rect x="597" y="576" width="6" height="6" fill="#ffd27a" style={{ "--ex": "-14px", "--ey": "-52px" } as CSSProperties} />
+        <rect x="592" y="566" width="5" height="5" fill="#ffc45e" style={{ "--ex": "12px", "--ey": "-60px", animationDelay: "0.35s" } as CSSProperties} />
+        <rect x="604" y="570" width="5" height="5" fill="#ffdd8f" style={{ "--ex": "-6px", "--ey": "-44px", animationDelay: "0.7s" } as CSSProperties} />
+        <rect x="599" y="562" width="4" height="4" fill="#ffe27a" style={{ "--ex": "16px", "--ey": "-68px", animationDelay: "1.05s" } as CSSProperties} />
+        <rect x="595" y="580" width="5" height="5" fill="#ffdf9e" style={{ "--ex": "-20px", "--ey": "-36px", animationDelay: "1.4s" } as CSSProperties} />
+      </g>
+    </svg>
+  );
 }
 
 function ContributorCard({ person, repoList, index }: { person: MergedContributor; repoList: RepoInfo[]; index: number }): ReactNode {
@@ -595,7 +925,7 @@ function ContributorCard({ person, repoList, index }: { person: MergedContributo
         ) : (
           <span className="avatar-fallback" aria-hidden="true">{person.login.slice(0, 1).toUpperCase()}</span>
         )}
-        <span className="avatar-ring" aria-hidden="true" />
+        <span className="avatar-frame" aria-hidden="true" />
       </span>
       {person.htmlUrl ? (
         <a className="contributor-login" href={person.htmlUrl} target="_blank" rel="noreferrer">
@@ -677,6 +1007,7 @@ function ContributorsApp(): ReactNode {
   const starCount = repos?.openmouse?.stars ?? null;
   const totalCommits = merged.reduce((s, c) => s + c.total, 0);
   const combinedStars = repoList.reduce((s, info) => s + (repos?.[info.key]?.stars ?? 0), 0);
+  const skyPhase = useMemo(() => getSkyPhase(new Date(now).getHours()), [now]);
   const committed = useCountUp(totalCommits, Boolean(data));
   const contributed = useCountUp(merged.length, Boolean(data));
   const starred = useCountUp(combinedStars, Boolean(data));
@@ -696,7 +1027,7 @@ function ContributorsApp(): ReactNode {
   return (
     <div className="hof-shell">
       <div className="hof-bg" aria-hidden="true">
-        <DotGrid />
+        <MinecraftScene phase={skyPhase} />
       </div>
 
       <header className="hof-header">
@@ -729,6 +1060,8 @@ function ContributorsApp(): ReactNode {
           <p className="hof-lead">
             Every developer who shaped the <strong>OpenMouse Project</strong> — commit authors and merged-PR authors, combined into one live leaderboard.
           </p>
+
+          <MinecraftQuote />
 
           <div className="hof-stats">
             <span className="hof-stat">
