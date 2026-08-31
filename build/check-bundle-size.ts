@@ -28,8 +28,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 700 kB for four new drivers landing together: Keychron M6,
   // Keychron Nape Pro (layer/keymap/orientation controls), Glorious Model O
   // 2/I 2 lighting, and SteelSeries Rival 3 Gen 1. Measured aggregate is
-  // 689.0 kB, which leaves about 11 kB of headroom.
-  ".js": 700_000,
+  // 689.0 kB, which leaves about 11 kB of headroom. Raised to 730 kB for the
+  // device artwork pass: ~20 new product models mapped to transparent top-view
+  // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
+  // mapping code to the measured aggregate (720.5 kB), and 730 kB leaves headroom.
+  ".js": 730_000,
 };
 
 const ASSETS = join("dist", "assets");
