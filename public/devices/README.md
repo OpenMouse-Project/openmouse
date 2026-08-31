@@ -49,7 +49,9 @@ the shell seams — button split, scroll-wheel housing, thumb rest, thumb wheel,
 side-panel crease and the wheel-mode button — were authored as paths against a
 product image. No colour, shading, texture or lettering was carried over, and
 the Logitech wordmark on the shell was deliberately excluded rather than faded,
-since it is a trademark and this repository is public.
+since it is a trademark and this repository is public. This render is currently
+parked (no acceptable re-render was sourced), so the MX Master 4 resolves to the
+generic `unknown-device.png` placeholder until a clean render is supplied.
 
 `endgame-gear-op1-8k.png` was supplied from an Overclockers UK product-image
 URL for the OP1 8K. Confirm redistribution terms before including it in a
@@ -62,10 +64,6 @@ URL for the OP1we.
 asset (`dl.razerzone.com/src/6048-1-en-v10.png`). Ideally replace it with a
 higher-resolution image if one is found. Confirm redistribution terms before
 including it in a public release package.
-
-`keychron-nape-pro.png` was supplied from Keychron's sysmgr cover CDN for the
-Nape Pro. Confirm redistribution terms before including it in a public release
-package.
 
 `teevolution-terra-pro.png` was supplied from Teevolution's Terra PRO Shopify
 CDN product render. Confirm redistribution terms before including it in a
@@ -101,12 +99,38 @@ render for the X2 v2 [Red Edition] Gaming Mouse (top-down view of the Medium
 shell), cropped to the mouse, resized, and centered on a transparent canvas.
 Confirm redistribution terms before including it in a public release package.
 
-`pulsar-pro-dongle.png` was supplied from Tomauri's Shopify CDN product render
-for the Pulsar 8K Polling Wireless Dongle. Confirm redistribution terms before
-including it in a public release package.
-
 `wlmouse-beast-max.png` is the black colorway, extracted from WL Mouse Hub
 (`gm.wlmouse.gg`, the official WLMouse configurator) after pairing a Beast Max
 over WebHID — the driver only serves the connected device's own product
 renders, so this can't be fetched without real hardware. Confirm
 redistribution terms before including it in a public release package.
+
+The following were added to cover additional `supported` devices from the
+support catalog, sourced from official brand/media CDNs and retailer product
+renders, then normalized to transparent PNGs (white backgrounds keyed out where
+needed). Confirm redistribution terms before including any in a public release
+package:
+
+- `logitech-g203.png` (G203 LIGHTSYNC / PRODIGY, G102 share the shell) — Logitech / retailer render
+- `logitech-g402.png` — Logitech G402 render
+- `logitech-g303.png` — Logitech G303 render
+- `logitech-g403.png` — Logitech G403 render
+- `logitech-g903.png` — Logitech G903 render
+- `logitech-g305.png` — Logitech G305 LIGHTSPEED (G304 shares the shell)
+- `logitech-g-pro.png` — Logitech G Pro (2017) / G Pro Hero / G Pro Wireless classic shell
+- `logitech-g-pro-2.png` — Logitech G Pro 2
+- `logitech-g309.png` — Logitech G309 Lightspeed
+- `logitech-mx-anywhere-3.png` — Logitech MX Anywhere 3 top-view render
+- `logitech-mx-ergo-s.png` — Logitech MX Ergo S top-view render
+- `razer-deathadder-v2.png` — Razer DeathAdder V2 (V2 / V2 Pro / Essential share the shell)
+- `razer-deathadder-v3.png` — Razer DeathAdder V3 render
+- `razer-deathadder-v4-pro.png` — Razer DeathAdder V4 Pro (Carbon Fiber SKU shares the shell)
+- `razer-viper-v3-hyperspeed.png` — Razer Viper V3 HyperSpeed render
+- `razer-viper-v4-pro.png` — Razer Viper V4 Pro render
+- `endgame-gear-xm2-8k.png` — Endgame Gear XM2 8K top-down render
+- `endgame-gear-xm2w.png` — Endgame Gear XM2w 4K top-down render
+- `wlmouse-sword-x.png` — WLMouse Sword X render (Beast X / Beast Mini / Beast X Pro have no render yet; they resolve to the generic placeholder)
+- `vgn-dragonfly-f2.png` — VGN Dragonfly F2 Master+ render
+- `lamzu-maya-x.png` — Lamzu Maya X render
+- `atk-f1-v2-ultra-max.png` — ATK F1 V2 Ultra Max render
+- `finalmouse-ulx.png` — Finalmouse Starlight-12 / ULX low-profile shape render
