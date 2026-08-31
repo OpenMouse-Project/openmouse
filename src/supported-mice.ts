@@ -314,8 +314,9 @@ export const MICE: Mouse[] = [
   { brand: "SteelSeries", model: "Aerox 9 Wireless",    status: "supported", req: 5,
     pids: [0x185a, 0x1876, 0x1858, 0x1874],
     note: "Write-only settings (DPI presets, polling, RGB zones/reactive/sleep-dim timers/rainbow/default lighting; no button-remap command in rivalcfg's profile for this device); battery percentage/charging is read live (no firmware-query command). PID 0x185a/0x1876 (wired mode) and 0x1858/0x1874 (2.4 GHz mode, WOW Edition) in SteelSeries Aerox 9 Wireless driver" },
-  { brand: "SteelSeries", model: "Sensei Ten",           status: "driver",    req: 4,
-    note: "SteelSeries GG protocol — not implemented" },
+  { brand: "SteelSeries", model: "Sensei Ten",           status: "supported", req: 4,
+    pids: [0x1832, 0x1834],
+    note: "Write-only: DPI presets (linear TrueMove3+-family encoding, not a lookup table), polling, logo/wheel LED RGB gradients, buttons; firmware version is read live. PID 0x1832 and 0x1834 (CS:GO Neon Rider Edition) in SteelSeries Sensei TEN driver" },
   { brand: "SteelSeries", model: "Aerox 5",              status: "supported", req: 2,
     pids: [0x1850, 0x1854, 0x185e, 0x1862, 0x1852, 0x185c, 0x1860],
     note: "Write-only settings (DPI presets, polling, RGB zones/reactive/brightness/rainbow, buttons); the Wireless variant's battery percentage/charging is read live. PID 0x1850 in SteelSeries Aerox 5 driver, 0x1854/0x185e/0x1862 (wired mode) and 0x1852/0x185c/0x1860 (2.4 GHz mode) in SteelSeries Aerox 5 Wireless driver" },
@@ -334,8 +335,9 @@ export const MICE: Mouse[] = [
   { brand: "SteelSeries", model: "Rival 310",            status: "supported", req: 1,
     pids: [0x1720, 0x171e, 0x1736],
     note: "Write-only: DPI (preset 1), polling, logo/wheel LED steady color, buttons; firmware version is read live. PID 0x1720/0x171e (CS:GO Howl Edition)/0x1736 (PUBG Edition) in SteelSeries Rival 310 driver" },
-  { brand: "SteelSeries", model: "Prime Mini Wireless",  status: "driver",    req: 1,
-    note: "SteelSeries GG protocol — not implemented" },
+  { brand: "SteelSeries", model: "Prime Mini Wireless",  status: "supported", req: 1,
+    pids: [0x184a, 0x1848],
+    note: "DPI presets, polling, LED color, sleep/dim timers, default lighting, and buttons are write-only; battery percentage/charging is read live (no firmware-query command in this protocol). PID 0x184a (wired mode) and 0x1848 (2.4 GHz mode) in SteelSeries Prime Mini Wireless driver" },
 
   // CORSAIR ─────────────────────────────────────────────────────────────
   { brand: "Corsair", model: "Harpoon RGB Pro",           status: "driver",   req: 5,

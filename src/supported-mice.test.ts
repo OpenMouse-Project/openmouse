@@ -129,6 +129,12 @@ const PID_UNIVERSE = new Set<number>([
   0x1720, 0x171e, 0x1736,
   // SteelSeries Prime+ (drivers/steelseries/prime-plus-hid.ts).
   0x182c,
+  // SteelSeries Sensei TEN, incl. CS:GO Neon Rider Edition
+  // (drivers/steelseries/sensei-ten-hid.ts).
+  0x1832, 0x1834,
+  // SteelSeries Prime Mini Wireless, wired mode + 2.4 GHz mode
+  // (drivers/steelseries/prime-mini-wireless-hid.ts).
+  0x184a, 0x1848,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
