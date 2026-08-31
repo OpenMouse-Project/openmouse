@@ -12,7 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git",
+    "@openmouse/protocol": "github:OpenMouse-Project/mouse-protocol",
     "preact": "^10.29.8"
   },
   "devDependencies": {
