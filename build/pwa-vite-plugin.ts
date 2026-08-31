@@ -76,9 +76,14 @@ self.addEventListener("activate", (event) => {
  */
 const MATCH = { ignoreVary: true };
 
-/** The licensed routes answer with "Cache-Control: private, no-store". */
+/**
+ * The licensed routes answer with "Cache-Control: private, no-store". Opaque
+ * font responses carry no readable headers, so the directive check passes them
+ * through and they stay cacheable despite reporting ok === false.
+ */
 function storable(response) {
-  return response.ok && !(response.headers.get("Cache-Control") ?? "").includes("no-store");
+  if ((response.headers.get("Cache-Control") ?? "").includes("no-store")) return false;
+  return response.ok || response.type === "opaque";
 }
 
 /** Serves the cached copy immediately and refreshes it in the background. */
@@ -87,7 +92,7 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request, MATCH);
   const network = fetch(request)
     .then((response) => {
-      if (response.ok || response.type === "opaque") cache.put(request, response.clone());
+      if (storable(response)) cache.put(request, response.clone());
       return response;
     })
     .catch(() => cached ?? Response.error());
