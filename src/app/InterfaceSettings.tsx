@@ -84,10 +84,10 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       <div className="interface-settings-grid">
         <article className="interface-setting-card openmouse-bridge-card">
           <span>OPENMOUSE BRIDGE</span>
-          <h3>Automatic game detection and battery alerts</h3>
+          <h3>Game detection and battery alerts</h3>
           <p>
-            OpenMouse Bridge is a lightweight background service that works with the OpenMouse
-            control panel to detect when games start and send battery notifications for your mice.
+            A lightweight background service that detects when games start and sends battery
+            notifications for your mice.
           </p>
           <button type="button" className="openmouse-bridge-coming-soon" disabled>
             Coming soon
