@@ -109,6 +109,8 @@ const PID_UNIVERSE = new Set<number>([
   0x503d,
   // WALLHACK M-001 mouse: real config PID and in-app demo PID (drivers/wallhack/mouse-hid.ts).
   0x1110, 0x0807,
+  // SteelSeries Aerox 3 (drivers/steelseries/aerox3-hid.ts).
+  0x1836,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
