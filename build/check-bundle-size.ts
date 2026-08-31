@@ -33,9 +33,14 @@ const BUDGET_BYTES: Record<string, number> = {
   // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
   // mapping code to the measured aggregate (720.5 kB), and 730 kB leaves headroom.
   // The offline entries land inside that headroom: the shared service worker
-  // registration helper and the offline notice add 577 B across the four page
-  // entries, taking the measured aggregate to 721.1 kB.
-  ".js": 730_000,
+  // registration helper and the offline notice add 571 B across the four page
+  // entries. Raised to 750 kB because dev outgrew 730 kB on its own: moving
+  // device art to the R2 bucket and marking the SteelSeries Aerox 3, Aerox 5
+  // and Rival 3 Wireless as supported took dev alone to 750.2 kB against the
+  // 748 kB effective ceiling, so its own CI is red. The offline entries carry
+  // 571 B of the 750.8 kB measured here; 750 kB (768 kB with the preview
+  // allowance) clears both and leaves about 17 kB of headroom.
+  ".js": 750_000,
 };
 
 const ASSETS = join("dist", "assets");
