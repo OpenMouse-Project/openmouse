@@ -311,8 +311,9 @@ export const MICE: Mouse[] = [
     note: "Kingston NGENUITY protocol — not implemented" },
 
   // STEELSERIES ─────────────────────────────────────────────────────────
-  { brand: "SteelSeries", model: "Aerox 9 Wireless",    status: "driver",    req: 5,
-    note: "SteelSeries GG protocol — not implemented" },
+  { brand: "SteelSeries", model: "Aerox 9 Wireless",    status: "supported", req: 5,
+    pids: [0x185a, 0x1876, 0x1858, 0x1874],
+    note: "Write-only settings (DPI presets, polling, RGB zones/reactive/sleep-dim timers/rainbow/default lighting; no button-remap command in rivalcfg's profile for this device); battery percentage/charging is read live (no firmware-query command). PID 0x185a/0x1876 (wired mode) and 0x1858/0x1874 (2.4 GHz mode, WOW Edition) in SteelSeries Aerox 9 Wireless driver" },
   { brand: "SteelSeries", model: "Sensei Ten",           status: "driver",    req: 4,
     note: "SteelSeries GG protocol — not implemented" },
   { brand: "SteelSeries", model: "Aerox 5",              status: "supported", req: 2,
@@ -321,8 +322,9 @@ export const MICE: Mouse[] = [
   { brand: "SteelSeries", model: "Rival 3 Wireless",     status: "supported", req: 2,
     pids: [0x1830],
     note: "DPI presets, polling, and buttons are write-only; battery percentage/charging and firmware are read live. PID 0x1830 (2.4 GHz mode) in SteelSeries Rival 3 Wireless driver" },
-  { brand: "SteelSeries", model: "Rival 650 Wireless",   status: "driver",    req: 2,
-    note: "SteelSeries GG protocol — not implemented" },
+  { brand: "SteelSeries", model: "Rival 650 Wireless",   status: "supported", req: 2,
+    pids: [0x172b, 0x1726],
+    note: "DPI (preset 1), polling, lift-off distance, sleep timer, and buttons are write-only; battery percentage/charging is read live (no firmware-query command in this protocol). PID 0x172b (wired mode) and 0x1726 (2.4 GHz wireless mode) in SteelSeries Rival 650 Wireless driver" },
   { brand: "SteelSeries", model: "Aerox 3",              status: "supported", req: 1,
     pids: [0x1836],
     note: "Write-only: DPI presets, polling, RGB zones, reactive color, brightness, rainbow, buttons. PID 0x1836 in SteelSeries Aerox 3 driver" },
