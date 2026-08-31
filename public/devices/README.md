@@ -1,8 +1,11 @@
 # Device artwork
 
-Top-down product images shown in the persistent device panel. Vite serves
-this folder from the site root, so a file here is reachable at
-`/devices/<name>.png`.
+Top-down product images shown in the persistent device panel. These are
+**not committed to the repo** — they're hosted in the public `openmouse-devices`
+Cloudflare R2 bucket and served from its r2.dev URL
+(`DEVICE_IMAGE_BASE_URL` in `src/ui/device-images.ts`). This file stays as
+the provenance/licensing record for every image that's been uploaded, and as
+the local staging folder before upload.
 
 Adding one:
 
@@ -10,12 +13,20 @@ Adding one:
    `razer-viper-v3-pro.png`. The panel sits on a dark background, so an image
    with a white backdrop shows as a white block.
 2. Keep enough resolution for a product panel up to roughly 340 px wide.
-3. Map the device to it in `src/ui/device-images.ts`, keyed by
-   `vendorId:productId` in lowercase hex. A mouse with separate wired and
-   receiver product ids needs an entry for each.
+3. Upload it to the bucket:
+   ```bash
+   npx wrangler r2 object put openmouse-devices/<name>.png --file=<name>.png --remote
+   ```
+   (requires `wrangler login` against the OpenMouse Cloudflare account first).
+4. Map the device to it in `src/ui/device-images.ts`, keyed by
+   `vendorId:productId` in lowercase hex — value is the bare filename, not a
+   path. A mouse with separate wired and receiver product ids needs an entry
+   for each.
+5. Record the source/licensing note for the file below, for provenance.
 
-Add the file and its mapping in the same commit. A mapping whose file is missing
-fails at load rather than at build, and the panel then drops the thumbnail.
+Upload the file and add its mapping in the same commit. A mapping whose file
+is missing from the bucket fails at load rather than at build, and the panel
+then drops the thumbnail.
 
 ## Licensing
 
