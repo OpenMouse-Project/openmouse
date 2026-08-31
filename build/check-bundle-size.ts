@@ -32,6 +32,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // device artwork pass: ~20 new product models mapped to transparent top-view
   // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
   // mapping code to the measured aggregate (720.5 kB), and 730 kB leaves headroom.
+  // The offline entries land inside that headroom: the shared service worker
+  // registration helper and the offline notice add 577 B across the four page
+  // entries, taking the measured aggregate to 721.1 kB.
   ".js": 730_000,
 };
 
