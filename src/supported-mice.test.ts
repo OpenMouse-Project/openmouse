@@ -118,6 +118,23 @@ const PID_UNIVERSE = new Set<number>([
   // SteelSeries Aerox 5 Wireless, wired mode + 2.4 GHz mode, all editions
   // (drivers/steelseries/aerox5-wireless-hid.ts).
   0x1854, 0x185e, 0x1862, 0x1852, 0x185c, 0x1860,
+  // SteelSeries Rival 650 Wireless, wired mode + 2.4 GHz wireless mode
+  // (drivers/steelseries/rival650-hid.ts).
+  0x172b, 0x1726,
+  // SteelSeries Aerox 9 Wireless, wired mode + 2.4 GHz mode, both editions
+  // (drivers/steelseries/aerox9-wireless-hid.ts).
+  0x185a, 0x1876, 0x1858, 0x1874,
+  // SteelSeries Rival 310, all three colorway/bundle variants
+  // (drivers/steelseries/rival310-hid.ts).
+  0x1720, 0x171e, 0x1736,
+  // SteelSeries Prime+ (drivers/steelseries/prime-plus-hid.ts).
+  0x182c,
+  // SteelSeries Sensei TEN, incl. CS:GO Neon Rider Edition
+  // (drivers/steelseries/sensei-ten-hid.ts).
+  0x1832, 0x1834,
+  // SteelSeries Prime Mini Wireless, wired mode + 2.4 GHz mode
+  // (drivers/steelseries/prime-mini-wireless-hid.ts).
+  0x184a, 0x1848,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
