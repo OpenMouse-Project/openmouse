@@ -1,0 +1,48 @@
+name: Device artwork request
+description: >-
+  Submit a source image for a device's product art. The device panel's
+  images are hosted in a private Cloudflare R2 bucket, so contributors
+  can't upload the file directly — a maintainer uploads it from the link
+  you provide here.
+labels: ["artwork"]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device name
+      description: Exact model name, e.g. "Razer Viper V3 Pro"
+    validations:
+      required: true
+
+  - type: input
+    id: ids
+    attributes:
+      label: vendorId:productId
+      description: >-
+        Lowercase hex, e.g. "1532:00c0". Leave blank if unknown — a
+        maintainer can look it up, but the name fallback in
+        src/ui/device-images.ts may still need it.
+      placeholder: "0000:0000"
+
+  - type: input
+    id: image_url
+    attributes:
+      label: Source image URL
+      description: >-
+        A direct link to a top-down product render or photo (not a page
+        that embeds one). Prefer a transparent PNG/WebP if you have one;
+        otherwise a photo with a plain background is fine — it'll be
+        keyed/cropped before upload.
+    validations:
+      required: true
+
+  - type: textarea
+    id: license
+    attributes:
+      label: Source and licensing
+      description: >-
+        Where the image came from (vendor CDN, retailer listing, your own
+        photo, etc.) and any redistribution terms you know of. This gets
+        recorded in public/devices/README.md next to the upload.
+    validations:
+      required: true

@@ -1,21 +1,47 @@
 # Device artwork
 
-Top-down product images shown in the persistent device panel. Vite serves
-this folder from the site root, so a file here is reachable at
-`/devices/<name>.png`.
+Top-down product images shown in the persistent device panel. These are
+**not committed to the repo** — they're hosted in the `openmouse-devices`
+Cloudflare R2 bucket (public read via its r2.dev URL, upload access
+restricted to maintainers) and served from
+`DEVICE_IMAGE_BASE_URL` in `src/ui/device-images.ts`. This file stays as
+the provenance/licensing record for every image that's been uploaded.
 
-Adding one:
+## Contributing artwork (no bucket access needed)
 
-1. Save a **transparent** PNG or WebP named after the model in kebab-case, e.g.
-   `razer-viper-v3-pro.png`. The panel sits on a dark background, so an image
-   with a white backdrop shows as a white block.
+Only a maintainer can upload to the bucket, so don't open a PR with a binary
+image file — it has nowhere to go. Instead:
+
+1. Open a [Device artwork request](../../.github/ISSUE_TEMPLATE/device-artwork.yml)
+   issue with a direct link to a source image (a transparent PNG/WebP is
+   ideal; a photo on a plain background is fine too) and what you know about
+   its licensing.
+2. Optionally, open a PR alongside it that adds the device's
+   `vendorId:productId` → `<name>.png` entry to `src/ui/device-images.ts`
+   (or the name-fallback regex, if the PID isn't pinned yet) using the
+   filename you'd expect the art to get. The mapping can land before the
+   file exists in the bucket — a missing file just fails at image-load time,
+   not at build time, so it won't break the site.
+3. A maintainer normalizes the image (transparent background, ~340px-wide
+   product panel size), uploads it to the bucket, and adds the
+   source/licensing note below.
+
+## Maintainer upload steps
+
+1. Save a **transparent** PNG or WebP named after the model in kebab-case,
+   e.g. `razer-viper-v3-pro.png`. The panel sits on a dark background, so an
+   image with a white backdrop shows as a white block.
 2. Keep enough resolution for a product panel up to roughly 340 px wide.
-3. Map the device to it in `src/ui/device-images.ts`, keyed by
-   `vendorId:productId` in lowercase hex. A mouse with separate wired and
-   receiver product ids needs an entry for each.
-
-Add the file and its mapping in the same commit. A mapping whose file is missing
-fails at load rather than at build, and the panel then drops the thumbnail.
+3. Upload it to the bucket:
+   ```bash
+   npx wrangler r2 object put openmouse-devices/<name>.png --file=<name>.png --remote
+   ```
+   (requires `wrangler login` against the OpenMouse Cloudflare account first).
+4. Map the device to it in `src/ui/device-images.ts`, keyed by
+   `vendorId:productId` in lowercase hex — value is the bare filename, not a
+   path. A mouse with separate wired and receiver product ids needs an entry
+   for each.
+5. Record the source/licensing note for the file below, for provenance.
 
 ## Licensing
 

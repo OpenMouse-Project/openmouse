@@ -109,6 +109,15 @@ const PID_UNIVERSE = new Set<number>([
   0x503d,
   // WALLHACK M-001 mouse: real config PID and in-app demo PID (drivers/wallhack/mouse-hid.ts).
   0x1110, 0x0807,
+  // SteelSeries Aerox 3 (drivers/steelseries/aerox3-hid.ts).
+  0x1836,
+  // SteelSeries Rival 3 Wireless (drivers/steelseries/rival3-wireless-hid.ts).
+  0x1830,
+  // SteelSeries Aerox 5 (drivers/steelseries/aerox5-hid.ts).
+  0x1850,
+  // SteelSeries Aerox 5 Wireless, wired mode + 2.4 GHz mode, all editions
+  // (drivers/steelseries/aerox5-wireless-hid.ts).
+  0x1854, 0x185e, 0x1862, 0x1852, 0x185c, 0x1860,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
