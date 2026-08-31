@@ -15,13 +15,18 @@ const STATIC_PRECACHE = [
 ];
 
 /** Pages whose emitted markup is scanned for the hashed assets to precache. */
-export const PRECACHE_PAGES: { file: string; url: string }[] = [
-  { file: "index.html", url: "/" },
-  { file: "check.html", url: "/check.html" },
-  { file: "supported.html", url: "/supported.html" },
-  { file: "contributors.html", url: "/contributors.html" },
-  { file: "contribute.html", url: "/contribute.html" },
+export const PRECACHE_PAGES = [
+  "index.html",
+  "check.html",
+  "supported.html",
+  "contributors.html",
+  "contribute.html",
 ];
+
+/** The root page is served from "/", every other page from its own filename. */
+export function pageUrl(file: string): string {
+  return file === "index.html" ? "/" : `/${file}`;
+}
 
 /**
  * Same-origin paths the worker must never serve from its own cache. The
@@ -166,13 +171,13 @@ export function pwa(appVersion: string): Plugin {
       handler(_options, bundle) {
         const urls = new Set<string>(STATIC_PRECACHE);
 
-        for (const page of PRECACHE_PAGES) {
-          const emitted = bundle[page.file];
+        for (const file of PRECACHE_PAGES) {
+          const emitted = bundle[file];
           if (emitted?.type !== "asset") {
-            this.error(`${page.file} is missing from the bundle; the precache list would be wrong.`);
+            this.error(`${file} is missing from the bundle; the precache list would be wrong.`);
           }
 
-          urls.add(page.url);
+          urls.add(pageUrl(file));
           for (const [, asset] of String(emitted.source).matchAll(/(?:href|src)="(\/assets\/[^"]+)"/g)) {
             urls.add(asset);
           }
