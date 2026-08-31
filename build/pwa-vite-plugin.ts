@@ -119,8 +119,9 @@ async function networkFirst(request) {
 }
 
 /**
- * Fills the cache as assets are requested. Device art under /devices/ is chosen
- * at runtime rather than linked from the markup, so precache scanning misses it.
+ * Fills the cache as same-origin assets are requested. The precache list only
+ * covers what the pages link, so lazily imported chunks land here instead.
+ * Device art is served from R2 and never reaches this handler.
  */
 async function cacheFirst(request) {
   const cached = await caches.match(request, MATCH);
