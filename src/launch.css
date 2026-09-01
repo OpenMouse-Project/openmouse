@@ -16,12 +16,54 @@
 }
 
 .launch-stage {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: clamp(2rem, 6vw, 3rem);
   width: 100%;
   max-width: 560px;
+}
+
+/* ── Pixel critters ────────────────────────────────────────────────────── */
+.pixel-critters {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pixel-critter-walker {
+  position: absolute;
+  animation: critter-walk linear infinite alternate;
+}
+
+.pixel-critter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  background: transparent;
+  animation: critter-spawn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  image-rendering: pixelated;
+}
+.pixel-critter.is-leaving {
+  animation: critter-poof 0.42s ease-in forwards;
+}
+
+@keyframes critter-walk {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--critter-walk-distance, 60px)); }
+}
+@keyframes critter-spawn {
+  from { opacity: 0; transform: scale(0.2); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes critter-poof {
+  0% { opacity: 1; transform: scale(1); }
+  55% { opacity: 0.9; transform: scale(1.6); }
+  100% { opacity: 0; transform: scale(0.1); }
 }
 
 .launch-brand {

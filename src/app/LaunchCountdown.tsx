@@ -8,7 +8,8 @@ const GITHUB_REPO = "OpenMouse-Project/openmouse";
 const DISCORD_URL = "https://discord.gg/yxC9jzMdw6";
 const TWITTER_URL = "https://x.com/openmouseapp";
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
-const PRESENCE_HEARTBEAT_MS = 20_000;
+const PRESENCE_HEARTBEAT_MS = 6_000;
+const CRITTER_POOF_MS = 420;
 
 function DiscordIcon(): ReactNode {
   return (
@@ -42,6 +43,105 @@ function StarIcon(): ReactNode {
   );
 }
 
+// A tiny pixel mouse (two ears, a round body, a little tail nub), drawn with
+// a single box-shadow so one DOM node can render the whole sprite.
+const CRITTER_BITMAP = [
+  "0100001000",
+  "0111111000",
+  "1111111000",
+  "1111111000",
+  "0111111000",
+];
+const CRITTER_PIXEL_SIZE = 4;
+const CRITTER_SHADOW = CRITTER_BITMAP.flatMap((row, y) =>
+  [...row].flatMap((cell, x) => (cell === "1" ? [`${x * CRITTER_PIXEL_SIZE}px ${y * CRITTER_PIXEL_SIZE}px currentColor`] : [])),
+).join(", ");
+const CRITTER_WIDTH = CRITTER_BITMAP[0].length * CRITTER_PIXEL_SIZE;
+const CRITTER_HEIGHT = CRITTER_BITMAP.length * CRITTER_PIXEL_SIZE;
+
+function hashId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) hash = (Math.imul(hash, 31) + id.charCodeAt(i)) >>> 0;
+  return hash;
+}
+
+interface Critter {
+  id: string;
+  leaving: boolean;
+}
+
+function CritterSprite({ id, leaving, onPoofed }: { id: string; leaving: boolean; onPoofed: () => void }): ReactNode {
+  const hash = hashId(id);
+  const top = 8 + (hash % 78);
+  const left = 4 + ((hash >> 8) % 88);
+  const hue = hash % 360;
+  const duration = 9 + ((hash >> 16) % 10);
+  const distance = 40 + ((hash >> 20) % 90);
+
+  useEffect(() => {
+    if (!leaving) return undefined;
+    const timer = window.setTimeout(onPoofed, CRITTER_POOF_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving, onPoofed]);
+
+  return (
+    <div
+      className="pixel-critter-walker"
+      style={{
+        top: `${top}%`,
+        left: `${left}%`,
+        width: CRITTER_WIDTH,
+        height: CRITTER_HEIGHT,
+        animationDuration: `${duration}s`,
+        "--critter-walk-distance": `${distance}px`,
+      }}
+    >
+      <i
+        className={`pixel-critter${leaving ? " is-leaving" : ""}`}
+        style={{
+          width: CRITTER_PIXEL_SIZE,
+          height: CRITTER_PIXEL_SIZE,
+          boxShadow: CRITTER_SHADOW,
+          color: `hsl(${hue} 55% 62%)`,
+        }}
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+function PixelCritters({ ids }: { ids: readonly string[] }): ReactNode {
+  const [critters, setCritters] = useState<readonly Critter[]>([]);
+  const previousIds = useRef<readonly string[]>([]);
+
+  useEffect(() => {
+    const previousSet = new Set(previousIds.current);
+    const nextSet = new Set(ids);
+    const joined = ids.filter((id) => !previousSet.has(id));
+    const left = previousIds.current.filter((id) => !nextSet.has(id));
+    previousIds.current = ids;
+
+    if (!joined.length && !left.length) return;
+    setCritters((current) => [
+      ...current.map((critter) => (left.includes(critter.id) ? { ...critter, leaving: true } : critter)),
+      ...joined.map((id) => ({ id, leaving: false })),
+    ]);
+  }, [ids]);
+
+  return (
+    <div className="pixel-critters" aria-hidden="true">
+      {critters.map((critter) => (
+        <CritterSprite
+          key={critter.id}
+          id={critter.id}
+          leaving={critter.leaving}
+          onPoofed={() => setCritters((current) => current.filter((entry) => entry.id !== critter.id))}
+        />
+      ))}
+    </div>
+  );
+}
+
 function formatCount(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k` : String(value);
 }
@@ -67,8 +167,13 @@ function useGitHubStars(): number | null {
   return stars;
 }
 
-function usePresenceCount(): number | null {
-  const [count, setCount] = useState<number | null>(null);
+interface Presence {
+  count: number | null;
+  ids: readonly string[];
+}
+
+function usePresence(): Presence {
+  const [presence, setPresence] = useState<Presence>({ count: null, ids: [] });
   const sessionId = useRef<string>();
   if (!sessionId.current) sessionId.current = crypto.randomUUID();
 
@@ -82,7 +187,9 @@ function usePresenceCount(): number | null {
       })
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
-          if (!cancelled && data && typeof data.count === "number") setCount(data.count);
+          if (!cancelled && data && typeof data.count === "number" && Array.isArray(data.ids)) {
+            setPresence({ count: data.count, ids: data.ids });
+          }
         })
         .catch(() => undefined);
     };
@@ -94,12 +201,11 @@ function usePresenceCount(): number | null {
     };
   }, []);
 
-  return count;
+  return presence;
 }
 
-function LaunchSocials(): ReactNode {
+function LaunchSocials({ viewers }: { viewers: number | null }): ReactNode {
   const stars = useGitHubStars();
-  const viewers = usePresenceCount();
 
   return (
     <footer className="launch-socials">
@@ -164,8 +270,11 @@ function Digit({ value, label }: { value: number; label: string }): ReactNode {
 }
 
 function LaunchStage({ children }: { children: ReactNode }): ReactNode {
+  const { count, ids } = usePresence();
+
   return (
     <>
+      <PixelCritters ids={ids} />
       <div className="launch-stage">
         <div className="launch-brand">
           <img src="/logo.png" alt="" width={28} height={41} />
@@ -173,7 +282,7 @@ function LaunchStage({ children }: { children: ReactNode }): ReactNode {
         </div>
         {children}
       </div>
-      <LaunchSocials />
+      <LaunchSocials viewers={count} />
     </>
   );
 }
