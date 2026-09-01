@@ -7,7 +7,7 @@
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "preact/compat",
+    "jsxImportSource": "preact",
     "paths": {
       "react": ["./node_modules/preact/compat"],
       "react-dom": ["./node_modules/preact/compat"],

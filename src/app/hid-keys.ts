@@ -18,7 +18,9 @@ export function hidKeyForCode(code: string): number | null {
 }
 
 export function shortcutLabel(event: KeyboardEvent): string {
+  const key = event.key === " " ? "Space" : event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  const isModifier = ["Control", "Shift", "Alt", "Meta"].includes(key);
   return [event.ctrlKey ? "Ctrl" : null, event.shiftKey ? "Shift" : null, event.altKey ? "Alt" : null,
-    event.metaKey ? "Meta" : null, event.key.length === 1 ? event.key.toUpperCase() : event.key]
+    event.metaKey ? "Meta" : null, isModifier ? null : key]
     .filter(Boolean).join(" + ");
 }
