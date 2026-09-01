@@ -65,18 +65,53 @@ function hashId(id: string): number {
   return hash;
 }
 
+// Deterministic wandering path for a given critter, as a function of time
+// alone. Every visitor's browser computes the same curve from the same
+// (seed, t), so critters appear to roam freely in sync without a server ever
+// broadcasting positions.
+function wanderPosition(seed: number, t: number): { x: number; y: number } {
+  const speedA = 0.045 + (seed % 11) / 260;
+  const speedB = 0.03 + ((seed >> 5) % 11) / 300;
+  const phaseA = (seed % 6283) / 1000;
+  const phaseB = ((seed >> 10) % 6283) / 1000;
+  const x = 50 + 42 * Math.sin(t * speedA + phaseA);
+  const y = 48 + 38 * Math.sin(t * speedB + phaseB) * Math.cos(t * speedA * 0.5 + phaseB);
+  return { x: Math.min(94, Math.max(4, x)), y: Math.min(88, Math.max(8, y)) };
+}
+
+const REACTIONS = ["👀", "🔥", "🎉", "🐭", "👍"] as const;
+type Reaction = (typeof REACTIONS)[number];
+const BUBBLE_DISPLAY_MS = 3500;
+
 interface Critter {
   id: string;
   leaving: boolean;
 }
 
-function CritterSprite({ id, leaving, onPoofed }: { id: string; leaving: boolean; onPoofed: () => void }): ReactNode {
+interface ReactionEvent {
+  emoji: string;
+  ts: number;
+}
+
+function CritterSprite({
+  id,
+  leaving,
+  reaction,
+  onPoofed,
+  registerNode,
+}: {
+  id: string;
+  leaving: boolean;
+  reaction: ReactionEvent | undefined;
+  onPoofed: () => void;
+  registerNode: (id: string, node: HTMLDivElement | null) => void;
+}): ReactNode {
   const hash = hashId(id);
-  const top = 8 + (hash % 78);
-  const left = 4 + ((hash >> 8) % 88);
   const hue = hash % 360;
-  const duration = 9 + ((hash >> 16) % 10);
-  const distance = 40 + ((hash >> 20) % 90);
+  const [bubble, setBubble] = useState<string | null>(null);
+  const seenReactionAt = useRef(0);
+
+  const initial = wanderPosition(hash, 0);
 
   useEffect(() => {
     if (!leaving) return undefined;
@@ -84,18 +119,26 @@ function CritterSprite({ id, leaving, onPoofed }: { id: string; leaving: boolean
     return () => window.clearTimeout(timer);
   }, [leaving, onPoofed]);
 
+  useEffect(() => {
+    if (!reaction || reaction.ts === seenReactionAt.current) return undefined;
+    seenReactionAt.current = reaction.ts;
+    setBubble(reaction.emoji);
+    const timer = window.setTimeout(() => setBubble(null), BUBBLE_DISPLAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [reaction]);
+
   return (
     <div
       className="pixel-critter-walker"
+      ref={(node) => registerNode(id, node)}
       style={{
-        top: `${top}%`,
-        left: `${left}%`,
+        top: `${initial.y}%`,
+        left: `${initial.x}%`,
         width: CRITTER_WIDTH,
         height: CRITTER_HEIGHT,
-        animationDuration: `${duration}s`,
-        "--critter-walk-distance": `${distance}px`,
       }}
     >
+      {bubble && <span className="critter-bubble">{bubble}</span>}
       <i
         className={`pixel-critter${leaving ? " is-leaving" : ""}`}
         style={{
@@ -110,9 +153,10 @@ function CritterSprite({ id, leaving, onPoofed }: { id: string; leaving: boolean
   );
 }
 
-function PixelCritters({ ids }: { ids: readonly string[] }): ReactNode {
+function PixelCritters({ ids, reactions }: { ids: readonly string[]; reactions: Readonly<Record<string, ReactionEvent>> }): ReactNode {
   const [critters, setCritters] = useState<readonly Critter[]>([]);
   const previousIds = useRef<readonly string[]>([]);
+  const nodes = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
     const previousSet = new Set(previousIds.current);
@@ -128,6 +172,23 @@ function PixelCritters({ ids }: { ids: readonly string[] }): ReactNode {
     ]);
   }, [ids]);
 
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+    let raf = 0;
+    const start = performance.now();
+    const frame = (now: number) => {
+      const t = (now - start) / 1000;
+      nodes.current.forEach((node, id) => {
+        const { x, y } = wanderPosition(hashId(id), t);
+        node.style.left = `${x}%`;
+        node.style.top = `${y}%`;
+      });
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
     <div className="pixel-critters" aria-hidden="true">
       {critters.map((critter) => (
@@ -135,8 +196,25 @@ function PixelCritters({ ids }: { ids: readonly string[] }): ReactNode {
           key={critter.id}
           id={critter.id}
           leaving={critter.leaving}
+          reaction={reactions[critter.id]}
           onPoofed={() => setCritters((current) => current.filter((entry) => entry.id !== critter.id))}
+          registerNode={(id, node) => {
+            if (node) nodes.current.set(id, node);
+            else nodes.current.delete(id);
+          }}
         />
+      ))}
+    </div>
+  );
+}
+
+function ReactionDock({ onReact }: { onReact: (reaction: Reaction) => void }): ReactNode {
+  return (
+    <div className="reaction-dock" aria-label="Send a reaction">
+      {REACTIONS.map((emoji) => (
+        <button key={emoji} type="button" className="reaction-button" onClick={() => onReact(emoji)}>
+          {emoji}
+        </button>
       ))}
     </div>
   );
@@ -170,38 +248,48 @@ function useGitHubStars(): number | null {
 interface Presence {
   count: number | null;
   ids: readonly string[];
+  reactions: Readonly<Record<string, ReactionEvent>>;
 }
 
-function usePresence(): Presence {
-  const [presence, setPresence] = useState<Presence>({ count: null, ids: [] });
+function usePresence(): Presence & { sendReaction: (reaction: Reaction) => void } {
+  const [presence, setPresence] = useState<Presence>({ count: null, ids: [], reactions: {} });
   const sessionId = useRef<string>();
   if (!sessionId.current) sessionId.current = crypto.randomUUID();
+  const pendingReaction = useRef<Reaction | null>(null);
 
+  const beat = useRef<() => void>();
   useEffect(() => {
     let cancelled = false;
-    const beat = () => {
+    beat.current = () => {
+      const reaction = pendingReaction.current;
+      pendingReaction.current = null;
       fetch("/api/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId.current }),
+        body: JSON.stringify({ sessionId: sessionId.current, ...(reaction ? { reaction } : {}) }),
       })
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
           if (!cancelled && data && typeof data.count === "number" && Array.isArray(data.ids)) {
-            setPresence({ count: data.count, ids: data.ids });
+            setPresence({ count: data.count, ids: data.ids, reactions: data.reactions ?? {} });
           }
         })
         .catch(() => undefined);
     };
-    beat();
-    const id = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    beat.current();
+    const id = window.setInterval(() => beat.current?.(), PRESENCE_HEARTBEAT_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
   }, []);
 
-  return presence;
+  const sendReaction = (reaction: Reaction) => {
+    pendingReaction.current = reaction;
+    beat.current?.();
+  };
+
+  return { ...presence, sendReaction };
 }
 
 function LaunchSocials({ viewers }: { viewers: number | null }): ReactNode {
@@ -270,11 +358,11 @@ function Digit({ value, label }: { value: number; label: string }): ReactNode {
 }
 
 function LaunchStage({ children }: { children: ReactNode }): ReactNode {
-  const { count, ids } = usePresence();
+  const { count, ids, reactions, sendReaction } = usePresence();
 
   return (
     <>
-      <PixelCritters ids={ids} />
+      <PixelCritters ids={ids} reactions={reactions} />
       <div className="launch-stage">
         <div className="launch-brand">
           <img src="/logo.png" alt="" width={28} height={41} />
@@ -282,6 +370,7 @@ function LaunchStage({ children }: { children: ReactNode }): ReactNode {
         </div>
         {children}
       </div>
+      <ReactionDock onReact={sendReaction} />
       <LaunchSocials viewers={count} />
     </>
   );

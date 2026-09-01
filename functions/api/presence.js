@@ -6,6 +6,9 @@
 // session ids are only used client-side to animate a little critter per
 // visitor; they're random and meaningless on their own.
 //
+// Reactions are a fixed emoji palette only — no free text is ever accepted
+// or broadcast, so there's nothing here to moderate.
+//
 // 60s is also Cloudflare KV's minimum expirationTtl — anything lower throws.
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -14,9 +17,24 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 });
 
 const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ALLOWED_REACTIONS = new Set(["👀", "🔥", "🎉", "🐭", "👍"]);
 const HEARTBEAT_TTL_SECONDS = 60;
-const KEY_PREFIX = "presence:";
+const REACTION_TTL_SECONDS = 60;
+const PRESENCE_PREFIX = "presence:";
+const REACTION_PREFIX = "reaction:";
 const MAX_IDS_RETURNED = 24;
+const MAX_REACTIONS_RETURNED = 24;
+
+async function listAll(kv, prefix) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await kv.list({ prefix, cursor, limit: 1000 });
+    keys.push(...page.keys);
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return keys;
+}
 
 export async function onRequest({ request, env }) {
   if (request.method !== "POST") return json({ message: "Method not allowed." }, 405);
@@ -24,26 +42,41 @@ export async function onRequest({ request, env }) {
   const origin = request.headers.get("Origin");
   if (origin && origin !== requestUrl.origin) return json({ message: "Origin not allowed." }, 403);
 
-  const { sessionId } = await request.json().catch(() => ({}));
+  const { sessionId, reaction } = await request.json().catch(() => ({}));
   if (typeof sessionId !== "string" || !SESSION_ID_RE.test(sessionId)) {
     return json({ message: "Invalid session id." }, 400);
   }
 
-  if (!env.PRESENCE_KV) return json({ count: null, ids: [] });
+  if (!env.PRESENCE_KV) return json({ count: null, ids: [], reactions: {} });
 
-  await env.PRESENCE_KV.put(`${KEY_PREFIX}${sessionId}`, "1", { expirationTtl: HEARTBEAT_TTL_SECONDS });
+  await env.PRESENCE_KV.put(`${PRESENCE_PREFIX}${sessionId}`, "1", { expirationTtl: HEARTBEAT_TTL_SECONDS });
 
-  let count = 0;
-  const ids = [];
-  let cursor;
-  do {
-    const page = await env.PRESENCE_KV.list({ prefix: KEY_PREFIX, cursor, limit: 1000 });
-    count += page.keys.length;
-    for (const key of page.keys) {
-      if (ids.length < MAX_IDS_RETURNED) ids.push(key.name.slice(KEY_PREFIX.length));
+  if (typeof reaction === "string" && ALLOWED_REACTIONS.has(reaction)) {
+    await env.PRESENCE_KV.put(
+      `${REACTION_PREFIX}${sessionId}`,
+      JSON.stringify({ emoji: reaction, ts: Date.now() }),
+      { expirationTtl: REACTION_TTL_SECONDS },
+    );
+  }
+
+  const presenceKeys = await listAll(env.PRESENCE_KV, PRESENCE_PREFIX);
+  const ids = presenceKeys.slice(0, MAX_IDS_RETURNED).map((key) => key.name.slice(PRESENCE_PREFIX.length));
+
+  const reactionKeys = (await listAll(env.PRESENCE_KV, REACTION_PREFIX)).slice(0, MAX_REACTIONS_RETURNED);
+  const reactionValues = await Promise.all(reactionKeys.map((key) => env.PRESENCE_KV.get(key.name)));
+  const reactions = {};
+  reactionKeys.forEach((key, index) => {
+    const raw = reactionValues[index];
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.emoji === "string" && typeof parsed.ts === "number") {
+        reactions[key.name.slice(REACTION_PREFIX.length)] = parsed;
+      }
+    } catch {
+      // Ignore a corrupt entry rather than failing the whole request.
     }
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
+  });
 
-  return json({ count, ids });
+  return json({ count: presenceKeys.length, ids, reactions });
 }
