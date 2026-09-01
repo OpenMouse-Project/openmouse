@@ -8,7 +8,11 @@ const GITHUB_REPO = "OpenMouse-Project/openmouse";
 const DISCORD_URL = "https://discord.gg/yxC9jzMdw6";
 const TWITTER_URL = "https://x.com/openmouseapp";
 const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
-const PRESENCE_HEARTBEAT_MS = 6_000;
+// Cloudflare's free KV tier caps writes/lists at 1,000/day each, and every
+// heartbeat costs one of each — keep this interval long, and skip
+// heartbeats entirely while the tab is hidden, so an idle or backgrounded
+// tab doesn't quietly burn through the daily quota.
+const PRESENCE_HEARTBEAT_MS = 45_000;
 const CRITTER_POOF_MS = 420;
 
 function DiscordIcon(): ReactNode {
@@ -43,21 +47,91 @@ function StarIcon(): ReactNode {
   );
 }
 
-// A tiny pixel mouse (two ears, a round body, a little tail nub), drawn with
-// a single box-shadow so one DOM node can render the whole sprite.
-const CRITTER_BITMAP = [
-  "0100001000",
-  "0111111000",
-  "1111111000",
-  "1111111000",
-  "0111111000",
-];
+// A roster of tiny pixel critters (same 9x6 grid, different silhouettes),
+// each drawn with a single box-shadow so one DOM node renders the sprite.
+// Every visitor is assigned one deterministically from their session id.
+const CRITTER_SHAPES = [
+  // Mouse — round ears
+  [
+    "010000010",
+    "011111110",
+    "111111111",
+    "111111111",
+    "011111110",
+    "000000000",
+  ],
+  // Cat — pointed ears
+  [
+    "001000100",
+    "011101110",
+    "011111110",
+    "111111111",
+    "111111111",
+    "011111110",
+  ],
+  // Bear — wide rounded ears
+  [
+    "011000110",
+    "011111110",
+    "111111111",
+    "111111111",
+    "111111111",
+    "011111110",
+  ],
+  // Bunny — ears at the edges
+  [
+    "100000001",
+    "110000011",
+    "011111110",
+    "111111111",
+    "111111111",
+    "011111110",
+  ],
+  // Devil — twin horns
+  [
+    "000101000",
+    "011111110",
+    "111111111",
+    "111111111",
+    "111111111",
+    "011111110",
+  ],
+  // Alien — single antenna
+  [
+    "000010000",
+    "001111100",
+    "011111110",
+    "111111111",
+    "111111111",
+    "001111100",
+  ],
+  // Ghost — no ears, wavy hem
+  [
+    "000000000",
+    "011111110",
+    "111111111",
+    "111111111",
+    "111111111",
+    "101010101",
+  ],
+  // Robot — flat helmet, little feet
+  [
+    "001111100",
+    "011111110",
+    "111111111",
+    "111111111",
+    "011111110",
+    "001111100",
+  ],
+] as const;
 const CRITTER_PIXEL_SIZE = 4;
-const CRITTER_SHADOW = CRITTER_BITMAP.flatMap((row, y) =>
-  [...row].flatMap((cell, x) => (cell === "1" ? [`${x * CRITTER_PIXEL_SIZE}px ${y * CRITTER_PIXEL_SIZE}px currentColor`] : [])),
-).join(", ");
-const CRITTER_WIDTH = CRITTER_BITMAP[0].length * CRITTER_PIXEL_SIZE;
-const CRITTER_HEIGHT = CRITTER_BITMAP.length * CRITTER_PIXEL_SIZE;
+const CRITTER_SHADOWS = CRITTER_SHAPES.map((shape) =>
+  shape.flatMap((row, y) =>
+    [...row].flatMap((cell, x) => (cell === "1" ? [`${x * CRITTER_PIXEL_SIZE}px ${y * CRITTER_PIXEL_SIZE}px currentColor`] : [])),
+  ).join(", "),
+);
+const CRITTER_WIDTH = CRITTER_SHAPES[0][0].length * CRITTER_PIXEL_SIZE;
+const CRITTER_HEIGHT = CRITTER_SHAPES[0].length * CRITTER_PIXEL_SIZE;
 
 function hashId(id: string): number {
   let hash = 0;
@@ -79,37 +153,36 @@ function wanderPosition(seed: number, t: number): { x: number; y: number } {
   return { x: Math.min(94, Math.max(4, x)), y: Math.min(88, Math.max(8, y)) };
 }
 
-const REACTIONS = ["👀", "🔥", "🎉", "🐭", "👍"] as const;
-type Reaction = (typeof REACTIONS)[number];
-const BUBBLE_DISPLAY_MS = 3500;
+// When two critters wander close enough, they stop and "talk" for a few
+// seconds (both show a "..." bubble) before going their own way again —
+// purely decorative, computed locally, nothing broadcast or stored.
+const MEETING_DISTANCE = 7; // in the same 0-100 units as wanderPosition
+const MEETING_DURATION_RANGE: [number, number] = [2.5, 4.5]; // seconds
+const MEETING_COOLDOWN_S = 9;
 
 interface Critter {
   id: string;
   leaving: boolean;
 }
 
-interface ReactionEvent {
-  emoji: string;
-  ts: number;
-}
-
 function CritterSprite({
   id,
   leaving,
-  reaction,
+  isMe,
+  chatting,
   onPoofed,
   registerNode,
 }: {
   id: string;
   leaving: boolean;
-  reaction: ReactionEvent | undefined;
+  isMe: boolean;
+  chatting: boolean;
   onPoofed: () => void;
   registerNode: (id: string, node: HTMLDivElement | null) => void;
 }): ReactNode {
   const hash = hashId(id);
   const hue = hash % 360;
-  const [bubble, setBubble] = useState<string | null>(null);
-  const seenReactionAt = useRef(0);
+  const shapeIndex = (hash >> 12) % CRITTER_SHAPES.length;
 
   const initial = wanderPosition(hash, 0);
 
@@ -119,17 +192,9 @@ function CritterSprite({
     return () => window.clearTimeout(timer);
   }, [leaving, onPoofed]);
 
-  useEffect(() => {
-    if (!reaction || reaction.ts === seenReactionAt.current) return undefined;
-    seenReactionAt.current = reaction.ts;
-    setBubble(reaction.emoji);
-    const timer = window.setTimeout(() => setBubble(null), BUBBLE_DISPLAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [reaction]);
-
   return (
     <div
-      className="pixel-critter-walker"
+      className={`pixel-critter-walker${isMe ? " is-me" : ""}`}
       ref={(node) => registerNode(id, node)}
       style={{
         top: `${initial.y}%`,
@@ -138,23 +203,25 @@ function CritterSprite({
         height: CRITTER_HEIGHT,
       }}
     >
-      {bubble && <span className="critter-bubble">{bubble}</span>}
+      {chatting && <span className="critter-bubble">···</span>}
       <i
         className={`pixel-critter${leaving ? " is-leaving" : ""}`}
         style={{
           width: CRITTER_PIXEL_SIZE,
           height: CRITTER_PIXEL_SIZE,
-          boxShadow: CRITTER_SHADOW,
+          boxShadow: CRITTER_SHADOWS[shapeIndex],
           color: `hsl(${hue} 55% 62%)`,
         }}
         aria-hidden="true"
       />
+      {isMe && <span className="critter-me-tag">me</span>}
     </div>
   );
 }
 
-function PixelCritters({ ids, reactions }: { ids: readonly string[]; reactions: Readonly<Record<string, ReactionEvent>> }): ReactNode {
+function PixelCritters({ ids, selfId }: { ids: readonly string[]; selfId: string }): ReactNode {
   const [critters, setCritters] = useState<readonly Critter[]>([]);
+  const [chattingIds, setChattingIds] = useState<ReadonlySet<string>>(new Set());
   const previousIds = useRef<readonly string[]>([]);
   const nodes = useRef(new Map<string, HTMLDivElement>());
 
@@ -174,15 +241,66 @@ function PixelCritters({ ids, reactions }: { ids: readonly string[]; reactions: 
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+
+    // meetings[id] = { until, frozen } while paused for a chat;
+    // cooldowns[id] = the t-seconds timestamp it's next eligible to meet.
+    const meetings = new Map<string, { until: number; frozen: { x: number; y: number } }>();
+    const cooldowns = new Map<string, number>();
+
     let raf = 0;
     const start = performance.now();
+
     const frame = (now: number) => {
       const t = (now - start) / 1000;
+
+      const positions = new Map<string, { x: number; y: number }>();
       nodes.current.forEach((node, id) => {
+        const meeting = meetings.get(id);
+        if (meeting) {
+          positions.set(id, meeting.frozen);
+          if (t >= meeting.until) {
+            meetings.delete(id);
+            cooldowns.set(id, t + MEETING_COOLDOWN_S);
+          }
+          return;
+        }
         const { x, y } = wanderPosition(hashId(id), t);
         node.style.left = `${x}%`;
         node.style.top = `${y}%`;
+        positions.set(id, { x, y });
       });
+
+      // Pair up any two free, off-cooldown critters that have drifted close.
+      const free = [...positions.keys()].filter((id) => !meetings.has(id) && (cooldowns.get(id) ?? 0) <= t);
+      const paired = new Set<string>();
+      for (let i = 0; i < free.length && paired.size < free.length; i += 1) {
+        const a = free[i];
+        if (paired.has(a)) continue;
+        for (let j = i + 1; j < free.length; j += 1) {
+          const b = free[j];
+          if (paired.has(b)) continue;
+          const pa = positions.get(a)!;
+          const pb = positions.get(b)!;
+          if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < MEETING_DISTANCE) {
+            const duration = MEETING_DURATION_RANGE[0] + Math.random() * (MEETING_DURATION_RANGE[1] - MEETING_DURATION_RANGE[0]);
+            meetings.set(a, { until: t + duration, frozen: pa });
+            meetings.set(b, { until: t + duration, frozen: pb });
+            paired.add(a);
+            paired.add(b);
+            break;
+          }
+        }
+      }
+      if (paired.size) {
+        setChattingIds(new Set(meetings.keys()));
+      } else {
+        // Keep chattingIds in sync as meetings naturally expire above.
+        setChattingIds((current) => {
+          const next = new Set(meetings.keys());
+          if (current.size === next.size && [...current].every((id) => next.has(id))) return current;
+          return next;
+        });
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -196,25 +314,14 @@ function PixelCritters({ ids, reactions }: { ids: readonly string[]; reactions: 
           key={critter.id}
           id={critter.id}
           leaving={critter.leaving}
-          reaction={reactions[critter.id]}
+          isMe={critter.id === selfId}
+          chatting={chattingIds.has(critter.id)}
           onPoofed={() => setCritters((current) => current.filter((entry) => entry.id !== critter.id))}
           registerNode={(id, node) => {
             if (node) nodes.current.set(id, node);
             else nodes.current.delete(id);
           }}
         />
-      ))}
-    </div>
-  );
-}
-
-function ReactionDock({ onReact }: { onReact: (reaction: Reaction) => void }): ReactNode {
-  return (
-    <div className="reaction-dock" aria-label="Send a reaction">
-      {REACTIONS.map((emoji) => (
-        <button key={emoji} type="button" className="reaction-button" onClick={() => onReact(emoji)}>
-          {emoji}
-        </button>
       ))}
     </div>
   );
@@ -248,48 +355,41 @@ function useGitHubStars(): number | null {
 interface Presence {
   count: number | null;
   ids: readonly string[];
-  reactions: Readonly<Record<string, ReactionEvent>>;
 }
 
-function usePresence(): Presence & { sendReaction: (reaction: Reaction) => void } {
-  const [presence, setPresence] = useState<Presence>({ count: null, ids: [], reactions: {} });
+function usePresence(): Presence & { sessionId: string } {
+  const [presence, setPresence] = useState<Presence>({ count: null, ids: [] });
   const sessionId = useRef<string>();
   if (!sessionId.current) sessionId.current = crypto.randomUUID();
-  const pendingReaction = useRef<Reaction | null>(null);
 
-  const beat = useRef<() => void>();
   useEffect(() => {
     let cancelled = false;
-    beat.current = () => {
-      const reaction = pendingReaction.current;
-      pendingReaction.current = null;
+    const beat = () => {
+      if (document.hidden) return;
       fetch("/api/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId.current, ...(reaction ? { reaction } : {}) }),
+        body: JSON.stringify({ sessionId: sessionId.current }),
       })
         .then((response) => (response.ok ? response.json() : null))
         .then((data) => {
           if (!cancelled && data && typeof data.count === "number" && Array.isArray(data.ids)) {
-            setPresence({ count: data.count, ids: data.ids, reactions: data.reactions ?? {} });
+            setPresence({ count: data.count, ids: data.ids });
           }
         })
         .catch(() => undefined);
     };
-    beat.current();
-    const id = window.setInterval(() => beat.current?.(), PRESENCE_HEARTBEAT_MS);
+    beat();
+    document.addEventListener("visibilitychange", beat);
+    const id = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", beat);
       window.clearInterval(id);
     };
   }, []);
 
-  const sendReaction = (reaction: Reaction) => {
-    pendingReaction.current = reaction;
-    beat.current?.();
-  };
-
-  return { ...presence, sendReaction };
+  return { ...presence, sessionId: sessionId.current };
 }
 
 function LaunchSocials({ viewers }: { viewers: number | null }): ReactNode {
@@ -358,11 +458,14 @@ function Digit({ value, label }: { value: number; label: string }): ReactNode {
 }
 
 function LaunchStage({ children }: { children: ReactNode }): ReactNode {
-  const { count, ids, reactions, sendReaction } = usePresence();
+  const { count, ids, sessionId } = usePresence();
+  // Show your own critter right away rather than waiting on the first
+  // heartbeat round-trip to echo it back.
+  const displayIds = useMemo(() => (ids.includes(sessionId) ? ids : [...ids, sessionId]), [ids, sessionId]);
 
   return (
     <>
-      <PixelCritters ids={ids} reactions={reactions} />
+      <PixelCritters ids={displayIds} selfId={sessionId} />
       <div className="launch-stage">
         <div className="launch-brand">
           <img src="/logo.png" alt="" width={28} height={41} />
@@ -370,7 +473,6 @@ function LaunchStage({ children }: { children: ReactNode }): ReactNode {
         </div>
         {children}
       </div>
-      <ReactionDock onReact={sendReaction} />
       <LaunchSocials viewers={count} />
     </>
   );

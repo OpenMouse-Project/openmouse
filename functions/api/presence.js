@@ -1,15 +1,11 @@
 // Lightweight "who's looking at this page right now" presence for the launch
-// countdown. Each open tab heartbeats its own session id every few seconds; a
-// key expires 60s after its last heartbeat, so the list is "sessions seen in
-// the last ~60 seconds" rather than exact concurrency. Approximate on
+// countdown. Each open tab heartbeats its own session id periodically
+// (paused while the tab is hidden); backed by Supabase (the same project
+// mouse-vote/mouse-request already use) via a single locked-down RPC —
+// see supabase/migrations/20260901000000_page_presence.sql. Approximate on
 // purpose — no analytics, no IPs stored, nothing tied to a person. The
 // session ids are only used client-side to animate a little critter per
 // visitor; they're random and meaningless on their own.
-//
-// Reactions are a fixed emoji palette only — no free text is ever accepted
-// or broadcast, so there's nothing here to moderate.
-//
-// 60s is also Cloudflare KV's minimum expirationTtl — anything lower throws.
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -17,24 +13,6 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 });
 
 const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ALLOWED_REACTIONS = new Set(["👀", "🔥", "🎉", "🐭", "👍"]);
-const HEARTBEAT_TTL_SECONDS = 60;
-const REACTION_TTL_SECONDS = 60;
-const PRESENCE_PREFIX = "presence:";
-const REACTION_PREFIX = "reaction:";
-const MAX_IDS_RETURNED = 24;
-const MAX_REACTIONS_RETURNED = 24;
-
-async function listAll(kv, prefix) {
-  const keys = [];
-  let cursor;
-  do {
-    const page = await kv.list({ prefix, cursor, limit: 1000 });
-    keys.push(...page.keys);
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-  return keys;
-}
 
 export async function onRequest({ request, env }) {
   if (request.method !== "POST") return json({ message: "Method not allowed." }, 405);
@@ -42,41 +20,29 @@ export async function onRequest({ request, env }) {
   const origin = request.headers.get("Origin");
   if (origin && origin !== requestUrl.origin) return json({ message: "Origin not allowed." }, 403);
 
-  const { sessionId, reaction } = await request.json().catch(() => ({}));
+  const { sessionId } = await request.json().catch(() => ({}));
   if (typeof sessionId !== "string" || !SESSION_ID_RE.test(sessionId)) {
     return json({ message: "Invalid session id." }, 400);
   }
 
-  if (!env.PRESENCE_KV) return json({ count: null, ids: [], reactions: {} });
-
-  await env.PRESENCE_KV.put(`${PRESENCE_PREFIX}${sessionId}`, "1", { expirationTtl: HEARTBEAT_TTL_SECONDS });
-
-  if (typeof reaction === "string" && ALLOWED_REACTIONS.has(reaction)) {
-    await env.PRESENCE_KV.put(
-      `${REACTION_PREFIX}${sessionId}`,
-      JSON.stringify({ emoji: reaction, ts: Date.now() }),
-      { expirationTtl: REACTION_TTL_SECONDS },
-    );
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ count: null, ids: [] });
   }
 
-  const presenceKeys = await listAll(env.PRESENCE_KV, PRESENCE_PREFIX);
-  const ids = presenceKeys.slice(0, MAX_IDS_RETURNED).map((key) => key.name.slice(PRESENCE_PREFIX.length));
-
-  const reactionKeys = (await listAll(env.PRESENCE_KV, REACTION_PREFIX)).slice(0, MAX_REACTIONS_RETURNED);
-  const reactionValues = await Promise.all(reactionKeys.map((key) => env.PRESENCE_KV.get(key.name)));
-  const reactions = {};
-  reactionKeys.forEach((key, index) => {
-    const raw = reactionValues[index];
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.emoji === "string" && typeof parsed.ts === "number") {
-        reactions[key.name.slice(REACTION_PREFIX.length)] = parsed;
-      }
-    } catch {
-      // Ignore a corrupt entry rather than failing the whole request.
-    }
+  const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/rest/v1/rpc/heartbeat_page_presence`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ p_session_id: sessionId }),
   });
 
-  return json({ count: presenceKeys.length, ids, reactions });
+  if (!response.ok) return json({ count: null, ids: [] });
+
+  const result = await response.json().catch(() => null);
+  const count = result && typeof result.count === "number" ? result.count : null;
+  const ids = result && Array.isArray(result.ids) ? result.ids : [];
+  return json({ count, ids });
 }
