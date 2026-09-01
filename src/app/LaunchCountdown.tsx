@@ -165,14 +165,16 @@ function Digit({ value, label }: { value: number; label: string }): ReactNode {
 
 function LaunchStage({ children }: { children: ReactNode }): ReactNode {
   return (
-    <div className="launch-stage">
-      <div className="launch-brand">
-        <img src="/logo.png" alt="" width={28} height={41} />
-        OpenMouse
+    <>
+      <div className="launch-stage">
+        <div className="launch-brand">
+          <img src="/logo.png" alt="" width={28} height={41} />
+          OpenMouse
+        </div>
+        {children}
       </div>
-      {children}
       <LaunchSocials />
-    </div>
+    </>
   );
 }
 

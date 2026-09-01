@@ -121,11 +121,17 @@
 
 /* ── Socials footer ────────────────────────────────────────────────────── */
 .launch-socials {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: clamp(1.2rem, 4vh, 2.2rem);
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.6rem;
+  padding: 0 1.5rem;
 }
 
 .launch-socials a,
