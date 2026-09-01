@@ -1,8 +1,10 @@
 // Lightweight "how many people are looking at this page right now" counter
 // for the launch countdown. Each open tab heartbeats its own session id every
-// ~20s; a key expires 40s after its last heartbeat, so the count is "sessions
-// seen in the last ~40 seconds" rather than exact concurrency. Approximate on
+// ~20s; a key expires 60s after its last heartbeat, so the count is "sessions
+// seen in the last ~60 seconds" rather than exact concurrency. Approximate on
 // purpose — no analytics, no IPs stored, nothing tied to a person.
+//
+// 60s is also Cloudflare KV's minimum expirationTtl — anything lower throws.
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -10,7 +12,7 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 });
 
 const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const HEARTBEAT_TTL_SECONDS = 40;
+const HEARTBEAT_TTL_SECONDS = 60;
 const KEY_PREFIX = "presence:";
 
 export async function onRequest({ request, env }) {
