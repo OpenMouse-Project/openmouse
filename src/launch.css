@@ -119,6 +119,69 @@
   opacity: 0.88;
 }
 
+/* ── Socials footer ────────────────────────────────────────────────────── */
+.launch-socials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.launch-socials a,
+.launch-viewers {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #69d28d 16%, #232527);
+  border-radius: 999px;
+  background: color-mix(in srgb, #14161a 88%, transparent);
+  color: #7a9498;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.launch-socials a:hover {
+  color: #f4ffff;
+  border-color: color-mix(in srgb, #69d28d 34%, #232527);
+  background: color-mix(in srgb, #191b1f 92%, transparent);
+}
+.launch-socials svg {
+  width: 16px;
+  height: 16px;
+}
+
+.launch-star-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.launch-star-count svg {
+  width: 13px;
+  height: 13px;
+  color: #69d28d;
+}
+
+.launch-viewers {
+  font-size: 0.85rem;
+}
+
+.launch-viewers-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #69d28d;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #69d28d 22%, transparent);
+  animation: launch-pulse 2s ease-in-out infinite;
+}
+
+@keyframes launch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; }
 }
