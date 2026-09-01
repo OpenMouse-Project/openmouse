@@ -1,7 +1,6 @@
 /* ── Early Access launch countdown ───────────────────────────────────────
-   A "moment of joy" page that replaces the control app until the beta opens.
-   Matches the donate / Miku synth palette: deep teal base with cyan and pink
-   accent glows. */
+   Minimal gate that replaces the control app until the beta opens: brand
+   mark, headline, timer, one line of copy. No motion, no side art. */
 
 .launch-shell {
   position: relative;
@@ -12,230 +11,96 @@
   padding: clamp(2rem, 6vw, 5rem) 1.5rem;
   font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #f4ffff;
-  background: #0b1618;
-  overflow: hidden;
+  background: #09090b;
   -webkit-font-smoothing: antialiased;
 }
 
-.launch-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(720px 540px at 16% -8%, rgb(57 197 187 / 16%), transparent 62%),
-    radial-gradient(760px 560px at 90% -10%, rgb(255 107 157 / 10%), transparent 60%),
-    radial-gradient(1100px 800px at 50% 115%, rgb(57 197 187 / 8%), transparent 68%),
-    radial-gradient(circle at 50% 40%, rgb(125 232 225 / 5%), transparent 55%),
-    #0b1618;
+.launch-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2rem, 6vw, 3rem);
+  width: 100%;
+  max-width: 560px;
 }
 
-.launch-shell::before,
-.launch-shell::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  width: 340px;
-  height: 340px;
-  border-radius: 50%;
-  filter: blur(70px);
-  pointer-events: none;
-  opacity: 0.16;
+.launch-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #69d28d;
 }
-.launch-shell::before {
-  top: -90px;
-  right: -60px;
-  background: var(--lg-accent-pink, #ff6b9d);
-}
-.launch-shell::after {
-  bottom: -90px;
-  left: -60px;
-  background: var(--lg-accent, #39c5bb);
+.launch-brand img {
+  width: 20px;
+  height: auto;
 }
 
 .launch-hero {
-  position: relative;
-  z-index: 1;
-  max-width: 720px;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* ── Stage: flanking art + centered content ────────────────────────────── */
-.launch-stage {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(0.5rem, 3vw, 2.5rem);
+  gap: 1.6rem;
   width: 100%;
-  max-width: 1240px;
-}
-
-.launch-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.launch-side-art {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  margin: 0;
-  min-width: 0;
-}
-
-/* Fixed frame the rotating artwork crossfades inside, so aspect stays put
-   no matter which render is on top. */
-.launch-art-frame {
-  position: relative;
-  width: clamp(200px, 24vw, 320px);
-  height: clamp(220px, 32vh, 360px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.launch-mouse-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0;
-  transition: opacity 1.1s ease;
-  filter:
-    drop-shadow(0 18px 34px rgb(0 0 0 / 45%))
-    drop-shadow(0 0 26px rgb(57 197 187 / 14%));
-}
-.launch-mouse-art.is-active { opacity: 1; z-index: 2; }
-
-.launch-mascot {
-  height: clamp(150px, 22vh, 230px);
-  width: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 10px 22px rgb(0 0 0 / 45%));
-}
-
-.launch-eyebrow {
-  margin: 0 0 1.1rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #7de8e1;
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
 }
 
 .launch-title {
-  margin: 0 0 1.2rem;
-  font-size: clamp(2.6rem, 8vw, 4.6rem);
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
   font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.02em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   color: #f4ffff;
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
-}
-.launch-title em {
-  font-style: normal;
-  background: linear-gradient(100deg, #39c5bb, #7de8e1 55%, #ff9fbc);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .launch-lead {
-  margin: 0 auto 2.4rem;
-  max-width: 560px;
-  font-size: clamp(1rem, 2.6vw, 1.15rem);
-  line-height: 1.6;
-  color: #91aaaa;
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #7a9498;
 }
 
 /* ── Timer ─────────────────────────────────────────────────────────────── */
 .launch-timer {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  gap: clamp(0.4rem, 2vw, 1rem);
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
+  gap: 0.5rem;
 }
 
 .launch-digit {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
-  min-width: clamp(3.4rem, 12vw, 5.5rem);
+  gap: 0.4rem;
+  min-width: 3.4rem;
 }
 
-.launch-digit-inner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 100%;
-  padding: clamp(0.85rem, 3vw, 1.3rem) clamp(0.4rem, 1.5vw, 0.8rem);
-  border: 1px solid color-mix(in srgb, #39c5bb 28%, #244044);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #14272a 92%, transparent), #101e21);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #7de8e1 14%, transparent),
-    0 12px 30px -18px rgba(0, 0, 0, 0.9);
+.launch-digit-value {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: clamp(1.8rem, 7vw, 3.2rem);
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
   color: #f4ffff;
-  overflow: hidden;
-}
-.launch-digit-inner::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: color-mix(in srgb, #39c5bb 20%, transparent);
-  pointer-events: none;
 }
 
 .launch-digit-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #7a9498;
 }
 
 .launch-colon {
-  display: flex;
-  align-items: center;
-  padding-bottom: 2.3rem;
+  padding-bottom: 1.1rem;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: clamp(1.5rem, 5vw, 2.4rem);
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
   font-weight: 600;
-  color: #39c5bb;
-  animation: launch-blink 1.6s ease-in-out infinite;
-}
-
-/* ── Warm note ─────────────────────────────────────────────────────────── */
-.launch-warm {
-  margin: 1.6rem auto 0;
-  max-width: 460px;
-  text-align: center;
-  font-size: 0.92rem;
-  line-height: 1.6;
-  color: #a6c4c7;
-  animation: launch-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+  color: #69d28d;
 }
 
 /* ── CTA + go state ────────────────────────────────────────────────────── */
@@ -243,53 +108,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 1.4rem;
-  padding: 0.85rem 2rem;
-  border-radius: 12px;
-  background: linear-gradient(100deg, #39c5bb, #7de8e1);
+  padding: 0.75rem 1.8rem;
+  border-radius: 10px;
+  background: #69d28d;
   color: #041412;
   font-weight: 700;
-  box-shadow: 0 12px 34px -14px rgba(57, 197, 187, 0.7);
-  transition: transform 0.18s, box-shadow 0.18s;
+  transition: opacity 0.15s;
 }
 .launch-cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 40px -14px rgba(57, 197, 187, 0.8);
-}
-
-.launch-hero.is-go .launch-title {
-  animation: launch-pop 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
-}
-
-/* ── Motion ────────────────────────────────────────────────────────────── */
-@keyframes launch-rise {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes launch-pop {
-  0% { opacity: 0; transform: scale(0.92); }
-  60% { transform: scale(1.02); }
-  100% { opacity: 1; transform: scale(1); }
-}
-@keyframes launch-blink {
-  0%, 45% { opacity: 1; }
-  55%, 100% { opacity: 0.35; }
-}
-
-@media (max-width: 960px) {
-  .launch-stage { grid-template-columns: 1fr; }
-  .launch-side-art { display: none; }
+  opacity: 0.88;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .launch-shell,
-  .launch-hero,
-  .launch-eyebrow,
-  .launch-title,
-  .launch-lead,
-  .launch-timer,
-  .launch-warm,
-  .launch-colon {
-    animation: none !important;
-  }
+  * { animation: none !important; }
 }

@@ -36,7 +36,6 @@ if (import.meta.env.PROD) void navigator.serviceWorker?.register("/sw.js").catch
 function LaunchHero(): ReactNode {
   return (
     <div className="launch-shell">
-      <div className="launch-bg" aria-hidden="true" />
       <LaunchCountdown />
     </div>
   );
