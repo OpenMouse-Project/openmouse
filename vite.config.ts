@@ -1,11 +1,14 @@
 import { defineConfig } from "vite";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import { sites } from "./build/sites-vite-plugin";
 
+const rootDir = fileURLToPath(new URL(".", import.meta.url));
+
 const packageVersion = JSON.parse(
-  readFileSync(resolve(__dirname, "package.json"), "utf8"),
+  readFileSync(resolve(rootDir, "package.json"), "utf8"),
 ) as { version: string };
 const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "insiders";
 
@@ -28,7 +31,7 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         check: resolve(__dirname, "check.html"),
         supported: resolve(__dirname, "supported.html"),
-        contributors: resolve(__dirname, "contributors.html"),
+        donate: resolve(__dirname, "donate.html"),
         contribute: resolve(__dirname, "contribute.html"),
       },
     },
