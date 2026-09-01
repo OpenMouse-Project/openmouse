@@ -155,10 +155,26 @@ function wanderPosition(seed: number, t: number): { x: number; y: number } {
 
 // When two critters wander close enough, they stop and "talk" for a few
 // seconds (both show a "..." bubble) before going their own way again —
-// purely decorative, computed locally, nothing broadcast or stored.
+// purely decorative, computed locally, nothing broadcast or stored. Distance
+// checks, the meeting's duration, and everything above all run off wall-
+// clock time so every visitor's browser lands on the same outcome — what
+// you see is what everyone else looking at the page sees, in sync.
 const MEETING_DISTANCE = 7; // in the same 0-100 units as wanderPosition
-const MEETING_DURATION_RANGE: [number, number] = [2.5, 4.5]; // seconds
+const MEETING_DURATION_MIN_S = 2.5;
+const MEETING_DURATION_SPAN_S = 2;
 const MEETING_COOLDOWN_S = 9;
+
+function wallClockSeconds(): number {
+  return Date.now() / 1000;
+}
+
+// A deterministic "random" duration for a given pair, seeded by their ids
+// (order-independent) so both sides — and every other viewer — compute the
+// identical meeting length.
+function meetingDuration(a: string, b: string): number {
+  const seed = hashId([a, b].sort().join(":"));
+  return MEETING_DURATION_MIN_S + (seed % 1000) / 1000 * MEETING_DURATION_SPAN_S;
+}
 
 interface Critter {
   id: string;
@@ -184,7 +200,7 @@ function CritterSprite({
   const hue = hash % 360;
   const shapeIndex = (hash >> 12) % CRITTER_SHAPES.length;
 
-  const initial = wanderPosition(hash, 0);
+  const initial = wanderPosition(hash, wallClockSeconds());
 
   useEffect(() => {
     if (!leaving) return undefined;
@@ -203,7 +219,7 @@ function CritterSprite({
         height: CRITTER_HEIGHT,
       }}
     >
-      {chatting && <span className="critter-bubble">···</span>}
+      {chatting && !leaving && <span className="critter-bubble">···</span>}
       <i
         className={`pixel-critter${leaving ? " is-leaving" : ""}`}
         style={{
@@ -224,6 +240,7 @@ function PixelCritters({ ids, selfId }: { ids: readonly string[]; selfId: string
   const [chattingIds, setChattingIds] = useState<ReadonlySet<string>>(new Set());
   const previousIds = useRef<readonly string[]>([]);
   const nodes = useRef(new Map<string, HTMLDivElement>());
+  const leavingIds = useRef<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     const previousSet = new Set(previousIds.current);
@@ -233,25 +250,42 @@ function PixelCritters({ ids, selfId }: { ids: readonly string[]; selfId: string
     previousIds.current = ids;
 
     if (!joined.length && !left.length) return;
-    setCritters((current) => [
-      ...current.map((critter) => (left.includes(critter.id) ? { ...critter, leaving: true } : critter)),
-      ...joined.map((id) => ({ id, leaving: false })),
-    ]);
+    setCritters((current) => {
+      const next = [
+        ...current.map((critter) => (left.includes(critter.id) ? { ...critter, leaving: true } : critter)),
+        ...joined.map((id) => ({ id, leaving: false })),
+      ];
+      leavingIds.current = new Set(next.filter((c) => c.leaving).map((c) => c.id));
+      return next;
+    });
   }, [ids]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
 
-    // meetings[id] = { until, frozen } while paused for a chat;
-    // cooldowns[id] = the t-seconds timestamp it's next eligible to meet.
-    const meetings = new Map<string, { until: number; frozen: { x: number; y: number } }>();
+    // meetings[id] = { until, frozen, partnerId } while paused for a chat;
+    // cooldowns[id] = the wall-clock second it's next eligible to meet.
+    // Both maps are local per-tab bookkeeping — a brand-new tab won't know
+    // about meetings that already happened before it loaded, so a just-
+    // opened tab can occasionally trigger/see a meeting a moment out of step
+    // with a tab that's been open a while. Positions themselves (below) are
+    // fully wall-clock-deterministic, so that part is always in sync.
+    const meetings = new Map<string, { until: number; frozen: { x: number; y: number }; partnerId: string }>();
     const cooldowns = new Map<string, number>();
 
     let raf = 0;
-    const start = performance.now();
 
-    const frame = (now: number) => {
-      const t = (now - start) / 1000;
+    const frame = () => {
+      const t = wallClockSeconds();
+
+      // If one side of a meeting is leaving, release both immediately
+      // instead of leaving the other's bubble stuck on a vanished partner.
+      meetings.forEach((meeting, id) => {
+        if (leavingIds.current.has(id) && meetings.has(meeting.partnerId)) {
+          meetings.delete(id);
+          meetings.delete(meeting.partnerId);
+        }
+      });
 
       const positions = new Map<string, { x: number; y: number }>();
       nodes.current.forEach((node, id) => {
@@ -271,7 +305,9 @@ function PixelCritters({ ids, selfId }: { ids: readonly string[]; selfId: string
       });
 
       // Pair up any two free, off-cooldown critters that have drifted close.
-      const free = [...positions.keys()].filter((id) => !meetings.has(id) && (cooldowns.get(id) ?? 0) <= t);
+      const free = [...positions.keys()].filter(
+        (id) => !meetings.has(id) && !leavingIds.current.has(id) && (cooldowns.get(id) ?? 0) <= t,
+      );
       const paired = new Set<string>();
       for (let i = 0; i < free.length && paired.size < free.length; i += 1) {
         const a = free[i];
@@ -282,9 +318,9 @@ function PixelCritters({ ids, selfId }: { ids: readonly string[]; selfId: string
           const pa = positions.get(a)!;
           const pb = positions.get(b)!;
           if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < MEETING_DISTANCE) {
-            const duration = MEETING_DURATION_RANGE[0] + Math.random() * (MEETING_DURATION_RANGE[1] - MEETING_DURATION_RANGE[0]);
-            meetings.set(a, { until: t + duration, frozen: pa });
-            meetings.set(b, { until: t + duration, frozen: pb });
+            const duration = meetingDuration(a, b);
+            meetings.set(a, { until: t + duration, frozen: pa, partnerId: b });
+            meetings.set(b, { until: t + duration, frozen: pb, partnerId: a });
             paired.add(a);
             paired.add(b);
             break;
