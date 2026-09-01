@@ -31,8 +31,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // 689.0 kB, which leaves about 11 kB of headroom. Raised to 730 kB for the
   // device artwork pass: ~20 new product models mapped to transparent top-view
   // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
-  // mapping code to the measured aggregate (720.5 kB), and 730 kB leaves headroom.
-  ".js": 730_000,
+  // mapping code to the measured aggregate (720.5 kB). Raised to 765 kB for
+  // the SteelSeries/device-support and Cloudflare R2 artwork-serve work merged
+  // on dev: those land with the measured aggregate already at ~750 kB. The
+  // donate page rebuild (Hall of Fame -> Support) does not drive this; its
+  // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
+  // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
+  ".js": 765_000,
 };
 
 const ASSETS = join("dist", "assets");
