@@ -393,10 +393,30 @@ interface Presence {
   ids: readonly string[];
 }
 
+const SESSION_STORAGE_KEY = "openmouse-presence-session-id";
+
+function readOrCreateSessionId(): string {
+  try {
+    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (stored) return stored;
+  } catch {
+    // sessionStorage can be unavailable in privacy-restricted contexts.
+  }
+  const created = crypto.randomUUID();
+  try {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, created);
+  } catch {
+    // Falls back to a fresh id every load if storage can't be used.
+  }
+  return created;
+}
+
 function usePresence(): Presence & { sessionId: string } {
   const [presence, setPresence] = useState<Presence>({ count: null, ids: [] });
   const sessionId = useRef<string>();
-  if (!sessionId.current) sessionId.current = crypto.randomUUID();
+  // sessionStorage (not a plain ref) so the same tab keeps its identity
+  // across reloads instead of registering as a brand-new visitor each time.
+  if (!sessionId.current) sessionId.current = readOrCreateSessionId();
 
   useEffect(() => {
     let cancelled = false;
