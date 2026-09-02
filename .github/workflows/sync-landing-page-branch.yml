@@ -23,6 +23,4 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fast-forward landing-page to control-panel
-        run: |
-          git fetch origin control-panel:control-panel
-          git push origin control-panel:refs/heads/landing-page
+        run: git push origin HEAD:refs/heads/landing-page
