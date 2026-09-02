@@ -485,6 +485,7 @@ function DonateApp(): ReactNode {
 
       <main>
         <section className="don-hero">
+          <span className="don-hero-eyebrow">Free &middot; Open source &middot; Community-built</span>
           <h1>Support this <em>project</em></h1>
           <p className="don-lead">
             OpenMouse is free, open source, and built for the community. If it makes your setup better,
