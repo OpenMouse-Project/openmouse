@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
 /** Adds the Cloudflare Worker entry point required by the Sites host. */
-export function sites(): Plugin {
+export function sites({ target }: { target?: "app" | "landing" } = {}): Plugin {
   let root = process.cwd();
   let outputDirectory = "dist";
 
@@ -27,6 +27,16 @@ export function sites(): Plugin {
 };
 `,
       );
+
+      // The "landing" target only builds landing.html (there's no
+      // index.html in that deploy), so route the root request to it —
+      // this is the Cloudflare Pages project served at openmouse.app.
+      if (target === "landing") {
+        await writeFile(
+          resolve(root, outputDirectory, "_redirects"),
+          "/    /landing.html   200\n",
+        );
+      }
     },
   };
 }
