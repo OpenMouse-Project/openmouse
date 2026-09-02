@@ -36,7 +36,14 @@ export default defineConfig({
       input:
         buildTarget === "landing"
           ? {
+              // These four are public support/info pages that belong on the
+              // marketing domain, not just the gated control app — the
+              // landing page itself links out to all of them.
               landing: resolve(__dirname, "landing.html"),
+              check: resolve(__dirname, "check.html"),
+              supported: resolve(__dirname, "supported.html"),
+              donate: resolve(__dirname, "donate.html"),
+              contribute: resolve(__dirname, "contribute.html"),
             }
           : {
               main: resolve(__dirname, "index.html"),
