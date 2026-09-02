@@ -40,7 +40,7 @@ function Hero(): ReactNode {
   return (
     <section className="land-hero">
       <p className="land-eyebrow">Free &middot; Open source &middot; No vendor software</p>
-      <h1>Configure your mouse. Not your privacy.</h1>
+      <h1>One app for every mouse.</h1>
       <p className="land-lead">
         OpenMouse runs entirely in your browser over WebHID — DPI, polling
         rate, buttons, and RGB, for dozens of gaming mice, with no accounts,
