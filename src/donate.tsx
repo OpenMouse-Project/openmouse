@@ -337,6 +337,21 @@ const AMOUNTS = [5, 10, 25, 50, 100];
 
 type DonationType = "once" | "monthly";
 
+const SPONSORS_URL = "https://github.com/sponsors/OpenMouse-Project";
+
+// GitHub Sponsors accepts amount/frequency as query params to preselect a
+// tier on their own checkout page. These aren't formally documented as a
+// stable API -- worth re-checking once the profile is live that they still
+// land on the right tier. If GitHub ever drops/changes them, this just
+// degrades to opening the plain sponsors page.
+function sponsorsUrl(type: DonationType, amount: number): string {
+  const params = new URLSearchParams({
+    frequency: type === "monthly" ? "recurring" : "one-time",
+    amount: String(Math.round(amount)),
+  });
+  return `${SPONSORS_URL}?${params.toString()}`;
+}
+
 function GitHubIcon(): ReactNode {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
@@ -369,14 +384,6 @@ function XIcon(): ReactNode {
   );
 }
 
-function CheckIcon(): ReactNode {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
-    </svg>
-  );
-}
-
 function LockIcon(): ReactNode {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -402,7 +409,6 @@ function DonateApp(): ReactNode {
   const [type, setType] = useState<DonationType>("once");
   const [amount, setAmount] = useState<number>(10);
   const [custom, setCustom] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const [data, setData] = useState<CachedData>(() => readCache() ?? defaultData());
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -448,11 +454,6 @@ function DonateApp(): ReactNode {
 
   const customValue = Number(custom);
   const effectiveAmount = custom.trim() !== "" && Number.isFinite(customValue) && customValue > 0 ? customValue : amount;
-
-  const handleDonate = (): void => {
-    setConfirmed(true);
-    window.setTimeout(() => setConfirmed(false), 3200);
-  };
 
   return (
     <div className="don-shell">
@@ -574,20 +575,19 @@ function DonateApp(): ReactNode {
 
             <p className="don-charge">
               {type === "once"
-                ? `This will be charged once as ${formatCurrency(effectiveAmount)}.`
-                : `You will be charged ${formatCurrency(effectiveAmount)} every month.`}
+                ? `You'll donate ${formatCurrency(effectiveAmount)} once, via GitHub Sponsors.`
+                : `You'll donate ${formatCurrency(effectiveAmount)} every month, via GitHub Sponsors.`}
             </p>
 
-            <button type="button" className="don-submit" onClick={handleDonate}>
+            <a
+              className="don-submit"
+              href={sponsorsUrl(type, effectiveAmount)}
+              target="_blank"
+              rel="noreferrer"
+            >
               <LockIcon />
-              Donate
-            </button>
-
-            {confirmed ? (
-              <p className="don-toast" role="status">
-                <CheckIcon /> Thanks! This is a preview — payment isn’t wired up yet.
-              </p>
-            ) : null}
+              Donate on GitHub Sponsors
+            </a>
 
             <a className="don-skip" href="/">No thanks, continue to the app</a>
           </article>

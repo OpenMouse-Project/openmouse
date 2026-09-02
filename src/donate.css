@@ -289,21 +289,6 @@ main { position: relative; z-index: 1; }
 }
 .don-submit:hover { opacity: 0.88; }
 
-.don-toast {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.9rem 0 0;
-  padding: 0.6rem 0.8rem;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--don-accent) 34%, var(--don-border));
-  background: var(--don-accent-soft);
-  color: var(--don-text);
-  font-size: 0.84rem;
-  font-weight: 600;
-}
-.don-toast svg { color: var(--don-accent); flex: none; }
-
 .don-skip {
   display: block;
   margin: 1rem auto 0;
