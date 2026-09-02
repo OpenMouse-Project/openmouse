@@ -196,9 +196,9 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
           <NavIcon path={REQUEST_PATH} />
           Request a mouse
         </button>
-        <a className="nav-item has-label" href="/contributors.html" title="Developer Hall of Fame" aria-label="Developer Hall of Fame">
+        <a className="nav-item has-label" href="/donate.html" title="Support the Project" aria-label="Support the Project">
           <NavIcon path={FAME_PATH} />
-          Hall of Fame
+          Support
         </a>
         <a className="nav-item is-debug" href="/check.html" title="Mouse Check" aria-label="Mouse Check">
           <NavIcon path={DEBUG_PATH} />

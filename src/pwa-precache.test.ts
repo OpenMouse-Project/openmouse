@@ -1,12 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
-import { BYPASS, PRECACHE_PAGES } from "../build/pwa-vite-plugin.ts";
+import { BYPASS, pageUrl, precachePages } from "../build/pwa-vite-plugin.ts";
 
-test("every page in the repo is precached, so none of them break offline", () => {
+test("every page in the repo is precached by one of the build targets", () => {
   const pages = readdirSync(".").filter((name) => name.endsWith(".html")).sort();
+  const covered = [...new Set([...precachePages("app"), ...precachePages("landing")])].sort();
 
-  assert.deepEqual([...PRECACHE_PAGES].sort(), pages);
+  assert.deepEqual(covered, pages);
+});
+
+test("each target serves its own root page from /", () => {
+  assert.equal(pageUrl("index.html", "app"), "/");
+  assert.equal(pageUrl("landing.html", "landing"), "/");
+});
+
+test("a page that is not the target's root keeps its own path", () => {
+  assert.equal(pageUrl("check.html", "app"), "/check.html");
+  assert.equal(pageUrl("landing.html", "app"), "/landing.html");
+  assert.equal(pageUrl("index.html", "landing"), "/index.html");
+});
+
+test("an unknown target falls back to the app page set", () => {
+  assert.deepEqual(precachePages("nonsense"), precachePages("app"));
 });
 
 const bypassed = (path: string): boolean => BYPASS.some((pattern) => pattern.test(path));

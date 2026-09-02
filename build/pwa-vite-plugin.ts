@@ -14,18 +14,31 @@ const STATIC_PRECACHE = [
   "/favicon-dark.svg",
 ];
 
+/** Public support pages, built into both Cloudflare Pages targets. */
+const SHARED_PAGES = ["check.html", "supported.html", "donate.html", "contribute.html"];
+
+/**
+ * The page each target serves from "/". The app target ships the control
+ * panel; the landing target ships the marketing page and reaches it through
+ * the _redirects file that build/sites-vite-plugin.ts writes.
+ */
+export const ROOT_PAGE: Record<string, string> = {
+  app: "index.html",
+  landing: "landing.html",
+};
+
+function rootPage(target: string): string {
+  return ROOT_PAGE[target] ?? ROOT_PAGE.app;
+}
+
 /** Pages whose emitted markup is scanned for the hashed assets to precache. */
-export const PRECACHE_PAGES = [
-  "index.html",
-  "check.html",
-  "supported.html",
-  "contributors.html",
-  "contribute.html",
-];
+export function precachePages(target: string): string[] {
+  return [rootPage(target), ...SHARED_PAGES];
+}
 
 /** The root page is served from "/", every other page from its own filename. */
-export function pageUrl(file: string): string {
-  return file === "index.html" ? "/" : `/${file}`;
+export function pageUrl(file: string, target: string): string {
+  return file === rootPage(target) ? "/" : `/${file}`;
 }
 
 /**
@@ -160,7 +173,7 @@ self.addEventListener("fetch", (event) => {
 }
 
 /** Emits a service worker that precaches the public pages and their assets. */
-export function pwa(appVersion: string): Plugin {
+export function pwa(appVersion: string, buildTarget: string): Plugin {
   return {
     name: "openmouse-pwa",
     apply: "build",
@@ -172,20 +185,22 @@ export function pwa(appVersion: string): Plugin {
       handler(_options, bundle) {
         const urls = new Set<string>(STATIC_PRECACHE);
 
-        for (const file of PRECACHE_PAGES) {
+        for (const file of precachePages(buildTarget)) {
           const emitted = bundle[file];
           if (emitted?.type !== "asset") {
             this.error(`${file} is missing from the bundle; the precache list would be wrong.`);
           }
 
-          urls.add(pageUrl(file));
+          urls.add(pageUrl(file, buildTarget));
           for (const [, asset] of String(emitted.source).matchAll(/(?:href|src)="(\/assets\/[^"]+)"/g)) {
             urls.add(asset);
           }
         }
 
         const precache = [...urls].sort();
-        const version = `${appVersion}-${createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 8)}`;
+        // The target is in the cache name because both Pages projects deploy
+        // from this repo and serve a different page from "/".
+        const version = `${buildTarget}-${appVersion}-${createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 8)}`;
 
         this.emitFile({ type: "asset", fileName: "sw.js", source: renderServiceWorker(version, precache) });
       },

@@ -1,0 +1,265 @@
+/* ── Marketing landing page (openmouse.app) ──────────────────────────────
+   Static, evergreen page — separate from the gated control app at
+   control.openmouse.app. Shares the same brand tokens as launch.css. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: #09090b;
+}
+
+.land-shell {
+  min-height: 100vh;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f4ffff;
+  background: #09090b;
+  -webkit-font-smoothing: antialiased;
+}
+
+.land-shell a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ── Nav ───────────────────────────────────────────────────────────────── */
+.land-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 0;
+}
+
+.land-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #69d28d;
+}
+.land-brand img {
+  width: 18px;
+  height: auto;
+}
+
+.land-nav-links {
+  display: none;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: 1rem;
+  font-size: 0.9rem;
+  color: #7a9498;
+}
+.land-nav-links a:hover {
+  color: #f4ffff;
+}
+
+@media (min-width: 640px) {
+  .land-nav-links {
+    display: flex;
+  }
+}
+
+.land-nav-cta {
+  margin-left: auto;
+  padding: 0.5rem 1.1rem;
+  border-radius: 8px;
+  background: #69d28d;
+  color: #041412;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.land-nav-cta:hover {
+  opacity: 0.88;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.land-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.4rem;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(3.5rem, 10vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+}
+
+.land-eyebrow {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #69d28d;
+  text-transform: uppercase;
+}
+
+.land-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5.5vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.land-lead {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: #7a9498;
+  max-width: 560px;
+}
+
+.land-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.land-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.9rem;
+  border-radius: 10px;
+  background: #69d28d;
+  color: #041412;
+  font-weight: 700;
+  transition: opacity 0.15s;
+}
+.land-cta:hover {
+  opacity: 0.88;
+}
+
+.land-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.9rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #69d28d 20%, #232527);
+  color: #f4ffff;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s;
+}
+.land-cta-secondary:hover {
+  background: color-mix(in srgb, #191b1f 92%, transparent);
+  border-color: color-mix(in srgb, #69d28d 40%, #232527);
+}
+
+/* ── Features ──────────────────────────────────────────────────────────── */
+.land-features {
+  display: grid;
+  gap: 1.2rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem clamp(3rem, 6vw, 4.5rem);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 760px) {
+  .land-features {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.land-feature {
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, #69d28d 12%, #232527);
+  border-radius: 14px;
+  background: color-mix(in srgb, #14161a 88%, transparent);
+}
+
+.land-feature h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.land-feature p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #7a9498;
+}
+
+/* ── Contribute ────────────────────────────────────────────────────────── */
+.land-contribute {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vw, 4rem) 1.5rem;
+  border-top: 1px solid color-mix(in srgb, #69d28d 10%, #232527);
+}
+
+.land-contribute h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.6rem);
+  font-weight: 700;
+}
+
+.land-contribute p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #7a9498;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+.land-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0 1.5rem clamp(2.5rem, 6vw, 4rem);
+}
+
+.land-footer a {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #69d28d 16%, #232527);
+  border-radius: 999px;
+  color: #7a9498;
+  font-size: 0.85rem;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.land-footer a:hover {
+  color: #f4ffff;
+  border-color: color-mix(in srgb, #69d28d 34%, #232527);
+  background: color-mix(in srgb, #191b1f 92%, transparent);
+}
+.land-footer svg {
+  width: 16px;
+  height: 16px;
+}
+
+.land-star-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.land-star-count svg {
+  width: 13px;
+  height: 13px;
+  color: #69d28d;
+}

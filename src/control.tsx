@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./control.css";
+import "./launch.css";
 import { App } from "./app/App";
+import { LaunchCountdown } from "./app/LaunchCountdown";
 import { UnsupportedNotice } from "./app/UnsupportedNotice";
 import { unsupportedNotice } from "./browser-support";
 import { start } from "./device/controller";
+import { isBeforeLaunch } from "./launch";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
@@ -33,6 +36,14 @@ const notice = unsupportedNotice({
 registerServiceWorker();
 mountOfflineBanner();
 
+function LaunchHero(): ReactNode {
+  return (
+    <div className="launch-shell">
+      <LaunchCountdown />
+    </div>
+  );
+}
+
 function Root(): ReactNode {
   const tooSmall = useViewportTooSmall();
   if (tooSmall) {
@@ -49,7 +60,9 @@ function Root(): ReactNode {
 }
 
 const root = createRoot(controlApp);
-if (notice) {
+if (import.meta.env.PROD && isBeforeLaunch()) {
+  root.render(<LaunchHero />);
+} else if (notice) {
   root.render(<UnsupportedNotice notice={notice} />);
 } else {
   start();

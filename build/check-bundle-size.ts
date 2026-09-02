@@ -7,7 +7,7 @@ const BUDGET_BYTES: Record<string, number> = {
   // layer (SVG displacement filters plus their component rules) adds the
   // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
-  // styles that load only on /contributors.html). Raised to 180 kB in the
+  // styles that load only on /donate.html). Raised to 180 kB in the
   // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
   // Fame overhaul: the blocky token block (plank textures, bevels, item-frame
   // avatars), the animated day/night scene (sun/moon/star/cloud/bonfire
@@ -31,17 +31,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // 689.0 kB, which leaves about 11 kB of headroom. Raised to 730 kB for the
   // device artwork pass: ~20 new product models mapped to transparent top-view
   // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
-  // mapping code to the measured aggregate (720.5 kB), and 730 kB leaves headroom.
-  // The offline entries land inside that headroom: the shared service worker
-  // registration helper and the offline notice add 577 B across the four page
-  // entries. Raised to 800 kB because dev outgrew 730 kB far past anything this
-  // branch does: moving device art to the R2 bucket, marking seven SteelSeries
-  // models as supported and two protocol bumps took dev alone to 780.0 kB
-  // against a 748 kB effective ceiling, red on its own CI. This branch carries
-  // 577 B of the 780.6 kB measured here. 800 kB is 818 kB with the preview
-  // allowance, leaving about 37 kB, sized against the ~60 kB dev grew in a day
-  // rather than the usual ~10 kB, so the next protocol bump does not reopen this.
-  ".js": 800_000,
+  // mapping code to the measured aggregate (720.5 kB). Raised to 765 kB for
+  // the SteelSeries/device-support and Cloudflare R2 artwork-serve work merged
+  // on dev: those land with the measured aggregate already at ~750 kB. The
+  // donate page rebuild (Hall of Fame -> Support) does not drive this; its
+  // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
+  // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
+  ".js": 765_000,
 };
 
 const ASSETS = join("dist", "assets");

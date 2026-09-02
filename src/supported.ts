@@ -84,7 +84,7 @@ app.innerHTML = `
       <a class="nav-link" href="/demo.html">UI demo</a>
       <a class="nav-link nav-current" href="/supported.html" aria-current="page">Devices</a>
       <a class="nav-link" href="/contribute.html">Contribute</a>
-      <a class="nav-link" href="/contributors.html">Hall of Fame</a>
+      <a class="nav-link" href="/donate.html">Support</a>
       <button class="theme-toggle" id="theme-btn" aria-label="Toggle theme">${themeIcon(initialTheme)}</button>
       <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
         ${GH_SVG}
