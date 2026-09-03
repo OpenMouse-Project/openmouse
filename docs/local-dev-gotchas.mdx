@@ -1,0 +1,53 @@
+---
+title: Local Dev Gotchas
+sidebar_position: 5
+---
+
+# Local Dev Gotchas
+
+A running list of environment/workflow traps that have bitten driver work
+in this codebase, beyond what's covered in [Architecture](/architecture).
+
+## Refreshing the local `mouse-protocol` link correctly
+
+If you're developing `mouse-protocol` and `openmouse` side by side, **do
+not** run `npm install @openmouse/protocol@<git-url>` inside `openmouse` to
+pick up local changes — that installs a fresh copy from the remote and
+**drops your local `../mouse-protocol` link**, which then breaks the dev
+server on anything that only exists in your uncommitted local work.
+
+Use the documented local-dev flow instead:
+
+```bash
+cd mouse-protocol && npm run build
+cd ../openmouse && npm install --no-save --package-lock=false ../mouse-protocol
+```
+
+This refreshes the link without touching `package.json`/`package-lock.json`
+and without losing local-only modules.
+
+## Stale bundles in the Vite dev server
+
+Vite's dev server and its dependency cache (`node_modules/.vite`) can keep
+serving an old build of `@openmouse/protocol` after you've rebuilt it. If a
+driver change doesn't seem to take effect, don't assume your code is wrong
+first — test in an **incognito window**, or do a DevTools "Empty Cache and
+Hard Reload", and clear `node_modules/.vite` before restarting
+(`npm run dev -- --force`).
+
+## Don't trust a vendor's own web configurator as ground truth
+
+A vendor's own reference implementation can be wrong, or stale for a
+specific hardware revision. One shipped example: a Pulsar mouse variant's
+DPI encoding was copied from an existing "pulsar x1" codec, but the
+physical hardware actually decoded DPI at a different step size — and
+Pulsar's *own* web configurator ran the same wrong profile, so cross-checking
+against it wouldn't have caught the bug. The fix required measuring the
+real device's behavior directly (encode a known value, read back what the
+hardware reports) rather than trusting either the existing code or the
+vendor tool. When a captured value looks off by a clean small ratio (2×, 5×,
+10×) from what you expect, suspect a mismatched step size or scale factor
+first — it's a very common firmware-encoding mistake to reproduce.
+
+**Takeaway:** treat hardware as the only real authority. Vendor configurators
+and prior art are useful starting points, not proof.

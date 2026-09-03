@@ -1,0 +1,8 @@
+{
+  "label": "Add a Device",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "The end-to-end walkthrough for adding a new mouse or keyboard driver to OpenMouse."
+  }
+}

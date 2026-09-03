@@ -1,0 +1,29 @@
+---
+title: Overview
+sidebar_position: 1
+---
+
+# Add a Device: Overview
+
+Adding a new device to OpenMouse has four phases:
+
+1. **[Capture](/add-a-device/capture)** — record raw HID traffic so you have
+   ground truth for the wire format.
+2. **[Reverse-engineer the protocol](/add-a-device/reverse-engineering)** —
+   figure out the command/report structure well enough to encode requests
+   and decode replies.
+3. **[Write the driver](/add-a-device/write-a-driver)** — implement the
+   codec + client contract in `mouse-protocol`.
+4. **[Register & verify](/add-a-device/register-and-verify)** — wire the
+   driver into both repos and confirm it end-to-end.
+
+Start with read-only support (identify the device, read its current
+settings) before attempting writes (changing DPI, RGB, etc.) — it's a much
+smaller surface to get right, and it's a real, shippable milestone on its
+own.
+
+:::tip Scope your first PR
+A vendor or contributor's first driver doesn't need to support every
+feature the device has. Read-only DPI + polling rate + a correct product
+name in the UI is already useful. Expand from there.
+:::

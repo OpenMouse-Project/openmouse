@@ -1,0 +1,59 @@
+---
+title: Write the Driver
+sidebar_position: 4
+---
+
+# Write the Driver
+
+The driver is the class that implements the client contract described in
+[Architecture](/architecture#the-device-model-mousestatus), built on top of
+your codec from the previous step.
+
+## Location & shape
+
+Put the driver under `mouse-protocol/src/drivers/<vendor>/`, typically as a
+`hid.ts` (the `SupportedClient` implementation) alongside the codec module
+(often at `src/<vendor>/index.ts` if it's shared/reusable beyond one
+driver).
+
+Minimum contract, called unconditionally by the app:
+
+```ts
+class MyVendorHidClient implements SupportedClient {
+  readonly device: HIDDevice;
+
+  async open(): Promise<void> { /* ... */ }
+  async close(): Promise<void> { /* ... */ }
+  async readStatus(): Promise<MouseStatus> { /* ... */ }
+  getDpiOptions(): DpiOption[] { return []; } // even if read-only
+}
+```
+
+## Read-only / non-mouse devices
+
+If the device isn't a mouse, or you're shipping read-only support first,
+return a `MouseStatus` with `ui.settingsReady: false` and no setters. The
+app hides the settings grid for that flag rather than rendering broken
+controls. `getDpiOptions()` still needs to return `[]` — it's called for
+every connected client regardless of type.
+
+## Best-effort reads
+
+Real devices are inconsistent about which reads succeed on the first try
+(cold-boot state, firmware quirks). It's reasonable for `readStatus()` to
+degrade gracefully — e.g. try a live device-config read, fall back to
+identity-only fields if it fails — rather than throwing and breaking the
+connect flow.
+
+## Testing
+
+Write tests against your codec's encode/decode functions using the byte
+fixtures from your captures, plus a test for the driver class itself
+(mock `HIDDevice`, assert it calls `sendReport`/`sendFeatureReport` with the
+expected bytes and parses a canned reply correctly).
+
+Run the full suite before moving on — `mouse-protocol` has a repo-wide
+`npm run check` that also includes a registry probe-matrix test (see
+[Register & Verify](/add-a-device/register-and-verify)), so it's worth
+running that at this stage too, even before you've added your registry
+entries, to catch unrelated regressions early.

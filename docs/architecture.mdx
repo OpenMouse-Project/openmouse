@@ -1,0 +1,120 @@
+---
+title: Architecture
+sidebar_position: 2
+---
+
+# Architecture
+
+OpenMouse is a **mouse-only** control panel at its core: the shared device
+model, `MouseStatus`, has no concept of a keyboard or an analog key.
+Non-mouse devices (like keyboards) are supported by shaping their status to
+look like a read-only mouse — see [Non-mouse devices](#non-mouse-devices)
+below.
+
+## Repos
+
+The workspace has three sibling repos:
+
+- **`openmouse`** — the Preact/Vite web control panel. This is the app.
+- **`mouse-protocol`** (`@openmouse/protocol`) — device codecs and WebHID
+  drivers. Published as a git dependency; `openmouse` installs it from
+  GitHub, not from the local checkout (see [Version skew](#version-skew) below).
+- **`OpenMouse-Bridge`** — a Rust local companion for devices WebHID can't
+  reach directly.
+
+## The device model: `MouseStatus`
+
+The shared status type lives at `mouse-protocol`'s `src/drivers/mouse-types.ts`.
+It covers DPI, polling rate, lift-off distance, scroll, buttons, and battery.
+
+Every driver class implements the same client contract, which the app calls
+**unconditionally** on every connected device:
+
+```ts
+interface SupportedClient {
+  readonly device: HIDDevice;
+  open(): Promise<void>;
+  close(): Promise<void>;
+  readStatus(): Promise<MouseStatus>;
+  getDpiOptions(): DpiOption[]; // or Promise<DpiOption[]>
+  // ...device-specific setters
+}
+```
+
+`getDpiOptions()` in particular is called on connect for *every* client
+(`openmouse/src/device/controller.ts`) — a read-only or non-mouse device must
+still implement it and can just return `[]`.
+
+`brand` is a fixed string union in `mouse-types.ts`; adding a new
+manufacturer means extending that union.
+
+### Non-mouse devices
+
+A device that isn't a mouse (e.g. a keyboard) is exposed by returning a
+`MouseStatus` with `ui.settingsReady: false`, which hides the settings grid
+in the UI, and by omitting setters.
+
+## Plugging in a driver
+
+A new driver needs entries in **both** repos:
+
+### In `mouse-protocol`
+
+1. Add the driver class under `src/drivers/<vendor>/`.
+2. Register it in `src/drivers/registry.ts`: import the class, add it to the
+   `SupportedClient` union, and add it to `DEVICE_DRIVERS`.
+   `createSupportedClient` matches with `DEVICE_DRIVERS.find(...)` — **first
+   match wins**, not highest score — so array order matters if filters could
+   overlap.
+3. Add a discovery filter in `src/drivers/vendors.ts`
+   (`SUPPORTED_HID_FILTERS`), which the app's `requestDevice()` call uses to
+   populate the browser's device picker.
+4. If the driver is exposed as a subpath (e.g. `@openmouse/protocol/wooting`),
+   add the entry to **both** `package.json` `exports` and `tsconfig.json`
+   `paths` — missing either one breaks the build in a way that's easy to miss
+   locally.
+5. `registry.test.ts` has a probe matrix that will fail the build unless the
+   new driver's HID usage page is added to `USAGE_PAGES` and its vendor ID is
+   added to `VENDOR_ID`.
+
+### In `openmouse`
+
+- **Connect routing (the sharp edge):** `openmouse/src/device/controller.ts`
+  treats the Pulsar client as the *fallback* — any connected client that
+  isn't in a `DEDICATED` group gets routed through `pulsarClient()`, which
+  calls `client.describeCollections()`. A new driver **must** be added to a
+  `DEDICATED` group — the simplest way is appending it to `NEEDS_OPEN` (which
+  is spread into `DEDICATED` and also pre-opens the device on connect) — or
+  the app crashes on connect with `client.describeCollections is not a
+  function`.
+- Optionally, map the device to a product photo in `ui/device-images.ts`.
+
+So: **driver + registry in `mouse-protocol`**, plus **`NEEDS_OPEN` /
+import in `openmouse`**. Forgetting the second half is the most common way a
+new driver connects but then immediately crashes.
+
+## Version skew
+
+`openmouse` depends on `@openmouse/protocol` via a **git URL**, and that
+remote copy can be ahead of whatever you have checked out locally in
+`./mouse-protocol`. Concretely, the installed lib may already contain
+drivers or fields that don't exist in your local source tree.
+
+**Practical implication:** you generally can't just point `openmouse` at
+`file:./mouse-protocol` and expect it to compile — the app may reference
+exports that only exist upstream. Develop and verify your driver against
+`mouse-protocol`'s own test suite (`npm run check`), then push it and update
+the `mouse-protocol` dependency in `openmouse` to pick it up. If you need to
+smoke-test end-to-end before pushing, overlay your built `dist/` into
+`openmouse/node_modules/@openmouse/protocol` — but treat that as throwaway,
+since any `npm install` wipes it.
+
+## Sandboxed installs
+
+`@openmouse/protocol` is a git dependency with a `prepare` build step. In
+restricted/sandboxed environments where install scripts are blocked, `npm
+install` can leave a stale or inconsistent `dist/` (e.g. a subpath module
+landing in the wrong place while `package.json` still points elsewhere). A
+normal, unsandboxed `npm install` runs `prepare` and won't hit this — it's
+mainly a CI/agent-sandbox gotcha, not something end users or most
+contributors will see.

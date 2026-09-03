@@ -1,0 +1,52 @@
+---
+title: Reverse-Engineer the Protocol
+sidebar_position: 3
+---
+
+# Reverse-Engineer the Protocol
+
+With captures in hand, the goal is a **codec**: pure functions that turn a
+request (e.g. "set DPI to 800") into bytes, and turn a reply's bytes into a
+typed value.
+
+## A practical process
+
+1. **Find the magic/handshake bytes.** Most vendor protocols prefix every
+   command with a fixed 1–4 byte signature. Grep your captures for repeated
+   leading bytes across different commands — that's usually it.
+2. **Isolate one field at a time.** Change a single setting (DPI, say) to
+   two different known values and diff the reply bytes. The byte(s) that
+   change, and how, tell you the encoding (raw value, scaled, a lookup
+   table/enum index, etc).
+3. **Check for a self-describing wire format before hand-decoding.** Some
+   vendors' config payloads are protobuf or a similar TLV format — if so, a
+   generic "walk the fields and print types/lengths" decoder can get you
+   surprisingly far without the schema, and is worth building once and
+   reusing.
+4. **Watch for scaled values.** Physical units (mm, ms) are often
+   transmitted as an integer with an offset and/or divisor rather than a
+   float. If a raw value doesn't make sense as-is, try common transforms
+   (`(raw - offset) / divisor`) against known reference values from the
+   vendor's own UI.
+5. **Expect ack-only replies for complex state.** A command can return only
+   a short acknowledgement with no data if the real payload requires a
+   multi-step "select/load then read" sequence, or streams on a **different**
+   interface than the one you sent the command on (some devices split a
+   config channel from a live-data streaming channel). If a command
+   consistently acks with an empty body, check whether the actual data
+   shows up as an unsolicited input report on a sibling interface instead.
+6. **Write down what you tried and what didn't work, not just what did.**
+   Reverse-engineering has a lot of dead ends (wrong report ID, wrong
+   channel, missing precondition command). A short "tried X, got ack-only,
+   moved on" note saves the next person from repeating it.
+
+## Deliverable
+
+A codec module with:
+
+- Constants for magic bytes, VID/PID, and any command IDs you've identified
+- `encode*` functions for each writable setting
+- `decode*` functions for each readable field, with the unit conversion
+  spelled out in a comment or a named constant (not a bare magic number)
+- Tests against the raw bytes you captured — treat your capture fixtures as
+  the source of truth, not something to reverse from the code

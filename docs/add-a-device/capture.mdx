@@ -1,0 +1,48 @@
+---
+title: Capture Traffic
+sidebar_position: 2
+---
+
+# Capture Traffic
+
+Before writing any code, get a device connected and pull its basic HID
+identity, then record real traffic from the vendor's own software so you
+have ground truth to decode against.
+
+## Identify the device
+
+You need, at minimum:
+
+- **VID / PID** (vendor ID / product ID)
+- The **usage page** and **usage** of the interface(s) you care about (a
+  device often exposes several HID interfaces — only one or two are the
+  "real" config channel)
+- Report IDs and report lengths for input / output / feature reports
+
+On macOS, `ioreg` (filtered to `IOHIDDevice`) is a fast way to get VID/PID
+and interface info without any vendor tooling. `OpenMouse-Collector` (this
+workspace's Rust HID-capture CLI) can enumerate a device's full report
+descriptor and dump input/feature reports to JSON for later reference —
+that JSON is worth keeping alongside your driver as a fixture.
+
+## Record real traffic
+
+If the vendor ships their own configurator (native app or a WebHID-based
+web tool), use it while capturing:
+
+- Chrome DevTools has no built-in WebHID traffic log, so for a **web-based**
+  vendor configurator, the most reliable approach is instrumenting
+  `HIDDevice.sendReport` / `sendFeatureReport` / the `oninputreport`
+  listener from the page's own console, or reading the vendor's bundle
+  directly if it's not minified into oblivion.
+- For a **native** configurator, a USB packet capture (Wireshark +
+  `usbmon` on Linux, or a similar tool per OS) around HID transfers gets you
+  the same data at a lower level.
+
+Capture at least: device identification/handshake, a status read, and one
+change of each setting you plan to support (e.g. DPI up, DPI down, polling
+rate change) so you can diff the bytes and isolate which fields moved.
+
+Save raw captures (hex dumps or JSON) into the repo alongside the driver
+work — they're what makes the protocol writeup in the next step reviewable
+by someone who doesn't own the hardware.

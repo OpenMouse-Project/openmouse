@@ -1,0 +1,67 @@
+---
+title: Register & Verify
+sidebar_position: 5
+---
+
+# Register & Verify
+
+This is the step most likely to be incomplete on a first PR, because it
+touches **two repos**. See [Architecture](/architecture#plugging-in-a-driver)
+for the full rationale — this page is the checklist.
+
+## `mouse-protocol` checklist
+
+- [ ] Driver class + codec added under `src/drivers/<vendor>/` (and
+      `src/<vendor>/` if the codec is separate)
+- [ ] Imported in `src/drivers/registry.ts`, added to the `SupportedClient`
+      union, added to `DEVICE_DRIVERS`
+- [ ] Discovery filter added in `src/drivers/vendors.ts`
+      (`SUPPORTED_HID_FILTERS`)
+- [ ] `brand` union extended in `mouse-types.ts` if this is a new
+      manufacturer
+- [ ] If exposed as a subpath export: added to **both**
+      `package.json` `exports` and `tsconfig.json` `paths`
+- [ ] `registry.test.ts`'s `USAGE_PAGES` and `VENDOR_ID` updated to include
+      the new device's usage page and vendor ID
+- [ ] `npm run check` passes
+
+## `openmouse` checklist
+
+- [ ] Driver imported in `src/device/controller.ts` and added to a
+      `DEDICATED` group — appending to `NEEDS_OPEN` is the simplest option
+      and also pre-opens the device on connect. **Skipping this is the most
+      common cause of "connects then immediately crashes."**
+- [ ] (Optional) product photo mapped in `ui/device-images.ts`
+- [ ] `tsc` and `vite build` pass
+
+## End-to-end verification
+
+WebHID device picking and communication require a real browser with a real
+device — it can't be fully verified headlessly. At minimum:
+
+1. Confirm the built driver resolves correctly and appears in
+   `SUPPORTED_HID_FILTERS` (a small node/ts-node check against the built
+   `dist` is enough to catch registry mistakes without hardware).
+2. With real hardware, in Chrome: connect the device through the app's
+   device picker, confirm it identifies correctly (no crash, correct name/
+   image), and confirm `readStatus()` returns sane values.
+3. If the driver supports writes, verify each setter round-trips: change a
+   setting through the OpenMouse UI, then confirm the device's own state
+   (or the vendor's own configurator) reflects the change.
+
+:::caution Dev-server cache gotcha
+Vite's dev server and its dependency cache can keep serving an old build of
+`@openmouse/protocol` after you've edited it. If behavior doesn't match your
+latest code, test in an incognito window or do a DevTools "Empty Cache and
+Hard Reload" before assuming your change is wrong. When overlaying a fresh
+build during verification, also clear `node_modules/.vite` and restart the
+dev server.
+:::
+
+## Shipping
+
+Because `openmouse` installs `@openmouse/protocol` from its git URL rather
+than the local checkout, your `mouse-protocol` changes need to be pushed
+(and the dependency updated in `openmouse`, if pinned) before they take
+effect for anyone other than you. See
+[Version skew](/architecture#version-skew).

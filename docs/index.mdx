@@ -1,0 +1,39 @@
+---
+id: index
+slug: /
+title: OpenMouse Developer & Vendor Guide
+sidebar_label: Introduction
+sidebar_position: 1
+---
+
+# OpenMouse Developer & Vendor Guide
+
+OpenMouse is a browser-based control panel for gaming mice — DPI, polling
+rate, lift-off distance, RGB, button remapping — built on
+[WebHID](https://developer.mozilla.org/en-US/docs/Web/API/WebHID_API), with
+no drivers or native apps to install.
+
+This guide is for **developers and vendors adding a new device** to
+OpenMouse: reverse-engineering a device's protocol, writing a driver, and
+getting it wired into the app.
+
+## Where to start
+
+- **[Architecture](/architecture)** — the repos, the shared data model, and
+  how a driver plugs into the app. Read this first.
+- **[Add a Device](/add-a-device/overview)** — the end-to-end walkthrough:
+  capture traffic, write a codec + driver, register it, verify it.
+
+## Project layout
+
+OpenMouse is split across a few sibling repositories:
+
+| Repo | What it is |
+|---|---|
+| `openmouse` | The Preact/Vite web control panel (the app users open) |
+| `mouse-protocol` | `@openmouse/protocol` — device codecs + WebHID drivers |
+| `OpenMouse-Bridge` | Rust local companion (optional, for devices WebHID can't reach) |
+
+A new device almost always means changes in **two** repos: the driver itself
+lives in `mouse-protocol`, and a small amount of wiring lives in `openmouse`.
+See [Architecture](/architecture) for the exact touch points.
