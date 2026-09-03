@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { BYPASS, pageUrl, precachePages } from "../build/pwa-vite-plugin.ts";
 
-test("every page in the repo is precached by one of the build targets", () => {
-  const pages = readdirSync(".").filter((name) => name.endsWith(".html")).sort();
+test("every page in the repo is precached by one of the build targets, except gated pages", () => {
+  const bypassed = (path: string): boolean => BYPASS.some((pattern) => pattern.test(path));
+  const pages = readdirSync(".")
+    .filter((name) => name.endsWith(".html") && !bypassed(`/${name}`))
+    .sort();
   const covered = [...new Set([...precachePages("app"), ...precachePages("landing")])].sort();
 
   assert.deepEqual(covered, pages);

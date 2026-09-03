@@ -50,12 +50,17 @@ export function pageUrl(file: string, target: string): string {
  * control app and its bundle are validated per request by the Cloudflare
  * middleware on main, so caching either would let a revoked license keep
  * working. They do not exist on dev; the entries cost nothing there.
+ *
+ * The admin dashboard is gated the same way, by a session cookie checked in
+ * functions/api/admin/*: caching its shell would let a logged-out operator
+ * keep seeing it offline instead of being bounced to the login form.
  */
 export const BYPASS = [
   /^\/api\//,
   /^\/control-app/,
   /^\/protected-assets\//,
   /^\/control(?:\.html)?$/,
+  /^\/admin(?:\.html)?$/,
 ];
 
 function renderServiceWorker(version: string, precache: string[]): string {
