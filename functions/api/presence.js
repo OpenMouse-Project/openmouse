@@ -36,7 +36,10 @@ export async function onRequest({ request, env }) {
       Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ p_session_id: sessionId }),
+    // request.cf.country is a Cloudflare-supplied ISO code, not derived
+    // from anything we store client-side — feeds the admin dashboard's
+    // region breakdown only, never surfaced to visitors.
+    body: JSON.stringify({ p_session_id: sessionId, p_country: request.cf?.country ?? null }),
   });
 
   if (!response.ok) return json({ count: null, ids: [] });

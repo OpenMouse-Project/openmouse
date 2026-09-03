@@ -226,6 +226,20 @@ let settingInProgress = false;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+
+// Anonymous "this model was seen" ping for the admin dashboard's "most used
+// mice" stat — one per model per page load, best-effort, never blocks or
+// throws into the caller.
+const reportedMouseModels = new Set<string>();
+function reportMouseUsage(mouseModel: string): void {
+  if (!mouseModel || reportedMouseModels.has(mouseModel)) return;
+  reportedMouseModels.add(mouseModel);
+  fetch("/api/telemetry/mouse-usage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mouseModel }),
+  }).catch(() => {});
+}
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 let latestDeviceStatus: MouseStatus | null = null;
@@ -1232,6 +1246,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDiagnosticStatus = deviceStatus;
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
+  reportMouseUsage(status.name);
 
   const battery = status.batteryPercent;
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
