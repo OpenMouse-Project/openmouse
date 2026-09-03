@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
-import { WLMOUSE_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
+import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
@@ -135,6 +135,10 @@ const PID_UNIVERSE = new Set<number>([
   // SteelSeries Prime Mini Wireless, wired mode + 2.4 GHz mode
   // (drivers/steelseries/prime-mini-wireless-hid.ts).
   0x184a, 0x1848,
+  // Glorious Pixart Model O 2 / I 2 family (drivers/glorious/hid.ts) and
+  // classic pre-Pixart Model O/D/I family (drivers/glorious/classic-hid.ts).
+  ...GLORIOUS_PRODUCTS.keys(),
+  ...GLORIOUS_CLASSIC_PRODUCTS.keys(),
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(

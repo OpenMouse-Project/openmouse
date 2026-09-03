@@ -1,4 +1,4 @@
-import { WLMOUSE_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
+import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
@@ -144,6 +144,14 @@ export function registrySupportedModels(): Mouse[] {
   for (const [pid, info] of GWOLVES_PRODUCTS) {
     if (info.wireless) continue;
     rows.push({ brand: "G-Wolves", model: info.model, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GLORIOUS_PRODUCTS) {
+    if (/receiver/i.test(info.name)) continue;
+    rows.push({ brand: "Glorious", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GLORIOUS_CLASSIC_PRODUCTS) {
+    if (/receiver/i.test(info.name)) continue;
+    rows.push({ brand: "Glorious", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
   }
 
   const seen = new Set<string>();

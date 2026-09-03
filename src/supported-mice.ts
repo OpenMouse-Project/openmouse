@@ -358,20 +358,33 @@ export const MICE: Mouse[] = [
     note: "iCUE protocol — not implemented" },
 
   // GLORIOUS ────────────────────────────────────────────────────────────
+  // Two driver generations: the Pixart Model O 2 / I 2 family (write-only,
+  // drivers/glorious/hid.ts) and the pre-Pixart "classic" Model O/D/I family
+  // (DPI/polling/LOD/debounce/RGB write-only, battery read-only,
+  // drivers/glorious/classic-hid.ts, ported from glorious-ctl + mxw). Neither
+  // covers the newer "Pro"/O2 PRO/O3 lines below — those use an undocumented
+  // protocol (Glorious CORE), and O3 in particular is an 8000Hz mouse on a
+  // different USB vendor id (0x3794) with no public reverse-engineering as of
+  // 2026-09-03; see [[glorious-classic-protocol]] in project memory.
   { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "driver",   req: 5,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O",                 status: "driver",   req: 3,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D Wireless",        status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D",                 status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
+    note: "Newer 2024+ \"O2 PRO\" line, not the Pixart \"Model O 2 Wireless\" (supported). Glorious CORE protocol — not implemented" },
+  { brand: "Glorious", model: "Model O",                 status: "supported", req: 3,
+    pids: [0x2022],
+    note: "Classic driver (VID 0x258a). Confirmed PID is the Wireless SKU (0x2022); DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model D Wireless",        status: "supported", req: 2,
+    pids: [0x2011, 0x2023],
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model D",                 status: "likely",   req: 2,
+    note: "Same classic protocol family as Model D Wireless, but no wired-only \"Model D\" PID has been confirmed yet" },
   { brand: "Glorious", model: "Model O2 Pro 4K/8K",     status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
+    note: "Newer 2024+ \"O2 PRO\" line, not the Pixart \"Model O 2 Wireless\" (supported). Glorious CORE protocol — not implemented" },
   { brand: "Glorious", model: "Model O Pro",             status: "driver",   req: 1,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "driver",  req: 1,
-    note: "Glorious CORE protocol — not implemented" },
+    note: "Newer 2024+ \"O PRO\" line. Glorious CORE protocol — not implemented" },
+  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "likely",  req: 1,
+    pids: [0x201a, 0x2034, 0x2036],
+    note: "Classic driver recognizes this PID (VID 0x258a) and DPI/LOD/debounce/RGB write, but polling rate is only confirmed up to 1000 Hz — the 4K/8K steps beyond that are unverified" },
+  { brand: "Glorious", model: "Model O3 Wireless",       status: "driver",   req: 5,
+    note: "8000Hz-generation mouse on a different USB vendor id (0x3794). No public reverse-engineering of its protocol exists yet — needs a real USB capture" },
 
   // ENDGAME GEAR ────────────────────────────────────────────────────────
   { brand: "Endgame Gear", model: "XM2w 4K",            status: "supported", req: 3,
