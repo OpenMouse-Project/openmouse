@@ -77,6 +77,9 @@ import {
   type LogitechMacroStep,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { setCaptureContext } from "../capture-context";
+import {
+  decodeProfileKey, encodeProfileKey, profileKeyMatchesDevice, type ProfileKeyPayload,
+} from "./profile-key";
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import {
   LOGITECH_HAPTIC_EFFECTS,
@@ -738,6 +741,62 @@ export function applyFriendlyName(name: string): void {
       await client.setFriendlyName(trimmed);
     },
   });
+}
+
+/**
+ * A copy-paste key that captures the settings this module knows a generic
+ * `apply*` for. Reflects `latestDeviceStatus` with any pending changes
+ * mirrored on top, so a key copied right after staging edits carries them.
+ */
+export function exportProfileKey(): string | null {
+  if (!latestDeviceStatus) return null;
+  return encodeProfileKey(withPendingChanges(latestDeviceStatus));
+}
+
+/**
+ * Stages every setting a pasted key carries, the same as if each had been
+ * edited by hand — nothing is written to the device until the pending
+ * changes are flashed. Rejects a key captured from a different model.
+ */
+export function importProfileKey(rawKey: string): void {
+  const decoded = decodeProfileKey(rawKey);
+  if (!decoded.ok) {
+    pushToast("error", "Couldn't read that profile key", decoded.error);
+    return;
+  }
+  if (!latestDeviceStatus) {
+    pushToast("error", "No mouse connected", "Connect the mouse to import settings onto it.");
+    return;
+  }
+  const payload: ProfileKeyPayload = decoded.payload;
+  if (!profileKeyMatchesDevice(payload, latestDeviceStatus)) {
+    pushToast(
+      "error",
+      "Profile key doesn't match this mouse",
+      `This key was captured from a ${payload.brand} ${payload.name}, not this device.`,
+    );
+    return;
+  }
+
+  if (payload.dpiStages && payload.dpiStages.length > 0) {
+    applyDpiStageCount(payload.dpiStages.length);
+    payload.dpiStages.forEach((value, index) => applyDpiStageValue(index, value));
+    if (typeof payload.activeDpiStage === "number") applyActiveDpiStage(payload.activeDpiStage);
+  } else if (typeof payload.dpi === "number") {
+    applyDpiValue(payload.dpi);
+  }
+  if (typeof payload.pollingRateHz === "number") applyPollingRate(payload.pollingRateHz);
+  if (payload.liftOffDistance) applyLiftOffDistance(payload.liftOffDistance);
+  if (payload.wheelMode) applyWheelMode(payload.wheelMode);
+  if (payload.smartShiftThreshold !== undefined) applySmartShiftThreshold(payload.smartShiftThreshold ?? null);
+  if (typeof payload.hiResScroll === "boolean") applyHiResScroll(payload.hiResScroll);
+  if (typeof payload.invertScroll === "boolean") applyInvertScroll(payload.invertScroll);
+  if (typeof payload.thumbWheelInverted === "boolean") applyThumbWheelInverted(payload.thumbWheelInverted);
+  for (const zone of payload.lighting ?? []) {
+    applyLighting({ mode: zone.mode, color: zone.color, color2: zone.color2, speed: zone.speed, brightness: zone.brightness }, zone.zoneIndex);
+  }
+
+  pushToast("success", "Profile key imported", "Review the queued changes, then flash to write them.");
 }
 
 export async function requestHostSwitch(slot: number): Promise<void> {

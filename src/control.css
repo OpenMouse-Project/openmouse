@@ -782,6 +782,10 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-setting-card h3 { margin: .35rem 0 .3rem; font-size: 1rem; font-weight: 550; }
 .interface-setting-card p { margin: 0 0 .8rem; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .interface-setting-card select { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); color-scheme: dark; }
+.profile-key-field { display: flex; flex-direction: column; gap: .3rem; margin: 0 0 .6rem; font-size: .62rem; color: var(--muted); }
+.profile-key-field textarea { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); font-family: var(--font-mono); font-size: .62rem; line-height: 1.4; resize: vertical; color-scheme: dark; }
+.profile-key-action { padding: .5rem .8rem; margin: 0 0 .6rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .64rem; font-weight: 650; cursor: pointer; }
+.profile-key-action:disabled { cursor: not-allowed; opacity: .5; }
 .openmouse-bridge-card { grid-column: 1 / -1; min-height: 0; }
 .openmouse-bridge-coming-soon { margin-top: .2rem; padding: .58rem .9rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
 .interface-theme-card { grid-column: 1 / -1; }

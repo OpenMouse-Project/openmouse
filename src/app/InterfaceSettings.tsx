@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import type { InterfacePreferences } from "../interface-preferences";
@@ -54,6 +54,69 @@ function SwitchCard({
   );
 }
 
+function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [importText, setImportText] = useState("");
+  const [copied, setCopied] = useState(false);
+  const key = snapshot.hasActiveDevice ? control.exportProfileKey() : null;
+
+  return (
+    <article className="interface-setting-card">
+      <span>PROFILES</span>
+      <h3>Profile key</h3>
+      <p>
+        A copy-paste key that carries this mouse's settings to another unit of the same model.
+        Paste it into Settings there to load the same setup.
+      </p>
+      <label className="profile-key-field">
+        <span>Your key</span>
+        <textarea
+          readOnly
+          rows={3}
+          value={key ?? "Connect a mouse to generate a key."}
+          onFocus={(event) => event.currentTarget.select()}
+        />
+      </label>
+      <button
+        type="button"
+        className="profile-key-action"
+        disabled={!key}
+        onClick={() => {
+          if (!key) return;
+          void navigator.clipboard.writeText(key).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+      >
+        {copied ? "Copied" : "Copy key"}
+      </button>
+      <label className="profile-key-field">
+        <span>Import a key</span>
+        <textarea
+          rows={3}
+          placeholder="Paste a profile key here…"
+          value={importText}
+          onChange={(event) => setImportText(event.currentTarget.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="profile-key-action"
+        disabled={!importText.trim() || !snapshot.hasActiveDevice}
+        onClick={() => {
+          control.importProfileKey(importText);
+          setImportText("");
+        }}
+      >
+        Import
+      </button>
+      <small className="setting-note">
+        Imported settings are staged like any other edit — nothing is written until you flash them.
+      </small>
+    </article>
+  );
+}
+
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
@@ -82,6 +145,8 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       </header>
 
       <div className="interface-settings-grid">
+        <ProfileKeyCard snapshot={snapshot} />
+
         <article className="interface-setting-card openmouse-bridge-card">
           <span>OPENMOUSE BRIDGE</span>
           <h3>Game detection and battery alerts</h3>
