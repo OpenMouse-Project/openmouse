@@ -67,3 +67,7 @@ library registry automatically.
 
 Hardware-specific validation checklists live in the protocol repository's
 `docs/` directory.
+
+## License
+
+[GNU AGPL-3.0](LICENSE). Contributions are accepted under the same license.
