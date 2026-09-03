@@ -41,5 +41,4 @@ straight to the links below.
 
 ## License
 
-Not currently licensed for use, modification, or redistribution. A license
-will be selected before the project's full public release.
+[GNU AGPL-3.0](LICENSE).
