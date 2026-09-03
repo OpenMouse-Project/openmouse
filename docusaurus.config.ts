@@ -51,7 +51,7 @@ const config: Config = {
       title: 'OpenMouse Docs',
       logo: {
         alt: 'OpenMouse Logo',
-        src: 'img/logo.svg',
+        src: 'img/logo.png',
       },
       items: [
         {
