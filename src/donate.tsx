@@ -337,6 +337,20 @@ const AMOUNTS = [5, 10, 25, 50, 100];
 
 type DonationType = "once" | "monthly";
 
+const SPONSORS_URL = "https://github.com/sponsors/OpenMouse-Project";
+
+// GitHub Sponsors accepts amount/frequency as query params to preselect a
+// tier on their own checkout page. These aren't formally documented as a
+// stable API -- worth re-checking that they still land on the right tier
+// if GitHub ever changes them; degrades to the plain sponsors page if not.
+function sponsorsUrl(type: DonationType, amount: number): string {
+  const params = new URLSearchParams({
+    frequency: type === "monthly" ? "recurring" : "one-time",
+    amount: String(Math.round(amount)),
+  });
+  return `${SPONSORS_URL}?${params.toString()}`;
+}
+
 function GitHubIcon(): ReactNode {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
@@ -394,8 +408,6 @@ function DonateApp(): ReactNode {
   const [type, setType] = useState<DonationType>("once");
   const [amount, setAmount] = useState<number>(10);
   const [custom, setCustom] = useState("");
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [data, setData] = useState<CachedData>(() => readCache() ?? defaultData());
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -441,26 +453,6 @@ function DonateApp(): ReactNode {
 
   const customValue = Number(custom);
   const effectiveAmount = custom.trim() !== "" && Number.isFinite(customValue) && customValue > 0 ? customValue : amount;
-
-  const handleDonate = async (): Promise<void> => {
-    setCheckoutLoading(true);
-    setCheckoutError(null);
-    try {
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, amount: effectiveAmount }),
-      });
-      const result = await response.json().catch(() => null);
-      if (!response.ok || typeof result?.url !== "string") {
-        throw new Error(result?.message ?? "Could not start checkout.");
-      }
-      window.location.href = result.url;
-    } catch (err) {
-      setCheckoutError(err instanceof Error ? err.message : String(err));
-      setCheckoutLoading(false);
-    }
-  };
 
   return (
     <div className="don-shell">
@@ -582,23 +574,19 @@ function DonateApp(): ReactNode {
 
             <p className="don-charge">
               {type === "once"
-                ? `This will be charged once as ${formatCurrency(effectiveAmount)}.`
-                : `You will be charged ${formatCurrency(effectiveAmount)} every month.`}
+                ? `You'll donate ${formatCurrency(effectiveAmount)} once, via GitHub Sponsors.`
+                : `You'll donate ${formatCurrency(effectiveAmount)} every month, via GitHub Sponsors.`}
             </p>
 
-            <button
-              type="button"
+            <a
               className="don-submit"
-              onClick={() => void handleDonate()}
-              disabled={checkoutLoading}
+              href={sponsorsUrl(type, effectiveAmount)}
+              target="_blank"
+              rel="noreferrer"
             >
               <LockIcon />
-              {checkoutLoading ? "Redirecting…" : "Donate"}
-            </button>
-
-            {checkoutError ? (
-              <p className="don-error" role="alert">{checkoutError}</p>
-            ) : null}
+              Donate on GitHub Sponsors
+            </a>
 
             <a className="don-skip" href="/">No thanks, continue to the app</a>
           </article>

@@ -288,7 +288,6 @@ main { position: relative; z-index: 1; }
   transition: opacity 0.15s;
 }
 .don-submit:hover { opacity: 0.88; }
-.don-submit:disabled { opacity: 0.6; cursor: default; }
 
 .don-skip {
   display: block;
