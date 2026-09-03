@@ -79,7 +79,6 @@ app.innerHTML = `
       OpenMouse
     </a>
     <nav class="header-nav">
-      <a class="nav-link" href="/demo.html">UI demo</a>
       <a class="nav-link nav-current" href="/supported.html" aria-current="page">Devices</a>
       <a class="nav-link" href="https://docs.openmouse.app">Contribute</a>
       <a class="nav-link" href="/donate.html">Support</a>
