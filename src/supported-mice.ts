@@ -358,14 +358,18 @@ export const MICE: Mouse[] = [
     note: "iCUE protocol — not implemented" },
 
   // GLORIOUS ────────────────────────────────────────────────────────────
-  // Two driver generations: the Pixart Model O 2 / I 2 family (write-only,
-  // drivers/glorious/hid.ts) and the pre-Pixart "classic" Model O/D/I family
-  // (DPI/polling/LOD/debounce/RGB write-only, battery read-only,
-  // drivers/glorious/classic-hid.ts, ported from glorious-ctl + mxw). Neither
-  // covers the newer "Pro"/O2 PRO/O3 lines below — those use an undocumented
-  // protocol (Glorious CORE), and O3 in particular is an 8000Hz mouse on a
-  // different USB vendor id (0x3794) with no public reverse-engineering as of
-  // 2026-09-03; see [[glorious-classic-protocol]] in project memory.
+  // Three tiers: the Pixart Model O 2 / I 2 family (write-only,
+  // drivers/glorious/hid.ts); the pre-Pixart "core1" classic Model O/D/I
+  // family (full DPI/polling/LOD/debounce/RGB write + read battery,
+  // drivers/glorious/classic-hid.ts, ported from glorious-ctl + mxw); and the
+  // newer 8000Hz-class "core2" devices on the SAME classic-hid.ts driver but
+  // gated to RGB/debounce/battery only — DPI/polling/LOD stay off for core2
+  // because korkje/mxw's own device list never included them, and (for
+  // polling specifically) github.com/AMarcinkiewicz/GloriousAutoPollingRate
+  // shows the D2 Pro 4K/8K's real polling command uses an entirely different
+  // usage page/report layout, confirming core2 isn't just core1 with new
+  // values. See [[glorious-classic-protocol]] in project memory for the full
+  // writeup, including the exact (unwired) D2 Pro 4K/8K polling-rate bytes.
   { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "driver",   req: 5,
     note: "Newer 2024+ \"O2 PRO\" line, not the Pixart \"Model O 2 Wireless\" (supported). Glorious CORE protocol — not implemented" },
   { brand: "Glorious", model: "Model O",                 status: "supported", req: 3,
@@ -381,10 +385,11 @@ export const MICE: Mouse[] = [
   { brand: "Glorious", model: "Model O Pro",             status: "driver",   req: 1,
     note: "Newer 2024+ \"O PRO\" line. Glorious CORE protocol — not implemented" },
   { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "likely",  req: 1,
-    pids: [0x201a, 0x2034, 0x2036],
-    note: "Classic driver recognizes this PID (VID 0x258a) and DPI/LOD/debounce/RGB write, but polling rate is only confirmed up to 1000 Hz — the 4K/8K steps beyond that are unverified" },
-  { brand: "Glorious", model: "Model O3 Wireless",       status: "driver",   req: 5,
-    note: "8000Hz-generation mouse on a different USB vendor id (0x3794). No public reverse-engineering of its protocol exists yet — needs a real USB capture" },
+    pids: [0x2036],
+    note: "Classic driver recognizes this PID (VID 0x258a) but only writes RGB/debounce and reads battery — DPI/polling/LOD are unconfirmed on this newer \"core2\" firmware and stay off" },
+  { brand: "Glorious", model: "Model O3 Wireless",       status: "likely",   req: 5,
+    pids: [0xa312, 0xa300],
+    note: "8000Hz mouse on VID 0x3794. glorious-ctl's own device list includes it for RGB/debounce/battery, so the classic driver recognizes it for those — DPI/polling/LOD have no confirmed protocol and stay off" },
 
   // ENDGAME GEAR ────────────────────────────────────────────────────────
   { brand: "Endgame Gear", model: "XM2w 4K",            status: "supported", req: 3,
