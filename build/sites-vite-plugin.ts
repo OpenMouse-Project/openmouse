@@ -31,10 +31,14 @@ export function sites({ target }: { target?: "app" | "landing" } = {}): Plugin {
       // The "landing" target only builds landing.html (there's no
       // index.html in that deploy), so route the root request to it —
       // this is the Cloudflare Pages project served at openmouse.app.
+      // contribute.html is retired in favor of the real docs site
+      // (docs.openmouse.app) — send both its old paths there permanently.
       if (target === "landing") {
         await writeFile(
           resolve(root, outputDirectory, "_redirects"),
-          "/    /landing.html   200\n",
+          "/    /landing.html   200\n" +
+            "/contribute.html    https://docs.openmouse.app   301\n" +
+            "/contribute    https://docs.openmouse.app   301\n",
         );
       }
     },

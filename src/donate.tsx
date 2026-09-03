@@ -252,8 +252,8 @@ function branchSources(repos: ApiOrgRepo[]): { key: RepoKey; repo: string; branc
       branch: repo.default_branch,
       label: repo.default_branch,
     });
-    if (repoKeyOf(repo.name) === "openmouse" && repo.default_branch !== "dev") {
-      sources.push({ key: repoKeyOf(repo.name), repo: repo.full_name, branch: "dev", label: "dev" });
+    if (repoKeyOf(repo.name) === "openmouse" && repo.default_branch !== "control-panel") {
+      sources.push({ key: repoKeyOf(repo.name), repo: repo.full_name, branch: "control-panel", label: "control-panel" });
     }
   }
   return sources;
@@ -343,9 +343,8 @@ const SPONSORS_URL = "https://github.com/sponsors/OpenMouse-Project";
 
 // GitHub Sponsors accepts amount/frequency as query params to preselect a
 // tier on their own checkout page. These aren't formally documented as a
-// stable API -- worth re-checking once the profile is live that they still
-// land on the right tier. If GitHub ever drops/changes them, this just
-// degrades to opening the plain sponsors page.
+// stable API -- worth re-checking that they still land on the right tier
+// if GitHub ever changes them; degrades to the plain sponsors page if not.
 function sponsorsUrl(type: DonationType, amount: number): string {
   const params = new URLSearchParams({
     frequency: type === "monthly" ? "recurring" : "one-time",
@@ -470,7 +469,7 @@ function DonateApp(): ReactNode {
           <a href="/supported.html">Devices</a>
           <a href="/donate.html" aria-current="page" className="is-current">Support</a>
           <a href="/check.html">Mouse Check</a>
-          <a href="/contribute.html">Contribute</a>
+          <a href="https://docs.openmouse.app">Contribute</a>
         </nav>
         <div className="don-actions">
           <a className="don-github" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">
@@ -646,7 +645,7 @@ function DonateApp(): ReactNode {
             <a href="/">Home</a>
             <a href="/supported.html">Devices</a>
             <a href="/check.html">Mouse Check</a>
-            <a href="/contribute.html">Contribute</a>
+            <a href="https://docs.openmouse.app">Contribute</a>
           </div>
 
           <div className="don-fcol">

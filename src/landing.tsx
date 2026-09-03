@@ -29,7 +29,7 @@ function Nav(): ReactNode {
       </a>
       <nav className="land-nav-links">
         <a href="/supported.html">Supported mice</a>
-        <a href="/contribute.html">Contribute</a>
+        <a href="https://docs.openmouse.app">Contribute</a>
         <a href="/donate.html">Donate</a>
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
       </nav>
@@ -94,7 +94,7 @@ function Contribute(): ReactNode {
         through safe reverse-engineering practices and how the driver repos
         fit together.
       </p>
-      <a className="land-cta-secondary" href="/contribute.html">Read the contribution guide</a>
+      <a className="land-cta-secondary" href="https://docs.openmouse.app">Read the contribution guide</a>
     </section>
   );
 }

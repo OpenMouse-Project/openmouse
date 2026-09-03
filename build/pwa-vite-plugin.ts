@@ -14,14 +14,18 @@ const STATIC_PRECACHE = [
   "/favicon-dark.svg",
 ];
 
-/** Public support pages, built into both Cloudflare Pages targets. */
-const SHARED_PAGES = ["check.html", "supported.html", "donate.html", "contribute.html"];
-
 /**
- * The page each target serves from "/". The app target ships the control
- * panel; the landing target ships the marketing page and reaches it through
- * the _redirects file that build/sites-vite-plugin.ts writes.
+ * Pages each Cloudflare Pages target builds, mirroring the rollup inputs in
+ * vite.config.ts. The app target is the gated control panel on its own
+ * subdomain; the public support pages live on the marketing domain, and the
+ * landing target reaches its root through the _redirects file that
+ * build/sites-vite-plugin.ts writes.
  */
+const TARGET_PAGES: Record<string, string[]> = {
+  app: ["index.html"],
+  landing: ["landing.html", "check.html", "supported.html", "donate.html"],
+};
+
 export const ROOT_PAGE: Record<string, string> = {
   app: "index.html",
   landing: "landing.html",
@@ -33,7 +37,7 @@ function rootPage(target: string): string {
 
 /** Pages whose emitted markup is scanned for the hashed assets to precache. */
 export function precachePages(target: string): string[] {
-  return [rootPage(target), ...SHARED_PAGES];
+  return TARGET_PAGES[target] ?? TARGET_PAGES.app;
 }
 
 /** The root page is served from "/", every other page from its own filename. */
@@ -100,6 +104,9 @@ const MATCH = { ignoreVary: true };
  * through and they stay cacheable despite reporting ok === false.
  */
 function storable(response) {
+  // Retired pages 301 to the docs site, and the Cache API rejects a redirected
+  // response stored against a navigation request.
+  if (response.redirected) return false;
   if ((response.headers.get("Cache-Control") ?? "").includes("no-store")) return false;
   return response.ok || response.type === "opaque";
 }

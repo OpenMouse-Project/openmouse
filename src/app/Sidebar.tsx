@@ -196,11 +196,16 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
           <NavIcon path={REQUEST_PATH} />
           Request a mouse
         </button>
-        <a className="nav-item has-label" href="/donate.html" title="Support the Project" aria-label="Support the Project">
+        <a
+          className="nav-item has-label"
+          href="https://openmouse.app/donate.html"
+          title="Support the Project"
+          aria-label="Support the Project"
+        >
           <NavIcon path={FAME_PATH} />
           Support
         </a>
-        <a className="nav-item is-debug" href="/check.html" title="Mouse Check" aria-label="Mouse Check">
+        <a className="nav-item is-debug" href="https://openmouse.app/check.html" title="Mouse Check" aria-label="Mouse Check">
           <NavIcon path={DEBUG_PATH} />
         </a>
       </nav>

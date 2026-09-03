@@ -164,7 +164,7 @@ main { position: relative; z-index: 1; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.2rem;
-  align-items: start;
+  align-items: stretch;
 }
 .don-card {
   border: 1px solid color-mix(in srgb, var(--don-accent) 12%, var(--don-border));
