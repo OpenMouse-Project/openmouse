@@ -16,6 +16,7 @@ type Stats = {
 const LIVE_POLL_MS = 5000;
 const RANGE_OPTIONS = [7, 30, 90] as const;
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function formatDay(day: string) {
   const d = new Date(day);
@@ -28,7 +29,7 @@ function pctChange(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
-/* ---------- icons (inline, stroke-based to match the sidebar's line-icon set) ---------- */
+/* ---------- icons (inline, stroke-based) ---------- */
 
 const iconProps = {
   viewBox: "0 0 24 24",
@@ -69,7 +70,7 @@ const IconSettings = () => (
   </svg>
 );
 const IconMouse = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <rect x="7" y="3" width="10" height="18" rx="5" />
     <line x1="12" y1="7" x2="12" y2="11" />
   </svg>
@@ -104,8 +105,14 @@ const IconStar = () => (
     <path d="M12 2l2.9 6.6L22 9.3l-5 4.9 1.2 7.1L12 17.8l-6.2 3.5L7 14.2 2 9.3l7.1-.7Z" />
   </svg>
 );
+const IconGlobe = () => (
+  <svg {...iconProps}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z" />
+  </svg>
+);
 const IconLogout = () => (
-  <svg width={15} height={15} {...iconProps}>
+  <svg width={14} height={14} {...iconProps}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
     <line x1="21" y1="12" x2="9" y2="12" />
@@ -163,59 +170,54 @@ function LoginForm({ onLoggedIn }: { onLoggedIn: () => void }) {
 
 /* ---------- charts ---------- */
 
-function DailyBarChart({ points }: { points: DailyPoint[] }) {
+function DailyLineChart({ points }: { points: DailyPoint[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const width = 940;
-  const height = 210;
-  const gap = 4;
+  const height = 200;
   const max = Math.max(1, ...points.map((p) => p.view_count));
-  const barWidth = points.length > 0 ? width / points.length - gap : 0;
 
   if (!points.length) return <p className="adm-muted">No history yet.</p>;
 
   const activeIndex = hover ?? points.length - 1;
   const active = points[activeIndex];
+  const stepX = points.length > 1 ? width / (points.length - 1) : 0;
+  const coords = points.map((p, i) => [i * stepX, height - (p.view_count / max) * (height - 6)] as const);
+  const linePath = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
 
   return (
     <div>
       <div className="adm-chart-value">
         {active.view_count.toLocaleString()}
         <span className="adm-muted">
-          views · {formatDay(active.day)} · peak concurrent {active.peak_concurrent}
+          VIEWS · {formatDay(active.day).toUpperCase()} · PEAK CONCURRENT {active.peak_concurrent}
         </span>
       </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
         height={height}
-        style={{ display: "block", overflow: "visible", marginTop: 6 }}
+        style={{ display: "block", overflow: "visible", marginTop: 8 }}
         onMouseLeave={() => setHover(null)}
       >
-        <defs>
-          <linearGradient id="admBarGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8fe0ac" />
-            <stop offset="100%" stopColor="#3fae6a" />
-          </linearGradient>
-        </defs>
-        <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#1c1c26" strokeWidth={1} />
-        {points.map((p, i) => {
-          const barHeight = (p.view_count / max) * (height - 8);
-          const x = i * (barWidth + gap);
-          const isActive = i === activeIndex;
-          return (
-            <rect
-              key={p.day}
-              className="adm-bar-rect"
-              x={x}
-              y={height - barHeight}
-              width={Math.max(1, barWidth)}
-              height={barHeight}
-              rx={2.5}
-              fill={isActive ? "url(#admBarGrad)" : "#1c1c26"}
-              onMouseEnter={() => setHover(i)}
-            />
-          );
-        })}
+        <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#232326" strokeWidth={1} />
+        <path d={areaPath} fill="rgba(95, 217, 138, 0.06)" stroke="none" />
+        <path d={linePath} fill="none" stroke="#5fd98a" strokeWidth={1.5} />
+        {coords.map(([x], i) => (
+          <rect
+            key={points[i].day}
+            x={x - stepX / 2}
+            y={0}
+            width={Math.max(1, stepX)}
+            height={height}
+            fill="transparent"
+            className="adm-bar-rect"
+            onMouseEnter={() => setHover(i)}
+          />
+        ))}
+        {coords.map(([x, y], i) =>
+          i === activeIndex ? <circle key={`d-${points[i].day}`} cx={x} cy={y} r={2.5} fill="#5fd98a" /> : null,
+        )}
       </svg>
       <div className="adm-axis-row">
         <span className="adm-axis-label">{formatDay(points[0].day).toUpperCase()}</span>
@@ -256,7 +258,7 @@ function WeekdayHeatmap({ points }: { points: DailyPoint[] }) {
                   key={di}
                   className="adm-hm-cell"
                   title={`${formatDay(cell.day)}: ${cell.view_count} views`}
-                  style={{ background: `rgba(105, 210, 141, ${(0.12 + (cell.view_count / max) * 0.75).toFixed(2)})` }}
+                  style={{ background: `rgba(95, 217, 138, ${(0.12 + (cell.view_count / max) * 0.75).toFixed(2)})` }}
                 />
               ) : (
                 <div key={di} className="adm-hm-cell" style={{ background: "transparent" }} />
@@ -275,29 +277,54 @@ function WeekdayHeatmap({ points }: { points: DailyPoint[] }) {
   );
 }
 
-function BarList({ rows, labelKey, valueKey }: { rows: CountRow[]; labelKey: "country" | "mouse_model"; valueKey: "view_count" | "uses" }) {
+function DataTable({
+  rows,
+  labelKey,
+  valueKey,
+  nameHeader,
+  valueHeader,
+}: {
+  rows: CountRow[];
+  labelKey: "country" | "mouse_model";
+  valueKey: "view_count" | "uses";
+  nameHeader: string;
+  valueHeader: string;
+}) {
   const max = Math.max(1, ...rows.map((r) => Number(r[valueKey]) || 0));
   const total = rows.reduce((sum, r) => sum + (Number(r[valueKey]) || 0), 0);
   if (!rows.length) return <p className="adm-muted">No data yet.</p>;
   return (
-    <div className="adm-bar-list">
-      {rows.map((row, i) => {
-        const value = Number(row[valueKey]) || 0;
-        const share = total > 0 ? (value / total) * 100 : 0;
-        return (
-          <div className="adm-bar-item" key={String(row[labelKey])}>
-            <span className="adm-rank">{String(i + 1).padStart(2, "0")}</span>
-            <span className="adm-bl-label">{row[labelKey] || "Unknown"}</span>
-            <div className="adm-bl-track">
-              <div className="adm-bl-fill" style={{ width: `${(value / max) * 100}%` }} />
-            </div>
-            <span className="adm-bl-value">
-              {value.toLocaleString()} <span className="adm-muted">{share.toFixed(0)}%</span>
-            </span>
-          </div>
-        );
-      })}
-    </div>
+    <table className="adm-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>{nameHeader}</th>
+          <th className="is-num">{valueHeader}</th>
+          <th className="is-num">Share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => {
+          const value = Number(row[valueKey]) || 0;
+          const share = total > 0 ? (value / total) * 100 : 0;
+          return (
+            <tr key={String(row[labelKey])}>
+              <td className="is-rank">{String(i + 1).padStart(2, "0")}</td>
+              <td>
+                <div className="adm-table-name">
+                  <div className="adm-table-bar">
+                    <div className="adm-table-bar-fill" style={{ width: `${(value / max) * 100}%` }} />
+                  </div>
+                  {row[labelKey] || "Unknown"}
+                </div>
+              </td>
+              <td className="is-num">{value.toLocaleString()}</td>
+              <td className="is-num">{share.toFixed(1)}%</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -309,17 +336,22 @@ function StatTile({
   label,
   live,
   trend,
+  accent,
 }: {
   icon: any;
   value: any;
   label: string;
   live?: boolean;
   trend?: number | null;
+  accent?: string;
 }) {
   return (
-    <div className="adm-stat">
+    <div className="adm-stat" style={accent ? ({ "--adm-accent-color": accent } as any) : undefined}>
       <div className="adm-stat-top">
-        <div className="adm-stat-icon">{icon}</div>
+        <span className="adm-stat-label-top">
+          {icon}
+          {label}
+        </span>
         {trend != null && (
           <span className={`adm-pill ${trend >= 0 ? "is-up" : "is-down"}`}>
             {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(1)}%
@@ -330,7 +362,6 @@ function StatTile({
         {live && <span className="adm-live-dot" />}
         {value}
       </div>
-      <div className="adm-stat-label">{label}</div>
     </div>
   );
 }
@@ -365,12 +396,35 @@ function Dashboard() {
   }, [range]);
 
   const daily = stats?.daily ?? [];
+  const regions = stats?.regions ?? [];
+  const mice = stats?.mice ?? [];
+
   const totalViews = useMemo(() => daily.reduce((sum, d) => sum + d.view_count, 0), [daily]);
   const avgDaily = daily.length ? totalViews / daily.length : 0;
+  const medianDaily = useMemo(() => {
+    if (!daily.length) return 0;
+    const sorted = [...daily].map((d) => d.view_count).sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }, [daily]);
   const peakDay = useMemo(
     () => daily.reduce<DailyPoint | null>((best, d) => (!best || d.view_count > best.view_count ? d : best), null),
     [daily],
   );
+  const quietDay = useMemo(
+    () => daily.reduce<DailyPoint | null>((worst, d) => (!worst || d.view_count < worst.view_count ? d : worst), null),
+    [daily],
+  );
+  const bestWeekday = useMemo(() => {
+    if (!daily.length) return null;
+    const sums = new Array(7).fill(0);
+    daily.forEach((d) => {
+      const dt = new Date(d.day);
+      if (!Number.isNaN(dt.getTime())) sums[dt.getUTCDay()] += d.view_count;
+    });
+    const bestIndex = sums.reduce((best, v, i) => (v > sums[best] ? i : best), 0);
+    return { name: WEEKDAY_NAMES[bestIndex], total: sums[bestIndex] };
+  }, [daily]);
 
   const weekTrend = useMemo(() => {
     if (daily.length < 14) return null;
@@ -379,8 +433,10 @@ function Dashboard() {
     return pctChange(last7, prev7);
   }, [daily]);
 
-  const topRegion = stats?.regions?.[0];
-  const topMouse = stats?.mice?.[0];
+  const regionTotal = regions.reduce((s, r) => s + (r.view_count ?? 0), 0);
+  const mouseTotal = mice.reduce((s, r) => s + (r.uses ?? 0), 0);
+  const concurrencyRatio = stats?.live != null && stats.allTimePeak ? (stats.live / stats.allTimePeak) * 100 : null;
+  const trackedSince = daily.length ? formatDay(daily[0].day) : "—";
 
   if (error === "session-expired") {
     return <LoginForm onLoggedIn={() => load(range)} />;
@@ -424,7 +480,7 @@ function Dashboard() {
         </nav>
         <div className="adm-sidebar-foot">
           <div className="adm-sf-row">
-            <span className="adm-sf-dot" /> Session active · 12h TTL
+            <span className="adm-sf-dot" /> SESSION ACTIVE · 12H TTL
           </div>
         </div>
       </aside>
@@ -433,7 +489,7 @@ function Dashboard() {
         <div className="adm-topbar">
           <div>
             <h1 className="adm-h1">Overview</h1>
-            <p className="adm-muted">{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Loading…"}</p>
+            <p className="adm-muted">{lastUpdated ? `UPDATED ${lastUpdated.toLocaleTimeString()}` : "LOADING…"}</p>
           </div>
           <div className="adm-topbar-right">
             <div className="adm-range-switch">
@@ -443,7 +499,7 @@ function Dashboard() {
                   className={`adm-range-btn ${range === opt ? "is-active" : ""}`}
                   onClick={() => setRange(opt)}
                 >
-                  {opt}d
+                  {opt}D
                 </button>
               ))}
             </div>
@@ -461,23 +517,39 @@ function Dashboard() {
           {error && <p className="adm-login-error">{error}</p>}
 
           <div className="adm-stat-row">
-            <StatTile icon={<IconPulse />} value={stats?.live ?? "—"} label="Live right now" live />
+            <StatTile icon={<IconPulse />} value={stats?.live ?? "—"} label="Live right now" live accent="#5fd98a" />
             <StatTile
               icon={<IconPeak />}
               value={stats?.allTimePeak ?? "—"}
               label={`All-time peak${stats?.allTimePeakAt ? ` · ${new Date(stats.allTimePeakAt).toLocaleDateString()}` : ""}`}
+              accent="#5b9bd9"
             />
             <StatTile
               icon={<IconTrend />}
               value={totalViews.toLocaleString()}
-              label={`Views · last ${daily.length} days`}
+              label={`Views · last ${daily.length}d`}
               trend={weekTrend}
+              accent="#d9a95b"
             />
-            <StatTile icon={<IconCalendar />} value={avgDaily.toFixed(1)} label="Avg views / day" />
+            <StatTile icon={<IconCalendar />} value={avgDaily.toFixed(1)} label="Avg views / day" accent="#5b9bd9" />
             <StatTile
               icon={<IconStar />}
               value={peakDay?.view_count ?? "—"}
               label={`Best day${peakDay ? ` · ${formatDay(peakDay.day)}` : ""}`}
+              accent="#d9a95b"
+            />
+            <StatTile icon={<IconCalendar />} value={medianDaily.toFixed(0)} label="Median views / day" accent="#5b9bd9" />
+            <StatTile
+              icon={<IconRegions />}
+              value={regions.length}
+              label={`Regions tracked${topEntry(regions, "country") ? ` · top ${topEntry(regions, "country")}` : ""}`}
+              accent="#5fd98a"
+            />
+            <StatTile
+              icon={<IconDevices />}
+              value={mice.length}
+              label={`Mouse models seen${topEntry(mice, "mouse_model") ? ` · top ${topEntry(mice, "mouse_model")}` : ""}`}
+              accent="#5fd98a"
             />
           </div>
 
@@ -488,28 +560,31 @@ function Dashboard() {
                 <p className="adm-card-sub">Site visits per day, last {daily.length} days</p>
               </div>
             </div>
-            <DailyBarChart points={daily} />
+            <DailyLineChart points={daily} />
           </section>
 
-          <div className="adm-row3">
+          <div className="adm-row2">
             <section className="adm-card">
               <div className="adm-card-head">
                 <div>
                   <p className="adm-card-title">Regions</p>
-                  <p className="adm-card-sub">Top: {topRegion?.country ?? "—"}</p>
+                  <p className="adm-card-sub">{regionTotal.toLocaleString()} views across {regions.length} regions</p>
                 </div>
               </div>
-              <BarList rows={stats?.regions ?? []} labelKey="country" valueKey="view_count" />
+              <DataTable rows={regions} labelKey="country" valueKey="view_count" nameHeader="Country" valueHeader="Views" />
             </section>
             <section className="adm-card">
               <div className="adm-card-head">
                 <div>
                   <p className="adm-card-title">Most used mice</p>
-                  <p className="adm-card-sub">Top: {topMouse?.mouse_model ?? "—"}</p>
+                  <p className="adm-card-sub">{mouseTotal.toLocaleString()} connects across {mice.length} models</p>
                 </div>
               </div>
-              <BarList rows={stats?.mice ?? []} labelKey="mouse_model" valueKey="uses" />
+              <DataTable rows={mice} labelKey="mouse_model" valueKey="uses" nameHeader="Model" valueHeader="Uses" />
             </section>
+          </div>
+
+          <div className="adm-row3">
             <section className="adm-card">
               <div className="adm-card-head">
                 <div>
@@ -519,9 +594,90 @@ function Dashboard() {
               </div>
               <WeekdayHeatmap points={daily} />
             </section>
+            <section className="adm-card">
+              <div className="adm-card-head">
+                <div>
+                  <p className="adm-card-title">Session detail</p>
+                  <p className="adm-card-sub">Derived from the current range</p>
+                </div>
+              </div>
+              <div className="adm-kv-grid">
+                <div className="adm-kv">
+                  <div className="adm-kv-label">Tracked since</div>
+                  <div className="adm-kv-value">{trackedSince}</div>
+                </div>
+                <div className="adm-kv">
+                  <div className="adm-kv-label">Days tracked</div>
+                  <div className="adm-kv-value">{daily.length}</div>
+                </div>
+                <div className="adm-kv">
+                  <div className="adm-kv-label">Best weekday</div>
+                  <div className="adm-kv-value">{bestWeekday?.name ?? "—"}</div>
+                </div>
+                <div className="adm-kv">
+                  <div className="adm-kv-label">Quietest day</div>
+                  <div className="adm-kv-value">{quietDay ? `${quietDay.view_count} · ${formatDay(quietDay.day)}` : "—"}</div>
+                </div>
+                <div className="adm-kv">
+                  <div className="adm-kv-label">Live vs. peak</div>
+                  <div className="adm-kv-value">{concurrencyRatio != null ? `${concurrencyRatio.toFixed(0)}%` : "—"}</div>
+                </div>
+                <div className="adm-kv">
+                  <div className="adm-kv-label">7d trend</div>
+                  <div className="adm-kv-value">{weekTrend != null ? `${weekTrend >= 0 ? "+" : ""}${weekTrend.toFixed(1)}%` : "—"}</div>
+                </div>
+              </div>
+            </section>
+            <section className="adm-card">
+              <div className="adm-card-head">
+                <div>
+                  <p className="adm-card-title">Top region</p>
+                  <p className="adm-card-sub">By share of tracked views</p>
+                </div>
+              </div>
+              <TopShare row={regions[0]} labelKey="country" valueKey="view_count" total={regionTotal} icon={<IconGlobe />} />
+            </section>
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function topEntry(rows: CountRow[], labelKey: "country" | "mouse_model"): string | null {
+  const value = rows[0]?.[labelKey];
+  return typeof value === "string" ? value : null;
+}
+
+function TopShare({
+  row,
+  labelKey,
+  valueKey,
+  total,
+  icon,
+}: {
+  row?: CountRow;
+  labelKey: "country" | "mouse_model";
+  valueKey: "view_count" | "uses";
+  total: number;
+  icon: any;
+}) {
+  if (!row) return <p className="adm-muted">No data yet.</p>;
+  const value = Number(row[valueKey]) || 0;
+  const share = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div className="adm-stat-icon" style={{ width: 36, height: 36 }}>
+        {icon}
+      </div>
+      <div>
+        <div className="adm-stat-value" style={{ fontSize: 20 }}>
+          {row[labelKey]}
+        </div>
+        <div className="adm-stat-label">
+          {value.toLocaleString()} views · {share.toFixed(1)}% of total
+        </div>
+      </div>
     </div>
   );
 }
