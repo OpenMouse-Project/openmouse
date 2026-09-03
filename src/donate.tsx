@@ -467,7 +467,7 @@ function DonateApp(): ReactNode {
           <a href="/supported.html">Devices</a>
           <a href="/donate.html" aria-current="page" className="is-current">Support</a>
           <a href="/check.html">Mouse Check</a>
-          <a href="/contribute.html">Contribute</a>
+          <a href="https://docs.openmouse.app">Contribute</a>
         </nav>
         <div className="don-actions">
           <a className="don-github" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">
@@ -643,7 +643,7 @@ function DonateApp(): ReactNode {
             <a href="/">Home</a>
             <a href="/supported.html">Devices</a>
             <a href="/check.html">Mouse Check</a>
-            <a href="/contribute.html">Contribute</a>
+            <a href="https://docs.openmouse.app">Contribute</a>
           </div>
 
           <div className="don-fcol">

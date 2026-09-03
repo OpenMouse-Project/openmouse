@@ -25,11 +25,9 @@ npm run check
 OpenMouse is one repository in a family — with the **Desktop** app,
 **mouse-protocol**, and **OpenMouse-Bridge**.
 
-Before you start, read the all-in-one contribution guide at
-[`contribute.html`](https://openmouse.app/contribute). It explains how the
-repositories fit together, per-repo setup and conventions, safe
-reverse-engineering practices, and the project's AI-assistance disclosure
-policy.
+Before you start, read the [contribution guide](https://docs.openmouse.app).
+It explains how the repositories fit together, per-repo setup and
+conventions, and safe reverse-engineering practices.
 
 ## Bridge updates
 
