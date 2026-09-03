@@ -2,6 +2,8 @@
 
 Documentation site for the OpenMouse Project, built with [Docusaurus](https://docusaurus.io/). Deployed at [docs.openmouse.app](https://docs.openmouse.app).
 
+Lives on the **`docs` branch** of the [`openmouse`](https://github.com/OpenMouse-Project/openmouse) repo — not a separate repo — so it stays next to the code it documents.
+
 Covers the app's architecture and, most importantly, how to add support for a new mouse — reverse-engineering conventions, writing a driver, and getting it registered and verified.
 
 ## Local development
@@ -19,9 +21,9 @@ npm run build
 
 Generates static content into `build/`.
 
-## Related repos
+## Related
 
-- **[openmouse](https://github.com/OpenMouse-Project/openmouse)** — the app itself.
+- **[openmouse](https://github.com/OpenMouse-Project/openmouse)** (`control-panel` branch) — the app these docs are for.
 - **[mouse-protocol](https://github.com/OpenMouse-Project/mouse-protocol)** — the packet codecs and WebHID drivers these docs explain how to write.
 
 ## License

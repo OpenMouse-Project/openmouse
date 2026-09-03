@@ -1,0 +1,73 @@
+---
+title: Supported Devices
+sidebar_position: 4
+---
+
+# Supported Devices
+
+How `openmouse.app/supported.html` — the page listing every mouse and its
+support status — actually gets its data. Three layers, each with a single
+job.
+
+## 1. The static table
+
+`openmouse/src/supported-mice.ts` is the source of truth: a curated array of
+`{ brand, model, status, req, note, pids? }` rows, one per known mouse.
+
+`status` is one of:
+
+| Status | Meaning |
+|---|---|
+| `supported` | A driver in `@openmouse/protocol` covers it |
+| `pr` | A driver PR is open |
+| `quickwin` | The protocol's implemented; only a PID/config entry is missing |
+| `likely` | A driver probably covers it, but isn't confirmed on hardware |
+| `driver` | No driver exists yet |
+| `unknown` | Nothing is known about the protocol |
+| `pending` | A live community request — never in this static table, added at runtime (see below) |
+
+`openmouse/src/supported-mice.test.ts` re-checks every `supported`/`quickwin`
+row and `pids` entry against the actual `@openmouse/protocol` registry on
+every run, so this table can't silently drift from the code — a driver
+that's removed or a PID that's wrong fails the build, not just the docs.
+
+## 2. The runtime overlay
+
+`openmouse/src/supported-live.ts` merges two live sources onto the static
+table when the page loads:
+
+- **Registry auto-listing** — models named by a driver's own PID registry
+  (currently WLMouse, Lamzu, Keychron, Orbital, Fantech, G-Wolves) are added
+  as `supported` rows automatically, even if nobody's updated the static
+  table yet. Only registries that carry human-readable names do this;
+  bare-PID registries stay curated by hand.
+- **Community requests & votes** — the support-request catalog (Supabase,
+  via `support-requests.ts`) overlays real vote counts onto matching rows,
+  and any catalog request that doesn't match an existing row becomes a
+  `pending` row of its own.
+
+Matching brand/model across these sources is fuzzy on purpose — community
+submissions carry free-text names ("Wireless 8K Gaming Mouse" suffixes,
+brand typos like "Logitec") that need to collapse onto the same canonical
+row instead of creating duplicates. See `canonicalBrand()` and
+`modelsMatch()` in that file for the exact rules.
+
+Both overlays degrade gracefully: no Supabase config, a failed fetch, or an
+empty catalog just falls back to the static table alone.
+
+## 3. Rendering
+
+`openmouse/src/supported.ts` renders the merged list: search, status-tab
+filtering (`TABS` from `supported-mice.ts`), counts per status, and
+light/dark theme. Nothing here is data logic — it only reads what the two
+layers above produced.
+
+## Adding your driver to this page
+
+If your new driver's PID registry carries names and is one of the
+registries `supported-live.ts` already reads, it appears on the page
+automatically — no table edit needed.
+
+Otherwise, add a row to `MICE` in `supported-mice.ts` with the correct
+`status` and, if applicable, `pids`. The test suite will catch a wrong
+status or a PID that doesn't actually exist in the protocol package.

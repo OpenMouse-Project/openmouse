@@ -15,7 +15,7 @@ const config: Config = {
   baseUrl: '/',
 
   organizationName: 'OpenMouse-Project',
-  projectName: 'openmouse-docs',
+  projectName: 'openmouse',
 
   onBrokenLinks: 'throw',
 
@@ -32,7 +32,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           routeBasePath: '/', // docs at site root, no separate landing page needed
           editUrl:
-            'https://github.com/OpenMouse-Project/openmouse-docs/tree/main/',
+            'https://github.com/OpenMouse-Project/openmouse/tree/docs/',
         },
         blog: false,
         theme: {
