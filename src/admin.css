@@ -29,6 +29,9 @@
 
 * { box-sizing: border-box; }
 
+html, body { margin: 0; padding: 0; background: var(--adm-bg); }
+#admin-app { min-height: 100vh; }
+
 .adm-root {
   background: var(--adm-bg);
   color: var(--adm-text);
