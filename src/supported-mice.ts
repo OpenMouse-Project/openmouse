@@ -358,20 +358,42 @@ export const MICE: Mouse[] = [
     note: "iCUE protocol — not implemented" },
 
   // GLORIOUS ────────────────────────────────────────────────────────────
-  { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "driver",   req: 5,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O",                 status: "driver",   req: 3,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D Wireless",        status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D",                 status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O2 Pro 4K/8K",     status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O Pro",             status: "driver",   req: 1,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "driver",  req: 1,
-    note: "Glorious CORE protocol — not implemented" },
+  // Three tiers: the Pixart Model O 2 / I 2 family (write-only,
+  // drivers/glorious/hid.ts); the pre-Pixart "core1" classic Model O/D/I
+  // family (full DPI/polling/LOD/debounce/RGB write + read battery,
+  // drivers/glorious/classic-hid.ts, ported from glorious-ctl + mxw); and the
+  // newer 8000Hz-class "core2" devices on the SAME classic-hid.ts driver but
+  // gated to RGB/debounce/battery only — DPI/polling/LOD stay off for core2
+  // because korkje/mxw's own device list never included them, and (for
+  // polling specifically) github.com/AMarcinkiewicz/GloriousAutoPollingRate
+  // shows the D2 Pro 4K/8K's real polling command uses an entirely different
+  // usage page/report layout, confirming core2 isn't just core1 with new
+  // values. See [[glorious-classic-protocol]] in project memory for the full
+  // writeup, including the exact (unwired) D2 Pro 4K/8K polling-rate bytes.
+  { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "supported", req: 5,
+    pids: [0x2033],
+    note: "Same PID (0x2033) as the classic driver's \"Model O 2 Wireless\" — Glorious's own \"O2 Pro\" name for it, per AwesomeTy18/GloriousBatteryMonitor's device table. DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model O",                 status: "supported", req: 3,
+    pids: [0x2011, 0x2022],
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model D Wireless",        status: "supported", req: 2,
+    pids: [0x2012, 0x2023],
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model D",                 status: "supported",   req: 2,
+    pids: [0x2012],
+    note: "Same PID as Model D Wireless's wired mode — classic driver (VID 0x258a)" },
+  { brand: "Glorious", model: "Model O2 Pro 4K/8K",     status: "likely",   req: 2,
+    pids: [0x201b, 0x2035],
+    note: "Classic driver recognizes this PID (VID 0x258a) but only writes RGB/debounce and reads battery — DPI/polling/LOD are unconfirmed on this newer \"core2\" firmware and stay off" },
+  { brand: "Glorious", model: "Model O Pro",             status: "supported", req: 1,
+    pids: [0x2015, 0x2027],
+    note: "Classic driver (VID 0x258a) — full DPI/polling/LOD/debounce/RGB write, battery read, per RealCrystalNight/Glorious-Mouse-Toolkit-Linux's device table" },
+  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "likely",  req: 1,
+    pids: [0x201c, 0x2036],
+    note: "Classic driver recognizes this PID (VID 0x258a) but only writes RGB/debounce and reads battery — DPI/polling/LOD are unconfirmed on this newer \"core2\" firmware and stay off" },
+  { brand: "Glorious", model: "Model O3 Wireless",       status: "likely",   req: 5,
+    pids: [0xa312, 0xa300],
+    note: "8000Hz mouse on VID 0x3794. glorious-ctl's own device list includes it for RGB/debounce/battery, so the classic driver recognizes it for those — DPI/polling/LOD have no confirmed protocol and stay off" },
 
   // ENDGAME GEAR ────────────────────────────────────────────────────────
   { brand: "Endgame Gear", model: "XM2w 4K",            status: "supported", req: 3,

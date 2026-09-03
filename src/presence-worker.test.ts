@@ -73,7 +73,7 @@ test("the presence endpoint calls the heartbeat RPC and forwards its count/ids",
     assert.equal(body.count, 3);
     assert.equal(body.ids.length, 3);
     assert.equal(calledUrl, "https://example.supabase.co/rest/v1/rpc/heartbeat_page_presence");
-    assert.deepEqual(calledBody, { p_session_id: sessionId });
+    assert.deepEqual(calledBody, { p_session_id: sessionId, p_country: null });
   } finally {
     globalThis.fetch = originalFetch;
   }
