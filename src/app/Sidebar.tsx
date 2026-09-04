@@ -50,8 +50,6 @@ const SETTINGS_PATH = (
   </>
 );
 
-const REQUEST_PATH = <path d="M12 5v14M5 12h14" />;
-
 const FAME_PATH = (
   <>
     <path d="M6 9a6 6 0 0 0 12 0" />
@@ -68,7 +66,7 @@ const DEBUG_PATH = (
   </>
 );
 
-export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: ControlSnapshot; onOpenSupportRequests: () => void }): ReactNode {
+export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { status, deviceArtwork, preferences } = snapshot;
   const [unreachable, setUnreachable] = useState<ReadonlySet<string>>(new Set());
   const showArtwork = deviceArtwork !== null && !unreachable.has(deviceArtwork);
@@ -187,14 +185,6 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
           onClick={control.openInterfaceSettings}
         >
           <NavIcon path={SETTINGS_PATH} />
-        </button>
-        <button
-          className="nav-item has-label mouse-request-button"
-          type="button"
-          onClick={onOpenSupportRequests}
-        >
-          <NavIcon path={REQUEST_PATH} />
-          Request a mouse
         </button>
         <a
           className="nav-item has-label"

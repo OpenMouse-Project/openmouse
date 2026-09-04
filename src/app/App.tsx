@@ -11,7 +11,6 @@ import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
 import { ShareProfileDialog } from "./ShareProfileDialog";
-import { SupportRequestsDialog } from "./SupportRequestsDialog";
 import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
 import { BatteryIcon } from "./ui";
@@ -262,7 +261,6 @@ export function App(): ReactNode {
   const snapshot = useControl();
   const panel = useRef<HTMLElement>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
-  const [supportRequestsOpen, setSupportRequestsOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const { preferences, status } = snapshot;
 
@@ -326,7 +324,7 @@ export function App(): ReactNode {
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
       style={{ "--glass-intensity": preferences.glassIntensity }}
     >
-      <Sidebar snapshot={snapshot} onOpenSupportRequests={() => setSupportRequestsOpen(true)} />
+      <Sidebar snapshot={snapshot} />
 
       <main className={`control-panel${snapshot.interfaceSettingsOpen ? " showing-settings" : ""}`} ref={panel}>
         <div className="panel-top">
@@ -420,7 +418,6 @@ export function App(): ReactNode {
 
       <PendingBar snapshot={snapshot} />
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
-      <SupportRequestsDialog open={supportRequestsOpen} onClose={() => setSupportRequestsOpen(false)} diagnosticBundle={control.supportDiagnosticBundle()} />
       <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
       <ToastHost toasts={snapshot.toasts} />
     </div>
