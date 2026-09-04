@@ -378,7 +378,7 @@ export const MICE: Mouse[] = [
     note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
   { brand: "Glorious", model: "Model D Wireless",        status: "supported", req: 2,
     pids: [0x2012, 0x2023],
-    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read. Config collection may be usage 0xffff:0 on newer firmware — the classic driver accepts it" },
   { brand: "Glorious", model: "Model D",                 status: "supported",   req: 2,
     pids: [0x2012],
     note: "Same PID as Model D Wireless's wired mode — classic driver (VID 0x258a)" },
