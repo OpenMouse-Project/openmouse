@@ -2,7 +2,7 @@
 
 OpenMouse-Support is the official support and ticket management system for the
 OpenMouse project. **Discord is the user-facing support platform** — normal users
-interact with support through the `#support` channel — and **the OpenMouse-Support
+interact with support through the `#support-ticket` channel — and **the OpenMouse-Support
 dashboard is the private staff/developer control center**.
 
 It adapts the proven Discord ticketing engine of the open-source
@@ -27,7 +27,7 @@ is no second, mirrored copy of the conversation stored in Supabase.
 ## Architecture at a glance
 
 ```
- Users (Discord #support)
+ Users (Discord #support-ticket)
         │  🎫 Create Ticket → modal → thread
         ▼
 Discord HTTP Interactions POST        ┌─────────────────────────────┐
@@ -134,9 +134,9 @@ it is reviewable and shareable.
 
 ## Discord integration
 
-### One ticket = one thread inside `#support`
+### One ticket = one thread inside `#support-ticket`
 
-`#support` remains a **normal text channel** (never a Forum, never a separate
+`#support-ticket` remains a **normal text channel** (never a Forum, never a separate
 channel per ticket). A persistent **OpenMouse Support** panel is posted into it:
 
 > **OpenMouse Support** — Need help with OpenMouse?
@@ -156,7 +156,7 @@ Clicking **Create Ticket** opens a modal collecting:
 On submit the interactions endpoint:
 1. Validates the form.
 2. Creates the `support_tickets` row and allocates `OM-XXXX` via the sequence.
-3. Creates a **thread inside** `#support` named like `OM-0042 — Mouse not detected`.
+3. Creates a **thread inside** `#support-ticket` named like `OM-0042 — Mouse not detected`.
 4. Saves the thread id on the ticket.
 5. Posts the initial ticket info embed into the thread.
 6. Adds the user to the thread (associating them with the ticket).
@@ -181,7 +181,7 @@ no gateway needed — the delay is at most the ~5 s poll interval.
 When a staff member replies from the dashboard, the Pages Function posts the
 message into the **exact same existing ticket thread** (via the Discord REST API
 with the bot token) — it never creates another thread and never posts into the
-main `#support` channel. The message's author is shown as the staff member who
+main `#support-ticket` channel. The message's author is shown as the staff member who
 replied. On success the reply is recorded in the audit log; the ticket moves
 `OPEN → IN_PROGRESS`. If Discord is briefly unavailable, the reply is written to
 the Supabase **outbox** (`delivered_to_discord = false`) so it is never lost.
@@ -203,7 +203,7 @@ endpoint in `functions/api/support/interactions.js`. In short:
 
 1. Create a Discord application and add a bot to it; invite it to the OpenMouse
    server with **Send Messages**, **Manage Threads**, **Create Public Threads**
-   and **Read Message History** permissions in `#support`.
+   and **Read Message History** permissions in `#support-ticket`.
 2. In the Discord Developer Portal → **General Information**, copy the
    **Public Key** and set the **Interactions Endpoint URL** to
    `` `${SUPPORT_BASE_URL}/api/support/interactions` ``. Verify the endpoint
@@ -213,7 +213,7 @@ endpoint in `functions/api/support/interactions.js`. In short:
    Cloudflare Pages environment variables (see below).
 4. Register the `/om-support-panel` slash command (via the guild command API or
    the Portal **Slash Commands** tab). Running it posts the support panel into
-   `#support`; clicking **Create Ticket** runs the whole flow through the same
+   `#support-ticket`; clicking **Create Ticket** runs the whole flow through the same
    endpoint.
 
 `support/bot/` is retained as **reference only** (the original gateway-based
@@ -302,7 +302,7 @@ never expose to the browser.
 | `DISCORD_BOT_TOKEN` | Discord bot token (used for creating threads + posting staff replies) |
 | `DISCORD_PUBLIC_KEY` | Discord app **public key** (verifies interactions webhook signatures) |
 | `DISCORD_GUILD_ID` | OpenMouse server id (slash-command registration) |
-| `SUPPORT_CHANNEL_ID` | id of the `#support` channel (fallback for the support panel) |
+| `SUPPORT_CHANNEL_ID` | id of the `#support-ticket` channel (fallback for the support panel) |
 | `SUPPORT_STAFF_WHITELIST` | Comma-separated Discord ids allowed to log in |
 | `SUPPORT_OWNER_IDS` / `SUPPORT_ADMIN_IDS` / `SUPPORT_DEVELOPER_IDS` | Comma-separated role lists |
 | `SUPPORT_WHITELIST_EXTRA` | Extra ids allowed to log in at SUPPORT level |
@@ -423,5 +423,5 @@ OpenMouse; we adapt the ticketing engine so the result is native to OpenMouse.
   dashboard. There is no separate bot to host.
 - Set the Discord app's **Interactions Endpoint URL** to `` `${SUPPORT_BASE_URL}/api/support/interactions` `` and add `DISCORD_PUBLIC_KEY` to Pages env.
 - Register the `/om-support-panel` slash command once (Portal or guild command
-  API); running it posts the support panel into `#support`. If the panel needs to
+  API); running it posts the support panel into `#support-ticket`. If the panel needs to
   be refreshed later, just run the slash command again.

@@ -24,12 +24,12 @@ truth for the conversation** — the bot does not mirror messages into Supabase.
 
 ## What it does
 
-- Posts the persistent **OpenMouse Support** panel into `#support` with a
+- Posts the persistent **OpenMouse Support** panel into `#support-ticket` with a
   `🎫 Create Ticket` button.
 - Opens a **creation modal** (subject, description, category, optional
   device/version/OS info) when the button is clicked.
 - Creates a **ticket in Supabase** (concurrency-safe `OM-XXXX` numbering) and a
-  **thread inside `#support`**, posts the initial ticket info, and associates
+  **thread inside `#support-ticket`**, posts the initial ticket info, and associates
   the user. The thread — and everything said in it — lives in Discord.
 - **Automatically reopens** resolved/closed tickets when the user replies, and
   touches the ticket's activity timestamp in Supabase.
@@ -49,7 +49,7 @@ repo root) — the bot itself does not need to forward dashboard content.
 
 1. Create an application at <https://discord.com/developers/applications>.
 2. Under **Bot**, copy the token.
-3. Invite the bot to the OpenMouse server with permissions in `#support`:
+3. Invite the bot to the OpenMouse server with permissions in `#support-ticket`:
    Send Messages, Create Public Threads, Manage Threads, Read Message History,
    and `MENTION_EVERYONE` not required (mention abuse is blocked).
 4. Note the **Client ID** and **Client Secret** (used for the dashboard's OAuth2
@@ -65,7 +65,7 @@ DISCORD_TOKEN=...            # bot token
 DISCORD_CLIENT_ID=...
 DISCORD_CLIENT_SECRET=...
 DISCORD_GUILD_ID=...         # the OpenMouse server id
-SUPPORT_CHANNEL_ID=...       # the #support channel id
+SUPPORT_CHANNEL_ID=...       # the #support-ticket channel id
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 STAFF_WHITELIST=...          # comma-separated Discord ids allowed as staff
