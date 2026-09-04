@@ -73,56 +73,52 @@ export async function requireSession(request, env) {
   return session;
 }
 
-/** Staff roles recognized by the dashboard (mirrors the DB enum). */
-export const STAFF_ROLES = ["OWNER", "ADMIN", "DEVELOPER", "SUPPORT"];
+/**
+ * Access is gated by a single Discord server role (e.g. "dev") rather than a
+ * list of individual Discord user ids — add/remove the role in Discord to
+ * grant/revoke dashboard access, no env var edits needed per person.
+ * `SUPPORT_STAFF_ROLE_ID` is that role's Discord role id; `DISCORD_GUILD_ID`
+ * is the server it lives in.
+ *
+ * There is only one staff tier now. The DB's `staff_role` enum is left as-is
+ * (unchanged schema); every staff member is simply recorded as `SUPPORT`.
+ */
+export const STAFF_ROLE = "SUPPORT";
+
+/** True if the Discord user currently holds the configured staff role in the guild. */
+export async function isStaffMember(env, discordId) {
+  const { DISCORD_GUILD_ID, DISCORD_BOT_TOKEN, SUPPORT_STAFF_ROLE_ID } = env;
+  if (!DISCORD_GUILD_ID || !DISCORD_BOT_TOKEN || !SUPPORT_STAFF_ROLE_ID) return false;
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${DISCORD_GUILD_ID}/members/${discordId}`,
+    { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } },
+  );
+  if (!response.ok) return false; // 404 = not a guild member (or removed)
+  const member = await response.json().catch(() => null);
+  return Array.isArray(member?.roles) && member.roles.includes(SUPPORT_STAFF_ROLE_ID);
+}
 
 /**
- * Resolves the role for a Discord id from configuration. Higher-priority lists
- * win. The whitelist is the set of ids allowed to log in at all; each list maps
- * to a role. Any id on the whitelist defaults to SUPPORT unless mapped higher.
+ * Resolves the staff role for each of a batch of Discord ids in one pass
+ * (deduped), returning a plain synchronous lookup. Used where a list of
+ * Discord message authors needs to be classified as staff/user without
+ * threading async through a `.map()` (e.g. mapDiscordMessage).
  */
-export function roleForId(env, discordId) {
-  const maps = [
-    { role: "OWNER", ids: (env.SUPPORT_OWNER_IDS ?? "") },
-    { role: "ADMIN", ids: (env.SUPPORT_ADMIN_IDS ?? "") },
-    { role: "DEVELOPER", ids: (env.SUPPORT_DEVELOPER_IDS ?? "") },
-  ];
-  for (const { role, ids } of maps) {
-    if (ids.split(",").map((s) => s.trim()).filter(Boolean).includes(discordId)) return role;
-  }
-  return "SUPPORT";
+export async function buildIsStaffAuthor(env, discordIds) {
+  const unique = [...new Set(discordIds.filter(Boolean))];
+  const results = await Promise.all(unique.map((id) => isStaffMember(env, id)));
+  const staffIds = new Set(unique.filter((_, i) => results[i]));
+  return (discordId) => staffIds.has(discordId);
 }
 
-/** Whitelist of Discord ids allowed to log in at all. */
-export function isWhitelisted(env, discordId) {
-  const whitelist = (env.SUPPORT_STAFF_WHITELIST ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (!whitelist.length) return roleForId(env, discordId) !== "SUPPORT" || isExplicitlyWhitelisted(env, discordId);
-  return whitelist.includes(discordId);
-}
-
-function isExplicitlyWhitelisted(env, discordId) {
-  const all = [
-    env.SUPPORT_OWNER_IDS,
-    env.SUPPORT_ADMIN_IDS,
-    env.SUPPORT_DEVELOPER_IDS,
-    env.SUPPORT_WHITELIST_EXTRA,
-  ]
-    .filter(Boolean)
-    .join(",");
-  return all.split(",").map((s) => s.trim()).filter(Boolean).includes(discordId);
-}
-
-/** Authorization guard: at least SUPPORT role (all authenticated staff). */
+/** Every logged-in session already holds the single staff role. */
 export function canAccess(role) {
-  return STAFF_ROLES.includes(role);
+  return role === STAFF_ROLE;
 }
 
-/** ADMIN or OWNER can manage staff/participants; SUPPORT/DEVELOPER can still work tickets. */
+/** Single tier now — any authenticated staff member can manage participants. */
 export function canManageStaff(role) {
-  return role === "OWNER" || role === "ADMIN";
+  return role === STAFF_ROLE;
 }
 
 export const json = (body, status = 200, extraHeaders = {}) => new Response(JSON.stringify(body), {

@@ -9,7 +9,7 @@
 
 import { supabase } from "./_supabase.js";
 import { getMessages, postToThread } from "./_discord.js";
-import { isWhitelisted } from "./_session.js";
+import { isStaffMember } from "./_session.js";
 
 /**
  * @param env Cloudflare env
@@ -33,7 +33,7 @@ export async function maybeLazyReopen(env, ticket) {
   if (!Array.isArray(messages) || messages.length === 0) return false;
   const newest = messages[0];
   if (!newest.author || newest.author.bot) return false;
-  if (isWhitelisted(env, newest.author.id)) return false;
+  if (await isStaffMember(env, newest.author.id)) return false;
   if (newest.author.id !== ticket.user_discord_id) return false;
 
   // Only reopen if the reply came after the ticket was closed/resolved (or after

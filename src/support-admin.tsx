@@ -11,7 +11,10 @@ import "./support-admin.css";
 
 type Status = "OPEN" | "IN_PROGRESS" | "WAITING_FOR_USER" | "RESOLVED" | "CLOSED";
 type Priority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
-type Role = "OWNER" | "ADMIN" | "DEVELOPER" | "SUPPORT";
+// Single staff tier — access is gated by one Discord server role, not by
+// individual ids or a hierarchy. Kept as a type (not a literal) for the enum
+// value stored on the session/DB row.
+type Role = "SUPPORT";
 
 interface Session {
   discordId: string;
@@ -438,7 +441,7 @@ function TicketsView({ session }: { session: Session }) {
 }
 
 /* ---------- ticket detail ---------- */
-function TicketDetailView({ session, id }: { session: Session; id: string }) {
+function TicketDetailView({ id }: { id: string }) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -458,7 +461,8 @@ function TicketDetailView({ session, id }: { session: Session; id: string }) {
   // Oldest Discord message id loaded so far, for lazy-loading older history.
   const oldestDiscordIdRef = useRef<string | null>(null);
 
-  const canManage = session.role === "ADMIN" || session.role === "OWNER";
+  // Single staff tier now: any authenticated staff member can manage participants.
+  const canManage = true;
 
   const newestMessageId = (msgs: Message[]): string | null => {
     let newest: string | null = null;
@@ -886,7 +890,7 @@ function Shell({ session }: { session: Session }) {
         <div className="s-content">
           {route.view === "overview" && <OverviewView session={session} />}
           {route.view === "tickets" && !route.ticketId && <TicketsView session={session} />}
-          {route.view === "tickets" && route.ticketId && <TicketDetailView session={session} id={route.ticketId} />}
+          {route.view === "tickets" && route.ticketId && <TicketDetailView id={route.ticketId} />}
           {route.view === "audit" && <AuditView />}
         </div>
       </main>

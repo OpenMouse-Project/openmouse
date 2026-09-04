@@ -28,21 +28,29 @@
 -- ---------------------------------------------------------------------------
 -- Enums
 -- ---------------------------------------------------------------------------
-create type if not exists public.ticket_status as enum (
-  'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'
-);
+do $$ begin
+  create type public.ticket_status as enum (
+    'OPEN', 'IN_PROGRESS', 'WAITING_FOR_USER', 'RESOLVED', 'CLOSED'
+  );
+exception when duplicate_object then null; end $$;
 
-create type if not exists public.ticket_priority as enum (
-  'LOW', 'NORMAL', 'HIGH', 'URGENT'
-);
+do $$ begin
+  create type public.ticket_priority as enum (
+    'LOW', 'NORMAL', 'HIGH', 'URGENT'
+  );
+exception when duplicate_object then null; end $$;
 
-create type if not exists public.ticket_message_type as enum (
-  'USER', 'STAFF', 'SYSTEM'
-);
+do $$ begin
+  create type public.ticket_message_type as enum (
+    'USER', 'STAFF', 'SYSTEM'
+  );
+exception when duplicate_object then null; end $$;
 
-create type if not exists public.staff_role as enum (
-  'OWNER', 'ADMIN', 'DEVELOPER', 'SUPPORT'
-);
+do $$ begin
+  create type public.staff_role as enum (
+    'OWNER', 'ADMIN', 'DEVELOPER', 'SUPPORT'
+  );
+exception when duplicate_object then null; end $$;
 
 -- ---------------------------------------------------------------------------
 -- staff

@@ -1,4 +1,4 @@
-import { createSessionCookie, json, roleForId, isWhitelisted, safeEqual, safeRedirect } from "./_session.js";
+import { createSessionCookie, json, STAFF_ROLE, isStaffMember, safeEqual, safeRedirect } from "./_session.js";
 
 /**
  * GET /api/support/callback?code=...&state=...
@@ -61,15 +61,15 @@ export async function onRequest({ request, env }) {
   const me = await meRes.json().catch(() => null);
   if (!me?.id) return json({ message: "Could not fetch Discord identity." }, 502);
 
-  // Authorize: only whitelisted staff may enter.
-  if (!isWhitelisted(env, me.id)) {
+  // Authorize: only holders of the configured Discord staff role may enter.
+  if (!(await isStaffMember(env, me.id))) {
     return new Response("You are not authorized to access this support dashboard.", {
       status: 403,
       headers: { "Content-Type": "text/plain" },
     });
   }
 
-  const role = roleForId(env, me.id);
+  const role = STAFF_ROLE;
   const sessionCookie = await createSessionCookie(env.SUPPORT_SESSION_SECRET, {
     discordId: me.id,
     role,

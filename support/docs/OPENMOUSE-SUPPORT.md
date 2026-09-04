@@ -234,14 +234,17 @@ Access is enforced **server-side**:
 - `GET /api/support/login` redirects to Discord OAuth2 (with an anti-CSRF
   `state` cookie).
 - `GET /api/support/callback` validates `state`, exchanges the code, fetches the
-  user's Discord identity, checks the **staff whitelist**, computes the role and
-  issues a signed, httpOnly, `SameSite=Strict` session cookie.
+  user's Discord identity, checks that they currently hold the configured
+  Discord **staff role** in the guild (a live lookup via the bot token, not a
+  static id list), and issues a signed, httpOnly, `SameSite=Strict` session
+  cookie.
 - Every API route re-validates the session via `requireSession()` — never a
   client-side-only check.
 
-Roles: `OWNER`, `ADMIN`, `DEVELOPER`, `SUPPORT`. Whitelist + role lists are set
-in Pages environment variables (see below). Participant management is limited to
-ADMIN/OWNER.
+There is a single staff tier, gated by one Discord server role (`SUPPORT_STAFF_ROLE_ID`,
+see below) — access is granted/revoked by assigning/removing that role in
+Discord, not by editing env vars per person. Any authenticated staff member can
+manage participants.
 
 ### API (Cloudflare Pages Functions under `functions/api/support/`)
 
@@ -303,9 +306,7 @@ never expose to the browser.
 | `DISCORD_PUBLIC_KEY` | Discord app **public key** (verifies interactions webhook signatures) |
 | `DISCORD_GUILD_ID` | OpenMouse server id (slash-command registration) |
 | `SUPPORT_CHANNEL_ID` | id of the `#support-ticket` channel (fallback for the support panel) |
-| `SUPPORT_STAFF_WHITELIST` | Comma-separated Discord ids allowed to log in |
-| `SUPPORT_OWNER_IDS` / `SUPPORT_ADMIN_IDS` / `SUPPORT_DEVELOPER_IDS` | Comma-separated role lists |
-| `SUPPORT_WHITELIST_EXTRA` | Extra ids allowed to log in at SUPPORT level |
+| `SUPPORT_STAFF_ROLE_ID` | Discord role id gating dashboard access — anyone holding this role in the guild can log in (checked live via the bot token against the guild member's roles, not a static id list) |
 
 All the Discord variables above come from the same Discord application used for
 the interactions endpoint (there is no separate bot env anymore — the old

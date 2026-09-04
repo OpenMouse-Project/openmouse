@@ -1,4 +1,4 @@
-import { json, requireSession, isWhitelisted } from "../_session.js";
+import { json, requireSession, buildIsStaffAuthor } from "../_session.js";
 import { supabase } from "../_supabase.js";
 import { getMessages, mapDiscordMessage } from "../_discord.js";
 import { maybeLazyReopen } from "../_reopen.js";
@@ -72,7 +72,7 @@ export async function onRequest({ request, env, params }) {
     if (threadId) {
       try {
         const page = await fetchOlderPage(env, threadId, before, LAZY_PAGE_SIZE);
-        const isStaffAuthor = (authorId) => isWhitelisted(env, authorId);
+        const isStaffAuthor = await buildIsStaffAuthor(env, page.messages.map((m) => m.author?.id));
         discordMapped = page.messages.map((m) => mapDiscordMessage(m, isStaffAuthor));
         hasMoreOlder = page.hasMore;
       } catch (err) {
@@ -91,7 +91,7 @@ export async function onRequest({ request, env, params }) {
     if (threadId) {
       try {
         const conv = await fetchConversation(env, threadId);
-        const isStaffAuthor = (authorId) => isWhitelisted(env, authorId);
+        const isStaffAuthor = await buildIsStaffAuthor(env, conv.messages.map((m) => m.author?.id));
         discordMapped = conv.messages.map((m) => mapDiscordMessage(m, isStaffAuthor));
         hasMoreOlder = conv.hasMore;
       } catch (err) {

@@ -1,4 +1,4 @@
-import { json, requireSession, isWhitelisted } from "./_session.js";
+import { json, requireSession, buildIsStaffAuthor } from "./_session.js";
 import { supabase } from "./_supabase.js";
 import { getMessagesAfter, mapDiscordMessage, postToThread } from "./_discord.js";
 import { maybeLazyReopen } from "./_reopen.js";
@@ -98,8 +98,9 @@ export async function onRequest({ request, env }) {
   const threadId = ticket?.discord_thread_id;
   if (after && threadId) {
     try {
-      const isStaffAuthor = (authorId) => isWhitelisted(env, authorId);
-      discordMessages = (await getMessagesAfter(env, threadId, after))
+      const fetched = await getMessagesAfter(env, threadId, after);
+      const isStaffAuthor = await buildIsStaffAuthor(env, fetched.map((m) => m.author?.id));
+      discordMessages = fetched
         .map((m) => mapDiscordMessage(m, isStaffAuthor))
         .reverse(); // newest-first -> oldest-first for append
     } catch (err) {
