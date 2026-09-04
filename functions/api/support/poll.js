@@ -1,6 +1,7 @@
 import { json, requireSession, isWhitelisted } from "./_session.js";
 import { supabase } from "./_supabase.js";
 import { getMessagesAfter, mapDiscordMessage, postToThread } from "./_discord.js";
+import { maybeLazyReopen } from "./_reopen.js";
 
 /**
  * GET /api/support/poll?after=<messageId>&ticket=<ticketId>
@@ -32,9 +33,19 @@ export async function onRequest({ request, env }) {
   // Ticket-level state changes (status/priority/assignment/etc. live in Supabase).
   const [ticketRes] = await db.select(
     "support_tickets",
-    `id=eq.${ticketId}&select=status,priority,assigned_to,last_activity_at,updated_at,first_response_at,resolved_at,closed_at`
+    `id=eq.${ticketId}&select=status,priority,assigned_to,last_activity_at,updated_at,first_response_at,resolved_at,closed_at,user_discord_id,discord_thread_id`
   );
   const ticket = Array.isArray(ticketRes.body) ? ticketRes.body[0] : null;
+
+  // Lazy auto-reopen: a user's reply to a resolved/closed ticket reopens it.
+  let reopened = false;
+  if (ticket) {
+    try {
+      reopened = await maybeLazyReopen(env, ticket);
+    } catch (err) {
+      console.error("[om-support] Poll reopen check failed:", err);
+    }
+  }
 
   // New staff-only items in Supabase (internal notes + newly delivered outbox).
   const [storedRes] = await db.select(
@@ -96,6 +107,8 @@ export async function onRequest({ request, env }) {
     }
   }
 
+  if (reopened && ticket) ticket.status = "OPEN";
+
   return json({
     messages: [...storedNew, ...discordMessages].sort(
       (a, b) => new Date(a.created_at) - new Date(b.created_at),
@@ -103,5 +116,6 @@ export async function onRequest({ request, env }) {
     ticket,
     serverTime: nowIso,
     retried,
+    reopened,
   });
 }

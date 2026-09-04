@@ -53,6 +53,32 @@ export async function getMessages(env, threadId, { after, before, around, limit 
   return Array.isArray(json) ? json : [];
 }
 
+/** Creates a public thread inside a channel and returns the new thread id. */
+export async function createPublicThread(env, channelId, { name }) {
+  const { response, json } = await discordRequest(env, "POST", `/channels/${channelId}/threads`, {
+    name,
+    type: 11, // GUILD_PUBLIC_THREAD
+    auto_archive_duration: 10080, // 7 days
+  });
+  if (!response.ok) {
+    throw new Error(`Discord create-thread failed (${response.status}): ${JSON.stringify(json)}`);
+  }
+  return json.id;
+}
+
+/** Adds a user as a member of a thread. */
+export async function addThreadMember(env, threadId, userId) {
+  return discordRequest(env, "PUT", `/channels/${threadId}/members/${userId}`);
+}
+
+/**
+ * Follows up on an interaction (after a type 5 deferred ack) by POSTing to the
+ * interaction webhook. Returns the raw {response,json}.
+ */
+export async function interactionFollowUp(env, applicationId, interactionToken, payload) {
+  return discordRequest(env, "POST", `/webhooks/${applicationId}/${interactionToken}`, payload);
+}
+
 /** Messages newer than the given message id (NEWEST-first). Convenience wrapper. */
 export async function getMessagesAfter(env, threadId, afterId) {
   return getMessages(env, threadId, { after: afterId });

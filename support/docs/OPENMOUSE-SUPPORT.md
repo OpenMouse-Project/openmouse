@@ -30,20 +30,20 @@ is no second, mirrored copy of the conversation stored in Supabase.
  Users (Discord #support)
         │  🎫 Create Ticket → modal → thread
         ▼
-OpenMouse-Support Discord Bot        ┌─────────────────────────────┐
- (Node.js / discord.js v14,          │  Staff Dashboard (Preact)   │
-  long-lived process on a VPS)       │  control.openmouse.app/...  │
-        │  threads, messages,        ├─────────────────────────────┤
-        │  buttons, modals           │  Cloudflare Pages Functions │
-        ▼                            │  (functions/api/support/*)  │
-   ┌──────────────────┐              │  Discord OAuth2 staff login │
-   │  Discord = true  │◄──── source   └──────────────┬──────────────┘
-   │  source of truth │  of truth for                │ REST + polling
-   │  (threads +      │  the CONVERSATION             ▼
-   │   messages)      │          ┌──────────────────────────────┐
-   └──────────────────┘          │  Discord REST (bot token)    │◄── staff replies
-        ▲                        │  posts into the SAME thread  │    go to the same
-        │ metadata/state only    └──────────────────────────────┘    ticket thread
+Discord HTTP Interactions POST        ┌─────────────────────────────┐
+ (webhook to /api/support/            │  Staff Dashboard (Preact)   │
+  interactions)                       │  control.openmouse.app/...  │
+        │  buttons, modals,           ├─────────────────────────────┤
+        │  slash command              │  Cloudflare Pages Functions │
+        ▼                             │  (functions/api/support/*)  │
+   ┌──────────────────┐               │  Discord OAuth2 staff login │
+   │  Discord = true  │◄─── source     └──────────────┬──────────────┘
+   │  source of truth │  of truth for                 │ REST + polling
+   │  (threads +      │  the CONVERSATION               ▼
+   │   messages)      │            ┌──────────────────────────────┐
+   └──────────────────┘            │  Discord REST (bot token)    │◄── staff replies
+        ▲                          │  posts into the SAME thread  │    + thread/lazy
+        │ metadata/state only      └──────────────────────────────┘    reopen
    ┌──────────────────┐
    │   Supabase       │  structured metadata only: tickets,
    │   (no conversation│  status/priority/assignment, notes,
@@ -51,12 +51,12 @@ OpenMouse-Support Discord Bot        ┌─────────────�
    └──────────────────┘
 ```
 
-- **Discord bot** (`support/bot`): the only genuinely new long-lived component.
-  Discord buttons/modals/threads require a persistent gateway connection, which
-  cannot run on Cloudflare's short-lived serverless functions. It is a
-  standalone Node.js + discord.js process, adapted from Open Ticket's engine
-  concepts, talking to the same Supabase project. Crucially, it does **not**
-  mirror messages into Supabase — Discord stays the canonical conversation store.
+- **Everything runs on Cloudflare Pages Functions** — there is no separate bot
+  process to host. Discord sends **HTTP Interaction webhooks** (button clicks,
+  modal submits, slash commands) to `functions/api/support/interactions.js`,
+  which verifies the Ed25519 signature (vendored pure-JS verifier), then uses
+  the Discord REST API (bot token) to create the thread and post the initial
+  embed. `support/bot/` is retained only as reference; it is no longer run.
 - **Dashboard + API** (`src/support-admin.tsx`, `functions/api/support/*`):
   integrated into OpenMouse's existing Preact + Vite + Cloudflare Pages stack,
   reusing the project's dark developer-facing admin design language. It reads
@@ -68,14 +68,22 @@ OpenMouse-Support Discord Bot        ┌─────────────�
 
 ---
 
-## Why the Discord bot is a separate process
+## Why interactions run on Cloudflare (no separate process)
 
-Cloudflare Pages Functions (Workers) are short-lived, stateless and cannot hold
-a persistent WebSocket gateway connection to Discord. The spec requires a real
-Discord bot/application for buttons, modals, thread creation and message
-handling — a webhook alone is explicitly not sufficient. Therefore `support/bot`
-runs as a Node.js process (VPS / Docker / any always-on host), while everything
-else stays on the existing Cloudflare/Preact stack.
+Discord's classic gateway requires a persistent WebSocket connection, which
+short-lived serverless Functions cannot hold. But the interactive flows this
+system needs — the "Create Ticket" button, the modal, the `/om-support-panel`
+slash command — are all **HTTP Interactions**, which Discord delivers as signed
+HTTP POST webhooks. A Cloudflare Pages Function handles those natively: it
+verifies the request with the app's **public key**, responds within 3 seconds
+(acknowledging), and performs the create-thread / post-embed work via the REST
+API. No always-on VPS, Docker, or gateway daemon is required.
+
+The one behaviour that genuinely needs real-time message events — *auto-reopen
+when a user replies to a resolved/closed ticket* — is instead done **lazily**: it
+is checked whenever the dashboard opens or polls a ticket (`poll.js` /
+`ticket/[id].js` → `_reopen.js`), comparing the newest user message's timestamp
+against when the ticket was closed. The delay is at most the 5 s poll interval.
 
 ---
 
@@ -129,10 +137,14 @@ it is reviewable and shareable.
 ### One ticket = one thread inside `#support`
 
 `#support` remains a **normal text channel** (never a Forum, never a separate
-channel per ticket). The bot posts a persistent **OpenMouse Support** panel:
+channel per ticket). A persistent **OpenMouse Support** panel is posted into it:
 
 > **OpenMouse Support** — Need help with OpenMouse?
 > `🎫 Create Ticket`
+
+The panel is (re)posted with the `/om-support-panel` slash command, which is
+handled by the interactions endpoint. The panel and the flow are defined in
+`functions/api/support/interactions.js`.
 
 Clicking **Create Ticket** opens a modal collecting:
 - Subject (required)
@@ -141,7 +153,7 @@ Clicking **Create Ticket** opens a modal collecting:
 - Device / model, OpenMouse version, OS / firmware (optional, folded into a
   short field)
 
-On submit the bot:
+On submit the interactions endpoint:
 1. Validates the form.
 2. Creates the `support_tickets` row and allocates `OM-XXXX` via the sequence.
 3. Creates a **thread inside** `#support` named like `OM-0042 — Mouse not detected`.
@@ -151,15 +163,18 @@ On submit the bot:
 
 ### Conversation is read from Discord (no mirror)
 
-The bot does **not** copy messages into Supabase. Discord holds the thread and
-its full history; Supabase only records that a conversation happened (activity
-timestamps) and the ticket/thread link. The dashboard reads the conversation
-live from Discord through the REST API (paginated, newest-first, up to a bounded
-number of messages), so everything in the thread — including user edits context,
-attachments and history — appears in the dashboard as-is.
+Neither the endpoint nor the dashboard copies messages into Supabase. Discord
+holds the thread and its full history; Supabase only records that a conversation
+happened (activity timestamps) and the ticket/thread link. The dashboard reads
+the conversation live from Discord through the REST API (paginated, newest-first,
+up to a bounded number of messages), so everything in the thread — including user
+edits context, attachments and history — appears in the dashboard as-is.
 
-If a **user** replies to a `RESOLVED`/`CLOSED` ticket, the bot automatically
-reopens it and touches the ticket's activity timestamp.
+If a **user** replies to a `RESOLVED`/`CLOSED` ticket, it is **lazily reopened**
+the next time the dashboard opens or polls it (`_reopen.js`): the newest user
+message's timestamp is compared against when the ticket was closed, and if it
+came after, the ticket is reopened and a note is posted into the thread. There is
+no gateway needed — the delay is at most the ~5 s poll interval.
 
 ### Staff replies (Dashboard → Discord)
 
@@ -181,15 +196,28 @@ The initial ticket detail loads the **newest** window of the conversation
 messages"** button pages back through the Discord thread on demand (`?before=<messageId>`),
 so a huge thread can be read in full without loading everything up front.
 
-### Discord bot setup
+### Discord application + interactions setup
 
-See [`support/bot/README.md`](../bot/README.md) for full instructions. In short:
+No bot process runs anywhere — the flow is handled by the HTTP interactions
+endpoint in `functions/api/support/interactions.js`. In short:
 
-1. Create a Discord application/bot and invite it to the OpenMouse server with
-   **Send Messages**, **Manage Threads**, **Create Public Threads** and
-   **Read Message History** permissions in `#support`.
-2. Copy `support/bot/.env.example` → `.env` and fill in the values.
-3. `npm install && npm run build && npm start`.
+1. Create a Discord application and add a bot to it; invite it to the OpenMouse
+   server with **Send Messages**, **Manage Threads**, **Create Public Threads**
+   and **Read Message History** permissions in `#support`.
+2. In the Discord Developer Portal → **General Information**, copy the
+   **Public Key** and set the **Interactions Endpoint URL** to
+   `` `${SUPPORT_BASE_URL}/api/support/interactions` ``. Verify the endpoint
+   (Discord sends a `PING`; the function responds `PONG`).
+3. Add `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`,
+   `DISCORD_CLIENT_SECRET`, `DISCORD_GUILD_ID` and `SUPPORT_CHANNEL_ID` to the
+   Cloudflare Pages environment variables (see below).
+4. Register the `/om-support-panel` slash command (via the guild command API or
+   the Portal **Slash Commands** tab). Running it posts the support panel into
+   `#support`; clicking **Create Ticket** runs the whole flow through the same
+   endpoint.
+
+`support/bot/` is retained as **reference only** (the original gateway-based
+implementation and its `README.md`); it is no longer needed to run the system.
 
 ---
 
@@ -271,12 +299,17 @@ never expose to the browser.
 | `SUPPORT_BASE_URL` | e.g. `https://control.openmouse.app` (for OAuth redirect) |
 | `DISCORD_CLIENT_ID` | Discord app client id (OAuth) |
 | `DISCORD_CLIENT_SECRET` | Discord app client secret (OAuth) |
-| `DISCORD_BOT_TOKEN` | Discord bot token (used for posting staff replies) |
+| `DISCORD_BOT_TOKEN` | Discord bot token (used for creating threads + posting staff replies) |
+| `DISCORD_PUBLIC_KEY` | Discord app **public key** (verifies interactions webhook signatures) |
+| `DISCORD_GUILD_ID` | OpenMouse server id (slash-command registration) |
+| `SUPPORT_CHANNEL_ID` | id of the `#support` channel (fallback for the support panel) |
 | `SUPPORT_STAFF_WHITELIST` | Comma-separated Discord ids allowed to log in |
 | `SUPPORT_OWNER_IDS` / `SUPPORT_ADMIN_IDS` / `SUPPORT_DEVELOPER_IDS` | Comma-separated role lists |
 | `SUPPORT_WHITELIST_EXTRA` | Extra ids allowed to log in at SUPPORT level |
 
-The Discord bot has its own env (see `support/bot/.env.example`).
+All the Discord variables above come from the same Discord application used for
+the interactions endpoint (there is no separate bot env anymore — the old
+`support/bot/.env` is obsolete).
 
 ### Discord OAuth redirect URI
 
@@ -288,7 +321,7 @@ URI in the Discord Developer Portal, with the **identify** scope.
 ## Security
 
 - Supabase service-role key and Discord bot token are never exposed to the
-  browser; they exist only in Pages Function / bot environment.
+  browser; they exist only in the Pages Function environment.
 - Staff auth is server-side OAuth2 + whitelist; sessions are signed and
   httpOnly.
 - `SameSite=Strict` cookies and OAuth `state` prevent CSRF.
@@ -323,8 +356,9 @@ URI in the Discord Developer Portal, with the **identify** scope.
 - Pagination is **idempotent and cursor-based** (`after=<message id>`), so
   duplicate poll events cannot produce duplicate rows or duplicated UI messages.
 - Ticket numbering is concurrency-safe (sequence-based).
-- The bot and dashboard are separate processes, so a bot restart does not take
-  the dashboard down (and vice versa).
+- Everything (interactions endpoint + dashboard) runs on the same Cloudflare
+  Pages deployment, sharing one codebase and one set of environment variables —
+  there are no separate processes to keep in sync or restart.
 
 ### Known limits of the Discord-as-source-of-truth model
 
@@ -361,8 +395,9 @@ model:
 
 - Storage → **Supabase** (source of truth, RLS, relationships, idempotency).
 - Config → **environment variables** following OpenMouse's convention.
-- Runtime for the bot → Node.js (required for the gateway); dashboard → the
-  existing Cloudflare/Preact stack.
+- Runtime → **Cloudflare Pages Functions** for everything, including the Discord
+  interactions endpoint (HTTP webhook, no gateway). `support/bot/` is retained
+  only as reference for the original gateway implementation.
 
 We do **not** copy Open Ticket's JSON database, its dashboard, or its stack into
 OpenMouse; we adapt the ticketing engine so the result is native to OpenMouse.
@@ -371,17 +406,22 @@ OpenMouse; we adapt the ticketing engine so the result is native to OpenMouse.
 
 ## Local development
 
-1. **Bot**: `cd support/bot`, `npm install`, copy `.env.example` → `.env`,
-   `npm run build && npm start`.
-2. **Dashboard/API**: run the existing Vite dev server (`npm run dev`) and the
+1. **Dashboard/API**: run the existing Vite dev server (`npm run dev`) and the
    Pages Functions with the required env vars. Use the Cloudflare Wrangler CLI
    for the Functions if you need them locally (`npx wrangler pages dev`).
+2. **Interactions endpoint (local testing)**: to exercise the Discord button /
+   modal flow locally, expose the local Functions to the internet (e.g. Wrangler
+   `pages dev` + a tunnel) and point the Discord Interactions Endpoint URL at it
+   temporarily — or use the Discord Developer Portal's "Interactions" test
+   endpoint once deployed. The endpoint only needs the env vars to be set.
 3. Apply `support/db/migrations.sql` to your Supabase project.
 
 ## Production deployment
 
-- **Dashboard + API**: deploy the Cloudflare Pages project (`npm run build` —
-  the app target includes `support-admin.html`), set the env vars above.
-- **Bot**: run `support/bot` on a VPS or as a Docker container, keeping it
-  always-on. Re-point `SUPPORT_PANEL_MESSAGE_ID` to the deployed panel message
-  id so it is edited rather than duplicated on restarts.
+- **Everything runs on the Cloudflare Pages project** (`npm run build` — the app
+  target includes `support-admin.html`), with the env vars above set in the Pages
+  dashboard. There is no separate bot to host.
+- Set the Discord app's **Interactions Endpoint URL** to `` `${SUPPORT_BASE_URL}/api/support/interactions` `` and add `DISCORD_PUBLIC_KEY` to Pages env.
+- Register the `/om-support-panel` slash command once (Portal or guild command
+  API); running it posts the support panel into `#support`. If the panel needs to
+  be refreshed later, just run the slash command again.

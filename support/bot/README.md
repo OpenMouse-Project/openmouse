@@ -1,5 +1,17 @@
 # OpenMouse-Support · Discord bot
 
+> **DEPRECATED / ARCHIVED — reference only.**
+>
+> This bot is no longer run. The entire interactive flow (support panel button →
+> modal → thread creation) now runs on **Cloudflare Pages Functions** as an HTTP
+> **interactions endpoint** (`functions/api/support/interactions.js`), which
+> Discord reaches via signed POST webhooks — no persistent gateway and no
+> separate process to host. Its logic was ported into that endpoint; this
+> directory remains only as the historical reference for the original
+> gateway-based implementation. See `../docs/OPENMOUSE-SUPPORT.md`.
+>
+> The setup/run instructions below are retained for reference.
+
 The Discord ticketing engine for OpenMouse-Support. A standalone Node.js +
 [discord.js](https://discord.js.org) v14 process, adapted from the concepts of
 [Open Ticket](https://github.com/open-discord-bots/open-ticket), backed by the

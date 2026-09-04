@@ -1,6 +1,7 @@
 import { json, requireSession, isWhitelisted } from "../../_session.js";
 import { supabase } from "../../_supabase.js";
 import { getMessages, mapDiscordMessage } from "../../_discord.js";
+import { maybeLazyReopen } from "../../_reopen.js";
 
 const MAX_CONVERSATION_MESSAGES = 200;
 const LAZY_PAGE_SIZE = 100;
@@ -113,6 +114,13 @@ export async function onRequest({ request, env, params }) {
       attachments: Array.isArray(m.attachments) ? m.attachments : [],
       created_at: m.created_at,
     }));
+  }
+
+  // Lazy auto-reopen: a user's latest reply to a resolved/closed ticket reopens
+  // it (no gateway needed — checked when the ticket is opened/polled).
+  if (!lazyLoading && threadId && !conversationUnavailable) {
+    const reopened = await maybeLazyReopen(env, ticket).catch(() => false);
+    if (reopened) ticket.status = "OPEN";
   }
 
   const messages = [...discordMapped, ...storedMapped].sort(
