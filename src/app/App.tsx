@@ -10,6 +10,7 @@ import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
+import { ShareProfileDialog } from "./ShareProfileDialog";
 import { SupportRequestsDialog } from "./SupportRequestsDialog";
 import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
@@ -262,6 +263,7 @@ export function App(): ReactNode {
   const panel = useRef<HTMLElement>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [supportRequestsOpen, setSupportRequestsOpen] = useState(false);
+  const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const { preferences, status } = snapshot;
 
   useEffect(() => {
@@ -343,6 +345,15 @@ export function App(): ReactNode {
           <p className="live-status">
             <i aria-hidden="true" />
             <span id="read-status" role="status" aria-live="polite">{snapshot.readStatus}</span>
+            {status ? (
+              <button
+                type="button"
+                className="live-status-share"
+                onClick={() => setShareProfileOpen(true)}
+              >
+                Share profile
+              </button>
+            ) : null}
           </p>
         </div>
 
@@ -410,6 +421,7 @@ export function App(): ReactNode {
       <PendingBar snapshot={snapshot} />
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <SupportRequestsDialog open={supportRequestsOpen} onClose={() => setSupportRequestsOpen(false)} diagnosticBundle={control.supportDiagnosticBundle()} />
+      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
       <ToastHost toasts={snapshot.toasts} />
     </div>
   );

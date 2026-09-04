@@ -11,7 +11,7 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const packageVersion = JSON.parse(
   readFileSync(resolve(rootDir, "package.json"), "utf8"),
 ) as { version: string };
-const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "insiders";
+const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
 // Two Cloudflare Pages projects deploy from this same repo: the default
 // "app" target builds the gated control app (control.openmouse.app), and
 // "landing" builds the standalone marketing page (openmouse.app). See

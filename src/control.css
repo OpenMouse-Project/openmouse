@@ -582,7 +582,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-dialog h2 { margin: .15rem 0 0; color: var(--bright); font-size: 1.35rem; font-weight: 550; }
 .support-turnstile { min-height: 65px; }
 .support-dialog header button { width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-control); color: var(--muted); font-size: 1.15rem; }
-.support-intro, .support-message, .support-consent { margin: 0; color: var(--dim); font-size: .76rem; line-height: 1.5; }
+.support-intro, .support-message, .support-consent, .share-profile-intro { margin: 0; color: var(--dim); font-size: .76rem; line-height: 1.5; }
 .support-search, .support-form input:not([type="checkbox"]), .support-form select { width: 100%; padding: .65rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-size: .78rem; }
 .support-results { display: grid; max-height: 17rem; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 .support-results article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border-bottom: 1px solid var(--border-rule); }
@@ -614,6 +614,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .device-status { display: flex; flex: 0 0 auto; align-items: center; gap: .45rem; color: var(--text-soft); font-size: .75rem; white-space: nowrap; }
 .device-status > .status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: #69d28d; }
 .live-status { display: flex; align-items: center; gap: .5rem; margin: 0 0 .8rem; padding: .55rem .75rem; border: 1px solid var(--line); border-radius: 9px; background: var(--well); color: var(--dim); font-size: .72rem; }
+.live-status-share { margin-left: auto; padding: .32rem .65rem; border: 1px solid var(--border-hover); border-radius: 6px; background: var(--surface-strong); color: var(--text-soft); font-size: .68rem; font-weight: 600; cursor: pointer; }
 .live-status i { width: .38rem; height: .38rem; flex: 0 0 auto; border-radius: 50%; background: #69d28d; box-shadow: 0 0 0 3px rgb(105 210 141 / 10%); }
 
 .sidebar-menu-toggle { display: grid; width: 1.9rem; height: 1.75rem; flex: 0 0 auto; grid-template-rows: repeat(3, 1px); align-content: center; gap: .24rem; padding: .42rem .45rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input); cursor: pointer; }
@@ -786,6 +787,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .profile-key-field textarea { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); font-family: var(--font-mono); font-size: .62rem; line-height: 1.4; resize: vertical; color-scheme: dark; }
 .profile-key-action { padding: .5rem .8rem; margin: 0 0 .6rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .64rem; font-weight: 650; cursor: pointer; }
 .profile-key-action:disabled { cursor: not-allowed; opacity: .5; }
+.profile-key-card { grid-column: 1 / -1; }
 .openmouse-bridge-card { grid-column: 1 / -1; min-height: 0; }
 .openmouse-bridge-coming-soon { margin-top: .2rem; padding: .58rem .9rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
 .interface-theme-card { grid-column: 1 / -1; }

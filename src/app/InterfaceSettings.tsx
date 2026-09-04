@@ -54,19 +54,13 @@ function SwitchCard({
   );
 }
 
-function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const [importText, setImportText] = useState("");
   const [copied, setCopied] = useState(false);
   const key = snapshot.hasActiveDevice ? control.exportProfileKey() : null;
 
   return (
-    <article className="interface-setting-card">
-      <span>PROFILES</span>
-      <h3>Profile key</h3>
-      <p>
-        A copy-paste key that carries this mouse's settings to another unit of the same model.
-        Paste it into Settings there to load the same setup.
-      </p>
+    <>
       <label className="profile-key-field">
         <span>Your key</span>
         <textarea
@@ -113,6 +107,20 @@ function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
       <small className="setting-note">
         Imported settings are staged like any other edit — nothing is written until you flash them.
       </small>
+    </>
+  );
+}
+
+function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  return (
+    <article className="interface-setting-card profile-key-card">
+      <span>PROFILES</span>
+      <h3>Profile key</h3>
+      <p>
+        A copy-paste key that carries this mouse's settings to another unit of the same model.
+        Paste it into Settings there to load the same setup.
+      </p>
+      <ProfileKeyFields snapshot={snapshot} />
     </article>
   );
 }

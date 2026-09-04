@@ -210,7 +210,6 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
         </a>
       </nav>
       <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
-      <small className="build-note">Development build - not the final product</small>
     </aside>
   );
 }
