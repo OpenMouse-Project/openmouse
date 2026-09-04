@@ -1,7 +1,7 @@
-import { json, requireSession, isWhitelisted } from "../../_session.js";
-import { supabase } from "../../_supabase.js";
-import { getMessages, mapDiscordMessage } from "../../_discord.js";
-import { maybeLazyReopen } from "../../_reopen.js";
+import { json, requireSession, isWhitelisted } from "../_session.js";
+import { supabase } from "../_supabase.js";
+import { getMessages, mapDiscordMessage } from "../_discord.js";
+import { maybeLazyReopen } from "../_reopen.js";
 
 const MAX_CONVERSATION_MESSAGES = 200;
 const LAZY_PAGE_SIZE = 100;
