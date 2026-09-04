@@ -53,6 +53,9 @@ export default defineConfig({
               // via functions/api/admin/*, not linked from anywhere in the
               // UI) — lives on control.openmouse.app alongside the app.
               admin: resolve(__dirname, "admin.html"),
+              // OpenMouse-Support staff dashboard (Discord OAuth2-gated via
+              // functions/api/support/*) — internal, staff-only.
+              "support-admin": resolve(__dirname, "support-admin.html"),
             },
     },
   },
