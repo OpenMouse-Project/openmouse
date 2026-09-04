@@ -10,6 +10,7 @@ const hid = (productId: number): HIDDevice => ({ vendorId: 0x046d, productId } a
 test("G502 family USB interfaces use their matching normalized artwork", () => {
   assert.equal(deviceImage(hid(0xc07d)), CDN + "logitech-g502.png");
   assert.equal(deviceImage(hid(0xc095)), CDN + "logitech-g502-x-plus.png");
+  assert.equal(deviceImage(hid(0xc098)), CDN + "logitech-g502-x.png");
   assert.equal(deviceImage(hid(0xc099)), CDN + "logitech-g502-x.png");
 });
 

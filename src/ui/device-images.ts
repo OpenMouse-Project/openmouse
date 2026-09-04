@@ -13,6 +13,7 @@
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c07d", "logitech-g502.png"],
   ["046d:c095", "logitech-g502-x-plus.png"],
+  ["046d:c098", "logitech-g502-x.png"],
   ["046d:c099", "logitech-g502-x.png"],
   ["046d:c0a8", "logitech-pro-x2-superstrike.png"],
   // Original G703 (0xc087) and G703 HERO wired (0xc090) share the same shell.
