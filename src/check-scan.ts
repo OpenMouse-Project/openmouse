@@ -31,6 +31,8 @@ export const BRANDS: Record<number, string> = {
   0x0C45: "Redragon",
   0x1BCF: "Alienware",
   0x3151: "Fantech",
+  0xA8A4: "K-snake",
+  0xA8A5: "K-snake",
 };
 
 const OPENMOUSE_SUPPORTED = new Set([
