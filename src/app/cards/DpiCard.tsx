@@ -196,9 +196,9 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           <div className="dpi-slot-rule" />
         </>
       ) : null}
-      <div id="dpi-stage-list" className="dpi-slot-list dpi-stage-list">
+      <div id="dpi-stage-list" className={`dpi-slot-list dpi-stage-list${status.dpiStageColors ? " has-colors" : ""}`}>
         <div className="dpi-slot-row dpi-slot-head">
-          <span /><span>DPI</span>
+          <span /><span>DPI</span>{status.dpiStageColors ? <span>Color</span> : null}
         </div>
         {stages.map((dpi, index) => {
           const isActive = index === active;
@@ -225,6 +225,15 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                 disabled={disabled}
                 onChange={(event) => control.applyDpiStageValue(index, Number(event.currentTarget.value))}
               />
+              {status.dpiStageColors ? (
+                <input
+                  type="color"
+                  aria-label={`Stage ${index + 1} color`}
+                  value={status.dpiStageColors[index] ?? "#000000"}
+                  disabled={disabled}
+                  onChange={(event) => control.applyDpiStageColor(index, event.currentTarget.value)}
+                />
+              ) : null}
             </div>
           );
         })}

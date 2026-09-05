@@ -25,6 +25,9 @@ export interface CardAvailability {
   eggCpi: boolean;
   eggButtons: boolean;
   razerButtons: boolean;
+  atkButtons: boolean;
+  atkProfile: boolean;
+  atkReceiver: boolean;
   mxMasterButtons: boolean;
   pulsarPro: boolean;
   profiles: boolean;
@@ -56,6 +59,9 @@ const NOTHING: CardAvailability = {
   eggCpi: false,
   eggButtons: false,
   razerButtons: false,
+  atkButtons: false,
+  atkProfile: false,
+  atkReceiver: false,
   mxMasterButtons: false,
   pulsarPro: false,
   profiles: false,
@@ -82,6 +88,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || (status.rippleControl != null && ui?.hideRippleControl !== true)
     || (status.performanceMode != null && !traits.eggFamily && !traits.finalmouse)
     || status.hyperMode != null
+    || status.longRangeMode != null
     || status.sensorMode != null || status.performanceDuration != null
   );
 
@@ -117,7 +124,8 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
       && Boolean(status.ninjutsoSystemMode || status.ninjutsoOpticalEngine),
     ninjutsoClick: host && traits.ninjutso
       && Boolean(status.ninjutsoHyperClick != null || status.ninjutsoSlamClick),
-    teevolutionDpiLighting: host && traits.teevolution && capabilities?.teevolutionProfile != null,
+    teevolutionDpiLighting: host && (ui?.dpiLighting != null
+      || (traits.teevolution && capabilities?.teevolutionProfile != null)),
     finalmouse: host && traits.finalmouse,
     eggFilter: eggs,
     eggSpdt: eggs,
@@ -135,6 +143,9 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // the driver's own field directly. Only the base RazerHidClient populates
     // it, and only for a product whose profile sets buttonMapping.
     razerButtons: status.razerButtonMappings != null,
+    atkButtons: (status.atkButtonMappings?.length ?? 0) > 0,
+    atkProfile: status.atkProfileCount !== undefined && status.activeProfile !== null,
+    atkReceiver: status.atkReceiver !== undefined,
     mxMasterButtons: traits.logitech && (snapshot.buttons?.length ?? 0) > 0,
     pulsarPro: host && isPulsarProProtocol(status),
   };

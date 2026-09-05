@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
-import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
+import { ATK_COMPX_PRODUCT_IDS } from "@openmouse/protocol/drivers/atk/products";
+import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
@@ -54,9 +55,10 @@ test("brand + model are unique and request counts are sane", () => {
 // Brands with an actual driver in @openmouse/protocol/drivers/registry.ts.
 const DRIVER_BRANDS = new Set<string>([
   ...DEVICE_DRIVERS.map((driver) => driver.brand.toLowerCase()),
-  // CRDRAKO products are driven by the Lamzu/CompX driver and report their own
-  // brand via deviceBrand().
+  // These products are driven by a shared protocol family and report their own
+  // brand after identification.
   "crdrako",
+  "vxe",
 ]);
 
 test("supported / PR / quickwin claims require a registered driver brand", () => {
@@ -101,6 +103,8 @@ const PID_UNIVERSE = new Set<number>([
   0x1960, 0x1961, 0x1962, 0x1968, 0x1970, 0x1972, 0x1982,
   // VGN Dragonfly F2 Master+ (drivers/vgn/hid.ts).
   0xfb56, 0xfb57,
+  // VXE R1 SE+ wired transport (drivers/atk/hid.ts).
+  ...ATK_COMPX_PRODUCT_IDS,
   // Pulsar X3 family on the Sonix XS-1 feature interface (drivers/pulsar/pulsar-xs1-hid.ts).
   ...PULSAR_XS1_PRODUCT_IDS,
   // Finalmouse ULX dongle (drivers/finalmouse/hid.ts).

@@ -92,6 +92,32 @@ test("restaging a grouped change does not split its group", () => {
   clearPendingChanges();
 });
 
+test("priority orders count increases first and reductions last", () => {
+  clearPendingChanges();
+  const stage = (key: string, priority?: number) => stagePendingChange({
+    key, priority, label: key, command: "", progress: "", apply: async () => {},
+  });
+
+  stage("dpi-stage-count", -1);
+  stage("dpi-stage-color-3");
+  stage("dpi-stage-count", -1);
+
+  assert.deepEqual(pendingChangeBatches().map(([change]) => change?.key), [
+    "dpi-stage-count",
+    "dpi-stage-color-3",
+  ]);
+
+  clearPendingChanges();
+  stage("dpi-stage-count", 1);
+  stage("dpi-stage-0");
+  stage("dpi-stage-count", 1);
+  assert.deepEqual(pendingChangeBatches().map(([change]) => change?.key), [
+    "dpi-stage-0",
+    "dpi-stage-count",
+  ]);
+  clearPendingChanges();
+});
+
 test("pending changes preview without mutating the device status", () => {
   clearPendingChanges();
   const deviceStatus = status();
