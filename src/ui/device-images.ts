@@ -177,6 +177,11 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bviper\s*v4\b/i.test(displayName)) return "razer-viper-v4-pro.png";
   if (/\bxm2\s*8k\b/i.test(displayName)) return "endgame-gear-xm2-8k.png";
   if (/\bxm2w\b/i.test(displayName)) return "endgame-gear-xm2w.png";
+  // WLMouse receivers are shared across models — the 1K dongle enumerates under
+  // one product id whatever it is paired with — so the model only arrives in the
+  // name the driver reads back from the mouse.
+  if (/\bbeast\s*max\b/i.test(displayName)) return "wlmouse-beast-max.png";
+  if (/\bbeast\s*g\b/i.test(displayName)) return "wlmouse-beast-g.png";
   if (/\bbeast\s*x\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bbeast\s*mini\b/i.test(displayName)) return "unknown-device.png";
   if (/\bbeast\s*x\b/i.test(displayName)) return "unknown-device.png";

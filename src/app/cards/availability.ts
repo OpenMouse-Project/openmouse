@@ -82,6 +82,9 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || (status.rippleControl != null && ui?.hideRippleControl !== true)
     || (status.performanceMode != null && !traits.eggFamily && !traits.finalmouse)
     || status.hyperMode != null
+    || status.turboMode != null
+    || status.buttonCombination != null
+    || status.angleTuning != null
     || status.sensorMode != null || status.performanceDuration != null
   );
 
