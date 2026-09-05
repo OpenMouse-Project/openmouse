@@ -32,6 +32,10 @@ test("PRO X 2 Superstrike uses its own artwork over USB and shared receivers", (
   assert.equal(deviceImage(null, "Logitech PRO X2 SUPERSTRIKE"), CDN + "logitech-pro-x2-superstrike.png");
 });
 
+test("Razer Orochi V2 uses its own render over its Atheris receiver", () => {
+  assert.equal(deviceImage({ vendorId: 0x1532, productId: 0x0094 } as HIDDevice), CDN + "razer-orochi-v2.png");
+});
+
 test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "CRDRAKO KO-ONE"), CDN + "crdrako-ko-one.png");
   assert.equal(deviceImage(null, "Zaunkoenig M3K"), CDN + "zaunkoenig-m3k.png");
@@ -101,6 +105,10 @@ test("G Pro family uses the classic shell; G Pro 2 gets its own render", () => {
   assert.equal(deviceImage(null, "G Pro 2 Lightspeed"), CDN + "logitech-g-pro-2.png");
   // The Superlight must keep its own render, not the classic G Pro shell.
   assert.equal(deviceImage(null, "G Pro X Superlight"), CDN + "logitech-pro-x-superlight-2c.png");
+  // The original Superlight (PID 0xc094) reports its own HID++ device name as
+  // "PRO X Wireless", not "Superlight", so it needs a direct PID match rather
+  // than the name-based fallback above — confirmed against real hardware.
+  assert.equal(deviceImage(dev(0x046d, 0xc094), "PRO X Wireless"), CDN + "logitech-pro-x-superlight-2c.png");
 });
 
 test("G305/G304 and G309 use their own renders by name", () => {

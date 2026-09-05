@@ -71,6 +71,7 @@ const STATUS_LEGEND: Array<[Status, string]> = [
   ["likely", "Driver probably covers it — needs hardware test"],
   ["driver", "No driver exists yet"],
   ["unknown", "Protocol not yet identified"],
+  ["bridge", "Not compatible with WebHID — needs the OpenMouse Bridge companion"],
   ["pending", "Live community request"],
 ];
 

@@ -16,6 +16,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c098", "logitech-g502-x.png"],
   ["046d:c099", "logitech-g502-x.png"],
   ["046d:c0a8", "logitech-pro-x2-superstrike.png"],
+  // The original G Pro X Superlight reports as "PRO X Wireless" over HID++,
+  // not "Superlight", so the name-based fallback below never matches it.
+  // Same shell as the Superlight 2c closely enough to reuse its render.
+  ["046d:c094", "logitech-pro-x-superlight-2c.png"],
   // Original G703 (0xc087) and G703 HERO wired (0xc090) share the same shell.
   ["046d:c087", "logitech-g703.png"],
   ["046d:c090", "logitech-g703.png"],
@@ -30,6 +34,7 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1532:008a", "razer-viper-mini.webp"],
   ["1532:0078", "razer-viper.webp"],
   ["1532:00a3", "razer-cobra.webp"],
+  ["1532:0094", "razer-orochi-v2.png"],
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "crdrako-ko-one.png"],
   ["373e:006b", "crdrako-ko-one.png"],

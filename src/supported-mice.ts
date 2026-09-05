@@ -13,6 +13,9 @@
 //                PID/interface has not been confirmed on hardware.
 //   driver     — no driver exists; the protocol is not implemented.
 //   unknown    — nothing is known about the protocol.
+//   bridge     — a driver exists but the device's settings channel is out of
+//                WebHID reach; configuration requires the OpenMouse Bridge
+//                desktop companion (native control).
 //   pending    — a live community request from the support catalog. Not part
 //                of the static table; `src/supported-live.ts` adds these at
 //                runtime.
@@ -22,7 +25,7 @@
 // from the code again. `src/supported-live.ts` additionally overlays live
 // request counts and registry-listed supported models at runtime.
 
-export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "pending";
+export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "bridge" | "pending";
 
 export interface Mouse {
   brand: string;
@@ -43,7 +46,8 @@ export const STATUS: Record<Status, { label: string; order: number }> = {
   likely:    { label: "Test Needed",   order: 3 },
   driver:    { label: "Driver Needed", order: 4 },
   unknown:   { label: "Unknown",       order: 5 },
-  pending:   { label: "Requested",     order: 6 },
+  bridge:    { label: "Needs Bridge",  order: 6 },
+  pending:   { label: "Requested",     order: 7 },
 };
 
 export const TABS: Array<{ key: Status | "all"; label: string }> = [
@@ -54,6 +58,7 @@ export const TABS: Array<{ key: Status | "all"; label: string }> = [
   { key: "likely",    label: "Test Needed" },
   { key: "driver",    label: "Driver Needed" },
   { key: "unknown",   label: "Unknown" },
+  { key: "bridge",    label: "Needs Bridge" },
   { key: "pending",   label: "Requested" },
 ];
 
@@ -189,41 +194,41 @@ export const MICE: Mouse[] = [
     note: "Redragon HID protocol — not implemented" },
 
   // ATTACK SHARK ────────────────────────────────────────────────────────
-  { brand: "Attack Shark", model: "X3",                 status: "likely",    req: 15,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11",                status: "likely",    req: 10,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
+  { brand: "Attack Shark", model: "X3",                 status: "bridge",    req: 15,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11",                status: "bridge",    req: 10,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
   { brand: "Attack Shark", model: "R5 Ultra",           status: "supported", req: 7,
     pids: [0x0046, 0x0047],
     note: "PIDs 0x0046/0x0047 in the CompX/Lamzu driver (R5 Ultra profile)" },
-  { brand: "Attack Shark", model: "X6",                 status: "likely",    req: 5,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "R3",                 status: "likely",    req: 4,
-    note: "Driver implemented (0x373e family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R1",                 status: "likely",    req: 3,
-    note: "Driver implemented (0x1d57 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 Ultra",           status: "likely",    req: 3,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 SE",              status: "likely",    req: 2,
-    note: "0x1d57 VID, GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X1",                 status: "likely",    req: 2,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "V3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11 SE",             status: "likely",    req: 1,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 PLUS",            status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X12",                status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R6",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "G3",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R2",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
+  { brand: "Attack Shark", model: "X6",                 status: "bridge",    req: 5,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "R3",                 status: "bridge",    req: 4,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x373e family)" },
+  { brand: "Attack Shark", model: "R1",                 status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 family)" },
+  { brand: "Attack Shark", model: "X8 Ultra",           status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X8 SE",              status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 VID, GearHub protocol)" },
+  { brand: "Attack Shark", model: "X1",                 status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "V3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11 SE",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
+  { brand: "Attack Shark", model: "X8 PLUS",            status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X12",                status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R6",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "G3",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R2",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
 
   // RAZER ───────────────────────────────────────────────────────────────
   { brand: "Razer", model: "DeathAdder V3 (wired)",     status: "supported", req: 9,
