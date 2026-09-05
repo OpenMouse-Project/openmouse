@@ -523,6 +523,14 @@ export const MICE: Mouse[] = [
     pids: [0x080c],
     note: "PID 0x080c in Orbital driver" },
 
+  // MICROSOFT ───────────────────────────────────────────────────────────
+  { brand: "Microsoft", model: "Pro Intellimouse",      status: "supported", req: 0,
+    pids: [0x082a],
+    note: "For LOD, Low is 2mm, High is 3mm. Calibrated surface 1/2/3 is not supported yet." },
+  { brand: "Microsoft", model: "Classic Intellimouse",  status: "supported", req: 0,
+    pids: [0x0823],
+    note: "" },
+
   // KEYCHRON ────────────────────────────────────────────────────────────
   { brand: "Keychron", model: "Nape Pro",               status: "supported", req: 1,
     pids: [0x0440],

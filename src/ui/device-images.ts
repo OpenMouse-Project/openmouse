@@ -142,6 +142,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // K-snake X11 wired / 2.4 GHz dongle share the same shell.
   ["a8a4:2255", "ksnake-x11.png"],
   ["a8a5:2255", "ksnake-x11.png"],
+  // Microsoft Intellimouse
+  ["045e:0823", "microsoft-classic-intellimouse.png"],
+  ["045e:082a", "microsoft-pro-intellimouse.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -218,6 +221,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";
+  if (/\bintellimouse\s*classic\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
+  if (/\bpro\s*intellimouse\b/i.test(displayName)) return "microsoft-pro-intellimouse.png";
+  if (/\bintellimouse\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
   // Pulsar 4K Wireless Receiver ships with the X2 V2 4K dongle kit; the receiver
   // product id is not yet published, so match the name reported by WebHID.
   if (/pulsar/i.test(displayName)) return "pulsar-x2-v2.png";

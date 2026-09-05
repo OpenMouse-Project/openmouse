@@ -142,6 +142,7 @@ import {
 } from "@openmouse/protocol/keychron";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
+import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
@@ -193,7 +194,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
