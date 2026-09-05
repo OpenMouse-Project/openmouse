@@ -94,7 +94,9 @@ import {
   type LogitechHapticPreset,
   type LogitechReprogrammableControl,
 } from "@openmouse/protocol/logitech";
+import { PulsarHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-hid";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
+import { PulsarXs1HidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-xs1-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import {
@@ -190,10 +192,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
 const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient] as const;
-const DEDICATED = [
-  ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
-  EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
-] as const;
+const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
@@ -211,11 +210,9 @@ const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
-/** Pulsar is the fallback: any supported client no dedicated driver claims. */
+/** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
-  active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
-    ? active as PulsarClient
-    : null;
+  active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
 
 let onboardProfiles: OnboardProfile[] | null = null;
 let buttons: LogitechReprogrammableControl[] | null = null;
