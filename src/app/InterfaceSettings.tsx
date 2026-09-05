@@ -1,4 +1,22 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  bridgeDevices,
+  bridgeGames,
+  bridgeHandshake,
+  bridgeProfiles,
+  bridgeStatus,
+  latestRelease,
+  saveBridgeBattery,
+  saveBridgeProfiles,
+  saveBridgeDefaultProfile,
+  setBridgeDriver,
+  type BridgeBatteryReading,
+  type BridgeDevice,
+  type BridgeGame,
+  type BridgeProfile,
+  type BridgeStatus,
+  type GitHubRelease,
+} from "../bridge";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import type { InterfacePreferences } from "../interface-preferences";
@@ -23,6 +41,8 @@ const THEME_CHOICES: readonly ThemeSwatch[] = [
   { name: "NieR: Automata", accent: "#d1cdb7", canvas: "#282620", surface: "#36342c" },
   { name: "Liquid Glass", accent: "#f4c95d", canvas: "#080a0c", surface: "#151a1e" },
 ];
+
+const ARCH_UDEV_COMMAND = `echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="3554", MODE="0666"' | sudo tee /etc/udev/rules.d/99-openmouse.rules && sudo udevadm control --reload-rules && sudo udevadm trigger`;
 
 function SwitchCard({
   overline,
@@ -127,11 +147,162 @@ function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
+  const [bridge, setBridge] = useState<BridgeStatus | null>(null);
+  const [bridgeProfilesList, setBridgeProfilesList] = useState<BridgeProfile[]>([]);
+  const [bridgeGamesList, setBridgeGamesList] = useState<BridgeGame[]>([]);
+  const [bridgeDeviceList, setBridgeDeviceList] = useState<BridgeDevice[]>([]);
+  const [bridgeDeviceBusy, setBridgeDeviceBusy] = useState<string | null>(null);
+  const [selectedGameName, setSelectedGameName] = useState("");
+  const [bridgeConnectionRequested, setBridgeConnectionRequested] = useState(true);
+  const [bridgeChecking, setBridgeChecking] = useState(false);
+  const [bridgeMessage, setBridgeMessage] = useState("");
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [bridgeRelease, setBridgeRelease] = useState<GitHubRelease | null>(null);
+
+  const batteryRef = useRef<BridgeBatteryReading | null>(null);
+  const mouse = snapshot.status;
+  batteryRef.current =
+    mouse && mouse.batteryPercent != null
+      ? {
+          deviceId: `${mouse.brand}:${mouse.name}`,
+          deviceName: mouse.name,
+          percent: mouse.batteryPercent,
+          charging:
+            mouse.batteryState === "Charging" ||
+            mouse.batteryState === "Charging slowly" ||
+            mouse.batteryState === "Almost full",
+        }
+      : null;
+
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
 
+  const checkForUpdates = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    setUpdateChecking(true);
+    setUpdateMessage("");
+    try {
+      const bridgeUpdate = await latestRelease("OpenMouse-Project/OpenMouse-Bridge", signal);
+      setBridgeRelease(bridgeUpdate);
+      setUpdateMessage("Release information is current.");
+    } catch (error) {
+      if (!signal?.aborted) {
+        setUpdateMessage(error instanceof Error ? error.message : "Could not check for updates.");
+      }
+    } finally {
+      if (!signal?.aborted) setUpdateChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (sessionStorage.getItem("openmouse-update-check") !== "done") {
+      sessionStorage.setItem("openmouse-update-check", "done");
+      void checkForUpdates(controller.signal);
+    }
+    return () => controller.abort();
+  }, [checkForUpdates]);
+
+  const checkBridge = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    setBridgeChecking(true);
+    try {
+      await bridgeHandshake(signal);
+      const [status, profiles, games, devices] = await Promise.all([
+        bridgeStatus(signal),
+        bridgeProfiles(signal),
+        bridgeGames(signal),
+        bridgeDevices(signal).catch(() => [] as BridgeDevice[]),
+      ]);
+      setBridge(status);
+      setBridgeProfilesList(profiles);
+      setBridgeGamesList(games);
+      setBridgeDeviceBusy((busy) => {
+        if (busy === null) setBridgeDeviceList(devices);
+        return busy;
+      });
+      setSelectedGameName((current) => current || status.activeGames[0] || games[0]?.name || "");
+      setBridgeMessage("");
+
+      const battery = batteryRef.current;
+      if (battery) {
+        try {
+          await saveBridgeBattery(battery, signal);
+        } catch {
+          /* ignore — battery sync is optional */
+        }
+      }
+    } catch {
+      if (!signal?.aborted) {
+        setBridge(null);
+        setBridgeProfilesList([]);
+        setBridgeGamesList([]);
+        setBridgeDeviceList([]);
+      }
+    } finally {
+      if (!signal?.aborted) setBridgeChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!bridgeConnectionRequested) return;
+    const controller = new AbortController();
+    let reconnecting = false;
+    const reconnect = (): void => {
+      if (reconnecting) return;
+      reconnecting = true;
+      void checkBridge(controller.signal).finally(() => {
+        reconnecting = false;
+      });
+    };
+    reconnect();
+    const heartbeat = window.setInterval(reconnect, 5_000);
+    window.addEventListener("focus", reconnect);
+    document.addEventListener("visibilitychange", reconnect);
+    return () => {
+      controller.abort();
+      window.clearInterval(heartbeat);
+      window.removeEventListener("focus", reconnect);
+      document.removeEventListener("visibilitychange", reconnect);
+    };
+  }, [bridgeConnectionRequested, checkBridge]);
+
+  const changeDriver = useCallback(async (action: "install" | "uninstall"): Promise<void> => {
+    setBridgeDeviceBusy(`driver-${action}`);
+    setBridgeMessage(action === "install"
+      ? "Approve the Windows prompt to enable native control…"
+      : "Approve the Windows prompt to remove the driver…");
+    try {
+      await setBridgeDriver(action);
+      setBridgeMessage(action === "install"
+        ? "Driver installed. Reconnect the mouse if it does not appear as controllable."
+        : "Driver removed. The mouse is back to its normal driver.");
+      await checkBridge();
+    } catch (error) {
+      setBridgeMessage(error instanceof Error ? error.message : "The driver change did not complete.");
+    } finally {
+      setBridgeDeviceBusy(null);
+    }
+  }, [checkBridge]);
+
+  const status = snapshot.status;
+  const deviceId = status ? `${status.brand}:${status.name}` : "";
+  const bridgeConnected = bridge !== null;
+
+  useEffect(() => {
+    if (!bridgeConnected || !status) return;
+    void saveBridgeDefaultProfile({
+      application: { name: status.name, executable: "", path: "" },
+      device: { id: deviceId, name: status.name },
+      settings: {
+        dpi: status.dpi || null,
+        pollingRateHz: status.pollingRateHz || null,
+      },
+    }).catch(() => undefined);
+  }, [bridgeConnected, deviceId, status?.dpi, status?.name, status?.pollingRateHz]);
+
+  const isArchLinux = bridge?.linuxDistribution?.split(/\s+/).includes("arch") ?? false;
+
   return (
-    <>
     <section
       id="interface-settings-page"
       className={`interface-settings-page${snapshot.interfaceSettingsOpen ? " is-open" : ""}`}
@@ -156,15 +327,135 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         <ProfileKeyCard snapshot={snapshot} />
 
         <article className="interface-setting-card openmouse-bridge-card">
-          <span>OPENMOUSE BRIDGE</span>
-          <h3>Game detection and battery alerts</h3>
-          <p>
-            A lightweight background service that detects when games start and sends battery
-            notifications for your mice.
-          </p>
-          <button type="button" className="openmouse-bridge-coming-soon" disabled>
-            Coming soon
-          </button>
+          <div className="openmouse-bridge-copy">
+            <span>OPENMOUSE BRIDGE</span>
+            <h3>Automatic game detection and battery alerts</h3>
+            <p>
+              OpenMouse Bridge is a lightweight background service that works with the OpenMouse
+              control panel to detect when games start and send battery notifications for your mice.
+            </p>
+            <ul>
+              <li>Runs quietly in the background</li>
+              <li>Detects active games automatically</li>
+              <li>Sends mouse battery notifications</li>
+            </ul>
+          </div>
+          <div className="openmouse-bridge-action">
+            <span>{bridge ? `VERSION ${bridge.version}` : "IN DEVELOPMENT"}</span>
+            <div className="openmouse-bridge-status" role="status" data-connected={bridge !== null}>
+              <i aria-hidden="true" />
+              <span>
+                {bridgeChecking
+                  ? "Checking for Bridge…"
+                  : bridge
+                    ? `${bridge.platform} · ${bridge.activeGames.length > 0 ? bridge.activeGames.join(", ") : "No game detected"}`
+                    : "Bridge not connected"}
+              </span>
+            </div>
+            {bridgeRelease ? (
+              <a className="openmouse-bridge-download" href={bridgeRelease.url} target="_blank" rel="noreferrer">
+                Download Bridge v{bridgeRelease.version}
+              </a>
+            ) : (
+              <button type="button" disabled>Release unavailable</button>
+            )}
+            <button
+              className="openmouse-bridge-connect"
+              type="button"
+              disabled={bridgeChecking}
+              onClick={() => {
+                if (bridgeConnectionRequested) void checkBridge();
+                else setBridgeConnectionRequested(true);
+              }}
+            >
+              {bridge ? "Refresh Bridge" : "Connect Bridge"}
+            </button>
+            <small>
+              {bridge
+                ? `${bridgeGamesList.length} games tracked · ${bridge.profileCount} profiles · battery alerts at ${bridge.batteryThresholdPercent}%`
+                : "Install OpenMouse Bridge before connecting it to this control panel."}
+            </small>
+          </div>
+          {isArchLinux ? (
+            <aside className="openmouse-arch-udev">
+              <div>
+                <strong>Arch Linux needs a WebHID udev rule</strong>
+                <small>Run this once, then unplug and reconnect the mouse.</small>
+              </div>
+              <code>{ARCH_UDEV_COMMAND}</code>
+              <button
+                type="button"
+                onClick={() => void navigator.clipboard.writeText(ARCH_UDEV_COMMAND).then(
+                  () => setBridgeMessage("Copied the Arch Linux udev command."),
+                  () => setBridgeMessage("Could not copy automatically. Select the command manually."),
+                )}
+              >
+                Copy command
+              </button>
+            </aside>
+          ) : null}
+          {bridge ? (
+            <div className="openmouse-bridge-devices">
+              <div className="openmouse-bridge-app-heading">
+                <div>
+                  <span>NATIVE DEVICES</span>
+                  <h4>Mice the Bridge reaches directly, bypassing the browser</h4>
+                </div>
+              </div>
+              {bridgeDeviceList.length === 0 ? (
+                <p className="openmouse-bridge-message" role="status">
+                  No Bridge-controlled mice detected. Plug in an Attack Shark X11 — it needs the Bridge because its
+                  settings channel is not reachable from a browser.
+                </p>
+              ) : (
+                <ul className="openmouse-bridge-device-list">
+                  {bridgeDeviceList.map((device) => (
+                    <li key={device.id} className="openmouse-bridge-device" data-controllable={device.controllable}>
+                      <div className="openmouse-bridge-device-head">
+                        <strong>{device.name}</strong>
+                        <span className="openmouse-bridge-device-meta">
+                          {device.connection === "wireless" ? "Wireless" : "Wired"}
+                          {device.batteryPercent !== null ? ` · ${device.batteryPercent}% battery` : ""}
+                          {device.controllable ? "" : " · needs setup"}
+                        </span>
+                      </div>
+                      {device.controllable ? (
+                        <small className="openmouse-bridge-device-note">
+                          Ready. It appears in the sidebar — select it to change DPI and polling
+                          rate under Overview and Performance, like any other mouse.
+                        </small>
+                      ) : (
+                        <small className="openmouse-bridge-device-note">{device.note}</small>
+                      )}
+                      {bridge?.platform === "windows" ? (
+                        <div className="openmouse-bridge-device-actions">
+                          {device.controllable ? (
+                            <button
+                              type="button"
+                              className="openmouse-bridge-device-secondary"
+                              disabled={bridgeDeviceBusy !== null}
+                              onClick={() => void changeDriver("uninstall")}
+                            >
+                              Remove driver
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="openmouse-bridge-device-enable"
+                              disabled={bridgeDeviceBusy !== null}
+                              onClick={() => void changeDriver("install")}
+                            >
+                              {bridgeDeviceBusy === "driver-install" ? "Enabling…" : "Enable native control"}
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </article>
 
         <article className="interface-setting-card interface-theme-card">
@@ -176,7 +467,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
               <label
                 key={name}
                 className="theme-tile"
-                style={{ "--tile-accent": accent, "--tile-canvas": canvas, "--tile-surface": surface }}
+                style={{ "--tile-accent": accent, "--tile-canvas": canvas, "--tile-surface": surface } as React.CSSProperties}
               >
                 <input
                   type="radio"
@@ -209,7 +500,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                   max="100"
                   step="1"
                   value={preferences.glassIntensity}
-                  style={{ "--fill": `${preferences.glassIntensity}%` }}
+                  style={{ "--fill": `${preferences.glassIntensity}%` } as React.CSSProperties}
                   onChange={(event) => set("glassIntensity")(Number(event.currentTarget.value))}
                 />
               </span>
@@ -290,6 +581,5 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         Reset interface preferences
       </button>
     </section>
-    </>
   );
 }

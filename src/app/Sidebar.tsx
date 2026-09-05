@@ -148,7 +148,8 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                 aria-current={device.selected}
                 onClick={() => {
                   control.closeInterfaceSettings();
-                  void control.selectAuthorizedDevice(device.index);
+                  if (device.bridgeId) void control.selectBridgeDevice(device.bridgeId);
+                  else void control.selectAuthorizedDevice(device.index);
                 }}
               >
                 <span className={`device-dot${device.selected ? "" : " is-idle"}`} />

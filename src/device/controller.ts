@@ -8,6 +8,7 @@ import {
   type PulsarClient,
   type SupportedClient,
 } from "../device-clients";
+import { bridgeDevices, setBridgeDeviceDpi, setBridgeDevicePolling, type BridgeDevice } from "../bridge";
 import { closestDpiOption } from "../dpi-presets";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
@@ -113,11 +114,13 @@ import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid"
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
-import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
-import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
-import type { GloriousLighting } from "@openmouse/protocol/glorious";
-import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
+import { AttackSharkHidClient, attackSharkNativeOnlyMessage } from "@openmouse/protocol/drivers/attackshark/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
+import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
+import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
+import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
+import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -186,9 +189,34 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient] as const;
+const NEEDS_OPEN = [
+  TeevolutionHidClient,
+  VgnF2HidClient,
+  KeychronHidClient,
+  KeychronNapeHidClient,
+  KeychronM6HidClient,
+  ModdoHidClient,
+  ZaunkoenigHidClient,
+  FantechHidClient,
+  WallhackMouseHidClient,
+  WallhackKeyboardHidClient,
+  GloriousHidClient,
+  GloriousClassicHidClient,
+] as const;
+
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
+const DEDICATED = [
+  ...DM_CLASSES,
+  ...RAZER_CLASSES,
+  ...NEEDS_OPEN,
+  EggOp1HidClient,
+  LogitechHidppClient,
+  OrbitalHidClient,
+  RazerViperV4ProHidClient,
+  FinalmouseHidClient,
+  AttackSharkHidClient,
+] as const;
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
 const eggWeClient = (): EggWeHidClient | null =>
@@ -500,8 +528,211 @@ function activeSettingsClient(): SupportedClient | null {
   return active;
 }
 
+// ── Attack Shark X11: settings via the Bridge ──────────────────────────────
+// The X11 connects over WebHID as a read-only shell; its DPI/polling live on a
+// USB interface the browser cannot reach, so the OpenMouse Bridge drives them.
+// When the active device is a Bridge-controlled X11 we fold the Bridge's state
+// into its status (so the normal DPI/polling cards render) and route those
+// setters to the Bridge. Every branch is additive: it only fires for this
+// device, so no other mouse's code path changes.
+
+const ATTACK_SHARK_X11_VID = 0x1d57;
+const ATTACK_SHARK_X11_PIDS = new Set([0xfa55, 0xfa60, 0xfa61]);
+
+/** The Bridge device currently backing the active X11, or null. */
+let activeBridgeX11: BridgeDevice | null = null;
+
+function bridgeDeviceId(device: HIDDevice): string {
+  const hex = (value: number): string => value.toString(16).padStart(4, "0");
+  return `${hex(device.vendorId)}:${hex(device.productId)}`;
+}
+
+/**
+ * If the active client is a Bridge-controlled X11, merge the Bridge's DPI,
+ * polling and battery into `status` and populate `dpiOptions`, so the standard
+ * cards render. Sets `activeBridgeX11` for setter routing. No-op (and leaves the
+ * device read-only) when it isn't an X11 or the Bridge can't reach it.
+ */
+async function applyBridgeX11(client: SupportedClient, status: MouseStatus): Promise<void> {
+  activeBridgeX11 = null;
+  if (!(client instanceof AttackSharkHidClient)) return;
+  const { vendorId, productId } = client.device;
+  if (vendorId !== ATTACK_SHARK_X11_VID || !ATTACK_SHARK_X11_PIDS.has(productId)) return;
+
+  const id = bridgeDeviceId(client.device);
+  let device: BridgeDevice | undefined;
+  try {
+    device = (await bridgeDevices()).find((entry) => entry.id === id && entry.controllable);
+  } catch {
+    return; // Bridge not running — keep the read-only shell.
+  }
+  if (!device || device.dpiStages.length === 0) return;
+  activeBridgeX11 = device;
+
+  const activeStage = Math.max(0, Math.min(device.activeDpiStage - 1, device.dpiStages.length - 1));
+  status.dpiStages = device.dpiStages.slice();
+  status.activeDpiStage = activeStage;
+  status.dpi = device.dpiStages[activeStage] ?? status.dpi;
+  status.pollingRateHz = device.pollingRateHz ?? status.pollingRateHz;
+  status.supportedPollingRates = device.supportedPollingRates;
+  status.batteryPercent = device.batteryPercent ?? status.batteryPercent;
+  status.batteryState = device.batteryPercent != null ? "Discharging" : status.batteryState;
+  // An empty LOD list hides the sensor card (see cardAvailability).
+  status.supportedLiftOffDistances = [];
+  status.ui = {
+    ...status.ui,
+    settingsReady: true,
+    valuesVerified: true,
+    hideProcessingCard: true,
+    forceShowBattery: device.connection === "wireless",
+    statusNote: undefined,
+    dpiStageEditor: {
+      maxStages: device.dpiStages.length,
+      countEditable: false,
+      minDpi: device.dpiMin,
+      maxDpi: device.dpiMax,
+      stepDpi: device.dpiStep,
+    },
+  };
+
+  // The stage editor validates against dpiOptions, so list every supported step.
+  const options: number[] = [];
+  for (let value = device.dpiMin; value <= device.dpiMax; value += device.dpiStep) options.push(value);
+  dpiOptions = options;
+}
+
+/** Bridge id to route settings to when the active device is a controlled X11. */
+function bridgeX11Target(): string | null {
+  return activeBridgeX11?.id ?? null;
+}
+
+/** Push the current (staged) DPI stages and active stage to the Bridge. */
+async function writeBridgeX11Dpi(id: string): Promise<void> {
+  const staged = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  const stages = staged?.dpiStages ?? activeBridgeX11?.dpiStages ?? [];
+  const activeStage = (staged?.activeDpiStage ?? 0) + 1;
+  await setBridgeDeviceDpi(id, stages, activeStage);
+  if (activeBridgeX11?.id === id) {
+    activeBridgeX11 = { ...activeBridgeX11, dpiStages: [...stages], activeDpiStage: activeStage };
+  }
+}
+
+// ── Bridge devices as first-class sidebar entries ──────────────────────────
+// A Bridge-controlled X11 has no WebHID entry (its interface is bound to
+// WinUSB), so it appears in the sidebar straight from the Bridge and activates
+// without a browser step. `active`/`activeDevice` stay null; `activeBridgeX11`
+// marks the mode and the setters route to the Bridge.
+
+let bridgeDeviceCache: BridgeDevice[] = [];
+let bridgeCacheKey = "";
+let bridgePollTimer: number | null = null;
+
+/** Build a full MouseStatus from a Bridge device so the normal cards render. */
+function bridgeStatusFor(device: BridgeDevice): MouseStatus {
+  const activeStage = Math.max(0, Math.min(device.activeDpiStage - 1, device.dpiStages.length - 1));
+  return {
+    brand: "Attack Shark",
+    name: device.name,
+    ui: {
+      family: "attackshark",
+      settingsReady: true,
+      valuesVerified: true,
+      hideProcessingCard: true,
+      hideUnsupportedPollingRates: true,
+      forceShowBattery: device.connection === "wireless",
+      dpiStageEditor: {
+        maxStages: device.dpiStages.length,
+        countEditable: false,
+        minDpi: device.dpiMin,
+        maxDpi: device.dpiMax,
+        stepDpi: device.dpiStep,
+      },
+    },
+    batteryPercent: device.batteryPercent,
+    batteryState: device.batteryPercent != null ? "Discharging" : "Unknown",
+    dpi: device.dpiStages[activeStage] ?? 0,
+    dpiStages: device.dpiStages.slice(),
+    activeDpiStage: activeStage,
+    pollingRateHz: device.pollingRateHz ?? 0,
+    supportedPollingRates: device.supportedPollingRates,
+    supportedLiftOffDistances: [],
+    activeProfile: null,
+    connectionType: device.connection === "wireless" ? "Wireless" : "Wired",
+    liftOffDistance: null,
+    firmware: [],
+  };
+}
+
+/** Activate a Bridge device (no WebHID). Renders it in the main control panel. */
+export async function selectBridgeDevice(id: string): Promise<void> {
+  if (settingInProgress || refreshInProgress) return;
+  let device: BridgeDevice | undefined;
+  try {
+    device = (await bridgeDevices()).find((entry) => entry.id === id && entry.controllable);
+  } catch {
+    toastForError("Connection failed", new Error("The OpenMouse Bridge is not reachable."));
+    return;
+  }
+  if (!device || activeBridgeX11?.id === id) return;
+
+  await active?.close().catch(() => undefined);
+  active = null;
+  activeDevice = null;
+  activeBridgeX11 = device;
+  clearPendingChanges();
+  onboardProfiles = null;
+
+  const options: number[] = [];
+  for (let value = device.dpiMin; value <= device.dpiMax; value += device.dpiStep) options.push(value);
+  dpiOptions = options;
+
+  capabilities = readCapabilities();
+  deviceStatusText = "Connected";
+  applyStatus(bridgeStatusFor(device));
+  await refreshSidebar();
+  startAutomaticRefresh();
+  setConnectionButtons(false, "Add device");
+  pushToast("success", `Connected to ${device.name}`);
+}
+
+/** Poll the Bridge so its devices stay listed in the sidebar and live-updated. */
+function startBridgePolling(): void {
+  if (bridgePollTimer !== null) return;
+  const poll = async (): Promise<void> => {
+    let list: BridgeDevice[] = [];
+    try {
+      list = (await bridgeDevices()).filter((entry) => entry.controllable);
+    } catch {
+      list = [];
+    }
+    const key = JSON.stringify(
+      list.map((d) => [d.id, d.name, d.connection, d.batteryPercent, d.pollingRateHz, d.dpiStages, d.activeDpiStage]),
+    );
+    if (key === bridgeCacheKey) return;
+    bridgeCacheKey = key;
+    bridgeDeviceCache = list;
+    // Keep the active Bridge device's status live (battery, etc.), or drop it
+    // if it was unplugged.
+    if (activeBridgeX11) {
+      const current = list.find((entry) => entry.id === activeBridgeX11!.id);
+      if (current) {
+        activeBridgeX11 = current;
+        const status = bridgeStatusFor(current);
+        const statusKey = JSON.stringify(status);
+        if (statusKey !== lastRenderedStatusKey && !hasPendingChanges()) applyStatus(status, statusKey);
+      } else {
+        showDisconnectedState();
+        emit();
+      }
+    }
+    void refreshSidebar();
+  };
+  void poll();
+  bridgePollTimer = window.setInterval(() => void poll(), 5_000);
+}
+
 function hasActiveClient(): boolean {
-  return activeSettingsClient() !== null;
+  return activeSettingsClient() !== null || activeBridgeX11 !== null;
 }
 
 function requireSettingsClient(): SupportedClient {
@@ -1319,9 +1550,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
     const summary = deviceStatus.batteryPercent === null
       ? "Connected"
       : `Battery ${deviceStatus.batteryPercent}%`;
-    readStatus = status.ui?.valuesVerified
+    const base = status.ui?.valuesVerified
       ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
       : summary;
+    readStatus = status.ui?.statusNote ? `${base} · ${status.ui.statusNote}` : base;
   } else if (!hasPendingChanges()) {
     readStatus = `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`;
   }
@@ -1375,7 +1607,17 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
 
 async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
   const all = devices ?? await navigator.hid?.getDevices() ?? [];
-  sidebarDevices = sidebarEntries(all);
+  const webhid = sidebarEntries(all);
+  // Bridge-only devices (e.g. the WinUSB-bound X11) have no WebHID entry, so add
+  // them from the cached Bridge list. Negative indices keep them distinct.
+  const bridge: SidebarDevice[] = bridgeDeviceCache.map((device, index) => ({
+    index: -1 - index,
+    bridgeId: device.id,
+    name: device.name,
+    detail: `Attack Shark · ${device.connection === "wireless" ? "Wireless" : "Wired"}`,
+    selected: activeBridgeX11?.id === device.id,
+  }));
+  sidebarDevices = [...webhid, ...bridge];
   emit();
 }
 
@@ -1443,6 +1685,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   buttons = null;
   clearNapeKeymaps();
   activeDevice = client.device;
+  activeBridgeX11 = null; // Switching to a WebHID device leaves Bridge mode.
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   active = client;
@@ -1455,6 +1698,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   } else {
     const status = await client.readStatus();
     dpiOptions = await client.getDpiOptions();
+    await applyBridgeX11(client, status);
     const dm = dmClient();
     const keychron = keychronNapeClient();
     if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
@@ -1514,6 +1758,7 @@ function showDisconnectedState(): void {
   }
   clearActiveClients();
   activeDevice = null;
+  activeBridgeX11 = null;
   onboardProfiles = null;
   editedNapeLayer = null;
   lastRenderedStatusKey = null;
@@ -1645,11 +1890,41 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
       + "Synapse app, so this mouse needs a native client.",
     );
   }
+  // The Attack Shark X11 family has the same problem: its settings channel is
+  // on browser-protected collections, so no granted entry can ever answer.
+  const x11Message = attackSharkNativeOnlyMessage(devices);
+  if (x11Message) throw new Error(await x11MessageForBridge(devices, x11Message));
   throw new Error(
     `Selected device is not a supported control interface (${details}). `
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
+}
+
+/**
+ * Tailor the X11 "browser can't reach this" message to the Bridge's state: if
+ * the Bridge already has native control enabled for this exact mouse, point the
+ * user at the Native devices panel instead of telling them to enable something
+ * that is already on. Falls back to the setup message when the Bridge is not
+ * running or does not (yet) control this device.
+ */
+async function x11MessageForBridge(devices: HIDDevice[], fallback: string): Promise<string> {
+  try {
+    const bridgeList = await bridgeDevices();
+    const enabled = devices.some((device) =>
+      bridgeList.some((entry) =>
+        entry.controllable
+        && entry.vendorId === device.vendorId
+        && entry.productId === device.productId));
+    if (enabled) {
+      return "This Attack Shark X11 already has native control enabled in the OpenMouse Bridge. "
+        + "Change its DPI, polling rate and lighting in Interface settings → Bridge → Native "
+        + "devices; the browser view stays read-only for this mouse.";
+    }
+  } catch {
+    // Bridge not running or unreachable — fall through to the setup message.
+  }
+  return fallback;
 }
 
 export async function connect(): Promise<void> {
@@ -1814,6 +2089,8 @@ export function applyDpiValue(dpi: number): boolean {
       }
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setDpi", "DPI").setDpi(dpi);
     },
   });
@@ -1864,6 +2141,8 @@ export function applyActiveDpiStage(stage: number): void {
       status.dpi = status.dpiStages?.[stage] ?? status.dpi;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
     },
   });
@@ -1895,6 +2174,8 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
       if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) return writeBridgeX11Dpi(bridgeId);
       await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
     },
   });
@@ -2838,6 +3119,14 @@ export function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
+      const bridgeId = bridgeX11Target();
+      if (bridgeId) {
+        const confirmed = await setBridgeDevicePolling(bridgeId, rate);
+        if (activeBridgeX11?.id === bridgeId) {
+          activeBridgeX11 = { ...activeBridgeX11, pollingRateHz: confirmed };
+        }
+        return;
+      }
       await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
@@ -3408,6 +3697,8 @@ function startAutomaticRefresh(): void {
 }
 
 async function refreshStatus(): Promise<void> {
+  // Bridge devices refresh from the Bridge poll, not a WebHID client.
+  if (activeBridgeX11) return;
   const client = activeSettingsClient();
   if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
   if ("pollIntervalMs" in client && Number((client as { pollIntervalMs: number }).pollIntervalMs) <= 0) return;
@@ -3416,6 +3707,7 @@ async function refreshStatus(): Promise<void> {
   try {
     const dm = dmClient();
     const status = dm && client === dm ? await dm.readStatus(true) : await client.readStatus();
+    await applyBridgeX11(client, status);
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     const key = JSON.stringify(status);
@@ -3661,6 +3953,8 @@ export function start(): void {
     navigator.hid?.addEventListener("connect", handleHidConnect);
     navigator.hid?.addEventListener("disconnect", handleHidDisconnect);
     void reconnectAuthorizedDevice();
+    // List Bridge-only devices (e.g. the WinUSB-bound X11) in the sidebar.
+    startBridgePolling();
   }
 
   window.addEventListener("beforeunload", (event) => {
