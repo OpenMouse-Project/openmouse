@@ -49,6 +49,7 @@ import {
   isEggWeClient,
   type EggWeHidClient,
 } from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { AtkBitmouseHidClient } from "@openmouse/protocol/drivers/atk/bitmouse-hid";
 import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
 import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import {
@@ -182,7 +183,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
   return null;
 }
 
-const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
+const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
 const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient] as const;
 const DEDICATED = [
@@ -194,8 +195,8 @@ const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppC
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
 const eggWeClient = (): EggWeHidClient | null =>
   active !== null && isEggWeClient(active) ? active : null;
-const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null =>
-  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient>(...DM_CLASSES);
+const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
+  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
 const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null =>
   activeAs<RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient>(...RAZER_CLASSES);
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
@@ -2965,6 +2966,7 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: teevolutionClient() ? "highest performance" : "performance mode",
     hyperMode: "Hyper mode",
+    longRangeMode: "Ultra Long Range",
   } as const)[setting];
 }
 
@@ -2974,6 +2976,7 @@ const PULSAR_TOGGLE_METHOD: Record<PulsarToggleSetting, string> = {
   rippleControl: "setRippleControl",
   performanceMode: "setPerformanceMode",
   hyperMode: "setHyperMode",
+  longRangeMode: "setLongRangeMode",
 };
 
 export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
@@ -3161,6 +3164,51 @@ export function applyTeevolutionSensorMode(mode: NonNullable<MouseStatus["sensor
   });
 }
 
+/**
+ * Sensor sampling mode for drivers outside the Teevolution profile, where the
+ * mode is a plain device setting rather than one the polling rate can lock.
+ */
+/**
+ * Lift-off for mice that tune it continuously rather than in three stops. The
+ * value is a raw device code; the driver owns what it means in millimetres.
+ */
+export function applyLiftOffScale(code: number): void {
+  const scale = latestDeviceStatus?.liftOffScale;
+  if (!hasActiveClient() || !scale) return;
+  if (!Number.isInteger(code) || code < scale.min || code > scale.max) return;
+  const millimetres = scale.minMillimetres
+    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / Math.max(1, scale.max - scale.min);
+  const label = `Lift-off ${millimetres.toFixed(1)} mm`;
+  stageChange({
+    key: "lift-off-scale",
+    label,
+    command: `Set lift-off to ${millimetres.toFixed(1)} mm`,
+    progress: `Setting lift-off to ${millimetres.toFixed(1)} mm…`,
+    preview: (status) => {
+      if (!status.liftOffScale) return;
+      status.liftOffScale = { ...status.liftOffScale, value: code, millimetres };
+    },
+    apply: async () => {
+      await requireClientMethod("setLiftOffScale", "lift-off distance").setLiftOffScale(code);
+    },
+  });
+}
+
+export function applySensorMode(mode: NonNullable<MouseStatus["sensorMode"]>): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "sensor-mode",
+    label: `Sensor mode ${mode}`,
+    command: `Set sensor mode to ${mode}`,
+    progress: `Setting sensor mode to ${mode}…`,
+    preview: (status) => {
+      status.sensorMode = mode;
+    },
+    apply: async () => {
+      await requireClientMethod("setSensorMode", "the sensor mode").setSensorMode(mode);
+    },
+  });
+}
 export function applyTeevolutionPerformanceDuration(duration: number): void {
   if (!teevolutionClient()) return;
   const label = sleepLabel(duration * 10);

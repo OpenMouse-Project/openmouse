@@ -83,6 +83,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || (status.performanceMode != null && !traits.eggFamily && !traits.finalmouse)
     || status.hyperMode != null
     || status.sensorMode != null || status.performanceDuration != null
+    || status.longRangeMode != null
   );
 
   const eggs = host && traits.eggControls;

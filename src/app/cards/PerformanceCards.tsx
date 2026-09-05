@@ -208,6 +208,8 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 
           {pair && showPair ? (
             <AsymmetricLiftOff snapshot={snapshot} />
+          ) : status.liftOffScale ? (
+            <LiftOffScale snapshot={snapshot} />
           ) : (
             <div id="lod-single">
               <Segmented
@@ -239,6 +241,51 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
         </div>
       )}
     </article>
+  );
+}
+
+
+/**
+ * Lift-off for a mouse that reports a continuous range instead of the three
+ * shared stops. The slider works in raw device codes and labels them with the
+ * millimetres the driver supplies, so no scale is hard-coded here.
+ */
+function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const scale = snapshot.status?.liftOffScale;
+  const [code, setCode] = useState(scale?.value ?? 0);
+
+  useEffect(() => {
+    if (scale) setCode(scale.value);
+  }, [scale?.value]);
+
+  if (!scale) return null;
+
+  const span = Math.max(1, scale.max - scale.min);
+  const millimetres = scale.minMillimetres
+    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / span;
+
+  return (
+    <div id="lod-scale" className="lod-sliders">
+      <label>
+        Lift-off
+        <output id="lod-scale-value">{millimetres.toFixed(1)} mm</output>
+        <span className="glass-slider-rail">
+          <input
+            id="lod-scale-input"
+            type="range"
+            min={scale.min}
+            max={scale.max}
+            step={1}
+            value={code}
+            disabled={snapshot.settingsPending}
+            style={{ "--fill": `${((code - scale.min) / span) * 100}%` }}
+            onChange={(event) => setCode(Number(event.currentTarget.value))}
+            onPointerUp={() => control.applyLiftOffScale(code)}
+            onKeyUp={() => control.applyLiftOffScale(code)}
+          />
+        </span>
+      </label>
+    </div>
   );
 }
 

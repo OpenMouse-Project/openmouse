@@ -44,6 +44,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   "attack-shark": DIRECT_MODE,
   crdrako: DIRECT_MODE,
   atk: DIRECT_MODE,
+  "atk-bitmouse": DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
   "keychron-nape": { advancedSection: true, sleep: true, directMode: true },
   fantech: { advancedSection: true, sleep: true, directMode: true },
