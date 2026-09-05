@@ -6,10 +6,11 @@ import { CaptureDialog } from "./CaptureDialog";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { InterfaceSettings } from "./InterfaceSettings";
 import { PendingBar } from "./PendingBar";
+import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { Sidebar } from "./Sidebar";
 import { Superstrike } from "./Superstrike";
-import { SupportRequestsDialog } from "./SupportRequestsDialog";
+import { ShareProfileDialog } from "./ShareProfileDialog";
 import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
 import { BatteryIcon } from "./ui";
@@ -155,6 +156,7 @@ function Workspace({
   ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
+  const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
   const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
   const showMxMaster = on(tab, ["advanced"])
@@ -163,7 +165,8 @@ function Workspace({
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
-    || showProfiles || showSuperstrike || showLogitechDetails || showMxMaster || showDiagnostics || showOverview;
+    || showProfiles || showNapeLayers || showSuperstrike || showLogitechDetails || showMxMaster
+    || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
   const stagesAvailable = Boolean(status.ui?.dpiStageEditor)
@@ -188,6 +191,7 @@ function Workspace({
       ) : null}
 
       {showProfiles ? <Profiles snapshot={snapshot} /> : null}
+      {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
       {performance.length > 0 ? (
         <section
@@ -257,7 +261,7 @@ export function App(): ReactNode {
   const snapshot = useControl();
   const panel = useRef<HTMLElement>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
-  const [supportRequestsOpen, setSupportRequestsOpen] = useState(false);
+  const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const { preferences, status } = snapshot;
 
   useEffect(() => {
@@ -282,7 +286,7 @@ export function App(): ReactNode {
     var tempTabs = WORKSPACE_TAB_ORDER;
     const has = cardAvailability(snapshot);
     if(status==null)return tempTabs;
-    if(!has.lighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!has.lighting&&!has.teevolutionDpiLighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
     if(!has.eggButtons&&
        !has.razerButtons&&
        !has.mxMasterButtons&&
@@ -320,7 +324,7 @@ export function App(): ReactNode {
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
       style={{ "--glass-intensity": preferences.glassIntensity }}
     >
-      <Sidebar snapshot={snapshot} onOpenSupportRequests={() => setSupportRequestsOpen(true)} />
+      <Sidebar snapshot={snapshot} />
 
       <main className={`control-panel${snapshot.interfaceSettingsOpen ? " showing-settings" : ""}`} ref={panel}>
         <div className="panel-top">
@@ -339,6 +343,15 @@ export function App(): ReactNode {
           <p className="live-status">
             <i aria-hidden="true" />
             <span id="read-status" role="status" aria-live="polite">{snapshot.readStatus}</span>
+            {status ? (
+              <button
+                type="button"
+                className="live-status-share"
+                onClick={() => setShareProfileOpen(true)}
+              >
+                Share profile
+              </button>
+            ) : null}
           </p>
         </div>
 
@@ -405,7 +418,7 @@ export function App(): ReactNode {
 
       <PendingBar snapshot={snapshot} />
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
-      <SupportRequestsDialog open={supportRequestsOpen} onClose={() => setSupportRequestsOpen(false)} diagnosticBundle={control.supportDiagnosticBundle()} />
+      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
       <ToastHost toasts={snapshot.toasts} />
     </div>
   );

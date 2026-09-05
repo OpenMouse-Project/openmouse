@@ -7,24 +7,17 @@ const BUDGET_BYTES: Record<string, number> = {
   // layer (SVG displacement filters plus their component rules) adds the
   // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
-  // styles that load only on /contributors.html). Raised to 180 kB upstream;
-  // this also covers the Bridge "Native devices" panel (per-device rows,
-  // polling control, and the Enable/Remove-driver buttons).
-  ".css": 180_000,
+  // styles that load only on /donate.html). Raised to 180 kB in the
+  // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
+  // Fame overhaul: the blocky token block (plank textures, bevels, item-frame
+  // avatars), the animated day/night scene (sun/moon/star/cloud/bonfire
+  // keyframes) and the credits-style quote widget push the measured CSS
+  // aggregate to 183.7 kB.
+  ".css": 195_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview
   // fixtures retain their separate allowance below; the measured aggregate
-<<<<<<< HEAD
-  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised from
-  // 590 kB for the Razer button-mapping card and its codec, and the Pulsar
-  // XS-1 feature-report driver plus 4K receiver support (mouse-protocol
-  // 3c3a445). Raised again for native Bridge device control: the /v1/devices
-  // client and the "Native devices" panel that lists Bridge-reached mice (e.g.
-  // the Attack Shark X11, unreachable over WebHID) and drives their DPI and
-  // polling. Measured aggregate after merging both lines of work.
-  ".js": 614_000,
-=======
   // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
   // from 590 kB for the Razer button-mapping card and its codec: the measured
   // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
@@ -32,8 +25,19 @@ const BUDGET_BYTES: Record<string, number> = {
   // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
   // adds ~1.3 kB to the measured aggregate. Raised to 632 kB for the Attack
   // Shark GearHub (0x25a7) protocol routed to 0x1d57 VID devices (+1.6 kB).
-  ".js": 632_000,
->>>>>>> upstream/dev
+  // Raised to 700 kB for four new drivers landing together: Keychron M6,
+  // Keychron Nape Pro (layer/keymap/orientation controls), Glorious Model O
+  // 2/I 2 lighting, and SteelSeries Rival 3 Gen 1. Measured aggregate is
+  // 689.0 kB, which leaves about 11 kB of headroom. Raised to 730 kB for the
+  // device artwork pass: ~20 new product models mapped to transparent top-view
+  // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
+  // mapping code to the measured aggregate (720.5 kB). Raised to 765 kB for
+  // the SteelSeries/device-support and Cloudflare R2 artwork-serve work merged
+  // on dev: those land with the measured aggregate already at ~750 kB. The
+  // donate page rebuild (Hall of Fame -> Support) does not drive this; its
+  // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
+  // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
+  ".js": 765_000,
 };
 
 const ASSETS = join("dist", "assets");

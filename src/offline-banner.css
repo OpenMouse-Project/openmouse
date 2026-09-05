@@ -1,0 +1,33 @@
+.offline-banner {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 1rem;
+  z-index: 2147483000;
+  width: fit-content;
+  max-width: calc(100vw - 2rem);
+  margin-inline: auto;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: #09090b;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  color: #fafafa;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.offline-banner.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-banner {
+    transition: none;
+  }
+}

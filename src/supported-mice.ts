@@ -13,6 +13,9 @@
 //                PID/interface has not been confirmed on hardware.
 //   driver     — no driver exists; the protocol is not implemented.
 //   unknown    — nothing is known about the protocol.
+//   bridge     — a driver exists but the device's settings channel is out of
+//                WebHID reach; configuration requires the OpenMouse Bridge
+//                desktop companion (native control).
 //   pending    — a live community request from the support catalog. Not part
 //                of the static table; `src/supported-live.ts` adds these at
 //                runtime.
@@ -22,7 +25,7 @@
 // from the code again. `src/supported-live.ts` additionally overlays live
 // request counts and registry-listed supported models at runtime.
 
-export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "pending";
+export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "bridge" | "pending";
 
 export interface Mouse {
   brand: string;
@@ -43,7 +46,8 @@ export const STATUS: Record<Status, { label: string; order: number }> = {
   likely:    { label: "Test Needed",   order: 3 },
   driver:    { label: "Driver Needed", order: 4 },
   unknown:   { label: "Unknown",       order: 5 },
-  pending:   { label: "Requested",     order: 6 },
+  bridge:    { label: "Needs Bridge",  order: 6 },
+  pending:   { label: "Requested",     order: 7 },
 };
 
 export const TABS: Array<{ key: Status | "all"; label: string }> = [
@@ -54,6 +58,7 @@ export const TABS: Array<{ key: Status | "all"; label: string }> = [
   { key: "likely",    label: "Test Needed" },
   { key: "driver",    label: "Driver Needed" },
   { key: "unknown",   label: "Unknown" },
+  { key: "bridge",    label: "Needs Bridge" },
   { key: "pending",   label: "Requested" },
 ];
 
@@ -109,7 +114,8 @@ export const MICE: Mouse[] = [
     pids: [0xc095],
     note: "PID 0xc095 (USB) in driver; Lightspeed dongle also works" },
   { brand: "Logitech", model: "G502 X LIGHTSPEED",      status: "supported", req: 2,
-    note: "Lightspeed dongle — HID++ 2.0 protocol supported" },
+    pids: [0xc098],
+    note: "Lightspeed dongle — HID++ 2.0 protocol supported; PID 0xc098 (USB cable, direct-connect) also in driver" },
   { brand: "Logitech", model: "MX Vertical",            status: "driver",    req: 9,
     note: "Unifying (HID++ 1.0) / Bluetooth — not implemented" },
   { brand: "Logitech", model: "MX Master 4S",           status: "likely",    req: 8,
@@ -188,41 +194,41 @@ export const MICE: Mouse[] = [
     note: "Redragon HID protocol — not implemented" },
 
   // ATTACK SHARK ────────────────────────────────────────────────────────
-  { brand: "Attack Shark", model: "X3",                 status: "likely",    req: 15,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11",                status: "likely",    req: 10,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
+  { brand: "Attack Shark", model: "X3",                 status: "bridge",    req: 15,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11",                status: "bridge",    req: 10,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
   { brand: "Attack Shark", model: "R5 Ultra",           status: "supported", req: 7,
     pids: [0x0046, 0x0047],
     note: "PIDs 0x0046/0x0047 in the CompX/Lamzu driver (R5 Ultra profile)" },
-  { brand: "Attack Shark", model: "X6",                 status: "likely",    req: 5,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "R3",                 status: "likely",    req: 4,
-    note: "Driver implemented (0x373e family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R1",                 status: "likely",    req: 3,
-    note: "Driver implemented (0x1d57 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 Ultra",           status: "likely",    req: 3,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 SE",              status: "likely",    req: 2,
-    note: "0x1d57 VID, GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X1",                 status: "likely",    req: 2,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "V3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11 SE",             status: "likely",    req: 1,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 PLUS",            status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X12",                status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R6",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "G3",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R2",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
+  { brand: "Attack Shark", model: "X6",                 status: "bridge",    req: 5,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "R3",                 status: "bridge",    req: 4,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x373e family)" },
+  { brand: "Attack Shark", model: "R1",                 status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 family)" },
+  { brand: "Attack Shark", model: "X8 Ultra",           status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X8 SE",              status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 VID, GearHub protocol)" },
+  { brand: "Attack Shark", model: "X1",                 status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "V3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11 SE",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
+  { brand: "Attack Shark", model: "X8 PLUS",            status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X12",                status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R6",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "G3",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R2",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
 
   // RAZER ───────────────────────────────────────────────────────────────
   { brand: "Razer", model: "DeathAdder V3 (wired)",     status: "supported", req: 9,
@@ -248,6 +254,9 @@ export const MICE: Mouse[] = [
   { brand: "Razer", model: "Viper V3 HyperSpeed",       status: "supported", req: 1,
     pids: [0x00b8],
     note: "PID 0x00b8 — verified on hardware" },
+  { brand: "Razer", model: "Viper V4 Pro",              status: "supported", req: 1,
+    pids: [0x00e5, 0x00e6],
+    note: "PIDs 0x00e5 (wired) / 0x00e6 (wireless) — dedicated driver, only mouse on Razer's own Synapse Web" },
   { brand: "Razer", model: "Basilisk V3 (wired)",       status: "likely",    req: 13,
     note: "In Razer registry — needs hardware test" },
   { brand: "Razer", model: "Basilisk V3 Pro",           status: "likely",    req: 13,
@@ -264,8 +273,12 @@ export const MICE: Mouse[] = [
     note: "In Razer registry — needs hardware test" },
   { brand: "Razer", model: "DeathAdder V3 Pro",         status: "likely",    req: 2,
     note: "Wireless — in Razer registry" },
-  { brand: "Razer", model: "DeathAdder V4 Pro",         status: "driver",    req: 2,
-    note: "nativeOnly — control channel on a Chrome-protected collection, needs a native driver" },
+  { brand: "Razer", model: "DeathAdder V4 Pro",         status: "supported", req: 2,
+    pids: [0x00be, 0x00bf],
+    note: "PIDs 0x00be (wired) / 0x00bf (wireless) — was nativeOnly until Razer's own live device list started reaching it over WebHID again" },
+  { brand: "Razer", model: "DeathAdder V4 Pro Carbon Fiber Edition", status: "supported", req: 1,
+    pids: [0x00ef, 0x00f0],
+    note: "PIDs 0x00ef (wired) / 0x00f0 (wireless) — same driver as the standard edition, cosmetic SKU" },
   { brand: "Razer", model: "Naga Trinity",              status: "likely",    req: 2,
     note: "PID 0x0067 in Razer registry — standard transport" },
   { brand: "Razer", model: "Naga X",                    status: "likely",    req: 2,
@@ -304,24 +317,33 @@ export const MICE: Mouse[] = [
     note: "Kingston NGENUITY protocol — not implemented" },
 
   // STEELSERIES ─────────────────────────────────────────────────────────
-  { brand: "SteelSeries", model: "Aerox 9 Wireless",    status: "driver",    req: 5,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Sensei Ten",           status: "driver",    req: 4,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Aerox 5",              status: "driver",    req: 2,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Rival 3 Wireless",     status: "driver",    req: 2,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Rival 650 Wireless",   status: "driver",    req: 2,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Aerox 3",              status: "driver",    req: 1,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Prime+",               status: "driver",    req: 1,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Rival 310",            status: "driver",    req: 1,
-    note: "SteelSeries GG protocol — not implemented" },
-  { brand: "SteelSeries", model: "Prime Mini Wireless",  status: "driver",    req: 1,
-    note: "SteelSeries GG protocol — not implemented" },
+  { brand: "SteelSeries", model: "Aerox 9 Wireless",    status: "supported", req: 5,
+    pids: [0x185a, 0x1876, 0x1858, 0x1874],
+    note: "Write-only settings (DPI presets, polling, RGB zones/reactive/sleep-dim timers/rainbow/default lighting; no button-remap command in rivalcfg's profile for this device); battery percentage/charging is read live (no firmware-query command). PID 0x185a/0x1876 (wired mode) and 0x1858/0x1874 (2.4 GHz mode, WOW Edition) in SteelSeries Aerox 9 Wireless driver" },
+  { brand: "SteelSeries", model: "Sensei Ten",           status: "supported", req: 4,
+    pids: [0x1832, 0x1834],
+    note: "Write-only: DPI presets (linear TrueMove3+-family encoding, not a lookup table), polling, logo/wheel LED RGB gradients, buttons; firmware version is read live. PID 0x1832 and 0x1834 (CS:GO Neon Rider Edition) in SteelSeries Sensei TEN driver" },
+  { brand: "SteelSeries", model: "Aerox 5",              status: "supported", req: 2,
+    pids: [0x1850, 0x1854, 0x185e, 0x1862, 0x1852, 0x185c, 0x1860],
+    note: "Write-only settings (DPI presets, polling, RGB zones/reactive/brightness/rainbow, buttons); the Wireless variant's battery percentage/charging is read live. PID 0x1850 in SteelSeries Aerox 5 driver, 0x1854/0x185e/0x1862 (wired mode) and 0x1852/0x185c/0x1860 (2.4 GHz mode) in SteelSeries Aerox 5 Wireless driver" },
+  { brand: "SteelSeries", model: "Rival 3 Wireless",     status: "supported", req: 2,
+    pids: [0x1830],
+    note: "DPI presets, polling, and buttons are write-only; battery percentage/charging and firmware are read live. PID 0x1830 (2.4 GHz mode) in SteelSeries Rival 3 Wireless driver" },
+  { brand: "SteelSeries", model: "Rival 650 Wireless",   status: "supported", req: 2,
+    pids: [0x172b, 0x1726],
+    note: "DPI (preset 1), polling, lift-off distance, sleep timer, and buttons are write-only; battery percentage/charging is read live (no firmware-query command in this protocol). PID 0x172b (wired mode) and 0x1726 (2.4 GHz wireless mode) in SteelSeries Rival 650 Wireless driver" },
+  { brand: "SteelSeries", model: "Aerox 3",              status: "supported", req: 1,
+    pids: [0x1836],
+    note: "Write-only: DPI presets, polling, RGB zones, reactive color, brightness, rainbow, buttons. PID 0x1836 in SteelSeries Aerox 3 driver" },
+  { brand: "SteelSeries", model: "Prime+",               status: "supported", req: 1,
+    pids: [0x182c],
+    note: "Write-only: DPI presets, polling, wheel LED color, brightness, buttons. PID 0x182c in SteelSeries Prime+ driver" },
+  { brand: "SteelSeries", model: "Rival 310",            status: "supported", req: 1,
+    pids: [0x1720, 0x171e, 0x1736],
+    note: "Write-only: DPI (preset 1), polling, logo/wheel LED steady color, buttons; firmware version is read live. PID 0x1720/0x171e (CS:GO Howl Edition)/0x1736 (PUBG Edition) in SteelSeries Rival 310 driver" },
+  { brand: "SteelSeries", model: "Prime Mini Wireless",  status: "supported", req: 1,
+    pids: [0x184a, 0x1848],
+    note: "DPI presets, polling, LED color, sleep/dim timers, default lighting, and buttons are write-only; battery percentage/charging is read live (no firmware-query command in this protocol). PID 0x184a (wired mode) and 0x1848 (2.4 GHz mode) in SteelSeries Prime Mini Wireless driver" },
 
   // CORSAIR ─────────────────────────────────────────────────────────────
   { brand: "Corsair", model: "Harpoon RGB Pro",           status: "driver",   req: 5,
@@ -342,23 +364,48 @@ export const MICE: Mouse[] = [
     note: "iCUE protocol — not implemented" },
 
   // GLORIOUS ────────────────────────────────────────────────────────────
-  { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "driver",   req: 5,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O",                 status: "driver",   req: 3,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D Wireless",        status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D",                 status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O2 Pro 4K/8K",     status: "driver",   req: 2,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model O Pro",             status: "driver",   req: 1,
-    note: "Glorious CORE protocol — not implemented" },
-  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "driver",  req: 1,
-    note: "Glorious CORE protocol — not implemented" },
+  // Three tiers: the Pixart Model O 2 / I 2 family (write-only,
+  // drivers/glorious/hid.ts); the pre-Pixart "core1" classic Model O/D/I
+  // family (full DPI/polling/LOD/debounce/RGB write + read battery,
+  // drivers/glorious/classic-hid.ts, ported from glorious-ctl + mxw); and the
+  // newer 8000Hz-class "core2" devices on the SAME classic-hid.ts driver but
+  // gated to RGB/debounce/battery only — DPI/polling/LOD stay off for core2
+  // because korkje/mxw's own device list never included them, and (for
+  // polling specifically) github.com/AMarcinkiewicz/GloriousAutoPollingRate
+  // shows the D2 Pro 4K/8K's real polling command uses an entirely different
+  // usage page/report layout, confirming core2 isn't just core1 with new
+  // values. See [[glorious-classic-protocol]] in project memory for the full
+  // writeup, including the exact (unwired) D2 Pro 4K/8K polling-rate bytes.
+  { brand: "Glorious", model: "Model O 2 Pro Wireless",  status: "supported", req: 5,
+    pids: [0x2033],
+    note: "Same PID (0x2033) as the classic driver's \"Model O 2 Wireless\" — Glorious's own \"O2 Pro\" name for it, per AwesomeTy18/GloriousBatteryMonitor's device table. DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model O",                 status: "supported", req: 3,
+    pids: [0x2011, 0x2022],
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read" },
+  { brand: "Glorious", model: "Model D Wireless",        status: "supported", req: 2,
+    pids: [0x2012, 0x2023],
+    note: "Classic driver (VID 0x258a). DPI/polling/LOD/debounce/RGB are write-only, battery is read. Config collection may be usage 0xffff:0 on newer firmware — the classic driver accepts it" },
+  { brand: "Glorious", model: "Model D",                 status: "supported",   req: 2,
+    pids: [0x2012],
+    note: "Same PID as Model D Wireless's wired mode — classic driver (VID 0x258a)" },
+  { brand: "Glorious", model: "Model O2 Pro 4K/8K",     status: "likely",   req: 2,
+    pids: [0x201b, 0x2035],
+    note: "Classic driver recognizes this PID (VID 0x258a) but only writes RGB/debounce and reads battery — DPI/polling/LOD are unconfirmed on this newer \"core2\" firmware and stay off" },
+  { brand: "Glorious", model: "Model O Pro",             status: "supported", req: 1,
+    pids: [0x2015, 0x2027],
+    note: "Classic driver (VID 0x258a) — full DPI/polling/LOD/debounce/RGB write, battery read, per RealCrystalNight/Glorious-Mouse-Toolkit-Linux's device table" },
+  { brand: "Glorious", model: "Model D2 Pro Wireless 8K",status: "likely",  req: 1,
+    pids: [0x201c, 0x2036],
+    note: "Classic driver recognizes this PID (VID 0x258a) but only writes RGB/debounce and reads battery — DPI/polling/LOD are unconfirmed on this newer \"core2\" firmware and stay off" },
+  { brand: "Glorious", model: "Model O3 Wireless",       status: "likely",   req: 5,
+    pids: [0xa312, 0xa300],
+    note: "8000Hz mouse on VID 0x3794. glorious-ctl's own device list includes it for RGB/debounce/battery, so the classic driver recognizes it for those — DPI/polling/LOD have no confirmed protocol and stay off" },
 
   // ENDGAME GEAR ────────────────────────────────────────────────────────
   { brand: "Endgame Gear", model: "XM2w 4K",            status: "supported", req: 3,
+    note: "egg-we driver (0x3367) covers OP1we/XM2we family" },
+  { brand: "Endgame Gear", model: "OP1we",            status: "supported", req: 1,
+    pids: [0x1961, 0x1962],
     note: "egg-we driver (0x3367) covers OP1we/XM2we family" },
   { brand: "Endgame Gear", model: "OP1w 4K v2",         status: "likely",    req: 7,
     note: "egg-we driver (0x3367) covers OP1we/XM2we family — needs hardware test" },
@@ -374,6 +421,9 @@ export const MICE: Mouse[] = [
     note: "ATK vendor (0x373b, usagePage 0xff02) covered" },
   { brand: "ATK", model: "VXE Dragonfly R1 Pro",        status: "likely",    req: 3,
     note: "VGN F2 driver (0xfb56/0xfb57) covers Dragonfly F2; R1 Pro needs test" },
+  { brand: "ATK", model: "VXE Dragonfly R1 SE / SE+",   status: "likely",    req: 3,
+    pids: [0x1085],
+    note: "Beken R1 on its stock 1K dongle (0x373b:0x1085). Poll rate now reads/writes the 0x0070 live-settings row per OpenVXE; debounce/angle on this family remain unverified" },
   { brand: "ATK", model: "X1 V2 Ultimate",              status: "likely",    req: 1,
     note: "ATK driver (0x373b) likely covers — needs hardware test" },
   { brand: "ATK", model: "A9 Air",                      status: "likely",    req: 1,
@@ -401,6 +451,9 @@ export const MICE: Mouse[] = [
   { brand: "WLMouse", model: "Sword X",                 status: "supported", req: 1,
     pids: [0xa878, 0xa879],
     note: "PIDs 0xa878 / 0xa879 in WLMouse driver" },
+  { brand: "WLMouse", model: "Beast Max",               status: "supported", req: 1,
+    pids: [0xa880, 0xa881],
+    note: "PIDs 0xa880 / 0xa881 in WLMouse driver" },
 
   // PULSAR ──────────────────────────────────────────────────────────────
   { brand: "Pulsar", model: "Tenz Signature",           status: "supported", req: 6,
@@ -475,7 +528,7 @@ export const MICE: Mouse[] = [
     pids: [0x0440],
     note: "PID 0x0440 in Keychron driver" },
   { brand: "Keychron", model: "M6",                     status: "quickwin",  req: 1,
-    note: "Keychron vendor covered; M6 PID not yet in KEYCHRON_PRODUCT_IDS" },
+    note: "Nape VIA driver only; M6 uses a different Keychron mouse protocol" },
 
   // Asus ────────────────────────────────────────────────────────────────
   { brand: "Asus",     model: "Harpe Ace Aim Lab",      status: "driver",    req: 5,

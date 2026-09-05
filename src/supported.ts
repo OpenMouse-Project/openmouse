@@ -1,4 +1,6 @@
 import "./supported.css";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 import { MICE, STATUS, TABS, type Mouse, type Status } from "./supported-mice.ts";
 import { fetchLiveData, mergeLiveMice, type LiveData } from "./supported-live.ts";
 
@@ -69,6 +71,7 @@ const STATUS_LEGEND: Array<[Status, string]> = [
   ["likely", "Driver probably covers it — needs hardware test"],
   ["driver", "No driver exists yet"],
   ["unknown", "Protocol not yet identified"],
+  ["bridge", "Not compatible with WebHID — needs the OpenMouse Bridge companion"],
   ["pending", "Live community request"],
 ];
 
@@ -79,9 +82,9 @@ app.innerHTML = `
       OpenMouse
     </a>
     <nav class="header-nav">
-      <a class="nav-link" href="/demo.html">UI demo</a>
       <a class="nav-link nav-current" href="/supported.html" aria-current="page">Devices</a>
-      <a class="nav-link" href="/contributors.html">Hall of Fame</a>
+      <a class="nav-link" href="https://docs.openmouse.app">Contribute</a>
+      <a class="nav-link" href="/donate.html">Support</a>
       <button class="theme-toggle" id="theme-btn" aria-label="Toggle theme">${themeIcon(initialTheme)}</button>
       <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
         ${GH_SVG}
@@ -263,3 +266,6 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") void refresh();
 });
 window.addEventListener("focus", () => void refresh());
+
+registerServiceWorker();
+mountOfflineBanner();

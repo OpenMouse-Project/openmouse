@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
-import { WLMOUSE_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
+import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
-import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
+import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
 import {
   LOGITECH_BOLT_PRODUCT_IDS,
@@ -88,7 +88,7 @@ const PID_UNIVERSE = new Set<number>([
   // RAZER_PRODUCTS registry (drivers/razer/devices.ts): Cobra, Viper Mini,
   // Viper V4 Pro.
   0x00a3, 0x008a, 0x00e5, 0x00e6,
-  ...KEYCHRON_PRODUCTS.keys(),
+  ...KEYCHRON_NAPE_PRODUCTS.keys(),
   ...TEEVOLUTION_PRODUCT_IDS,
   ...ZAUNKOENIG_PRODUCT_IDS,
   ...NINJUTSO_LEGACY_MOUSE_PRODUCT_IDS,
@@ -109,6 +109,36 @@ const PID_UNIVERSE = new Set<number>([
   0x503d,
   // WALLHACK M-001 mouse: real config PID and in-app demo PID (drivers/wallhack/mouse-hid.ts).
   0x1110, 0x0807,
+  // SteelSeries Aerox 3 (drivers/steelseries/aerox3-hid.ts).
+  0x1836,
+  // SteelSeries Rival 3 Wireless (drivers/steelseries/rival3-wireless-hid.ts).
+  0x1830,
+  // SteelSeries Aerox 5 (drivers/steelseries/aerox5-hid.ts).
+  0x1850,
+  // SteelSeries Aerox 5 Wireless, wired mode + 2.4 GHz mode, all editions
+  // (drivers/steelseries/aerox5-wireless-hid.ts).
+  0x1854, 0x185e, 0x1862, 0x1852, 0x185c, 0x1860,
+  // SteelSeries Rival 650 Wireless, wired mode + 2.4 GHz wireless mode
+  // (drivers/steelseries/rival650-hid.ts).
+  0x172b, 0x1726,
+  // SteelSeries Aerox 9 Wireless, wired mode + 2.4 GHz mode, both editions
+  // (drivers/steelseries/aerox9-wireless-hid.ts).
+  0x185a, 0x1876, 0x1858, 0x1874,
+  // SteelSeries Rival 310, all three colorway/bundle variants
+  // (drivers/steelseries/rival310-hid.ts).
+  0x1720, 0x171e, 0x1736,
+  // SteelSeries Prime+ (drivers/steelseries/prime-plus-hid.ts).
+  0x182c,
+  // SteelSeries Sensei TEN, incl. CS:GO Neon Rider Edition
+  // (drivers/steelseries/sensei-ten-hid.ts).
+  0x1832, 0x1834,
+  // SteelSeries Prime Mini Wireless, wired mode + 2.4 GHz mode
+  // (drivers/steelseries/prime-mini-wireless-hid.ts).
+  0x184a, 0x1848,
+  // Glorious Pixart Model O 2 / I 2 family (drivers/glorious/hid.ts) and
+  // classic pre-Pixart Model O/D/I family (drivers/glorious/classic-hid.ts).
+  ...GLORIOUS_PRODUCTS.keys(),
+  ...GLORIOUS_CLASSIC_PRODUCTS.keys(),
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(

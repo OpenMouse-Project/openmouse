@@ -1,0 +1,26 @@
+name: Sync landing-page branch
+
+# landing-page and control-panel deploy to two different Cloudflare Pages
+# projects (openmouse.app and control.openmouse.app) but are meant to hold
+# identical code — landing-page is never committed to directly. Every push
+# to control-panel fast-forwards landing-page to match, so the two Pages
+# projects always build from the same source without anyone having to
+# remember to merge branches by hand.
+
+on:
+  push:
+    branches:
+      - control-panel
+
+permissions:
+  contents: write
+
+jobs:
+  fast-forward:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward landing-page to control-panel
+        run: git push origin HEAD:refs/heads/landing-page

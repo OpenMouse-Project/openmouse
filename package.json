@@ -1,11 +1,13 @@
 {
   "name": "openmouse",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:landing": "OPENMOUSE_BUILD_TARGET=landing tsc --noEmit && OPENMOUSE_BUILD_TARGET=landing vite build",
     "test": "node --test \"src/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
     "check": "npm run build && npm test",

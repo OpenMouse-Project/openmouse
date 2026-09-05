@@ -1,0 +1,195 @@
+/* ── Early Access launch countdown ───────────────────────────────────────
+   Minimal gate that replaces the control app until the beta opens: brand
+   mark, headline, timer, one line of copy. No motion, no side art. */
+
+.launch-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 5rem) 1.5rem;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f4ffff;
+  background: #09090b;
+  -webkit-font-smoothing: antialiased;
+}
+
+.launch-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2rem, 6vw, 3rem);
+  width: 100%;
+  max-width: 560px;
+}
+
+.launch-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #69d28d;
+}
+.launch-brand img {
+  width: 20px;
+  height: auto;
+}
+
+.launch-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.6rem;
+  width: 100%;
+}
+
+.launch-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #f4ffff;
+}
+
+.launch-lead {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #7a9498;
+}
+
+/* ── Timer ─────────────────────────────────────────────────────────────── */
+.launch-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.launch-digit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 3.4rem;
+}
+
+.launch-digit-value {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #f4ffff;
+}
+
+.launch-digit-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7a9498;
+}
+
+.launch-colon {
+  padding-bottom: 1.1rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+  font-weight: 600;
+  color: #69d28d;
+}
+
+/* ── CTA + go state ────────────────────────────────────────────────────── */
+.launch-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.8rem;
+  border-radius: 10px;
+  background: #69d28d;
+  color: #041412;
+  font-weight: 700;
+  transition: opacity 0.15s;
+}
+.launch-cta:hover {
+  opacity: 0.88;
+}
+
+/* ── Socials footer ────────────────────────────────────────────────────── */
+.launch-socials {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: clamp(1.2rem, 4vh, 2.2rem);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0 1.5rem;
+}
+
+.launch-socials a,
+.launch-viewers {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid color-mix(in srgb, #69d28d 16%, #232527);
+  border-radius: 999px;
+  background: color-mix(in srgb, #14161a 88%, transparent);
+  color: #7a9498;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.launch-socials a:hover {
+  color: #f4ffff;
+  border-color: color-mix(in srgb, #69d28d 34%, #232527);
+  background: color-mix(in srgb, #191b1f 92%, transparent);
+}
+.launch-socials svg {
+  width: 16px;
+  height: 16px;
+}
+
+.launch-star-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.launch-star-count svg {
+  width: 13px;
+  height: 13px;
+  color: #69d28d;
+}
+
+.launch-viewers {
+  font-size: 0.85rem;
+}
+
+.launch-viewers-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #69d28d;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #69d28d 22%, transparent);
+  animation: launch-pulse 2s ease-in-out infinite;
+}
+
+@keyframes launch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}

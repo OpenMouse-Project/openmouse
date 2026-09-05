@@ -582,7 +582,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-dialog h2 { margin: .15rem 0 0; color: var(--bright); font-size: 1.35rem; font-weight: 550; }
 .support-turnstile { min-height: 65px; }
 .support-dialog header button { width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-control); color: var(--muted); font-size: 1.15rem; }
-.support-intro, .support-message, .support-consent { margin: 0; color: var(--dim); font-size: .76rem; line-height: 1.5; }
+.support-intro, .support-message, .support-consent, .share-profile-intro { margin: 0; color: var(--dim); font-size: .76rem; line-height: 1.5; }
 .support-search, .support-form input:not([type="checkbox"]), .support-form select { width: 100%; padding: .65rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-size: .78rem; }
 .support-results { display: grid; max-height: 17rem; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 .support-results article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border-bottom: 1px solid var(--border-rule); }
@@ -614,6 +614,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .device-status { display: flex; flex: 0 0 auto; align-items: center; gap: .45rem; color: var(--text-soft); font-size: .75rem; white-space: nowrap; }
 .device-status > .status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: #69d28d; }
 .live-status { display: flex; align-items: center; gap: .5rem; margin: 0 0 .8rem; padding: .55rem .75rem; border: 1px solid var(--line); border-radius: 9px; background: var(--well); color: var(--dim); font-size: .72rem; }
+.live-status-share { margin-left: auto; padding: .32rem .65rem; border: 1px solid var(--border-hover); border-radius: 6px; background: var(--surface-strong); color: var(--text-soft); font-size: .68rem; font-weight: 600; cursor: pointer; }
 .live-status i { width: .38rem; height: .38rem; flex: 0 0 auto; border-radius: 50%; background: #69d28d; box-shadow: 0 0 0 3px rgb(105 210 141 / 10%); }
 
 .sidebar-menu-toggle { display: grid; width: 1.9rem; height: 1.75rem; flex: 0 0 auto; grid-template-rows: repeat(3, 1px); align-content: center; gap: .24rem; padding: .42rem .45rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input); cursor: pointer; }
@@ -782,6 +783,14 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-setting-card h3 { margin: .35rem 0 .3rem; font-size: 1rem; font-weight: 550; }
 .interface-setting-card p { margin: 0 0 .8rem; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .interface-setting-card select { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); color-scheme: dark; }
+/* Profile Key Settings */
+.profile-key-field { display: flex; flex-direction: column; gap: .3rem; margin: 0 0 .6rem; font-size: .62rem; color: var(--muted); }
+.profile-key-field textarea { width: 100%; padding: .52rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); font-family: var(--font-mono); font-size: .62rem; line-height: 1.4; resize: vertical; color-scheme: dark; }
+.profile-key-action { padding: .5rem .8rem; margin: 0 0 .6rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .64rem; font-weight: 650; cursor: pointer; }
+.profile-key-action:disabled { cursor: not-allowed; opacity: .5; }
+.profile-key-card { grid-column: 1 / -1; }
+
+/* OpenMouse Release Updates */
 .openmouse-update-card { grid-column: 1 / -1; min-height: 0; }
 .openmouse-update-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
 .openmouse-update-heading > div > span { color: var(--ui-accent); font: 600 .55rem var(--font-mono); letter-spacing: .09em; }
@@ -801,7 +810,10 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-update-toast { position: fixed; z-index: 30; right: 1rem; bottom: 1rem; display: grid; gap: .15rem; min-width: 220px; padding: .75rem .85rem; border: 1px solid var(--ui-accent); border-radius: 9px; background: color-mix(in srgb, var(--card) 92%, var(--ui-accent)); color: var(--text-strong); text-align: left; box-shadow: 0 12px 35px #0008; cursor: pointer; }
 .openmouse-update-toast strong { font-size: .7rem; }
 .openmouse-update-toast span { color: var(--muted); font-size: .56rem; }
+
+/* OpenMouse Bridge Main Card & Actions */
 .openmouse-bridge-card { grid-column: 1 / -1; display: grid; min-height: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.25rem; border-color: color-mix(in srgb, var(--ui-accent) 32%, var(--border)); background: linear-gradient(120deg, var(--card), color-mix(in srgb, var(--ui-accent) 8%, var(--card))); }
+.openmouse-bridge-coming-soon { margin-top: .2rem; padding: .58rem .9rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
 .openmouse-bridge-copy > span, .openmouse-bridge-action > span { color: var(--ui-accent); font-family: var(--font-mono); font-size: .55rem; letter-spacing: .09em; }
 .openmouse-bridge-card h3 { max-width: 34rem; font-size: 1.12rem; }
 .openmouse-bridge-card p { max-width: 44rem; margin-bottom: .65rem; }
@@ -817,6 +829,8 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-action .openmouse-bridge-connect { border-color: color-mix(in srgb, var(--ui-accent) 45%, var(--border)); background: var(--ui-accent-soft); color: var(--text-strong); }
 .openmouse-bridge-action .openmouse-bridge-connect:not(:disabled) { cursor: pointer; opacity: 1; }
 .openmouse-bridge-action small { color: var(--text-faint); font-size: .54rem; line-height: 1.4; }
+
+/* Bridge Native Devices */
 .openmouse-bridge-applications { grid-column: 1 / -1; display: grid; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .openmouse-bridge-devices { grid-column: 1 / -1; display: grid; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .openmouse-bridge-device-list { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
@@ -830,17 +844,21 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .openmouse-bridge-device-enable:disabled { opacity: .55; cursor: default; }
 .openmouse-bridge-device-secondary { padding: .34rem .6rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--faint); font-size: .56rem; cursor: pointer; }
 .openmouse-bridge-device-secondary:disabled { opacity: .55; cursor: default; }
+
+/* Linux / Arch Udev Notice */
 .openmouse-arch-udev { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .55rem .75rem; align-items: center; padding: .7rem; border: 1px solid #8a6a38; border-radius: 8px; background: #211b12; }
 .openmouse-arch-udev strong, .openmouse-arch-udev small { display: block; }
 .openmouse-arch-udev strong { color: #edca8d; font-size: .68rem; }
 .openmouse-arch-udev small { margin-top: .14rem; color: #bba77f; font-size: .54rem; }
 .openmouse-arch-udev code { grid-column: 1 / -1; overflow: auto; padding: .5rem; border-radius: 6px; background: #0d0e10; color: var(--text-soft); font: .5rem/1.45 var(--font-mono); white-space: nowrap; }
 .openmouse-arch-udev button { padding: .4rem .55rem; border: 1px solid #8a6a38; border-radius: 6px; background: #2d2417; color: #edca8d; font-size: .55rem; cursor: pointer; }
+
+/* Bridge Game Profiles Grid & Cards */
 .openmouse-bridge-app-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
 .openmouse-bridge-app-heading span { color: var(--ui-accent); font: 600 .52rem var(--font-mono); letter-spacing: .09em; }
 .openmouse-bridge-app-heading h4 { margin: .2rem 0 0; color: var(--text-strong); font-size: .76rem; }
 .openmouse-bridge-app-heading > small { color: var(--faint); font: .55rem var(--font-mono); }
-/* Bridge game profiles — one scannable card per game, colour-coded by state. */
+
 .bridge-profile-legend { display: flex; flex-wrap: wrap; gap: .3rem .85rem; margin: 0; }
 .bridge-profile-legend span { display: inline-flex; align-items: center; gap: .3rem; color: var(--faint); font-size: .5rem; }
 .bridge-profile-legend span::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--profile-dot, var(--border-hover)); }
@@ -885,6 +903,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .bridge-other-profiles small { display: block; margin-top: .1rem; color: var(--muted); font: .5rem var(--font-mono); }
 .bridge-other-profiles button { padding: .34rem .5rem; border: 1px solid #634044; border-radius: 6px; background: #251719; color: #e3a4a8; font-size: .52rem; cursor: pointer; }
 .openmouse-bridge-message { margin: 0 !important; color: var(--ui-accent) !important; font-size: .56rem !important; }
+
 .interface-theme-card { grid-column: 1 / -1; }
 .theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .45rem; margin: 0; padding: 0; border: 0; }
 .theme-tile { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
@@ -922,13 +941,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .glass-intensity-caption { color: var(--text-faint); font-family: var(--font-mono); font-size: .5rem; letter-spacing: .06em; text-transform: uppercase; }
 .glass-intensity-caption.is-active { color: var(--text-strong); }
 .interface-reset { margin-top: .75rem; padding: .55rem .75rem; border: 1px solid #4a3436; border-radius: 7px; background: #1c1315; color: #e7a7aa; font-size: .68rem; font-weight: 650; }
-
-@media (max-width: 720px) {
-  .openmouse-update-heading { display: grid; }
-  .openmouse-update-list { grid-template-columns: 1fr; }
-  .openmouse-bridge-card { grid-template-columns: 1fr; }
-  .openmouse-bridge-action { padding: .85rem 0 0; border-top: 1px solid var(--border); border-left: 0; }
-}
 
 .reduce-interface-motion *, .reduce-interface-motion *::before, .reduce-interface-motion *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 
@@ -1193,7 +1205,7 @@ body { height: 100vh; overflow: hidden; }
 
 #performance-settings { order: 3; }
 #lighting-settings { order: 4; }
-#logitech-onboard { order: 5; }
+#logitech-onboard, #nape-layers { order: 5; }
 /* The MX Master feature cards are the primary Advanced-tab content; without an
    order they fall to 0 and render above the sticky tab nav (order 1), pushing
    it into the middle of the page. Place them just before Device details. */

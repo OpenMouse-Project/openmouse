@@ -1,8 +1,9 @@
-import { WLMOUSE_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
+import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS } from "@openmouse/protocol/drivers/vendors";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
-import { KEYCHRON_PRODUCTS } from "@openmouse/protocol/keychron";
+import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 import { FANTECH_PRODUCTS } from "@openmouse/protocol/fantech";
+import { GWOLVES_PRODUCTS } from "@openmouse/protocol/drivers/gwolves/products";
 
 import { MICE, type Mouse } from "./supported-mice.ts";
 import { listSupportRequests, type SupportRequest } from "./support-requests.ts";
@@ -129,7 +130,7 @@ export function registrySupportedModels(): Mouse[] {
       pids: [pid],
     });
   }
-  for (const [pid, info] of KEYCHRON_PRODUCTS) {
+  for (const [pid, info] of KEYCHRON_NAPE_PRODUCTS) {
     if (info.receiver) continue;
     rows.push({ brand: "Keychron", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
   }
@@ -139,6 +140,18 @@ export function registrySupportedModels(): Mouse[] {
   }
   for (const [pid, info] of FANTECH_PRODUCTS) {
     rows.push({ brand: "Fantech", model: info.model, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GWOLVES_PRODUCTS) {
+    if (info.wireless) continue;
+    rows.push({ brand: "G-Wolves", model: info.model, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GLORIOUS_PRODUCTS) {
+    if (/receiver/i.test(info.name)) continue;
+    rows.push({ brand: "Glorious", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
+  }
+  for (const [pid, info] of GLORIOUS_CLASSIC_PRODUCTS) {
+    if (/receiver/i.test(info.name)) continue;
+    rows.push({ brand: "Glorious", model: info.name, status: "supported", req: 0, note: "", pids: [pid] });
   }
 
   const seen = new Set<string>();

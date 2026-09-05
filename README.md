@@ -20,6 +20,15 @@ Run the full local check before pushing changes:
 npm run check
 ```
 
+## Contributing
+
+OpenMouse is one repository in a family — with the **Desktop** app,
+**mouse-protocol**, and **OpenMouse-Bridge**.
+
+Before you start, read the [contribution guide](https://docs.openmouse.app).
+It explains how the repositories fit together, per-repo setup and
+conventions, and safe reverse-engineering practices.
+
 ## Bridge updates
 
 The Settings page compares the connected OpenMouse Bridge against its latest
@@ -56,3 +65,7 @@ library registry automatically.
 
 Hardware-specific validation checklists live in the protocol repository's
 `docs/` directory.
+
+## License
+
+[GNU AGPL-3.0](LICENSE). Contributions are accepted under the same license.

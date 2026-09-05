@@ -1,0 +1,171 @@
+/* Gated admin dashboard (see functions/api/admin/*). Self-contained — not
+   shared with the rest of the app's stylesheets. Bento-grid layout: one
+   oversized "live" tile carries the page (this is a live-monitoring tool
+   first), a wide chart sits beside it, then supporting stats and tables
+   fill in underneath at a smaller scale. */
+
+:root{ color-scheme: dark; }
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; background:#0b0c0e; }
+#admin-app{ min-height:100vh; }
+
+:root{
+  --bg:#0b0c0e;
+  --panel:#141519;
+  --panel-2:#1a1b20;
+  --border:#25262c;
+  --border-soft:#1c1d22;
+  --text:#f2f2f4;
+  --text-dim:#c2c3ca;
+  --muted:#8c8d97;
+  --faint:#55565f;
+  --live:#39e2a0;
+  --live-dim:rgba(57,226,160,0.12);
+  --indigo:#818cf8;
+  --indigo-dim:rgba(129,140,248,0.12);
+  --amber:#f2b84b;
+  --amber-dim:rgba(242,184,75,0.12);
+  --bad:#f2726b;
+  --bad-dim:rgba(242,114,107,0.12);
+  --track:#212227;
+  --font-display:"Instrument Sans","IBM Plex Sans",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono","SF Mono",monospace;
+}
+
+.adm-root{ background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; }
+
+/* ---------- top bar ---------- */
+.adm-topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:18px 32px; border-bottom:1px solid var(--border-soft);
+}
+.adm-brand{ display:flex; align-items:center; gap:10px; }
+.adm-brand-mark{ width:26px; height:26px; border-radius:7px; background:var(--panel-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--live); }
+.adm-brand-mark svg{ width:14px; height:14px; }
+.adm-brand-name{ font-family:var(--font-display); font-weight:600; font-size:14.5px; }
+.adm-brand-sub{ font-size:10.5px; color:var(--faint); letter-spacing:.08em; text-transform:uppercase; }
+
+.adm-topbar-right{ display:flex; align-items:center; gap:10px; }
+.adm-muted{ color:var(--muted); margin:0; font-size:12px; font-family:var(--font-mono); }
+
+.adm-range-switch{ display:flex; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:3px; gap:1px; }
+.adm-range-btn{ background:transparent; border:none; border-radius:6px; padding:6px 13px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-mono); }
+.adm-range-btn.is-active{ background:var(--panel-2); color:var(--live); }
+
+.adm-icon-btn{ width:32px; height:32px; border-radius:8px; background:var(--panel); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--muted); cursor:pointer; }
+.adm-icon-btn:hover{ color:var(--text); }
+
+.adm-content{ padding:24px 32px 60px; max-width:1320px; margin:0 auto; }
+.adm-login-error{ color:var(--bad); font-size:12.5px; font-family:var(--font-mono); margin:0 0 14px; }
+
+/* ---------- bento grid ---------- */
+.adm-bento{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-areas:
+    "live live chart chart"
+    "live live chart chart"
+    "peak avg best trend"
+    "regions regions mice mice"
+    "heat heat detail detail";
+  gap:14px;
+}
+.adm-bento > *{ min-width:0; }
+.a-live{ grid-area:live; }
+.a-chart{ grid-area:chart; }
+.a-peak{ grid-area:peak; }
+.a-avg{ grid-area:avg; }
+.a-best{ grid-area:best; }
+.a-trend{ grid-area:trend; }
+.a-regions{ grid-area:regions; }
+.a-mice{ grid-area:mice; }
+.a-heat{ grid-area:heat; }
+.a-detail{ grid-area:detail; }
+
+.adm-tile{ background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; display:flex; flex-direction:column; }
+
+/* ---- hero live tile ---- */
+.adm-live-tile{ justify-content:space-between; background:radial-gradient(140% 120% at 100% 0%, var(--live-dim), transparent 55%), var(--panel); }
+.adm-live-label{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); letter-spacing:.04em; }
+.adm-pulse{ position:relative; width:9px; height:9px; border-radius:50%; background:var(--live); flex:none; }
+.adm-pulse::after{ content:""; position:absolute; inset:-6px; border-radius:50%; border:1px solid var(--live); opacity:.55; animation:adm-pulse 2.2s ease-out infinite; }
+@media (prefers-reduced-motion: reduce){ .adm-pulse::after{ animation:none; } }
+@keyframes adm-pulse{ from{ transform:scale(.4); opacity:.6; } to{ transform:scale(2.2); opacity:0; } }
+.adm-live-value{ font-family:var(--font-display); font-size:76px; font-weight:700; line-height:1; margin:18px 0 6px; letter-spacing:-2px; }
+.adm-live-sub{ font-size:12.5px; color:var(--muted); }
+.adm-live-sub b{ color:var(--live); font-weight:600; }
+.adm-live-ring{ margin-top:auto; padding-top:18px; display:flex; align-items:center; gap:12px; }
+.adm-ring-track{ flex:1; height:6px; border-radius:3px; background:var(--track); overflow:hidden; }
+.adm-ring-fill{ height:100%; background:linear-gradient(90deg, var(--indigo), var(--live)); }
+.adm-ring-label{ font-family:var(--font-mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+
+/* ---- chart tile ---- */
+.adm-chart-tile{ gap:4px; }
+.adm-chart-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
+.adm-chart-title{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin:0; }
+.adm-chart-sub{ font-size:11.5px; color:var(--muted); font-family:var(--font-mono); }
+.adm-chart-focus{ font-family:var(--font-mono); font-size:22px; font-weight:600; margin:4px 0 0; }
+.adm-chart-focus span{ font-family:var(--font-body); font-size:11.5px; color:var(--muted); margin-left:8px; }
+.adm-axis-row{ display:flex; justify-content:space-between; margin-top:4px; }
+.adm-axis-label{ font-size:10px; color:var(--faint); font-family:var(--font-mono); }
+.adm-bar-rect{ cursor:pointer; }
+
+/* ---- small stat tiles ---- */
+.adm-mini{ gap:8px; padding:16px 18px; }
+.adm-mini-label{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; display:flex; align-items:center; gap:6px; }
+.adm-mini-label svg{ width:12px; height:12px; opacity:.8; }
+.adm-mini-value{ font-family:var(--font-mono); font-size:23px; font-weight:600; color:var(--text); }
+.adm-mini-value.indigo{ color:var(--indigo); }
+.adm-mini-sub{ font-size:11px; color:var(--faint); font-family:var(--font-mono); }
+.adm-pill{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:99px; display:inline-flex; align-items:center; gap:3px; font-family:var(--font-mono); align-self:flex-start; }
+.adm-pill.is-up{ color:var(--live); background:var(--live-dim); }
+.adm-pill.is-down{ color:var(--bad); background:var(--bad-dim); }
+
+/* ---- table tiles ---- */
+.adm-table-tile .adm-chart-title{ margin-bottom:2px; }
+table.adm-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:12px; }
+.adm-table thead th{ text-align:left; font-size:10px; color:var(--faint); letter-spacing:.06em; text-transform:uppercase; font-weight:500; padding:0 8px 8px; border-bottom:1px solid var(--border); }
+.adm-table thead th.is-num{ text-align:right; }
+.adm-table tbody td{ padding:7px 8px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); }
+.adm-table tbody tr:last-child td{ border-bottom:none; }
+.adm-table tbody td.is-num{ text-align:right; font-family:var(--font-mono); color:var(--text); }
+.adm-table tbody td.is-rank{ font-family:var(--font-mono); color:var(--faint); width:20px; }
+.adm-table-name{ display:flex; align-items:center; gap:8px; color:var(--text); }
+.adm-table-bar{ width:44px; height:4px; background:var(--track); flex:none; border-radius:2px; overflow:hidden; }
+.adm-table-bar-fill{ height:100%; background:var(--indigo); }
+
+/* ---- heatmap tile ---- */
+.adm-heatmap{ display:flex; flex-direction:column; gap:4px; margin-top:10px; }
+.adm-heatmap-row{ display:grid; grid-template-columns:24px repeat(7,1fr); gap:4px; align-items:center; }
+.adm-hm-label{ font-size:9.5px; color:var(--faint); font-family:var(--font-mono); }
+.adm-hm-cell{ aspect-ratio:1; border-radius:3px; background:var(--track); }
+.adm-hm-foot{ display:grid; grid-template-columns:24px repeat(7,1fr); gap:4px; margin-top:2px; }
+.adm-hm-foot span{ text-align:center; font-size:9.5px; color:var(--faint); font-family:var(--font-mono); }
+
+/* ---- detail kv tile ---- */
+.adm-kv-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:0; margin-top:10px; }
+.adm-kv{ padding:9px 0; border-bottom:1px solid var(--border-soft); }
+.adm-kv:nth-child(odd){ padding-right:14px; }
+.adm-kv-label{ font-size:10px; color:var(--faint); letter-spacing:.05em; text-transform:uppercase; }
+.adm-kv-value{ font-family:var(--font-mono); font-size:13.5px; color:var(--text); margin-top:3px; }
+
+@media (max-width: 1080px){
+  .adm-bento{
+    grid-template-columns:repeat(2,1fr);
+    grid-template-areas:
+      "live live" "chart chart"
+      "peak avg" "best trend"
+      "regions regions" "mice mice" "heat heat" "detail detail";
+  }
+}
+
+/* ---------- login ---------- */
+.adm-login{
+  font-family:var(--font-body); background:var(--bg); color:var(--text); min-height:100vh;
+  display:flex; flex-direction:column; gap:14px; align-items:flex-start; justify-content:center;
+  padding:0 20%; box-sizing:border-box;
+}
+.adm-login h1{ font-family:var(--font-display); font-size:18px; font-weight:600; }
+.adm-login-input{ background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-size:13px; width:260px; font-family:var(--font-mono); }
+.adm-login-button{ background:var(--live); border:none; border-radius:8px; padding:10px 16px; color:#06170f; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--font-body); }

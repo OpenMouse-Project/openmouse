@@ -50,8 +50,6 @@ const SETTINGS_PATH = (
   </>
 );
 
-const REQUEST_PATH = <path d="M12 5v14M5 12h14" />;
-
 const FAME_PATH = (
   <>
     <path d="M6 9a6 6 0 0 0 12 0" />
@@ -68,7 +66,7 @@ const DEBUG_PATH = (
   </>
 );
 
-export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: ControlSnapshot; onOpenSupportRequests: () => void }): ReactNode {
+export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { status, deviceArtwork, preferences } = snapshot;
   const [unreachable, setUnreachable] = useState<ReadonlySet<string>>(new Set());
   const showArtwork = deviceArtwork !== null && !unreachable.has(deviceArtwork);
@@ -189,24 +187,20 @@ export function Sidebar({ snapshot, onOpenSupportRequests }: { snapshot: Control
         >
           <NavIcon path={SETTINGS_PATH} />
         </button>
-        <button
-          className="nav-item has-label mouse-request-button"
-          type="button"
-          onClick={onOpenSupportRequests}
+        <a
+          className="nav-item has-label"
+          href="https://openmouse.app/donate.html"
+          title="Support the Project"
+          aria-label="Support the Project"
         >
-          <NavIcon path={REQUEST_PATH} />
-          Request a mouse
-        </button>
-        <a className="nav-item has-label" href="/contributors.html" title="Developer Hall of Fame" aria-label="Developer Hall of Fame">
           <NavIcon path={FAME_PATH} />
-          Hall of Fame
+          Support
         </a>
-        <a className="nav-item is-debug" href="/check.html" title="Mouse Check" aria-label="Mouse Check">
+        <a className="nav-item is-debug" href="https://openmouse.app/check.html" title="Mouse Check" aria-label="Mouse Check">
           <NavIcon path={DEBUG_PATH} />
         </a>
       </nav>
       <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
-      <small className="build-note">Development build - not the final product</small>
     </aside>
   );
 }

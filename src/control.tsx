@@ -1,11 +1,17 @@
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./control.css";
+import "./launch.css";
 import { App } from "./app/App";
+import { LaunchCountdown } from "./app/LaunchCountdown";
 import { UnsupportedNotice } from "./app/UnsupportedNotice";
 import { unsupportedNotice } from "./browser-support";
 import { start } from "./device/controller";
+import { isBeforeLaunch } from "./launch";
+import { mountOfflineBanner } from "./offline-banner";
+import { registerServiceWorker } from "./register-sw";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
+import { usePresence } from "./app/usePresence";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -28,9 +34,23 @@ const notice = unsupportedNotice({
   chromium: isChromium(),
 });
 
-if (import.meta.env.PROD) void navigator.serviceWorker?.register("/sw.js").catch(() => undefined);
+registerServiceWorker();
+mountOfflineBanner();
+
+function LaunchHero(): ReactNode {
+  return (
+    <div className="launch-shell">
+      <LaunchCountdown />
+    </div>
+  );
+}
 
 function Root(): ReactNode {
+  // Keeps the "who's using this right now" presence heartbeat running for
+  // the real app, not just the pre-launch countdown screen — otherwise the
+  // admin dashboard's live count only ever reflects whoever is stuck on
+  // that one screen.
+  usePresence();
   const tooSmall = useViewportTooSmall();
   if (tooSmall) {
     return (
@@ -46,7 +66,9 @@ function Root(): ReactNode {
 }
 
 const root = createRoot(controlApp);
-if (notice) {
+if (import.meta.env.PROD && isBeforeLaunch()) {
+  root.render(<LaunchHero />);
+} else if (notice) {
   root.render(<UnsupportedNotice notice={notice} />);
 } else {
   start();

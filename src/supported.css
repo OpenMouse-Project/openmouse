@@ -285,6 +285,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .legend-dot.status-likely    { background: var(--yellow); }
 .legend-dot.status-driver    { background: var(--orange); }
 .legend-dot.status-unknown   { background: var(--ink-3); }
+.legend-dot.status-bridge    { background: var(--red); }
 .legend-dot.status-pending   { background: var(--aqua); }
 
 .legend-label {
@@ -476,6 +477,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .status-likely    { background: var(--yellow-bg); color: var(--yellow); }
 .status-driver    { background: var(--orange-bg); color: var(--orange); }
 .status-unknown   { background: var(--grey-bg); color: var(--grey); }
+.status-bridge    { background: var(--red); color: #fff; }
 .status-pending   { background: var(--aqua-bg); color: var(--aqua); }
 
 .device-name { font-weight: 600; color: var(--ink); }
