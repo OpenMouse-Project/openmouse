@@ -101,6 +101,10 @@ test("G Pro family uses the classic shell; G Pro 2 gets its own render", () => {
   assert.equal(deviceImage(null, "G Pro 2 Lightspeed"), CDN + "logitech-g-pro-2.png");
   // The Superlight must keep its own render, not the classic G Pro shell.
   assert.equal(deviceImage(null, "G Pro X Superlight"), CDN + "logitech-pro-x-superlight-2c.png");
+  // The original Superlight (PID 0xc094) reports its own HID++ device name as
+  // "PRO X Wireless", not "Superlight", so it needs a direct PID match rather
+  // than the name-based fallback above — confirmed against real hardware.
+  assert.equal(deviceImage(dev(0x046d, 0xc094), "PRO X Wireless"), CDN + "logitech-pro-x-superlight-2c.png");
 });
 
 test("G305/G304 and G309 use their own renders by name", () => {
