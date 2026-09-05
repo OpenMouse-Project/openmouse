@@ -25,6 +25,11 @@ import {
 import { deviceImage } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
+  isVxeR1SePlusReceiver,
+  receiverPairingSucceeded,
+  VXE_R1_SE_PLUS_RECEIVER,
+} from "./atk";
+import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
@@ -383,6 +388,7 @@ function buildSnapshot(): ControlSnapshot {
     hasActiveDevice: activeDevice !== null,
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
+    atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
     preferences: interfacePreferences,
     sidebarHidden,
     interfaceSettingsOpen,
@@ -534,6 +540,7 @@ function readCapabilities(): DeviceCapabilities {
         ? [...keychron.getSleepOptions()]
         : null,
     debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
+    debounceOptions: dm && "getDebounceOptions" in dm ? [...dm.getDebounceOptions()] : null,
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
     lowPowerPollingCeiling: razer?.getLowPowerPollingCeiling() ?? null,
@@ -900,6 +907,89 @@ export async function restoreDivertedButtons(): Promise<void> {
     setReadStatus("Buttons restored to hardware control.");
   } catch (error) {
     setReadStatus(error instanceof Error ? error.message : "Unable to restore the buttons.");
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function selectAtkR1Profile(profile: number): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (hasPendingChanges()) {
+    setReadStatus("Apply or discard pending changes before switching configuration banks.");
+    emit();
+    return;
+  }
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Switching to configuration bank ${profile}…`);
+  emit();
+  recordDiagnosticCommand(`Select ATK R1 configuration bank ${profile}`);
+  try {
+    await client.setR1ActiveProfile(profile);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`Configuration bank ${profile} is active.`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, "Unable to select that ATK R1 configuration bank.");
+    setReadStatus(error instanceof Error ? error.message : "Unable to select that configuration bank.");
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function pairAtkR1SePlusReceiver(): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || !isVxeR1SePlusReceiver(activeDevice) || refreshInProgress || settingInProgress) return;
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus("Starting the R1 SE+ receiver pairing window…");
+  emit();
+  recordDiagnosticCommand("Pair ATK R1 SE+ receiver with CID 0x02, MID 0x20");
+  try {
+    const current = await client.readR1ReceiverInfo();
+    if (active !== client || activeDevice !== device) return;
+    if (current.pairingStatus === 1) {
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: current };
+      setReadStatus("The receiver already has an active pairing window. Wait for it to finish, then start R1 SE+ pairing.");
+      pushToast("info", "Pairing already active", "OpenMouse left the existing receiver countdown unchanged.");
+      return;
+    }
+    await client.startR1ReceiverPairing(VXE_R1_SE_PLUS_RECEIVER.cid, VXE_R1_SE_PLUS_RECEIVER.mid);
+    if (active !== client || activeDevice !== device) return;
+    let observedInProgress = false;
+    const deadline = Date.now() + 40_000;
+    while (Date.now() < deadline) {
+      const receiver = await client.readR1ReceiverInfo();
+      if (active !== client || activeDevice !== device) return;
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: receiver };
+      if (receiver.pairingStatus === 1) observedInProgress = true;
+      setReadStatus(receiver.pairingStatus === 1
+        ? `Pairing R1 SE+… ${receiver.pairingSecondsRemaining ?? 0}s remaining.`
+        : observedInProgress ? "Checking the completed pairing…" : "Waiting for the receiver pairing window…");
+      emit();
+      if (receiver.pairingStatus !== 1 && observedInProgress) {
+        if (receiverPairingSucceeded(receiver, observedInProgress)) {
+          setReadStatus("R1 SE+ pairing complete. The mouse is online.");
+          pushToast("success", "Receiver paired", "The R1 SE+ is online through the 1K receiver.");
+          return;
+        }
+        throw new Error(`Pairing ended without an online mouse (status ${receiver.pairingStatus ?? "unknown"}).`);
+      }
+      await wait(500);
+    }
+    throw new Error("The receiver pairing window expired before completion.");
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, "Unable to pair the R1 SE+ receiver.");
+    const message = error instanceof Error ? error.message : "Unable to pair the R1 SE+ receiver.";
+    setReadStatus(message);
+    pushToast("error", "Pairing failed", message);
   } finally {
     settingInProgress = false;
     emit();
@@ -1829,8 +1919,17 @@ export function applyDpiStageCount(count: number): void {
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
+  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
+  if (count < currentCount) {
+    for (const change of pendingChanges()) {
+      const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
+      if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+    }
+    dropPendingChange("dpi-active-stage");
+  }
   stageChange({
     key: "dpi-stage-count",
+    priority: count > currentCount ? -1 : count < currentCount ? 1 : 0,
     label: `${count} DPI stage${count === 1 ? "" : "s"}`,
     command: `Set DPI stage count to ${count}`,
     progress: `Setting ${count} DPI stages…`,
@@ -1841,6 +1940,11 @@ export function applyDpiStageCount(count: number): void {
         const padded = current.slice();
         while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
         status.dpiStages = padded;
+      }
+      if (status.dpiStageColors) {
+        const colors = status.dpiStageColors.slice(0, count);
+        while (colors.length < count) colors.push(colors.at(-1) ?? "#000000");
+        status.dpiStageColors = colors;
       }
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
@@ -1899,6 +2003,28 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
     },
     apply: async () => {
       await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+    },
+  });
+}
+
+export function applyDpiStageColor(stage: number, color: string): void {
+  if (!hasActiveClient() || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  const colors = latestDeviceStatus ? withPendingChanges(latestDeviceStatus).dpiStageColors : undefined;
+  if (!colors || !Number.isInteger(stage) || stage < 0 || stage >= colors.length) return;
+  const normalized = color.toLowerCase();
+  stageChange({
+    key: `dpi-stage-color-${stage}`,
+    label: `Stage ${stage + 1} color ${normalized}`,
+    command: `Set DPI stage ${stage + 1} color to ${normalized}`,
+    progress: `Setting stage ${stage + 1} color…`,
+    preview: (status) => {
+      const next = status.dpiStageColors?.slice() ?? [];
+      while (next.length <= stage) next.push("#000000");
+      next[stage] = normalized;
+      status.dpiStageColors = next;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageColor", "the DPI stage color").setDpiStageColor(stage, normalized);
     },
   });
 }
@@ -2965,6 +3091,7 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: teevolutionClient() ? "highest performance" : "performance mode",
     hyperMode: "Hyper mode",
+    longRangeMode: "ultra long range",
   } as const)[setting];
 }
 
@@ -2974,6 +3101,7 @@ const PULSAR_TOGGLE_METHOD: Record<PulsarToggleSetting, string> = {
   rippleControl: "setRippleControl",
   performanceMode: "setPerformanceMode",
   hyperMode: "setHyperMode",
+  longRangeMode: "setLongRangeMode",
 };
 
 export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
@@ -3181,12 +3309,12 @@ export function applyTeevolutionPerformanceDuration(duration: number): void {
 const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
 
 async function writeStagedTeevolutionDpiLighting(): Promise<void> {
-  const client = teevolutionClient();
+  const client = activeSettingsClient();
   if (!client || !latestDeviceStatus) {
-    throw new Error("The Teevolution mouse is no longer connected.");
+    throw new Error("The mouse is no longer connected.");
   }
   const status = withPendingChanges(latestDeviceStatus);
-  await client.setDpiLighting(
+  await requireClientMethod("setDpiLighting", "DPI lighting").setDpiLighting(
     status.dpiLedMode ?? 0,
     status.dpiLedBrightness ?? 5,
     status.dpiLedSpeed ?? 3,
@@ -3194,7 +3322,7 @@ async function writeStagedTeevolutionDpiLighting(): Promise<void> {
 }
 
 export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
-  if (!teevolutionClient()) return;
+  if (!hasActiveClient()) return;
   const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
   const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
   stageChange({
