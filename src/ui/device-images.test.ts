@@ -200,3 +200,11 @@ test("test-needed and unsupported models are not given new artwork", () => {
   assert.equal(deviceImage(null, "VGN Dragonfly R1 Pro"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Razer Viper 8KHz"), CDN + "unknown-device.png");
 });
+
+test("K-snake X11 wired and dongle share the same artwork", () => {
+  const wired = { vendorId: 0xa8a4, productId: 0x2255 } as HIDDevice;
+  const dongle = { vendorId: 0xa8a5, productId: 0x2255 } as HIDDevice;
+  assert.equal(deviceImage(wired), CDN + "ksnake-x11.png");
+  assert.equal(deviceImage(dongle), CDN + "ksnake-x11.png");
+  assert.equal(deviceImage(null, "K-snake X11"), CDN + "ksnake-x11.png");
+});
