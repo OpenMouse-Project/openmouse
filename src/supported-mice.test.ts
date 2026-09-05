@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { DEVICE_DRIVERS } from "@openmouse/protocol/drivers/registry";
 import { WLMOUSE_PRODUCTS, GLORIOUS_PRODUCTS, GLORIOUS_CLASSIC_PRODUCTS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
+import { BITMOUSE_PRODUCT_IDS } from "@openmouse/protocol/bitmouse";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
@@ -77,6 +78,7 @@ test("supported / PR / quickwin claims require a registered driver brand", () =>
 // is exempt. The moment the protocol pins those PIDs, the row is flipped to
 // "supported" and this check proves the PIDs are real.
 const PID_UNIVERSE = new Set<number>([
+  ...BITMOUSE_PRODUCT_IDS,
   ...WLMOUSE_PRODUCTS.keys(),
   ...LAMZU_PRODUCTS.keys(),
   ...LOGITECH_DIRECT_PRODUCT_IDS,
