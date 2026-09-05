@@ -2965,6 +2965,8 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: teevolutionClient() ? "highest performance" : "performance mode",
     hyperMode: "Hyper mode",
+    turboMode: "turbo mode",
+    buttonCombination: "button combinations",
   } as const)[setting];
 }
 
@@ -2974,6 +2976,8 @@ const PULSAR_TOGGLE_METHOD: Record<PulsarToggleSetting, string> = {
   rippleControl: "setRippleControl",
   performanceMode: "setPerformanceMode",
   hyperMode: "setHyperMode",
+  turboMode: "setTurboMode",
+  buttonCombination: "setButtonCombination",
 };
 
 export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
@@ -2989,6 +2993,26 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
       status[setting] = enabled;
     },
     apply: () => callClientMethod(method, label, enabled),
+  });
+}
+
+/**
+ * Sensor angle in degrees. Pulsar Pro reaches the same setting through
+ * `applyProSetting`, which also carries settings only that protocol has.
+ */
+export function applyAngleTuning(degrees: number): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "angle-tuning",
+    label: `Angle tune ${degrees}°`,
+    command: `Set the sensor angle to ${degrees}°`,
+    progress: `Setting the sensor angle to ${degrees}°…`,
+    preview: (status) => {
+      status.angleTuning = degrees;
+    },
+    apply: async () => {
+      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
+    },
   });
 }
 
