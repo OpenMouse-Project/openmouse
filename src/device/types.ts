@@ -23,7 +23,8 @@ export type PulsarToggleSetting =
   | "angleSnapping"
   | "rippleControl"
   | "performanceMode"
-  | "hyperMode";
+  | "hyperMode"
+  | "longRangeMode";
 
 export interface TeevolutionProfile {
   sleepOptions: readonly number[];

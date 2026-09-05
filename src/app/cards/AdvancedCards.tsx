@@ -291,6 +291,24 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         </div>
       ) : null}
 
+      {status.sensorMode != null && !traits.teevolution ? (
+        <div id="sensor-mode-row" className="field-label spaced">
+          <span>Sensor sampling mode</span>
+          <select
+            id="sensor-mode"
+            value={status.sensorMode}
+            disabled={status.sensorModeEditable === false}
+            onChange={(event) => control.applySensorMode(
+              event.currentTarget.value as NonNullable<typeof status.sensorMode>,
+            )}
+          >
+            {(["Eco", "High", "Ultra"] as const).map((mode) => (
+              <option key={mode} value={mode}>{mode}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       <SwitchRow
         id="motion-sync-toggle"
         label="Motion Sync"
@@ -326,6 +344,13 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         value={status.hyperMode}
         hidden={status.hyperMode == null}
         onChange={(next) => control.applyPulsarToggle("hyperMode", next)}
+      />
+      <SwitchRow
+        id="long-range-toggle"
+        label="Ultra Long Range"
+        value={status.longRangeMode}
+        hidden={status.longRangeMode == null}
+        onChange={(next) => control.applyPulsarToggle("longRangeMode", next)}
       />
 
       {traits.teevolution && teevolutionProfile ? (

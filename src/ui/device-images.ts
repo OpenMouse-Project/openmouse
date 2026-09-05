@@ -34,6 +34,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["373e:006a", "crdrako-ko-one.png"],
   ["373e:006b", "crdrako-ko-one.png"],
   // Attack Shark R5 Ultra wired and wireless transports share the same shell.
+  // ATK ZERO wired and its 8K receiver are the same shell.
+  ["373b:1154", "atk-zero.png"],
+  ["373b:1155", "atk-zero.png"],
   ["373e:0046", "attackshark-r5-ultra.png"],
   ["373e:0047", "attackshark-r5-ultra.png"],
   // OP1 8K, Purple Frost, and v2. XM2 models use different shells.
