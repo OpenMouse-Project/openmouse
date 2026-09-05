@@ -16,6 +16,7 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c098", "logitech-g502-x.png"],
   ["046d:c099", "logitech-g502-x.png"],
   ["046d:c0a8", "logitech-pro-x2-superstrike.png"],
+  ["046d:c539", "logitech-gpro-wireless.png"],
   // The original G Pro X Superlight reports as "PRO X Wireless" over HID++,
   // not "Superlight", so the name-based fallback below never matches it.
   // Same shell as the Superlight 2c closely enough to reuse its render.
