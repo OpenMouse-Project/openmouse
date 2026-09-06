@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
-import { t, connectLabelText, connectionText, type I18nKey } from "../i18n";
+import { t, connectLabelText, connectionText, ensureLocale, type I18nKey } from "../i18n";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { CaptureDialog } from "./CaptureDialog";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
@@ -306,6 +306,9 @@ export function App(): ReactNode {
     } catch {
       /* non-DOM environment (tests) */
     }
+    // A stored non-English locale resolves its table after first paint;
+    // re-render once it arrives instead of sticking on fallback strings.
+    if (locale !== "en") void ensureLocale(locale).then(() => control.refreshInterface());
   }, [locale]);
 
   const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {

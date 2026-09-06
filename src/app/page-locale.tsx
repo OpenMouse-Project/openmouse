@@ -5,7 +5,7 @@ import {
   saveInterfacePreferences,
   type InterfaceLocale,
 } from "../interface-preferences";
-import { t } from "../i18n";
+import { ensureLocale, t } from "../i18n";
 
 /** Standalone-page locale state. Reads the shared interface preference (so a
     choice made in the control app carries over), falls back to the browser
@@ -19,20 +19,30 @@ export function usePageLocale(): [InterfaceLocale, (next: InterfaceLocale) => vo
     }
   });
   const setLocale = (next: InterfaceLocale): void => {
-    setLocaleState(next);
-    try {
-      const prefs = loadInterfacePreferences(window.localStorage);
-      saveInterfacePreferences(window.localStorage, { ...prefs, locale: next });
-    } catch {
-      /* storage unavailable (private mode) — in-memory choice still applies */
-    }
+    // Resolve the table before committing so the switch never flashes
+    // English fallback strings.
+    const apply = (): void => {
+      setLocaleState(next);
+      try {
+        const prefs = loadInterfacePreferences(window.localStorage);
+        saveInterfacePreferences(window.localStorage, { ...prefs, locale: next });
+      } catch {
+        /* storage unavailable (private mode) — in-memory choice still applies */
+      }
+    };
+    if (next === "en") apply();
+    else void ensureLocale(next).then(apply);
   };
+  // A stored non-English locale resolves after first paint; bump a tick to
+  // swap the fallback strings once the table arrives.
+  const [, setTick] = useState(0);
   useEffect(() => {
     try {
       document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
     } catch {
       /* non-DOM environment (tests) */
     }
+    if (locale !== "en") void ensureLocale(locale).then(() => setTick((n) => n + 1));
   }, [locale]);
   return [locale, setLocale];
 }

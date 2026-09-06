@@ -37,7 +37,7 @@ import {
   type InterfacePreferences,
   type InterfaceTheme,
 } from "../interface-preferences";
-import { batteryStateText, connectionText, layerLabel, t, tp, type I18nKey } from "../i18n";
+import { batteryStateText, connectionText, ensureLocale, layerLabel, t, tp, type I18nKey } from "../i18n";
 import {
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
@@ -1094,6 +1094,15 @@ export function setPreference<K extends keyof InterfacePreferences>(
 ): void {
   interfacePreferences = { ...interfacePreferences, [key]: value };
   saveInterfacePreferences();
+  // Locale tables load lazily; re-render once the table arrives so a switch
+  // never sticks on English fallback strings.
+  if (key === "locale" && value !== "en") void ensureLocale(value as InterfaceLocale).then(() => emit());
+}
+
+/** Re-render subscribers without changing state (e.g. after a lazy asset
+    needed by the current preferences resolves). */
+export function refreshInterface(): void {
+  emit();
 }
 
 export function setInterfaceTheme(value: string): void {
