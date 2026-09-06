@@ -37,7 +37,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // donate page rebuild (Hall of Fame -> Support) does not drive this; its
   // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
   // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
-  ".js": 765_000,
+  // Raised to 790 kB for the MCHOSE A7 V2 mouse and MagDock driver support:
+  // the measured aggregate is 779.1 kB, leaving ~11 kB of headroom.
+  ".js": 790_000,
 };
 
 const ASSETS = join("dist", "assets");

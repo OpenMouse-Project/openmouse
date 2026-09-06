@@ -47,6 +47,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
   "keychron-nape": { advancedSection: true, sleep: true, directMode: true },
   fantech: { advancedSection: true, sleep: true, directMode: true },
+  // MCHOSE reads debounce and sleep from its config blob and writes both, but
+  // it is not a direct-mode (CompX) driver, so it takes the plain flags.
+  mchose: { advancedSection: true, sleep: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

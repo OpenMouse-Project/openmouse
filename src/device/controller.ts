@@ -89,7 +89,9 @@ import {
   type LogitechHapticPreset,
   type LogitechReprogrammableControl,
 } from "@openmouse/protocol/logitech";
+import { PulsarHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-hid";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
+import { PulsarXs1HidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-xs1-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import {
@@ -116,6 +118,8 @@ import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
+import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -184,11 +188,8 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient] as const;
-const DEDICATED = [
-  ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
-  EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
-] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient] as const;
+const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
@@ -206,11 +207,9 @@ const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
-/** Pulsar is the fallback: any supported client no dedicated driver claims. */
+/** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
-  active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
-    ? active as PulsarClient
-    : null;
+  active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
 
 let onboardProfiles: OnboardProfile[] | null = null;
 let buttons: LogitechReprogrammableControl[] | null = null;
@@ -522,18 +521,34 @@ function requireClientMethod<K extends string>(
   return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
+/** Read an optional numeric getter off whatever client is connected. */
+function clientNumber(method: string): number | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return typeof value === "number" ? value : null;
+}
+
+/** Read an optional number-list getter off whatever client is connected. */
+function clientNumberList(method: string): number[] | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number") ? value : null;
+}
+
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
   const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
+    // Any client may publish these; the two named drivers are just the ones
+    // that predate the generic lookup below.
     sleepOptions: dm
       ? [...dm.getSleepOptions()]
       : keychron
         ? [...keychron.getSleepOptions()]
-        : null,
-    debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
+        : clientNumberList("getSleepOptions"),
+    debounceMaxMs: dm?.getDebounceMaxMs() ?? clientNumber("getDebounceMaxMs"),
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
     lowPowerPollingCeiling: razer?.getLowPowerPollingCeiling() ?? null,
@@ -2996,26 +3011,6 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
   });
 }
 
-/**
- * Sensor angle in degrees. Pulsar Pro reaches the same setting through
- * `applyProSetting`, which also carries settings only that protocol has.
- */
-export function applyAngleTuning(degrees: number): void {
-  if (!hasActiveClient()) return;
-  stageChange({
-    key: "angle-tuning",
-    label: `Angle tune ${degrees}°`,
-    command: `Set the sensor angle to ${degrees}°`,
-    progress: `Setting the sensor angle to ${degrees}°…`,
-    preview: (status) => {
-      status.angleTuning = degrees;
-    },
-    apply: async () => {
-      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
-    },
-  });
-}
-
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
     ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
@@ -3364,6 +3359,84 @@ export function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButton
       if (status.eggButtonMappings) status.eggButtonMappings[button] = mapping;
     },
     change: async (client) => client.setButtonMapping(button, mapping),
+  });
+}
+
+/**
+ * Select a named power/performance mode on any driver that exposes
+ * `setPowerMode`.
+ */
+export function applyPowerMode(mode: string): void {
+  stageChange({
+    key: "power-mode",
+    label: mode,
+    command: "Change the performance mode",
+    progress: "Changing mode…",
+    preview: (status) => { status.powerMode = mode; },
+    apply: async () => {
+      await requireClientMethod("setPowerMode", "the performance mode").setPowerMode(mode);
+    },
+  });
+}
+
+/** Set sensor angle tuning on any driver that exposes `setAngleTuning`. */
+export function applyAngleTuning(degrees: number): void {
+  stageChange({
+    key: "angle-tuning",
+    label: `Angle tuning ${degrees}00b0`,
+    command: "Change the angle tuning",
+    progress: "Changing angle tuning…",
+    preview: (status) => { status.angleTuning = degrees; },
+    apply: async () => {
+      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
+    },
+  });
+}
+
+/**
+ * Reassign a physical button on any driver that exposes `setButtonMapping`.
+ * Named for the device-level map to keep it distinct from `applyButtonMapping`
+ * above, which reassigns a Logitech control by id.
+ */
+export function applyDeviceButtonMapping(button: string, action: string): void {
+  stageChange({
+    key: `button-${button}`,
+    label: `${button}: ${action}`,
+    command: `Remap the ${button} button`,
+    progress: "Remapping…",
+    preview: (status) => {
+      if (status.buttonMappings) {
+        status.buttonMappings = { ...status.buttonMappings, [button]: action };
+      }
+    },
+    apply: async () => {
+      // Endgame's client also has a setButtonMapping, with its own parameter
+      // types, so the extracted union narrows the arguments to `never`. The
+      // cast keeps this path device-agnostic; requireClientMethod has already
+      // established the method exists.
+      const client = requireClientMethod("setButtonMapping", "button assignments") as unknown as {
+        setButtonMapping(button: string, action: string): Promise<unknown>;
+      };
+      await client.setButtonMapping(button, action);
+    },
+  });
+}
+
+/**
+ * Switch a numbered onboard profile on any driver that exposes `setProfile`.
+ * The device's DPI and polling belong to the profile, so the panel re-reads
+ * rather than previewing a value that is about to be replaced wholesale.
+ */
+export function applyProfileSelection(profile: number): void {
+  stageChange({
+    key: "onboard-profile",
+    label: `Profile ${profile}`,
+    command: "Change the active profile",
+    progress: "Switching profile…",
+    preview: (status) => { status.activeProfile = profile; },
+    apply: async () => {
+      await requireClientMethod("setProfile", "the active profile").setProfile(profile);
+    },
   });
 }
 

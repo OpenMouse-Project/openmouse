@@ -165,3 +165,11 @@ package:
 - `lamzu-maya-x.png` — Lamzu Maya X render
 - `atk-f1-v2-ultra-max.png` — ATK F1 V2 Ultra Max render
 - `finalmouse-ulx.png` — Finalmouse Starlight-12 / ULX low-profile shape render
+- `mchose-a7-v2.png` — MCHOSE A7 V2 render, from MCHOSE's own M HUB configurator
+  (`https://cdn.mchose.com.cn/configCenter/assets/img/mouse/A7V2Pro_white.png`).
+  MCHOSE only publishes `A7V2Pro_*` renders and the Pro / Pro+ / Ultra / Ultra+
+  are one shell, so this single image covers the whole A7 V2 family. **Needs a
+  maintainer upload** — the mapping in `src/ui/device-images.ts` is already in
+  place and falls back to the placeholder until then. Not yet cleared for
+  licensing: it is vendor product art, so treat it as a request rather than an
+  approved asset.

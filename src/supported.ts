@@ -1,7 +1,7 @@
 import "./supported.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
-import { MICE, STATUS, TABS, type Mouse, type Status } from "./supported-mice.ts";
+import { MICE, STATUS, type Mouse, type Status } from "./supported-mice.ts";
 import { fetchLiveData, mergeLiveMice, type LiveData } from "./supported-live.ts";
 
 // ── Data ──────────────────────────────────────────────────────────────────
@@ -32,9 +32,44 @@ function applyTheme(theme: Theme): void {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────
-let activeFilter: Status | "all" = "all";
+const activeTags = new Set<Status>();
+let activeBrand: string | null = null;
 let searchQuery = "";
+let brandQuery = "";
+let tagsQuery = "";
 let mice: Mouse[] = MICE;
+
+// When live data lands while a panel is open, defer that panel's rebuild
+// until it closes so focus and scroll position survive the refresh.
+let brandDirty = false;
+let tagsDirty = false;
+
+// ── Collapsed brand groups ───────────────────────────────────────────────
+const COLLAPSED_KEY = "openmouse.collapsedBrands";
+
+function getCollapsedBrands(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function setCollapsedBrands(brands: Set<string>): void {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...brands]));
+  } catch {
+    // localStorage unavailable (private mode, etc.); collapse state just won't persist.
+  }
+}
+
+function toggleBrandCollapsed(brand: string): void {
+  const collapsed = getCollapsedBrands();
+  if (collapsed.has(brand)) collapsed.delete(brand);
+  else collapsed.add(brand);
+  setCollapsedBrands(collapsed);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function counts(): Record<string, number> {
@@ -44,20 +79,31 @@ function counts(): Record<string, number> {
   return c;
 }
 
+function brandTotals(): Array<{ brand: string; count: number }> {
+  const totals: Record<string, number> = {};
+  for (const m of mice) totals[m.brand] = (totals[m.brand] || 0) + 1;
+  return Object.keys(totals)
+    .map((brand) => ({ brand, count: totals[brand] ?? 0 }))
+    .sort((a, b) => b.count - a.count || a.brand.localeCompare(b.brand));
+}
+
+function brandSlug(brand: string): string {
+  return brand.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+}
+
 function visibleMice(): Mouse[] {
   return mice.filter(m => {
-    const fOk = activeFilter === "all" || m.status === activeFilter;
+    const tOk = activeTags.size === 0 || activeTags.has(m.status);
+    const bOk = activeBrand === null || m.brand === activeBrand;
     const q = searchQuery.toLowerCase();
     const sOk = !q || m.model.toLowerCase().includes(q) || m.brand.toLowerCase().includes(q) || m.note.toLowerCase().includes(q);
-    return fOk && sOk;
+    return tOk && bOk && sOk;
   });
 }
 
 // ── Render ────────────────────────────────────────────────────────────────
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Root element missing");
-
-applyTheme(getTheme());
 
 applyTheme(getTheme());
 
@@ -75,95 +121,239 @@ const STATUS_LEGEND: Array<[Status, string]> = [
   ["pending", "Live community request"],
 ];
 
+const STATUS_DOT: Record<Status, string> = {
+  supported: "var(--st-supported)",
+  pr: "var(--st-pr)",
+  quickwin: "var(--st-quickwin)",
+  likely: "var(--st-likely)",
+  driver: "var(--st-driver)",
+  unknown: "var(--st-unknown)",
+  bridge: "var(--st-bridge)",
+  pending: "var(--st-pending)",
+};
+
 app.innerHTML = `
   <header class="site-header">
-    <a class="wordmark" href="/" aria-label="OpenMouse home">
-      <img class="wordmark-logo" src="/logo.png" alt="" width="181" height="268">
-      OpenMouse
-    </a>
-    <nav class="header-nav">
-      <a class="nav-link nav-current" href="/supported.html" aria-current="page">Devices</a>
-      <a class="nav-link" href="https://docs.openmouse.app">Contribute</a>
-      <a class="nav-link" href="/donate.html">Support</a>
-      <button class="theme-toggle" id="theme-btn" aria-label="Toggle theme">${themeIcon(initialTheme)}</button>
-      <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
-        ${GH_SVG}
-        GitHub
+    <div class="page-wrap">
+      <a class="wordmark" href="/" aria-label="OpenMouse home">
+        <img class="wordmark-logo" src="/logo.png" alt="" width="181" height="268">
+        OpenMouse
       </a>
-    </nav>
+      <nav class="header-nav">
+        <div class="nav-links">
+          <a class="nav-link" href="https://docs.openmouse.app">Contribute</a>
+          <a class="nav-link" href="/donate.html">Support</a>
+        </div>
+        <div class="header-actions">
+          <button class="theme-toggle" id="theme-btn" aria-label="Toggle theme">${themeIcon(initialTheme)}</button>
+          <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
+            ${GH_SVG}
+            <span>GitHub</span>
+          </a>
+        </div>
+      </nav>
+    </div>
   </header>
 
-  <div class="page-head">
-    <h1>Supported Devices</h1>
-    <p class="page-sub">Which gaming mice work with OpenMouse — supported models, community requests, and driver status at a glance.</p>
-  </div>
-
-  <div class="search-bar">
-    <div class="search-wrap">
-      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input class="search-input" type="search" id="s-input" placeholder="Search by brand, model, or protocol…" autocomplete="off" spellcheck="false">
+  <div class="page-wrap">
+    <div class="page-head">
+      <div class="page-kicker">Device catalog</div>
+      <h1>Supported Devices</h1>
+      <p class="page-sub">Which gaming mice work with OpenMouse — supported models, community requests, and driver status at a glance.</p>
+      <p class="page-stats" id="page-stats"></p>
     </div>
-  </div>
 
-  <div class="layout">
-    <aside class="sidebar" id="sidebar">
-      <div class="sb-section">
-        <div class="sb-heading">Legend</div>
-        <ul class="sb-legend">
-          ${STATUS_LEGEND.map(([key, desc]) => `
-            <li>
-              <span class="legend-dot status-${key}"></span>
-              <span class="legend-label">${STATUS[key].label}</span>
-              <span class="legend-desc">${desc}</span>
-            </li>
-          `).join("")}
-        </ul>
+    <div class="toolbar">
+      <div class="dd" id="dd-brands">
+        <button type="button" class="dd-trigger" id="brands-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dd-label" id="brands-label">All brands</span><span class="chev">▾</span>
+        </button>
+        <div class="dd-panel" role="listbox" aria-label="Filter by brand">
+          <div class="dd-search"><input type="search" id="brands-search" placeholder="Search brands…" aria-label="Search brands" autocomplete="off" spellcheck="false"></div>
+          <div class="dd-list" id="brands-list"></div>
+        </div>
       </div>
-      <div class="sb-section">
-        <div class="sb-heading">Brands</div>
-        <div class="sb-stats" id="page-stats"></div>
-        <ul class="sb-brands" id="sb-brands"></ul>
+      <div class="dd" id="dd-tags">
+        <button type="button" class="dd-trigger" id="tags-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dd-label" id="tags-label">All tags</span><span class="pill" id="tags-pill" hidden></span><span class="chev">▾</span>
+        </button>
+        <div class="dd-panel" role="listbox" aria-label="Filter by tag" aria-multiselectable="true">
+          <div class="dd-search"><input type="search" id="tags-search" placeholder="Search tags…" aria-label="Search tags" autocomplete="off" spellcheck="false"></div>
+          <div class="dd-list" id="tags-list"></div>
+        </div>
       </div>
-    </aside>
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" type="search" id="s-input" placeholder="Search by brand, model, or protocol…" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="result-count" id="result-count"></div>
+    </div>
 
     <main class="main-content">
-      <div class="toolbar">
-        <div class="ftabs" id="ftabs" role="tablist"></div>
-        <div class="result-count" id="result-count"></div>
-      </div>
       <div id="device-list"></div>
     </main>
-  </div>
 
-  <footer>
-    <span>OpenMouse</span>
-    <div class="footer-links">
-      <a href="https://x.com/openmouseapp" target="_blank" rel="noreferrer">Follow on X</a>
-      <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">View source</a>
-    </div>
-  </footer>
+    <footer>
+      <span>OpenMouse</span>
+      <div class="footer-links">
+        <a href="https://x.com/openmouseapp" target="_blank" rel="noreferrer">Follow on X</a>
+        <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">View source</a>
+      </div>
+    </footer>
+  </div>
 `;
 
-document.getElementById("theme-btn")?.addEventListener("click", () => {
-  applyTheme(getTheme() === "dark" ? "light" : "dark");
+// ── Tag tooltips: one bubble on <body>, positioned with fixed coords so
+// it renders over the dropdown instead of clipping at the panel edge. ────
+let tagTip: HTMLDivElement | null = null;
+function getTagTip(): HTMLDivElement {
+  if (!tagTip) {
+    tagTip = document.createElement("div");
+    tagTip.className = "tag-tip";
+    tagTip.hidden = true;
+    document.body.appendChild(tagTip);
+  }
+  return tagTip;
+}
+function showTagTip(anchor: HTMLElement, text: string): void {
+  if (window.matchMedia("(max-width: 640px)").matches) return;
+  const tip = getTagTip();
+  tip.textContent = text;
+  tip.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  let left = r.right + 10;
+  if (left + w > window.innerWidth - 8) left = r.left - w - 10;
+  if (left < 8) left = 8;
+  const top = Math.max(8, Math.min(r.top + r.height / 2 - h / 2, window.innerHeight - h - 8));
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+function hideTagTip(): void {
+  if (tagTip) tagTip.hidden = true;
+}
+
+function closeDropdowns(): void {
+  hideTagTip();
+  document.querySelectorAll(".dd.open").forEach((d) => {
+    d.classList.remove("open");
+    if (d.id === "dd-brands") {
+      document.getElementById("brands-trigger")?.setAttribute("aria-expanded", "false");
+      if (brandDirty) { brandDirty = false; fillBrands(); }
+    } else if (d.id === "dd-tags") {
+      document.getElementById("tags-trigger")?.setAttribute("aria-expanded", "false");
+      if (tagsDirty) { tagsDirty = false; fillTags(); }
+    }
+  });
+}
+
+document.addEventListener("click", (e) => {
+  if (!(e.target as HTMLElement).closest(".dd")) closeDropdowns();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDropdowns();
 });
 
-document.getElementById("s-input")?.addEventListener("input", e => {
-  searchQuery = (e.target as HTMLInputElement).value;
-  renderList();
-});
+function toggleDropdown(id: string, triggerId: string): void {
+  const dd = document.getElementById(id);
+  if (!dd) return;
+  const wasOpen = dd.classList.contains("open");
+  closeDropdowns();
+  dd.classList.toggle("open", !wasOpen);
+  document.getElementById(triggerId)?.setAttribute("aria-expanded", String(!wasOpen));
+  if (!wasOpen) dd.querySelector<HTMLInputElement>(".dd-search input")?.focus();
+}
 
-function renderTabs(): void {
-  const c = counts();
-  document.getElementById("ftabs")!.innerHTML = TABS.map(t =>
-    `<button class="ftab${activeFilter === t.key ? " on" : ""}" data-key="${t.key}" role="tab" aria-selected="${activeFilter === t.key}">
-      ${t.label}<span class="ftab-n">${c[t.key] ?? 0}</span>
-    </button>`
-  ).join("");
-  document.getElementById("ftabs")!.querySelectorAll<HTMLButtonElement>(".ftab").forEach(btn => {
+// ── Brands dropdown (option B: filter the page) ───────────────────────────
+function fillBrands(): void {
+  const dd = document.getElementById("dd-brands");
+  const list = document.getElementById("brands-list");
+  const label = document.getElementById("brands-label");
+  if (!dd || !list || !label) return;
+  if (dd.classList.contains("open")) { brandDirty = true; return; }
+
+  label.textContent = activeBrand ?? "All brands";
+  const q = brandQuery.toLowerCase();
+  const rows: string[] = [];
+  rows.push(`
+    <button type="button" class="opt${activeBrand === null ? " is-selected" : ""}" data-brand="" role="option" aria-selected="${activeBrand === null}">
+      <span class="dot${activeBrand === null ? " on" : ""}"></span>
+      <span class="copy"><strong>All brands</strong><small>Show everything</small></span>
+      <span class="count">${mice.length}</span>
+    </button>`);
+  for (const { brand, count } of brandTotals()) {
+    if (q && !brand.toLowerCase().includes(q)) continue;
+    const selected = activeBrand === brand;
+    rows.push(`
+      <button type="button" class="opt${selected ? " is-selected" : ""}" data-brand="${brand}" role="option" aria-selected="${selected}">
+        <span class="dot${selected ? " on" : ""}"></span>
+        <span class="copy"><strong>${brand}</strong><small>Brand</small></span>
+        <span class="count">${count}</span>
+      </button>`);
+  }
+  const bst = list.scrollTop;
+  list.innerHTML = rows.length > 1 ? rows.join("") : `<p class="no-results">No brands match.</p>`;
+  list.scrollTop = bst;
+  list.querySelectorAll<HTMLButtonElement>(".opt").forEach((btn) => {
     btn.addEventListener("click", () => {
-      activeFilter = btn.dataset.key as typeof activeFilter;
-      renderTabs();
+      const picked = btn.dataset.brand || null;
+      activeBrand = picked;
+      brandQuery = "";
+      const search = document.getElementById("brands-search") as HTMLInputElement | null;
+      if (search) search.value = "";
+      closeDropdowns();
+      fillBrands();
+      renderList();
+    });
+  });
+}
+
+// ── Tags dropdown (multi-select, tooltips carry the old legend copy) ──────
+function fillTags(): void {
+  const dd = document.getElementById("dd-tags");
+  const list = document.getElementById("tags-list");
+  const label = document.getElementById("tags-label");
+  const pill = document.getElementById("tags-pill");
+  if (!dd || !list || !label || !pill) return;
+  if (dd.classList.contains("open")) { tagsDirty = true; return; }
+
+  label.textContent = activeTags.size === 0 ? "All tags" : "Tags";
+  pill.hidden = activeTags.size === 0;
+  pill.textContent = activeTags.size === 0 ? "" : String(activeTags.size);
+
+  const q = tagsQuery.toLowerCase();
+  const rows: string[] = [];
+  for (const [key, tip] of STATUS_LEGEND) {
+    if (q && !STATUS[key].label.toLowerCase().includes(q)) continue;
+    const on = activeTags.has(key);
+    rows.push(`
+      <button type="button" class="opt${on ? " is-selected" : ""}" data-tag="${key}" data-tip="${tip}" role="option" aria-selected="${on}">
+        <span class="dot" style="background:${STATUS_DOT[key]}"></span>
+        <span class="copy"><strong>${STATUS[key].label}</strong><small>Tag</small></span>
+        <span class="check">${on ? "✓" : ""}</span>
+      </button>`);
+  }
+  const st = list.scrollTop;
+  list.innerHTML = rows.length > 0 ? rows.join("") : `<p class="no-results">No tags match.</p>`;
+  list.scrollTop = st;
+  list.querySelectorAll<HTMLButtonElement>(".opt").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.tag as Status;
+      if (activeTags.has(key)) activeTags.delete(key);
+      else activeTags.add(key);
+      // Rebuild now (not via the dirty flag) so the check paints
+      // while the panel stays open for multi-select.
+      const dd = document.getElementById("dd-tags");
+      const wasOpen = dd?.classList.contains("open") ?? false;
+      tagsDirty = false;
+      dd?.classList.remove("open");
+      fillTags();
+      if (wasOpen) {
+        dd?.classList.add("open");
+        dd?.querySelector<HTMLElement>(`.opt[data-tag="${key}"]`)?.focus();
+      }
       renderList();
     });
   });
@@ -173,20 +363,7 @@ function renderStats(): void {
   const c = counts();
   const el = document.getElementById("page-stats");
   if (!el) return;
-  const total = c.all;
-  const supported = c.supported ?? 0;
-  el.innerHTML = `<div class="sb-stat-row"><span class="sb-stat-num">${supported}</span><span class="sb-stat-label">supported · </span><span class="sb-stat-num">${total}</span><span class="sb-stat-label">total tracked</span></div>`;
-}
-
-function renderBrandIndex(): void {
-  const el = document.getElementById("sb-brands");
-  if (!el) return;
-  const brands: Record<string, number> = {};
-  for (const m of mice) brands[m.brand] = (brands[m.brand] || 0) + 1;
-  const sorted = Object.keys(brands).sort((a, b) => brands[b] - brands[a]);
-  el.innerHTML = sorted.map(b =>
-    `<li><a href="#brand-${b.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}" class="sb-brand-link">${b}</a><span class="sb-brand-count">${brands[b]}</span></li>`
-  ).join("");
+  el.innerHTML = `<strong>${c.supported ?? 0}</strong> supported · <strong>${c.all}</strong> total tracked`;
 }
 
 function renderResultCount(): void {
@@ -195,16 +372,36 @@ function renderResultCount(): void {
   if (el) el.textContent = `${data.length} device${data.length === 1 ? "" : "s"}`;
 }
 
+function clearAllFilters(): void {
+  activeTags.clear();
+  activeBrand = null;
+  searchQuery = "";
+  brandQuery = "";
+  tagsQuery = "";
+  const sInput = document.getElementById("s-input") as HTMLInputElement | null;
+  if (sInput) sInput.value = "";
+  const bSearch = document.getElementById("brands-search") as HTMLInputElement | null;
+  if (bSearch) bSearch.value = "";
+  const tSearch = document.getElementById("tags-search") as HTMLInputElement | null;
+  if (tSearch) tSearch.value = "";
+  fillBrands();
+  fillTags();
+  renderList();
+}
+
 function renderList(): void {
   const data = visibleMice();
   const el = document.getElementById("device-list")!;
 
   renderResultCount();
   renderStats();
-  renderBrandIndex();
 
   if (!data.length) {
-    el.innerHTML = `<p class="no-results">No devices match your search.</p>`;
+    el.innerHTML = `<div class="no-results">
+      <p>No devices match these filters.</p>
+      <button type="button" class="clear-filters" id="clear-filters">Clear brand and tag filters</button>
+    </div>`;
+    document.getElementById("clear-filters")?.addEventListener("click", clearAllFilters);
     return;
   }
 
@@ -217,11 +414,14 @@ function renderList(): void {
     return rb - ra || a.localeCompare(b);
   });
 
+  const collapsed = getCollapsedBrands();
+
   el.innerHTML = sortedBrands.map(brand => {
     const items = groups[brand].sort((a, b) =>
       STATUS[a.status].order - STATUS[b.status].order || b.req - a.req,
     );
     const totalReq = items.reduce((s, m) => s + m.req, 0);
+    const isCollapsed = collapsed.has(brand);
 
     const rows = items.map(m =>
       `<tr>
@@ -232,17 +432,90 @@ function renderList(): void {
       </tr>`
     ).join("");
 
-    return `<div class="brand-group" id="brand-${brand.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}">
-      <div class="brand-header">${brand}${totalReq > 0 ? ` <span class="brand-reqs">(${totalReq} request${totalReq === 1 ? "" : "s"})</span>` : ""}</div>
+    return `<div class="brand-group${isCollapsed ? " collapsed" : ""}" id="brand-${brandSlug(brand)}" data-brand="${brand.replace(/"/g, "&quot;")}">
+      <button type="button" class="brand-header" aria-expanded="${!isCollapsed}">
+        <svg class="brand-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span>${brand}</span>
+        <span class="brand-count-total">${items.length}</span>
+        ${totalReq > 0 ? `<span class="brand-reqs">(${totalReq} request${totalReq === 1 ? "" : "s"})</span>` : ""}
+      </button>
       <table class="device-table">
         <thead><tr><th>Status</th><th>Model</th><th>Notes</th><th style="text-align:right">Votes</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
   }).join("");
+
+  el.querySelectorAll<HTMLButtonElement>(".brand-header").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const group = btn.closest<HTMLElement>(".brand-group");
+      const brand = group?.dataset.brand;
+      if (!brand) return;
+      const nowCollapsed = group.classList.toggle("collapsed");
+      btn.setAttribute("aria-expanded", String(!nowCollapsed));
+      toggleBrandCollapsed(brand);
+    });
+  });
 }
 
-renderTabs();
+// ── Wiring ────────────────────────────────────────────────────────────────
+document.getElementById("theme-btn")?.addEventListener("click", () => {
+  applyTheme(getTheme() === "dark" ? "light" : "dark");
+});
+
+document.getElementById("s-input")?.addEventListener("input", e => {
+  searchQuery = (e.target as HTMLInputElement).value;
+  renderList();
+});
+
+document.getElementById("brands-trigger")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDropdown("dd-brands", "brands-trigger");
+});
+document.getElementById("tags-trigger")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDropdown("dd-tags", "tags-trigger");
+});
+document.getElementById("brands-search")?.addEventListener("input", e => {
+  brandQuery = (e.target as HTMLInputElement).value;
+  brandDirty = false;
+  // Rebuild the open list without touching the focused input.
+  const dd = document.getElementById("dd-brands");
+  const wasOpen = dd?.classList.contains("open") ?? false;
+  dd?.classList.remove("open");
+  fillBrands();
+  if (wasOpen) dd?.classList.add("open");
+});
+document.getElementById("tags-search")?.addEventListener("input", e => {
+  tagsQuery = (e.target as HTMLInputElement).value;
+  tagsDirty = false;
+  const dd = document.getElementById("dd-tags");
+  const wasOpen = dd?.classList.contains("open") ?? false;
+  dd?.classList.remove("open");
+  fillTags();
+  if (wasOpen) dd?.classList.add("open");
+});
+
+const tagsList = document.getElementById("tags-list");
+tagsList?.addEventListener("mouseover", (e) => {
+  const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
+  if (!opt) { hideTagTip(); return; }
+  showTagTip(opt, opt.dataset.tip || "");
+});
+tagsList?.addEventListener("mouseout", (e) => {
+  const to = (e.relatedTarget as HTMLElement | null)?.closest?.(".opt[data-tip]");
+  if (!to) hideTagTip();
+});
+tagsList?.addEventListener("focusin", (e) => {
+  const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
+  if (opt) showTagTip(opt, opt.dataset.tip || "");
+});
+tagsList?.addEventListener("focusout", hideTagTip);
+tagsList?.addEventListener("scroll", hideTagTip);
+window.addEventListener("resize", hideTagTip);
+
+fillBrands();
+fillTags();
 renderList();
 
 // ── Live updates ──────────────────────────────────────────────────────────
@@ -255,7 +528,8 @@ async function refresh(): Promise<void> {
   }
   mice = mergeLiveMice(MICE, live);
 
-  renderTabs();
+  fillBrands();
+  fillTags();
   renderList();
 }
 

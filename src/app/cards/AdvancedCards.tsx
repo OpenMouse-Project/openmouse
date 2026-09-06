@@ -20,7 +20,6 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
-import { isPulsarProProtocol } from "../../device/traits";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
 import type { ControlSnapshot } from "../../device/types";
 import { Collapsible, Segmented, SwitchRow } from "../ui";
@@ -155,7 +154,9 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const keychronSleep = status.ui?.family === "keychron-nape";
 
   let options: ReadonlyArray<readonly [number, string]> = PULSAR_SLEEP_OPTIONS;
-  if (!keychronSleep && traits.directMode) {
+  // A driver that publishes its own timeouts wins over the Pulsar-unit default,
+  // whether or not it is a direct-mode driver.
+  if (!keychronSleep && (traits.directMode || capabilities?.sleepOptions)) {
     const offered = capabilities?.sleepOptions ?? [10, 30, 60, 300, 600, 1800];
     const seconds = selectableValues(offered, status.sleepTimeout) ?? offered;
     options = seconds.map((value) => [value, sleepLabel(value)] as const);
@@ -267,8 +268,6 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 
   // WLMouse calls the same sensor setting High-speed mode in its own tool.
   const hyperLabel = status.brand === "WLMouse" ? "High-speed mode" : "Hyper mode";
-  // Pulsar Pro shows the angle with the rest of its Pro-only settings.
-  const angleTuning = isPulsarProProtocol(status) ? null : status.angleTuning;
 
   return (
     <article id="processing-settings" className="setting-card">
@@ -348,20 +347,6 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         hidden={status.buttonCombination == null}
         onChange={(next) => control.applyPulsarToggle("buttonCombination", next)}
       />
-      {angleTuning != null ? (
-        <label className="field-label spaced">
-          Angle tune
-          <select
-            id="angle-tune-select"
-            value={angleTuning}
-            onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
-          >
-            {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
-              <option key={angle} value={angle}>{angle}°</option>
-            ))}
-          </select>
-        </label>
-      ) : null}
 
       {traits.teevolution && teevolutionProfile ? (
         <label id="teevolution-performance-duration-row" className="field-label spaced">
@@ -953,6 +938,115 @@ export function EggButtonCard({ snapshot }: { snapshot: ControlSnapshot }): Reac
         </div>
       </article>
     </Collapsible>
+  );
+}
+
+/**
+ * Numbered onboard profiles, for devices that expose a plain set the user can
+ * switch between. Driven entirely by `profileCount` / `activeProfile`, so it
+ * stays brand-agnostic — unlike the Logitech onboard-profile editor, which
+ * edits profile *contents* rather than just selecting one.
+ */
+export function OnboardProfileCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || !status.profileCount || status.activeProfile == null) return null;
+  return (
+    <article id="onboard-profile-settings" className="setting-card">
+      <div className="setting-heading compact"><div><h2>Profile</h2></div></div>
+      <label className="field-label spaced">
+        Active profile
+        <select
+          id="onboard-profile-select"
+          value={status.activeProfile}
+          onChange={(event) => control.applyProfileSelection(Number(event.currentTarget.value))}
+        >
+          {Array.from({ length: status.profileCount }, (_, index) => index + 1).map((value) => (
+            // Devices that store their own names show them; the rest number.
+            <option key={value} value={value}>
+              {status.profileNames?.[value - 1] ?? `Profile ${value}`}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="field-note">
+        Each profile stores its own DPI stages and polling rate, so those values
+        change with the profile.
+      </p>
+    </article>
+  );
+}
+
+/**
+ * Button remapping for drivers that publish a plain name -> action map. Stays
+ * brand-agnostic: the driver supplies both the button list and the vocabulary,
+ * so nothing here knows what a given mouse can do.
+ */
+export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
+  const options = status.buttonOptions;
+  return (
+    <article id="button-mapping-settings" className="setting-card">
+      <div className="setting-heading compact"><div><p>BUTTONS</p><h2>Remap</h2></div></div>
+      {Object.entries(status.buttonMappings).map(([button, assigned]) => (
+        <label key={button} className="field-label spaced">
+          {button}
+          <select
+            id={`button-${button.toLowerCase()}-select`}
+            value={options.includes(assigned) ? assigned : ""}
+            onChange={(event) => control.applyDeviceButtonMapping(button, event.currentTarget.value)}
+          >
+            {/* A macro or an assignment this build cannot name still shows. */}
+            {!options.includes(assigned) && <option value="">{assigned}</option>}
+            {options.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+      ))}
+      <p className="field-note">
+        &ldquo;Default&rdquo; restores a button&rsquo;s factory function.
+      </p>
+    </article>
+  );
+}
+
+/**
+ * A device's named power/performance modes, plus sensor angle tuning where it
+ * offers one. Driven entirely by what the driver reports, so it stays
+ * brand-agnostic.
+ */
+export function PowerModeCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status) return null;
+  const modes = status.powerModes;
+  const tuning = status.angleTuning;
+  if (!modes?.length && tuning == null) return null;
+  return (
+    <article id="power-mode-settings" className="setting-card">
+      <div className="setting-heading compact"><div><p>SENSOR</p><h2>Mode</h2></div></div>
+      {modes?.length ? (
+        <Segmented
+          className={modes.length === 3 ? "three" : undefined}
+          ariaLabel="Performance mode"
+          options={modes.map((mode) => ({ value: mode, label: mode }))}
+          value={status.powerMode ?? modes[0]!}
+          onChange={(next) => control.applyPowerMode(String(next))}
+        />
+      ) : null}
+      {tuning != null ? (
+        <label className="field-label spaced">
+          Angle tuning
+          <select
+            id="angle-tuning-select"
+            value={tuning}
+            onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
+          >
+            {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
+              <option key={angle} value={angle}>{angle}°</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </article>
   );
 }
 

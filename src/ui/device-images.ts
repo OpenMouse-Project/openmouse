@@ -10,6 +10,7 @@
  * it had before any art existed. See `public/devices/README.md` for how to
  * upload new art.
  */
+
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c07d", "logitech-g502.png"],
   ["046d:c095", "logitech-g502-x-plus.png"],
@@ -35,6 +36,17 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1532:0078", "razer-viper.webp"],
   ["1532:00a3", "razer-cobra.webp"],
   ["1532:0094", "razer-orochi-v2.png"],
+  // MCHOSE A7 V2 family. Pro, Pro+, Ultra and Ultra+ are one shell with
+  // different sensors — MCHOSE itself only publishes `A7V2Pro_*` renders — so
+  // every model id and every link (receiver, Bluetooth, 8K receiver) maps to
+  // the same art.
+  ["3837:4018", "mchose-a7-v2.png"],
+  ["3837:4019", "mchose-a7-v2.png"],
+  ["3837:4021", "mchose-a7-v2.png"],
+  ["3837:4023", "mchose-a7-v2.png"],
+  ["3837:100a", "mchose-a7-v2.png"],
+  ["3837:100b", "mchose-a7-v2.png"],
+  ["3837:1020", "mchose-a7-v2.png"],
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "crdrako-ko-one.png"],
   ["373e:006b", "crdrako-ko-one.png"],
@@ -123,6 +135,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1532:00b8", "razer-viper-v3-hyperspeed.png"],
   ["1532:00e5", "razer-viper-v4-pro.png"],
   ["1532:00e6", "razer-viper-v4-pro.png"],
+  // K-snake X11 wired / 2.4 GHz dongle share the same shell.
+  ["a8a4:2255", "ksnake-x11.png"],
+  ["a8a5:2255", "ksnake-x11.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -188,7 +203,11 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bsword\s*x\b/i.test(displayName)) return "wlmouse-sword-x.png";
   if (/\bdragonfly\s*f2\b/i.test(displayName)) return "vgn-dragonfly-f2.png";
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
+  if (/\bk-snake\b/i.test(displayName)) return "ksnake-x11.png";
+  if (/\bx11\b/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
+  // Catches any A7 V2 variant whose product id is not pinned above.
+  if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";

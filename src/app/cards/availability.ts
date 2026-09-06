@@ -27,6 +27,9 @@ export interface CardAvailability {
   razerButtons: boolean;
   mxMasterButtons: boolean;
   pulsarPro: boolean;
+  onboardProfiles: boolean;
+  buttonMapping: boolean;
+  powerMode: boolean;
   profiles: boolean;
   keychronNapeLayers: boolean;
   logitechDetails: boolean;
@@ -58,6 +61,9 @@ const NOTHING: CardAvailability = {
   razerButtons: false,
   mxMasterButtons: false,
   pulsarPro: false,
+  onboardProfiles: false,
+  buttonMapping: false,
+  powerMode: false,
   profiles: false,
   keychronNapeLayers: false,
   logitechDetails: false,
@@ -84,7 +90,6 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || status.hyperMode != null
     || status.turboMode != null
     || status.buttonCombination != null
-    || status.angleTuning != null
     || status.sensorMode != null || status.performanceDuration != null
   );
 
@@ -104,6 +109,9 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     superstrike: traits.logitech && status.analogButtonTuning?.buttons.length === 2,
     lighting: Boolean(status.lighting || status.lightingZones?.length),
     lightingAdvanced: host && Boolean(status.lighting || status.lightingZones?.length),
+    onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
+    buttonMapping: host && Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
+    powerMode: host && (Boolean(status.powerModes?.length) || status.angleTuning != null),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
     keychronNapeLayers: status.napeLayerCount != null && status.napeLayerCount >= 1,
