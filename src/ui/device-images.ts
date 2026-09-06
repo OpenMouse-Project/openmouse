@@ -180,6 +180,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";
   if (/\bm-001\b/i.test(displayName)) return "wallhack-m-001.png";
   if (/\bk-001\b/i.test(displayName)) return "wallhack-k-001.png";
+  // Corsair NIGHTSWORD RGB has no product render yet; resolves to the generic
+  // placeholder until art is uploaded (then add ["1b1c:1b5c", ...] above).
+  if (/\bnightsword\b/i.test(displayName)) return "unknown-device.png";
   // Newer supported-model artwork resolved from the reported product name. These
   // run after the shared-receiver checks above but before the Pulsar/unknown
   // catch-alls. Test-needed (likely) models are deliberately left out.
