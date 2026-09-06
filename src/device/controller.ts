@@ -3383,7 +3383,7 @@ export function applyPowerMode(mode: string): void {
 export function applyAngleTuning(degrees: number): void {
   stageChange({
     key: "angle-tuning",
-    label: `Angle tuning ${degrees}00b0`,
+    label: `Angle tuning ${degrees}°`,
     command: "Change the angle tuning",
     progress: "Changing angle tuning…",
     preview: (status) => { status.angleTuning = degrees; },
