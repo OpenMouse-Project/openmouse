@@ -871,7 +871,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
   .control-shell .control-panel { display: flex; flex-direction: column; width: min(100% - 3rem, 1180px); min-height: 0; padding: .65rem 0; }
   .control-shell .panel-header { padding: .8rem 0 .65rem; }
   .control-shell .panel-header h1 { font-size: clamp(2rem, 3.2vw, 2.8rem); }
-  .control-shell .device-overview { flex: 0 0 104px; min-height: 104px; grid-template-columns: repeat(3, 1fr); }
+  .control-shell .device-overview { flex: 0 0 auto; min-height: 104px; grid-template-columns: repeat(3, 1fr); }
   .control-shell .device-overview .summary-stat { padding: .65rem .9rem; }
   .control-shell .device-overview .summary-stat strong { font-size: 1.1rem; }
   .control-shell .device-overview .summary-stat small { margin-top: .1rem; }
@@ -1025,7 +1025,12 @@ body { height: 100vh; overflow: hidden; }
 .control-shell .device-overview {
   order: 2;
   min-height: 94px;
-  flex: 0 0 94px;
+  /* NOTE: flex-basis must stay auto, not a fixed px. The CONNECTION card
+     grows a fourth line (Receiver LED toggle) on Pulsar hardware, and a
+     fixed basis + overflow:hidden clips it mid-button. min-height keeps
+     the compact look; the row grows only when a card needs it — same
+     pattern as .settings-grid below. */
+  flex: 0 0 auto;
   grid-template-columns: repeat(3, 1fr);
   border-color: var(--border);
   border-radius: 8px;
