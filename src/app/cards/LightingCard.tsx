@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import type { MouseLighting } from "@openmouse/protocol/drivers/mouse-types";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
+import { t, tp } from "../../i18n";
 import { ColorPicker } from "../ColorPicker";
 import { Segmented } from "../ui";
 
@@ -19,6 +20,7 @@ export function LightingCard({
   zoneIndex?: number;
 }): ReactNode {
   const hasLightstrip = Boolean(zones?.some((zone) => zone.hardwareZoneId != null));
+  const locale = snapshot.preferences.locale;
   const [selectedZone, setSelectedZone] = useState(
     hasLightstrip && zones && zones.length > 1 ? 1 : zoneIndex,
   );
@@ -46,24 +48,24 @@ export function LightingCard({
         <div>
           <p>{variant === "advanced" ? "RECEIVER" : "LIGHTING"}</p>
           <h2 id={`${prefix}-title`}>
-            {lighting.zone === "Receiver" ? "Receiver lighting" : `${lighting.zone} lighting`}
+            {lighting.zone === "Receiver" ? t(locale, "light.receiverTitle") : tp(locale, "light.zoneTitle", { zone: lighting.zone })}
             {lighting.writeOnly ? (
-              <span className="setting-scope" id={`${prefix}-write-only-badge`}>Write-only</span>
+              <span className="setting-scope" id={`${prefix}-write-only-badge`}>{t(locale, "light.writeOnly")}</span>
             ) : null}
           </h2>
         </div>
       </div>
 
       {zones && zones.length > 1 ? (
-        <div className="lighting-zone-picker" aria-label="RGB part">
+        <div className="lighting-zone-picker" aria-label={t(locale, "light.rgbPart")}>
           <div className="lighting-zone-copy">
-            <span>RGB parts</span>
+            <span>{t(locale, "light.rgbParts")}</span>
             <strong>{lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone}</strong>
           </div>
           <div
             className={`lighting-strip${hasLightstrip ? " is-lightstrip" : ""}`}
             role="list"
-            aria-label={hasLightstrip ? "Lightstrip LEDs" : "RGB zones"}
+            aria-label={hasLightstrip ? t(locale, "light.stripLeds") : t(locale, "light.rgbZones")}
           >
             {zones.map((zone, index) => (
               <button
@@ -85,7 +87,7 @@ export function LightingCard({
       <Segmented
         id={`${prefix}-modes`}
         className="lighting-modes"
-        ariaLabel="Lighting effect"
+        ariaLabel={t(locale, "light.effect")}
         options={lighting.modes.map((candidate) => ({ value: candidate, label: candidate }))}
         value={mode}
         disabled={disabled}
@@ -94,10 +96,10 @@ export function LightingCard({
 
       {brightnessLevels.length > 0 ? (
         <div id={`${prefix}-brightness-row`} className="lighting-speed-row">
-          <div className="setting-heading tight"><div><h2>Brightness</h2></div></div>
+          <div className="setting-heading tight"><div><h2>{t(locale, "light.brightness")}</h2></div></div>
           <Segmented
             id={`${prefix}-brightness-levels`}
-            ariaLabel="Lighting brightness"
+            ariaLabel={t(locale, "light.brightnessAria")}
             options={brightnessLevels.map((level) => ({ value: level, label: `${level}%` }))}
             value={lighting.brightness}
             disabled={disabled}
@@ -111,25 +113,25 @@ export function LightingCard({
           {variant === "advanced" ? (
             <>
               <label className="lighting-color-field">
-                <span>Colour</span>
+                <span>{t(locale, "light.colour")}</span>
                 <input
                   id="lighting-color"
                   type="color"
                   value={lighting.color ?? "#00ff00"}
                   disabled={disabled}
-                  aria-label="Lighting colour"
+                  aria-label={t(locale, "light.colourAria")}
                   onChange={(event) => control.applyLighting({ color: event.currentTarget.value }, activeZoneIndex)}
                 />
               </label>
               {usesColor2 ? (
                 <label id="lighting-color2-field" className="lighting-color-field">
-                  <span>Colour 2</span>
+                  <span>{t(locale, "light.colour2")}</span>
                   <input
                     id="lighting-color2"
                     type="color"
                     value={lighting.color2 ?? "#ff0000"}
                     disabled={disabled}
-                    aria-label="Second lighting colour"
+                    aria-label={t(locale, "light.colour2Aria")}
                     onChange={(event) => control.applyLighting({ color2: event.currentTarget.value }, activeZoneIndex)}
                   />
                 </label>
@@ -138,23 +140,23 @@ export function LightingCard({
           ) : (
             <>
               <div className="lighting-color-field">
-                <span>Colour</span>
+                <span>{t(locale, "light.colour")}</span>
                 <ColorPicker
                   id="lighting-tab-color"
                   value={lighting.color ?? "#00ff00"}
                   disabled={disabled}
-                  ariaLabel="Lighting colour"
+                  ariaLabel={t(locale, "light.colourAria")}
                   onChange={(color) => control.applyLighting({ color }, activeZoneIndex)}
                 />
               </div>
               {usesColor2 ? (
                 <div id="lighting-tab-color2-field" className="lighting-color-field">
-                  <span>Colour 2</span>
+                  <span>{t(locale, "light.colour2")}</span>
                   <ColorPicker
                     id="lighting-tab-color2"
                     value={lighting.color2 ?? "#ff0000"}
                     disabled={disabled}
-                    ariaLabel="Second lighting colour"
+                    ariaLabel={t(locale, "light.colour2Aria")}
                     onChange={(color2) => control.applyLighting({ color2 }, activeZoneIndex)}
                   />
                 </div>
@@ -166,7 +168,7 @@ export function LightingCard({
 
       {usesSpeed ? (
         <div id={`${prefix}-speed-row`} className="lighting-speed-row">
-          <div className="setting-heading tight"><div><h2>Effect speed</h2></div></div>
+          <div className="setting-heading tight"><div><h2>{t(locale, "light.speed")}</h2></div></div>
           {sliderSpeeds ? (
             <span className="glass-slider-rail">
               <input
@@ -178,7 +180,7 @@ export function LightingCard({
                 defaultValue={lighting.speed ?? lighting.speeds[0] ?? 0}
                 key={`speed-${lighting.speed}`}
                 disabled={disabled}
-                aria-label="Effect speed"
+                aria-label={t(locale, "light.speed")}
                 style={{
                   "--fill": `${(((lighting.speed ?? lighting.speeds[0] ?? 0) - Math.min(...lighting.speeds))
                     / Math.max(1, Math.max(...lighting.speeds) - Math.min(...lighting.speeds))) * 100}%`,
@@ -189,7 +191,7 @@ export function LightingCard({
           ) : (
             <Segmented
               id={`${prefix}-speeds`}
-              ariaLabel="Effect speed"
+              ariaLabel={t(locale, "light.speed")}
               options={lighting.speeds.map((speed) => ({ value: speed, label: String(speed) }))}
               value={lighting.speed}
               disabled={disabled}
@@ -201,13 +203,13 @@ export function LightingCard({
 
       <div className="setting-action">
         <span id={`${prefix}-pending`}>
-          {staged ? `Staged: ${control.describeLighting(lighting)}` : "Choose an effect"}
+          {staged ? tp(locale, "common.staged", { v: control.describeLighting(lighting, locale) }) : t(locale, "light.choose")}
         </span>
       </div>
       <small id={`${prefix}-note`} className="setting-note">
         {lighting.writeOnly
-          ? "The mouse cannot report its current effect, so this shows the last value written."
-          : `Picks the ${lighting.zone} light effect.`}
+          ? t(locale, "light.writeOnlyNote")
+          : tp(locale, "light.zoneNote", { zone: lighting.zone })}
       </small>
     </article>
   );

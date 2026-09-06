@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import * as control from "../device/controller";
 import type { Toast } from "../device/types";
+import type { InterfaceLocale } from "../interface-preferences";
+import { t } from "../i18n";
 
 const TOAST_ICON: Record<Toast["kind"], ReactNode> = {
   success: <path d="M20 6 9 17l-5-5" />,
@@ -38,10 +40,10 @@ function ToastIcon({ kind }: { kind: Toast["kind"] }): ReactNode {
   );
 }
 
-export function ToastHost({ toasts }: { toasts: Toast[] }): ReactNode {
+export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: InterfaceLocale }): ReactNode {
   if (toasts.length === 0) return null;
   return (
-    <div className="toast-stack" role="status" aria-live="polite" aria-label="Notifications">
+    <div className="toast-stack" role="status" aria-live="polite" aria-label={t(locale, "toast.region")}>
       {toasts.map((toast) => (
         <article
           key={toast.id}
@@ -55,7 +57,7 @@ export function ToastHost({ toasts }: { toasts: Toast[] }): ReactNode {
           <button
             type="button"
             className="toast-dismiss"
-            aria-label="Dismiss notification"
+            aria-label={t(locale, "toast.dismiss")}
             onClick={() => control.dismissToast(toast.id)}
           >
             <svg

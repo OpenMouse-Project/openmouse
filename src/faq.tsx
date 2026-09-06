@@ -7,79 +7,60 @@ import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { SiteFooter, SiteNav } from "./app/site-chrome";
 import { DISCORD_URL, GITHUB_URL } from "./app/social-links";
+import { t } from "./i18n";
+import type { InterfaceLocale } from "./interface-preferences";
+import { usePageLocale } from "./app/page-locale";
 
 interface FaqEntry {
   question: string;
   answer: ReactNode;
 }
 
-const FAQS: FaqEntry[] = [
-  {
-    question: "Is OpenMouse free?",
-    answer:
-      "Yes. OpenMouse is free and open source, with no accounts, subscriptions, or paid tiers.",
-  },
-  {
-    question: "Does OpenMouse send any of my data anywhere?",
-    answer:
-      "No. OpenMouse runs entirely in your browser over WebHID — there's no telemetry, no background service, and nothing phones home. You can read exactly what it does, since every driver is open source.",
-  },
-  {
-    question: "Which mice are supported?",
-    answer: (
-      <>
-        Dozens of gaming mice across several brands. Check the{" "}
-        <a href="/supported.html">supported mice list</a> for the current
-        set — support depends on what the community has reverse-engineered
-        and tested so far.
-      </>
-    ),
-  },
-  {
-    question: "What browsers work with OpenMouse?",
-    answer:
-      "OpenMouse needs a browser with WebHID support, so Chrome, Edge, and other Chromium-based browsers work. Firefox and Safari don't currently support WebHID.",
-  },
-  {
-    question: "My mouse isn't listed — can I add support for it?",
-    answer: (
-      <>
-        Yes. The{" "}
-        <a href="https://docs.openmouse.app">contribution guide</a> walks
-        through safe reverse-engineering practices and how the driver repos
-        fit together.
-      </>
-    ),
-  },
-  {
-    question: "Do I need to install anything?",
-    answer:
-      "No installer, no driver, no background app. Plug in your mouse, open the page in a supported browser, and it's there.",
-  },
-  {
-    question: "Is my configuration stored anywhere?",
-    answer:
-      "Your settings are only stored locally, in your browser — there's no account and no cloud sync.",
-  },
-  {
-    question: "How can I support the project?",
-    answer: (
-      <>
-        Star the project on <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>,
-        join the <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>, or{" "}
-        <a href="/donate.html">donate</a> to help fund testing hardware and
-        development.
-      </>
-    ),
-  },
-];
+function faqs(locale: InterfaceLocale): FaqEntry[] {
+  return [
+    { question: t(locale, "faq.q1"), answer: t(locale, "faq.a1") },
+    { question: t(locale, "faq.q2"), answer: t(locale, "faq.a2") },
+    {
+      question: t(locale, "faq.q3"),
+      answer: (
+        <>
+          {t(locale, "faq.a3a")}{" "}
+          <a href="/supported.html">{t(locale, "faq.a3b")}</a> {t(locale, "faq.a3c")}
+        </>
+      ),
+    },
+    { question: t(locale, "faq.q4"), answer: t(locale, "faq.a4") },
+    {
+      question: t(locale, "faq.q5"),
+      answer: (
+        <>
+          {t(locale, "faq.a5a")}{" "}
+          <a href="https://docs.openmouse.app">{t(locale, "faq.a5b")}</a>{" "}
+          {t(locale, "faq.a5c")}
+        </>
+      ),
+    },
+    { question: t(locale, "faq.q6"), answer: t(locale, "faq.a6") },
+    { question: t(locale, "faq.q7"), answer: t(locale, "faq.a7") },
+    {
+      question: t(locale, "faq.q8"),
+      answer: (
+        <>
+          {t(locale, "faq.a8a")} <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>,
+          {" "}{t(locale, "faq.a8b")} <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>,{" "}
+          <a href="/donate.html">{t(locale, "land.donate")}</a> {t(locale, "faq.a8c")}
+        </>
+      ),
+    },
+  ];
+}
 
-function Faq(): ReactNode {
+function Faq({ locale }: { locale: InterfaceLocale }): ReactNode {
   return (
     <section className="land-faq">
-      <h1>Frequently asked questions</h1>
+      <h1>{t(locale, "faq.title")}</h1>
       <dl className="land-faq-list">
-        {FAQS.map(({ question, answer }) => (
+        {faqs(locale).map(({ question, answer }) => (
           <div className="land-faq-item" key={question}>
             <dt>{question}</dt>
             <dd>{answer}</dd>
@@ -91,11 +72,12 @@ function Faq(): ReactNode {
 }
 
 function FaqPage(): ReactNode {
+  const [locale, setLocale] = usePageLocale();
   return (
     <div className="land-shell">
-      <SiteNav />
-      <Faq />
-      <SiteFooter />
+      <SiteNav locale={locale} onLocale={setLocale} />
+      <Faq locale={locale} />
+      <SiteFooter locale={locale} />
     </div>
   );
 }

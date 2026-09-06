@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { batteryFillWidth, batteryIconState, batteryLevel } from "../ui/battery-icon";
+import { t } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 
 export function SwitchButton({
   id,
@@ -119,6 +121,7 @@ export function RateSlider({
   disabled,
   hidden,
   onChange,
+  locale = "en",
 }: {
   id?: string;
   options: number[];
@@ -127,6 +130,7 @@ export function RateSlider({
   disabled?: boolean;
   hidden?: boolean;
   onChange: (hz: number) => void;
+  locale?: InterfaceLocale;
 }): ReactNode {
   const [dragging, setDragging] = useState<number | null>(null);
   if (options.length === 0) return <div id={id} className="rate-slider" hidden={hidden} />;
@@ -164,7 +168,7 @@ export function RateSlider({
           step={1}
           value={index}
           disabled={disabled}
-          aria-label={label ?? "Report rate"}
+          aria-label={label ?? t(locale, "perf.reportRate")}
           aria-valuetext={`${options[index] ?? 0} Hz`}
           // "change" fires on release, so a drag stages one change rather than
           // thirty; "input" only moves the readout and the lit dots.
