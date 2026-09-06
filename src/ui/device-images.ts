@@ -219,8 +219,7 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bsword\s*x\b/i.test(displayName)) return "wlmouse-sword-x.png";
   if (/\bdragonfly\s*f2\b/i.test(displayName)) return "vgn-dragonfly-f2.png";
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
-  if (/\bk-snake\b/i.test(displayName)) return "ksnake-x11.png";
-  if (/\bx11\b/i.test(displayName)) return "ksnake-x11.png";
+  if (/k[\s-]*snake/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
   // Catches any A7 V2 variant whose product id is not pinned above.
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
