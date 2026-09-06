@@ -53,20 +53,34 @@ function clampGlassIntensity(value: unknown): number {
   return Math.min(100, Math.max(0, Math.round(number)));
 }
 
+/** OS-level preference. Used only as the initial default so an explicit
+    site choice always wins over the system setting. */
+export function systemPrefersReducedMotion(): boolean {
+  try {
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+  } catch {
+    // Ignore and fall through to the animated default below.
+  }
+  return false;
+}
+
 export function loadInterfacePreferences(storage: Storage): InterfacePreferences {
   try {
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : "Mono",
       colorMode: saved.colorMode === "Light" || saved.colorMode === "Dark" ? saved.colorMode : "System",
-      reducedMotion: saved.reducedMotion === true,
+      reducedMotion:
+        typeof saved.reducedMotion === "boolean" ? saved.reducedMotion : systemPrefersReducedMotion(),
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,
       instantFlash: saved.instantFlash === true,
       glassIntensity: clampGlassIntensity(saved.glassIntensity),
     };
   } catch {
-    return { ...DEFAULT_INTERFACE_PREFERENCES };
+    return { ...DEFAULT_INTERFACE_PREFERENCES, reducedMotion: systemPrefersReducedMotion() };
   }
 }
 

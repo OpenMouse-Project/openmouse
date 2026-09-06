@@ -334,6 +334,7 @@ export function App(): ReactNode {
         preferences.reducedMotion ? "reduce-interface-motion" : "",
         snapshot.sidebarHidden ? "sidebar-hidden" : "",
         snapshot.pending.count > 0 ? "has-pending-changes" : "",
+        preferences.glassIntensity <= 0 ? "is-glass-min" : "",
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
       style={{ "--glass-intensity": preferences.glassIntensity }}
