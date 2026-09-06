@@ -25,7 +25,8 @@ export type PulsarToggleSetting =
   | "performanceMode"
   | "hyperMode"
   | "turboMode"
-  | "buttonCombination";
+  | "buttonCombination"
+  | "longRangeMode";
 
 export interface TeevolutionProfile {
   sleepOptions: readonly number[];
@@ -43,6 +44,7 @@ export interface DeviceCapabilities {
   canDisableSleep: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
+  debounceOptions?: number[] | null;
   razerSleepOptions: number[] | null;
   razerLowPowerOptions: number[] | null;
   lowPowerPollingCeiling: number | null;
@@ -147,6 +149,7 @@ export interface ControlSnapshot {
   hasActiveDevice: boolean;
   deviceArtwork: string | null;
   settingInProgress: boolean;
+  atkR1SePlusPairingAvailable: boolean;
 
   preferences: InterfacePreferences;
   sidebarHidden: boolean;

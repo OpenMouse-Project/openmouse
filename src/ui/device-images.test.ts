@@ -98,10 +98,12 @@ test("G402 / G303 / G403 / G903 resolve by PID and name", () => {
   assert.equal(deviceImage(null, "G903 HERO"), CDN + "logitech-g903.png");
 });
 
-test("G Pro family uses the classic shell; G Pro 2 gets its own render", () => {
+test("G Pro family uses the classic shell; G Pro Wireless and G Pro 2 get their own renders", () => {
   assert.equal(deviceImage(dev(0x046d, 0xc085)), CDN + "logitech-g-pro.png"); // G Pro (2017)
   assert.equal(deviceImage(dev(0x046d, 0xc08c)), CDN + "logitech-g-pro.png"); // G Pro Hero
-  assert.equal(deviceImage(null, "G Pro Wireless Gaming Mouse"), CDN + "logitech-g-pro.png");
+  // G Pro Wireless shares its Lightspeed receiver PID (0xc539) with other
+  // models (e.g. G703), so it can only be resolved by its reported name.
+  assert.equal(deviceImage(null, "G Pro Wireless Gaming Mouse"), CDN + "logitech-gpro-wireless.png");
   assert.equal(deviceImage(null, "G Pro 2 Lightspeed"), CDN + "logitech-g-pro-2.png");
   // The Superlight must keep its own render, not the classic G Pro shell.
   assert.equal(deviceImage(null, "G Pro X Superlight"), CDN + "logitech-pro-x-superlight-2c.png");

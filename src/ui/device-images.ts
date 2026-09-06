@@ -17,6 +17,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c098", "logitech-g502-x.png"],
   ["046d:c099", "logitech-g502-x.png"],
   ["046d:c0a8", "logitech-pro-x2-superstrike.png"],
+  // Note: 0xc539 is NOT mapped here — it's Logitech's shared Lightspeed
+  // receiver PID, reused across G703, G Pro Wireless, and others, so it must
+  // be disambiguated by name (see the name-fallback checks below) rather
+  // than pinned to one render.
   // The original G Pro X Superlight reports as "PRO X Wireless" over HID++,
   // not "Superlight", so the name-based fallback below never matches it.
   // Same shell as the Superlight 2c closely enough to reuse its render.
@@ -181,6 +185,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bg30[45]\b/i.test(displayName)) return "logitech-g305.png";
   if (/\bg309\b/i.test(displayName)) return "logitech-g309.png";
   if (/\bg\s*pro\s*2\b/i.test(displayName)) return "logitech-g-pro-2.png";
+  // Wireless resolves to its own render; the shared Lightspeed receiver PID
+  // (0xc539) is why this has to be a name check rather than a PID entry.
+  if (/\bg\s*pro\s*wireless\b/i.test(displayName)) return "logitech-gpro-wireless.png";
   if (/\bg\s*pro\b/i.test(displayName)) return "logitech-g-pro.png";
   if (/\bmx\s*anywhere\s*3\b/i.test(displayName)) return "logitech-mx-anywhere-3.png";
   if (/\bmx\s*ergo\b/i.test(displayName)) return "logitech-mx-ergo-s.png";

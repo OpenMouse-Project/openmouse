@@ -18,6 +18,7 @@ import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
+import { AtkButtonCard, AtkProfileCard, AtkReceiverCard } from "./cards/AtkCards";
 import {
   DebounceCard,
   EggButtonCard,
@@ -147,6 +148,9 @@ function Workspace({
     show(has.razerButtons, ["buttons"]) ? <RazerButtonCard key="razerbuttons" snapshot={snapshot} /> : null,
     show(has.mxMasterButtons, ["buttons"])
       ? <MxMasterButtonsCard key="mxmaster-buttons" snapshot={snapshot} /> : null,
+    show(has.atkButtons, ["buttons"]) ? <AtkButtonCard key="atk-buttons" snapshot={snapshot} /> : null,
+    show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
+    show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
     show(has.powerMode, ["performance"])
       ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
     show(has.buttonMapping, ["buttons"])
@@ -299,6 +303,7 @@ export function App(): ReactNode {
     if(!has.eggButtons&&
        !has.razerButtons&&
        !has.mxMasterButtons&&
+       !has.atkButtons&&
        !has.debounce&&
        !has.lightforce&&
        !has.eggSpdt&&

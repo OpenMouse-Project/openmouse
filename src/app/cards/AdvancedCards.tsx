@@ -131,6 +131,10 @@ export function DebounceCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const max = snapshot.traits.directMode
     ? snapshot.capabilities?.debounceMaxMs ?? 20
     : snapshot.capabilities?.teevolutionProfile?.debounce.max ?? 20;
+  const offered = snapshot.capabilities?.debounceOptions;
+  const options = offered
+    ? selectableValues([...offered], status.debounceMs) ?? offered
+    : Array.from({ length: max + 1 }, (_, ms) => ms);
   const staged = snapshot.pending.keys.includes("debounce");
   return (
     <article id="debounce-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
@@ -141,7 +145,7 @@ export function DebounceCard({ snapshot }: { snapshot: ControlSnapshot }): React
         disabled={status.debounceMs === null || status.debounceMs === undefined}
         onChange={(event) => control.applyPulsarValue("debounce", Number(event.currentTarget.value))}
       >
-        {Array.from({ length: max + 1 }, (_, ms) => <option key={ms} value={ms}>{ms} ms</option>)}
+        {options.map((ms) => <option key={ms} value={ms}>{ms} ms</option>)}
       </select>
     </article>
   );
@@ -265,6 +269,7 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
   const performanceLabel = status.brand === "CRDRAKO"
     ? "Competitive mode"
     : status.brand === "Teevolution" ? "Highest performance" : "Performance mode";
+  const angleSnappingLabel = status.ui?.family === "atk" ? "Straight-line correction" : "Angle snapping";
 
   // WLMouse calls the same sensor setting High-speed mode in its own tool.
   const hyperLabel = status.brand === "WLMouse" ? "High-speed mode" : "Hyper mode";
@@ -305,7 +310,7 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
       />
       <SwitchRow
         id="angle-snapping-toggle"
-        label="Angle snapping"
+        label={angleSnappingLabel}
         value={status.angleSnapping}
         hidden={ui?.hideAngleSnapping === true || traits.finalmouse}
         onChange={(next) => control.applyPulsarToggle("angleSnapping", next)}
@@ -347,6 +352,13 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         hidden={status.buttonCombination == null}
         onChange={(next) => control.applyPulsarToggle("buttonCombination", next)}
       />
+      <SwitchRow
+        id="long-range-mode-toggle"
+        label="Ultra long range"
+        value={status.longRangeMode}
+        hidden={status.longRangeMode == null}
+        onChange={(next) => control.applyPulsarToggle("longRangeMode", next)}
+      />
 
       {traits.teevolution && teevolutionProfile ? (
         <label id="teevolution-performance-duration-row" className="field-label spaced">
@@ -369,8 +381,16 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 
 export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
-  const profile = snapshot.capabilities?.teevolutionProfile;
-  if (!status || !profile) return null;
+  const teevolution = snapshot.capabilities?.teevolutionProfile?.dpiLighting;
+  const profile = status?.ui?.dpiLighting;
+  if (!status || (!profile && !teevolution)) return null;
+  const modes = profile?.modes ?? teevolution!.modes;
+  const brightness = profile?.brightness
+    ?? Array.from({ length: teevolution!.brightness.max - teevolution!.brightness.min + 1 },
+      (_, index) => teevolution!.brightness.min + index);
+  const speeds = profile?.speed
+    ?? Array.from({ length: teevolution!.speed.max - teevolution!.speed.min + 1 },
+      (_, index) => teevolution!.speed.min + index);
   const lightMode = status.dpiLedMode ?? 0;
   const staged = snapshot.pending.keys.some((key) => key.startsWith("teevolution-dpi-light-"));
   return (
@@ -388,7 +408,7 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
           onChange={(event) => control.applyTeevolutionDpiLighting("mode", Number(event.currentTarget.value))}
         >
           {([[0, "Off"], [1, "Steady"], [2, "Breathing"]] as const)
-            .filter(([value]) => profile.dpiLighting.modes.includes(value))
+            .filter(([value]) => modes.includes(value))
             .map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
@@ -402,14 +422,14 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
             <input
               id="teevolution-dpi-light-brightness"
               type="range"
-              min={profile.dpiLighting.brightness.min}
-              max={profile.dpiLighting.brightness.max}
+              min={Math.min(...brightness)}
+              max={Math.max(...brightness)}
               step={1}
-              value={status.dpiLedBrightness ?? profile.dpiLighting.brightness.min}
+              value={status.dpiLedBrightness ?? brightness[0]}
               disabled={lightMode !== 1 || status.dpiLedBrightness == null}
               style={{
-                "--fill": `${((status.dpiLedBrightness ?? profile.dpiLighting.brightness.min) - profile.dpiLighting.brightness.min)
-                  / Math.max(1, profile.dpiLighting.brightness.max - profile.dpiLighting.brightness.min) * 100}%`,
+                "--fill": `${((status.dpiLedBrightness ?? brightness[0]!) - Math.min(...brightness))
+                  / Math.max(1, Math.max(...brightness) - Math.min(...brightness)) * 100}%`,
               }}
               onChange={(event) => control.applyTeevolutionDpiLighting("brightness", Number(event.currentTarget.value))}
             />
@@ -424,14 +444,14 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
             <input
               id="teevolution-dpi-light-speed"
               type="range"
-              min={profile.dpiLighting.speed.min}
-              max={profile.dpiLighting.speed.max}
+              min={Math.min(...speeds)}
+              max={Math.max(...speeds)}
               step={1}
-              value={status.dpiLedSpeed ?? profile.dpiLighting.speed.min}
+              value={status.dpiLedSpeed ?? speeds[0]}
               disabled={lightMode !== 2 || status.dpiLedSpeed == null}
               style={{
-                "--fill": `${((status.dpiLedSpeed ?? profile.dpiLighting.speed.min) - profile.dpiLighting.speed.min)
-                  / Math.max(1, profile.dpiLighting.speed.max - profile.dpiLighting.speed.min) * 100}%`,
+                "--fill": `${((status.dpiLedSpeed ?? speeds[0]!) - Math.min(...speeds))
+                  / Math.max(1, Math.max(...speeds) - Math.min(...speeds)) * 100}%`,
               }}
               onChange={(event) => control.applyTeevolutionDpiLighting("speed", Number(event.currentTarget.value))}
             />

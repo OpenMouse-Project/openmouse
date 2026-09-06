@@ -107,6 +107,44 @@ test("Pulsar keeps the shared advanced cards", () => {
   assert.equal(has.eggFilter, false);
 });
 
+test("ATK exposes its processing and DPI-lighting cards from reported controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: {
+        family: "atk",
+        showAdvancedSection: true,
+        dpiLighting: { modes: [0, 1, 2], brightness: [0, 1, 2], speed: [0, 1, 2] },
+      },
+      longRangeMode: false,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.processing, true);
+  assert.equal(has.teevolutionDpiLighting, true);
+});
+
+test("ATK inspection cards require data actually read from the device", () => {
+  const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
+  assert.equal(empty.atkButtons, false);
+  assert.equal(empty.atkProfile, false);
+  assert.equal(empty.atkReceiver, false);
+
+  const inspected = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: { family: "atk" },
+      activeProfile: 0,
+      atkProfileCount: 4,
+      atkButtonMappings: [{ id: "left" }] as never,
+      atkReceiver: { online: true } as never,
+    },
+  }));
+  assert.equal(inspected.atkButtons, true);
+  assert.equal(inspected.atkProfile, true);
+  assert.equal(inspected.atkReceiver, true);
+});
+
 test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
   const has = cardAvailability(snapshot({
     status: {
