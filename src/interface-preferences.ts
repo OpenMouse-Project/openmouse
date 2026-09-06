@@ -11,10 +11,12 @@ export type InterfaceTheme =
   | "NieR: Automata"
   | "Liquid Glass";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
+export type InterfaceLocale = "en" | "pt";
 
 export interface InterfacePreferences {
   theme: InterfaceTheme;
   colorMode: InterfaceColorMode;
+  locale: InterfaceLocale;
   reducedMotion: boolean;
   expandSections: boolean;
   showExperimental: boolean;
@@ -40,6 +42,7 @@ const THEMES: readonly InterfaceTheme[] = [
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   theme: "Mono",
   colorMode: "System",
+  locale: "en",
   reducedMotion: false,
   expandSections: false,
   showExperimental: true,
@@ -53,20 +56,53 @@ function clampGlassIntensity(value: unknown): number {
   return Math.min(100, Math.max(0, Math.round(number)));
 }
 
+/** OS-level preference. Used only as the initial default so an explicit
+    site choice always wins over the system setting. */
+export function systemPrefersReducedMotion(): boolean {
+  try {
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+  } catch {
+    // Ignore and fall through to the animated default below.
+  }
+  return false;
+}
+
+/** First-run locale from the browser, guarded for Node/tests. */
+export function detectLocale(): InterfaceLocale {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.language === "string") {
+      return navigator.language.toLowerCase().startsWith("pt") ? "pt" : "en";
+    }
+  } catch {
+    // Ignore and fall through to English below.
+  }
+  return "en";
+}
+
+function coerceLocale(value: unknown): InterfaceLocale {
+  if (value === "pt" || value === "en") return value;
+  // No saved choice yet: follow the browser once, then persist it.
+  return detectLocale();
+}
+
 export function loadInterfacePreferences(storage: Storage): InterfacePreferences {
   try {
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
       theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : "Mono",
       colorMode: saved.colorMode === "Light" || saved.colorMode === "Dark" ? saved.colorMode : "System",
-      reducedMotion: saved.reducedMotion === true,
+      locale: coerceLocale(saved.locale),
+      reducedMotion:
+        typeof saved.reducedMotion === "boolean" ? saved.reducedMotion : systemPrefersReducedMotion(),
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,
       instantFlash: saved.instantFlash === true,
       glassIntensity: clampGlassIntensity(saved.glassIntensity),
     };
   } catch {
-    return { ...DEFAULT_INTERFACE_PREFERENCES };
+    return { ...DEFAULT_INTERFACE_PREFERENCES, reducedMotion: systemPrefersReducedMotion(), locale: detectLocale() };
   }
 }
 

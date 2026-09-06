@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
+import { t } from "../i18n";
 import type { InterfacePreferences } from "../interface-preferences";
+import { Segmented } from "./ui";
 
 interface ThemeSwatch {
   name: string;
@@ -57,16 +59,17 @@ function SwitchCard({
 export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const [importText, setImportText] = useState("");
   const [copied, setCopied] = useState(false);
+  const locale = snapshot.preferences.locale;
   const key = snapshot.hasActiveDevice ? control.exportProfileKey() : null;
 
   return (
     <>
       <label className="profile-key-field">
-        <span>Your key</span>
+        <span>{t(locale, "set.yourKey")}</span>
         <textarea
           readOnly
           rows={3}
-          value={key ?? "Connect a mouse to generate a key."}
+          value={key ?? t(locale, "set.noKey")}
           onFocus={(event) => event.currentTarget.select()}
         />
       </label>
@@ -82,13 +85,13 @@ export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): R
           });
         }}
       >
-        {copied ? "Copied" : "Copy key"}
+        {copied ? t(locale, "set.copied") : t(locale, "set.copyKey")}
       </button>
       <label className="profile-key-field">
-        <span>Import a key</span>
+        <span>{t(locale, "set.importKey")}</span>
         <textarea
           rows={3}
-          placeholder="Paste a profile key here…"
+          placeholder={t(locale, "set.importPlaceholder")}
           value={importText}
           onChange={(event) => setImportText(event.currentTarget.value)}
         />
@@ -102,24 +105,22 @@ export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): R
           setImportText("");
         }}
       >
-        Import
+        {t(locale, "set.import")}
       </button>
       <small className="setting-note">
-        Imported settings are staged like any other edit — nothing is written until you flash them.
+        {t(locale, "set.importNote")}
       </small>
     </>
   );
 }
 
 function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const locale = snapshot.preferences.locale;
   return (
     <article className="interface-setting-card profile-key-card">
-      <span>PROFILES</span>
-      <h3>Profile key</h3>
-      <p>
-        A copy-paste key that carries this mouse's settings to another unit of the same model.
-        Paste it into Settings there to load the same setup.
-      </p>
+      <span>{t(locale, "set.profiles")}</span>
+      <h3>{t(locale, "set.profileKey")}</h3>
+      <p>{t(locale, "set.profileKeyBody")}</p>
       <ProfileKeyFields snapshot={snapshot} />
     </article>
   );
@@ -127,6 +128,7 @@ function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
+  const locale = preferences.locale;
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
 
@@ -140,7 +142,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       <header className="interface-settings-header">
         <div>
           <p className="overline">OPENMOUSE</p>
-          <h2 id="interface-settings-title">Settings</h2>
+          <h2 id="interface-settings-title">{t(locale, "set.title")}</h2>
         </div>
         <button
           id="close-interface-settings"
@@ -148,7 +150,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
           type="button"
           onClick={control.closeInterfaceSettings}
         >
-          Back to device
+          {t(locale, "set.back")}
         </button>
       </header>
 
@@ -156,22 +158,19 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         <ProfileKeyCard snapshot={snapshot} />
 
         <article className="interface-setting-card openmouse-bridge-card">
-          <span>OPENMOUSE BRIDGE</span>
-          <h3>Game detection and battery alerts</h3>
-          <p>
-            A lightweight background service that detects when games start and sends battery
-            notifications for your mice.
-          </p>
+          <span>{t(locale, "set.bridge")}</span>
+          <h3>{t(locale, "set.bridgeTitle")}</h3>
+          <p>{t(locale, "set.bridgeBody")}</p>
           <button type="button" className="openmouse-bridge-coming-soon" disabled>
-            Coming soon
+            {t(locale, "set.comingSoon")}
           </button>
         </article>
 
         <article className="interface-setting-card interface-theme-card">
-          <span>APPEARANCE</span>
-          <h3>Accent theme</h3>
-          <p>Each tile is painted in its own theme.</p>
-          <fieldset id="interface-theme" className="theme-tiles" aria-label="Accent theme">
+          <span>{t(locale, "set.appearance")}</span>
+          <h3>{t(locale, "set.accentTheme")}</h3>
+          <p>{t(locale, "set.accentBody")}</p>
+          <fieldset id="interface-theme" className="theme-tiles" aria-label={t(locale, "set.accentTheme")}>
             {THEME_CHOICES.map(({ name, accent, canvas, surface }) => (
               <label
                 key={name}
@@ -196,11 +195,11 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
 
         {preferences.theme === "Liquid Glass" ? (
           <article className="interface-setting-card">
-            <span>LIQUID GLASS</span>
-            <h3>Glass intensity</h3>
-            <p>Dial the frosted material from fully transparent panels to the full acrylic finish.</p>
+            <span>{t(locale, "set.glass")}</span>
+            <h3>{t(locale, "set.glassTitle")}</h3>
+            <p>{t(locale, "set.glassBody")}</p>
             <div className="glass-intensity-row">
-              <span className={`glass-intensity-caption${preferences.glassIntensity <= 25 ? " is-active" : ""}`}>Transparent</span>
+              <span className={`glass-intensity-caption${preferences.glassIntensity <= 25 ? " is-active" : ""}`}>{t(locale, "set.transparent")}</span>
               <span className="glass-slider-rail">
                 <input
                   id="interface-glass-intensity"
@@ -213,43 +212,59 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                   onChange={(event) => set("glassIntensity")(Number(event.currentTarget.value))}
                 />
               </span>
-              <span className={`glass-intensity-caption${preferences.glassIntensity >= 75 ? " is-active" : ""}`}>Acrylic</span>
+              <span className={`glass-intensity-caption${preferences.glassIntensity >= 75 ? " is-active" : ""}`}>{t(locale, "set.acrylic")}</span>
             </div>
           </article>
         ) : null}
 
+        <article id="language-setting" className="interface-setting-card">
+          <span>{t(locale, "set.language")}</span>
+          <h3>{t(locale, "set.languageTitle")}</h3>
+          <p>{t(locale, "set.languageBody")}</p>
+          <Segmented
+            id="interface-locale"
+            ariaLabel={t(locale, "set.languageTitle")}
+            value={preferences.locale}
+            onChange={(next) => set("locale")(next)}
+            options={[
+              { value: "en", label: t(locale, "set.english") },
+              { value: "pt", label: t(locale, "set.portuguese") },
+            ]}
+          />
+        </article>
+
         <SwitchCard
-          overline="MOTION"
-          title="Animation"
-          blurb="Disable interface transitions and animated state changes."
-          label="Reduce motion"
+          overline={t(locale, "set.motion")}
+          title={t(locale, "set.animations")}
+          blurb={t(locale, "set.animationsBody")}
+          label={t(locale, "set.enableAnimations")}
           id="interface-reduced-motion"
-          checked={preferences.reducedMotion}
-          onChange={set("reducedMotion")}
+          checked={!preferences.reducedMotion}
+          onChange={(next) => set("reducedMotion")(!next)}
         />
         <SwitchCard
-          overline="WRITES"
-          title="Instant flash"
-          blurb="Write each change to the mouse as soon as you make it, instead of staging it for the flash bar."
-          label="Flash immediately"
+          overline={t(locale, "set.writes")}
+          title={t(locale, "set.instantFlash")}
+          blurb={t(locale, "set.instantFlashBody")}
+          label={t(locale, "set.flashImmediately")}
           id="interface-instant-flash"
           checked={preferences.instantFlash}
           onChange={set("instantFlash")}
         />
         <SwitchCard
-          overline="SECTIONS"
-          title="Advanced editors"
-          blurb="Choose whether CPI, button mapping, and experimental sections begin expanded."
-          label="Expand by default"
+          overline={t(locale, "set.sections")}
+          title={t(locale, "set.advancedEditors")}
+          blurb={t(locale, "set.advancedEditorsBody")}
+          label={t(locale, "set.expandByDefault")}
           id="interface-expand-sections"
           checked={preferences.expandSections}
           onChange={set("expandSections")}
         />
         <SwitchCard
-          overline="EXPERIMENTAL"
-          title="Experimental controls"
-          blurb="Show or completely hide controls that may vary between firmware versions."
-          label="Show experimental settings"
+          overline={t(locale, "set.experimental")}
+          title={t(locale, "set.experimentalTitle")}
+          blurb={t(locale, "set.experimentalBody")}
+          label={t(locale, "set.showExperimental")}
           id="interface-show-experimental"
           checked={preferences.showExperimental}
           onChange={set("showExperimental")}
@@ -259,12 +274,9 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       {snapshot.previewEnabled && snapshot.previewEntries.length > 0 ? (
         <section id="preview-launcher" className="preview-launcher" aria-labelledby="preview-launcher-title">
           <div className="interface-setting-card">
-            <span>DEVELOPMENT</span>
-            <h3 id="preview-launcher-title">Driver previews</h3>
-            <p>
-              Render any supported driver without its hardware, to check a change against every brand.
-              Nothing is written to a device.
-            </p>
+            <span>{t(locale, "set.dev")}</span>
+            <h3 id="preview-launcher-title">{t(locale, "set.previewsTitle")}</h3>
+            <p>{t(locale, "set.previewsBody")}</p>
             <div id="preview-launcher-list" className="preview-launcher-list">
               {snapshot.previewEntries.map(([key, label]) => (
                 <a
@@ -287,7 +299,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         type="button"
         onClick={control.resetInterfacePreferences}
       >
-        Reset interface preferences
+        {t(locale, "set.reset")}
       </button>
     </section>
     </>

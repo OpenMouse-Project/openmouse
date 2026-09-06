@@ -6,32 +6,35 @@ import {
 } from "@openmouse/protocol/logitech";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
+import { t, tp } from "../../i18n";
 import { Segmented, SwitchRow } from "../ui";
 
 function HapticsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
+  const locale = snapshot.preferences.locale;
   if (status.hapticIntensity == null) return null;
   const preset = (Object.keys(LOGITECH_HAPTIC_PRESETS) as LogitechHapticPreset[])
     .find((name) => LOGITECH_HAPTIC_PRESETS[name] === status.hapticIntensity);
   const staged = snapshot.pending.keys.some((key) => key.startsWith("haptic-"));
   return (
     <article className={`setting-card${staged ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>FEEDBACK</p><h2>Haptics</h2></div><output>{status.hapticEnabled ? preset ?? status.hapticIntensity : "Off"}</output></div>
-      <SwitchRow label="Haptic feedback" value={status.hapticEnabled} onChange={control.applyHapticEnabled} />
+      <div className="setting-heading compact"><div><p>FEEDBACK</p><h2>{t(locale, "mx.haptics")}</h2></div><output>{status.hapticEnabled ? preset ?? status.hapticIntensity : t(locale, "common.off")}</output></div>
+      <SwitchRow label={t(locale, "mx.hapticFeedback")} value={status.hapticEnabled} onChange={control.applyHapticEnabled} />
       <Segmented
-        ariaLabel="Haptic strength"
+        ariaLabel={t(locale, "mx.hapticStrength")}
         value={preset}
         disabled={status.hapticEnabled !== true}
         options={(Object.keys(LOGITECH_HAPTIC_PRESETS) as LogitechHapticPreset[]).map((value) => ({ value, label: value }))}
         onChange={control.applyHapticIntensity}
       />
-      <SwitchRow label="Battery saving" value={status.hapticBatterySaving} onChange={control.applyHapticBatterySaving} />
+      <SwitchRow label={t(locale, "mx.batterySaving")} value={status.hapticBatterySaving} onChange={control.applyHapticBatterySaving} />
     </article>
   );
 }
 
 function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
+  const locale = snapshot.preferences.locale;
   if (status.wheelMode == null && status.hiResScroll == null) return null;
   const smartShiftOn = status.smartShiftThreshold != null
     && status.smartShiftThreshold !== LOGITECH_SMART_SHIFT_OFF;
@@ -40,12 +43,12 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   ].includes(key));
   return (
     <article className={`setting-card${staged ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>SCROLLING</p><h2>MagSpeed wheel</h2></div><output>{status.wheelRatchetEngaged == null ? "—" : status.wheelRatchetEngaged ? "Ratcheted" : "Free-spinning"}</output></div>
+      <div className="setting-heading compact"><div><p>SCROLLING</p><h2>MagSpeed wheel</h2></div><output>{status.wheelRatchetEngaged == null ? "—" : status.wheelRatchetEngaged ? t(locale, "mx.ratcheted") : t(locale, "mx.freeSpinning")}</output></div>
       {status.wheelMode != null ? (
         <Segmented
-          ariaLabel="Wheel mode"
+          ariaLabel={t(locale, "mx.wheelMode")}
           value={status.wheelMode}
-          options={[{ value: "Ratchet", label: "Ratchet" }, { value: "Freespin", label: "Free-spin" }]}
+          options={[{ value: "Ratchet", label: t(locale, "mx.ratchet") }, { value: "Freespin", label: t(locale, "mx.freespin") }]}
           onChange={control.applyWheelMode}
         />
       ) : null}
@@ -54,7 +57,7 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           <SwitchRow label="SmartShift" value={smartShiftOn} onChange={(enabled) => control.applySmartShiftThreshold(enabled ? 50 : null)} />
           {smartShiftOn ? (
             <label className="field-label spaced">
-              <span>Switch threshold</span>
+              <span>{t(locale, "mx.switchThreshold")}</span>
               <span className="glass-slider-rail">
                 <input
                   type="range"
@@ -70,39 +73,41 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           ) : null}
         </>
       ) : null}
-      <SwitchRow label="High-resolution scrolling" value={status.hiResScroll} onChange={control.applyHiResScroll} />
-      <SwitchRow label="Invert vertical scroll" value={status.invertScroll} hidden={status.supportsInvertScroll !== true} onChange={control.applyInvertScroll} />
-      <SwitchRow label="Invert thumb wheel" value={status.thumbWheelInverted} hidden={status.supportsThumbWheelInvert !== true} onChange={control.applyThumbWheelInverted} />
+      <SwitchRow label={t(locale, "mx.hiRes")} value={status.hiResScroll} onChange={control.applyHiResScroll} />
+      <SwitchRow label={t(locale, "mx.invertVertical")} value={status.invertScroll} hidden={status.supportsInvertScroll !== true} onChange={control.applyInvertScroll} />
+      <SwitchRow label={t(locale, "mx.invertThumb")} value={status.thumbWheelInverted} hidden={status.supportsThumbWheelInvert !== true} onChange={control.applyThumbWheelInverted} />
     </article>
   );
 }
 
 function DeviceNameCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
+  const locale = snapshot.preferences.locale;
   const [name, setName] = useState(status.friendlyName ?? "");
   useEffect(() => setName(status.friendlyName ?? ""), [status.friendlyName]);
   if (status.friendlyName == null || status.friendlyNameMaxLength == null) return null;
   const valid = name.trim().length > 0 && name.trim() !== status.friendlyName;
   return (
     <article className={`setting-card${snapshot.pending.keys.includes("friendly-name") ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>DEVICE</p><h2>Friendly name</h2></div></div>
+      <div className="setting-heading compact"><div><p>DEVICE</p><h2>{t(locale, "mx.friendlyName")}</h2></div></div>
       <div className="axis-grid">
-        <input aria-label="Device friendly name" maxLength={status.friendlyNameMaxLength} value={name} onChange={(event) => setName(event.currentTarget.value)} />
-        <button className="axis-apply" type="button" disabled={!valid} onClick={() => control.applyFriendlyName(name)}>Stage name</button>
+        <input aria-label={t(locale, "mx.friendlyNameAria")} maxLength={status.friendlyNameMaxLength} value={name} onChange={(event) => setName(event.currentTarget.value)} />
+        <button className="axis-apply" type="button" disabled={!valid} onClick={() => control.applyFriendlyName(name)}>{t(locale, "mx.stageName")}</button>
       </div>
-      <small className="setting-note">{name.length}/{status.friendlyNameMaxLength} characters</small>
+      <small className="setting-note">{tp(locale, "mx.chars", { n: name.length, max: status.friendlyNameMaxLength })}</small>
     </article>
   );
 }
 
 function EasySwitchCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
+  const locale = snapshot.preferences.locale;
   const [pending, setPending] = useState<number | null>(null);
   if (status.hostCount == null || status.currentHost == null) return null;
   return (
     <article className="setting-card">
-      <div className="setting-heading compact"><div><p>CONNECTION</p><h2>Easy-Switch</h2></div><output>{status.currentHost + 1} of {status.hostCount}</output></div>
-      <div className="easy-switch-slots" role="group" aria-label="Paired computers">
+      <div className="setting-heading compact"><div><p>CONNECTION</p><h2>Easy-Switch</h2></div><output>{tp(locale, "mx.hostOf", { a: status.currentHost + 1, b: status.hostCount })}</output></div>
+      <div className="easy-switch-slots" role="group" aria-label={t(locale, "mx.pairedComputers")}>
         {Array.from({ length: status.hostCount }, (_, slot) => {
           const current = slot === status.currentHost;
           const paired = status.hostSlotsPaired?.[slot] === true;
@@ -113,10 +118,10 @@ function EasySwitchCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
       </div>
       {pending !== null ? (
         <div className="easy-switch-confirm">
-          <p>Switch to computer {pending + 1}? The mouse will disconnect immediately. Use its underside button to bring it back.</p>
+          <p>{tp(locale, "mx.switchConfirm", { n: pending + 1 })}</p>
           <div className="easy-switch-confirm-actions">
-            <button type="button" onClick={() => { const slot = pending; setPending(null); void control.requestHostSwitch(slot); }}>Switch</button>
-            <button type="button" onClick={() => setPending(null)}>Cancel</button>
+            <button type="button" onClick={() => { const slot = pending; setPending(null); void control.requestHostSwitch(slot); }}>{t(locale, "mx.switch")}</button>
+            <button type="button" onClick={() => setPending(null)}>{t(locale, "common.cancel")}</button>
           </div>
         </div>
       ) : null}
@@ -139,6 +144,7 @@ function EasySwitchCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
  * is noise rather than a restriction worth showing.
  */
 export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const locale = snapshot.preferences.locale;
   const all = snapshot.buttons;
   if (!all || all.length === 0) return null;
   const controls = all.filter((button) => !button.virtual);
@@ -153,7 +159,7 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
   return (
     <article className={`setting-card${anyStaged ? " is-staged" : ""}`}>
       <div className="setting-heading compact">
-        <div><p>BUTTONS</p><h2>Remapping</h2></div>
+        <div><p>BUTTONS</p><h2>{t(locale, "mx.remapping")}</h2></div>
         <output>{controls.length}</output>
       </div>
       <div className="button-remap-list">
@@ -189,21 +195,20 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
       </div>
       {firmwareLocked.length > 0 ? (
         <small className="setting-note">
-          {firmwareLocked.map((button) => button.name).join(" and ")}
-          {firmwareLocked.length === 1 ? " is" : " are"} locked by the mouse's firmware and cannot be
-          remapped.
+{firmwareLocked.length === 1
+            ? tp(locale, "mx.lockedOne", { names: firmwareLocked.map((button) => button.name).join(" e ") })
+            : tp(locale, "mx.lockedMany", { names: firmwareLocked.map((button) => button.name).join(", ") })}
         </small>
       ) : null}
       {diverted.length > 0 ? (
         <div className="button-remap-diverted">
           <p>
-            {diverted.length === 1
-              ? `${diverted[0]!.name} is being handled by another application, so it does nothing here.`
-              : `${diverted.map((button) => button.name).join(", ")} are being handled by another `
-                + "application, so they do nothing here."}
+{diverted.length === 1
+              ? tp(locale, "mx.divertedOne", { name: diverted[0]!.name })
+              : tp(locale, "mx.divertedMany", { names: diverted.map((button) => button.name).join(", ") })}
           </p>
           <button type="button" disabled={busy} onClick={() => void control.restoreDivertedButtons()}>
-            Restore to hardware control
+            {t(locale, "mx.restoreHardware")}
           </button>
         </div>
       ) : null}
