@@ -4,6 +4,9 @@ import "./check.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { interfaceThemeSlug, loadInterfacePreferences } from "./interface-preferences";
+import { t, tp } from "./i18n";
+import type { InterfaceLocale } from "./interface-preferences";
+import { PageLocaleToggle, usePageLocale } from "./app/page-locale";
 import {
   SCAN_FILTERS,
   VERDICT_LABEL,
@@ -20,8 +23,8 @@ document.documentElement.setAttribute(
   interfaceThemeSlug(loadInterfacePreferences(window.localStorage).theme),
 );
 
-function DeviceCard({ result }: { result: DeviceResult }): ReactNode {
-  const name = result.device.productName || `${result.brand} Mouse`;
+function DeviceCard({ result, locale }: { result: DeviceResult; locale: InterfaceLocale }): ReactNode {
+  const name = result.device.productName || tp(locale, "chk.mouseFallback", { brand: result.brand });
   return (
     <div className="device-card">
       <div className="device-card-head">
@@ -39,7 +42,7 @@ function DeviceCard({ result }: { result: DeviceResult }): ReactNode {
 
       {result.device.collections.length > 0 ? (
         <div className="iface-section">
-          <div className="iface-label">HID COLLECTIONS</div>
+          <div className="iface-label">{t(locale, "chk.collections")}</div>
           {result.device.collections.map((col, index) => (
             <div className="iface-row" key={index}>
               <span className="iface-page">{usagePageLabel(col.usagePage)}</span>
@@ -52,22 +55,22 @@ function DeviceCard({ result }: { result: DeviceResult }): ReactNode {
 
       {result.txResults.length > 0 ? (
         <div className="tx-section">
-          <div className="tx-label">RAZER TX-ID TEST</div>
-          {result.txResults.map((t) => (
-            <div className="tx-row" key={t.txId}>
-              <span className="tx-id">TX 0x{hex(t.txId, 2)}</span>
-              <span className={t.ok ? "tx-ok" : "tx-fail"}>{t.ok ? "✓ responded" : "✗ no response"}</span>
-              {t.firmware ? <span className="tx-fw">FW {t.firmware}</span> : null}
+          <div className="tx-label">{t(locale, "chk.txTest")}</div>
+          {result.txResults.map((tx) => (
+            <div className="tx-row" key={tx.txId}>
+              <span className="tx-id">TX 0x{hex(tx.txId, 2)}</span>
+              <span className={tx.ok ? "tx-ok" : "tx-fail"}>{tx.ok ? t(locale, "chk.responded") : t(locale, "chk.noResponse")}</span>
+              {tx.firmware ? <span className="tx-fw">FW {tx.firmware}</span> : null}
             </div>
           ))}
         </div>
       ) : null}
 
       {result.opened ? (
-        <div className="open-result ok"><span className="open-dot" />Device opened successfully</div>
+        <div className="open-result ok"><span className="open-dot" />{t(locale, "chk.openedOk")}</div>
       ) : (
         <div className="open-result err">
-          <span className="open-dot" />{result.openError ?? "Could not open"}
+          <span className="open-dot" />{result.openError ?? t(locale, "chk.couldNotOpen")}
         </div>
       )}
 
@@ -76,7 +79,7 @@ function DeviceCard({ result }: { result: DeviceResult }): ReactNode {
   );
 }
 
-function CopyButton({ summary }: { summary: string }): ReactNode {
+function CopyButton({ summary, locale }: { summary: string; locale: InterfaceLocale }): ReactNode {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -90,7 +93,7 @@ function CopyButton({ summary }: { summary: string }): ReactNode {
         });
       }}
     >
-      {copied ? "Copied!" : "Copy for Discord"}
+      {copied ? t(locale, "chk.copied") : t(locale, "chk.copyDiscord")}
     </button>
   );
 }
@@ -102,35 +105,36 @@ type ScanState =
   | { kind: "done"; results: DeviceResult[] };
 
 function CheckApp(): ReactNode {
+  const [locale, setLocale] = usePageLocale();
   const supportsWebHid = "hid" in navigator;
   const [state, setState] = useState<ScanState>({ kind: "idle" });
   const [scanned, setScanned] = useState(false);
 
   async function runScan(): Promise<void> {
     if (!navigator.hid) return;
-    setState({ kind: "busy", message: "Waiting for browser prompt…" });
+    setState({ kind: "busy", message: t(locale, "chk.waitPrompt") });
 
     let devices: HIDDevice[];
     try {
       devices = await navigator.hid.requestDevice({ filters: SCAN_FILTERS });
     } catch {
-      setState({ kind: "empty", message: "Scan cancelled or no device selected." });
+      setState({ kind: "empty", message: t(locale, "chk.cancelled") });
       setScanned(true);
       return;
     }
     if (devices.length === 0) {
-      setState({ kind: "empty", message: "No matching devices selected." });
+      setState({ kind: "empty", message: t(locale, "chk.noMatch") });
       setScanned(true);
       return;
     }
 
-    setState({ kind: "busy", message: `Testing ${devices.length} device${devices.length !== 1 ? "s" : ""}…` });
+    setState({ kind: "busy", message: tp(locale, "chk.testing", { n: devices.length, s: devices.length !== 1 ? "s" : "" }) });
     try {
-      setState({ kind: "done", results: await scanDevices(devices) });
+      setState({ kind: "done", results: await scanDevices(devices, locale) });
     } catch (err) {
       setState({
         kind: "empty",
-        message: `Scan error: ${err instanceof Error ? err.message : String(err)}`,
+        message: tp(locale, "chk.scanError", { msg: err instanceof Error ? err.message : String(err) }),
       });
     }
     setScanned(true);
@@ -140,15 +144,15 @@ function CheckApp(): ReactNode {
     <div className="check-shell">
       <header className="check-header">
         <a className="check-wordmark" href="/">OpenMouse <span>/ Mouse Check</span></a>
-        <a className="check-back" href="/">← Back to site</a>
+        <PageLocaleToggle locale={locale} onChange={setLocale} />
+        <a className="check-back" href="/">{t(locale, "chk.back")}</a>
       </header>
 
       <section className="check-hero">
-        <p className="overline">HID DIAGNOSTICS</p>
+        <p className="overline">{t(locale, "chk.overline")}</p>
         <h1>Mouse Check</h1>
         <p>
-          Scan your connected gaming mice to see which interfaces are accessible via WebHID — and which
-          require a native driver.
+          {t(locale, "chk.heroBody")}
         </p>
       </section>
 
@@ -156,8 +160,8 @@ function CheckApp(): ReactNode {
         <div className={`compat-banner ${supportsWebHid ? "ok" : "warn"}`}>
           <span className="compat-banner-dot" />
           {supportsWebHid
-            ? "WebHID is available in this browser — device scanning is supported."
-            : "WebHID is not available. Use Chrome or Edge on desktop to run the diagnostics."}
+            ? t(locale, "chk.webhidOk")
+            : t(locale, "chk.webhidMissing")}
         </div>
       </div>
 
@@ -169,9 +173,9 @@ function CheckApp(): ReactNode {
           disabled={!supportsWebHid || state.kind === "busy"}
           onClick={() => void runScan()}
         >
-          {state.kind === "busy" ? "Scanning…" : scanned ? "Scan again" : "Scan for mice"}
+          {state.kind === "busy" ? t(locale, "chk.scanning") : scanned ? t(locale, "chk.scanAgain") : t(locale, "chk.scanBtn")}
         </button>
-        <span className="scan-note">You'll see a browser prompt to select devices.</span>
+        <span className="scan-note">{t(locale, "chk.scanNote")}</span>
       </div>
 
       <div id="results-area">
@@ -180,14 +184,14 @@ function CheckApp(): ReactNode {
         {state.kind === "done" ? (
           <>
             <div className="results-heading">
-              <span>RESULTS — {state.results.length} DEVICE{state.results.length !== 1 ? "S" : ""}</span>
+              <span>{state.results.length !== 1 ? tp(locale, "chk.resultsMany", { n: state.results.length }) : tp(locale, "chk.resultsOne", { n: state.results.length })}</span>
             </div>
             <div className="results-list">
-              {state.results.map((result, index) => <DeviceCard key={index} result={result} />)}
+              {state.results.map((result, index) => <DeviceCard key={index} result={result} locale={locale} />)}
             </div>
             <div className="copy-section">
-              <p>Share these results with the OpenMouse team on Discord.</p>
-              <CopyButton summary={buildDiscordSummary(state.results)} />
+              <p>{t(locale, "chk.shareDiscord")}</p>
+              <CopyButton summary={buildDiscordSummary(state.results)} locale={locale} />
             </div>
           </>
         ) : null}

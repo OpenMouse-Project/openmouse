@@ -10,6 +10,9 @@ import {
   TWITTER_URL,
   useGitHubStars,
 } from "./social-links";
+import { t } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
+import { PageLocaleToggle } from "./page-locale";
 
 // The control app lives on its own subdomain — dev.openmouse.app is
 // retired, openmouse.app is this marketing page, control.openmouse.app is
@@ -18,7 +21,7 @@ export const APP_URL = "https://control.openmouse.app/";
 
 // Shared header/footer for the marketing pages (openmouse.app) — landing.tsx
 // and faq.tsx both render these so the two pages look coherent.
-export function SiteNav(): ReactNode {
+export function SiteNav({ locale, onLocale }: { locale: InterfaceLocale; onLocale: (next: InterfaceLocale) => void }): ReactNode {
   return (
     <header className="land-nav">
       <a className="land-brand" href="/">
@@ -26,18 +29,19 @@ export function SiteNav(): ReactNode {
         OpenMouse
       </a>
       <nav className="land-nav-links">
-        <a href="/supported.html">Supported mice</a>
+        <a href="/supported.html">{t(locale, "land.supported")}</a>
         <a href="/faq.html">FAQ</a>
-        <a href="https://docs.openmouse.app">Contribute</a>
-        <a href="/donate.html">Donate</a>
+        <a href="https://docs.openmouse.app">{t(locale, "land.contribute")}</a>
+        <a href="/donate.html">{t(locale, "land.donate")}</a>
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
       </nav>
-      <a className="land-nav-cta" href={APP_URL}>Open the app</a>
+      <PageLocaleToggle locale={locale} onChange={onLocale} />
+      <a className="land-nav-cta" href={APP_URL}>{t(locale, "land.openApp")}</a>
     </header>
   );
 }
 
-export function SiteFooter(): ReactNode {
+export function SiteFooter({ locale }: { locale: InterfaceLocale }): ReactNode {
   const stars = useGitHubStars();
 
   return (
@@ -64,7 +68,7 @@ export function SiteFooter(): ReactNode {
           </span>
         )}
       </a>
-      <a href="/donate.html">Donate</a>
+      <a href="/donate.html">{t(locale, "land.donate")}</a>
     </footer>
   );
 }

@@ -4,20 +4,21 @@ import "./landing.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { APP_URL, SiteFooter, SiteNav } from "./app/site-chrome";
+import { t } from "./i18n";
+import type { InterfaceLocale } from "./interface-preferences";
+import { usePageLocale } from "./app/page-locale";
 
-function Hero(): ReactNode {
+function Hero({ locale }: { locale: InterfaceLocale }): ReactNode {
   return (
     <section className="land-hero">
-      <p className="land-eyebrow">Free &middot; Open source &middot; No vendor software</p>
-      <h1>One app for every mouse.</h1>
+      <p className="land-eyebrow">{t(locale, "land.eyebrow")}</p>
+      <h1>{t(locale, "land.hero")}</h1>
       <p className="land-lead">
-        OpenMouse runs entirely in your browser over WebHID — DPI, polling
-        rate, buttons, and RGB, for dozens of gaming mice, with no accounts,
-        no installs, and no telemetry sent anywhere.
+        {t(locale, "land.lead")}
       </p>
       <div className="land-hero-actions">
-        <a className="land-cta" href={APP_URL}>Open the app</a>
-        <a className="land-cta-secondary" href="/supported.html">Check your mouse</a>
+        <a className="land-cta" href={APP_URL}>{t(locale, "land.openApp")}</a>
+        <a className="land-cta-secondary" href="/supported.html">{t(locale, "land.checkMouse")}</a>
       </div>
     </section>
   );
@@ -32,48 +33,46 @@ function Feature({ title, body }: { title: string; body: string }): ReactNode {
   );
 }
 
-function Features(): ReactNode {
+function Features({ locale }: { locale: InterfaceLocale }): ReactNode {
   return (
     <section className="land-features">
       <Feature
-        title="Runs in your browser"
-        body="No installer, no background service, no account. Plug in your mouse, open the page, and it's there over WebHID."
+        title={t(locale, "land.f1t")}
+        body={t(locale, "land.f1b")}
       />
       <Feature
-        title="Dozens of mice, one app"
-        body="One consistent interface across brands and models, instead of a different bloated app per manufacturer."
+        title={t(locale, "land.f2t")}
+        body={t(locale, "land.f2b")}
       />
       <Feature
-        title="Fully open source"
-        body="Every driver is reverse-engineered in the open and reviewed on GitHub — nothing phones home, and you can read exactly what it does."
+        title={t(locale, "land.f3t")}
+        body={t(locale, "land.f3b")}
       />
     </section>
   );
 }
 
-function Contribute(): ReactNode {
+function Contribute({ locale }: { locale: InterfaceLocale }): ReactNode {
   return (
     <section className="land-contribute">
-      <h2>Help add support for more mice</h2>
+      <h2>{t(locale, "land.contribTitle")}</h2>
       <p>
-        OpenMouse only supports what the community has reverse-engineered and
-        tested. If your mouse isn't listed yet, the contribution guide walks
-        through safe reverse-engineering practices and how the driver repos
-        fit together.
+        {t(locale, "land.contribBody")}
       </p>
-      <a className="land-cta-secondary" href="https://docs.openmouse.app">Read the contribution guide</a>
+      <a className="land-cta-secondary" href="https://docs.openmouse.app">{t(locale, "land.contribCta")}</a>
     </section>
   );
 }
 
 function Landing(): ReactNode {
+  const [locale, setLocale] = usePageLocale();
   return (
     <div className="land-shell">
-      <SiteNav />
-      <Hero />
-      <Features />
-      <Contribute />
-      <SiteFooter />
+      <SiteNav locale={locale} onLocale={setLocale} />
+      <Hero locale={locale} />
+      <Features locale={locale} />
+      <Contribute locale={locale} />
+      <SiteFooter locale={locale} />
     </div>
   );
 }

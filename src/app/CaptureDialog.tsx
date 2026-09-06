@@ -10,8 +10,10 @@ import {
   type SectorDiff,
 } from "../capture-format";
 import { captureContext } from "../capture-context";
+import { t } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 
-export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () => void }): ReactNode {
+export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean; onClose: () => void; locale?: InterfaceLocale }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [snapshot, setSnapshot] = useState<Map<number, Uint8Array> | null>(null);
   const [diffs, setDiffs] = useState<SectorDiff[]>([]);
@@ -122,9 +124,9 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
           <div>
             <p style={{ margin: 0, color: "#77777c", fontSize: ".6rem", letterSpacing: ".05em" }}>DEVELOPMENT</p>
-            <h2 style={{ margin: ".1rem 0 0", fontSize: "1rem", color: "#ececef" }}>HID++ capture</h2>
+            <h2 style={{ margin: ".1rem 0 0", fontSize: "1rem", color: "#ececef" }}>{t(locale, "cap.title")}</h2>
           </div>
-          <button id="capture-close" type="button" aria-label="Close capture" onClick={onClose}>Close</button>
+          <button id="capture-close" type="button" aria-label={t(locale, "cap.closeCapture")} onClick={onClose}>{t(locale, "common.close")}</button>
         </div>
 
         <small style={{ color: "#77777c", fontSize: ".64rem" }}>
@@ -159,7 +161,7 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
               }).finally(() => setBusy(false));
             }}
           >
-            Copy verification data
+            {t(locale, "cap.copyVerification")}
           </button>
 
           {probe ? (
@@ -193,12 +195,12 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
                 }).finally(() => setBusy(false));
               }}
             >
-              Verify profile writes
+              {t(locale, "cap.verifyWrites")}
             </button>
           ) : null}
 
-          <button id="capture-snapshot" type="button" onClick={() => void takeSnapshot()}>Snapshot profiles</button>
-          <button id="capture-compare" type="button" onClick={() => void compareSnapshot()}>Compare</button>
+          <button id="capture-snapshot" type="button" onClick={() => void takeSnapshot()}>{t(locale, "cap.snapshot")}</button>
+          <button id="capture-compare" type="button" onClick={() => void compareSnapshot()}>{t(locale, "cap.compare")}</button>
           <button
             id="capture-reset"
             type="button"
@@ -210,7 +212,7 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
               setMessage("Cleared.");
             }}
           >
-            Clear
+            {t(locale, "cap.clear")}
           </button>
           <button
             id="capture-copy"
@@ -230,7 +232,7 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
               );
             }}
           >
-            Copy comparison
+            {t(locale, "cap.copyComparison")}
           </button>
           <span id="capture-status" role="status" aria-live="polite" style={{ color: "#77777c", fontSize: ".62rem" }}>
             {message}
@@ -288,7 +290,7 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
         </div>
 
         <div>
-          <p style={{ margin: "0 0 .25rem", color: "#77777c", fontSize: ".62rem" }}>What did you change?</p>
+          <p style={{ margin: "0 0 .25rem", color: "#77777c", fontSize: ".62rem" }}>{t(locale, "cap.whatChanged")}</p>
           <div id="capture-action-list" style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
             {CAPTURE_ACTIONS.map((action) => {
               const active = selectedActions.has(action.id);
@@ -324,7 +326,7 @@ export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () =>
         <textarea
           id="capture-notes"
           rows={2}
-          placeholder="Optional detail, e.g. wireless polling 8000 Hz to 1000 Hz"
+          placeholder={t(locale, "cap.notesPlaceholder")}
           value={notes}
           onChange={(event) => setNotes(event.currentTarget.value)}
           style={{

@@ -8,8 +8,10 @@ import {
   type SupportRequest,
 } from "../support-requests";
 import { loadTurnstile } from "../turnstile";
+import { t, tp } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 
-export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { open: boolean; onClose: () => void; diagnosticBundle: unknown | null }): ReactNode {
+export function SupportRequestsDialog({ open, onClose, diagnosticBundle, locale = "en" }: { open: boolean; onClose: () => void; diagnosticBundle: unknown | null; locale?: InterfaceLocale }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [requests, setRequests] = useState<SupportRequest[]>([]);
   const [query, setQuery] = useState("");
@@ -30,11 +32,11 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
     if (open && !element.open) element.showModal();
     if (!open && element.open) element.close();
     if (open) {
-      setMessage("Loading requests…");
+      setMessage(t(locale, "sup.loadingRequests"));
       void listSupportRequests().then((rows) => { setRequests(rows); setMessage(""); })
-        .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Could not load requests."));
+        .catch((error: unknown) => setMessage(error instanceof Error ? error.message : t(locale, "sup.loadFail")));
       void votingSiteKey().then(setTurnstileSiteKey)
-        .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Voting protection is not configured."));
+        .catch((error: unknown) => setMessage(error instanceof Error ? error.message : t(locale, "sup.protectionMissing")));
     }
   }, [open]);
 
@@ -49,9 +51,9 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
         theme: "dark",
         callback: (token: string) => setTurnstileToken(token),
         "expired-callback": () => setTurnstileToken(""),
-        "error-callback": () => setMessage("Anti-spam verification failed to load."),
+        "error-callback": () => setMessage(t(locale, "sup.turnstileFail")),
       });
-    }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Anti-spam check did not load."));
+    }).catch((error: unknown) => setMessage(error instanceof Error ? error.message : t(locale, "sup.turnstileMissing")));
     return () => {
       disposed = true;
       if (turnstileWidget.current && window.turnstile) window.turnstile.remove(turnstileWidget.current);
@@ -70,9 +72,9 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
     try {
       await voteForRequest(item.id, turnstileToken);
       setRequests((rows) => rows.map((row) => row.id === item.id ? { ...row, vote_count: row.vote_count + 1 } : row));
-      setMessage(`Your vote for ${item.manufacturer} ${item.model} was recorded.`);
+      setMessage(tp(locale, "sup.voteRecorded", { item: `${item.manufacturer} ${item.model}` }));
     } catch (error) {
-      setMessage(error instanceof Error && /duplicate/i.test(error.message) ? "You already voted for this mouse." : error instanceof Error ? error.message : "Could not record your vote.");
+      setMessage(error instanceof Error && /duplicate/i.test(error.message) ? t(locale, "sup.alreadyVoted") : error instanceof Error ? error.message : t(locale, "sup.voteFail"));
     } finally {
       setBusy(false);
       setTurnstileToken("");
@@ -95,10 +97,10 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
       setSavedRequest(saved);
       setQuery(`${saved.manufacturer} ${saved.model}`);
       setShowForm(false);
-      setMessage("Request saved. You can now vote for it from the list.");
+      setMessage(t(locale, "sup.saved"));
       form.reset();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save this request.");
+      setMessage(error instanceof Error ? error.message : t(locale, "sup.saveFail"));
     } finally {
       setBusy(false);
       setTurnstileToken("");
@@ -112,42 +114,42 @@ export function SupportRequestsDialog({ open, onClose, diagnosticBundle }: { ope
     try {
       await contributeDiagnostics(savedRequest.id, diagnosticBundle, "");
       setReviewDiagnostics(false);
-      setMessage("Diagnostics uploaded separately. Thank you for helping us investigate this mouse.");
+      setMessage(t(locale, "sup.uploadedThanks"));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not upload diagnostics.");
+      setMessage(error instanceof Error ? error.message : t(locale, "sup.uploadFail"));
     } finally { setBusy(false); }
   }
 
   return (
     <dialog ref={dialog} className="support-dialog" aria-labelledby="support-dialog-title" onClose={onClose} onClick={(event) => { if (event.target === dialog.current) onClose(); }}>
       <div className="support-dialog-inner">
-        <header><div><p className="overline">DEVICE SUPPORT</p><h2 id="support-dialog-title">Request a mouse</h2></div><button type="button" onClick={onClose} aria-label="Close">×</button></header>
+        <header><div><p className="overline">{t(locale, "sup.support")}</p><h2 id="support-dialog-title">{t(locale, "sup.requestMouse")}</h2></div><button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button></header>
         <p className="support-intro">{turnstileSiteKey
-          ? "Complete the anti-spam check, then vote for a listed mouse or submit a new request."
-          : "Voting and new requests are temporarily paused while we add stronger abuse protection."}</p>
-        <div className="support-turnstile" ref={turnstileHost} aria-label="Anti-spam verification" />
+          ? t(locale, "sup.introVote")
+          : t(locale, "sup.introPaused")}</p>
+        <div className="support-turnstile" ref={turnstileHost} aria-label={t(locale, "sup.turnstile")} />
         {!showForm ? <>
-          <input className="support-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Search manufacturer or model" aria-label="Search mouse requests" autoFocus />
+          <input className="support-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder={t(locale, "sup.searchPlaceholder")} aria-label={t(locale, "sup.searchAria")} autoFocus />
           <div className="support-results">
-            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !turnstileSiteKey || !turnstileToken} onClick={() => void vote(item)} title={!turnstileSiteKey ? "Voting protection is loading" : !turnstileToken ? "Complete the anti-spam check first" : undefined}><b>{item.vote_count}</b> {turnstileSiteKey ? "Vote" : "Loading"}</button></article>)}
-            {!message && matches.length === 0 ? <p>No matching requests yet.</p> : null}
+            {matches.map((item) => <article key={item.id}><div><strong>{item.manufacturer} {item.model}</strong><small>{item.connection} · {item.status}</small></div><button type="button" disabled={busy || !turnstileSiteKey || !turnstileToken} onClick={() => void vote(item)} title={!turnstileSiteKey ? t(locale, "sup.protectionLoading") : !turnstileToken ? t(locale, "sup.completeCheck") : undefined}><b>{item.vote_count}</b> {turnstileSiteKey ? t(locale, "sup.vote") : t(locale, "sup.loading")}</button></article>)}
+            {!message && matches.length === 0 ? <p>{t(locale, "sup.noMatches")}</p> : null}
           </div>
-          <button className="support-primary" type="button" disabled={!turnstileSiteKey} onClick={() => setShowForm(true)}>Request a different mouse</button>
+          <button className="support-primary" type="button" disabled={!turnstileSiteKey} onClick={() => setShowForm(true)}>{t(locale, "sup.requestDifferent")}</button>
         </> : <form className="support-form" onSubmit={(event) => void submit(event)}>
-          <div className="support-two"><label>Manufacturer<input name="manufacturer" required placeholder="Pulsar" /></label><label>Model<input name="model" required placeholder="X2V2" /></label></div>
-          <label>Connection<select name="connection"><option>Not sure</option><option>Wired USB</option><option>Wireless USB receiver</option><option>Bluetooth</option><option>Wired and wireless</option></select></label>
-          <p className="support-scope">A request covers the whole mouse: performance settings, buttons, profiles, lighting, battery information, and every other capability we can support.</p>
-          <p className="support-consent">This submits only the fields shown here. Device diagnostics are never attached automatically.</p>
-          <div className="support-actions"><button type="button" onClick={() => setShowForm(false)}>Back</button><button className="support-primary" type="submit" disabled={busy || !turnstileToken}>{busy ? "Submitting…" : "Submit request"}</button></div>
+          <div className="support-two"><label>{t(locale, "sup.manufacturer")}<input name="manufacturer" required placeholder="Pulsar" /></label><label>{t(locale, "sup.model")}<input name="model" required placeholder="X2V2" /></label></div>
+          <label>{t(locale, "sup.connection")}<select name="connection"><option value="Not sure">{t(locale, "sup.notSure")}</option><option value="Wired USB">{t(locale, "sup.wiredUsb")}</option><option value="Wireless USB receiver">{t(locale, "sup.wirelessUsb")}</option><option value="Bluetooth">{t(locale, "sup.bluetooth")}</option><option value="Wired and wireless">{t(locale, "sup.wiredWireless")}</option></select></label>
+          <p className="support-scope">{t(locale, "sup.scope")}</p>
+          <p className="support-consent">{t(locale, "sup.consent")}</p>
+          <div className="support-actions"><button type="button" onClick={() => setShowForm(false)}>{t(locale, "common.back")}</button><button className="support-primary" type="submit" disabled={busy || !turnstileToken}>{busy ? t(locale, "sup.submitting") : t(locale, "sup.submit")}</button></div>
         </form>}
         {message ? <p className="support-message" role="status">{message}</p> : null}
-        {savedRequest && diagnosticBundle && !reviewDiagnostics ? <button className="support-secondary" type="button" onClick={() => setReviewDiagnostics(true)}>Help add support with diagnostics</button> : null}
-        {reviewDiagnostics && diagnosticBundle ? <section className="support-diagnostics" aria-label="Diagnostic upload review">
-          <h3>Review diagnostics before uploading</h3>
-          <p>Reports may contain firmware, receiver identifiers, onboard settings, and recent HID traffic. Nothing below is uploaded until you consent.</p>
+        {savedRequest && diagnosticBundle && !reviewDiagnostics ? <button className="support-secondary" type="button" onClick={() => setReviewDiagnostics(true)}>{t(locale, "sup.helpDiagnostics")}</button> : null}
+        {reviewDiagnostics && diagnosticBundle ? <section className="support-diagnostics" aria-label={t(locale, "sup.reviewAria")}>
+          <h3>{t(locale, "sup.reviewTitle")}</h3>
+          <p>{t(locale, "sup.reviewBody")}</p>
           <pre>{JSON.stringify(diagnosticBundle, null, 2)}</pre>
-          <label><input type="checkbox" checked={diagnosticConsent} onChange={(event) => setDiagnosticConsent(event.currentTarget.checked)} /> I reviewed this data and agree to upload it for this support request.</label>
-          <div className="support-actions"><button type="button" onClick={() => setReviewDiagnostics(false)}>Cancel</button><button className="support-primary" type="button" disabled={!diagnosticConsent || busy} onClick={() => void uploadDiagnostics()}>Upload diagnostics</button></div>
+          <label><input type="checkbox" checked={diagnosticConsent} onChange={(event) => setDiagnosticConsent(event.currentTarget.checked)} /> {t(locale, "sup.reviewConsent")}</label>
+          <div className="support-actions"><button type="button" onClick={() => setReviewDiagnostics(false)}>{t(locale, "common.cancel")}</button><button className="support-primary" type="button" disabled={!diagnosticConsent || busy} onClick={() => void uploadDiagnostics()}>{t(locale, "sup.upload")}</button></div>
         </section> : null}
       </div>
     </dialog>

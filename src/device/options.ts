@@ -1,22 +1,26 @@
-export function sleepLabel(seconds: number): string {
+import { t, tp, type I18nKey } from "../i18n.ts";
+import type { InterfaceLocale } from "../interface-preferences.ts";
+export function sleepLabel(seconds: number, locale: InterfaceLocale = "en"): string {
+  const unit = (n: number, one: I18nKey, many: I18nKey): string =>
+    n === 1 ? t(locale, one) : tp(locale, many, { n });
   // Drivers whose firmware treats zero as "no auto-sleep" offer it as an option.
-  if (seconds === 0) return "Never";
-  if (seconds < 60) return `${seconds} seconds`;
+  if (seconds === 0) return t(locale, "sleep.never");
+  if (seconds < 60) return unit(seconds, "sleep.second1", "sleep.seconds");
   if (seconds % 3600 === 0) {
     const hours = seconds / 3600;
-    return hours === 1 ? "1 hour" : `${hours} hours`;
+    return unit(hours, "sleep.hour1", "sleep.hours");
   }
   if (seconds % 60 === 0) {
     const minutes = seconds / 60;
-    return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+    return unit(minutes, "sleep.minute1", "sleep.minutes");
   }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const rest = seconds % 60;
   const parts: string[] = [];
-  if (hours) parts.push(hours === 1 ? "1 hour" : `${hours} hours`);
-  if (minutes) parts.push(minutes === 1 ? "1 minute" : `${minutes} minutes`);
-  if (rest) parts.push(`${rest} seconds`);
+  if (hours) parts.push(unit(hours, "sleep.hour1", "sleep.hours"));
+  if (minutes) parts.push(unit(minutes, "sleep.minute1", "sleep.minutes"));
+  if (rest) parts.push(unit(rest, "sleep.second1", "sleep.seconds"));
   return parts.join(" ");
 }
 

@@ -1,37 +1,39 @@
 import type { ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
+import { t, tp } from "../i18n";
 import { Collapsible } from "./ui";
 
 export function LogitechDetails({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status || status.brand !== "Logitech") return null;
+  const locale = snapshot.preferences.locale;
   const transports = Object.entries(status.transportIds ?? {})
     .map(([name, id]) => `${name}: ${id}`)
-    .join(" · ") || "Not reported";
+    .join(" · ") || t(locale, "diag.notReported");
   const rates = status.supportedPollingRates
     ?.map((rate) => `${rate >= 1000 ? `${rate / 1000}K` : rate} Hz`)
-    .join(", ") || "Not reported";
+    .join(", ") || t(locale, "diag.notReported");
   const items: Array<[string, string]> = [
-    ["Mode", status.deviceMode ?? "Unknown"],
-    ["Active profile", status.activeProfile === null ? "None in host mode" : `Profile ${status.activeProfile}`],
+    ["Mode", status.deviceMode ?? t(locale, "diag.unknown")],
+    ["Active profile", status.activeProfile === null ? t(locale, "diag.noneHost") : tp(locale, "adv.profileOpt", { n: status.activeProfile })],
     ["Profile format", status.onboardProfileFormat
       ? `${status.onboardProfileFormat.id} · ${status.onboardProfileFormat.name} (base ${status.onboardProfileFormat.base})`
-      : "Not reported"],
-    ["Model ID", status.modelId ?? "Not reported"],
-    ["Unit ID", status.unitId ?? "Not reported"],
+      : t(locale, "diag.notReported")],
+    ["Model ID", status.modelId ?? t(locale, "diag.notReported")],
+    ["Unit ID", status.unitId ?? t(locale, "diag.notReported")],
     ["Transport IDs", transports],
     ["Advertised polling", rates],
     ["DPI axes", status.supportsSeparateDpiAxes
       ? `X ${status.dpi} · Y ${status.dpiY ?? status.dpi}`
-      : "Linked X/Y"],
+      : t(locale, "diag.linkedXY")],
   ];
   return (
     <section id="logitech-device-details" className="device-data" role="tabpanel" aria-labelledby="workspace-tab-advanced">
       <Collapsible
         className="egg-collapsible"
         overline="LOGITECH HID++"
-        title="Device details"
+        title={t(locale, "diag.details")}
         open={snapshot.preferences.expandSections}
       >
         <article className="setting-card">
@@ -57,18 +59,19 @@ export function Diagnostics({
   onOpenCapture: () => void;
 }): ReactNode {
   const { diagnostics } = snapshot;
+  const locale = snapshot.preferences.locale;
   return (
     <section
       id="device-debug-details"
       className="device-data"
       role="tabpanel"
       aria-labelledby="workspace-tab-advanced"
-      aria-label="Device diagnostics"
+      aria-label={t(locale, "diag.deviceDiag")}
     >
       <Collapsible
         className="egg-collapsible"
-        overline="DEVELOPMENT"
-        title="Diagnostics"
+        overline={t(locale, "set.dev")}
+        title={t(locale, "diag.diagnostics")}
         open={snapshot.diagnosticsOpen}
         onToggle={control.setDiagnosticsOpen}
       >
@@ -88,21 +91,21 @@ export function Diagnostics({
               disabled={!diagnostics.downloadReady}
               onClick={control.downloadDiagnostics}
             >
-              Download diagnostics
+              {t(locale, "diag.download")}
             </button>
             {snapshot.captureAvailable ? (
-              <button id="capture-open" type="button" onClick={onOpenCapture}>Verify profile format</button>
+              <button id="capture-open" type="button" onClick={onOpenCapture}>{t(locale, "diag.verifyFormat")}</button>
             ) : null}
             <span id="diagnostic-download-status" role="status" aria-live="polite">
               {diagnostics.downloadStatus}
             </span>
           </div>
           <details id="device-debug-readlog" className="device-debug-raw">
-            <summary>Reads</summary>
+            <summary>{t(locale, "diag.reads")}</summary>
             <pre id="device-debug-reads" className="device-debug-snapshot">{diagnostics.reads}</pre>
           </details>
           <details id="device-debug-raw" className="device-debug-raw">
-            <summary>Raw snapshot</summary>
+            <summary>{t(locale, "diag.rawSnapshot")}</summary>
             <pre id="device-debug-snapshot" className="device-debug-snapshot">{diagnostics.snapshot}</pre>
           </details>
         </article>

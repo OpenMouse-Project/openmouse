@@ -42,7 +42,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 800 kB for the ATK ZERO driver (AtkCards.tsx, device/atk.ts)
   // and the mouse-reported lift-off range plumbing: the measured aggregate is
   // 790.6 kB, leaving ~9 kB of headroom.
-  ".js": 800_000,
+  // Raised to 895 kB for the Portuguese (pt) localization: the full
+  // en+pt UI dictionary adds ~85 kB of strings to the measured aggregate
+  // (883.2 kB, on top of the 800 kB budget's own ~790.8 kB baseline). The pt
+  // table ships as its own lazy chunk (i18n-pt-*.js, loaded only when a
+  // non-English locale is selected), so the initial load is unaffected — the
+  // aggregate counts it because the check sums every emitted chunk.
+  ".js": 895_000,
 };
 
 const ASSETS = join("dist", "assets");
