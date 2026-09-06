@@ -36,6 +36,11 @@ test("Razer Orochi V2 uses its own render over its Atheris receiver", () => {
   assert.equal(deviceImage({ vendorId: 0x1532, productId: 0x0094 } as HIDDevice), CDN + "razer-orochi-v2.png");
 });
 
+test("Corsair NIGHTSWORD RGB falls back to the placeholder until art exists", () => {
+  assert.equal(deviceImage({ vendorId: 0x1b1c, productId: 0x1b5c } as HIDDevice, "Corsair NIGHTSWORD RGB"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "CORSAIR NIGHTSWORD RGB Gaming Mouse"), CDN + "unknown-device.png");
+});
+
 test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "CRDRAKO KO-ONE"), CDN + "crdrako-ko-one.png");
   assert.equal(deviceImage(null, "Zaunkoenig M3K"), CDN + "zaunkoenig-m3k.png");

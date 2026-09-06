@@ -346,6 +346,9 @@ export const MICE: Mouse[] = [
     note: "DPI presets, polling, LED color, sleep/dim timers, default lighting, and buttons are write-only; battery percentage/charging is read live (no firmware-query command in this protocol). PID 0x184a (wired mode) and 0x1848 (2.4 GHz mode) in SteelSeries Prime Mini Wireless driver" },
 
   // CORSAIR ─────────────────────────────────────────────────────────────
+  { brand: "Corsair", model: "NIGHTSWORD RGB",            status: "supported", req: 1,
+    pids: [0x1b5c],
+    note: "Read-only: identity, firmware, live DPI stages, polling rate, lift-off height, and angle snapping over the 0xffc2/usage-4 feature-report interface (fw 3.41). Close iCUE first — it holds the control interface. PID 0x1b5c in Corsair driver" },
   { brand: "Corsair", model: "Harpoon RGB Pro",           status: "driver",   req: 5,
     note: "iCUE protocol — not implemented" },
   { brand: "Corsair", model: "Katar Pro",                 status: "driver",   req: 4,
