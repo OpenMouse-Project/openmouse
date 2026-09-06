@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import * as control from "../device/controller";
+import { t, tp } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 import type { AnalogTuning, ControlSnapshot } from "../device/types";
 
 function SuperstrikeSteps({
@@ -38,17 +40,19 @@ function TuningControls({
   group,
   tuning,
   limits,
+  locale,
 }: {
   group: "left" | "right" | "both";
   tuning: AnalogTuning;
   limits: { maxActuation: number; maxRapidTrigger: number; maxHaptics: number };
+  locale: InterfaceLocale;
 }): ReactNode {
   const rows = [
     {
       setting: "actuation" as const,
-      label: "Actuation Point",
-      low: "1 Short Click",
-      high: `${limits.maxActuation} Long Click`,
+      label: t(locale, "super.actuation"),
+      low: t(locale, "super.shortClick"),
+      high: tp(locale, "super.longClick", { max: limits.maxActuation }),
       min: 1,
       max: limits.maxActuation,
       value: tuning.actuation,
@@ -56,17 +60,17 @@ function TuningControls({
     {
       setting: "rapidTrigger" as const,
       label: "Rapid Trigger",
-      low: "1 Fast",
-      high: `${limits.maxRapidTrigger} Slow`,
+      low: t(locale, "super.fast"),
+      high: tp(locale, "super.slow", { max: limits.maxRapidTrigger }),
       min: 1,
       max: limits.maxRapidTrigger,
       value: tuning.rapidTrigger,
     },
     {
       setting: "haptics" as const,
-      label: "Click Haptics",
-      low: "0 Off",
-      high: `${limits.maxHaptics} Maximum feedback`,
+      label: t(locale, "super.clickHaptics"),
+      low: t(locale, "super.off0"),
+      high: tp(locale, "super.maxFeedback", { max: limits.maxHaptics }),
       min: 0,
       max: limits.maxHaptics,
       value: tuning.haptics,
@@ -96,6 +100,7 @@ function TuningControls({
 export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const tuning = snapshot.traits.logitech ? snapshot.status?.analogButtonTuning : undefined;
   if (!tuning || tuning.buttons.length !== 2) return null;
+  const locale = snapshot.preferences.locale;
   const state = snapshot.analogTuning;
 
   return (
@@ -117,7 +122,7 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               aria-selected={state.mode === mode}
               onClick={() => control.setAnalogTuningMode(mode)}
             >
-              {mode === "both" ? "Both buttons" : "Independent"}
+              {mode === "both" ? t(locale, "super.both") : t(locale, "super.independent")}
             </button>
           ))}
         </div>
@@ -127,31 +132,31 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               <fieldset key={side} className="superstrike-button-card">
                 <legend>
                   <span className="superstrike-button-dot" />
-                  {side === "left" ? "Left button" : "Right button"}
+                  {side === "left" ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton")}
                 </legend>
-                <TuningControls group={side} tuning={state[side]} limits={tuning} />
+                <TuningControls group={side} tuning={state[side]} limits={tuning} locale={locale} />
                 <button
                   id={`apply-logitech-${side}-button`}
                   className="superstrike-apply-button"
                   type="button"
                   onClick={() => control.applyLogitechAnalogButton(side === "left" ? 0 : 1)}
                 >
-                  Apply {side}
+                  {side === "left" ? t(locale, "super.applyLeft") : t(locale, "super.applyRight")}
                 </button>
               </fieldset>
             ))}
           </div>
           <fieldset className="superstrike-button-card superstrike-both-panel">
-            <legend><span className="superstrike-button-dot" />Both primary buttons</legend>
-            <p>Apply the same values to the left and right buttons.</p>
-            <TuningControls group="both" tuning={state.both} limits={tuning} />
+            <legend><span className="superstrike-button-dot" />{t(locale, "super.bothPrimary")}</legend>
+            <p>{t(locale, "super.bothBody")}</p>
+            <TuningControls group="both" tuning={state.both} limits={tuning} locale={locale} />
             <button
               id="apply-logitech-both-buttons"
               className="superstrike-apply-button"
               type="button"
               onClick={control.applyLogitechAnalogButtons}
             >
-              Apply to both buttons
+              {t(locale, "super.applyBoth")}
             </button>
           </fieldset>
         </div>

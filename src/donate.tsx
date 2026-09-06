@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import "./donate.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
+import { t, tp } from "./i18n";
+import { PageLocaleToggle, usePageLocale } from "./app/page-locale";
 
 const ORG = "OpenMouse-Project";
 const REFRESH_MS = 15 * 60 * 1000;
@@ -393,12 +395,12 @@ function LockIcon(): ReactNode {
   );
 }
 
-function formatCurrency(n: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+function formatCurrency(n: number, locale: string): string {
+  return new Intl.NumberFormat(locale === "pt" ? "pt-BR" : "en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
-function formatContributions(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
+function formatContributions(n: number, locale: string): string {
+  return new Intl.NumberFormat(locale === "pt" ? "pt-BR" : "en-US").format(n);
 }
 
 function formatStars(n: number): string {
@@ -407,6 +409,7 @@ function formatStars(n: number): string {
 }
 
 function DonateApp(): ReactNode {
+  const [locale, setLocale] = usePageLocale();
   const [type, setType] = useState<DonationType>("once");
   const [amount, setAmount] = useState<number>(10);
   const [custom, setCustom] = useState("");
@@ -466,17 +469,18 @@ function DonateApp(): ReactNode {
           OpenMouse
         </a>
         <nav className="don-nav" aria-label="Sections">
-          <a href="/supported.html">Devices</a>
-          <a href="/donate.html" aria-current="page" className="is-current">Support</a>
-          <a href="/check.html">Mouse Check</a>
-          <a href="https://docs.openmouse.app">Contribute</a>
+          <a href="/supported.html">{t(locale, "don.devices")}</a>
+          <a href="/donate.html" aria-current="page" className="is-current">{t(locale, "don.support")}</a>
+          <a href="/check.html">{t(locale, "don.check")}</a>
+          <a href="https://docs.openmouse.app">{t(locale, "don.contribute")}</a>
         </nav>
+        <PageLocaleToggle locale={locale} onChange={setLocale} />
         <div className="don-actions">
           <a className="don-github" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">
             <GitHubIcon />
             <span className="don-github-label">GitHub</span>
             {stars !== null ? (
-              <span className="don-stars" aria-label={`${formatStars(stars)} stars`}>
+              <span className="don-stars" aria-label={tp(locale, "don.stars", { n: formatStars(stars) })}>
                 <StarIcon />
                 {formatStars(stars)}
               </span>
@@ -487,11 +491,10 @@ function DonateApp(): ReactNode {
 
       <main>
         <section className="don-hero">
-          <span className="don-hero-eyebrow">Free &middot; Open source &middot; Community-built</span>
-          <h1>Support this <em>project</em></h1>
+          <span className="don-hero-eyebrow">{t(locale, "don.eyebrow")}</span>
+          <h1>{t(locale, "don.heroA")} <em>{t(locale, "don.heroB")}</em></h1>
           <p className="don-lead">
-            OpenMouse is free, open source, and built for the community. If it makes your setup better,
-            or saves you from closed-source bloat, consider supporting the work behind it.
+            {t(locale, "don.lead")}
           </p>
         </section>
 
@@ -501,27 +504,23 @@ function DonateApp(): ReactNode {
               <img className="don-avatar" src="/logo.png" alt="" width={72} height={72} />
             </span>
             <div className="don-profile-body">
-              <h2>The OpenMouse Project</h2>
-              <p className="don-role">Maintainers &amp; contributors</p>
+              <h2>{t(locale, "don.profileTitle")}</h2>
+              <p className="don-role">{t(locale, "don.profileRole")}</p>
               <p>
-                Hi! We're the developers behind OpenMouse — a free, open source mouse configurator. We invest a
-                significant amount of time into tuning new mice, writing wireless and wired drivers, and keeping
-                the project free of vendor bloat.
+                {t(locale, "don.profileB1")}
               </p>
               <p>
-                We appreciate the support from the community and our contributors. Sponsorship helps us cover
-                hardware, testing, and infrastructure, and lets us keep improving OpenMouse. Any donation is
-                greatly appreciated!
+                {t(locale, "don.profileB2")}
               </p>
-              <p>Thank you for reading!</p>
-              <p className="don-optional">Donation is optional.</p>
+              <p>{t(locale, "don.thanks")}</p>
+              <p className="don-optional">{t(locale, "don.optional")}</p>
             </div>
           </article>
 
           <article className="don-card don-form-card">
             <div className="don-field">
-              <span className="don-label">Donation Type</span>
-              <div className="don-seg" role="tablist" aria-label="Donation type">
+              <span className="don-label">{t(locale, "don.type")}</span>
+              <div className="don-seg" role="tablist" aria-label={t(locale, "don.type")}>
                 <button
                   type="button"
                   role="tab"
@@ -529,7 +528,7 @@ function DonateApp(): ReactNode {
                   className={`don-seg-btn${type === "once" ? " is-on" : ""}`}
                   onClick={() => setType("once")}
                 >
-                  One-time
+                  {t(locale, "don.once")}
                 </button>
                 <button
                   type="button"
@@ -538,13 +537,13 @@ function DonateApp(): ReactNode {
                   className={`don-seg-btn${type === "monthly" ? " is-on" : ""}`}
                   onClick={() => setType("monthly")}
                 >
-                  Monthly
+                  {t(locale, "don.monthly")}
                 </button>
               </div>
             </div>
 
             <div className="don-field">
-              <span className="don-label">Donation Amount (USD)</span>
+              <span className="don-label">{t(locale, "don.amount")}</span>
               <div className="don-amounts">
                 {AMOUNTS.map((amt) => (
                   <button
@@ -561,13 +560,13 @@ function DonateApp(): ReactNode {
             </div>
 
             <div className="don-field">
-              <span className="don-label">Custom amount</span>
+              <span className="don-label">{t(locale, "don.custom")}</span>
               <div className="don-custom">
                 <span className="don-currency">$</span>
                 <input
                   type="number"
                   min="1"
-                  placeholder="Enter an amount"
+                  placeholder={t(locale, "don.customPh")}
                   value={custom}
                   onInput={(event) => setCustom((event.target as HTMLInputElement).value)}
                 />
@@ -576,8 +575,8 @@ function DonateApp(): ReactNode {
 
             <p className="don-charge">
               {type === "once"
-                ? `You'll donate ${formatCurrency(effectiveAmount)} once, via GitHub Sponsors.`
-                : `You'll donate ${formatCurrency(effectiveAmount)} every month, via GitHub Sponsors.`}
+                ? tp(locale, "don.chargeOnce", { v: formatCurrency(effectiveAmount, locale) })
+                : tp(locale, "don.chargeMonthly", { v: formatCurrency(effectiveAmount, locale) })}
             </p>
 
             <a
@@ -587,21 +586,21 @@ function DonateApp(): ReactNode {
               rel="noreferrer"
             >
               <LockIcon />
-              Donate on GitHub Sponsors
+              {t(locale, "don.submit")}
             </a>
 
-            <a className="don-skip" href="/">No thanks, continue to the app</a>
+            <a className="don-skip" href="/">{t(locale, "don.skip")}</a>
           </article>
         </section>
 
-        <section className="don-contributors" aria-label="Our contributors">
+        <section className="don-contributors" aria-label={t(locale, "don.contribTitle")}>
           <div className="don-contrib-head">
-            <span className="don-eyebrow">WITH LOVE FROM</span>
-            <h2>Our Contributors</h2>
+            <span className="don-eyebrow">{t(locale, "don.contribEyebrow")}</span>
+            <h2>{t(locale, "don.contribTitle")}</h2>
           </div>
           {error ? (
             <p className="don-error" role="alert">
-              {stale ? "Showing saved data — " : ""}Could not reach GitHub ({error}). Retrying automatically.
+              {stale ? t(locale, "don.stale") : ""}{tp(locale, "don.apiFail", { msg: error })}
             </p>
           ) : null}
           <div className="don-contrib-avatars">
@@ -614,7 +613,7 @@ function DonateApp(): ReactNode {
                   target="_blank"
                   rel="noreferrer"
                   className="don-contrib-avatar"
-                  title={`${c.login} · ${formatContributions(count)} contribution${count === 1 ? "" : "s"}`}
+                  title={`${c.login} · ${count === 1 ? tp(locale, "don.contribOne", { n: formatContributions(count, locale) }) : tp(locale, "don.contribs", { n: formatContributions(count, locale) })}`}
                 >
                   {c.avatar ? (
                     <img src={`${c.avatar}?s=64`} alt={c.login} loading="lazy" width={64} height={64} />
@@ -628,7 +627,7 @@ function DonateApp(): ReactNode {
             })}
           </div>
           <a className="don-contrib-link" href="https://github.com/OpenMouse-Project" target="_blank" rel="noreferrer">
-            See everyone on GitHub ↗
+            {t(locale, "don.seeAll")}
           </a>
         </section>
       </main>
@@ -637,27 +636,27 @@ function DonateApp(): ReactNode {
         <div className="don-footer-grid">
           <div className="don-fbrand">
             <a className="don-fwordmark" href="/">OpenMouse Project</a>
-            <p className="don-ftagline">The open source, cross-platform mouse configurator.</p>
+            <p className="don-ftagline">{t(locale, "don.tagline")}</p>
           </div>
 
           <div className="don-fcol">
-            <h3>Pages</h3>
-            <a href="/">Home</a>
-            <a href="/supported.html">Devices</a>
-            <a href="/check.html">Mouse Check</a>
-            <a href="https://docs.openmouse.app">Contribute</a>
+            <h3>{t(locale, "don.pages")}</h3>
+            <a href="/">{t(locale, "don.home")}</a>
+            <a href="/supported.html">{t(locale, "don.devices")}</a>
+            <a href="/check.html">{t(locale, "don.check")}</a>
+            <a href="https://docs.openmouse.app">{t(locale, "don.contribute")}</a>
           </div>
 
           <div className="don-fcol">
-            <h3>Contribute</h3>
+            <h3>{t(locale, "don.contributeCol")}</h3>
             <a href="https://github.com/OpenMouse-Project" target="_blank" rel="noreferrer">GitHub</a>
-            <a href="https://github.com/OpenMouse-Project/openmouse/issues" target="_blank" rel="noreferrer">Report issue</a>
-            <a href="https://github.com/OpenMouse-Project/openmouse/discussions" target="_blank" rel="noreferrer">Discussions</a>
-            <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">Source code</a>
+            <a href="https://github.com/OpenMouse-Project/openmouse/issues" target="_blank" rel="noreferrer">{t(locale, "don.reportIssue")}</a>
+            <a href="https://github.com/OpenMouse-Project/openmouse/discussions" target="_blank" rel="noreferrer">{t(locale, "don.discussions")}</a>
+            <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">{t(locale, "don.source")}</a>
           </div>
 
           <div className="don-fcol">
-            <h3>Community</h3>
+            <h3>{t(locale, "don.community")}</h3>
             <div className="don-fsocial">
               <a href="https://github.com/OpenMouse-Project" target="_blank" rel="noreferrer" aria-label="GitHub">
                 <GitHubIcon />
@@ -674,11 +673,11 @@ function DonateApp(): ReactNode {
 
         <div className="don-footer-bottom">
           <p>
-            © {new Date().getFullYear()} OpenMouse Project. All rights reserved.
-            <a href="/" className="don-flegal">Privacy Policy</a>
-            <a href="/" className="don-flegal">Terms of Service</a>
+            {tp(locale, "don.rights", { year: new Date().getFullYear() })}
+            <a href="/" className="don-flegal">{t(locale, "don.privacy")}</a>
+            <a href="/" className="don-flegal">{t(locale, "don.terms")}</a>
           </p>
-          <p>Created with ❤️ by <a href="https://github.com/OpenMouse-Project" target="_blank" rel="noreferrer">the community</a> and <a href="/donate.html">contributors</a>.</p>
+          <p>{t(locale, "don.created")} <a href="https://github.com/OpenMouse-Project" target="_blank" rel="noreferrer">{t(locale, "don.theCommunity")}</a> {t(locale, "don.and")} <a href="/donate.html">{t(locale, "don.contributors")}</a>.</p>
         </div>
       </footer>
     </div>

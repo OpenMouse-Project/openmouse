@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { batteryStateText, connectLabelText, missingTranslations, t } from "./i18n.ts";
+
+test("i18n falls back to English for untranslated keys", () => {
+  assert.equal(t("pt", "nav.settings"), "Configurações");
+  assert.equal(t("en", "nav.settings"), "Settings");
+  // Unknown locale-shaped input still resolves through the typed API;
+  // the safety net below must never surface an empty string.
+  assert.ok(t("pt", "set.reset").length > 0);
+  assert.equal(t("pt", "ov.firmware"), "FIRMWARE");
+});
+
+test("i18n maps known battery states and passes unknown ones through", () => {
+  assert.equal(batteryStateText("pt", "Discharging"), "Descarregando");
+  assert.equal(batteryStateText("en", "Discharging"), "Discharging");
+  assert.equal(batteryStateText("pt", "SomeFutureState"), "SomeFutureState");
+});
+
+test("i18n maps known connect labels and passes dynamic ones through", () => {
+  assert.equal(connectLabelText("pt", "Add device"), "Adicionar dispositivo");
+  assert.equal(connectLabelText("en", "Add device"), "Add device");
+  assert.equal(connectLabelText("pt", "Use Add device if lost"), "Use Add device if lost");
+});
+
+test("every locale translates every key", () => {
+  assert.deepEqual(missingTranslations(), []);
+});

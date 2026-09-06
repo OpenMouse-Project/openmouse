@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { ProfileKeyFields } from "./InterfaceSettings";
+import { t } from "../i18n";
 
 export function ShareProfileDialog({
   open,
@@ -12,6 +13,7 @@ export function ShareProfileDialog({
   snapshot: ControlSnapshot;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
+  const locale = snapshot.preferences.locale;
 
   useEffect(() => {
     const element = dialog.current;
@@ -31,14 +33,13 @@ export function ShareProfileDialog({
       <div className="support-dialog-inner share-profile-dialog-inner">
         <header>
           <div>
-            <p className="overline">PROFILES</p>
-            <h2 id="share-profile-dialog-title">Profile key</h2>
+            <p className="overline">{t(locale, "set.profiles")}</p>
+            <h2 id="share-profile-dialog-title">{t(locale, "set.profileKey")}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button>
         </header>
         <p className="share-profile-intro">
-          A copy-paste key that carries this mouse's settings to another unit of the same model.
-          Paste it into Settings there to load the same setup.
+          {t(locale, "set.profileKeyBody")}
         </p>
         <ProfileKeyFields snapshot={snapshot} />
       </div>

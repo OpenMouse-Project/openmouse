@@ -2,6 +2,13 @@ import "./supported.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { MICE, STATUS, type Mouse, type Status } from "./supported-mice.ts";
+import { t, tp, type I18nKey } from "./i18n.ts";
+import {
+  detectLocale,
+  loadInterfacePreferences,
+  saveInterfacePreferences,
+  type InterfaceLocale,
+} from "./interface-preferences.ts";
 import { fetchLiveData, mergeLiveMice, type LiveData } from "./supported-live.ts";
 
 // ── Data ──────────────────────────────────────────────────────────────────
@@ -32,6 +39,55 @@ function applyTheme(theme: Theme): void {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────
+let locale: InterfaceLocale = (() => {
+  try {
+    return loadInterfacePreferences(window.localStorage).locale;
+  } catch {
+    return detectLocale();
+  }
+})();
+
+function setLocale(next: InterfaceLocale): void {
+  locale = next;
+  try {
+    const prefs = loadInterfacePreferences(window.localStorage);
+    saveInterfacePreferences(window.localStorage, { ...prefs, locale: next });
+  } catch {
+    /* storage unavailable — in-memory choice still applies */
+  }
+  buildShell();
+  bindShell();
+  fillBrands();
+  fillTags();
+  renderList();
+}
+
+const STATUS_LABEL: Record<Status, I18nKey> = {
+  supported: "supp.stSupported",
+  pr: "supp.stPr",
+  quickwin: "supp.stQuickwin",
+  likely: "supp.stLikely",
+  driver: "supp.stDriver",
+  unknown: "supp.stUnknown",
+  bridge: "supp.stBridge",
+  pending: "supp.stPending",
+};
+
+const LEGEND_DESC: Record<Status, I18nKey> = {
+  supported: "supp.legSupported",
+  pr: "supp.legPr",
+  quickwin: "supp.legQuickwin",
+  likely: "supp.legLikely",
+  driver: "supp.legDriver",
+  unknown: "supp.legUnknown",
+  bridge: "supp.legBridge",
+  pending: "supp.legPending",
+};
+
+function statusLabel(status: Status): string {
+  return t(locale, STATUS_LABEL[status]);
+}
+
 const activeTags = new Set<Status>();
 let activeBrand: string | null = null;
 let searchQuery = "";
@@ -108,17 +164,16 @@ if (!app) throw new Error("Root element missing");
 applyTheme(getTheme());
 
 const GH_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7A11.5 11.5 0 0 0 8.4 23c.6.1.8-.3.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.7-1.3-1.7-1.1-.8.1-.8.1-.8 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.6.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C15.8 3.7 17 4 17 4c.6 1.5.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.8 5.4-5.5 5.7.4.4.8 1.1.8 2.2v4.3c0 .4.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"/></svg>`;
-const initialTheme = getTheme();
 
-const STATUS_LEGEND: Array<[Status, string]> = [
-  ["supported", "Confirmed working with a registered driver"],
-  ["pr", "Pull request adding the driver is open"],
-  ["quickwin", "Protocol implemented — only PID/config entry missing"],
-  ["likely", "Driver probably covers it — needs hardware test"],
-  ["driver", "No driver exists yet"],
-  ["unknown", "Protocol not yet identified"],
-  ["bridge", "Not compatible with WebHID — needs the OpenMouse Bridge companion"],
-  ["pending", "Live community request"],
+const STATUS_KEYS: Status[] = [
+  "supported",
+  "pr",
+  "quickwin",
+  "likely",
+  "driver",
+  "unknown",
+  "bridge",
+  "pending",
 ];
 
 const STATUS_DOT: Record<Status, string> = {
@@ -132,7 +187,11 @@ const STATUS_DOT: Record<Status, string> = {
   pending: "var(--st-pending)",
 };
 
-app.innerHTML = `
+function buildShell(): void {
+  const root = document.querySelector<HTMLDivElement>("#app");
+  if (!root) return;
+  document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+  root.innerHTML = `
   <header class="site-header">
     <div class="page-wrap">
       <a class="wordmark" href="/" aria-label="OpenMouse home">
@@ -141,11 +200,12 @@ app.innerHTML = `
       </a>
       <nav class="header-nav">
         <div class="nav-links">
-          <a class="nav-link" href="https://docs.openmouse.app">Contribute</a>
-          <a class="nav-link" href="/donate.html">Support</a>
+          <a class="nav-link" href="https://docs.openmouse.app">${t(locale, "supp.contribute")}</a>
+          <a class="nav-link" href="/donate.html">${t(locale, "supp.support")}</a>
         </div>
         <div class="header-actions">
-          <button class="theme-toggle" id="theme-btn" aria-label="Toggle theme">${themeIcon(initialTheme)}</button>
+          <button class="theme-toggle" id="locale-btn" aria-label="${t(locale, "page.locale")}">${locale === "pt" ? "PT" : "EN"}</button>
+          <button class="theme-toggle" id="theme-btn" aria-label="${t(locale, "supp.theme")}">${themeIcon(getTheme())}</button>
           <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
             ${GH_SVG}
             <span>GitHub</span>
@@ -157,43 +217,43 @@ app.innerHTML = `
 
   <div class="page-wrap">
     <div class="page-head">
-      <div class="page-kicker">Device catalog</div>
-      <h1>Supported Devices</h1>
-      <p class="page-sub">Which gaming mice work with OpenMouse — supported models, community requests, and driver status at a glance.</p>
+      <div class="page-kicker">${t(locale, "supp.kicker")}</div>
+      <h1>${t(locale, "supp.title")}</h1>
+      <p class="page-sub">${t(locale, "supp.sub")}</p>
       <p class="page-stats" id="page-stats"></p>
     </div>
 
     <div class="toolbar">
       <div class="dd" id="dd-brands">
         <button type="button" class="dd-trigger" id="brands-trigger" aria-haspopup="listbox" aria-expanded="false">
-          <span class="dd-label" id="brands-label">All brands</span><span class="chev">▾</span>
+          <span class="dd-label" id="brands-label">${t(locale, "supp.allBrands")}</span><span class="chev">▾</span>
         </button>
-        <div class="dd-panel" role="listbox" aria-label="Filter by brand">
-          <div class="dd-search"><input type="search" id="brands-search" placeholder="Search brands…" aria-label="Search brands" autocomplete="off" spellcheck="false"></div>
+        <div class="dd-panel" role="listbox" aria-label="${t(locale, "supp.filterBrand")}">
+          <div class="dd-search"><input type="search" id="brands-search" placeholder="${t(locale, "supp.searchBrands")}" aria-label="${t(locale, "supp.searchBrands")}" autocomplete="off" spellcheck="false"></div>
           <div class="dd-list" id="brands-list"></div>
         </div>
       </div>
       <div class="dd" id="dd-tags">
         <button type="button" class="dd-trigger" id="tags-trigger" aria-haspopup="listbox" aria-expanded="false">
-          <span class="dd-label" id="tags-label">All tags</span><span class="pill" id="tags-pill" hidden></span><span class="chev">▾</span>
+          <span class="dd-label" id="tags-label">${t(locale, "supp.allTags")}</span><span class="pill" id="tags-pill" hidden></span><span class="chev">▾</span>
         </button>
-        <div class="dd-panel" role="listbox" aria-label="Filter by tag" aria-multiselectable="true">
-          <div class="dd-search"><input type="search" id="tags-search" placeholder="Search tags…" aria-label="Search tags" autocomplete="off" spellcheck="false"></div>
+        <div class="dd-panel" role="listbox" aria-label="${t(locale, "supp.filterTag")}" aria-multiselectable="true">
+          <div class="dd-search"><input type="search" id="tags-search" placeholder="${t(locale, "supp.searchTags")}" aria-label="${t(locale, "supp.searchTags")}" autocomplete="off" spellcheck="false"></div>
           <div class="dd-list" id="tags-list"></div>
         </div>
       </div>
       <div class="search-wrap">
         <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="search-input" type="search" id="s-input" placeholder="Search by brand, model, or protocol…" autocomplete="off" spellcheck="false">
+        <input class="search-input" type="search" id="s-input" placeholder="${t(locale, "supp.search")}" autocomplete="off" spellcheck="false" value="${searchQuery.replace(/"/g, "&quot;")}">
       </div>
       <div class="result-count" id="result-count"></div>
     </div>
 
     <details class="tag-legend" open>
-      <summary>What do the tags mean?</summary>
+      <summary>${t(locale, "supp.legendTitle")}</summary>
       <ul class="tag-legend-list">
-        ${STATUS_LEGEND.map(([key, tip]) => `
-          <li><span class="dot" style="background:${STATUS_DOT[key]}"></span><strong>${STATUS[key].label}</strong> — ${tip}</li>`).join("")}
+        ${STATUS_KEYS.map((key) => `
+          <li><span class="dot" style="background:${STATUS_DOT[key]}"></span><strong>${statusLabel(key)}</strong> — ${t(locale, LEGEND_DESC[key])}</li>`).join("")}
       </ul>
     </details>
 
@@ -204,12 +264,14 @@ app.innerHTML = `
     <footer>
       <span>OpenMouse</span>
       <div class="footer-links">
-        <a href="https://x.com/openmouseapp" target="_blank" rel="noreferrer">Follow on X</a>
-        <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">View source</a>
+        <a href="https://x.com/openmouseapp" target="_blank" rel="noreferrer">${t(locale, "supp.follow")}</a>
+        <a href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer">${t(locale, "supp.source")}</a>
       </div>
     </footer>
   </div>
 `;
+
+} // end buildShell
 
 // ── Tag tooltips: one bubble on <body>, positioned with fixed coords so
 // it renders over the dropdown instead of clipping at the panel edge. ────
@@ -281,13 +343,13 @@ function fillBrands(): void {
   if (!dd || !list || !label) return;
   if (dd.classList.contains("open")) { brandDirty = true; return; }
 
-  label.textContent = activeBrand ?? "All brands";
+  label.textContent = activeBrand ?? t(locale, "supp.allBrands");
   const q = brandQuery.toLowerCase();
   const rows: string[] = [];
   rows.push(`
     <button type="button" class="opt${activeBrand === null ? " is-selected" : ""}" data-brand="" role="option" aria-selected="${activeBrand === null}">
       <span class="dot${activeBrand === null ? " on" : ""}"></span>
-      <span class="copy"><strong>All brands</strong><small>Show everything</small></span>
+      <span class="copy"><strong>${t(locale, "supp.allBrands")}</strong><small>${t(locale, "supp.showEverything")}</small></span>
       <span class="count">${mice.length}</span>
     </button>`);
   for (const { brand, count } of brandTotals()) {
@@ -296,12 +358,12 @@ function fillBrands(): void {
     rows.push(`
       <button type="button" class="opt${selected ? " is-selected" : ""}" data-brand="${brand}" role="option" aria-selected="${selected}">
         <span class="dot${selected ? " on" : ""}"></span>
-        <span class="copy"><strong>${brand}</strong><small>Brand</small></span>
+        <span class="copy"><strong>${brand}</strong><small>${t(locale, "supp.brandWord")}</small></span>
         <span class="count">${count}</span>
       </button>`);
   }
   const bst = list.scrollTop;
-  list.innerHTML = rows.length > 1 ? rows.join("") : `<p class="no-results">No brands match.</p>`;
+  list.innerHTML = rows.length > 1 ? rows.join("") : `<p class="no-results">${t(locale, "supp.noBrands")}</p>`;
   list.scrollTop = bst;
   list.querySelectorAll<HTMLButtonElement>(".opt").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -326,24 +388,25 @@ function fillTags(): void {
   if (!dd || !list || !label || !pill) return;
   if (dd.classList.contains("open")) { tagsDirty = true; return; }
 
-  label.textContent = activeTags.size === 0 ? "All tags" : "Tags";
+  label.textContent = activeTags.size === 0 ? t(locale, "supp.allTags") : t(locale, "supp.tagsWord");
   pill.hidden = activeTags.size === 0;
   pill.textContent = activeTags.size === 0 ? "" : String(activeTags.size);
 
   const q = tagsQuery.toLowerCase();
   const rows: string[] = [];
-  for (const [key, tip] of STATUS_LEGEND) {
-    if (q && !STATUS[key].label.toLowerCase().includes(q)) continue;
+  for (const key of STATUS_KEYS) {
+    const tip = t(locale, LEGEND_DESC[key]);
+    if (q && !statusLabel(key).toLowerCase().includes(q)) continue;
     const on = activeTags.has(key);
     rows.push(`
       <button type="button" class="opt${on ? " is-selected" : ""}" data-tag="${key}" data-tip="${tip}" role="option" aria-selected="${on}">
         <span class="dot" style="background:${STATUS_DOT[key]}"></span>
-        <span class="copy"><strong>${STATUS[key].label}</strong><small>Tag</small></span>
+        <span class="copy"><strong>${statusLabel(key)}</strong><small>${t(locale, "supp.tagWord")}</small></span>
         <span class="check">${on ? "✓" : ""}</span>
       </button>`);
   }
   const st = list.scrollTop;
-  list.innerHTML = rows.length > 0 ? rows.join("") : `<p class="no-results">No tags match.</p>`;
+  list.innerHTML = rows.length > 0 ? rows.join("") : `<p class="no-results">${t(locale, "supp.noTags")}</p>`;
   list.scrollTop = st;
   list.querySelectorAll<HTMLButtonElement>(".opt").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -371,13 +434,13 @@ function renderStats(): void {
   const c = counts();
   const el = document.getElementById("page-stats");
   if (!el) return;
-  el.innerHTML = `<strong>${c.supported ?? 0}</strong> supported · <strong>${c.all}</strong> total tracked`;
+  el.innerHTML = `<strong>${c.supported ?? 0}</strong> ${t(locale, "supp.supportedWord")} · <strong>${c.all}</strong> ${t(locale, "supp.totalWord")}`;
 }
 
 function renderResultCount(): void {
   const data = visibleMice();
   const el = document.getElementById("result-count");
-  if (el) el.textContent = `${data.length} device${data.length === 1 ? "" : "s"}`;
+  if (el) el.textContent = data.length === 1 ? tp(locale, "supp.oneDevice", { n: data.length }) : tp(locale, "supp.manyDevices", { n: data.length });
 }
 
 function clearAllFilters(): void {
@@ -406,8 +469,8 @@ function renderList(): void {
 
   if (!data.length) {
     el.innerHTML = `<div class="no-results">
-      <p>No devices match these filters.</p>
-      <button type="button" class="clear-filters" id="clear-filters">Clear brand and tag filters</button>
+      <p>${t(locale, "supp.noFilters")}</p>
+      <button type="button" class="clear-filters" id="clear-filters">${t(locale, "supp.clearFilters")}</button>
     </div>`;
     document.getElementById("clear-filters")?.addEventListener("click", clearAllFilters);
     return;
@@ -433,7 +496,7 @@ function renderList(): void {
 
     const rows = items.map(m =>
       `<tr>
-        <td><span class="status-badge status-${m.status}">${STATUS[m.status].label}</span></td>
+        <td><span class="status-badge status-${m.status}">${statusLabel(m.status)}</span></td>
         <td class="device-name">${m.model}</td>
         <td class="device-note">${m.note || "—"}</td>
         <td class="req-count${m.req >= 3 ? " hot" : ""}">${m.req > 0 ? m.req : "—"}</td>
@@ -448,7 +511,7 @@ function renderList(): void {
         ${totalReq > 0 ? `<span class="brand-reqs">(${totalReq} request${totalReq === 1 ? "" : "s"})</span>` : ""}
       </button>
       <table class="device-table">
-        <thead><tr><th>Status</th><th>Model</th><th>Notes</th><th style="text-align:right">Votes</th></tr></thead>
+        <thead><tr><th>${t(locale, "supp.thStatus")}</th><th>${t(locale, "supp.thModel")}</th><th>${t(locale, "supp.thNotes")}</th><th style="text-align:right">${t(locale, "supp.thVotes")}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -466,62 +529,74 @@ function renderList(): void {
   });
 }
 
-// ── Wiring ────────────────────────────────────────────────────────────────
-document.getElementById("theme-btn")?.addEventListener("click", () => {
-  applyTheme(getTheme() === "dark" ? "light" : "dark");
-});
+// ── Wiring (re-bound every time the shell rebuilds for a locale switch) ──
+function bindShell(): void {
+  document.getElementById("theme-btn")?.addEventListener("click", () => {
+    applyTheme(getTheme() === "dark" ? "light" : "dark");
+  });
 
-document.getElementById("s-input")?.addEventListener("input", e => {
-  searchQuery = (e.target as HTMLInputElement).value;
-  renderList();
-});
+  document.getElementById("locale-btn")?.addEventListener("click", () => {
+    setLocale(locale === "pt" ? "en" : "pt");
+  });
 
-document.getElementById("brands-trigger")?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  toggleDropdown("dd-brands", "brands-trigger");
-});
-document.getElementById("tags-trigger")?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  toggleDropdown("dd-tags", "tags-trigger");
-});
-document.getElementById("brands-search")?.addEventListener("input", e => {
-  brandQuery = (e.target as HTMLInputElement).value;
-  brandDirty = false;
-  // Rebuild the open list without touching the focused input.
-  const dd = document.getElementById("dd-brands");
-  const wasOpen = dd?.classList.contains("open") ?? false;
-  dd?.classList.remove("open");
-  fillBrands();
-  if (wasOpen) dd?.classList.add("open");
-});
-document.getElementById("tags-search")?.addEventListener("input", e => {
-  tagsQuery = (e.target as HTMLInputElement).value;
-  tagsDirty = false;
-  const dd = document.getElementById("dd-tags");
-  const wasOpen = dd?.classList.contains("open") ?? false;
-  dd?.classList.remove("open");
-  fillTags();
-  if (wasOpen) dd?.classList.add("open");
-});
+  const sInput = document.getElementById("s-input") as HTMLInputElement | null;
+  if (sInput) {
+    if (searchQuery) sInput.focus();
+    sInput.addEventListener("input", e => {
+      searchQuery = (e.target as HTMLInputElement).value;
+      renderList();
+    });
+  }
 
-const tagsList = document.getElementById("tags-list");
-tagsList?.addEventListener("mouseover", (e) => {
-  const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
-  if (!opt) { hideTagTip(); return; }
-  showTagTip(opt, opt.dataset.tip || "");
-});
-tagsList?.addEventListener("mouseout", (e) => {
-  const to = (e.relatedTarget as HTMLElement | null)?.closest?.(".opt[data-tip]");
-  if (!to) hideTagTip();
-});
-tagsList?.addEventListener("focusin", (e) => {
-  const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
-  if (opt) showTagTip(opt, opt.dataset.tip || "");
-});
-tagsList?.addEventListener("focusout", hideTagTip);
-tagsList?.addEventListener("scroll", hideTagTip);
+  document.getElementById("brands-trigger")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleDropdown("dd-brands", "brands-trigger");
+  });
+  document.getElementById("tags-trigger")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleDropdown("dd-tags", "tags-trigger");
+  });
+  document.getElementById("brands-search")?.addEventListener("input", e => {
+    brandQuery = (e.target as HTMLInputElement).value;
+    brandDirty = false;
+    // Rebuild the open list without touching the focused input.
+    const dd = document.getElementById("dd-brands");
+    const wasOpen = dd?.classList.contains("open") ?? false;
+    dd?.classList.remove("open");
+    fillBrands();
+    if (wasOpen) dd?.classList.add("open");
+  });
+  document.getElementById("tags-search")?.addEventListener("input", e => {
+    tagsQuery = (e.target as HTMLInputElement).value;
+    tagsDirty = false;
+    const dd = document.getElementById("dd-tags");
+    const wasOpen = dd?.classList.contains("open") ?? false;
+    dd?.classList.remove("open");
+    fillTags();
+    if (wasOpen) dd?.classList.add("open");
+  });
+
+  const tagsList = document.getElementById("tags-list");
+  tagsList?.addEventListener("mouseover", (e) => {
+    const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
+    if (!opt) { hideTagTip(); return; }
+    showTagTip(opt, opt.dataset.tip || "");
+  });
+  tagsList?.addEventListener("mouseout", (e) => {
+    const to = (e.relatedTarget as HTMLElement | null)?.closest?.(".opt[data-tip]");
+    if (!to) hideTagTip();
+  });
+  tagsList?.addEventListener("focusin", (e) => {
+    const opt = (e.target as HTMLElement).closest?.(".opt[data-tip]") as HTMLElement | null;
+    if (opt) showTagTip(opt, opt.dataset.tip || "");
+  });
+  tagsList?.addEventListener("focusout", hideTagTip);
+  tagsList?.addEventListener("scroll", hideTagTip);
+}
 window.addEventListener("resize", hideTagTip);
 
+buildShell();
+bindShell();
 fillBrands();
 fillTags();
 renderList();

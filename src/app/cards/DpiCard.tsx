@@ -3,11 +3,13 @@ import { capabilitiesForFormat, stageLodLevel } from "@openmouse/protocol/driver
 import * as control from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { dpiPresetValues } from "../../dpi-presets";
+import { t, tp } from "../../i18n";
 import { IconLinked, IconUnlinked } from "../icons";
 import { Segmented } from "../ui";
 
 function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const locale = snapshot.preferences.locale;
   const limits = snapshot.profile.slotLimits;
   const plan = snapshot.dpiSlotPlan;
   const locked = snapshot.profile.slotsLocked;
@@ -35,8 +37,8 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   return (
     <div id="logitech-dpi-slots">
       <div className="dpi-slot-header">
-        <span>Slots in use</span>
-        <div id="dpi-slot-count" className="dpi-slot-count" role="group" aria-label="Number of DPI slots">
+        <span>{t(locale, "dpi.slotsInUse")}</span>
+        <div id="dpi-slot-count" className="dpi-slot-count" role="group" aria-label={t(locale, "dpi.slotsCount")}>
           {Array.from({ length: limits.maxStages }, (_, step) => {
             const value = step + 1;
             const on = value === plan.stages.length;
@@ -70,7 +72,7 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                 type="button"
                 className="dpi-slot-index"
                 disabled={locked}
-                title={isDefault ? "Starting slot" : "Make this the starting slot"}
+                title={isDefault ? t(locale, "dpi.startingSlot") : t(locale, "dpi.makeStarting")}
                 aria-pressed={isDefault}
                 onClick={() => control.setDpiSlotDefault(index)}
               >
@@ -78,7 +80,7 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
               </button>
               <input
                 type="number"
-                aria-label={`Slot ${index + 1} X DPI`}
+                aria-label={tp(locale, "dpi.slotX", { n: index + 1 })}
                 min={limits.minDpi}
                 max={limits.maxDpi}
                 step={limits.stepDpi}
@@ -92,9 +94,9 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                 className={`dpi-axis-lock${axisLocked ? " is-locked" : ""}`}
                 disabled={locked}
                 title={axisLocked
-                  ? "X and Y are linked — click to set them separately"
-                  : "X and Y are separate — click to link them"}
-                aria-label={`Link X and Y for slot ${index + 1}`}
+                  ? t(locale, "dpi.linkedHint")
+                  : t(locale, "dpi.unlinkedHint")}
+                aria-label={tp(locale, "dpi.linkXY", { n: index + 1 })}
                 aria-pressed={axisLocked}
                 onClick={() => control.setDpiAxisLock(index, !axisLocked)}
               >
@@ -102,7 +104,7 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
               </button>
               <input
                 type="number"
-                aria-label={`Slot ${index + 1} Y DPI`}
+                aria-label={tp(locale, "dpi.slotY", { n: index + 1 })}
                 min={limits.minDpi}
                 max={limits.maxDpi}
                 step={limits.stepDpi}
@@ -118,8 +120,8 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                   disabled={locked || !profileHasLod}
                   aria-haspopup="listbox"
                   aria-expanded={openMenu === index}
-                  aria-label={`Slot ${index + 1} lift-off`}
-                  title={profileHasLod ? "Set lift-off distance" : "This profile format has no lift-off setting"}
+                  aria-label={tp(locale, "dpi.slotLiftOff", { n: index + 1 })}
+                  title={profileHasLod ? t(locale, "dpi.liftOffTitle") : t(locale, "dpi.noLiftOff")}
                   onClick={(event) => {
                     event.stopPropagation();
                     setOpenMenu(openMenu === index ? null : index);
@@ -128,7 +130,7 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                   <span>{level ?? "—"}</span>
                   <i aria-hidden="true" />
                 </button>
-                <ul className="lod-select-menu" role="listbox" aria-label={`Slot ${index + 1} lift-off`}>
+                <ul className="lod-select-menu" role="listbox" aria-label={tp(locale, "dpi.slotLiftOff", { n: index + 1 })}>
                   {levels.map((name) => (
                     <li
                       key={name}
@@ -150,8 +152,8 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       </div>
       <small id="dpi-slot-note" className="setting-note">
         {locked
-          ? "Read-only: writing DPI slots to a profile is not enabled yet, because the flash write sequence has not been verified on hardware."
-          : `Each slot stores its own X/Y sensitivity and lift-off level. ${limits.minDpi}–${limits.maxDpi} DPI in steps of ${limits.stepDpi}. The highlighted slot is the one the mouse starts on.`}
+          ? t(locale, "dpi.slotReadonly")
+          : tp(locale, "dpi.slotNote", { min: limits.minDpi, max: limits.maxDpi, step: limits.stepDpi })}
       </small>
     </div>
   );
@@ -160,6 +162,7 @@ function DpiSlots({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 /** Shared Compx/Keychron-style stages: one DPI value per stage + active highlight. */
 function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
   const editor = status?.ui?.dpiStageEditor;
   const stages = status?.dpiStages;
   if (!status || !editor || !stages || stages.length === 0) return null;
@@ -173,8 +176,8 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       {countEditable ? (
         <>
           <div id="dpi-stage-count-header" className="dpi-slot-header">
-            <span>Stages in use</span>
-            <div id="dpi-stage-count" className="dpi-slot-count" role="group" aria-label="Number of DPI stages">
+            <span>{t(locale, "dpi.stagesInUse")}</span>
+            <div id="dpi-stage-count" className="dpi-slot-count" role="group" aria-label={t(locale, "dpi.stagesCount")}>
               {Array.from({ length: editor.maxStages }, (_, step) => {
                 const value = step + 1;
                 const on = value === stages.length;
@@ -198,7 +201,7 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       ) : null}
       <div id="dpi-stage-list" className={`dpi-slot-list dpi-stage-list${status.dpiStageColors ? " has-colors" : ""}`}>
         <div className="dpi-slot-row dpi-slot-head">
-          <span /><span>DPI</span>{status.dpiStageColors ? <span>Color</span> : null}
+          <span /><span>DPI</span>{status.dpiStageColors ? <span>{t(locale, "dpi.color")}</span> : null}
         </div>
         {stages.map((dpi, index) => {
           const isActive = index === active;
@@ -208,7 +211,7 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                 type="button"
                 className="dpi-slot-index"
                 disabled={disabled}
-                title={isActive ? "Active stage" : "Make this the active stage"}
+                title={isActive ? t(locale, "dpi.activeStage") : t(locale, "dpi.makeActive")}
                 aria-pressed={isActive}
                 onClick={() => control.applyActiveDpiStage(index)}
               >
@@ -216,7 +219,7 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
               </button>
               <input
                 type="number"
-                aria-label={`Stage ${index + 1} DPI`}
+                aria-label={tp(locale, "dpi.stageDpi", { n: index + 1 })}
                 min={editor.minDpi}
                 max={editor.maxDpi}
                 step={editor.stepDpi}
@@ -228,7 +231,7 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
               {status.dpiStageColors ? (
                 <input
                   type="color"
-                  aria-label={`Stage ${index + 1} color`}
+                  aria-label={tp(locale, "dpi.stageColor", { n: index + 1 })}
                   value={status.dpiStageColors[index] ?? "#000000"}
                   disabled={disabled}
                   onChange={(event) => control.applyDpiStageColor(index, event.currentTarget.value)}
@@ -240,8 +243,8 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       </div>
       <small id="dpi-stage-note" className="setting-note">
         {countEditable
-          ? `Presets and Custom edit the highlighted stage. ${editor.minDpi.toLocaleString()}–${editor.maxDpi.toLocaleString()} DPI. The DPI button on the mouse cycles through these stages.`
-          : `Presets and Custom edit the highlighted stage. ${editor.minDpi.toLocaleString()}–${editor.maxDpi.toLocaleString()} DPI in steps of ${editor.stepDpi}. The DPI button on the mouse cycles through all ${editor.maxStages} stages.`}
+          ? tp(locale, "dpi.stageNoteCount", { min: editor.minDpi.toLocaleString(), max: editor.maxDpi.toLocaleString() })
+          : tp(locale, "dpi.stageNoteSteps", { min: editor.minDpi.toLocaleString(), max: editor.maxDpi.toLocaleString(), step: editor.stepDpi, total: editor.maxStages })}
       </small>
     </div>
   );
@@ -249,6 +252,7 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 
 function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
+  const locale = snapshot.preferences.locale;
   const [x, setX] = useState(String(status.dpi));
   const [y, setY] = useState(String(status.dpiY ?? status.dpi));
   useEffect(() => {
@@ -261,7 +265,7 @@ function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
     <div id="logitech-axis-controls">
       <div className="axis-grid">
         <label>
-          X axis
+          {t(locale, "dpi.xAxis")}
           <input
             id="logitech-dpi-x"
             type="number"
@@ -273,7 +277,7 @@ function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           />
         </label>
         <label>
-          Y axis
+          {t(locale, "dpi.yAxis")}
           <input
             id="logitech-dpi-y"
             type="number"
@@ -290,7 +294,7 @@ function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           type="button"
           onClick={() => control.applyLogitechAxisDpi(Number(x), Number(y))}
         >
-          Apply
+          {t(locale, "common.apply")}
         </button>
       </div>
     </div>
@@ -300,6 +304,7 @@ function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const deviceStatus = snapshot.deviceStatus;
+  const locale = snapshot.preferences.locale;
   if (!status || !deviceStatus) return null;
   const staged = snapshot.pending.keys.includes("dpi")
     || snapshot.pending.keys.includes("dpi-stage-count")
@@ -330,9 +335,9 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         <div>
           <p>DPI</p>
           <h2>
-            Sensitivity
+            {t(locale, "dpi.sensitivity")}
             {snapshot.editedProfile !== null ? (
-              <span className="setting-scope" id="dpi-scope-badge">{slotsAvailable ? "Per-profile" : "Host"}</span>
+              <span className="setting-scope" id="dpi-scope-badge">{slotsAvailable ? t(locale, "dpi.perProfile") : "Host"}</span>
             ) : null}
           </h2>
         </div>
@@ -342,7 +347,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             type="text"
             inputMode="numeric"
             value={snapshot.settingsPending ? "—" : snapshot.customDpiText}
-            aria-label="DPI value"
+            aria-label={t(locale, "dpi.value")}
             readOnly={!snapshot.customDpiEditing}
             onChange={(event) => control.setCustomDpiText(event.currentTarget.value)}
             onClick={() => {
@@ -366,7 +371,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             disabled={snapshot.settingsPending || snapshot.dpiOptions.length === 0}
             onClick={() => (snapshot.customDpiEditing ? control.commitCustomDpi() : control.startCustomDpi())}
           >
-            {snapshot.customDpiEditing ? "Apply" : "Custom"}
+            {snapshot.customDpiEditing ? t(locale, "common.apply") : t(locale, "common.custom")}
           </button>
         </div>
       </div>
@@ -375,7 +380,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         <Segmented
           id="dpi-presets"
           className="dpi-presets"
-          ariaLabel="Common DPI values"
+          ariaLabel={t(locale, "dpi.presets")}
           options={values.map((dpi) => ({ value: dpi, label: dpi.toLocaleString() }))}
           value={status.dpi}
           disabled={snapshot.settingsPending}
@@ -389,7 +394,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
       <div className="setting-action">
         <span id="dpi-pending">
-          {staged ? `Staged ${label(status)}` : `Current ${label(deviceStatus)}`}
+          {staged ? tp(locale, "common.staged", { v: label(status) }) : tp(locale, "common.current", { v: label(deviceStatus) })}
         </span>
       </div>
     </article>
