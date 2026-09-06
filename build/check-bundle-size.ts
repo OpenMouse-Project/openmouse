@@ -39,7 +39,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
   // Raised to 790 kB for the MCHOSE A7 V2 mouse and MagDock driver support:
   // the measured aggregate is 779.1 kB, leaving ~11 kB of headroom.
-  ".js": 790_000,
+  // Raised to 800 kB for the ATK ZERO driver (AtkCards.tsx, device/atk.ts)
+  // and the mouse-reported lift-off range plumbing: the measured aggregate is
+  // 790.6 kB, leaving ~9 kB of headroom.
+  ".js": 800_000,
 };
 
 const ASSETS = join("dist", "assets");
