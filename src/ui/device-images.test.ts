@@ -32,6 +32,10 @@ test("PRO X 2 Superstrike uses its own artwork over USB and shared receivers", (
   assert.equal(deviceImage(null, "Logitech PRO X2 SUPERSTRIKE"), CDN + "logitech-pro-x2-superstrike.png");
 });
 
+test("Razer Orochi V2 uses its own render over its Atheris receiver", () => {
+  assert.equal(deviceImage({ vendorId: 0x1532, productId: 0x0094 } as HIDDevice), CDN + "razer-orochi-v2.png");
+});
+
 test("fixture previews resolve product art without a HID device", () => {
   assert.equal(deviceImage(null, "CRDRAKO KO-ONE"), CDN + "crdrako-ko-one.png");
   assert.equal(deviceImage(null, "Zaunkoenig M3K"), CDN + "zaunkoenig-m3k.png");
@@ -94,13 +98,19 @@ test("G402 / G303 / G403 / G903 resolve by PID and name", () => {
   assert.equal(deviceImage(null, "G903 HERO"), CDN + "logitech-g903.png");
 });
 
-test("G Pro family uses the classic shell; G Pro 2 gets its own render", () => {
+test("G Pro family uses the classic shell; G Pro Wireless and G Pro 2 get their own renders", () => {
   assert.equal(deviceImage(dev(0x046d, 0xc085)), CDN + "logitech-g-pro.png"); // G Pro (2017)
   assert.equal(deviceImage(dev(0x046d, 0xc08c)), CDN + "logitech-g-pro.png"); // G Pro Hero
-  assert.equal(deviceImage(null, "G Pro Wireless Gaming Mouse"), CDN + "logitech-g-pro.png");
+  // G Pro Wireless shares its Lightspeed receiver PID (0xc539) with other
+  // models (e.g. G703), so it can only be resolved by its reported name.
+  assert.equal(deviceImage(null, "G Pro Wireless Gaming Mouse"), CDN + "logitech-gpro-wireless.png");
   assert.equal(deviceImage(null, "G Pro 2 Lightspeed"), CDN + "logitech-g-pro-2.png");
   // The Superlight must keep its own render, not the classic G Pro shell.
   assert.equal(deviceImage(null, "G Pro X Superlight"), CDN + "logitech-pro-x-superlight-2c.png");
+  // The original Superlight (PID 0xc094) reports its own HID++ device name as
+  // "PRO X Wireless", not "Superlight", so it needs a direct PID match rather
+  // than the name-based fallback above — confirmed against real hardware.
+  assert.equal(deviceImage(dev(0x046d, 0xc094), "PRO X Wireless"), CDN + "logitech-pro-x-superlight-2c.png");
 });
 
 test("G305/G304 and G309 use their own renders by name", () => {
@@ -191,4 +201,20 @@ test("test-needed and unsupported models are not given new artwork", () => {
   assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "VGN Dragonfly R1 Pro"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Razer Viper 8KHz"), CDN + "unknown-device.png");
+});
+
+test("a mouse behind a shared WLMouse receiver resolves by name", () => {
+  // 0xa882 is the 1K receiver's own id; the model comes from the driver's name.
+  const receiver = { vendorId: 0x36a7, productId: 0xa882 } as HIDDevice;
+  assert.equal(deviceImage(receiver, "WLmouse Beast Max"), CDN + "wlmouse-beast-max.png");
+  assert.equal(deviceImage(receiver, "WLmouse Beast G"), CDN + "wlmouse-beast-g.png");
+  assert.equal(deviceImage(receiver, "WLmouse Beast Mini"), CDN + "unknown-device.png");
+});
+
+test("K-snake X11 wired and dongle share the same artwork", () => {
+  const wired = { vendorId: 0xa8a4, productId: 0x2255 } as HIDDevice;
+  const dongle = { vendorId: 0xa8a5, productId: 0x2255 } as HIDDevice;
+  assert.equal(deviceImage(wired), CDN + "ksnake-x11.png");
+  assert.equal(deviceImage(dongle), CDN + "ksnake-x11.png");
+  assert.equal(deviceImage(null, "K-snake X11"), CDN + "ksnake-x11.png");
 });

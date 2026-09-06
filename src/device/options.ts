@@ -1,4 +1,6 @@
 export function sleepLabel(seconds: number): string {
+  // Drivers whose firmware treats zero as "no auto-sleep" offer it as an option.
+  if (seconds === 0) return "Never";
   if (seconds < 60) return `${seconds} seconds`;
   if (seconds % 3600 === 0) {
     const hours = seconds / 3600;

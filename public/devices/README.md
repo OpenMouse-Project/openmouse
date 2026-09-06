@@ -91,6 +91,11 @@ asset (`dl.razerzone.com/src/6048-1-en-v10.png`). Ideally replace it with a
 higher-resolution image if one is found. Confirm redistribution terms before
 including it in a public release package.
 
+`razer-orochi-v2.png` was supplied from Razer's own product-image CDN
+(`dl.razerzone.com/src/OrochiV2-1-en-v1.png`), keyed out of its white
+backdrop and downscaled onto a transparent canvas. Confirm redistribution
+terms before including it in a public release package.
+
 `teevolution-terra-pro.png` was supplied from Teevolution's Terra PRO Shopify
 CDN product render. Confirm redistribution terms before including it in a
 public release package.
@@ -160,3 +165,11 @@ package:
 - `lamzu-maya-x.png` — Lamzu Maya X render
 - `atk-f1-v2-ultra-max.png` — ATK F1 V2 Ultra Max render
 - `finalmouse-ulx.png` — Finalmouse Starlight-12 / ULX low-profile shape render
+- `mchose-a7-v2.png` — MCHOSE A7 V2 render, from MCHOSE's own M HUB configurator
+  (`https://cdn.mchose.com.cn/configCenter/assets/img/mouse/A7V2Pro_white.png`).
+  MCHOSE only publishes `A7V2Pro_*` renders and the Pro / Pro+ / Ultra / Ultra+
+  are one shell, so this single image covers the whole A7 V2 family. **Needs a
+  maintainer upload** — the mapping in `src/ui/device-images.ts` is already in
+  place and falls back to the placeholder until then. Not yet cleared for
+  licensing: it is vendor product art, so treat it as a request rather than an
+  approved asset.

@@ -267,8 +267,11 @@
 #dpi-stages { margin-top: .65rem; }
 .dpi-stage-list .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) }
 .dpi-stage-list .dpi-slot-head { grid-template-columns:1.7rem minmax(0,1fr) }
+.dpi-stage-list.has-colors .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) 3rem }
+.dpi-stage-list input[type="color"] { width:100%;height:1.8rem;padding:.15rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-raised) }
 @media (max-width:640px) {
   .dpi-stage-list .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) }
+  .dpi-stage-list.has-colors .dpi-slot-row { grid-template-columns:1.7rem minmax(0,1fr) 3rem }
 }
 
 /* `.segmented` and friends set display, which outranks the user-agent

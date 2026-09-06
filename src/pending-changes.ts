@@ -15,6 +15,8 @@ export interface PendingChange {
   command: string;
   // Live-status copy shown while this change is being written.
   progress: string;
+  // Lower priorities flash first when one setting must establish storage used by another.
+  priority?: number;
   // Mirrors the staged value onto a status snapshot so the UI can render it.
   // Omitted when the setting is not part of MouseStatus (a Logitech onboard
   // profile value, say); such a change renders itself and cannot be compared
@@ -71,7 +73,7 @@ export function pendingChangeBatches(): PendingChange[][] {
     byGroup.set(change.group, batch);
     batches.push(batch);
   }
-  return batches;
+  return batches.sort((left, right) => (left[0]?.priority ?? 0) - (right[0]?.priority ?? 0));
 }
 
 export function pendingChangeCount(): number {

@@ -13,6 +13,9 @@
 //                PID/interface has not been confirmed on hardware.
 //   driver     — no driver exists; the protocol is not implemented.
 //   unknown    — nothing is known about the protocol.
+//   bridge     — a driver exists but the device's settings channel is out of
+//                WebHID reach; configuration requires the OpenMouse Bridge
+//                desktop companion (native control).
 //   pending    — a live community request from the support catalog. Not part
 //                of the static table; `src/supported-live.ts` adds these at
 //                runtime.
@@ -22,7 +25,7 @@
 // from the code again. `src/supported-live.ts` additionally overlays live
 // request counts and registry-listed supported models at runtime.
 
-export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "pending";
+export type Status = "supported" | "pr" | "quickwin" | "likely" | "driver" | "unknown" | "bridge" | "pending";
 
 export interface Mouse {
   brand: string;
@@ -43,7 +46,8 @@ export const STATUS: Record<Status, { label: string; order: number }> = {
   likely:    { label: "Test Needed",   order: 3 },
   driver:    { label: "Driver Needed", order: 4 },
   unknown:   { label: "Unknown",       order: 5 },
-  pending:   { label: "Requested",     order: 6 },
+  bridge:    { label: "Needs Bridge",  order: 6 },
+  pending:   { label: "Requested",     order: 7 },
 };
 
 export const TABS: Array<{ key: Status | "all"; label: string }> = [
@@ -54,6 +58,7 @@ export const TABS: Array<{ key: Status | "all"; label: string }> = [
   { key: "likely",    label: "Test Needed" },
   { key: "driver",    label: "Driver Needed" },
   { key: "unknown",   label: "Unknown" },
+  { key: "bridge",    label: "Needs Bridge" },
   { key: "pending",   label: "Requested" },
 ];
 
@@ -189,41 +194,41 @@ export const MICE: Mouse[] = [
     note: "Redragon HID protocol — not implemented" },
 
   // ATTACK SHARK ────────────────────────────────────────────────────────
-  { brand: "Attack Shark", model: "X3",                 status: "likely",    req: 15,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11",                status: "likely",    req: 10,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
+  { brand: "Attack Shark", model: "X3",                 status: "bridge",    req: 15,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11",                status: "bridge",    req: 10,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
   { brand: "Attack Shark", model: "R5 Ultra",           status: "supported", req: 7,
     pids: [0x0046, 0x0047],
     note: "PIDs 0x0046/0x0047 in the CompX/Lamzu driver (R5 Ultra profile)" },
-  { brand: "Attack Shark", model: "X6",                 status: "likely",    req: 5,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "R3",                 status: "likely",    req: 4,
-    note: "Driver implemented (0x373e family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R1",                 status: "likely",    req: 3,
-    note: "Driver implemented (0x1d57 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 Ultra",           status: "likely",    req: 3,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 SE",              status: "likely",    req: 2,
-    note: "0x1d57 VID, GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X1",                 status: "likely",    req: 2,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "V3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X3 Pro",             status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X11 SE",             status: "likely",    req: 1,
-    note: "Driver implemented (0x1d57 / 0x25a7 families) — needs hardware test" },
-  { brand: "Attack Shark", model: "X8 PLUS",            status: "likely",    req: 1,
-    note: "0x25a7 GearHub protocol — needs hardware test" },
-  { brand: "Attack Shark", model: "X12",                status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R6",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "G3",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
-  { brand: "Attack Shark", model: "R2",                 status: "likely",    req: 1,
-    note: "Driver implemented (0x25a7 family) — needs hardware test" },
+  { brand: "Attack Shark", model: "X6",                 status: "bridge",    req: 5,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "R3",                 status: "bridge",    req: 4,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x373e family)" },
+  { brand: "Attack Shark", model: "R1",                 status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 family)" },
+  { brand: "Attack Shark", model: "X8 Ultra",           status: "bridge",    req: 3,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X8 SE",              status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 VID, GearHub protocol)" },
+  { brand: "Attack Shark", model: "X1",                 status: "bridge",    req: 2,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "V3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X3 Pro",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X11 SE",             status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x1d57 / 0x25a7 families)" },
+  { brand: "Attack Shark", model: "X8 PLUS",            status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 GearHub protocol)" },
+  { brand: "Attack Shark", model: "X12",                status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R6",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "G3",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R2",                 status: "bridge",    req: 1,
+    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
 
   // RAZER ───────────────────────────────────────────────────────────────
   { brand: "Razer", model: "DeathAdder V3 (wired)",     status: "supported", req: 9,
@@ -416,9 +421,9 @@ export const MICE: Mouse[] = [
     note: "ATK vendor (0x373b, usagePage 0xff02) covered" },
   { brand: "ATK", model: "VXE Dragonfly R1 Pro",        status: "likely",    req: 3,
     note: "VGN F2 driver (0xfb56/0xfb57) covers Dragonfly F2; R1 Pro needs test" },
-  { brand: "ATK", model: "VXE Dragonfly R1 SE / SE+",   status: "likely",    req: 3,
-    pids: [0x1085],
-    note: "Beken R1 on its stock 1K dongle (0x373b:0x1085). Poll rate now reads/writes the 0x0070 live-settings row per OpenVXE; debounce/angle on this family remain unverified" },
+  { brand: "VXE", model: "R1 SE+ (wired)",              status: "supported", req: 3,
+    pids: [0xf58f],
+    note: "Wired 0x3554:0xf58f identity, status reads, and DPI writes verified through Chromium WebHID. Driver supports PAW3395SE DPI, polling, LOD, debounce, motion sync, ripple control, sleep timeout, angle snapping, battery, and firmware; receiver mode remains unverified" },
   { brand: "ATK", model: "X1 V2 Ultimate",              status: "likely",    req: 1,
     note: "ATK driver (0x373b) likely covers — needs hardware test" },
   { brand: "ATK", model: "A9 Air",                      status: "likely",    req: 1,
@@ -548,6 +553,8 @@ export const MICE: Mouse[] = [
     note: "CM protocol — not implemented" },
   { brand: "Cooler Master", model: "MM711",             status: "driver",    req: 1,
     note: "CM protocol — not implemented" },
+  { brand: "K-snake",     model: "X11",               status: "driver",    req: 1,
+    note: "VID 0xA8A4 (USB) / 0xA8A5 (2.4G) PID 0x2255 — 0x55-framed output-report protocol, vendor panel reverse-engineered, driver in progress in mouse-protocol" },
 
   // UNKNOWNS ────────────────────────────────────────────────────────────
   { brand: "Hitscan",       model: "Hyperlight",        status: "unknown",   req: 5,
@@ -558,6 +565,18 @@ export const MICE: Mouse[] = [
     note: "Protocol unknown" },
   { brand: "Furycube",      model: "G11",               status: "unknown",   req: 5,
     note: "Protocol unknown" },
+  { brand: "Mchose",        model: "A7 V2 Ultra+",      status: "supported", req: 0,
+    pids: [0x4021, 0x100b],
+    note: "Confirmed on hardware over both the 2.4 GHz receiver and the cable — model, firmware, battery and charge state, DPI stages and values, stage count, polling, lift-off, motion sync, ripple, angle snapping, angle tuning, performance mode, debounce, sleep, 3 named profiles and button remapping all round-tripped" },
+  { brand: "Mchose",        model: "MagDock (charging base)", status: "supported", req: 0,
+    pids: [0x1012],
+    note: "The A7 V2 base, not a mouse -- RGB read and write confirmed on hardware; the mice themselves have no LEDs" },
+  { brand: "Mchose",        model: "A7 V2 Ultra",       status: "likely",    req: 0,
+    note: "Same driver and protocol as the Ultra+; not confirmed on hardware" },
+  { brand: "Mchose",        model: "A7 V2 Pro+",        status: "likely",    req: 0,
+    note: "Same driver and protocol as the Ultra+; not confirmed on hardware" },
+  { brand: "Mchose",        model: "A7 V2 Pro",         status: "likely",    req: 0,
+    note: "Same driver and protocol as the Ultra+; not confirmed on hardware" },
   { brand: "Mchose",        model: "K7 Ultra",          status: "unknown",   req: 5,
     note: "Protocol unknown" },
   { brand: "Mchose",        model: "L7 Ultra+",         status: "unknown",   req: 3,
