@@ -892,9 +892,10 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
   .control-shell.is-empty .empty-state > p:not(.overline) { margin-top: 1rem; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
-}
+/* NOTE: no global prefers-reduced-motion override here on purpose. The
+   site setting (.reduce-interface-motion above) is the single source of
+   truth and it is initialized from the OS preference, so an explicit
+   "Enable animations" choice is never overridden by the OS. */
 
 /* Monochrome workspace — selected from the concept-18 exploration. */
 body { height: 100vh; overflow: hidden; }
@@ -2409,10 +2410,8 @@ body { height: 100vh; overflow: hidden; }
   from { max-height: 5rem; opacity: 1; }
   to { max-height: 0; padding-block: 0; opacity: 0; transform: translateY(-.2rem); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .toast { animation: none; }
-  .toast.is-leaving { animation-duration: .01s; }
-}
+.reduce-interface-motion .toast { animation: none; }
+.reduce-interface-motion .toast.is-leaving { animation-duration: .01s; }
 
 .control-shell[data-interface-theme="liquid-glass"] .toast-stack {
   border-color: var(--glass-border-elevated);

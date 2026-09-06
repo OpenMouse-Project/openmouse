@@ -220,12 +220,12 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
 
         <SwitchCard
           overline="MOTION"
-          title="Animation"
-          blurb="Disable interface transitions and animated state changes."
-          label="Reduce motion"
+          title="Animations"
+          blurb="Enable interface transitions and animated state changes."
+          label="Enable animations"
           id="interface-reduced-motion"
-          checked={preferences.reducedMotion}
-          onChange={set("reducedMotion")}
+          checked={!preferences.reducedMotion}
+          onChange={(next) => set("reducedMotion")(!next)}
         />
         <SwitchCard
           overline="WRITES"
