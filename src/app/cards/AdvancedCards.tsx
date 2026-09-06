@@ -318,6 +318,24 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         </div>
       ) : null}
 
+      {status.sensorMode != null && !traits.teevolution ? (
+        <div id="sensor-mode-row" className="field-label spaced">
+          <span>Sensor sampling mode</span>
+          <select
+            id="sensor-mode"
+            value={status.sensorMode}
+            disabled={status.sensorModeEditable === false}
+            onChange={(event) => control.applySensorMode(
+              event.currentTarget.value as NonNullable<typeof status.sensorMode>,
+            )}
+          >
+            {(["Eco", "High", "Ultra"] as const).map((mode) => (
+              <option key={mode} value={mode}>{mode}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       <SwitchRow
         id="motion-sync-toggle"
         label="Motion Sync"
