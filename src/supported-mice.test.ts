@@ -8,6 +8,7 @@ import { BITMOUSE_PRODUCT_IDS } from "@openmouse/protocol/bitmouse";
 import { EGG_DEVICE_PROFILES } from "@openmouse/protocol/endgame-gear-op1";
 import { KEYCHRON_NAPE_PRODUCTS } from "@openmouse/protocol/keychron";
 import { LAMZU_PRODUCTS } from "@openmouse/protocol/lamzu";
+import { MICROSOFT_PRODUCTS } from "@openmouse/protocol/microsoft";
 import {
   LOGITECH_BOLT_PRODUCT_IDS,
   LOGITECH_DIRECT_PRODUCT_IDS,
@@ -151,6 +152,7 @@ const PID_UNIVERSE = new Set<number>([
   MCHOSE_DOCK_PRODUCT_ID,
   ...GLORIOUS_PRODUCTS.keys(),
   ...GLORIOUS_CLASSIC_PRODUCTS.keys(),
+  ...MICROSOFT_PRODUCTS,
 ]);
 test("every pinned PID on a coverage claim exists in the protocol registry", () => {
   const withPids: Array<Mouse & { pids: readonly number[] }> = MICE.filter(
