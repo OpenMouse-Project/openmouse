@@ -373,6 +373,45 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 }
 .tag-tip[hidden] { display: none; }
 
+/* ── Tag legend ──────────────────────────────────────────────────────────── */
+.tag-legend {
+  margin: 0.75rem 0;
+  border: 1px solid var(--bg-border);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  padding: 0.1rem 0.9rem;
+}
+.tag-legend summary {
+  cursor: pointer;
+  padding: 0.55rem 0;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  list-style: none;
+}
+.tag-legend summary::-webkit-details-marker { display: none; }
+.tag-legend summary::before { content: "▸ "; }
+.tag-legend[open] summary::before { content: "▾ "; }
+.tag-legend-list {
+  margin: 0;
+  padding: 0 0 0.75rem;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.35rem 1.25rem;
+}
+.tag-legend-list li {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.tag-legend-list .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+}
+
 /* ── Device list ─────────────────────────────────────────────────────────── */
 .main-content { padding: 1.25rem 0 4rem; }
 

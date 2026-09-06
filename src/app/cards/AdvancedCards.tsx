@@ -20,6 +20,7 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
+import { isPulsarProProtocol } from "../../device/traits";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
 import type { ControlSnapshot } from "../../device/types";
 import { Collapsible, Segmented, SwitchRow } from "../ui";
@@ -273,6 +274,8 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 
   // WLMouse calls the same sensor setting High-speed mode in its own tool.
   const hyperLabel = status.brand === "WLMouse" ? "High-speed mode" : "Hyper mode";
+  // Pulsar Pro shows the angle with the rest of its Pro-only settings.
+  const angleTuning = isPulsarProProtocol(status) ? null : status.angleTuning;
 
   return (
     <article id="processing-settings" className="setting-card">
@@ -359,6 +362,20 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         hidden={status.longRangeMode == null}
         onChange={(next) => control.applyPulsarToggle("longRangeMode", next)}
       />
+      {angleTuning != null ? (
+        <label className="field-label spaced">
+          Angle tune
+          <select
+            id="angle-tune-select"
+            value={angleTuning}
+            onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
+          >
+            {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
+              <option key={angle} value={angle}>{angle}°</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {traits.teevolution && teevolutionProfile ? (
         <label id="teevolution-performance-duration-row" className="field-label spaced">

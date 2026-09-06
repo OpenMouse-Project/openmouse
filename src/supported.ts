@@ -189,6 +189,14 @@ app.innerHTML = `
       <div class="result-count" id="result-count"></div>
     </div>
 
+    <details class="tag-legend" open>
+      <summary>What do the tags mean?</summary>
+      <ul class="tag-legend-list">
+        ${STATUS_LEGEND.map(([key, tip]) => `
+          <li><span class="dot" style="background:${STATUS_DOT[key]}"></span><strong>${STATUS[key].label}</strong> — ${tip}</li>`).join("")}
+      </ul>
+    </details>
+
     <main class="main-content">
       <div id="device-list"></div>
     </main>

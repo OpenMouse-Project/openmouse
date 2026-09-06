@@ -3141,6 +3141,26 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
   });
 }
 
+/**
+ * Sensor angle in degrees. Pulsar Pro reaches the same setting through
+ * `applyProSetting`, which also carries settings only that protocol has.
+ */
+export function applyAngleTuning(degrees: number): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "angle-tuning",
+    label: `Angle tune ${degrees}°`,
+    command: `Set the sensor angle to ${degrees}°`,
+    progress: `Setting the sensor angle to ${degrees}°…`,
+    preview: (status) => {
+      status.angleTuning = degrees;
+    },
+    apply: async () => {
+      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
+    },
+  });
+}
+
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
     ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
@@ -3505,20 +3525,6 @@ export function applyPowerMode(mode: string): void {
     preview: (status) => { status.powerMode = mode; },
     apply: async () => {
       await requireClientMethod("setPowerMode", "the performance mode").setPowerMode(mode);
-    },
-  });
-}
-
-/** Set sensor angle tuning on any driver that exposes `setAngleTuning`. */
-export function applyAngleTuning(degrees: number): void {
-  stageChange({
-    key: "angle-tuning",
-    label: `Angle tuning ${degrees}°`,
-    command: "Change the angle tuning",
-    progress: "Changing angle tuning…",
-    preview: (status) => { status.angleTuning = degrees; },
-    apply: async () => {
-      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
     },
   });
 }

@@ -96,6 +96,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || status.hyperMode != null
     || status.turboMode != null
     || status.buttonCombination != null
+    || status.angleTuning != null
     || status.longRangeMode != null
     || status.sensorMode != null || status.performanceDuration != null
   );
