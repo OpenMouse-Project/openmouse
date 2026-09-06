@@ -23,7 +23,7 @@ const STATIC_PRECACHE = [
  */
 const TARGET_PAGES: Record<string, string[]> = {
   app: ["index.html"],
-  landing: ["landing.html", "check.html", "supported.html", "donate.html"],
+  landing: ["landing.html", "check.html", "supported.html", "donate.html", "faq.html"],
 };
 
 export const ROOT_PAGE: Record<string, string> = {

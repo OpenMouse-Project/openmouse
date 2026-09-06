@@ -263,3 +263,50 @@ body {
   height: 13px;
   color: #69d28d;
 }
+
+/* ── FAQ ───────────────────────────────────────────────────────────────── */
+.land-faq {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 8vw, 4rem) 1.5rem clamp(3rem, 6vw, 4.5rem);
+}
+
+.land-faq h1 {
+  margin: 0 0 2rem;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.land-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+}
+
+.land-faq-item {
+  padding: 1.4rem 1.6rem;
+  border: 1px solid color-mix(in srgb, #69d28d 12%, #232527);
+  border-radius: 14px;
+  background: color-mix(in srgb, #14161a 88%, transparent);
+}
+
+.land-faq-item dt {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.land-faq-item dd {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #7a9498;
+}
+
+.land-faq-item dd a {
+  color: #69d28d;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

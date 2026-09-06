@@ -25,6 +25,11 @@ import {
 import { deviceImage } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
+  isVxeR1SePlusReceiver,
+  receiverPairingSucceeded,
+  VXE_R1_SE_PLUS_RECEIVER,
+} from "./atk";
+import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
@@ -90,7 +95,9 @@ import {
   type LogitechHapticPreset,
   type LogitechReprogrammableControl,
 } from "@openmouse/protocol/logitech";
+import { PulsarHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-hid";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
+import { PulsarXs1HidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-xs1-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
 import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
 import {
@@ -117,6 +124,8 @@ import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
+import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -185,11 +194,8 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient] as const;
-const DEDICATED = [
-  ...DM_CLASSES, ...RAZER_CLASSES, ...NEEDS_OPEN,
-  EggOp1HidClient, LogitechHidppClient, OrbitalHidClient, RazerViperV4ProHidClient, FinalmouseHidClient,
-] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient] as const;
+const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
@@ -207,11 +213,9 @@ const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
-/** Pulsar is the fallback: any supported client no dedicated driver claims. */
+/** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
-  active !== null && !isEggWeClient(active) && !DEDICATED.some((cls) => active instanceof cls)
-    ? active as PulsarClient
-    : null;
+  active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
 
 let onboardProfiles: OnboardProfile[] | null = null;
 let buttons: LogitechReprogrammableControl[] | null = null;
@@ -384,6 +388,7 @@ function buildSnapshot(): ControlSnapshot {
     hasActiveDevice: activeDevice !== null,
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
+    atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
     preferences: interfacePreferences,
     sidebarHidden,
     interfaceSettingsOpen,
@@ -523,18 +528,37 @@ function requireClientMethod<K extends string>(
   return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
+/** Read an optional numeric getter off whatever client is connected. */
+function clientNumber(method: string): number | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return typeof value === "number" ? value : null;
+}
+
+/** Read an optional number-list getter off whatever client is connected. */
+function clientNumberList(method: string): number[] | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number") ? value : null;
+}
+
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
   const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
+    // Any client may publish these; the two named drivers are just the ones
+    // that predate the generic lookup below.
     sleepOptions: dm
       ? [...dm.getSleepOptions()]
       : keychron
         ? [...keychron.getSleepOptions()]
-        : null,
-    debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
+        : clientNumberList("getSleepOptions"),
+    debounceMaxMs: dm?.getDebounceMaxMs() ?? clientNumber("getDebounceMaxMs"),
+    debounceOptions: dm && "getDebounceOptions" in dm
+      ? [...dm.getDebounceOptions()]
+      : clientNumberList("getDebounceOptions"),
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
     lowPowerPollingCeiling: razer?.getLowPowerPollingCeiling() ?? null,
@@ -901,6 +925,89 @@ export async function restoreDivertedButtons(): Promise<void> {
     setReadStatus("Buttons restored to hardware control.");
   } catch (error) {
     setReadStatus(error instanceof Error ? error.message : "Unable to restore the buttons.");
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function selectAtkR1Profile(profile: number): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (hasPendingChanges()) {
+    setReadStatus("Apply or discard pending changes before switching configuration banks.");
+    emit();
+    return;
+  }
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Switching to configuration bank ${profile}…`);
+  emit();
+  recordDiagnosticCommand(`Select ATK R1 configuration bank ${profile}`);
+  try {
+    await client.setR1ActiveProfile(profile);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`Configuration bank ${profile} is active.`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, "Unable to select that ATK R1 configuration bank.");
+    setReadStatus(error instanceof Error ? error.message : "Unable to select that configuration bank.");
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function pairAtkR1SePlusReceiver(): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || !isVxeR1SePlusReceiver(activeDevice) || refreshInProgress || settingInProgress) return;
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus("Starting the R1 SE+ receiver pairing window…");
+  emit();
+  recordDiagnosticCommand("Pair ATK R1 SE+ receiver with CID 0x02, MID 0x20");
+  try {
+    const current = await client.readR1ReceiverInfo();
+    if (active !== client || activeDevice !== device) return;
+    if (current.pairingStatus === 1) {
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: current };
+      setReadStatus("The receiver already has an active pairing window. Wait for it to finish, then start R1 SE+ pairing.");
+      pushToast("info", "Pairing already active", "OpenMouse left the existing receiver countdown unchanged.");
+      return;
+    }
+    await client.startR1ReceiverPairing(VXE_R1_SE_PLUS_RECEIVER.cid, VXE_R1_SE_PLUS_RECEIVER.mid);
+    if (active !== client || activeDevice !== device) return;
+    let observedInProgress = false;
+    const deadline = Date.now() + 40_000;
+    while (Date.now() < deadline) {
+      const receiver = await client.readR1ReceiverInfo();
+      if (active !== client || activeDevice !== device) return;
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: receiver };
+      if (receiver.pairingStatus === 1) observedInProgress = true;
+      setReadStatus(receiver.pairingStatus === 1
+        ? `Pairing R1 SE+… ${receiver.pairingSecondsRemaining ?? 0}s remaining.`
+        : observedInProgress ? "Checking the completed pairing…" : "Waiting for the receiver pairing window…");
+      emit();
+      if (receiver.pairingStatus !== 1 && observedInProgress) {
+        if (receiverPairingSucceeded(receiver, observedInProgress)) {
+          setReadStatus("R1 SE+ pairing complete. The mouse is online.");
+          pushToast("success", "Receiver paired", "The R1 SE+ is online through the 1K receiver.");
+          return;
+        }
+        throw new Error(`Pairing ended without an online mouse (status ${receiver.pairingStatus ?? "unknown"}).`);
+      }
+      await wait(500);
+    }
+    throw new Error("The receiver pairing window expired before completion.");
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, "Unable to pair the R1 SE+ receiver.");
+    const message = error instanceof Error ? error.message : "Unable to pair the R1 SE+ receiver.";
+    setReadStatus(message);
+    pushToast("error", "Pairing failed", message);
   } finally {
     settingInProgress = false;
     emit();
@@ -1830,8 +1937,17 @@ export function applyDpiStageCount(count: number): void {
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
+  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
+  if (count < currentCount) {
+    for (const change of pendingChanges()) {
+      const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
+      if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+    }
+    dropPendingChange("dpi-active-stage");
+  }
   stageChange({
     key: "dpi-stage-count",
+    priority: count > currentCount ? -1 : count < currentCount ? 1 : 0,
     label: `${count} DPI stage${count === 1 ? "" : "s"}`,
     command: `Set DPI stage count to ${count}`,
     progress: `Setting ${count} DPI stages…`,
@@ -1842,6 +1958,11 @@ export function applyDpiStageCount(count: number): void {
         const padded = current.slice();
         while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
         status.dpiStages = padded;
+      }
+      if (status.dpiStageColors) {
+        const colors = status.dpiStageColors.slice(0, count);
+        while (colors.length < count) colors.push(colors.at(-1) ?? "#000000");
+        status.dpiStageColors = colors;
       }
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
@@ -1900,6 +2021,28 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
     },
     apply: async () => {
       await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+    },
+  });
+}
+
+export function applyDpiStageColor(stage: number, color: string): void {
+  if (!hasActiveClient() || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  const colors = latestDeviceStatus ? withPendingChanges(latestDeviceStatus).dpiStageColors : undefined;
+  if (!colors || !Number.isInteger(stage) || stage < 0 || stage >= colors.length) return;
+  const normalized = color.toLowerCase();
+  stageChange({
+    key: `dpi-stage-color-${stage}`,
+    label: `Stage ${stage + 1} color ${normalized}`,
+    command: `Set DPI stage ${stage + 1} color to ${normalized}`,
+    progress: `Setting stage ${stage + 1} color…`,
+    preview: (status) => {
+      const next = status.dpiStageColors?.slice() ?? [];
+      while (next.length <= stage) next.push("#000000");
+      next[stage] = normalized;
+      status.dpiStageColors = next;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageColor", "the DPI stage color").setDpiStageColor(stage, normalized);
     },
   });
 }
@@ -2966,7 +3109,9 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: teevolutionClient() ? "highest performance" : "performance mode",
     hyperMode: "Hyper mode",
-    longRangeMode: "Ultra Long Range",
+    turboMode: "turbo mode",
+    buttonCombination: "button combinations",
+    longRangeMode: "ultra long range",
   } as const)[setting];
 }
 
@@ -2976,6 +3121,8 @@ const PULSAR_TOGGLE_METHOD: Record<PulsarToggleSetting, string> = {
   rippleControl: "setRippleControl",
   performanceMode: "setPerformanceMode",
   hyperMode: "setHyperMode",
+  turboMode: "setTurboMode",
+  buttonCombination: "setButtonCombination",
   longRangeMode: "setLongRangeMode",
 };
 
@@ -2992,6 +3139,26 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
       status[setting] = enabled;
     },
     apply: () => callClientMethod(method, label, enabled),
+  });
+}
+
+/**
+ * Sensor angle in degrees. Pulsar Pro reaches the same setting through
+ * `applyProSetting`, which also carries settings only that protocol has.
+ */
+export function applyAngleTuning(degrees: number): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "angle-tuning",
+    label: `Angle tune ${degrees}°`,
+    command: `Set the sensor angle to ${degrees}°`,
+    progress: `Setting the sensor angle to ${degrees}°…`,
+    preview: (status) => {
+      status.angleTuning = degrees;
+    },
+    apply: async () => {
+      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
+    },
   });
 }
 
@@ -3229,12 +3396,12 @@ export function applyTeevolutionPerformanceDuration(duration: number): void {
 const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
 
 async function writeStagedTeevolutionDpiLighting(): Promise<void> {
-  const client = teevolutionClient();
+  const client = activeSettingsClient();
   if (!client || !latestDeviceStatus) {
-    throw new Error("The Teevolution mouse is no longer connected.");
+    throw new Error("The mouse is no longer connected.");
   }
   const status = withPendingChanges(latestDeviceStatus);
-  await client.setDpiLighting(
+  await requireClientMethod("setDpiLighting", "DPI lighting").setDpiLighting(
     status.dpiLedMode ?? 0,
     status.dpiLedBrightness ?? 5,
     status.dpiLedSpeed ?? 3,
@@ -3242,7 +3409,7 @@ async function writeStagedTeevolutionDpiLighting(): Promise<void> {
 }
 
 export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
-  if (!teevolutionClient()) return;
+  if (!hasActiveClient()) return;
   const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
   const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
   stageChange({
@@ -3388,6 +3555,70 @@ export function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButton
       if (status.eggButtonMappings) status.eggButtonMappings[button] = mapping;
     },
     change: async (client) => client.setButtonMapping(button, mapping),
+  });
+}
+
+/**
+ * Select a named power/performance mode on any driver that exposes
+ * `setPowerMode`.
+ */
+export function applyPowerMode(mode: string): void {
+  stageChange({
+    key: "power-mode",
+    label: mode,
+    command: "Change the performance mode",
+    progress: "Changing mode…",
+    preview: (status) => { status.powerMode = mode; },
+    apply: async () => {
+      await requireClientMethod("setPowerMode", "the performance mode").setPowerMode(mode);
+    },
+  });
+}
+
+/**
+ * Reassign a physical button on any driver that exposes `setButtonMapping`.
+ * Named for the device-level map to keep it distinct from `applyButtonMapping`
+ * above, which reassigns a Logitech control by id.
+ */
+export function applyDeviceButtonMapping(button: string, action: string): void {
+  stageChange({
+    key: `button-${button}`,
+    label: `${button}: ${action}`,
+    command: `Remap the ${button} button`,
+    progress: "Remapping…",
+    preview: (status) => {
+      if (status.buttonMappings) {
+        status.buttonMappings = { ...status.buttonMappings, [button]: action };
+      }
+    },
+    apply: async () => {
+      // Endgame's client also has a setButtonMapping, with its own parameter
+      // types, so the extracted union narrows the arguments to `never`. The
+      // cast keeps this path device-agnostic; requireClientMethod has already
+      // established the method exists.
+      const client = requireClientMethod("setButtonMapping", "button assignments") as unknown as {
+        setButtonMapping(button: string, action: string): Promise<unknown>;
+      };
+      await client.setButtonMapping(button, action);
+    },
+  });
+}
+
+/**
+ * Switch a numbered onboard profile on any driver that exposes `setProfile`.
+ * The device's DPI and polling belong to the profile, so the panel re-reads
+ * rather than previewing a value that is about to be replaced wholesale.
+ */
+export function applyProfileSelection(profile: number): void {
+  stageChange({
+    key: "onboard-profile",
+    label: `Profile ${profile}`,
+    command: "Change the active profile",
+    progress: "Switching profile…",
+    preview: (status) => { status.activeProfile = profile; },
+    apply: async () => {
+      await requireClientMethod("setProfile", "the active profile").setProfile(profile);
+    },
   });
 }
 

@@ -3,40 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./landing.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
-import {
-  DiscordIcon,
-  DISCORD_URL,
-  formatCount,
-  GitHubIcon,
-  GITHUB_URL,
-  StarIcon,
-  TwitterIcon,
-  TWITTER_URL,
-  useGitHubStars,
-} from "./app/social-links";
-
-// The control app lives on its own subdomain — dev.openmouse.app is
-// retired, openmouse.app is this marketing page, control.openmouse.app is
-// the actual configurator.
-const APP_URL = "https://control.openmouse.app/";
-
-function Nav(): ReactNode {
-  return (
-    <header className="land-nav">
-      <a className="land-brand" href="/">
-        <img src="/logo.png" alt="" width={22} height={32} />
-        OpenMouse
-      </a>
-      <nav className="land-nav-links">
-        <a href="/supported.html">Supported mice</a>
-        <a href="https://docs.openmouse.app">Contribute</a>
-        <a href="/donate.html">Donate</a>
-        <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-      </nav>
-      <a className="land-nav-cta" href={APP_URL}>Open the app</a>
-    </header>
-  );
-}
+import { APP_URL, SiteFooter, SiteNav } from "./app/site-chrome";
 
 function Hero(): ReactNode {
   return (
@@ -99,46 +66,14 @@ function Contribute(): ReactNode {
   );
 }
 
-function Footer(): ReactNode {
-  const stars = useGitHubStars();
-
-  return (
-    <footer className="land-footer">
-      <a href={DISCORD_URL} target="_blank" rel="noreferrer" title="Discord" aria-label="OpenMouse on Discord">
-        <DiscordIcon />
-      </a>
-      <a href={TWITTER_URL} target="_blank" rel="noreferrer" title="Twitter" aria-label="OpenMouse on Twitter">
-        <TwitterIcon />
-      </a>
-      <a
-        className="land-footer-stars"
-        href={GITHUB_URL}
-        target="_blank"
-        rel="noreferrer"
-        title="GitHub"
-        aria-label="OpenMouse on GitHub"
-      >
-        <GitHubIcon />
-        {stars !== null && (
-          <span className="land-star-count">
-            <StarIcon />
-            {formatCount(stars)}
-          </span>
-        )}
-      </a>
-      <a href="/donate.html">Donate</a>
-    </footer>
-  );
-}
-
 function Landing(): ReactNode {
   return (
     <div className="land-shell">
-      <Nav />
+      <SiteNav />
       <Hero />
       <Features />
       <Contribute />
-      <Footer />
+      <SiteFooter />
     </div>
   );
 }
