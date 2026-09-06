@@ -1422,8 +1422,38 @@ body { height: 100vh; overflow: hidden; }
   pointer-events: none;
   transition: background-position .9s ease;
 }
-.control-shell[data-interface-theme="liquid-glass"] :is(.sidebar, .workspace-tabs, .pending-bar):hover .lg-glass__tint::after {
+.control-shell[data-interface-theme="liquid-glass"] :is(.workspace-tabs, .pending-bar):hover .lg-glass__tint::after {
   background-position: -30% 0;
+}
+/* NOTE: .sidebar is intentionally absent from the hover-sheen selector
+   above. Animating background-position across a near-full-height surface
+   repaints the whole sidebar per frame; tabs and the pending bar are
+   small enough that the sheen travel stays cheap. */
+
+/* ------------------------------------------------------------------
+   Glass intensity at minimum — true early-out. Fading blur radius to 0
+   is NOT enough: a present backdrop-filter (even blur(0px)) still forces
+   a backdrop snapshot, compositing layer, and the url() displacement +
+   saturate passes. The shell gains .is-glass-min from App.tsx when the
+   slider hits 0, and every live filter layer is removed from the tree
+   instead of merely faded. Tint <i> layers stay — they are plain
+   gradients and cost nothing measurable.
+   ------------------------------------------------------------------ */
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .lg-glass__refract,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .lg-glass__specular,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .lg-glass__tint::after,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .workspace-tabs button[aria-selected="true"]::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min :is(.glass-slider-rail, .rate-slider-rail)::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .rate-slider-bubble::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .switch-button::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min :is(.support-dialog, .shortcut-dialog)::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .lod-select-menu::before,
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min .toast-stack::before {
+  display: none;
+}
+.control-shell[data-interface-theme="liquid-glass"].is-glass-min :is(.control-panel, .sidebar) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ------------------------------------------------------------------
@@ -1439,11 +1469,22 @@ body { height: 100vh; overflow: hidden; }
   isolation: isolate;
   overflow: hidden;
   box-shadow: var(--glass-shadow);
-  transition: border-color .25s ease, box-shadow .25s ease;
+  transition: border-color .25s ease;
 }
+/* NOTE: no box-shadow transition here on purpose — interpolating a large
+   blurred shadow repaints the near-full-height sidebar every frame. The
+   hover state below still swaps border-color, which is compositor-cheap. */
 .control-shell[data-interface-theme="liquid-glass"] .sidebar:hover {
   border-color: var(--glass-highlight);
   box-shadow: 0 20px 54px rgb(0 0 0 / .46);
+}
+/* PERF: the sidebar's refraction layer is disabled — a full-height
+   backdrop-filter + SVG displacement map gets re-sampled on every frame
+   while anything behind it changes, and the sidebar backdrop is almost
+   entirely static shell background. The tint + specular layers above keep
+   the glass look for free (plain gradients and inset shadows). */
+.control-shell[data-interface-theme="liquid-glass"] .sidebar .lg-glass__refract {
+  display: none;
 }
 /* A warm golden dusk breathes at the top of the glass, over the refracted
    backdrop, before content paints. */
@@ -1556,11 +1597,13 @@ body { height: 100vh; overflow: hidden; }
 .control-shell[data-interface-theme="liquid-glass"] .workspace-tabs button[aria-selected="true"]::after { display: none; }
 
 /* ------------------------------------------------------------------
-   The whole panel is one continuous sheet of acrylic. Its own box is the
-   visible scrollport, so a single refraction filter on the panel stays in
-   place as content scrolls above it: blur + a wide displacement map sized
-   for the sheet, with a translucent tint on top. The Glass intensity
-   slider drives both; at 0 the sheet is effectively clear glass.
+   The whole panel is one continuous sheet of acrylic — as a *static*
+   material, not a live filter. An earlier revision put a full-sheet
+   backdrop-filter + displacement map here, but the panel is the visible
+   scrollport: every scroll frame re-sampled the entire backdrop and made
+   scrolling jank. The static gradients below keep the champagne-acrylic
+   read for free; live refraction survives only on small floating
+   surfaces (tabs pill, dialogs, menus, toasts, sliders, switches).
    ------------------------------------------------------------------ */
 .control-shell[data-interface-theme="liquid-glass"] .control-panel {
   background:
@@ -1568,10 +1611,8 @@ body { height: 100vh; overflow: hidden; }
     linear-gradient(180deg, rgb(13 17 21 / var(--glass-tint-alpha)), rgb(13 17 21 / calc(var(--glass-tint-alpha) + .12)));
   isolation: isolate;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(.05 * var(--glass-intensity-frac)));
-  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
-  backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-sheet-filter) brightness(calc(1 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--glass-intensity-frac))) url(#lg-sheet-filter) brightness(calc(1 + .15 * var(--glass-intensity-frac))) saturate(var(--glass-saturation));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ------------------------------------------------------------------
