@@ -575,6 +575,40 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .nav-item.is-debug { margin-left: auto; }
 .control-shell .nav-item[aria-current="true"] { background: var(--ui-accent-soft); color: var(--ui-accent); }
 
+/* Globe language picker: globe icon opens an upward popup menu.
+   Plain panel tokens (no backdrop-filter) keep it cheap and legible
+   in every theme. */
+.locale-picker { position: relative; }
+.locale-menu {
+  position: absolute;
+  bottom: calc(100% + .45rem);
+  left: 0;
+  z-index: 50;
+  display: grid;
+  gap: .15rem;
+  min-width: 9.5rem;
+  padding: .3rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-menu);
+  box-shadow: 0 14px 34px rgb(0 0 0 / .5);
+}
+.locale-menu button {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .6rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dim);
+  font-size: .74rem;
+  text-align: left;
+  cursor: pointer;
+}
+.locale-menu button:hover { background: var(--surface-hover); color: var(--text-hover); }
+.locale-menu button.is-selected { color: var(--text-strong); font-weight: 650; }
+
 .support-dialog { width: min(38rem, calc(100vw - 2rem)); max-height: min(46rem, calc(100vh - 2rem)); padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-dialog); color: var(--text-strong); box-shadow: 0 24px 80px rgb(0 0 0 / 45%); }
 .support-dialog::backdrop { background: rgb(0 0 0 / 68%); backdrop-filter: blur(3px); }
 .support-dialog-inner { display: grid; gap: 1rem; padding: 1.25rem; }
