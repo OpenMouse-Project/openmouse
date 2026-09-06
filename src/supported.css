@@ -59,6 +59,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 16px;
+  line-height: 1.6;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 button, input { font: inherit; }
 a { color: inherit; text-decoration: none; }
@@ -68,9 +72,9 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 }
 
 .page-wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 2.5rem;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -115,7 +119,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 .nav-link {
   padding: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--ink-3);
 }
 .nav-link:hover { color: var(--ink); }
@@ -147,7 +151,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .github-link {
   gap: 0.35rem;
   padding: 0 0.65rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1;
 }
 .github-link:hover { color: var(--ink); border-color: var(--ink-3); }
@@ -157,34 +161,34 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .page-head { padding: 3rem 0 1.25rem; }
 
 .page-kicker {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   color: var(--accent);
 }
 
 .page-head h1 {
-  font-size: 2.4rem;
+  font-size: 2.5rem;
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin: 0.6rem 0 0.5rem;
 }
 
 .page-sub {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--ink-2);
   margin: 0;
-  line-height: 1.6;
-  max-width: 40rem;
+  line-height: 1.65;
+  max-width: 44rem;
 }
 
 .page-stats {
   margin: 1rem 0 0;
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--ink-3);
 }
-.page-stats strong { color: var(--ink); font-weight: 500; }
+.page-stats strong { color: var(--ink); font-weight: 600; }
 
 /* ── Toolbar: dropdowns + search + count ────────────────────────────────── */
 .toolbar {
@@ -219,12 +223,12 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 .search-input {
   width: 100%;
-  padding: 0.6rem 0.7rem 0.6rem 2.1rem;
+  padding: 0.65rem 0.8rem 0.65rem 2.3rem;
   border-radius: 9px;
   border: 1px solid var(--bg-border);
   background: var(--bg-surface);
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   outline: none;
 }
 .search-input::placeholder { color: var(--ink-3); }
@@ -232,7 +236,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 .result-count {
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -246,12 +250,12 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   gap: 0.6rem;
   min-width: 11rem;
   max-width: 17rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.8rem;
   border: 1px solid var(--bg-border);
   border-radius: 9px;
   background: var(--bg-surface);
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   cursor: pointer;
 }
 .dd-trigger:hover { border-color: var(--bg-border2); }
@@ -263,7 +267,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 }
 .dd-trigger .pill {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--accent);
   border: 1px solid var(--bg-border2);
   border-radius: 20px;
@@ -293,12 +297,12 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .dd-search { padding: 0.6rem; border-bottom: 1px solid var(--bg-border); }
 .dd-search input {
   width: 100%;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.7rem;
   border: 1px solid var(--bg-border);
   border-radius: 7px;
   background: var(--bg);
   color: var(--ink);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   outline: none;
 }
 .dd-search input:focus { border-color: var(--accent); }
@@ -325,16 +329,16 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .opt .copy { min-width: 0; }
 .opt .copy strong {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.opt .copy small { display: block; margin-top: 0.12rem; font-size: 0.68rem; color: var(--ink-3); }
+.opt .copy small { display: block; margin-top: 0.12rem; font-size: 0.76rem; color: var(--ink-3); }
 .opt .count {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: var(--ink-3);
 }
 
@@ -366,7 +370,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   border-radius: 8px;
   background: var(--bg-surface);
   color: var(--ink-2);
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   line-height: 1.5;
   box-shadow: 0 10px 30px rgb(0 0 0 / 35%);
   pointer-events: none;
@@ -384,7 +388,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .tag-legend summary {
   cursor: pointer;
   padding: 0.55rem 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--ink-3);
   list-style: none;
 }
@@ -400,9 +404,9 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   gap: 0.35rem 1.25rem;
 }
 .tag-legend-list li {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--ink-2);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 .tag-legend-list .dot {
   display: inline-block;
@@ -429,7 +433,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   align-items: baseline;
   gap: 0.6rem;
   padding: 0.85rem 1.1rem;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 600;
   border: none;
   border-bottom: 1px solid var(--bg-border);
@@ -456,14 +460,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .brand-group.collapsed .device-table { display: none; }
 
 .brand-count-total {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 400;
   color: var(--ink-3);
   font-family: -apple-system, "Segoe UI", sans-serif;
 }
 
 .brand-reqs {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 400;
   color: var(--ink-3);
   font-family: "JetBrains Mono", monospace;
@@ -472,7 +476,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .device-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
 }
 
 .device-table th {
@@ -480,7 +484,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   font-weight: 600;
   color: var(--ink-3);
   padding: 0.45rem 1.1rem;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -496,9 +500,9 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 .status-badge {
   display: inline-block;
-  padding: 0.14rem 0.55rem;
+  padding: 0.14rem 0.6rem;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
   border: 1px solid;
@@ -512,13 +516,13 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .status-bridge    { color: var(--st-bridge); border-color: var(--st-bridge); background: color-mix(in srgb, var(--st-bridge) 12%, transparent); }
 .status-pending   { color: var(--st-pending); border-color: var(--st-pending); background: color-mix(in srgb, var(--st-pending) 12%, transparent); }
 
-.device-name { font-weight: 500; }
+.device-name { font-weight: 600; }
 
-.device-note { color: var(--ink-2); font-size: 0.78rem; }
+.device-note { color: var(--ink-2); font-size: 0.86rem; }
 
 .req-count {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--ink-3);
   text-align: right;
   white-space: nowrap;
@@ -526,14 +530,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .req-count.hot { color: var(--red); font-weight: 700; }
 
 .no-results { text-align: center; padding: 3rem 0; }
-.no-results p { color: var(--ink-2); font-size: 0.9rem; margin: 0 0 1rem; }
+.no-results p { color: var(--ink-2); font-size: 1rem; margin: 0 0 1rem; }
 .clear-filters {
   padding: 0.55rem 1rem;
   border-radius: 9px;
   border: 1px solid var(--bg-border2);
   background: var(--bg-surface);
   color: var(--ink);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 .clear-filters:hover { border-color: var(--accent); color: var(--accent); }
@@ -547,7 +551,7 @@ footer {
   justify-content: space-between;
   padding: 1.25rem 0 2.5rem;
   border-top: 1px solid var(--bg-border);
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   color: var(--ink-3);
 }
 .footer-links { display: flex; gap: 1.25rem; flex-wrap: wrap; }
