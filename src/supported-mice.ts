@@ -423,7 +423,7 @@ export const MICE: Mouse[] = [
     note: "VGN F2 driver (0xfb56/0xfb57) covers Dragonfly F2; R1 Pro needs test" },
   { brand: "VXE", model: "R1 SE+ (wired)",              status: "supported", req: 3,
     pids: [0xf58f],
-    note: "Wired 0x3554:0xf58f identity, status reads, and DPI writes verified through Chromium WebHID. Driver supports PAW3395SE DPI, polling, LOD, debounce, motion sync, ripple control, sleep timeout, angle snapping, battery, and firmware; receiver mode remains unverified" },
+    note: "Wired 0x3554:0xf58f identity, settings, profiles, and button inspection verified through Chromium WebHID. Wireless identity and receiver telemetry verified through the 0x3554:0xf58e 1K receiver" },
   { brand: "ATK", model: "X1 V2 Ultimate",              status: "likely",    req: 1,
     note: "ATK driver (0x373b) likely covers — needs hardware test" },
   { brand: "ATK", model: "A9 Air",                      status: "likely",    req: 1,
