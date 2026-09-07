@@ -148,6 +148,27 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .theme-toggle:hover { color: var(--ink); border-color: var(--ink-3); }
 .theme-toggle svg { display: block; width: 14px; height: 14px; }
 
+.page-locale-select {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 1.5rem 0 0.6rem;
+  border: 1px solid var(--bg-border2);
+  border-radius: 8px;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2371717a' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 0.65rem;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.85rem;
+  appearance: none;
+  cursor: pointer;
+}
+.page-locale-select:hover { color: var(--ink); border-color: var(--ink-3); }
+.page-locale-select option { background: var(--bg); color: var(--ink); }
+
 .github-link {
   gap: 0.35rem;
   padding: 0 0.65rem;
