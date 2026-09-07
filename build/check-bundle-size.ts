@@ -57,7 +57,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 1,185 kB for Attack Shark R2 support (GearHub-V5 driver,
   // traits.ts entry, device artwork name-fallback): the measured aggregate
   // is 1,171.4 kB, leaving ~14 kB of headroom.
-  ".js": 1_185_000,
+  // Raised to 1,250 kB for the Russian (ru) interface locale: the new
+  // translation strings push the measured aggregate to 1,232.4 kB.
+  ".js": 1_250_000,
 };
 
 const ASSETS = join("dist", "assets");
