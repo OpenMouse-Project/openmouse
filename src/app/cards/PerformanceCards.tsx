@@ -48,7 +48,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
     <article id="polling-card" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key="polling-rate">
       <div className="setting-heading">
         <div>
-          <div className="polling-title">
+          <div className="title-row">
             <h2>
               {t(locale, "perf.reportFrequency")}
               {snapshot.editedProfile !== null ? (
@@ -209,7 +209,10 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
         <div id="host-lod-row">
           <div className="setting-heading">
             <div>
-              <h2>{t(locale, "perf.liftOff")}</h2>
+              <div className="title-row">
+                <h2>{t(locale, "perf.liftOff")}</h2>
+                <p>SENSOR</p>
+              </div>
               <small id="lod-note" className="setting-note">
                 {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
               </small>

@@ -708,9 +708,9 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 #lod-value { font-family: inherit; font-size: 1.15rem; font-weight: 500; letter-spacing: -.015em; }
 #host-lod-row .setting-heading .setting-note { margin-top: .3rem; }
 /* Overline and title share one baseline row instead of stacking. */
-#polling-card .polling-title { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
-#polling-card .polling-title p { margin: 0; }
-#polling-card .polling-title h2 { font-size: 1.15rem; }
+#polling-card .title-row, #host-lod-row .title-row { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
+#polling-card .title-row p, #host-lod-row .title-row p { margin: 0; }
+#polling-card .title-row h2, #host-lod-row .title-row h2 { font-size: 1.15rem; }
 .setting-note { display: block; margin-top: 1rem; color: var(--text-faint); font-size: .68rem; }
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: var(--faint); font-size: .65rem; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid var(--text); border-radius: 6px; background: var(--text); color: var(--ink); font-size: .65rem; font-weight: 700; }
