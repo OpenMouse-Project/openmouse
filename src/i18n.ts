@@ -74,6 +74,8 @@ const en = {
   "set.french": "Français",
   "set.german": "Deutsch",
   "set.chinese": "中文",
+  "set.japanese": "日本語",
+  "set.korean": "한국어",
   "set.motion": "MOTION",
   "set.animations": "Animations",
   "set.animationsBody": "Enable interface transitions and animated state changes.",
@@ -615,6 +617,8 @@ const en = {
   "page.fr": "FR",
   "page.de": "DE",
   "page.zh": "中文",
+  "page.ja": "日本語",
+  "page.ko": "한국어",
   "off.banner": "You're offline. Anything that needs the network will not update.",
   "land.supported": "Supported mice",
   "land.contribute": "Contribute",
@@ -854,6 +858,8 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
   ["fr", "set.french"],
   ["de", "set.german"],
   ["zh", "set.chinese"],
+  ["ja", "set.japanese"],
+  ["ko", "set.korean"],
 ];
 
 /** Non-English tables load on demand so the initial bundle ships English
@@ -872,6 +878,8 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   fr: () => import("./i18n-fr.ts").then((m) => m.fr),
   de: () => import("./i18n-de.ts").then((m) => m.de),
   zh: () => import("./i18n-zh.ts").then((m) => m.zh),
+  ja: () => import("./i18n-ja.ts").then((m) => m.ja),
+  ko: () => import("./i18n-ko.ts").then((m) => m.ko),
 };
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {
