@@ -226,7 +226,30 @@ function DpiStages({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
                 defaultValue={dpi}
                 key={`stage-${index}-${dpi}`}
                 disabled={disabled}
-                onChange={(event) => control.applyDpiStageValue(index, Number(event.currentTarget.value))}
+                // Commit on blur/Enter, never per keystroke: clearing the
+                // field to type a new value used to apply Number("") = 0 on
+                // the first Backspace, snapping the stage to the minimum
+                // and stealing focus via the key remount mid-typing.
+                onBlur={(event) => {
+                  const raw = event.currentTarget.value.trim();
+                  if (raw === "") {
+                    event.currentTarget.value = String(dpi);
+                    return;
+                  }
+                  const next = Number(raw);
+                  if (Number.isInteger(next) && next !== dpi) control.applyDpiStageValue(index, next);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.currentTarget.value = String(dpi);
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {status.dpiStageColors ? (
                 <input
@@ -320,7 +343,10 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     && !slotsAvailable;
 
   const common = dpiPresetValues(snapshot.dpiOptions);
-  const values = common.includes(status.dpi) ? common : [...common, status.dpi].sort((a, b) => a - b);
+  // Stage-editor mice list every stage below with the active one highlighted
+  // — injecting the current DPI as an extra preset chip only makes it blink
+  // in and out while cycling non-round stages. Keep presets stable there.
+  const values = stagesAvailable || common.includes(status.dpi) ? common : [...common, status.dpi].sort((a, b) => a - b);
 
   const label = (source: typeof status): string => showSeparateDpiAxes
     ? `X ${source.dpi.toLocaleString()} · Y ${(source.dpiY ?? source.dpi).toLocaleString()} DPI`
