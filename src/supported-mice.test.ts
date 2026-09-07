@@ -19,7 +19,12 @@ import {
   NINJUTSO_LEGACY_RECEIVER_PRODUCT_IDS,
   NINJUTSO_RECEIVER_PRODUCT_IDS,
 } from "@openmouse/protocol/ninjutso";
-import { MCHOSE_DOCK_PRODUCT_ID, MCHOSE_LINK_PRODUCT_IDS, MCHOSE_PRODUCTS } from "@openmouse/protocol/mchose";
+import {
+  MCHOSE_A5_GEN1_PRODUCTS,
+  MCHOSE_DOCK_PRODUCT_ID,
+  MCHOSE_LINK_PRODUCT_IDS,
+  MCHOSE_PRODUCTS,
+} from "@openmouse/protocol/mchose";
 import { ORBITAL_DEVICES } from "@openmouse/protocol/orbital";
 import { PULSAR_XS1_PRODUCT_IDS } from "@openmouse/protocol/pulsar";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
@@ -153,6 +158,7 @@ const PID_UNIVERSE = new Set<number>([
   ...MCHOSE_PRODUCTS.map((product) => product.productId),
   ...Object.values(MCHOSE_LINK_PRODUCT_IDS),
   MCHOSE_DOCK_PRODUCT_ID,
+  ...MCHOSE_A5_GEN1_PRODUCTS.keys(),
   ...GLORIOUS_PRODUCTS.keys(),
   ...GLORIOUS_CLASSIC_PRODUCTS.keys(),
   ...MICROSOFT_PRODUCTS,
