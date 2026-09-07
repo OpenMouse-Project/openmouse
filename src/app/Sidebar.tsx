@@ -114,6 +114,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
       <span className="demo-wordmark">
         <img src="/logo.png" alt="" width={181} height={268} />
         OpenMouse
+        <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
         <span className="brand-links">
           <a href="https://discord.gg/yxC9jzMdw6" target="_blank" rel="noreferrer" title="Discord" aria-label="OpenMouse on Discord">
             <DiscordIcon />
@@ -263,7 +264,6 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           <NavIcon path={DEBUG_PATH} />
         </a>
       </nav>
-      <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
     </aside>
   );
 }

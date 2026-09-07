@@ -540,6 +540,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .demo-wordmark img { width: auto; height: 1.5rem; }
 .sidebar > .build-badge { margin-top: auto; }
 .build-badge { color: var(--ghost); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em; white-space: nowrap; }
+.demo-wordmark .build-badge { margin-left: .15rem; padding: .12rem .45rem; border: 1px solid var(--border-soft); border-radius: 1rem; background: var(--surface-raised); font-size: .56rem; }
 .brand-links { display: flex; align-items: center; gap: .7rem; margin-left: auto; }
 .brand-links a { display: flex; color: var(--text-faint); transition: color .18s ease; }
 .brand-links a:hover { color: var(--ui-accent); }
@@ -1033,7 +1034,7 @@ body { height: 100vh; overflow: hidden; }
 .nav-item { width: 1.8rem; height: 1.8rem; border-radius: 5px; }
 .nav-item.has-label { width: auto; padding: 0 .5rem; font-size: .68rem; }
 .nav-item svg { width: .95rem; height: .95rem; }
-.build-badge { margin-top: .6rem !important; font-size: .52rem; }
+.sidebar > .build-badge { margin-top: .6rem !important; font-size: .52rem; }
 
 .control-shell .control-panel {
   display: flex;
