@@ -23,8 +23,12 @@ npm run check
 ### Linux WebHID permissions
 
 If a device appears in Chromium's picker but OpenMouse reports `Failed to open
-the device`, check the permissions on its `/dev/hidraw*` nodes. Linux does not
-grant user access to every HID device by default.
+the device`, or connects and then reports a command timeout (for example
+`got no answer, the mouse may be asleep or out of range`), check the
+permissions on its `/dev/hidraw*` nodes. Linux does not grant user access to
+every HID device by default — Chromium can still open and pick the device off
+one accessible collection, but every read/write past that hangs until the
+driver's retries run out.
 
 First inspect the connected device IDs:
 
@@ -51,6 +55,20 @@ sudo udevadm control --reload-rules
 Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
+
+WLmouse Beast-series mice (Beast X 4K included) are the same pattern under
+vendor `36a7`. The mouse's own wireless collection and its 2.4 GHz receiver
+enumerate as separate `hidraw` nodes — `36a7:a883` (receiver) and `36a7:a884`
+(mouse, wired mode) for the Beast X — and both need a rule:
+
+```udev
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="36a7", ATTRS{idProduct}=="a883", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="36a7", ATTRS{idProduct}=="a884", TAG+="uaccess"
+```
+
+Save it as `/etc/udev/rules.d/70-openmouse-wlmouse.rules`, reload as above,
+then unplug and reconnect the receiver. Confirm your model's product ids with
+`lsusb` first — other Beast models use different pairs.
 
 ## Contributing
 
