@@ -182,3 +182,8 @@ package:
   place and falls back to the placeholder until then. Not yet cleared for
   licensing: it is vendor product art, so treat it as a request rather than an
   approved asset.
+
+`dareu-a950-pro-mg.png` was supplied by a contributor as a transparent top-down
+render of the Dareu A950 PRO Mg. It is used locally for both the wired mouse
+and its 2.4 GHz receiver. The image originated from Dareu's All in One Web
+product artwork; confirm redistribution terms before a public release.

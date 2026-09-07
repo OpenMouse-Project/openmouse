@@ -315,7 +315,7 @@ function AxisControls({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           id="apply-logitech-axes"
           className="axis-apply"
           type="button"
-          onClick={() => control.applyLogitechAxisDpi(Number(x), Number(y))}
+          onClick={() => control.applySeparateDpiAxes(Number(x), Number(y))}
         >
           {t(locale, "common.apply")}
         </button>
@@ -338,8 +338,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     && Array.isArray(status.dpiStages)
     && status.dpiStages.length > 0
     && !slotsAvailable;
-  const showSeparateDpiAxes = snapshot.traits.logitech
-    && status.supportsSeparateDpiAxes === true
+  const showSeparateDpiAxes = status.supportsSeparateDpiAxes === true
     && !slotsAvailable;
 
   const common = dpiPresetValues(snapshot.dpiOptions);

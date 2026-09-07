@@ -789,6 +789,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 0; color: var(--dim); font-size: .7rem; }
 .field-label { display: block; color: var(--faint); font-size: .62rem; }
 .field-label.spaced { margin-top: .35rem; }
+#sleep-select { width: 100%; }
 .teevolution-dpi-light-controls { margin-top: .55rem; }
 
 .egg-collapsible, .egg-experimental { overflow: hidden; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--card); }
@@ -1140,6 +1141,7 @@ body { height: 100vh; overflow: hidden; }
 .workspace-tab-empty small { display: block; margin-top: .45rem; color: var(--text-faint); font-size: .64rem; }
 
 #performance-settings { order: 3; }
+#power-overview-settings { order: 3; }
 #lighting-settings { order: 4; }
 #logitech-onboard, #nape-layers { order: 5; }
 /* The MX Master feature cards are the primary Advanced-tab content; without an

@@ -63,6 +63,11 @@ export const TABS: Array<{ key: Status | "all"; label: string }> = [
 ];
 
 export const MICE: Mouse[] = [
+  // DAREU ───────────────────────────────────────────────────────────────
+  { brand: "Dareu", model: "A950 PRO Mg",             status: "likely",    req: 0,
+    pids: [0x1117, 0x1114],
+    note: "Jm WebHID driver for wired PID 0x1117 and 2.4 GHz receiver PID 0x1114; receiver VID 0x260d and report-8 channel measured, direct-path hardware validation still needed" },
+
   // LOGITECH ─────────────────────────────────────────────────────────────
   { brand: "Logitech", model: "G502 (all variants)",    status: "supported", req: 42,
     pids: [0xc07d, 0xc08b],

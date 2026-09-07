@@ -556,6 +556,18 @@ function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
   const keychron = keychronNapeClient();
+  const teevolutionProfile = (teevolutionClient()?.getModelProfile()
+    ?? teevolutionProfileForCid(14)) as TeevolutionProfile | null;
+  const hintedLighting = latestDeviceStatus?.ui?.dpiLighting;
+  const dpiLighting = hintedLighting && hintedLighting.modes.length > 0
+    && hintedLighting.brightness.length > 0 && hintedLighting.speed.length > 0
+    ? {
+      modes: hintedLighting.modes,
+      brightness: { min: Math.min(...hintedLighting.brightness), max: Math.max(...hintedLighting.brightness) },
+      speed: { min: Math.min(...hintedLighting.speed), max: Math.max(...hintedLighting.speed) },
+      sleepTimeouts: hintedLighting.sleepTimeouts,
+    }
+    : teevolutionProfile?.dpiLighting ?? null;
   return {
     canDisableSleep: dm?.canDisableSleep === true,
     // Any client may publish these; the two named drivers are just the ones
@@ -572,8 +584,8 @@ function readCapabilities(): DeviceCapabilities {
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
     lowPowerPollingCeiling: razer?.getLowPowerPollingCeiling() ?? null,
-    teevolutionProfile: (teevolutionClient()?.getModelProfile()
-      ?? teevolutionProfileForCid(14)) as TeevolutionProfile | null,
+    teevolutionProfile,
+    dpiLighting,
   };
 }
 
@@ -1430,6 +1442,7 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDeviceStatus = deviceStatus;
+  capabilities = readCapabilities();
   latestDiagnosticStatus = deviceStatus;
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
@@ -1593,7 +1606,6 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
       lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
     }
     deviceStatuses.set(client.device, status);
-    capabilities = readCapabilities();
     applyStatus(status);
     await readButtons();
     await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
@@ -1633,7 +1645,6 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   const status = await client.readStatus();
   dpiOptions = client.getDpiOptions();
   deviceStatuses.set(client.device, status);
-  capabilities = readCapabilities();
   applyStatus(status);
   startAutomaticRefresh();
 }
@@ -2085,6 +2096,34 @@ export function applyLogitechAxisDpi(dpiX: number, dpiY: number): void {
       const client = logitechClient();
       if (!client) throw new Error(st("ctl.gone"));
       await client.setDpi(dpiX, dpiY);
+    },
+  });
+}
+
+/** Apply independently reported X/Y DPI through the device's verified axis setter. */
+export function applySeparateDpiAxes(dpiX: number, dpiY: number): void {
+  if (latestDeviceStatus?.supportsSeparateDpiAxes !== true) return;
+  if (!dpiOptions.includes(dpiX) || !dpiOptions.includes(dpiY)) {
+    setReadStatus(st("ctl.axesAdvertised"));
+    return;
+  }
+  stageChange({
+    key: "dpi",
+    label: `DPI X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()}`,
+    command: `Set DPI axes to X ${dpiX.toLocaleString()} / Y ${dpiY.toLocaleString()}`,
+    progress: `Setting X ${dpiX.toLocaleString()} · Y ${dpiY.toLocaleString()} DPI…`,
+    preview: (status) => {
+      status.dpi = dpiX;
+      status.dpiY = dpiY;
+    },
+    apply: async () => {
+      const client = requireSettingsClient() as unknown as {
+        setDpiAxes?: (x: number, y: number) => Promise<unknown>;
+        setDpi?: (x: number, y: number) => Promise<unknown>;
+      };
+      if (client.setDpiAxes) await client.setDpiAxes(dpiX, dpiY);
+      else if (activeAs<LogitechHidppClient>(LogitechHidppClient)?.setDpi) await client.setDpi!(dpiX, dpiY);
+      else throw new Error("This mouse does not support separate X/Y DPI changes yet.");
     },
   });
 }
@@ -3162,8 +3201,11 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 }
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
+  const client = setting === "sleep"
+    ? activeSettingsClient()
+    : pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
+      ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient();
+  if (!client || (setting === "sleep" && !("setSleepTimeout" in client))) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3443,6 +3485,55 @@ export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "sp
       if (setting === "speed") status.dpiLedSpeed = value;
     },
     apply: writeStagedTeevolutionDpiLighting,
+  });
+}
+
+/** Shared DPI-indicator write path for non-Teevolution drivers that publish ranges. */
+export function applyDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
+  const lighting = latestDeviceStatus?.ui?.dpiLighting;
+  if (!lighting) return;
+  const allowed = setting === "mode" ? lighting.modes : setting === "brightness" ? lighting.brightness : lighting.speed;
+  if (!allowed.includes(value)) return;
+  const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
+  stageChange({
+    key: `dpi-light-${setting}`,
+    group: "dpi-lighting",
+    label: `DPI indicator ${names[setting]} ${value}`,
+    command: `Set DPI indicator ${names[setting]} to ${value}`,
+    progress: `Setting DPI indicator ${names[setting]}…`,
+    preview: (status) => {
+      if (setting === "mode") status.dpiLedMode = value;
+      if (setting === "brightness") status.dpiLedBrightness = value;
+      if (setting === "speed") status.dpiLedSpeed = value;
+    },
+    apply: async () => {
+      const status = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+      if (!status || status.dpiLedMode == null || status.dpiLedBrightness == null || status.dpiLedSpeed == null) {
+        throw new Error("The current DPI indicator settings are unavailable.");
+      }
+      const client = requireClientMethod("setDpiLighting", "DPI indicator lighting") as unknown as {
+        setDpiLighting(mode: number, brightness: number, speed: number): Promise<unknown>;
+      };
+      await client.setDpiLighting(status.dpiLedMode, status.dpiLedBrightness, status.dpiLedSpeed);
+    },
+  });
+}
+
+export function applyDpiLightingSleepTimeout(seconds: number): void {
+  const allowed = latestDeviceStatus?.ui?.dpiLighting?.sleepTimeouts;
+  if (!allowed?.includes(seconds)) return;
+  stageChange({
+    key: "dpi-light-sleep",
+    label: `DPI indicator sleep ${sleepLabel(seconds, interfacePreferences.locale)}`,
+    command: `Set DPI indicator sleep to ${sleepLabel(seconds, interfacePreferences.locale)}`,
+    progress: "Setting DPI indicator sleep…",
+    preview: (status) => { status.dpiLedSleepTimeout = seconds; },
+    apply: async () => {
+      const client = requireClientMethod("setDpiLedSleepTimeout", "DPI indicator sleep") as unknown as {
+        setDpiLedSleepTimeout(value: number): Promise<unknown>;
+      };
+      await client.setDpiLedSleepTimeout(seconds);
+    },
   });
 }
 
@@ -3914,8 +4005,6 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
   if (name === "g703") showG703PreviewProfiles();
-  // Populate brand capabilities so preview cards that gate on capabilities still render.
-  capabilities = readCapabilities();
   applyStatus(fixture.status);
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;

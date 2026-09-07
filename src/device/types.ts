@@ -37,6 +37,7 @@ export interface TeevolutionProfile {
     modes: readonly (0 | 1 | 2)[];
     brightness: { min: number; max: number };
     speed: { min: number; max: number };
+    sleepTimeouts?: readonly number[];
   };
 }
 
@@ -49,6 +50,8 @@ export interface DeviceCapabilities {
   razerLowPowerOptions: number[] | null;
   lowPowerPollingCeiling: number | null;
   teevolutionProfile: TeevolutionProfile | null;
+  /** DPI-indicator range reported by any driver, independent of its family. */
+  dpiLighting: TeevolutionProfile["dpiLighting"] | null;
 }
 
 export interface SidebarDevice {

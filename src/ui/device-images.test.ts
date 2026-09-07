@@ -68,6 +68,13 @@ test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
   assert.equal(deviceImage(null, "Attack Shark R5 Ultra"), CDN + "attackshark-r5-ultra.png");
 });
 
+test("Dareu A950 PRO Mg wired and receiver paths use the supplied product artwork", () => {
+  const dareuArt = "/devices/dareu-a950-pro-mg.png";
+  assert.equal(deviceImage(dev(0x260d, 0x1117)), dareuArt);
+  assert.equal(deviceImage(dev(0x260d, 0x1114)), dareuArt);
+  assert.equal(deviceImage(null, "Dareu A950 PRO Mg"), dareuArt);
+});
+
 test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", () => {
   assert.equal(deviceImage(null, "Attack Shark R2"), CDN + "attackshark-r2.png");
   // The shared receiver PID must NOT resolve to the R2 render.

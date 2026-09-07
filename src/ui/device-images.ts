@@ -2,14 +2,15 @@
  * Top-down product art for the persistent device panel, keyed by the identifiers WebHID already reports so that
  * drivers stay free of asset paths and no new UI hint is needed.
  *
- * Files are hosted in the `openmouse-devices` Cloudflare R2 bucket (public
- * access via its r2.dev URL, see `DEVICE_IMAGE_BASE_URL` below) rather than
- * committed to the repo, so this map holds bare filenames only. A key whose
- * file is missing in the bucket therefore fails at load rather than at build
- * time, so the panel drops the thumbnail on that error and keeps the layout
- * it had before any art existed. See `public/devices/README.md` for how to
- * upload new art.
+ * Most files are hosted in the `openmouse-devices` Cloudflare R2 bucket
+ * (public access via its r2.dev URL, see `DEVICE_IMAGE_BASE_URL` below)
+ * rather than committed to the repo. Local images in `public/devices` are
+ * served directly by Vite. A missing image fails at load, so the panel drops
+ * the thumbnail and keeps its existing layout. See `public/devices/README.md`
+ * for provenance and upload guidance.
  */
+
+const DAREU_A950_PRO_MG_IMAGE = "/devices/dareu-a950-pro-mg.png";
 
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["046d:c07d", "logitech-g502.png"],
@@ -145,6 +146,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // K-snake X11 wired / 2.4 GHz dongle share the same shell.
   ["a8a4:2255", "ksnake-x11.png"],
   ["a8a5:2255", "ksnake-x11.png"],
+  // A950 PRO Mg wired mouse and its dedicated 2.4 GHz receiver.
+  ["260d:1117", DAREU_A950_PRO_MG_IMAGE],
+  ["260d:1114", DAREU_A950_PRO_MG_IMAGE],
   // Microsoft Intellimouse
   ["045e:0823", "microsoft-classic-intellimouse.png"],
   ["045e:082a", "microsoft-pro-intellimouse.png"],
@@ -226,6 +230,7 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
   // Catches any A7 V2 variant whose product id is not pinned above.
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
+  if (/\ba950\s*pro\s*mg\b/i.test(displayName)) return DAREU_A950_PRO_MG_IMAGE;
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";
@@ -247,5 +252,6 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
 const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
+  const image = resolveDeviceImageFilename(device, displayName);
+  return image.startsWith("/") ? image : DEVICE_IMAGE_BASE_URL + image;
 }

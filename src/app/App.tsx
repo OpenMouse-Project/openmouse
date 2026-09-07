@@ -39,7 +39,7 @@ import {
   PulsarProCard,
   SignalCard,
   SleepCard,
-  TeevolutionDpiLightingCard,
+  DpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
 import type { MouseStatus } from "@openmouse/protocol/drivers";
@@ -51,7 +51,9 @@ function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
 function DeviceOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
+  const has = cardAvailability(snapshot);
   const locale = snapshot.preferences.locale;
+  const powerOverview = status.ui?.powerOverview === true;
   const isWired = status.connectionType === "Wired";
   const showBattery = !snapshot.traits.eggControls
     && (status.ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
@@ -60,7 +62,7 @@ function DeviceOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     && status.dongleLedEnabled !== null
     && status.dongleLedEnabled !== undefined;
 
-  return (
+  return <>
     <section
       id="device-overview"
       className="device-overview device-data"
@@ -108,7 +110,13 @@ function DeviceOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         ) : null}
       </article>
     </section>
-  );
+    {powerOverview && (has.teevolutionDpiLighting || has.sleep) ? (
+      <section id="power-overview-settings" className="settings-grid device-data" aria-label="Power settings">
+        {has.teevolutionDpiLighting ? <DpiLightingCard snapshot={snapshot} /> : null}
+        {has.sleep ? <SleepCard snapshot={snapshot} /> : null}
+      </section>
+    ) : null}
+  </>;
 }
 
 function Workspace({
@@ -124,6 +132,7 @@ function Workspace({
   const locale = snapshot.preferences.locale;
   const has = cardAvailability(snapshot);
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
+  const powerOverview = status.ui?.powerOverview === true;
 
   const performance = [
     show(has.dpi, ["performance"]) ? <DpiCard key="dpi" snapshot={snapshot} /> : null,
@@ -135,7 +144,7 @@ function Workspace({
   const advanced = [
     show(has.signal, ["advanced"]) ? <SignalCard key="signal" snapshot={snapshot} /> : null,
     show(has.debounce, ["buttons"]) ? <DebounceCard key="debounce" snapshot={snapshot} /> : null,
-    show(has.sleep, ["advanced"]) ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
+    !powerOverview && show(has.sleep, ["advanced"]) ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
     show(has.lightingAdvanced, ["advanced"])
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
     show(has.ninjutsoSensor, ["performance"])
@@ -169,8 +178,8 @@ function Workspace({
   const lighting = [
     show(has.lighting, ["lighting"])
       ? <LightingCard key="lighting-tab" snapshot={snapshot} variant="tab" zones={lightingZones} /> : null,
-    show(has.teevolutionDpiLighting, ["lighting"])
-      ? <TeevolutionDpiLightingCard key="teevo" snapshot={snapshot} /> : null,
+    !powerOverview && show(has.teevolutionDpiLighting, ["lighting"])
+      ? <DpiLightingCard key="dpi-indicator" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
@@ -315,7 +324,7 @@ export function App(): ReactNode {
     var tempTabs = WORKSPACE_TAB_ORDER;
     const has = cardAvailability(snapshot);
     if(status==null)return tempTabs;
-    if(!has.lighting&&!has.teevolutionDpiLighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
+    if(!has.lighting&&(!has.teevolutionDpiLighting||status.ui?.powerOverview===true))tempTabs=tempTabs.filter(tab=>tab!="lighting")
     if(!has.eggButtons&&
        !has.razerButtons&&
        !has.mxMasterButtons&&
