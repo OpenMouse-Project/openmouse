@@ -11,7 +11,7 @@ export type InterfaceTheme =
   | "NieR: Automata"
   | "Liquid Glass";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
-export type InterfaceLocale = "en" | "pt" | "es" | "fr" | "de" | "zh" | "ja" | "ko";
+export type InterfaceLocale = "en" | "pt" | "es" | "fr" | "de" | "zh" | "ja" | "ko" | "ru";
 
 /** Every supported locale, in picker order. Each entry's `match` decides
     which `navigator.language` prefixes resolve to it on first run — checked
@@ -24,6 +24,7 @@ export const LOCALES: ReadonlyArray<{ code: InterfaceLocale; match: readonly str
   { code: "zh", match: ["zh"] },
   { code: "ja", match: ["ja"] },
   { code: "ko", match: ["ko"] },
+  { code: "ru", match: ["ru"] },
   { code: "en", match: ["en"] },
 ];
 
