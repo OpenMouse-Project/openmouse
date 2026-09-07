@@ -66,6 +66,28 @@ body {
   }
 }
 
+.page-locale-select {
+  padding: 0.35rem 1.6rem 0.35rem 0.6rem;
+  border: 1px solid #263238;
+  border-radius: 8px;
+  background: transparent
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%237a9498' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 0.45rem center;
+  background-size: 0.65rem;
+  color: #f4ffff;
+  font: inherit;
+  font-size: 0.78rem;
+  appearance: none;
+  cursor: pointer;
+}
+.page-locale-select:hover {
+  border-color: #3a4750;
+}
+.page-locale-select option {
+  background: #09090b;
+  color: #f4ffff;
+}
+
 .land-nav-cta {
   margin-left: auto;
   padding: 0.5rem 1.1rem;

@@ -48,7 +48,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // table ships as its own lazy chunk (i18n-pt-*.js, loaded only when a
   // non-English locale is selected), so the initial load is unaffected — the
   // aggregate counts it because the check sums every emitted chunk.
-  ".js": 895_000,
+  // Raised to 1,065 kB for Spanish, French, German, and Simplified Chinese:
+  // each ships as its own lazy chunk (i18n-es/fr/de/zh-*.js) at ~40-55 kB,
+  // loaded only when that locale is selected — none of them touch the
+  // initial (English) bundle. Measured aggregate is 1,061.8 kB.
+  // Raised to 1,165 kB for Japanese and Korean, same lazy-chunk pattern.
+  // Measured aggregate is 1,160.9 kB.
+  ".js": 1_165_000,
 };
 
 const ASSETS = join("dist", "assets");

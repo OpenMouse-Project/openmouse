@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { t } from "../i18n";
+import { LOCALE_NAME_KEYS, t } from "../i18n";
 import type { InterfacePreferences } from "../interface-preferences";
 import { Segmented } from "./ui";
 
@@ -226,10 +226,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
             ariaLabel={t(locale, "set.languageTitle")}
             value={preferences.locale}
             onChange={(next) => set("locale")(next)}
-            options={[
-              { value: "en", label: t(locale, "set.english") },
-              { value: "pt", label: t(locale, "set.portuguese") },
-            ]}
+            options={LOCALE_NAME_KEYS.map(([value, nameKey]) => ({ value, label: t(locale, nameKey) }))}
           />
         </article>
 
