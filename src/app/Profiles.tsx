@@ -155,6 +155,10 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
 
                 <div style={{ display: "flex", alignItems: "center", gap: ".5rem", margin: ".15rem 0 .05rem" }}>
                   <span style={{ height: 1, flex: 1, background: "#26262a" }} />
+                  <small style={{ color: "#5c5c62", fontSize: ".58rem", letterSpacing: ".04em" }}>
+                    STORED ON THE MOUSE
+                  </small>
+                  <span style={{ height: 1, flex: 1, background: "#26262a" }} />
                 </div>
                 <small style={{ display: "block", margin: "0 0 .2rem", color: "#5c5c62", fontSize: ".58rem" }}>
                   Click a profile to edit it. Use the circle to switch the mouse to it.
