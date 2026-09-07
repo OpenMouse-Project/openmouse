@@ -54,7 +54,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // initial (English) bundle. Measured aggregate is 1,061.8 kB.
   // Raised to 1,165 kB for Japanese and Korean, same lazy-chunk pattern.
   // Measured aggregate is 1,160.9 kB.
-  ".js": 1_165_000,
+  // Raised to 1,185 kB for Attack Shark R2 support (GearHub-V5 driver,
+  // traits.ts entry, device artwork name-fallback): the measured aggregate
+  // is 1,171.4 kB, leaving ~14 kB of headroom.
+  ".js": 1_185_000,
 };
 
 const ASSETS = join("dist", "assets");
