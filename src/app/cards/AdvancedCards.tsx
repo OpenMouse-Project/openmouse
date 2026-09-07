@@ -1098,6 +1098,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
+  const fixed = new Set(status.fixedButtons ?? []);
   return (
     <article id="button-mapping-settings" className="setting-card">
       <div className="setting-heading compact"><div><p>BUTTONS</p><h2>{t(locale, "map.remap")}</h2></div></div>
@@ -1107,6 +1108,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
           <select
             id={`button-${button.toLowerCase()}-select`}
             value={options.includes(assigned) ? assigned : ""}
+            disabled={fixed.has(button)}
             onChange={(event) => control.applyDeviceButtonMapping(button, event.currentTarget.value)}
           >
             {/* A macro or an assignment this build cannot name still shows. */}

@@ -250,3 +250,27 @@ test("the Razer buttons card appears only when the driver reported mappings", ()
   // — the tab must stay empty rather than render a card with no rows.
   assert.equal(cardAvailability(snapshot({ status: { brand: "Razer" } })).razerButtons, false);
 });
+
+test("the generic button card follows the K-snake key-map read", () => {
+  // The driver opens the advanced section only when getKeys() succeeded,
+  // so the card must not appear on a silent dongle even though the family
+  // is unknown to the traits table.
+  const withKeys = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      buttonMappings: { Forward: "Backward" },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(withKeys.buttonMapping, true);
+
+  const silent = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: false },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(silent.buttonMapping, false);
+});

@@ -48,14 +48,20 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
     <article id="polling-card" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key="polling-rate">
       <div className="setting-heading">
         <div>
-          <p>POLLING RATE</p>
-          <h2>
-            {t(locale, "perf.reportFrequency")}
-            {snapshot.editedProfile !== null ? (
-              <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
-            ) : null}
-          </h2>
+          <div className="polling-title">
+            <h2>
+              {t(locale, "perf.reportFrequency")}
+              {snapshot.editedProfile !== null ? (
+                <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
+              ) : null}
+            </h2>
+            <p>POLLING RATE</p>
+          </div>
+          <small id="polling-note" className="setting-note">{note}</small>
         </div>
+        {!perProfile ? (
+          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+        ) : null}
       </div>
 
       {perProfile && entry ? (
@@ -81,10 +87,10 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           options={advertisedRates}
           valueHz={status.pollingRateHz}
           disabled={snapshot.settingsPending || status.ui?.pollingReadOnly === true}
+          bubble={false}
           onChange={control.applyPollingRate}
         />
       )}
-      <small id="polling-note" className="setting-note">{note}</small>
     </article>
   );
 }
