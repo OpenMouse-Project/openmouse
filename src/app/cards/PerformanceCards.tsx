@@ -207,7 +207,17 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 
       {slotsAvailable ? null : (
         <div id="host-lod-row">
-          <div className="setting-heading"><div><h2>{t(locale, "perf.liftOff")}</h2></div></div>
+          <div className="setting-heading">
+            <div>
+              <h2>{t(locale, "perf.liftOff")}</h2>
+              <small id="lod-note" className="setting-note">
+                {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
+              </small>
+            </div>
+            {status.liftOffDistance !== null && !showPair && !status.liftOffScale ? (
+              <output id="lod-value">{lodLabel(locale, status.liftOffDistance)}</output>
+            ) : null}
+          </div>
           {pair ? (
             <div id="lod-mode-row" className="lod-mode">
               <Segmented
@@ -251,9 +261,6 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
               />
             </div>
           )}
-          <small id="lod-note" className="setting-note">
-            {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
-          </small>
         </div>
       )}
     </article>
