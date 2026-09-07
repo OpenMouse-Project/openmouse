@@ -183,8 +183,6 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lift-off-distance gaming-surface"
     >
-      <div className="setting-heading tight"><div><p>SENSOR</p></div></div>
-
       {status.gamingSurfaceMode ? (
         <div id="gaming-surface-row">
           <div className="setting-heading"><div><h2>{t(locale, "perf.gamingSurface")}</h2></div></div>
@@ -217,9 +215,6 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
                 {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
               </small>
             </div>
-            {status.liftOffDistance !== null && !showPair && !status.liftOffScale ? (
-              <output id="lod-value">{lodLabel(locale, status.liftOffDistance)}</output>
-            ) : null}
           </div>
           {pair ? (
             <div id="lod-mode-row" className="lod-mode">

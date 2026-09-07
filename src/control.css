@@ -704,8 +704,6 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 #polling-value { font-family: inherit; font-size: 1.15rem; font-weight: 500; letter-spacing: -.015em; }
 /* The explainer lives under the title now, not under the slider. */
 #polling-card .setting-heading .setting-note { margin-top: .3rem; }
-/* Lift-off readout mirrors the polling one. */
-#lod-value { font-family: inherit; font-size: 1.15rem; font-weight: 500; letter-spacing: -.015em; }
 #host-lod-row .setting-heading .setting-note { margin-top: .3rem; }
 /* Overline and title share one baseline row instead of stacking. */
 #polling-card .title-row, #host-lod-row .title-row { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
