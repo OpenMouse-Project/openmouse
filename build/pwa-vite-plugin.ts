@@ -14,35 +14,14 @@ const STATIC_PRECACHE = [
   "/favicon-dark.svg",
 ];
 
-/**
- * Pages each Cloudflare Pages target builds, mirroring the rollup inputs in
- * vite.config.ts. The app target is the gated control panel on its own
- * subdomain; the public support pages live on the marketing domain, and the
- * landing target reaches its root through the _redirects file that
- * build/sites-vite-plugin.ts writes.
- */
-const TARGET_PAGES: Record<string, string[]> = {
-  app: ["index.html"],
-  landing: ["landing.html", "check.html", "supported.html", "donate.html", "faq.html"],
-};
+/** Pages the build emits, mirroring the rollup inputs in vite.config.ts. */
+export const PRECACHE_PAGES = ["index.html"];
 
-export const ROOT_PAGE: Record<string, string> = {
-  app: "index.html",
-  landing: "landing.html",
-};
-
-function rootPage(target: string): string {
-  return ROOT_PAGE[target] ?? ROOT_PAGE.app;
-}
-
-/** Pages whose emitted markup is scanned for the hashed assets to precache. */
-export function precachePages(target: string): string[] {
-  return TARGET_PAGES[target] ?? TARGET_PAGES.app;
-}
+export const ROOT_PAGE = "index.html";
 
 /** The root page is served from "/", every other page from its own filename. */
-export function pageUrl(file: string, target: string): string {
-  return file === rootPage(target) ? "/" : `/${file}`;
+export function pageUrl(file: string): string {
+  return file === ROOT_PAGE ? "/" : `/${file}`;
 }
 
 /**
@@ -69,7 +48,7 @@ const CACHE = "openmouse-${version}";
 const FONT_CACHE = "openmouse-fonts";
 const PRECACHE = ${JSON.stringify(precache, null, 2)};
 
-/** Vote and request endpoints are rate limited per request and must stay live. */
+/** API endpoints are rate limited per request and must stay live. */
 const BYPASS = [${BYPASS.map(String).join(", ")}];
 
 const FONT_ORIGINS = ["https://fonts.googleapis.com", "https://fonts.gstatic.com"];
@@ -184,8 +163,8 @@ self.addEventListener("fetch", (event) => {
 `;
 }
 
-/** Emits a service worker that precaches the public pages and their assets. */
-export function pwa(appVersion: string, buildTarget: string): Plugin {
+/** Emits a service worker that precaches the app's pages and their assets. */
+export function pwa(appVersion: string): Plugin {
   return {
     name: "openmouse-pwa",
     apply: "build",
@@ -197,22 +176,20 @@ export function pwa(appVersion: string, buildTarget: string): Plugin {
       handler(_options, bundle) {
         const urls = new Set<string>(STATIC_PRECACHE);
 
-        for (const file of precachePages(buildTarget)) {
+        for (const file of PRECACHE_PAGES) {
           const emitted = bundle[file];
           if (emitted?.type !== "asset") {
             this.error(`${file} is missing from the bundle; the precache list would be wrong.`);
           }
 
-          urls.add(pageUrl(file, buildTarget));
+          urls.add(pageUrl(file));
           for (const [, asset] of String(emitted.source).matchAll(/(?:href|src)="(\/assets\/[^"]+)"/g)) {
             urls.add(asset);
           }
         }
 
         const precache = [...urls].sort();
-        // The target is in the cache name because both Pages projects deploy
-        // from this repo and serve a different page from "/".
-        const version = `${buildTarget}-${appVersion}-${createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 8)}`;
+        const version = `${appVersion}-${createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 8)}`;
 
         this.emitFile({ type: "asset", fileName: "sw.js", source: renderServiceWorker(version, precache) });
       },
