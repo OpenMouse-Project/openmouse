@@ -42,6 +42,7 @@ export interface TeevolutionProfile {
 
 export interface DeviceCapabilities {
   canDisableSleep: boolean;
+  angleTuningWritable: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
   debounceOptions?: number[] | null;

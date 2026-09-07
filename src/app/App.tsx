@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
-import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
+import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, connectLabelText, connectionText, ensureLocale, type I18nKey } from "../i18n";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { CaptureDialog } from "./CaptureDialog";
@@ -42,7 +42,7 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
-import type { MouseStatus } from "@openmouse/protocol/drivers";
+import { availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
@@ -297,10 +297,6 @@ export function App(): ReactNode {
   }, []);
 
   useEffect(() => {
-    panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
-  }, [snapshot.workspaceTab]);
-
-  useEffect(() => {
     try {
       document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
     } catch {
@@ -311,24 +307,23 @@ export function App(): ReactNode {
     if (locale !== "en") void ensureLocale(locale).then(() => control.refreshInterface());
   }, [locale]);
 
-  const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {
-    var tempTabs = WORKSPACE_TAB_ORDER;
-    const has = cardAvailability(snapshot);
-    if(status==null)return tempTabs;
-    if(!has.lighting&&!has.teevolutionDpiLighting)tempTabs=tempTabs.filter(tab=>tab!="lighting")
-    if(!has.eggButtons&&
-       !has.razerButtons&&
-       !has.mxMasterButtons&&
-       !has.atkButtons&&
-       !has.buttonMapping&&
-       !has.debounce&&
-       !has.lightforce&&
-       !has.eggSpdt&&
-       !has.superstrike
-    )tempTabs=tempTabs.filter(tab=>tab!="buttons")
-    return tempTabs;
-  }
-  const tabs = filterTabs(status);
+  const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot));
+  const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
+  const workspaceSnapshot = workspaceTab === snapshot.workspaceTab
+    ? snapshot
+    : { ...snapshot, workspaceTab };
+
+  useEffect(() => {
+    panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
+  }, [workspaceTab]);
+
+  useEffect(() => {
+    if (workspaceTab === snapshot.workspaceTab) return;
+    control.setWorkspaceTab(workspaceTab);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`#workspace-tab-${workspaceTab}`)?.focus();
+    });
+  }, [snapshot.workspaceTab, workspaceTab]);
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
     const index = tabs.indexOf(current);
     let next: number;
@@ -433,8 +428,8 @@ export function App(): ReactNode {
                 id={`workspace-tab-${tab}`}
                 type="button"
                 role="tab"
-                aria-selected={snapshot.workspaceTab === tab}
-                tabIndex={snapshot.workspaceTab === tab ? 0 : -1}
+                aria-selected={workspaceTab === tab}
+                tabIndex={workspaceTab === tab ? 0 : -1}
                 onClick={() => control.setWorkspaceTab(tab)}
                 onKeyDown={(event) => onTabKey(event, tab)}
               >
@@ -444,7 +439,7 @@ export function App(): ReactNode {
           </nav>
         ) : null}
 
-        <Workspace snapshot={snapshot} onOpenCapture={() => setCaptureOpen(true)} />
+        <Workspace snapshot={workspaceSnapshot} onOpenCapture={() => setCaptureOpen(true)} />
         <InterfaceSettings snapshot={snapshot} />
       </main>
 

@@ -543,6 +543,11 @@ function clientNumberList(method: string): number[] | null {
   return Array.isArray(value) && value.every((entry) => typeof entry === "number") ? value : null;
 }
 
+function clientHasMethod(method: string): boolean {
+  const client = active as unknown as Record<string, unknown> | null;
+  return typeof client?.[method] === "function";
+}
+
 function requireClientMethod<K extends string>(
   method: K,
   setting: string,
@@ -558,6 +563,7 @@ function readCapabilities(): DeviceCapabilities {
   const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
+    angleTuningWritable: clientHasMethod("setAngleTuning"),
     // Any client may publish these; the two named drivers are just the ones
     // that predate the generic lookup below.
     sleepOptions: dm
