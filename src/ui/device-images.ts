@@ -175,6 +175,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
+  // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
+  // by the name the gearhub driver reads back from the device id.
+  if (/\battack\s*shark\s*r2\b/i.test(displayName)) return "attackshark-r2.png";
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";

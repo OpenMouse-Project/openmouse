@@ -229,8 +229,8 @@ export const MICE: Mouse[] = [
     note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
   { brand: "Attack Shark", model: "G3",                 status: "bridge",    req: 1,
     note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
-  { brand: "Attack Shark", model: "R2",                 status: "bridge",    req: 1,
-    note: "Not compatible with WebHID — needs the OpenMouse Bridge companion (0x25a7 family)" },
+  { brand: "Attack Shark", model: "R2",                 status: "supported", req: 1,
+    note: "GearHub-V5 ODM mouse on VID 0x3151, PID 0x402D (shared with the Lingbao M5 Pro receiver); the lingbao driver identifies it by its protocol device id 1893. PixArt PAW3950, 42000 DPI, 8000 Hz. DPI and polling read + write verified on hardware over the 2.4 GHz receiver" },
 
   // RAZER ───────────────────────────────────────────────────────────────
   { brand: "Razer", model: "DeathAdder V3 (wired)",     status: "supported", req: 9,

@@ -112,6 +112,15 @@ a public release package.
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
 terms before including it in a public release package.
 
+`attackshark-r2.png` — **needs a maintainer upload.** The name-fallback
+mapping in `src/ui/device-images.ts` is in place (keyed on the reported name
+"Attack Shark R2", since PID 0x402D is shared with the Lingbao M5 Pro) and
+falls back to the placeholder until the file lands. Suggested source: the
+top-down render on Attack Shark's own product page
+(`attackshark.com/products/attack-shark-r2-magnesium-alloy-paw3950-gaming-mouse-8k`)
+or Shopify CDN, keyed out of its backdrop. Vendor product art — treat as a
+request pending licensing review.
+
 `attackshark-r5-ultra.png` is the top-down render of the Attack Shark R5 Ultra
 extracted from Attack Shark's official product gallery
 (`cdn.shopify.com/s/files/1/0823/5050/6282/files/R5ULTRA_C06_3.png`), keyed

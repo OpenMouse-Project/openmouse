@@ -68,6 +68,15 @@ test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
   assert.equal(deviceImage(null, "Attack Shark R5 Ultra"), CDN + "attackshark-r5-ultra.png");
 });
 
+test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", () => {
+  assert.equal(deviceImage(null, "Attack Shark R2"), CDN + "attackshark-r2.png");
+  // The shared receiver PID must NOT resolve to the R2 render.
+  assert.equal(
+    deviceImage({ vendorId: 0x3151, productId: 0x402d } as HIDDevice, "Lingbao M5 Pro"),
+    CDN + "unknown-device.png",
+  );
+});
+
 test("OP1we wired and wireless share the same artwork, distinct from OP1 8K", () => {
   const hid3367 = (productId: number): HIDDevice => ({ vendorId: 0x3367, productId } as HIDDevice);
   assert.equal(deviceImage(hid3367(0x1961)), CDN + "endgame-gear-op1we.png");
