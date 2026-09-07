@@ -320,6 +320,7 @@ export function App(): ReactNode {
        !has.razerButtons&&
        !has.mxMasterButtons&&
        !has.atkButtons&&
+       !has.buttonMapping&&
        !has.debounce&&
        !has.lightforce&&
        !has.eggSpdt&&

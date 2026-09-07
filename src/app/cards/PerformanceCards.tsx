@@ -48,14 +48,20 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
     <article id="polling-card" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key="polling-rate">
       <div className="setting-heading">
         <div>
-          <p>POLLING RATE</p>
-          <h2>
-            {t(locale, "perf.reportFrequency")}
-            {snapshot.editedProfile !== null ? (
-              <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
-            ) : null}
-          </h2>
+          <div className="title-row">
+            <h2>
+              {t(locale, "perf.reportFrequency")}
+              {snapshot.editedProfile !== null ? (
+                <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
+              ) : null}
+            </h2>
+            <p>POLLING RATE</p>
+          </div>
+          <small id="polling-note" className="setting-note">{note}</small>
         </div>
+        {!perProfile ? (
+          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+        ) : null}
       </div>
 
       {perProfile && entry ? (
@@ -81,10 +87,10 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           options={advertisedRates}
           valueHz={status.pollingRateHz}
           disabled={snapshot.settingsPending || status.ui?.pollingReadOnly === true}
+          bubble={false}
           onChange={control.applyPollingRate}
         />
       )}
-      <small id="polling-note" className="setting-note">{note}</small>
     </article>
   );
 }
@@ -177,8 +183,6 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lift-off-distance gaming-surface"
     >
-      <div className="setting-heading tight"><div><p>SENSOR</p></div></div>
-
       {status.gamingSurfaceMode ? (
         <div id="gaming-surface-row">
           <div className="setting-heading"><div><h2>{t(locale, "perf.gamingSurface")}</h2></div></div>
@@ -201,7 +205,17 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 
       {slotsAvailable ? null : (
         <div id="host-lod-row">
-          <div className="setting-heading"><div><h2>{t(locale, "perf.liftOff")}</h2></div></div>
+          <div className="setting-heading">
+            <div>
+              <div className="title-row">
+                <h2>{t(locale, "perf.liftOff")}</h2>
+                <p>SENSOR</p>
+              </div>
+              <small id="lod-note" className="setting-note">
+                {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
+              </small>
+            </div>
+          </div>
           {pair ? (
             <div id="lod-mode-row" className="lod-mode">
               <Segmented
@@ -245,9 +259,6 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
               />
             </div>
           )}
-          <small id="lod-note" className="setting-note">
-            {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
-          </small>
         </div>
       )}
     </article>

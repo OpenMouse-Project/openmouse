@@ -700,6 +700,15 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .setting-heading h2 { margin: 0; font-size: 1.15rem; font-weight: 500; letter-spacing: -.015em; }
 .setting-heading p { margin: 0 0 .6rem; color: var(--faint); font-family: var(--font-mono); font-size: .6rem; letter-spacing: .09em; }
 .setting-heading output { padding: .38rem .55rem; border: 1px solid var(--border); border-radius: 6px; color: var(--text-strong); font-family: var(--font-mono); font-size: .68rem; }
+/* Polling readout: same voice as the card title, not mono. */
+#polling-value { font-family: inherit; font-size: 1.15rem; font-weight: 500; letter-spacing: -.015em; }
+/* The explainer lives under the title now, not under the slider. */
+#polling-card .setting-heading .setting-note { margin-top: .3rem; }
+#host-lod-row .setting-heading .setting-note { margin-top: .3rem; }
+/* Overline and title share one baseline row instead of stacking. */
+#polling-card .title-row, #host-lod-row .title-row { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
+#polling-card .title-row p, #host-lod-row .title-row p { margin: 0; }
+#polling-card .title-row h2, #host-lod-row .title-row h2 { font-size: 1.15rem; }
 .setting-note { display: block; margin-top: 1rem; color: var(--text-faint); font-size: .68rem; }
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: var(--faint); font-size: .65rem; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid var(--text); border-radius: 6px; background: var(--text); color: var(--ink); font-size: .65rem; font-weight: 700; }
