@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
+import { connectLabelText, LOCALE_NAME_KEYS, t } from "../i18n";
 import { BatteryIcon } from "./ui";
 
 function DiscordIcon(): ReactNode {
@@ -58,6 +59,14 @@ const FAME_PATH = (
   </>
 );
 
+const GLOBE_PATH = (
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3c2.5 2.6 3.9 5.7 3.9 9s-1.4 6.4-3.9 9c-2.5-2.6-3.9-5.7-3.9-9S9.5 5.6 12 3Z" />
+  </>
+);
+
 const DEBUG_PATH = (
   <>
     <path d="M8 6a4 4 0 0 1 8 0" />
@@ -68,9 +77,34 @@ const DEBUG_PATH = (
 
 export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { status, deviceArtwork, preferences } = snapshot;
+  const locale = preferences.locale;
   const [unreachable, setUnreachable] = useState<ReadonlySet<string>>(new Set());
   const showArtwork = deviceArtwork !== null && !unreachable.has(deviceArtwork);
   const showBattery = status !== null && status.batteryPercent !== null;
+
+  const [localeOpen, setLocaleOpen] = useState(false);
+  const localeBox = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!localeOpen) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      if (!localeBox.current?.contains(event.target as Node)) setLocaleOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setLocaleOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [localeOpen]);
+
+  const pickLocale = (next: typeof locale): void => {
+    control.setPreference("locale", next);
+    setLocaleOpen(false);
+  };
 
   return (
     <aside className="sidebar">
@@ -80,6 +114,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
       <span className="demo-wordmark">
         <img src="/logo.png" alt="" width={181} height={268} />
         OpenMouse
+        <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
         <span className="brand-links">
           <a href="https://discord.gg/yxC9jzMdw6" target="_blank" rel="noreferrer" title="Discord" aria-label="OpenMouse on Discord">
             <DiscordIcon />
@@ -98,8 +133,8 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
       <section className="sidebar-product device-data" aria-label="Selected device">
         <div className="sidebar-product-heading">
-          <span>SELECTED DEVICE</span>
-          <strong id="sidebar-device-title">{status?.name ?? "Connected mouse"}</strong>
+          <span>{t(locale, "side.selectedDevice")}</span>
+          <strong id="sidebar-device-title">{status?.name ?? t(locale, "side.connectedMouse")}</strong>
         </div>
         <article id="device-thumbnail" className="device-thumbnail" hidden={!showArtwork}>
           {deviceArtwork ? (
@@ -116,7 +151,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         ) : null}
         <div className="sidebar-product-status">
           <span className={`status-dot${status ? "" : " is-idle"}`} />
-          <span>Connected</span>
+          <span>{t(locale, "side.connected")}</span>
           {showBattery ? (
             <span id="sidebar-battery" className="sidebar-battery">
               <span id="sidebar-battery-icon">
@@ -128,7 +163,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
       </section>
 
-      <div className="device-label">CONNECTED DEVICES</div>
+      <div className="device-label">{t(locale, "side.connectedDevices")}</div>
       <div className="device-panel">
         <div id="sidebar-device-list" className="sidebar-device-list" role="group" aria-label="Connected devices">
           {snapshot.previewMode !== null && !snapshot.hasActiveDevice && status ? (
@@ -171,17 +206,47 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             void control.connect();
           }}
         >
-          {snapshot.connectLabel}
+          {connectLabelText(locale, snapshot.connectLabel)}
         </button>
       </div>
 
       <nav className="section-nav" aria-label="Sections">
+        <div className="locale-picker" ref={localeBox}>
+          <button
+            id="interface-language-button"
+            className="nav-item interface-language-button"
+            type="button"
+            title={t(locale, "nav.language")}
+            aria-label={t(locale, "nav.language")}
+            aria-haspopup="menu"
+            aria-expanded={localeOpen}
+            onClick={() => setLocaleOpen((open) => !open)}
+          >
+            <NavIcon path={GLOBE_PATH} />
+          </button>
+          {localeOpen ? (
+            <div className="locale-menu" role="menu" aria-label={t(locale, "nav.language")}>
+              {LOCALE_NAME_KEYS.map(([option, nameKey]) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={locale === option}
+                  className={locale === option ? "is-selected" : ""}
+                  onClick={() => pickLocale(option)}
+                >
+                  {t(locale, nameKey)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <button
           id="interface-settings-button"
           className="nav-item interface-settings-button"
           type="button"
-          title="Settings"
-          aria-label="Settings"
+          title={t(locale, "nav.settings")}
+          aria-label={t(locale, "nav.settings")}
           aria-current={snapshot.interfaceSettingsOpen}
           onClick={control.openInterfaceSettings}
         >
@@ -190,17 +255,16 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         <a
           className="nav-item has-label"
           href="https://openmouse.app/donate.html"
-          title="Support the Project"
-          aria-label="Support the Project"
+          title={t(locale, "nav.supportProject")}
+          aria-label={t(locale, "nav.supportProject")}
         >
           <NavIcon path={FAME_PATH} />
-          Support
+          {t(locale, "nav.support")}
         </a>
-        <a className="nav-item is-debug" href="https://openmouse.app/check.html" title="Mouse Check" aria-label="Mouse Check">
+        <a className="nav-item is-debug" href="https://openmouse.app/check.html" title={t(locale, "nav.mouseCheck")} aria-label={t(locale, "nav.mouseCheck")}>
           <NavIcon path={DEBUG_PATH} />
         </a>
       </nav>
-      <span className="build-badge" title={`OpenMouse ${snapshot.buildLabel}`}>{snapshot.buildLabel}</span>
     </aside>
   );
 }

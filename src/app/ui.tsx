@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { batteryFillWidth, batteryIconState, batteryLevel } from "../ui/battery-icon";
+import { t } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 
 export function SwitchButton({
   id,
@@ -119,6 +121,8 @@ export function RateSlider({
   disabled,
   hidden,
   onChange,
+  locale = "en",
+  bubble = true,
 }: {
   id?: string;
   options: number[];
@@ -127,6 +131,9 @@ export function RateSlider({
   disabled?: boolean;
   hidden?: boolean;
   onChange: (hz: number) => void;
+  locale?: InterfaceLocale;
+  /** Hide the floating value readout (used when the card header shows it). */
+  bubble?: boolean;
 }): ReactNode {
   const [dragging, setDragging] = useState<number | null>(null);
   if (options.length === 0) return <div id={id} className="rate-slider" hidden={hidden} />;
@@ -164,7 +171,7 @@ export function RateSlider({
           step={1}
           value={index}
           disabled={disabled}
-          aria-label={label ?? "Report rate"}
+          aria-label={label ?? t(locale, "perf.reportRate")}
           aria-valuetext={`${options[index] ?? 0} Hz`}
           // "change" fires on release, so a drag stages one change rather than
           // thirty; "input" only moves the readout and the lit dots.
@@ -176,9 +183,11 @@ export function RateSlider({
           }}
           onBlur={() => setDragging(null)}
         />
-        <output className="rate-slider-bubble" style={{ left: position(index) }} aria-hidden="true">
-          {options[index]?.toLocaleString() ?? "—"} Hz
-        </output>
+        {bubble ? (
+          <output className="rate-slider-bubble" style={{ left: position(index) }} aria-hidden="true">
+            {options[index]?.toLocaleString() ?? "—"} Hz
+          </output>
+        ) : null}
       </div>
       <div className="rate-slider-scale">
         {options.map((rate, step) => (

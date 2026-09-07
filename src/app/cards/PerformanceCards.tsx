@@ -8,13 +8,20 @@ import {
 import * as control from "../../device/controller";
 import { RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
+import { t, tp } from "../../i18n";
+import type { InterfaceLocale } from "../../interface-preferences";
 import { RateSlider, Segmented, SwitchButton } from "../ui";
 
 const LOD_LEVELS: readonly LiftOffLevel[] = ["Low", "Medium", "High"];
 
+function lodLabel(locale: InterfaceLocale, level: LiftOffLevel): string {
+  return level === "Low" ? t(locale, "perf.lodLow") : level === "Medium" ? t(locale, "perf.lodMedium") : t(locale, "perf.lodHigh");
+}
+
 export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
+  const locale = snapshot.preferences.locale;
   const staged = snapshot.pending.keys.includes("polling-rate");
   const entry = snapshot.profile.entry;
   const rates = snapshot.profileFormat ? capabilitiesForFormat(snapshot.profileFormat.id).reportRates : null;
@@ -29,27 +36,32 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
 
   const note = perProfile && rates
     ? shared
-      ? `Stored in this profile as one shared interval, up to ${snapshot.profile.rateOptions.wired.at(-1)?.toLocaleString()} Hz.`
-      : `Stored in this profile, one rate per link. Up to ${
-        reportRatesFor(rates, "wireless").at(-1)?.toLocaleString()} Hz wireless, ${
-        reportRatesFor(rates, "wired").at(-1)?.toLocaleString()} Hz over the cable.`
+      ? tp(locale, "perf.sharedNote", { max: snapshot.profile.rateOptions.wired.at(-1)?.toLocaleString() ?? "—" })
+      : tp(locale, "perf.splitNote", {
+        wireless: reportRatesFor(rates, "wireless").at(-1)?.toLocaleString() ?? "—",
+        wired: reportRatesFor(rates, "wired").at(-1)?.toLocaleString() ?? "—",
+      })
     : status.ui?.pollingNote
-      ?? (snapshot.traits.eggControls
-        ? "Higher rates update cursor movement more often and increase CPU/USB processing load."
-        : "Higher rates update cursor movement more often, but use more battery.");
+      ?? (snapshot.traits.eggControls ? t(locale, "perf.eggNote") : t(locale, "perf.note"));
 
   return (
     <article id="polling-card" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key="polling-rate">
       <div className="setting-heading">
         <div>
-          <p>POLLING RATE</p>
-          <h2>
-            Report frequency
-            {snapshot.editedProfile !== null ? (
-              <span className="setting-scope" id="rate-scope-badge">{perProfile ? "Per-profile" : "Host"}</span>
-            ) : null}
-          </h2>
+          <div className="title-row">
+            <h2>
+              {t(locale, "perf.reportFrequency")}
+              {snapshot.editedProfile !== null ? (
+                <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
+              ) : null}
+            </h2>
+            <p>POLLING RATE</p>
+          </div>
+          <small id="polling-note" className="setting-note">{note}</small>
         </div>
+        {!perProfile ? (
+          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+        ) : null}
       </div>
 
       {perProfile && entry ? (
@@ -57,11 +69,12 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           {(shared ? (["wired"] as const) : (["wireless", "wired"] as const)).map((link) => (
             <RateSlider
               key={link}
+              locale={locale}
               id={`profile-rate-${link}`}
               options={snapshot.profile.rateOptions[link]}
               valueHz={snapshot.stagedProfileRates[link]
                 ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless)}
-              label={shared ? "All connections" : link === "wired" ? "Wired" : "Wireless"}
+              label={shared ? t(locale, "perf.allConnections") : link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless")}
               disabled={locked || snapshot.settingInProgress}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
             />
@@ -70,19 +83,21 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
       ) : (
         <RateSlider
           id="host-rate-slider"
+          locale={locale}
           options={advertisedRates}
           valueHz={status.pollingRateHz}
           disabled={snapshot.settingsPending || status.ui?.pollingReadOnly === true}
+          bubble={false}
           onChange={control.applyPollingRate}
         />
       )}
-      <small id="polling-note" className="setting-note">{note}</small>
     </article>
   );
 }
 
 function AsymmetricLiftOff({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const pair = snapshot.status?.asymmetricLiftOff;
+  const locale = snapshot.preferences.locale;
   const [liftOff, setLiftOff] = useState(pair?.liftOff ?? 0);
   const [landing, setLanding] = useState(pair?.landing ?? 0);
   useEffect(() => {
@@ -109,7 +124,7 @@ function AsymmetricLiftOff({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
   return (
     <div id="lod-asymmetric" className="lod-sliders">
       <label>
-        Lift-off
+        {t(locale, "perf.liftOffLabel")}
         <output id="lod-lift-off-value">{liftOff}</output>
         <span className="glass-slider-rail">
           <input
@@ -128,7 +143,7 @@ function AsymmetricLiftOff({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
         </span>
       </label>
       <label>
-        Landing
+        {t(locale, "perf.landing")}
         <output id="lod-landing-value">{cappedLanding}</output>
         <span className="glass-slider-rail">
           <input
@@ -153,6 +168,7 @@ function AsymmetricLiftOff({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
+  const locale = snapshot.preferences.locale;
   const ui = status.ui;
   const pair = status.asymmetricLiftOff;
   const showPair = pair?.enabled === true;
@@ -167,37 +183,47 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lift-off-distance gaming-surface"
     >
-      <div className="setting-heading tight"><div><p>SENSOR</p></div></div>
-
       {status.gamingSurfaceMode ? (
         <div id="gaming-surface-row">
-          <div className="setting-heading"><div><h2>Gaming surface</h2></div></div>
+          <div className="setting-heading"><div><h2>{t(locale, "perf.gamingSurface")}</h2></div></div>
           <Segmented
             className="three"
-            ariaLabel="Gaming surface"
-            options={(["On", "Off", "Auto"] as const).map((mode) => ({ value: mode, label: mode }))}
+            ariaLabel={t(locale, "perf.gamingSurface")}
+            options={(["On", "Off", "Auto"] as const).map((mode) => ({
+              value: mode,
+              label: mode === "Auto" ? t(locale, "perf.auto") : mode === "On" ? t(locale, "common.on") : t(locale, "common.off"),
+            }))}
             value={status.gamingSurfaceMode}
             disabled={snapshot.settingsPending}
             onChange={control.applyGamingSurfaceMode}
           />
           <small className="setting-note">
-            Tunes the sensor for gaming mouse pads. Auto lets the mouse decide; turn it off if tracking
-            misbehaves on a non-gaming surface.
+            {t(locale, "perf.surfaceNote")}
           </small>
         </div>
       ) : null}
 
       {slotsAvailable ? null : (
         <div id="host-lod-row">
-          <div className="setting-heading"><div><h2>Lift-off distance</h2></div></div>
+          <div className="setting-heading">
+            <div>
+              <div className="title-row">
+                <h2>{t(locale, "perf.liftOff")}</h2>
+                <p>SENSOR</p>
+              </div>
+              <small id="lod-note" className="setting-note">
+                {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
+              </small>
+            </div>
+          </div>
           {pair ? (
             <div id="lod-mode-row" className="lod-mode">
               <Segmented
                 className="two"
-                ariaLabel="Lift-off mode"
+                ariaLabel={t(locale, "perf.liftOffMode")}
                 options={[
-                  { value: "single", label: "Single" },
-                  { value: "asymmetric", label: "Asymmetric" },
+                  { value: "single", label: t(locale, "perf.single") },
+                  { value: "asymmetric", label: t(locale, "perf.asymmetric") },
                 ]}
                 value={pair.enabled === null ? null : showPair ? "asymmetric" : "single"}
                 disabled={snapshot.settingsPending}
@@ -208,11 +234,13 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 
           {pair && showPair ? (
             <AsymmetricLiftOff snapshot={snapshot} />
+          ) : status.liftOffScale ? (
+            <LiftOffScale snapshot={snapshot} />
           ) : (
             <div id="lod-single">
               <Segmented
                 className="three"
-                ariaLabel="Lift-off distance"
+                ariaLabel={t(locale, "perf.liftOff")}
                 options={LOD_LEVELS.map((level) => {
                   const hideLow = level === "Low" && (snapshot.traits.eggFamily || ui?.hideLodLow === true);
                   const unsupported = Array.isArray(supportedLods) && !supportedLods.includes(level);
@@ -221,7 +249,7 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
                     && level === "Low";
                   return {
                     value: level,
-                    label: level,
+                    label: lodLabel(locale, level),
                     hidden: hideLow || unsupported,
                     disabled: snapshot.settingsPending || legacyLogitechLow || lodNeedsSurface,
                   };
@@ -231,20 +259,61 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
               />
             </div>
           )}
-          <small id="lod-note" className="setting-note">
-            {lodNeedsSurface
-              ? "Turn the gaming surface on or set it to auto to adjust lift-off distance."
-              : "Controls how far you can lift the mouse before tracking stops. Higher values keep tracking a little longer."}
-          </small>
         </div>
       )}
     </article>
   );
 }
 
+
+/**
+ * Lift-off for a mouse that reports a continuous range instead of the three
+ * shared stops. The slider works in raw device codes and labels them with the
+ * millimetres the driver supplies, so no scale is hard-coded here.
+ */
+function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const scale = snapshot.status?.liftOffScale;
+  const [code, setCode] = useState(scale?.value ?? 0);
+
+  useEffect(() => {
+    if (scale) setCode(scale.value);
+  }, [scale?.value]);
+
+  if (!scale) return null;
+
+  const span = Math.max(1, scale.max - scale.min);
+  const millimetres = scale.minMillimetres
+    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / span;
+
+  return (
+    <div id="lod-scale" className="lod-sliders">
+      <label>
+        Lift-off
+        <output id="lod-scale-value">{millimetres.toFixed(1)} mm</output>
+        <span className="glass-slider-rail">
+          <input
+            id="lod-scale-input"
+            type="range"
+            min={scale.min}
+            max={scale.max}
+            step={1}
+            value={code}
+            disabled={snapshot.settingsPending}
+            style={{ "--fill": `${((code - scale.min) / span) * 100}%` }}
+            onChange={(event) => setCode(Number(event.currentTarget.value))}
+            onPointerUp={() => control.applyLiftOffScale(code)}
+            onKeyUp={() => control.applyLiftOffScale(code)}
+          />
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const entry = snapshot.profile.entry;
   if (!snapshot.profile.bunnyHopSupported || !entry) return null;
+  const locale = snapshot.preferences.locale;
 
   const locked = snapshot.profileFormat?.writable !== true;
   // Support is a property of the format, not of the stored value: a profile
@@ -256,13 +325,13 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   return (
     <div id="bunny-hop-row">
       <div className="setting-heading">
-        <div><h2>Bunny hop<span className="setting-scope">Per-profile</span></h2></div>
+        <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{t(locale, "dpi.perProfile")}</span></h2></div>
       </div>
       <div className="bunny-hop-controls">
         <SwitchButton
           id="bunny-hop-enabled"
           value={enabled}
-          label="Bunny hop"
+          label={t(locale, "perf.bunnyHop")}
           disabled={locked || snapshot.settingInProgress}
           onChange={(next) => control.applyBunnyHopMs(next ? BUNNY_HOP_LIMITS.minMs : 0)}
         />
@@ -275,7 +344,7 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           defaultValue={enabled ? value : BUNNY_HOP_LIMITS.minMs}
           key={`bunny-${enabled ? value : BUNNY_HOP_LIMITS.minMs}`}
           disabled={locked || snapshot.settingInProgress || !enabled}
-          aria-label="Bunny hop time in milliseconds"
+          aria-label={t(locale, "perf.bunnyTime")}
           // "change" not "input": a number field fires it on blur or Enter, so a
           // value is not staged on every keystroke. min/max/step only gate the
           // spinner, not typing, so the typed value is snapped into range here.
@@ -285,8 +354,8 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       </div>
       <small className="setting-note" id="bunny-hop-note">
         {locked
-          ? "This profile format has not been verified on hardware, so it is read-only."
-          : `Ignores repeat clicks that land within this window, so a switch that bounces during fast click spam only registers once. Longer times filter harder; shorter times let genuine fast clicks through. ${BUNNY_HOP_LIMITS.minMs}–${BUNNY_HOP_LIMITS.maxMs} ms in steps of ${BUNNY_HOP_LIMITS.stepMs}.`}
+          ? t(locale, "perf.bunnyReadonly")
+          : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs })}
       </small>
     </div>
   );
@@ -295,6 +364,7 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
+  const locale = snapshot.preferences.locale;
   const staged = snapshot.pending.keys.includes("lightforce-switch-mode");
   return (
     <article
@@ -304,18 +374,17 @@ export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
     >
       <div className="setting-heading"><div><p>SWITCHES</p><h2>LightForce</h2></div></div>
       <Segmented
-        ariaLabel="LightForce switch mode"
+        ariaLabel={t(locale, "perf.lightforceMode")}
         options={[
-          { value: "Hybrid", label: "Hybrid" },
-          { value: "Optical", label: "Optical only" },
+          { value: "Hybrid", label: t(locale, "perf.hybrid") },
+          { value: "Optical", label: t(locale, "perf.opticalOnly") },
         ]}
         value={status.lightforceSwitchMode}
         disabled={snapshot.settingsPending}
         onChange={control.applyLightforceSwitchMode}
       />
       <small className="setting-note">
-        Hybrid saves power by using the mechanical contact and only waking the optical sensor when needed.
-        Optical only is consistent but uses more battery.
+        {t(locale, "perf.lightforceNote")}
       </small>
       <BunnyHop snapshot={snapshot} />
     </article>

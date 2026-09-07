@@ -112,6 +112,15 @@ a public release package.
 for Zaunkoenig M3K and is also used for the M2K entry. Confirm redistribution
 terms before including it in a public release package.
 
+`attackshark-r2.png` — **needs a maintainer upload.** The name-fallback
+mapping in `src/ui/device-images.ts` is in place (keyed on the reported name
+"Attack Shark R2", since PID 0x402D is shared with the Lingbao M5 Pro) and
+falls back to the placeholder until the file lands. Suggested source: the
+top-down render on Attack Shark's own product page
+(`attackshark.com/products/attack-shark-r2-magnesium-alloy-paw3950-gaming-mouse-8k`)
+or Shopify CDN, keyed out of its backdrop. Vendor product art — treat as a
+request pending licensing review.
+
 `attackshark-r5-ultra.png` is the top-down render of the Attack Shark R5 Ultra
 extracted from Attack Shark's official product gallery
 (`cdn.shopify.com/s/files/1/0823/5050/6282/files/R5ULTRA_C06_3.png`), keyed
@@ -165,3 +174,11 @@ package:
 - `lamzu-maya-x.png` — Lamzu Maya X render
 - `atk-f1-v2-ultra-max.png` — ATK F1 V2 Ultra Max render
 - `finalmouse-ulx.png` — Finalmouse Starlight-12 / ULX low-profile shape render
+- `mchose-a7-v2.png` — MCHOSE A7 V2 render, from MCHOSE's own M HUB configurator
+  (`https://cdn.mchose.com.cn/configCenter/assets/img/mouse/A7V2Pro_white.png`).
+  MCHOSE only publishes `A7V2Pro_*` renders and the Pro / Pro+ / Ultra / Ultra+
+  are one shell, so this single image covers the whole A7 V2 family. **Needs a
+  maintainer upload** — the mapping in `src/ui/device-images.ts` is already in
+  place and falls back to the placeholder until then. Not yet cleared for
+  licensing: it is vendor product art, so treat it as a request rather than an
+  approved asset.

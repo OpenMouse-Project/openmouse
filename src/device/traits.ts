@@ -44,9 +44,18 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   "attack-shark": DIRECT_MODE,
   crdrako: DIRECT_MODE,
   atk: DIRECT_MODE,
+  "atk-bitmouse": DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
   "keychron-nape": { advancedSection: true, sleep: true, directMode: true },
   fantech: { advancedSection: true, sleep: true, directMode: true },
+  // GearHub-V5 (Attack Shark R2, Lingbao M5 Pro): reads debounce, standby time
+  // and the two "move correction" toggles out of its OPTIONPARAM0 block. Not a
+  // CompX direct-mode driver — it publishes its own debounce/sleep option
+  // lists, so it takes the plain flags.
+  gearhub: { advancedSection: true, sleep: true, debounce: true },
+  // MCHOSE reads debounce and sleep from its config blob and writes both, but
+  // it is not a direct-mode (CompX) driver, so it takes the plain flags.
+  mchose: { advancedSection: true, sleep: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

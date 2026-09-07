@@ -26,12 +26,19 @@ import {
 import { deviceImage } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
+  isVxeR1SePlusReceiver,
+  receiverPairingSucceeded,
+  VXE_R1_SE_PLUS_RECEIVER,
+} from "./atk";
+import {
   DEFAULT_INTERFACE_PREFERENCES,
   loadInterfacePreferences,
   saveInterfacePreferences as persistInterfacePreferences,
+  type InterfaceLocale,
   type InterfacePreferences,
   type InterfaceTheme,
 } from "../interface-preferences";
+import { batteryStateText, connectionText, ensureLocale, layerLabel, t, tp, type I18nKey } from "../i18n";
 import {
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
@@ -50,6 +57,7 @@ import {
   isEggWeClient,
   type EggWeHidClient,
 } from "@openmouse/protocol/drivers/endgame/egg-we-control";
+import { AtkBitmouseHidClient } from "@openmouse/protocol/drivers/atk/bitmouse-hid";
 import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
 import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import {
@@ -111,6 +119,7 @@ import { FinalmouseHidClient } from "@openmouse/protocol/drivers/finalmouse/hid"
 import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
 import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid";
+import { CorsairHidClient } from "@openmouse/protocol/drivers/corsair/hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
@@ -121,6 +130,10 @@ import { KeychronHidClient } from "@openmouse/protocol/drivers/keychron/hid";
 import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
 import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
+import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
+import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
+import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -138,6 +151,7 @@ import {
 } from "@openmouse/protocol/keychron";
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
+import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
@@ -187,23 +201,9 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
   return null;
 }
 
-const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, NinjutsoHidClient] as const;
+const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [
-  TeevolutionHidClient,
-  VgnF2HidClient,
-  KeychronHidClient,
-  KeychronNapeHidClient,
-  KeychronM6HidClient,
-  ModdoHidClient,
-  ZaunkoenigHidClient,
-  FantechHidClient,
-  WallhackMouseHidClient,
-  WallhackKeyboardHidClient,
-  GloriousHidClient,
-  GloriousClassicHidClient,
-] as const;
-
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const DEDICATED = [
@@ -221,8 +221,8 @@ const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppC
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
 const eggWeClient = (): EggWeHidClient | null =>
   active !== null && isEggWeClient(active) ? active : null;
-const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient | null =>
-  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | NinjutsoHidClient>(...DM_CLASSES);
+const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
+  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
 const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null =>
   activeAs<RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient>(...RAZER_CLASSES);
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
@@ -287,11 +287,17 @@ let lastSleepSeconds = 60;
 let previewEntries: Array<[string, string]> = [];
 let previewListMessage: string | null = null;
 
-let deviceStatusText = "No device connected";
-let readStatus = "Add a supported device from the sidebar to read its current status.";
-let onboardStatus = "Profiles load when the mouse is in onboard mode.";
+let deviceStatusText = st("ctl.noDevice");
+let readStatus = st("ctl.addSidebar");
+let onboardStatus = st("ctl.onboardIdle");
 let connectDisabled = false;
 let connectLabel = "Add device";
+
+/** Static controller message in the current interface language. Dynamic
+    content (device names, errors, protocol text) stays untranslated. */
+function st(key: I18nKey, vars?: Record<string, string | number>): string {
+  return vars ? tp(interfacePreferences.locale, key, vars) : t(interfacePreferences.locale, key);
+}
 
 const toasts: Toast[] = [];
 let nextToastId = 1;
@@ -408,6 +414,7 @@ function buildSnapshot(): ControlSnapshot {
     hasActiveDevice: activeDevice !== null,
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
+    atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
     preferences: interfacePreferences,
     sidebarHidden,
     interfaceSettingsOpen,
@@ -737,8 +744,22 @@ function hasActiveClient(): boolean {
 
 function requireSettingsClient(): SupportedClient {
   const client = activeSettingsClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   return client;
+}
+
+/** Read an optional numeric getter off whatever client is connected. */
+function clientNumber(method: string): number | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return typeof value === "number" ? value : null;
+}
+
+/** Read an optional number-list getter off whatever client is connected. */
+function clientNumberList(method: string): number[] | null {
+  const client = active as unknown as Record<string, (() => unknown) | undefined> | null;
+  const value = client?.[method]?.();
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number") ? value : null;
 }
 
 function requireClientMethod<K extends string>(
@@ -756,12 +777,17 @@ function readCapabilities(): DeviceCapabilities {
   const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
+    // Any client may publish these; the two named drivers are just the ones
+    // that predate the generic lookup below.
     sleepOptions: dm
       ? [...dm.getSleepOptions()]
       : keychron
         ? [...keychron.getSleepOptions()]
-        : null,
-    debounceMaxMs: dm?.getDebounceMaxMs() ?? null,
+        : clientNumberList("getSleepOptions"),
+    debounceMaxMs: dm?.getDebounceMaxMs() ?? clientNumber("getDebounceMaxMs"),
+    debounceOptions: dm && "getDebounceOptions" in dm
+      ? [...dm.getDebounceOptions()]
+      : clientNumberList("getDebounceOptions"),
     razerSleepOptions: razer?.getSleepOptions() ?? null,
     razerLowPowerOptions: razer?.getLowPowerOptions() ?? null,
     lowPowerPollingCeiling: razer?.getLowPowerPollingCeiling() ?? null,
@@ -777,12 +803,12 @@ async function callClientMethod(method: string, setting: string, value: unknown)
 
 function stageChange(change: PendingChange): void {
   if (settingInProgress) {
-    setReadStatus("Wait for the current flash to finish.");
+    setReadStatus(st("ctl.waitFlash"));
     return;
   }
   if (matchesDeviceStatus(change)) {
     dropPendingChange(change.key);
-    setReadStatus(`${change.label} already matches the mouse.`);
+    setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
     return;
   }
   stagePendingChange(change);
@@ -791,7 +817,7 @@ function stageChange(change: PendingChange): void {
     emit();
     return;
   }
-  setReadStatus(`${change.label} staged. Flash to write it to the mouse.`);
+  setReadStatus(st("ctl.stagedFlash", { label: change.label }));
 }
 
 function queueInstantFlash(): void {
@@ -816,7 +842,7 @@ function matchesDeviceStatus(change: PendingChange): boolean {
 export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
   clearPendingChanges();
-  setReadStatus("Discarded the staged changes.");
+  setReadStatus(st("ctl.discarded"));
 }
 
 const HAPTIC_GROUP = "logitech-haptic";
@@ -832,7 +858,7 @@ let stagedInvertScroll: boolean | null = null;
 
 async function writeStagedHaptics(): Promise<void> {
   const client = logitechClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   if (stagedHapticEnabled !== null) await client.setHapticEnabled(stagedHapticEnabled);
   if (stagedHapticBatterySaving !== null) await client.setHapticBatterySaving(stagedHapticBatterySaving);
   if (stagedHapticIntensity !== null) await client.setHapticIntensity(stagedHapticIntensity);
@@ -846,14 +872,14 @@ async function writeStagedHaptics(): Promise<void> {
 
 async function writeStagedRatchet(): Promise<void> {
   const client = logitechClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   if (stagedWheelMode) await client.setWheelMode(stagedWheelMode);
   if (stagedSmartShift !== undefined) await client.setSmartShiftThreshold(stagedSmartShift);
 }
 
 async function writeStagedWheelMode(): Promise<void> {
   const client = logitechClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   if (stagedHiRes !== null) await client.setHiResScroll(stagedHiRes);
   if (stagedInvertScroll !== null) await client.setInvertScroll(stagedInvertScroll);
 }
@@ -950,7 +976,7 @@ export function applyThumbWheelInverted(inverted: boolean): void {
     preview: (status) => { status.thumbWheelInverted = inverted; },
     apply: async () => {
       const client = logitechClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setThumbWheelInverted(inverted);
     },
   });
@@ -965,7 +991,7 @@ export function applyFriendlyName(name: string): void {
     preview: (status) => { status.friendlyName = trimmed; },
     apply: async () => {
       const client = logitechClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setFriendlyName(trimmed);
     },
   });
@@ -989,19 +1015,19 @@ export function exportProfileKey(): string | null {
 export function importProfileKey(rawKey: string): void {
   const decoded = decodeProfileKey(rawKey);
   if (!decoded.ok) {
-    pushToast("error", "Couldn't read that profile key", decoded.error);
+    pushToast("error", st("ctl.badKey"), decoded.error);
     return;
   }
   if (!latestDeviceStatus) {
-    pushToast("error", "No mouse connected", "Connect the mouse to import settings onto it.");
+    pushToast("error", st("ctl.noMouse"), st("ctl.noMouseDetail"));
     return;
   }
   const payload: ProfileKeyPayload = decoded.payload;
   if (!profileKeyMatchesDevice(payload, latestDeviceStatus)) {
     pushToast(
       "error",
-      "Profile key doesn't match this mouse",
-      `This key was captured from a ${payload.brand} ${payload.name}, not this device.`,
+      st("ctl.keyMismatch"),
+      st("ctl.mismatchDetail", { brand: payload.brand, name: payload.name }),
     );
     return;
   }
@@ -1024,7 +1050,7 @@ export function importProfileKey(rawKey: string): void {
     applyLighting({ mode: zone.mode, color: zone.color, color2: zone.color2, speed: zone.speed, brightness: zone.brightness }, zone.zoneIndex);
   }
 
-  pushToast("success", "Profile key imported", "Review the queued changes, then flash to write them.");
+  pushToast("success", st("ctl.keyImported"), st("ctl.keyImportedDetail"));
 }
 
 export async function requestHostSwitch(slot: number): Promise<void> {
@@ -1034,9 +1060,9 @@ export async function requestHostSwitch(slot: number): Promise<void> {
     await client.requestHostSwitch(slot);
     const message = `Switch to computer ${slot + 1} requested. Press the button underneath the mouse to bring it back.`;
     setReadStatus(message);
-    pushToast("info", `Switching to computer ${slot + 1}`, "Press the button underneath the mouse to bring it back.");
+    pushToast("info", st("ctl.switchingHost", { n: slot + 1 }), st("ctl.switchHostDetail"));
   } catch (error) {
-    setReadStatus(error instanceof Error ? error.message : "Unable to request the switch.");
+    setReadStatus(error instanceof Error ? error.message : st("ctl.unableSwitch"));
     toastForError("Unable to request the switch", error);
   }
 }
@@ -1121,13 +1147,96 @@ export async function restoreDivertedButtons(): Promise<void> {
   const client = logitechClient();
   if (!client || settingInProgress) return;
   settingInProgress = true;
-  setReadStatus("Restoring buttons to hardware control…");
+  setReadStatus(st("ctl.restoring"));
   emit();
   try {
     buttons = await client.clearButtonDiversion();
-    setReadStatus("Buttons restored to hardware control.");
+    setReadStatus(st("ctl.restored"));
   } catch (error) {
-    setReadStatus(error instanceof Error ? error.message : "Unable to restore the buttons.");
+    setReadStatus(error instanceof Error ? error.message : st("ctl.unableRestore"));
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function selectAtkR1Profile(profile: number): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (hasPendingChanges()) {
+    setReadStatus(st("ctl.atkPending"));
+    emit();
+    return;
+  }
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(st("ctl.atkSwitching", { n: profile }));
+  emit();
+  recordDiagnosticCommand(`Select ATK R1 configuration bank ${profile}`);
+  try {
+    await client.setR1ActiveProfile(profile);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(st("ctl.atkActive", { n: profile }));
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, st("ctl.atkUnableSelect"));
+    setReadStatus(error instanceof Error ? error.message : st("ctl.atkUnableBank"));
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function pairAtkR1SePlusReceiver(): Promise<void> {
+  const client = activeAs(AtkHidClient);
+  if (!client || !isVxeR1SePlusReceiver(activeDevice) || refreshInProgress || settingInProgress) return;
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(st("ctl.pairStarting"));
+  emit();
+  recordDiagnosticCommand("Pair ATK R1 SE+ receiver with CID 0x02, MID 0x20");
+  try {
+    const current = await client.readR1ReceiverInfo();
+    if (active !== client || activeDevice !== device) return;
+    if (current.pairingStatus === 1) {
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: current };
+      setReadStatus(st("ctl.pairActive"));
+      pushToast("info", st("ctl.pairActiveTitle"), st("ctl.pairActiveDetail"));
+      return;
+    }
+    await client.startR1ReceiverPairing(VXE_R1_SE_PLUS_RECEIVER.cid, VXE_R1_SE_PLUS_RECEIVER.mid);
+    if (active !== client || activeDevice !== device) return;
+    let observedInProgress = false;
+    const deadline = Date.now() + 40_000;
+    while (Date.now() < deadline) {
+      const receiver = await client.readR1ReceiverInfo();
+      if (active !== client || activeDevice !== device) return;
+      if (latestDeviceStatus) latestDeviceStatus = { ...latestDeviceStatus, atkReceiver: receiver };
+      if (receiver.pairingStatus === 1) observedInProgress = true;
+      setReadStatus(receiver.pairingStatus === 1
+        ? st("ctl.pairProgress", { n: receiver.pairingSecondsRemaining ?? 0 })
+        : observedInProgress ? st("ctl.pairChecking") : st("ctl.pairWaiting"));
+      emit();
+      if (receiver.pairingStatus !== 1 && observedInProgress) {
+        if (receiverPairingSucceeded(receiver, observedInProgress)) {
+          setReadStatus(st("ctl.pairDone"));
+          pushToast("success", st("ctl.pairDoneTitle"), st("ctl.pairDoneDetail"));
+          return;
+        }
+        throw new Error(st("ctl.pairEnded", { s: receiver.pairingStatus ?? "unknown" }));
+      }
+      await wait(500);
+    }
+    throw new Error(st("ctl.pairExpired"));
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, st("ctl.pairUnable"));
+    const message = error instanceof Error ? error.message : st("ctl.pairUnable");
+    setReadStatus(message);
+    pushToast("error", st("ctl.pairFailed"), message);
   } finally {
     settingInProgress = false;
     emit();
@@ -1146,7 +1255,7 @@ export async function flashPendingChanges(): Promise<void> {
   pendingBusy = true;
   emit();
   if (refreshInProgress) {
-    pendingStatusText = "Waiting for the current device refresh…";
+    pendingStatusText = st("ctl.waitRefresh");
     readStatus = pendingStatusText;
     emit();
     while (refreshInProgress) await wait(25);
@@ -1167,7 +1276,7 @@ export async function flashPendingChanges(): Promise<void> {
       written += batch.length;
     }
   } catch (error) {
-    recordDiagnosticError(error, "Unable to flash the staged changes.");
+    recordDiagnosticError(error, st("ctl.unableFlash"));
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
   await flashPause(FLASH_SETTLE_MS);
@@ -1179,13 +1288,13 @@ export async function flashPendingChanges(): Promise<void> {
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
-    pushToast("error", "Flash failed", failure);
+    pushToast("error", st("ctl.flashFailed"), failure);
     return;
   }
   pendingStatusText = null;
   const flashed = written === 1
-    ? "Flashed 1 change to the mouse."
-    : `Flashed ${written} changes to the mouse.`;
+    ? st("ctl.flashedOne")
+    : st("ctl.flashedMany", { n: written });
   setReadStatus(flashed);
   pushToast("success", flashed);
 }
@@ -1207,6 +1316,15 @@ export function setPreference<K extends keyof InterfacePreferences>(
 ): void {
   interfacePreferences = { ...interfacePreferences, [key]: value };
   saveInterfacePreferences();
+  // Locale tables load lazily; re-render once the table arrives so a switch
+  // never sticks on English fallback strings.
+  if (key === "locale" && value !== "en") void ensureLocale(value as InterfaceLocale).then(() => emit());
+}
+
+/** Re-render subscribers without changing state (e.g. after a lazy asset
+    needed by the current preferences resolves). */
+export function refreshInterface(): void {
+  emit();
 }
 
 export function setInterfaceTheme(value: string): void {
@@ -1251,19 +1369,20 @@ function batteryMode(state: MouseStatus["batteryState"]): BatteryMode | null {
   return null;
 }
 
-export function batteryDetail(status: MouseStatus): string {
+export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en"): string {
   const voltage = status.batteryVoltageMv ? `${(status.batteryVoltageMv / 1000).toFixed(3)} V` : null;
-  const lead = batteryNeedsCharging(status.batteryPercent, status.batteryState) ? "Needs charging" : null;
+  const lead = batteryNeedsCharging(status.batteryPercent, status.batteryState) ? t(locale, "bat.needsCharging") : null;
   const withVoltage = (detail: string): string => [lead, detail, voltage].filter(Boolean).join(" · ");
-  if (status.batteryPercent === null) return withVoltage(status.batteryState);
-  if (status.batteryState === "Full") return withVoltage("Fully charged");
+  if (status.batteryPercent === null) return withVoltage(batteryStateText(locale, status.batteryState));
+  if (status.batteryState === "Full") return withVoltage(t(locale, "bat.full"));
   const mode = batteryMode(status.batteryState);
-  if (!mode) return withVoltage(status.batteryState);
+  if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
   const now = Date.now();
   const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
-  const label = mode === "charging" ? "until full" : "remaining";
-  return withVoltage(estimate ? `${status.batteryState} · ${estimate} ${label}` : status.batteryState);
+  const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
+  const state = batteryStateText(locale, status.batteryState);
+  return withVoltage(estimate ? `${state} · ${estimate} ${label}` : state);
 }
 
 function diagnosticErrorMessage(error: unknown, fallback: string): string {
@@ -1516,7 +1635,7 @@ export function downloadDiagnostics(): void {
   link.download = name;
   link.click();
   URL.revokeObjectURL(url);
-  diagnosticDownloadStatus = `Saved ${name}`;
+  diagnosticDownloadStatus = st("ctl.savedName", { name });
   emit();
 }
 
@@ -1543,19 +1662,19 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
     deviceStatuses.set(activeDevice, deviceStatus);
     void refreshSidebar();
   }
-  deviceStatusText = "Connected";
+  deviceStatusText = st("ctl.connected");
 
   const settingsPending = status.ui?.settingsReady === false;
   if (settingsPending) {
     const summary = deviceStatus.batteryPercent === null
-      ? "Connected"
-      : `Battery ${deviceStatus.batteryPercent}%`;
-    const base = status.ui?.valuesVerified
+      ? st("ctl.connected")
+      : st("ctl.batteryPct", { n: deviceStatus.batteryPercent });
+    readStatus = status.ui?.valuesVerified
       ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
       : summary;
     readStatus = status.ui?.statusNote ? `${base} · ${status.ui.statusNote}` : base;
   } else if (!hasPendingChanges()) {
-    readStatus = `Current: ${deviceStatus.dpi.toLocaleString()} DPI · ${deviceStatus.pollingRateHz.toLocaleString()} Hz`;
+    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: deviceStatus.pollingRateHz.toLocaleString() });
   }
 
   if (!customDpiEditing) customDpiText = `${status.dpi.toLocaleString()} DPI`;
@@ -1599,7 +1718,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
           ? client.displayName()
           : (device.productName ?? `${deviceBrand(client)} mouse`));
     const detail = status
-      ? `${status.brand} · ${status.connectionType ?? "Connected"}`
+      ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
       : `${deviceBrand(client)} · Available`;
     return { index, name, detail, selected: device === activeDevice };
   });
@@ -1647,14 +1766,14 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
   if (!device || device === activeDevice) return;
   const client = createSupportedClient(device);
   if (!client) return;
-  deviceStatusText = "Switching";
-  readStatus = `Reading ${statusNameForClient(client)}.`;
+  deviceStatusText = st("ctl.switching");
+  readStatus = st("ctl.reading", { name: statusNameForClient(client) });
   emit();
   try {
     await activateClient(client);
   } catch (error) {
-    deviceStatusText = "Connection failed";
-    readStatus = error instanceof Error ? error.message : "Unable to switch devices.";
+    deviceStatusText = st("ctl.connFailed");
+    readStatus = error instanceof Error ? error.message : st("ctl.unableSwitchDevices");
     toastForError("Connection failed", error);
     await refreshSidebar();
   }
@@ -1663,7 +1782,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 function statusNameForClient(client: SupportedClient): string {
   if (isEggWeClient(client)) return EGG_WE_DISPLAY_NAME;
   if (client instanceof FinalmouseHidClient) return client.displayName();
-  return client.device.productName || "the selected mouse";
+  return client.device.productName || st("ctl.selectedMouse");
 }
 
 function clearActiveClients(): void {
@@ -1721,7 +1840,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   rememberActiveDevice(client.device);
   startAutomaticRefresh();
   setConnectionButtons(false, "Add device");
-  pushToast("success", `Connected to ${statusNameForClient(client)}`);
+  pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
 }
 
 function activateClient(client: SupportedClient): Promise<void> {
@@ -1739,7 +1858,7 @@ function activateClient(client: SupportedClient): Promise<void> {
 
 async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   await client.open();
-  deviceStatusText = "Connected";
+  deviceStatusText = st("ctl.connected");
   readStatus = client.describeCollections();
   emit();
   await client.readDeviceInfo();
@@ -1768,8 +1887,8 @@ function showDisconnectedState(): void {
   buttons = null;
   clearNapeKeymaps();
   setPageTitle();
-  deviceStatusText = "No device connected";
-  readStatus = "Add a supported device from the sidebar to read its current status.";
+  deviceStatusText = st("ctl.noDevice");
+  readStatus = st("ctl.addSidebar");
   setConnectionButtons(false, "Add device");
 }
 
@@ -1800,27 +1919,27 @@ function handleHidConnect(event: HIDConnectionEvent): void {
         }
         return;
       }
-      deviceStatusText = result.reason === "path" ? "Switching path" : "New device detected";
+      deviceStatusText = result.reason === "path" ? st("ctl.switchingPath") : st("ctl.newDevice");
       readStatus = result.reason === "path"
-        ? "Preferring USB over receiver."
-        : `Reading ${EGG_WE_DISPLAY_NAME}.`;
+        ? st("ctl.preferUsb")
+        : st("ctl.reading", { name: EGG_WE_DISPLAY_NAME });
       emit();
       await activateClient(result.client);
     })().catch((error: unknown) => {
-      deviceStatusText = "Connection failed";
-      readStatus = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+      deviceStatusText = st("ctl.connFailed");
+      readStatus = error instanceof Error ? error.message : st("ctl.unableRead");
       toastForError("Connection failed", error);
       void refreshSidebar();
     });
     return;
   }
 
-  deviceStatusText = "New device detected";
-  readStatus = `Reading ${statusNameForClient(client)}.`;
+  deviceStatusText = st("ctl.newDevice");
+  readStatus = st("ctl.reading", { name: statusNameForClient(client) });
   emit();
   void activateClient(client).catch((error: unknown) => {
-    deviceStatusText = "Connection failed";
-    readStatus = error instanceof Error ? error.message : "Unable to read the connected mouse.";
+    deviceStatusText = st("ctl.connFailed");
+    readStatus = error instanceof Error ? error.message : st("ctl.unableRead");
     toastForError("Connection failed", error);
     void refreshSidebar();
   });
@@ -1834,7 +1953,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
     return;
   }
   showDisconnectedState();
-  pushToast("info", "Mouse disconnected", event.device.productName || "The device was removed.");
+  pushToast("info", st("ctl.mouseGone"), event.device.productName || st("ctl.deviceRemoved"));
   void (async () => {
     const devices = (await navigator.hid?.getDevices() ?? [])
       .filter((device) => device !== event.device);
@@ -1848,13 +1967,13 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
       await refreshSidebar(devices);
     }
   })().catch((error: unknown) => {
-    readStatus = error instanceof Error ? error.message : "Unable to switch to another connected mouse.";
+    readStatus = error instanceof Error ? error.message : st("ctl.unableSwitchMouse");
     void refreshSidebar();
   });
 }
 
 async function requestSupportedClient(): Promise<SupportedClient | null> {
-  if (!navigator.hid) throw new Error("WebHID is unavailable. Use Chrome or Edge on desktop.");
+  if (!navigator.hid) throw new Error(st("ctl.noWebHid"));
   const devices = await navigator.hid.requestDevice({ filters: SUPPORTED_HID_FILTERS });
   if (devices.length === 0) return null;
 
@@ -1929,19 +2048,19 @@ async function x11MessageForBridge(devices: HIDDevice[], fallback: string): Prom
 
 export async function connect(): Promise<void> {
   setConnectionButtons(true, "Connecting…");
-  deviceStatusText = "Requesting permission";
-  readStatus = "Choose your device in the browser prompt.";
+  deviceStatusText = st("ctl.requesting");
+  readStatus = st("ctl.choosePrompt");
   emit();
 
   try {
     const client = await requestSupportedClient();
     if (!client) {
-      deviceStatusText = "Not connected";
-      readStatus = "No device was selected in the browser prompt.";
+      deviceStatusText = st("ctl.notConnected");
+      readStatus = st("ctl.noSelection");
       return;
     }
-    deviceStatusText = "Opening device";
-    readStatus = `Reading ${statusNameForClient(client)}…`;
+    deviceStatusText = st("ctl.opening");
+    readStatus = st("ctl.reading", { name: statusNameForClient(client) });
     emit();
     await activateClient(client);
   } catch (error) {
@@ -1952,7 +2071,7 @@ export async function connect(): Promise<void> {
       await active?.close().catch(() => undefined);
       active = null;
     }
-    deviceStatusText = wrongDevice ? "Not a mouse" : "Connection failed";
+    deviceStatusText = wrongDevice ? st("ctl.notMouse") : st("ctl.connFailed");
     readStatus = message;
     toastForError(wrongDevice ? "Not a mouse" : "Connection failed", error);
   } finally {
@@ -1992,21 +2111,21 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       for (const client of clients) {
         if (hasActiveClient()) return;
         try {
-          deviceStatusText = "Reconnecting";
-          readStatus = "Reading the previously authorized device.";
+          deviceStatusText = st("ctl.reconnecting");
+          readStatus = st("ctl.readingPrev");
           emit();
           await activateClient(client);
           return;
         } catch (error) {
-          lastError = error instanceof Error ? error : new Error("Unable to reconnect to the mouse.");
+          lastError = error instanceof Error ? error : new Error(st("ctl.unableReconnect"));
           await client.close().catch(() => undefined);
         }
       }
     }
     if (!hasActiveClient()) {
-      deviceStatusText = "Not connected";
-      readStatus = lastError?.message ?? "Use Add device if the mouse does not reconnect automatically.";
-      if (lastError) pushToast("error", "Could not reconnect the mouse", lastError.message);
+      deviceStatusText = st("ctl.notConnected");
+      readStatus = lastError?.message ?? st("ctl.useAdd");
+      if (lastError) pushToast("error", st("ctl.couldNotReconnect"), lastError.message);
       emit();
     }
   } finally {
@@ -2057,8 +2176,8 @@ export function commitCustomDpi(): void {
   if (!Number.isInteger(dpi) || !dpiOptions.includes(dpi)) {
     const closest = Number.isInteger(dpi) && dpi > 0 ? closestDpiOption(dpiOptions, dpi) : null;
     setReadStatus(closest === null
-      ? "That DPI value is not supported by this mouse."
-      : `This mouse cannot do ${dpi.toLocaleString()} DPI. The closest step it supports is ${closest.toLocaleString()}.`);
+      ? st("ctl.dpiUnsupported")
+      : st("ctl.closestStep", { dpi: dpi.toLocaleString(), closest: closest.toLocaleString() }));
     return;
   }
   if (applyDpiValue(dpi)) cancelCustomDpi(dpi);
@@ -2103,8 +2222,17 @@ export function applyDpiStageCount(count: number): void {
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
+  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
+  if (count < currentCount) {
+    for (const change of pendingChanges()) {
+      const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
+      if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+    }
+    dropPendingChange("dpi-active-stage");
+  }
   stageChange({
     key: "dpi-stage-count",
+    priority: count > currentCount ? -1 : count < currentCount ? 1 : 0,
     label: `${count} DPI stage${count === 1 ? "" : "s"}`,
     command: `Set DPI stage count to ${count}`,
     progress: `Setting ${count} DPI stages…`,
@@ -2116,6 +2244,11 @@ export function applyDpiStageCount(count: number): void {
         while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
         status.dpiStages = padded;
       }
+      if (status.dpiStageColors) {
+        const colors = status.dpiStageColors.slice(0, count);
+        while (colors.length < count) colors.push(colors.at(-1) ?? "#000000");
+        status.dpiStageColors = colors;
+      }
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
         status.dpi = status.dpiStages[count - 1] ?? status.dpi;
@@ -2123,6 +2256,27 @@ export function applyDpiStageCount(count: number): void {
     },
     apply: async () => {
       await requireClientMethod("setDpiStageCount", "DPI stage count").setDpiStageCount(count);
+    },
+  });
+}
+
+export function applyDpiStageColor(stage: number, color: string): void {
+  if (!hasActiveClient() || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  const colors = latestDeviceStatus ? withPendingChanges(latestDeviceStatus).dpiStageColors : undefined;
+  if (!colors || !Number.isInteger(stage) || stage < 0 || stage >= colors.length) return;
+  const normalized = color.toLowerCase();
+  stageChange({
+    key: `dpi-stage-color-${stage}`,
+    label: `Stage ${stage + 1} color`,
+    command: `Set DPI stage ${stage + 1} color to ${normalized}`,
+    progress: `Setting DPI stage ${stage + 1} color…`,
+    preview: (status) => {
+      const next = status.dpiStageColors?.slice() ?? [];
+      next[stage] = normalized;
+      status.dpiStageColors = next;
+    },
+    apply: async () => {
+      await requireClientMethod("setDpiStageColor", "DPI stage color").setDpiStageColor(stage, normalized);
     },
   });
 }
@@ -2155,7 +2309,7 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
   if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
   const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
   if (!dpiOptions.includes(dpi)) {
-    setReadStatus(`${rawDpi.toLocaleString()} DPI is not supported by this mouse.`);
+    setReadStatus(st("ctl.dpiNotSupported", { dpi: rawDpi.toLocaleString() }));
     emit();
     return;
   }
@@ -2184,7 +2338,7 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
 export function applyLogitechAxisDpi(dpiX: number, dpiY: number): void {
   if (!logitechClient()) return;
   if (!dpiOptions.includes(dpiX) || !dpiOptions.includes(dpiY)) {
-    setReadStatus("Both axis values must be advertised DPI values.");
+    setReadStatus(st("ctl.axesAdvertised"));
     return;
   }
   stageChange({
@@ -2198,7 +2352,7 @@ export function applyLogitechAxisDpi(dpiX: number, dpiY: number): void {
     },
     apply: async () => {
       const client = logitechClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setDpi(dpiX, dpiY);
     },
   });
@@ -2231,7 +2385,7 @@ function stageAnalogButton(button: 0 | 1, tuning: AnalogTuning): void {
     },
     apply: async () => {
       const client = logitechClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setAnalogButtonTuning(button, tuning);
     },
   });
@@ -2279,9 +2433,9 @@ let editedNapeLayer: number | null = null;
 
 async function writeStagedProfileSector(): Promise<void> {
   const client = logitechClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   const entry = editedProfileEntry();
-  if (!entry) throw new Error("No profile is open for editing.");
+  if (!entry) throw new Error(st("ctl.noProfileOpen"));
   const ratesStaged = isPendingChange(PROFILE_RATE_KEY);
   const buttonEdits = [...stagedProfileButtonEdits.entries()]
     .filter(([key]) => isPendingChange(key))
@@ -2491,17 +2645,17 @@ export function toggleProfilesExpanded(): void {
 export function describeProfileEntry(entry: OnboardProfile | null): { name: string; detail: string } {
   if (!entry) {
     return {
-      name: `Host${lastDeviceMode === "Host" ? " · active" : ""}`,
-      detail: "Live settings, not stored on the mouse",
+      name: `${st("prof.hostName")}${lastDeviceMode === "Host" ? ` · ${st("prof.active")}` : ""}`,
+      detail: st("prof.liveDetail"),
     };
   }
   const dpi = entry.dpiStages.length > 0
-    ? `${entry.dpiStages.length} DPI slot${entry.dpiStages.length === 1 ? "" : "s"}`
-    : "no DPI slots";
+    ? st("prof.dpiSlots", { n: entry.dpiStages.length, s: entry.dpiStages.length === 1 ? "" : "s" })
+    : st("prof.noSlots");
   const rate = entry.reportRateWireless ? `${entry.reportRateWireless.toLocaleString()} Hz` : "—";
   return {
-    name: `${entry.name ?? `Profile ${entry.sector}`}${entry.isCurrent && lastDeviceMode !== "Host" ? " · active" : ""}`,
-    detail: [dpi, rate, entry.enabled ? null : "disabled"].filter(Boolean).join(" · "),
+    name: `${entry.name ?? st("prof.profileName", { n: entry.sector })}${entry.isCurrent && lastDeviceMode !== "Host" ? ` · ${st("prof.active")}` : ""}`,
+    detail: [dpi, rate, entry.enabled ? null : st("prof.disabledTag")].filter(Boolean).join(" · "),
   };
 }
 
@@ -2509,12 +2663,12 @@ export async function reloadOnboardProfiles(): Promise<void> {
   const client = logitechClient();
   if (!client || onboardProfilesLoading) return;
   onboardProfilesLoading = true;
-  setOnboardStatus("Reading onboard profiles…");
+  setOnboardStatus(st("ctl.readingProfiles"));
   try {
     onboardProfiles = await client.readOnboardProfiles();
     syncProfileDerivedState();
   } catch (error) {
-    recordDiagnosticError(error, "Unable to read onboard profiles.");
+    recordDiagnosticError(error, st("ctl.unableProfiles"));
     setOnboardStatus(error instanceof Error ? error.message : "Unable to read onboard profiles.");
   } finally {
     onboardProfilesLoading = false;
@@ -2524,7 +2678,7 @@ export async function reloadOnboardProfiles(): Promise<void> {
 function reportProfileStatus(): void {
   if (!onboardProfiles) return;
   if (onboardProfiles.length === 0) {
-    setOnboardStatus("This mouse reported no onboard profiles.");
+    setOnboardStatus(st("ctl.noProfiles"));
     return;
   }
   if (lastProfileFormat?.verified !== true) {
@@ -2544,7 +2698,7 @@ export async function applyOnboardMode(mode: "Onboard" | "Host"): Promise<void> 
   if (!client || refreshInProgress || settingInProgress) return;
   if (mode === "Host" && !confirmDiscardingProfileEdits("host")) return;
   settingInProgress = true;
-  readStatus = `Switching to ${mode.toLowerCase()} mode…`;
+  readStatus = st("ctl.switchingMode", { mode: mode.toLowerCase() });
   emit();
   recordDiagnosticCommand(`Set onboard mode to ${mode}`);
   try {
@@ -2552,8 +2706,8 @@ export async function applyOnboardMode(mode: "Onboard" | "Host"): Promise<void> 
     if (mode === "Host") openOnboardProfile("host");
     applyStatus(await statusAfterWrite(client));
   } catch (error) {
-    recordDiagnosticError(error, "Unable to change the onboard mode.");
-    readStatus = error instanceof Error ? error.message : "Unable to change the onboard mode.";
+    recordDiagnosticError(error, st("ctl.unableMode"));
+    readStatus = error instanceof Error ? error.message : st("ctl.unableMode");
   } finally {
     endDeviceWrite();
   }
@@ -2564,7 +2718,7 @@ export async function selectOnboardProfile(sector: number): Promise<void> {
   if (!client || refreshInProgress || settingInProgress) return;
   if (!confirmDiscardingProfileEdits(sector)) return;
   settingInProgress = true;
-  readStatus = `Switching to profile ${sector}…`;
+  readStatus = st("ctl.switchingProfile", { n: sector });
   emit();
   recordDiagnosticCommand(`Select onboard profile ${sector}`);
   try {
@@ -2575,7 +2729,7 @@ export async function selectOnboardProfile(sector: number): Promise<void> {
     await reloadOnboardProfiles();
   } catch (error) {
     recordDiagnosticError(error, "Unable to select that profile.");
-    readStatus = error instanceof Error ? error.message : "Unable to select that profile.";
+    readStatus = error instanceof Error ? error.message : st("ctl.unableProfile");
   } finally {
     endDeviceWrite();
   }
@@ -2688,7 +2842,7 @@ async function loadNapeKeymap(layer: number, force = false): Promise<void> {
   } catch (error) {
     if (token !== keymapReadToken) return;
     if (napeKeymap?.layer !== layer) napeKeymap = null;
-    recordDiagnosticError(error, "Unable to read Keychron button assignments.");
+    recordDiagnosticError(error, st("ctl.unableKeychron"));
   }
   emit();
 }
@@ -2738,7 +2892,7 @@ function applyNapeAssignmentValue(
   stageChange({
     key,
     group: NAPE_REMAP_GROUP,
-    label: `${keychronLayerLabel(layer)} · ${name} → ${action}`,
+    label: `${layerLabel(interfacePreferences.locale, keychronLayerLabel(layer))} · ${name} → ${action}`,
     command: `${verb} ${keychronLayerLabel(layer)} ${name} to ${action}`,
     progress: `${gerund} ${keychronLayerLabel(layer)} ${name} to ${action}…`,
     apply: writeStagedNapeAssignments,
@@ -2784,7 +2938,7 @@ function syncEditedNapeLayer(status: MouseStatus): void {
     editedNapeLayer = status.napeLayer ?? 1;
   }
   const active = status.napeLayer ?? 1;
-  onboardStatus = `Running from ${keychronLayerLabel(active)}. ${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`;
+  onboardStatus = st("ctl.runningFrom", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(active)), layers: st("ctl.layersCount", { n: count, s: count === 1 ? "" : "s" }) });
 }
 
 export function openNapeLayer(layer: number): void {
@@ -2807,21 +2961,21 @@ export async function reloadNapeLayers(): Promise<void> {
   const client = keychronNapeClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
-  onboardStatus = "Reading onboard layers…";
+  onboardStatus = st("ctl.readingLayers");
   emit();
   recordDiagnosticCommand("Read Keychron layers");
   try {
     applyStatus(await statusAfterWrite(client));
     const count = latestDeviceStatus?.napeLayerCount;
     onboardStatus = count != null
-      ? `${count} onboard layer${count === 1 ? "" : "s"} stored on the Nape Pro.`
-      : "The mouse did not report onboard layers.";
+      ? st("ctl.layersCount", { n: count, s: count === 1 ? "" : "s" })
+      : st("ctl.noLayers");
     napeKeymaps.clear();
     const layer = editedNapeLayer ?? latestDeviceStatus?.napeLayer ?? 1;
     await loadNapeKeymap(layer, true);
   } catch (error) {
-    recordDiagnosticError(error, "Unable to read onboard layers.");
-    onboardStatus = error instanceof Error ? error.message : "Unable to read onboard layers.";
+    recordDiagnosticError(error, st("ctl.unableLayers"));
+    onboardStatus = error instanceof Error ? error.message : st("ctl.unableLayers");
   } finally {
     endDeviceWrite();
   }
@@ -2836,23 +2990,23 @@ export async function switchNapeLayer(layer: number): Promise<void> {
     editedNapeLayer = layer;
     applyStatus({ ...status, napeLayer: layer });
     installPreviewNapeKeymap(layer);
-    setReadStatus(`Preview: switched to ${keychronLayerLabel(layer)}. Nothing is written.`);
+    setReadStatus(st("ctl.previewSwitched", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(layer)) }));
     return;
   }
   const client = keychronNapeClient();
   if (!client || refreshInProgress || settingInProgress) return;
   settingInProgress = true;
-  readStatus = `Switching to ${keychronLayerLabel(layer)}…`;
+  readStatus = st("ctl.switchingLayer", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(layer)) });
   emit();
   recordDiagnosticCommand(`Select Keychron layer ${layer}`);
   try {
     await client.setLayer(layer);
     editedNapeLayer = layer;
     applyStatus(await statusAfterWrite(client));
-    onboardStatus = `Running from ${keychronLayerLabel(layer)}.`;
+    onboardStatus = st("ctl.runningFromLabel", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(layer)) });
     await loadNapeKeymap(layer);
   } catch (error) {
-    recordDiagnosticError(error, "Unable to switch layer.");
+    recordDiagnosticError(error, st("ctl.unableLayer"));
     readStatus = error instanceof Error ? error.message : "Unable to switch layer.";
   } finally {
     endDeviceWrite();
@@ -2882,7 +3036,7 @@ export async function toggleOnboardProfileEnabled(sector: number, enabled: boole
     await client.setProfileEnabled(sector, enabled);
     await reloadOnboardProfiles();
   } catch (error) {
-    recordDiagnosticError(error, "Unable to change the profile state.");
+    recordDiagnosticError(error, st("ctl.unableProfileState"));
     setOnboardStatus(error instanceof Error ? error.message : "Unable to change the profile state.");
   } finally {
     endDeviceWrite();
@@ -2948,7 +3102,7 @@ export function renameOnboardProfile(sector: number): void {
   if (!entry || !logitechClient()) return;
   const maxLength = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
   if (maxLength === null) {
-    setOnboardStatus("This profile format has no name field.");
+    setOnboardStatus(st("ctl.noNameField"));
     return;
   }
   if (editedProfile !== sector) openOnboardProfile(sector);
@@ -2997,8 +3151,8 @@ export async function resetLogitechProfiles(): Promise<void> {
 
   settingInProgress = true;
   clearPendingChanges();
-  readStatus = "Resetting every onboard profile…";
-  onboardStatus = "Writing Logitech factory defaults…";
+  readStatus = st("ctl.resetting");
+  onboardStatus = st("ctl.writingDefaults");
   emit();
   recordDiagnosticCommand("Reset every Logitech onboard profile to factory defaults");
   try {
@@ -3009,10 +3163,10 @@ export async function resetLogitechProfiles(): Promise<void> {
     const status = await client.readStatus();
     deviceStatuses.set(client.device, status);
     applyStatus(status);
-    readStatus = "All onboard profiles were reset to Logitech defaults.";
-    onboardStatus = "Reset complete. Profile 1 is active; the other profiles are disabled.";
+    readStatus = st("ctl.resetDone");
+    onboardStatus = st("ctl.resetComplete");
   } catch (error) {
-    recordDiagnosticError(error, "Unable to reset every onboard profile.");
+    recordDiagnosticError(error, st("ctl.unableReset"));
     const message = error instanceof Error ? error.message : "Unable to reset every onboard profile.";
     readStatus = message;
     onboardStatus = message;
@@ -3081,7 +3235,7 @@ export function setProfileReportRate(link: "wireless" | "wired", hz: number): vo
   const selectedLink = (lastProfileFormat?.id ?? 6) < 6 ? "wired" : link;
   const allowed = profileReportRateOptions(selectedLink);
   if (!allowed.includes(hz)) {
-    setReadStatus(`This mouse supports ${allowed.join(", ")} Hz for that profile link.`);
+    setReadStatus(st("ctl.rateSupport", { rates: allowed.join(", ") }));
     return;
   }
   stagedProfileRates = { ...stagedProfileRates, [selectedLink]: hz };
@@ -3187,7 +3341,7 @@ let stagedLightforce: MouseStatus["lightforceSwitchMode"] = null;
 
 async function writeStagedModeStatus(): Promise<void> {
   const client = logitechClient();
-  if (!client) throw new Error("The mouse is no longer connected.");
+  if (!client) throw new Error(st("ctl.gone"));
   await client.setModeStatus({
     gamingSurface: stagedGamingSurface,
     lightforce: stagedLightforce,
@@ -3235,9 +3389,9 @@ export function toggleDongleLed(): void {
     },
     apply: async () => {
       const client = pulsarClient();
-      if (!client) throw new Error("The receiver is no longer connected.");
+      if (!client) throw new Error(st("ctl.receiverGone"));
       if (!("setDongleLed" in client)) {
-        throw new Error("This Pulsar device does not expose a receiver LED control.");
+        throw new Error(st("ctl.noLedControl"));
       }
       await client.setDongleLed(enabled);
     },
@@ -3251,6 +3405,9 @@ function settingLabel(setting: PulsarToggleSetting): string {
     rippleControl: "ripple control",
     performanceMode: teevolutionClient() ? "highest performance" : "performance mode",
     hyperMode: "Hyper mode",
+    turboMode: "turbo mode",
+    buttonCombination: "button combinations",
+    longRangeMode: "ultra long range",
   } as const)[setting];
 }
 
@@ -3260,6 +3417,9 @@ const PULSAR_TOGGLE_METHOD: Record<PulsarToggleSetting, string> = {
   rippleControl: "setRippleControl",
   performanceMode: "setPerformanceMode",
   hyperMode: "setHyperMode",
+  turboMode: "setTurboMode",
+  buttonCombination: "setButtonCombination",
+  longRangeMode: "setLongRangeMode",
 };
 
 export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean): void {
@@ -3286,7 +3446,7 @@ export function applyPulsarValue(setting: "debounce" | "sleep", value: number): 
     key: setting,
     label: setting === "debounce"
       ? `${value} ms debounce`
-      : asleep ? `Auto sleep ${sleepLabel(value)}` : "Auto sleep off",
+      : asleep ? st("ctl.autoSleep", { v: sleepLabel(value, interfacePreferences.locale) }) : st("ctl.autoSleepOff"),
     command: setting === "debounce" ? `Set debounce to ${value} ms` : `Set auto sleep to ${value} seconds`,
     progress: `Setting ${setting === "debounce" ? `${value} ms debounce` : "auto sleep"}…`,
     preview: (status) => {
@@ -3341,7 +3501,7 @@ export function applyRazerButtonMapping(control: RazerButtonControl, mapping: Ra
     },
     apply: async () => {
       const client = razerButtonClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setButtonMapping(control, mapping);
     },
   });
@@ -3360,18 +3520,38 @@ export function applyRazerToggleControl(control: RazerToggleControl, label: stri
     },
     apply: async () => {
       const client = razerButtonClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setToggleControl(control, label);
     },
   });
 }
 
-export function describeLighting(lighting: MouseLighting): string {
-  if (!lighting.mode) return "No effect";
+/**
+ * Sensor angle in degrees. Pulsar Pro reaches the same setting through
+ * `applyProSetting`, which also carries settings only that protocol has.
+ */
+export function applyAngleTuning(degrees: number): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "angle-tuning",
+    label: `Angle tune ${degrees}°`,
+    command: `Set the sensor angle to ${degrees}°`,
+    progress: `Setting the sensor angle to ${degrees}°…`,
+    preview: (status) => {
+      status.angleTuning = degrees;
+    },
+    apply: async () => {
+      await requireClientMethod("setAngleTuning", "angle tuning").setAngleTuning(degrees);
+    },
+  });
+}
+
+export function describeLighting(lighting: MouseLighting, locale: InterfaceLocale = "en"): string {
+  if (!lighting.mode) return t(locale, "light.noEffect");
   const parts: string[] = [lighting.mode];
   if (lighting.colorModes.includes(lighting.mode) && lighting.color) parts.push(lighting.color.toUpperCase());
   if (lighting.dualColorModes.includes(lighting.mode) && lighting.color2) parts.push(lighting.color2.toUpperCase());
-  if (lighting.reactiveModes.includes(lighting.mode) && lighting.speed !== null) parts.push(`speed ${lighting.speed}`);
+  if (lighting.reactiveModes.includes(lighting.mode) && lighting.speed !== null) parts.push(tp(locale, "light.speedN", { n: lighting.speed }));
   if (lighting.brightness != null) parts.push(`${lighting.brightness}%`);
   return parts.join(" · ");
 }
@@ -3383,14 +3563,14 @@ export function applyLighting(
   const deviceStatus = latestDeviceStatus;
   const source = deviceStatus?.lightingZones?.[zoneIndex] ?? (zoneIndex === 0 ? deviceStatus?.lighting : undefined);
   if (!hasActiveClient() || !deviceStatus || !source) {
-    setReadStatus("Lighting is not available for this mouse.");
+    setReadStatus(st("ctl.noLighting"));
     return;
   }
   const pendingStatus = withPendingChanges(deviceStatus);
   const stagedSource = pendingStatus.lightingZones?.[zoneIndex] ?? pendingStatus.lighting!;
   const staged = { ...stagedSource, ...patch } as MouseLighting;
   if (!staged.mode) {
-    setReadStatus("Pick an effect first.");
+    setReadStatus(st("ctl.pickEffect"));
     return;
   }
   stageChange({
@@ -3447,12 +3627,57 @@ export function applyTeevolutionSensorMode(mode: NonNullable<MouseStatus["sensor
   });
 }
 
+/**
+ * Sensor sampling mode for drivers outside the Teevolution profile, where the
+ * mode is a plain device setting rather than one the polling rate can lock.
+ */
+/**
+ * Lift-off for mice that tune it continuously rather than in three stops. The
+ * value is a raw device code; the driver owns what it means in millimetres.
+ */
+export function applyLiftOffScale(code: number): void {
+  const scale = latestDeviceStatus?.liftOffScale;
+  if (!hasActiveClient() || !scale) return;
+  if (!Number.isInteger(code) || code < scale.min || code > scale.max) return;
+  const millimetres = scale.minMillimetres
+    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / Math.max(1, scale.max - scale.min);
+  const label = `Lift-off ${millimetres.toFixed(1)} mm`;
+  stageChange({
+    key: "lift-off-scale",
+    label,
+    command: `Set lift-off to ${millimetres.toFixed(1)} mm`,
+    progress: `Setting lift-off to ${millimetres.toFixed(1)} mm…`,
+    preview: (status) => {
+      if (!status.liftOffScale) return;
+      status.liftOffScale = { ...status.liftOffScale, value: code, millimetres };
+    },
+    apply: async () => {
+      await requireClientMethod("setLiftOffScale", "lift-off distance").setLiftOffScale(code);
+    },
+  });
+}
+
+export function applySensorMode(mode: NonNullable<MouseStatus["sensorMode"]>): void {
+  if (!hasActiveClient()) return;
+  stageChange({
+    key: "sensor-mode",
+    label: `Sensor mode ${mode}`,
+    command: `Set sensor mode to ${mode}`,
+    progress: `Setting sensor mode to ${mode}…`,
+    preview: (status) => {
+      status.sensorMode = mode;
+    },
+    apply: async () => {
+      await requireClientMethod("setSensorMode", "the sensor mode").setSensorMode(mode);
+    },
+  });
+}
 export function applyTeevolutionPerformanceDuration(duration: number): void {
   if (!teevolutionClient()) return;
-  const label = sleepLabel(duration * 10);
+  const label = sleepLabel(duration * 10, interfacePreferences.locale);
   stageChange({
     key: "teevolution-performance-duration",
-    label: `Highest performance ${label}`,
+    label: st("ctl.highestPref", { v: label }),
     command: `Set highest-performance duration to ${label}`,
     progress: "Setting highest-performance duration…",
     preview: (status) => {
@@ -3469,7 +3694,7 @@ const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
 async function writeStagedTeevolutionDpiLighting(): Promise<void> {
   const client = teevolutionClient();
   if (!client || !latestDeviceStatus) {
-    throw new Error("The Teevolution mouse is no longer connected.");
+    throw new Error(st("ctl.teeGone"));
   }
   const status = withPendingChanges(latestDeviceStatus);
   await client.setDpiLighting(
@@ -3512,7 +3737,7 @@ export function applyEggFilter(setting: "slamclick" | "motionJitter", enabled: b
     },
     apply: async () => {
       const client = eggClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       if (setting === "slamclick") await client.setSlamclickFilter(enabled);
       else await client.setMotionJitterFilter(enabled);
     },
@@ -3532,7 +3757,7 @@ export function applyEggSpdtMode(button: "left" | "right", mode: EggSpdtMode): v
     },
     apply: async () => {
       const client = eggClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await client.setSpdtMode(button, mode);
     },
   });
@@ -3554,7 +3779,7 @@ function stageEggChange(options: {
     preview: options.preview,
     apply: async () => {
       const client = eggClient();
-      if (!client) throw new Error("The mouse is no longer connected.");
+      if (!client) throw new Error(st("ctl.gone"));
       await options.change(client);
     },
   });
@@ -3629,6 +3854,70 @@ export function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButton
   });
 }
 
+/**
+ * Select a named power/performance mode on any driver that exposes
+ * `setPowerMode`.
+ */
+export function applyPowerMode(mode: string): void {
+  stageChange({
+    key: "power-mode",
+    label: mode,
+    command: st("ctl.cmdPower"),
+    progress: st("ctl.progPower"),
+    preview: (status) => { status.powerMode = mode; },
+    apply: async () => {
+      await requireClientMethod("setPowerMode", "the performance mode").setPowerMode(mode);
+    },
+  });
+}
+
+/**
+ * Reassign a physical button on any driver that exposes `setButtonMapping`.
+ * Named for the device-level map to keep it distinct from `applyButtonMapping`
+ * above, which reassigns a Logitech control by id.
+ */
+export function applyDeviceButtonMapping(button: string, action: string): void {
+  stageChange({
+    key: `button-${button}`,
+    label: `${button}: ${action}`,
+    command: st("ctl.cmdRemap", { button }),
+    progress: st("ctl.progRemap"),
+    preview: (status) => {
+      if (status.buttonMappings) {
+        status.buttonMappings = { ...status.buttonMappings, [button]: action };
+      }
+    },
+    apply: async () => {
+      // Endgame's client also has a setButtonMapping, with its own parameter
+      // types, so the extracted union narrows the arguments to `never`. The
+      // cast keeps this path device-agnostic; requireClientMethod has already
+      // established the method exists.
+      const client = requireClientMethod("setButtonMapping", "button assignments") as unknown as {
+        setButtonMapping(button: string, action: string): Promise<unknown>;
+      };
+      await client.setButtonMapping(button, action);
+    },
+  });
+}
+
+/**
+ * Switch a numbered onboard profile on any driver that exposes `setProfile`.
+ * The device's DPI and polling belong to the profile, so the panel re-reads
+ * rather than previewing a value that is about to be replaced wholesale.
+ */
+export function applyProfileSelection(profile: number): void {
+  stageChange({
+    key: "onboard-profile",
+    label: st("adv.profileOpt", { n: profile }),
+    command: st("ctl.cmdProfile"),
+    progress: st("ctl.progProfile"),
+    preview: (status) => { status.activeProfile = profile; },
+    apply: async () => {
+      await requireClientMethod("setProfile", "the active profile").setProfile(profile);
+    },
+  });
+}
+
 export function applyProSetting(
   setting: "wheelAcceleration" | "angleTuning" | "profile",
   value: boolean | number,
@@ -3651,7 +3940,7 @@ export function applyProSetting(
     },
     apply: async () => {
       const client = pulsarClient();
-      if (!(client instanceof PulsarProHidClient)) throw new Error("The mouse is no longer connected.");
+      if (!(client instanceof PulsarProHidClient)) throw new Error(st("ctl.gone"));
       if (setting === "wheelAcceleration") await client.setWheelAcceleration(Boolean(value));
       if (setting === "angleTuning") await client.setAngleTuning(Number(value));
       if (setting === "profile") await client.setProfile(Number(value));
@@ -3714,8 +4003,8 @@ async function refreshStatus(): Promise<void> {
     if (key !== lastRenderedStatusKey) applyStatus(status, key);
   } catch (error) {
     lastRenderedStatusKey = null;
-    deviceStatusText = "Waiting to refresh";
-    readStatus = error instanceof Error ? error.message : "Unable to refresh the mouse status.";
+    deviceStatusText = st("ctl.waitingRefresh");
+    readStatus = error instanceof Error ? error.message : st("ctl.unableRefresh");
     emit();
   } finally {
     refreshInProgress = false;
@@ -3735,7 +4024,7 @@ async function loadPreviewEntries(): Promise<void> {
 
 function previewClient(): LogitechHidppClient {
   const refuse = async (): Promise<never> => {
-    throw new Error("Preview mode: no mouse is connected, so nothing was written.");
+    throw new Error(st("ctl.previewNoMouse"));
   };
   // Real prototype: the driver accessors test with instanceof.
   return Object.assign(Object.create(LogitechHidppClient.prototype) as LogitechHidppClient, {
@@ -3828,7 +4117,7 @@ function showSlotsPreview(): void {
     firmware: ["MPM 39.00.B0004"],
   });
   setConnectionButtons(true, "Preview mode");
-  setReadStatus("Preview: G502 X PLUS performance, onboard profiles, button remapping and RGB lighting.");
+  setReadStatus(st("ctl.previewG502"));
 }
 
 function showSuperstrikePreview(): void {
@@ -3864,7 +4153,7 @@ function showSuperstrikePreview(): void {
     firmware: ["MPM 42.00.B0011", "BL2 73.00.B0011"],
   });
   setConnectionButtons(true, "Preview mode");
-  setReadStatus("Current: 800 DPI · 4,000 Hz");
+  setReadStatus(st("ctl.currentLine", { dpi: "800", hz: "4,000" }));
 }
 
 function showG703PreviewProfiles(): void {
@@ -3914,7 +4203,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     installPreviewNapeKeymap(layer, true);
   }
   setConnectionButtons(true, "Preview mode");
-  setReadStatus(`Preview: ${fixture.label}. Nothing is written.`);
+  setReadStatus(st("ctl.previewLabel", { label: fixture.label }));
 }
 
 export function start(): void {

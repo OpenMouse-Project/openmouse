@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
+import { t, connectLabelText, connectionText, ensureLocale, type I18nKey } from "../i18n";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { CaptureDialog } from "./CaptureDialog";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
@@ -18,6 +19,7 @@ import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
+import { AtkButtonCard, AtkProfileCard, AtkReceiverCard } from "./cards/AtkCards";
 import {
   DebounceCard,
   EggButtonCard,
@@ -31,6 +33,9 @@ import {
   NinjutsoSensorCard,
   ProcessingCard,
   RazerButtonCard,
+  ButtonMappingCard,
+  PowerModeCard,
+  OnboardProfileCard,
   PulsarProCard,
   SignalCard,
   SleepCard,
@@ -46,6 +51,7 @@ function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
 function DeviceOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
+  const locale = snapshot.preferences.locale;
   const isWired = status.connectionType === "Wired";
   const showBattery = !snapshot.traits.eggControls
     && (status.ui?.forceShowBattery || !isWired || status.batteryPercent !== null);
@@ -65,37 +71,39 @@ function DeviceOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     >
       {showBattery ? (
         <article id="battery-summary" className="summary-stat" style={{ display: "flex" }}>
-          <span>BATTERY</span>
+          <span>{t(locale, "ov.battery")}</span>
           <strong className="battery-readout">
             <span id="battery-icon-slot">
               <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
             </span>
             <span id="battery-value">{status.batteryPercent === null ? "—" : `${status.batteryPercent}%`}</span>
           </strong>
-          <small id="battery-detail">{control.batteryDetail(status)}</small>
+          <small id="battery-detail">{control.batteryDetail(status, locale)}</small>
         </article>
       ) : null}
       <article className="summary-stat">
-        <span>FIRMWARE</span>
+        <span>{t(locale, "ov.firmware")}</span>
         <strong id="firmware-value">{status.firmware[0] ?? "—"}</strong>
         <small id="firmware-detail">
           {status.firmware.length > 1
             ? status.firmware.slice(1).join(" · ")
             : status.firmware.length === 1
-              ? "Firmware reported by mouse"
-              : "Not reported"}
+              ? t(locale, "ov.fwSingle")
+              : t(locale, "ov.fwNone")}
         </small>
       </article>
       <article className="summary-stat" data-pending-key="dongle-led">
-        <span>CONNECTION</span>
-        <strong id="connection-value">{status.connectionType ?? "Wireless"}</strong>
+        <span>{t(locale, "ov.connection")}</span>
+        <strong id="connection-value">{connectionText(locale, status.connectionType)}</strong>
         <small id="connection-detail">
           {status.connectionDetail
-            ?? (status.activeProfile ? `2.4 GHz · Profile ${status.activeProfile}` : "2.4 GHz receiver")}
+            ?? (status.activeProfile
+              ? `${t(locale, "ov.conn24")} · ${t(locale, "ov.profile")} ${status.activeProfile}`
+              : t(locale, "ov.connReceiver"))}
         </small>
         {supportsDongleLed ? (
           <button id="dongle-led-toggle" className="dongle-led-button" type="button" onClick={control.toggleDongleLed}>
-            Receiver LED: {status.dongleLedEnabled ? "On" : "Off"}
+            {t(locale, "ov.led")}: {status.dongleLedEnabled ? t(locale, "ov.on") : t(locale, "ov.off")}
           </button>
         ) : null}
       </article>
@@ -113,6 +121,7 @@ function Workspace({
   const status = snapshot.status;
   const tab = snapshot.workspaceTab;
   if (!status) return null;
+  const locale = snapshot.preferences.locale;
   const has = cardAvailability(snapshot);
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
 
@@ -144,6 +153,15 @@ function Workspace({
     show(has.razerButtons, ["buttons"]) ? <RazerButtonCard key="razerbuttons" snapshot={snapshot} /> : null,
     show(has.mxMasterButtons, ["buttons"])
       ? <MxMasterButtonsCard key="mxmaster-buttons" snapshot={snapshot} /> : null,
+    show(has.atkButtons, ["buttons"]) ? <AtkButtonCard key="atk-buttons" snapshot={snapshot} /> : null,
+    show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
+    show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
+    show(has.powerMode, ["performance"])
+      ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
+    show(has.buttonMapping, ["buttons"])
+      ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
+    show(has.onboardProfiles, ["profiles"])
+      ? <OnboardProfileCard key="onboard-profile" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
@@ -243,11 +261,10 @@ function Workspace({
       ) : null}
 
       {on(tab, ["advanced"]) ? (
-        <aside className="testing-note" aria-label="Development testing guidance">
-          <strong>Development testing</strong>
+        <aside className="testing-note" aria-label={t(locale, "misc.devTesting")}>
+          <strong>{t(locale, "misc.devTesting")}</strong>
           <span>
-            Record the device identifier, protocol version, and any failing setting in the issue or pull
-            request. Do not use factory reset during initial testing.
+            {t(locale, "misc.devTestingBody")}
           </span>
         </aside>
       ) : null}
@@ -263,6 +280,7 @@ export function App(): ReactNode {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const { preferences, status } = snapshot;
+  const locale = preferences.locale;
 
   useEffect(() => {
     const element = panel.current?.closest<HTMLElement>(".control-shell");
@@ -282,6 +300,17 @@ export function App(): ReactNode {
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [snapshot.workspaceTab]);
 
+  useEffect(() => {
+    try {
+      document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+    } catch {
+      /* non-DOM environment (tests) */
+    }
+    // A stored non-English locale resolves its table after first paint;
+    // re-render once it arrives instead of sticking on fallback strings.
+    if (locale !== "en") void ensureLocale(locale).then(() => control.refreshInterface());
+  }, [locale]);
+
   const filterTabs = (status:MouseStatus|null):readonly WorkspaceTab[] => {
     var tempTabs = WORKSPACE_TAB_ORDER;
     const has = cardAvailability(snapshot);
@@ -290,6 +319,8 @@ export function App(): ReactNode {
     if(!has.eggButtons&&
        !has.razerButtons&&
        !has.mxMasterButtons&&
+       !has.atkButtons&&
+       !has.buttonMapping&&
        !has.debounce&&
        !has.lightforce&&
        !has.eggSpdt&&
@@ -320,6 +351,7 @@ export function App(): ReactNode {
         preferences.reducedMotion ? "reduce-interface-motion" : "",
         snapshot.sidebarHidden ? "sidebar-hidden" : "",
         snapshot.pending.count > 0 ? "has-pending-changes" : "",
+        preferences.glassIntensity <= 0 ? "is-glass-min" : "",
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
       style={{ "--glass-intensity": preferences.glassIntensity }}
@@ -331,8 +363,8 @@ export function App(): ReactNode {
           <header className="panel-header">
             <div className="panel-title">
               <div>
-                <p className="overline">DEVICE CONTROL</p>
-                <h1 id="device-title">{status?.name ?? "Connect a mouse"}</h1>
+                <p className="overline">{t(locale, "panel.overline")}</p>
+                <h1 id="device-title">{status?.name ?? t(locale, "panel.connectMouse")}</h1>
               </div>
             </div>
             <div className="device-status">
@@ -349,7 +381,7 @@ export function App(): ReactNode {
                 className="live-status-share"
                 onClick={() => setShareProfileOpen(true)}
               >
-                Share profile
+                {t(locale, "panel.shareProfile")}
               </button>
             ) : null}
           </p>
@@ -358,12 +390,12 @@ export function App(): ReactNode {
         {status ? null : (
           <section className="empty-state" aria-labelledby="empty-state-title">
             <h2 id="empty-state-title">
-              {snapshot.previewListMessage ? "Driver previews" : "Connect a mouse."}
+              {snapshot.previewListMessage ? t(locale, "empty.previewsTitle") : t(locale, "empty.title")}
             </h2>
             <p>
               {snapshot.previewListMessage ? (
                 <>
-                  Render any supported driver without its hardware:{" "}
+                  {t(locale, "empty.previewsBody")}{" "}
                   {snapshot.previewEntries.map(([key], index) => (
                     <span key={key}>
                       {index > 0 ? " · " : null}
@@ -372,7 +404,7 @@ export function App(): ReactNode {
                   ))}
                 </>
               ) : (
-                "Pick your mouse in the browser prompt to adjust its onboard settings."
+                t(locale, "empty.body")
               )}
             </p>
             <button
@@ -385,13 +417,13 @@ export function App(): ReactNode {
                 void control.connect();
               }}
             >
-              {snapshot.connectLabel}
+              {connectLabelText(locale, snapshot.connectLabel)}
             </button>
           </section>
         )}
 
         {status ? (
-          <nav className="workspace-tabs device-data" role="tablist" aria-label="Device sections">
+          <nav className="workspace-tabs device-data" role="tablist" aria-label={t(locale, "panel.deviceSections")}>
             <i className="lg-glass__refract" aria-hidden="true" />
             <i className="lg-glass__tint" aria-hidden="true" />
             <i className="lg-glass__specular" aria-hidden="true" />
@@ -406,7 +438,7 @@ export function App(): ReactNode {
                 onClick={() => control.setWorkspaceTab(tab)}
                 onKeyDown={(event) => onTabKey(event, tab)}
               >
-                {tab[0].toUpperCase() + tab.slice(1)}
+                {t(locale, `tab.${tab}` as I18nKey)}
               </button>
             ))}
           </nav>
@@ -417,9 +449,9 @@ export function App(): ReactNode {
       </main>
 
       <PendingBar snapshot={snapshot} />
-      <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
       <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
-      <ToastHost toasts={snapshot.toasts} />
+      <ToastHost toasts={snapshot.toasts} locale={locale} />
     </div>
   );
 }

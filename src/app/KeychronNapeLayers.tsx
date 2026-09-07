@@ -7,6 +7,8 @@ import {
 } from "@openmouse/protocol/keychron";
 import * as control from "../device/controller";
 import type { ControlSnapshot, NapeAssignmentControl, StagedNapeAssignment } from "../device/types";
+import { layerLabel, t, tp } from "../i18n";
+import type { InterfaceLocale } from "../interface-preferences";
 import { IconActivate, IconRefresh, IconRunning } from "./icons";
 
 const ROW_STYLE = (open: boolean): CSSProperties => ({
@@ -81,6 +83,7 @@ function AssignmentSelect({
   keycode,
   staged,
   disabled,
+  locale,
 }: {
   layer: number;
   target: NapeAssignmentControl;
@@ -88,6 +91,7 @@ function AssignmentSelect({
   keycode: number;
   staged: StagedNapeAssignment | undefined;
   disabled: boolean;
+  locale: InterfaceLocale;
 }): ReactNode {
   const value = staged?.action ?? action;
   return (
@@ -102,7 +106,7 @@ function AssignmentSelect({
           control.applyNapeAssignment(layer, target, next as KeychronNapeButtonAction);
         }}
       >
-        {value === "Custom" ? <option value="Custom">Custom mapping (preserved)</option> : null}
+        {value === "Custom" ? <option value="Custom">{t(locale, "prof.customPreserved")}</option> : null}
         {KEYCHRON_NAPE_BUTTON_ACTIONS.map((option) => (
           <option key={option} value={option}>{option}</option>
         ))}
@@ -113,6 +117,7 @@ function AssignmentSelect({
 }
 
 function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer: number }): ReactNode {
+  const locale = snapshot.preferences.locale;
   const map = snapshot.napeKeymap;
   const busy = snapshot.settingInProgress;
   const ready = map != null && map.layer === layer;
@@ -125,8 +130,8 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
       <div className="profile-button-heading">
         <div>
           <p>BUTTONS</p>
-          <h2>Onboard assignments</h2>
-          <small>Choose this layer's sensor orientation and what each physical control does.</small>
+          <h2>{t(locale, "prof.assign")}</h2>
+          <small>{t(locale, "key.assignBody")}</small>
         </div>
       </div>
       {ready && map ? (
@@ -172,6 +177,7 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
                   keycode={key.keycode}
                   staged={staged}
                   disabled={busy}
+                  locale={locale}
                 />
               </label>
             );
@@ -197,16 +203,17 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
                   keycode={row.current.keycode}
                   staged={staged}
                   disabled={busy}
+                  locale={locale}
                 />
               </label>
             );
           })}
         </div>
       ) : (
-        <small className="setting-note">Reading {keychronLayerLabel(layer)}…</small>
+        <small className="setting-note">{tp(locale, "key.reading", { label: layerLabel(locale, keychronLayerLabel(layer)) })}</small>
       )}
       <small className="setting-note">
-        Changes stay on this layer until you apply them. Orientation is stored per layer in 45° steps. Clockwise and counter-clockwise scroll can be set independently.
+        {t(locale, "key.layerNote")}
       </small>
     </div>
   );
@@ -224,13 +231,14 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
   });
 
   if (status == null || count == null || count < 1) return null;
+  const locale = snapshot.preferences.locale;
 
   const activeLayer = status.napeLayer ?? 1;
   const editedLayer = snapshot.editedNapeLayer ?? activeLayer;
   const busy = snapshot.settingInProgress;
   const tags = [
-    editedLayer === activeLayer ? "active" : null,
-    "editing",
+    editedLayer === activeLayer ? t(locale, "key.active") : null,
+    t(locale, "key.editing"),
   ].filter(Boolean).join(" · ");
 
   return (
@@ -250,9 +258,9 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
           onClick={control.toggleProfilesExpanded}
         >
           <span className="profile-summary-text">
-            <span className="profile-summary-label">EDITING</span>
-            <strong>{keychronLayerLabel(editedLayer)}{tags ? ` · ${tags}` : ""}</strong>
-            <small>Onboard layers stored on the Nape Pro</small>
+            <span className="profile-summary-label">{t(locale, "prof.editing")}</span>
+            <strong>{layerLabel(locale, keychronLayerLabel(editedLayer))}{tags ? ` · ${tags}` : ""}</strong>
+            <small>{t(locale, "key.layersStored")}</small>
           </span>
           <i className="profile-summary-chevron" aria-hidden="true" />
         </button>
@@ -260,8 +268,8 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
           id="nape-layer-refresh"
           className="icon-button"
           type="button"
-          aria-label="Reload layers"
-          title="Reload layers"
+          aria-label={t(locale, "key.reload")}
+          title={t(locale, "key.reload")}
           disabled={busy}
           onClick={() => void control.reloadNapeLayers()}
         >
@@ -273,38 +281,38 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
         <div className="profile-disclosure-inner" ref={inner}>
           <div id="nape-layer-list">
             <small style={{ display: "block", margin: "0 0 .2rem", color: "#5c5c62", fontSize: ".58rem" }}>
-              Click a layer to inspect it. Use the circle to switch the mouse to it.
+              {t(locale, "key.inspectHint")}
             </small>
             {Array.from({ length: count }, (_, index) => {
               const layer = index + 1;
               const opened = editedLayer === layer;
               const running = activeLayer === layer;
-              const rowTags = [running ? "active" : null, opened ? "editing" : null]
+              const rowTags = [running ? t(locale, "key.active") : null, opened ? t(locale, "key.editing") : null]
                 .filter(Boolean)
                 .join(" · ");
               return (
                 <div key={layer} style={ROW_STYLE(opened)}>
                   <button
                     type="button"
-                    title="Open this layer"
+                    title={t(locale, "key.openLayer")}
                     style={OPEN_BUTTON_STYLE}
                     onClick={() => control.openNapeLayer(layer)}
                   >
                     <span className={`device-dot${running ? "" : " is-idle"}`} />
                     <span className="profile-row-text" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                       <strong style={{ fontSize: ".72rem", color: "#e6e6ea" }}>
-                        {keychronLayerLabel(layer)}{rowTags ? ` · ${rowTags}` : ""}
+                        {layerLabel(locale, keychronLayerLabel(layer))}{rowTags ? ` · ${rowTags}` : ""}
                       </strong>
                       <small style={{ color: "#77777c", fontSize: ".62rem" }}>
-                        {running ? "Current layer on the mouse" : "Stored on the mouse"}
+                        {running ? t(locale, "key.currentLayer") : t(locale, "key.storedLayer")}
                       </small>
                     </span>
                   </button>
                   <button
                     type="button"
                     disabled={busy || running}
-                    title={running ? "The mouse is already on this layer" : `Switch the mouse to ${keychronLayerLabel(layer)}`}
-                    aria-label={`Switch to ${keychronLayerLabel(layer)}`}
+                    title={running ? t(locale, "key.alreadyLayer") : tp(locale, "key.switchLayer", { label: layerLabel(locale, keychronLayerLabel(layer)) })}
+                    aria-label={tp(locale, "key.switchTo", { label: layerLabel(locale, keychronLayerLabel(layer)) })}
                     aria-pressed={running}
                     style={ICON_BUTTON_STYLE(busy || running, running)}
                     onClick={() => void control.switchNapeLayer(layer)}

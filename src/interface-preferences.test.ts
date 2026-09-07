@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   DEFAULT_INTERFACE_PREFERENCES,
+  detectLocale,
   interfaceThemeSlug,
   loadInterfacePreferences,
   saveInterfacePreferences,
@@ -24,6 +25,7 @@ test("interface preferences restore only supported values", () => {
   saveInterfacePreferences(storage, {
     theme: "Violet",
     colorMode: "Light",
+    locale: "pt",
     reducedMotion: true,
     expandSections: true,
     showExperimental: false,
@@ -34,6 +36,7 @@ test("interface preferences restore only supported values", () => {
   assert.deepEqual(loadInterfacePreferences(storage), {
     theme: "Violet",
     colorMode: "Light",
+    locale: "pt",
     reducedMotion: true,
     expandSections: true,
     showExperimental: false,
@@ -67,7 +70,11 @@ test("interface preferences fall back safely for malformed storage", () => {
   const storage = new MemoryStorage();
   storage.setItem("openmouse-interface-settings-v1", "not json");
 
-  assert.deepEqual(loadInterfacePreferences(storage), DEFAULT_INTERFACE_PREFERENCES);
+  // Locale follows the browser on first run, so only it may differ from DEFAULT.
+  assert.deepEqual(loadInterfacePreferences(storage), {
+    ...DEFAULT_INTERFACE_PREFERENCES,
+    locale: detectLocale(),
+  });
 });
 
 test("every interface theme persists and maps to its stylesheet slug", () => {
@@ -95,4 +102,23 @@ test("every interface theme persists and maps to its stylesheet slug", () => {
     assert.equal(loadInterfacePreferences(storage).theme, theme);
     assert.equal(interfaceThemeSlug(theme), slug);
   }
+});
+
+test("interface locale persists and falls back to the detected language", () => {
+  const storage = new MemoryStorage();
+  saveInterfacePreferences(storage, { ...DEFAULT_INTERFACE_PREFERENCES, locale: "pt" });
+  assert.equal(loadInterfacePreferences(storage).locale, "pt");
+
+  saveInterfacePreferences(storage, { ...DEFAULT_INTERFACE_PREFERENCES, locale: "en" });
+  assert.equal(loadInterfacePreferences(storage).locale, "en");
+
+  // Missing or unsupported values follow the browser once (system-dependent,
+  // so assert the wiring, not a fixed language).
+  const empty = new MemoryStorage();
+  empty.setItem("openmouse-interface-settings-v1", JSON.stringify({ theme: "Mono" }));
+  assert.equal(loadInterfacePreferences(empty).locale, detectLocale());
+
+  const bogus = new MemoryStorage();
+  bogus.setItem("openmouse-interface-settings-v1", JSON.stringify({ locale: "xx" }));
+  assert.equal(loadInterfacePreferences(bogus).locale, detectLocale());
 });

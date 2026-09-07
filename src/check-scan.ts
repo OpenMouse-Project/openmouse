@@ -4,6 +4,8 @@ import {
   encodeRazerRequest,
   type RazerCommand,
 } from "@openmouse/protocol/razer";
+import { t, tp } from "./i18n.ts";
+import type { InterfaceLocale } from "./interface-preferences.ts";
 
 export const BRANDS: Record<number, string> = {
   0x1532: "Razer",
@@ -31,6 +33,8 @@ export const BRANDS: Record<number, string> = {
   0x0C45: "Redragon",
   0x1BCF: "Alienware",
   0x3151: "Fantech",
+  0xA8A4: "K-snake",
+  0xA8A5: "K-snake",
 };
 
 const OPENMOUSE_SUPPORTED = new Set([
@@ -132,31 +136,32 @@ export interface DeviceResult {
 function assessCollections(
   vendorId: number,
   collections: readonly HIDCollectionInfo[],
+  locale: InterfaceLocale = "en",
 ): { verdict: Verdict; note: string } {
   if (vendorId === 0x31E3) {
-    return { verdict: "blocked", note: "HyperPolling dongle — mouhid.sys blocks WebHID on Windows" };
+    return { verdict: "blocked", note: t(locale, "chk.noteBlocked") };
   }
   const hasVendor = collections.some((c) => c.usagePage >= 0xFF00);
   const hasVendorFeature = collections.some((c) => c.usagePage >= 0xFF00 && c.featureReports.length > 0);
   const hasStdOnly = !hasVendor && collections.some((c) => c.usagePage === 0x01 && c.usage === 0x02);
 
-  if (hasVendorFeature) return { verdict: "full", note: "Vendor interface with feature reports visible" };
-  if (hasVendor) return { verdict: "partial", note: "Vendor interface found — feature report visibility varies by OS/browser" };
-  if (hasStdOnly) return { verdict: "limited", note: "Only standard boot-mouse interface visible to WebHID" };
-  return { verdict: "unknown", note: "No collections visible — interface may be blocked" };
+  if (hasVendorFeature) return { verdict: "full", note: t(locale, "chk.noteFull") };
+  if (hasVendor) return { verdict: "partial", note: t(locale, "chk.notePartial") };
+  if (hasStdOnly) return { verdict: "limited", note: t(locale, "chk.noteLimited") };
+  return { verdict: "unknown", note: t(locale, "chk.noteUnknown") };
 }
 
-export async function scanDevices(devices: HIDDevice[]): Promise<DeviceResult[]> {
+export async function scanDevices(devices: HIDDevice[], locale: InterfaceLocale = "en"): Promise<DeviceResult[]> {
   const results: DeviceResult[] = [];
 
   for (const device of devices) {
     const vendorId = device.vendorId;
     const productId = device.productId;
-    const brand = BRANDS[vendorId] ?? `Unknown (VID 0x${hex(vendorId)})`;
+    const brand = BRANDS[vendorId] ?? tp(locale, "chk.unknownVid", { vid: `0x${hex(vendorId)}` });
     const isRazer = vendorId === 0x1532 || vendorId === 0x31E3;
     const openmouseSupported = OPENMOUSE_SUPPORTED.has(vendorId);
 
-    const { verdict: preVerdict, note: preNote } = assessCollections(vendorId, device.collections);
+    const { verdict: preVerdict, note: preNote } = assessCollections(vendorId, device.collections, locale);
 
     let opened = false;
     let openError: string | null = null;
@@ -168,10 +173,10 @@ export async function scanDevices(devices: HIDDevice[]): Promise<DeviceResult[]>
       if (!device.opened) await device.open();
       opened = true;
     } catch (err) {
-      openError = err instanceof Error ? err.message : "Could not open device";
+      openError = err instanceof Error ? err.message : t(locale, "chk.couldNotOpenDevice");
       if (preVerdict === "full" || preVerdict === "partial") {
         verdict = "blocked";
-        verdictNote = `OS/browser blocked open: ${openError}`;
+        verdictNote = tp(locale, "chk.noteBlockedOpen", { msg: openError });
       }
     }
 
@@ -184,16 +189,16 @@ export async function scanDevices(devices: HIDDevice[]): Promise<DeviceResult[]>
       }
       if (anyOk) {
         verdict = "full";
-        verdictNote = "Razer HID protocol responding — TX-ID test passed";
+        verdictNote = t(locale, "chk.noteRazerOk");
       } else if (preVerdict !== "blocked") {
         verdict = "partial";
-        verdictNote = "Device opened but TX-ID test received no valid response";
+        verdictNote = t(locale, "chk.noteRazerPartial");
       }
     }
 
     if (opened && !isRazer && verdict !== "blocked") {
       if (SKIP_FEATURE_PROBE.has(vendorId)) {
-        verdictNote = `${brand} — interface accessible (probe skipped for safety)`;
+        verdictNote = tp(locale, "chk.noteSkipped", { brand });
       } else {
         const vendorCollections = device.collections
           .filter((c) => c.usagePage >= 0xFF00 && c.featureReports.length > 0);
@@ -202,10 +207,10 @@ export async function scanDevices(devices: HIDDevice[]): Promise<DeviceResult[]>
           try {
             await device.receiveFeatureReport(reportId);
             verdict = "full";
-            verdictNote = "Feature report readable on vendor interface";
+            verdictNote = t(locale, "chk.noteReadable");
           } catch {
             verdict = "partial";
-            verdictNote = "Vendor interface accessible but feature report read failed";
+            verdictNote = t(locale, "chk.noteReadFailed");
           }
         }
       }

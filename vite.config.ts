@@ -44,6 +44,7 @@ export default defineConfig({
               // contribute.html was retired in favor of docs.openmouse.app
               // (see sites-vite-plugin.ts for the redirect).
               landing: resolve(__dirname, "landing.html"),
+              faq: resolve(__dirname, "faq.html"),
               check: resolve(__dirname, "check.html"),
               supported: resolve(__dirname, "supported.html"),
               donate: resolve(__dirname, "donate.html"),

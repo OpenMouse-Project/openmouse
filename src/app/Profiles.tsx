@@ -4,6 +4,7 @@ import { LOGITECH_BUTTON_ACTIONS, type LogitechButtonAction } from "@openmouse/p
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import { hidKeyForCode, shortcutLabel } from "./hid-keys";
+import { t, tp } from "../i18n";
 import { IconActivate, IconDisabled, IconEnabled, IconRefresh, IconRename, IconRunning, IconTrash } from "./icons";
 
 const ROW_STYLE = (open: boolean, enabled = true): CSSProperties => ({
@@ -56,6 +57,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
     body.current.style.maxHeight = snapshot.profilesExpanded ? `${inner.current.scrollHeight}px` : "0px";
   });
 
+  const locale = snapshot.preferences.locale;
   const summary = snapshot.profile.summary;
   const hostOpened = snapshot.editedProfile === "host";
   const hostRunning = snapshot.deviceMode === "Host";
@@ -63,7 +65,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
   const layoutVerified = format?.verified === true;
   const contentsWritable = format?.writable === true;
   const nameLimit = format ? capabilitiesForFormat(format.id).maxNameLength : null;
-  const hostTags = [hostRunning ? "active" : null, hostOpened ? "editing" : null].filter(Boolean).join(" · ");
+  const hostTags = [hostRunning ? t(locale, "prof.active") : null, hostOpened ? t(locale, "prof.editingTag") : null].filter(Boolean).join(" · ");
   const openedProfile = typeof snapshot.editedProfile === "number"
     ? profiles?.find((profile) => profile.sector === snapshot.editedProfile) ?? null
     : null;
@@ -85,7 +87,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
           onClick={control.toggleProfilesExpanded}
         >
           <span className="profile-summary-text">
-            <span className="profile-summary-label">EDITING</span>
+            <span className="profile-summary-label">{t(locale, "prof.editing")}</span>
             <strong id="profile-summary-name">{summary.name}</strong>
             <small id="profile-summary-detail">{summary.detail}</small>
           </span>
@@ -95,8 +97,8 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
           id="onboard-refresh"
           className="icon-button"
           type="button"
-          aria-label="Reload profiles"
-          title="Reload profiles"
+          aria-label={t(locale, "prof.reload")}
+          title={t(locale, "prof.reload")}
           onClick={() => void control.reloadOnboardProfiles()}
         >
           <IconRefresh />
@@ -106,8 +108,8 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
             id="reset-logitech-profiles"
             className="icon-button profile-delete-button"
             type="button"
-            aria-label="Delete and reset every onboard profile"
-            title="Permanently restore every onboard profile to Logitech defaults"
+            aria-label={t(locale, "prof.deleteReset")}
+            title={t(locale, "prof.restoreDefaults")}
             disabled={snapshot.settingInProgress}
             onClick={() => void control.resetLogitechProfiles()}
           >
@@ -124,7 +126,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                 <div style={ROW_STYLE(hostOpened)}>
                   <button
                     type="button"
-                    title="Open host settings"
+                    title={t(locale, "prof.openHost")}
                     style={OPEN_BUTTON_STYLE(false)}
                     onClick={() => control.openOnboardProfile("host")}
                   >
@@ -141,8 +143,8 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                   <button
                     type="button"
                     disabled={hostRunning}
-                    title={hostRunning ? "The mouse is already in host mode" : "Switch the mouse to host mode"}
-                    aria-label="Switch to host mode"
+                    title={hostRunning ? t(locale, "prof.hostAlready") : t(locale, "prof.switchHost")}
+                    aria-label={t(locale, "prof.switchHostAria")}
                     aria-pressed={hostRunning}
                     style={ICON_BUTTON_STYLE(hostRunning, hostRunning)}
                     onClick={() => void control.applyOnboardMode("Host")}
@@ -191,8 +193,8 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                         type="button"
                         disabled={locked}
                         title={locked
-                          ? "This profile layout has not been verified on hardware"
-                          : "Open this profile to edit it"}
+                          ? t(locale, "prof.layoutUnverified")
+                          : t(locale, "prof.openProfile")}
                         style={OPEN_BUTTON_STYLE(locked)}
                         onClick={() => control.openOnboardProfile(profile.sector)}
                       >
@@ -209,10 +211,10 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                         type="button"
                         disabled={renameDisabled}
                         title={!nameable
-                          ? "This profile format has no name field"
+                          ? t(locale, "prof.noNameField")
                           : !contentsWritable
-                            ? "Profile-content writes have not been verified on hardware"
-                            : "Rename this profile"}
+                            ? t(locale, "prof.contentUnverified")
+                            : t(locale, "prof.renameProfile")}
                         aria-label={`Rename profile ${profile.sector}`}
                         style={ICON_BUTTON_STYLE(renameDisabled)}
                         onClick={() => control.renameOnboardProfile(profile.sector)}
@@ -223,10 +225,10 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                         type="button"
                         disabled={activateDisabled}
                         title={running
-                          ? "The mouse is running this profile"
+                          ? t(locale, "prof.runningProfile")
                           : !profile.enabled
-                            ? "Enable this profile before switching to it"
-                            : "Switch the mouse to this profile"}
+                            ? t(locale, "prof.enableFirst")
+                            : t(locale, "prof.switchProfile")}
                         aria-label={`Switch to profile ${profile.sector}`}
                         aria-pressed={running}
                         style={ICON_BUTTON_STYLE(locked || !profile.enabled, running)}
@@ -238,9 +240,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                         type="button"
                         disabled={locked}
                         title={locked
-                          ? "This profile layout has not been verified on hardware"
-                          : profile.enabled ? "Disable this profile" : "Enable this profile"}
-                        aria-label={`${profile.enabled ? "Disable" : "Enable"} profile ${profile.sector}`}
+                          ? t(locale, "prof.layoutUnverified")
+                          : profile.enabled ? t(locale, "prof.disableProfile") : t(locale, "prof.enableProfile")}
+                        aria-label={tp(locale, "prof.toggleProfile", { a: profile.enabled ? t(locale, "prof.disable") : t(locale, "prof.enable"), n: profile.sector })}
                         style={ICON_BUTTON_STYLE(locked)}
                         onClick={() => void control.toggleOnboardProfileEnabled(profile.sector, !profile.enabled)}
                       >
@@ -255,9 +257,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
           {openedProfile && contentsWritable ? (
             <div className="profile-button-editor">
               <div className="profile-button-heading">
-                <div><p>BUTTONS</p><h2>Onboard assignments</h2><small>Choose what each physical control does in this profile.</small></div>
-                <div className="assignment-layer-tabs" role="tablist" aria-label="Assignment layer">
-                  <button type="button" role="tab" aria-selected={assignmentLayer === "primary"} onClick={() => setAssignmentLayer("primary")}>Normal</button>
+                <div><p>BUTTONS</p><h2>{t(locale, "prof.assign")}</h2><small>{t(locale, "prof.assignBody")}</small></div>
+                <div className="assignment-layer-tabs" role="tablist" aria-label={t(locale, "prof.assignLayer")}>
+                  <button type="button" role="tab" aria-selected={assignmentLayer === "primary"} onClick={() => setAssignmentLayer("primary")}>{t(locale, "prof.normalTab")}</button>
                   <button type="button" role="tab" aria-selected={assignmentLayer === "g-shift"} onClick={() => setAssignmentLayer("g-shift")}>G-Shift</button>
                 </div>
               </div>
@@ -293,16 +295,16 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                           }}
                         >
                           {assignment.action === "Custom"
-                            ? <option value="Custom">{assignment.raw[0] === 0x80 && assignment.raw[1] === 0x02 ? "Keyboard shortcut" : "Custom mapping (preserved)"}</option>
+                            ? <option value="Custom">{assignment.raw[0] === 0x80 && assignment.raw[1] === 0x02 ? t(locale, "prof.keyboardShortcut") : t(locale, "prof.customPreserved")}</option>
                             : null}
                           {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
-                          <option value="keyboard">Keyboard shortcut…</option>
-                          <option value="consumer:233">Volume up</option>
-                          <option value="consumer:234">Volume down</option>
-                          <option value="consumer:226">Mute</option>
-                          <option value="consumer:205">Play / pause</option>
-                          <option value="consumer:181">Next track</option>
-                          <option value="consumer:182">Previous track</option>
+                          <option value="keyboard">{t(locale, "prof.keyboardOpt")}</option>
+                          <option value="consumer:233">{t(locale, "prof.volUp")}</option>
+                          <option value="consumer:234">{t(locale, "prof.volDown")}</option>
+                          <option value="consumer:226">{t(locale, "prof.mute")}</option>
+                          <option value="consumer:205">{t(locale, "prof.playPause")}</option>
+                          <option value="consumer:181">{t(locale, "prof.nextTrack")}</option>
+                          <option value="consumer:182">{t(locale, "prof.prevTrack")}</option>
                         </select>
                         <i aria-hidden="true" />
                       </span>
@@ -350,9 +352,9 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                       setShortcutError("");
                     }}
                   >
-                    <span className="shortcut-dialog-kicker">KEYBOARD RECORDER</span>
-                    <h3 id="shortcut-dialog-title">Record a command sequence</h3>
-                    <p>Start recording, press one shortcut or a sequence, then stop recording.</p>
+                    <span className="shortcut-dialog-kicker">{t(locale, "prof.recorder")}</span>
+                    <h3 id="shortcut-dialog-title">{t(locale, "prof.recordTitle")}</h3>
+                    <p>{t(locale, "prof.recordBody")}</p>
                     <button
                       type="button"
                       className={`shortcut-record-button${shortcutRecording ? " is-recording" : ""}`}
@@ -366,19 +368,19 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                           setShortcutRecording(true);
                         }
                       }}
-                    ><i aria-hidden="true" />{shortcutRecording ? "Stop recording" : "Record"}</button>
+                    ><i aria-hidden="true" />{shortcutRecording ? t(locale, "prof.stopRec") : t(locale, "prof.record")}</button>
                     <div className={`shortcut-capture${shortcutSteps.length ? " has-value" : ""}`} aria-live="polite">
                       {shortcutSteps.length ? (
                         <ol>{shortcutSteps.map((step, index) => <li key={`${step.label}-${index}`}>
                           {index > 0 && step.delayMs > 0 ? <small>{step.delayMs} ms</small> : null}
                           <kbd>{step.label}</kbd>
                         </li>)}</ol>
-                      ) : shortcutRecording ? "Listening…" : "Nothing recorded yet"}
+                      ) : shortcutRecording ? t(locale, "prof.listening") : t(locale, "prof.nothingRec")}
                     </div>
                     {shortcutError ? <small className="shortcut-error" role="alert">{shortcutError}</small> : null}
-                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">This sequence will be saved in the mouse's onboard macro memory.</small> : null}
+                    {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">{t(locale, "prof.macroNote")}</small> : null}
                     <div className="shortcut-dialog-actions">
-                      <button type="button" onClick={() => setShortcutTarget(null)}>Cancel</button>
+                      <button type="button" onClick={() => setShortcutTarget(null)}>{t(locale, "common.cancel")}</button>
                       <button
                         type="button"
                         className="is-primary"
@@ -394,7 +396,7 @@ export function Profiles({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
                           }
                           setShortcutTarget(null);
                         }}
-                      >{shortcutSteps.length > 1 ? "Assign sequence" : "Assign shortcut"}</button>
+                      >{shortcutSteps.length > 1 ? t(locale, "prof.assignSeq") : t(locale, "prof.assignShortcut")}</button>
                     </div>
                   </div>
                 </div>

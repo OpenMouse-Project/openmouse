@@ -37,7 +37,29 @@ const BUDGET_BYTES: Record<string, number> = {
   // donate page rebuild (Hall of Fame -> Support) does not drive this; its
   // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
   // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
-  ".js": 765_000,
+  // Raised to 790 kB for the MCHOSE A7 V2 mouse and MagDock driver support:
+  // the measured aggregate is 779.1 kB, leaving ~11 kB of headroom.
+  // Raised to 800 kB for the ATK ZERO driver (AtkCards.tsx, device/atk.ts)
+  // and the mouse-reported lift-off range plumbing: the measured aggregate is
+  // 790.6 kB, leaving ~9 kB of headroom.
+  // Raised to 895 kB for the Portuguese (pt) localization: the full
+  // en+pt UI dictionary adds ~85 kB of strings to the measured aggregate
+  // (883.2 kB, on top of the 800 kB budget's own ~790.8 kB baseline). The pt
+  // table ships as its own lazy chunk (i18n-pt-*.js, loaded only when a
+  // non-English locale is selected), so the initial load is unaffected — the
+  // aggregate counts it because the check sums every emitted chunk.
+  // Raised to 1,065 kB for Spanish, French, German, and Simplified Chinese:
+  // each ships as its own lazy chunk (i18n-es/fr/de/zh-*.js) at ~40-55 kB,
+  // loaded only when that locale is selected — none of them touch the
+  // initial (English) bundle. Measured aggregate is 1,061.8 kB.
+  // Raised to 1,165 kB for Japanese and Korean, same lazy-chunk pattern.
+  // Measured aggregate is 1,160.9 kB.
+  // Raised to 1,185 kB for Attack Shark R2 support (GearHub-V5 driver,
+  // traits.ts entry, device artwork name-fallback): the measured aggregate
+  // is 1,171.4 kB, leaving ~14 kB of headroom.
+  // Raised to 1,250 kB for the Russian (ru) interface locale: the new
+  // translation strings push the measured aggregate to 1,232.4 kB.
+  ".js": 1_250_000,
 };
 
 const ASSETS = join("dist", "assets");

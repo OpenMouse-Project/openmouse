@@ -107,6 +107,44 @@ test("Pulsar keeps the shared advanced cards", () => {
   assert.equal(has.eggFilter, false);
 });
 
+test("ATK exposes its processing and DPI-lighting cards from reported controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: {
+        family: "atk",
+        showAdvancedSection: true,
+        dpiLighting: { modes: [0, 1, 2], brightness: [0, 1, 2], speed: [0, 1, 2] },
+      },
+      longRangeMode: false,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.processing, true);
+  assert.equal(has.teevolutionDpiLighting, true);
+});
+
+test("ATK inspection cards require data actually read from the device", () => {
+  const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
+  assert.equal(empty.atkButtons, false);
+  assert.equal(empty.atkProfile, false);
+  assert.equal(empty.atkReceiver, false);
+
+  const inspected = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: { family: "atk" },
+      activeProfile: 0,
+      atkProfileCount: 4,
+      atkButtonMappings: [{ id: "left" }] as never,
+      atkReceiver: { online: true } as never,
+    },
+  }));
+  assert.equal(inspected.atkButtons, true);
+  assert.equal(inspected.atkProfile, true);
+  assert.equal(inspected.atkReceiver, true);
+});
+
 test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
   const has = cardAvailability(snapshot({
     status: {
@@ -211,4 +249,28 @@ test("the Razer buttons card appears only when the driver reported mappings", ()
   // A Razer that never answered the class 0x02 read leaves the field undefined
   // — the tab must stay empty rather than render a card with no rows.
   assert.equal(cardAvailability(snapshot({ status: { brand: "Razer" } })).razerButtons, false);
+});
+
+test("the generic button card follows the K-snake key-map read", () => {
+  // The driver opens the advanced section only when getKeys() succeeded,
+  // so the card must not appear on a silent dongle even though the family
+  // is unknown to the traits table.
+  const withKeys = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      buttonMappings: { Forward: "Backward" },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(withKeys.buttonMapping, true);
+
+  const silent = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: false },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(silent.buttonMapping, false);
 });
