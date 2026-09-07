@@ -809,7 +809,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .interface-settings-page { display: none; flex: 0 0 auto; padding: .5rem 0 2rem; }
 .interface-settings-page.is-open { display: block; }
 .interface-settings-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 0 1.2rem; border-bottom: 1px solid var(--line); }
-.interface-settings-header h2 { margin: .25rem 0 0; font-size: 2rem; font-weight: 500; letter-spacing: -.035em; }
+.interface-settings-header h2 { margin: 0; font-size: 2rem; font-weight: 500; letter-spacing: -.035em; }
 .interface-settings-back { padding: .48rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-input); font-size: .68rem; font-weight: 650; }
 .interface-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-top: .75rem; }
 .interface-setting-card { min-height: 120px; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }

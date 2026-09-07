@@ -141,7 +141,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
     >
       <header className="interface-settings-header">
         <div>
-          <p className="overline">OPENMOUSE</p>
           <h2 id="interface-settings-title">{t(locale, "set.title")}</h2>
         </div>
         <button
