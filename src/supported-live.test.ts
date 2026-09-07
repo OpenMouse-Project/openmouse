@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { Mouse } from "./supported-mice.ts";
+import { MICE, type Mouse } from "./supported-mice.ts";
 import {
   canonicalBrand,
   mergeLiveMice,
@@ -153,6 +153,43 @@ test("catalog rows already tracked do not duplicate, and declined rows are skipp
   assert.equal(beastX.length, 1, "tracked catalog row must not be appended again");
   assert.equal(beastX[0].req, 3);
   assert.ok(!merged.some((m) => m.brand === "Redragon"), "declined requests are hidden");
+});
+
+test("VXE R1 SE+ catalog aliases merge into its supported row", () => {
+  const requests: LiveData["requests"] = [
+    {
+      id: "vxe-r1",
+      manufacturer: "VXE",
+      model: "R1 SE+",
+      connection: "Wired and wireless",
+      features: [],
+      can_test: true,
+      status: "submitted",
+      vote_count: 9,
+      created_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: "atk-r1",
+      manufacturer: "ATK",
+      model: "VXE Dragonfly R1 SE+",
+      connection: "Wired and wireless",
+      features: [],
+      can_test: true,
+      status: "submitted",
+      vote_count: 1,
+      created_at: "2026-01-02T00:00:00Z",
+    },
+  ];
+
+  const merged = mergeLiveMice(MICE, live({ "vxe|r1se": 9 }, requests));
+  const r1SePlus = merged.filter((m) => m.brand === "VXE" && m.model === "R1 SE+");
+
+  assert.equal(r1SePlus.length, 1);
+  assert.deepEqual(
+    [r1SePlus[0].status, r1SePlus[0].req, r1SePlus[0].pids],
+    ["supported", 9, [0xf58e, 0xf58f]],
+  );
+  assert.ok(!merged.some((m) => m.brand === "ATK" && /r1\s*se/i.test(m.model)));
 });
 
 test("fuzzy model matching merges community requests with similar names", () => {

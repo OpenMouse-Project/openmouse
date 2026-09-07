@@ -71,6 +71,15 @@ function brandModelKey(brand: string, model: string): string {
   return `${normalizeKey(canonicalBrand(brand))}|${normalizeKey(model)}`;
 }
 
+const CATALOG_IDENTITY_ALIASES = new Map<string, readonly [brand: string, model: string]>([
+  ["atk|vxedragonflyr1se", ["VXE", "R1 SE+"]],
+]);
+
+function catalogIdentity(brand: string, model: string): readonly [brand: string, model: string] {
+  return CATALOG_IDENTITY_ALIASES.get(`${normalizeKey(brand)}|${normalizeKey(model)}`)
+    ?? [canonicalBrand(brand), model];
+}
+
 /**
  * Build a set of normalized words from a model name, dropping common filler
  * words ("wireless", "gaming", "mouse") that vary between catalog submissions.
@@ -173,7 +182,9 @@ export async function fetchLiveData(): Promise<LiveData> {
   const requests = await listSupportRequests();
   const reqByKey = new Map<string, number>();
   for (const r of requests) {
-    reqByKey.set(brandModelKey(r.manufacturer, r.model), r.vote_count);
+    const [brand, model] = catalogIdentity(r.manufacturer, r.model);
+    const key = brandModelKey(brand, model);
+    reqByKey.set(key, Math.max(reqByKey.get(key) ?? 0, r.vote_count));
   }
   return { reqByKey, requests };
 }
@@ -254,40 +265,41 @@ export function mergeLiveMice(base: Mouse[], live: LiveData | null): Mouse[] {
 
   if (live) {
     for (const r of live.requests) {
-      const key = brandModelKey(r.manufacturer, r.model);
+      const [brand, model] = catalogIdentity(r.manufacturer, r.model);
+      const key = brandModelKey(brand, model);
       // Overlay vote count on an existing row (exact or fuzzy).
-      const existing = findExisting(r.manufacturer, r.model);
+      const existing = findExisting(brand, model);
       if (existing) {
-        existing.req = r.vote_count;
+        existing.req = Math.max(existing.req, r.vote_count);
         continue;
       }
       if (known.has(key)) continue;
       if (r.status === "supported") {
         const entry: Mouse = {
-          brand: canonicalBrand(r.manufacturer),
-          model: r.model,
+          brand,
+          model,
           status: "supported",
           req: r.vote_count,
           note: catalogNote(r),
         };
         rows.push(entry);
         known.add(key);
-        const bk = normalizeKey(canonicalBrand(r.manufacturer));
+        const bk = normalizeKey(brand);
         if (!byBrand.has(bk)) byBrand.set(bk, []);
         byBrand.get(bk)!.push(entry);
         continue;
       }
       if (!PENDING_CATALOG_STATUSES.has(r.status)) continue;
       const entry: Mouse = {
-        brand: canonicalBrand(r.manufacturer),
-        model: r.model,
+        brand,
+        model,
         status: "pending",
         req: r.vote_count,
         note: catalogNote(r),
       };
       rows.push(entry);
       known.add(key);
-      const bk = normalizeKey(canonicalBrand(r.manufacturer));
+      const bk = normalizeKey(brand);
       if (!byBrand.has(bk)) byBrand.set(bk, []);
       byBrand.get(bk)!.push(entry);
     }
