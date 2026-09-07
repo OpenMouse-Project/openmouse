@@ -1,11 +1,19 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   detectLocale,
   loadInterfacePreferences,
   saveInterfacePreferences,
   type InterfaceLocale,
 } from "../interface-preferences";
-import { ensureLocale, t } from "../i18n";
+import { ensureLocale, LOCALE_NAME_KEYS, t } from "../i18n";
+
+/** BCP-47 tag for the <html lang> attribute; only locales whose region
+    matters for correct rendering need an entry here (others fall through
+    to the bare code). */
+const HTML_LANG: Partial<Record<InterfaceLocale, string>> = {
+  pt: "pt-BR",
+  zh: "zh-Hans",
+};
 
 /** Standalone-page locale state. Reads the shared interface preference (so a
     choice made in the control app carries over), falls back to the browser
@@ -38,7 +46,7 @@ export function usePageLocale(): [InterfaceLocale, (next: InterfaceLocale) => vo
   const [, setTick] = useState(0);
   useEffect(() => {
     try {
-      document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+      document.documentElement.lang = HTML_LANG[locale] ?? locale;
     } catch {
       /* non-DOM environment (tests) */
     }
@@ -47,31 +55,10 @@ export function usePageLocale(): [InterfaceLocale, (next: InterfaceLocale) => vo
   return [locale, setLocale];
 }
 
-const TOGGLE_STYLE: CSSProperties = {
-  display: "inline-flex",
-  gap: "2px",
-  padding: "2px",
-  border: "1px solid var(--border, #333)",
-  borderRadius: "999px",
-  background: "transparent",
-};
-
-function toggleButton(active: boolean): CSSProperties {
-  return {
-    padding: ".15rem .5rem",
-    border: 0,
-    borderRadius: "999px",
-    background: active ? "var(--ui-accent, #e8e8ea)" : "transparent",
-    color: active ? "var(--ui-accent-ink, #111)" : "inherit",
-    fontSize: ".68rem",
-    fontWeight: 700,
-    cursor: "pointer",
-    opacity: active ? 1 : 0.65,
-  };
-}
-
-/** Minimal EN/PT switcher for standalone pages. Self-styled so no per-page
-    CSS changes are needed; inherits border/accent tokens when present. */
+/** Language dropdown for standalone pages (landing, supported, donate, …).
+    A <select> scales to any number of locales without layout rework —
+    self-styled with the "page-locale-select" class so it inherits the
+    site's own tokens; see landing.css. */
 export function PageLocaleToggle({
   locale,
   onChange,
@@ -80,18 +67,15 @@ export function PageLocaleToggle({
   onChange: (next: InterfaceLocale) => void;
 }): ReactNode {
   return (
-    <span style={TOGGLE_STYLE} role="group" aria-label={t(locale, "page.locale")}>
-      {(["en", "pt"] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={locale === option}
-          onClick={() => onChange(option)}
-          style={toggleButton(locale === option)}
-        >
-          {option === "en" ? t(locale, "page.en") : t(locale, "page.pt")}
-        </button>
+    <select
+      className="page-locale-select"
+      aria-label={t(locale, "page.locale")}
+      value={locale}
+      onChange={(event) => onChange(event.currentTarget.value as InterfaceLocale)}
+    >
+      {LOCALE_NAME_KEYS.map(([option, nameKey]) => (
+        <option key={option} value={option}>{t(locale, nameKey)}</option>
       ))}
-    </span>
+    </select>
   );
 }

@@ -70,6 +70,10 @@ const en = {
   "set.languageBody": "Choose the interface language. Device messages stay English for now.",
   "set.english": "English",
   "set.portuguese": "Português",
+  "set.spanish": "Español",
+  "set.french": "Français",
+  "set.german": "Deutsch",
+  "set.chinese": "中文",
   "set.motion": "MOTION",
   "set.animations": "Animations",
   "set.animationsBody": "Enable interface transitions and animated state changes.",
@@ -607,6 +611,10 @@ const en = {
   "page.locale": "Language",
   "page.en": "EN",
   "page.pt": "PT",
+  "page.es": "ES",
+  "page.fr": "FR",
+  "page.de": "DE",
+  "page.zh": "中文",
   "off.banner": "You're offline. Anything that needs the network will not update.",
   "land.supported": "Supported mice",
   "land.contribute": "Contribute",
@@ -837,29 +845,50 @@ const en = {
 
 export type I18nKey = keyof typeof en;
 
+/** Locale codes with the i18n key holding each language's own name, in
+    picker order. Adding a language is one line here plus its table file. */
+export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
+  ["en", "set.english"],
+  ["pt", "set.portuguese"],
+  ["es", "set.spanish"],
+  ["fr", "set.french"],
+  ["de", "set.german"],
+  ["zh", "set.chinese"],
+];
+
 /** Non-English tables load on demand so the initial bundle ships English
-    only (see i18n-pt.ts, split into its own chunk by the bundler). Until a
-    table arrives, t() falls back to English — the call sites below await
-    ensureLocale() before committing a locale switch, and re-render once it
-    resolves for a stored non-English locale on first load. */
-let ptTable: Record<I18nKey, string> | null = null;
+    only (see i18n-pt.ts etc., each split into its own chunk by the
+    bundler). Until a table arrives, t() falls back to English — the call
+    sites below await ensureLocale() before committing a locale switch, and
+    re-render once it resolves for a stored non-English locale on first load. */
+type LocaleTable = Record<I18nKey, string>;
+const tables: Partial<Record<Exclude<InterfaceLocale, "en">, LocaleTable>> = {};
+
+/** One dynamic import per non-English locale, keyed the same way as the
+    picker. Adding a language means adding its file and one line here. */
+const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<LocaleTable>> = {
+  pt: () => import("./i18n-pt.ts").then((m) => m.pt),
+  es: () => import("./i18n-es.ts").then((m) => m.es),
+  fr: () => import("./i18n-fr.ts").then((m) => m.fr),
+  de: () => import("./i18n-de.ts").then((m) => m.de),
+  zh: () => import("./i18n-zh.ts").then((m) => m.zh),
+};
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {
-  if (locale === "en" || ptTable) return Promise.resolve();
-  return import("./i18n-pt.ts").then((module) => {
-    ptTable = module.pt;
+  if (locale === "en" || tables[locale]) return Promise.resolve();
+  return LOCALE_LOADERS[locale]().then((table) => {
+    tables[locale] = table;
   });
 }
 
 /** Keys present in English but missing (or empty) in another locale. */
 export async function missingTranslations(): Promise<Array<{ locale: InterfaceLocale; key: string }>> {
-  await ensureLocale("pt");
-  const tables: Record<InterfaceLocale, Record<I18nKey, string>> = { en, pt: ptTable ?? ({} as Record<I18nKey, string>) };
+  const locales = Object.keys(LOCALE_LOADERS) as Array<Exclude<InterfaceLocale, "en">>;
+  await Promise.all(locales.map(ensureLocale));
   const missing: Array<{ locale: InterfaceLocale; key: string }> = [];
   for (const key of Object.keys(en)) {
-    for (const locale of Object.keys(tables) as InterfaceLocale[]) {
-      if (locale === "en") continue;
-      if (!tables[locale][key as I18nKey]) missing.push({ locale, key });
+    for (const locale of locales) {
+      if (!tables[locale]?.[key as I18nKey]) missing.push({ locale, key });
     }
   }
   return missing;
@@ -867,8 +896,8 @@ export async function missingTranslations(): Promise<Array<{ locale: InterfaceLo
 
 /** Translate a chrome key, falling back to English, then to the key itself. */
 export function t(locale: InterfaceLocale, key: I18nKey): string {
-  if (locale === "pt") return ptTable?.[key] ?? en[key] ?? key;
-  return en[key] ?? key;
+  if (locale === "en") return en[key] ?? key;
+  return tables[locale]?.[key] ?? en[key] ?? key;
 }
 
 /** Translate a template with {placeholders}. */

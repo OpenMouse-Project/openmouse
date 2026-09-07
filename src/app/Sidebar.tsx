@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { connectLabelText, t } from "../i18n";
+import { connectLabelText, LOCALE_NAME_KEYS, t } from "../i18n";
 import { BatteryIcon } from "./ui";
 
 function DiscordIcon(): ReactNode {
@@ -224,7 +224,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           </button>
           {localeOpen ? (
             <div className="locale-menu" role="menu" aria-label={t(locale, "nav.language")}>
-              {(["en", "pt"] as const).map((option) => (
+              {LOCALE_NAME_KEYS.map(([option, nameKey]) => (
                 <button
                   key={option}
                   type="button"
@@ -233,7 +233,7 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                   className={locale === option ? "is-selected" : ""}
                   onClick={() => pickLocale(option)}
                 >
-                  {option === "en" ? t(locale, "set.english") : t(locale, "set.portuguese")}
+                  {t(locale, nameKey)}
                 </button>
               ))}
             </div>

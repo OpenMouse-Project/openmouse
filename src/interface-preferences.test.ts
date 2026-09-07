@@ -119,6 +119,6 @@ test("interface locale persists and falls back to the detected language", () => 
   assert.equal(loadInterfacePreferences(empty).locale, detectLocale());
 
   const bogus = new MemoryStorage();
-  bogus.setItem("openmouse-interface-settings-v1", JSON.stringify({ locale: "es" }));
+  bogus.setItem("openmouse-interface-settings-v1", JSON.stringify({ locale: "xx" }));
   assert.equal(loadInterfacePreferences(bogus).locale, detectLocale());
 });

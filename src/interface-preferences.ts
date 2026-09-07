@@ -11,7 +11,19 @@ export type InterfaceTheme =
   | "NieR: Automata"
   | "Liquid Glass";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
-export type InterfaceLocale = "en" | "pt";
+export type InterfaceLocale = "en" | "pt" | "es" | "fr" | "de" | "zh";
+
+/** Every supported locale, in picker order. Each entry's `match` decides
+    which `navigator.language` prefixes resolve to it on first run — checked
+    in this array's order, so a more specific code should come first. */
+export const LOCALES: ReadonlyArray<{ code: InterfaceLocale; match: readonly string[] }> = [
+  { code: "pt", match: ["pt"] },
+  { code: "es", match: ["es"] },
+  { code: "fr", match: ["fr"] },
+  { code: "de", match: ["de"] },
+  { code: "zh", match: ["zh"] },
+  { code: "en", match: ["en"] },
+];
 
 export interface InterfacePreferences {
   theme: InterfaceTheme;
@@ -73,7 +85,9 @@ export function systemPrefersReducedMotion(): boolean {
 export function detectLocale(): InterfaceLocale {
   try {
     if (typeof navigator !== "undefined" && typeof navigator.language === "string") {
-      return navigator.language.toLowerCase().startsWith("pt") ? "pt" : "en";
+      const lang = navigator.language.toLowerCase();
+      const found = LOCALES.find((locale) => locale.match.some((prefix) => lang.startsWith(prefix)));
+      if (found) return found.code;
     }
   } catch {
     // Ignore and fall through to English below.
@@ -82,7 +96,7 @@ export function detectLocale(): InterfaceLocale {
 }
 
 function coerceLocale(value: unknown): InterfaceLocale {
-  if (value === "pt" || value === "en") return value;
+  if (LOCALES.some((locale) => locale.code === value)) return value as InterfaceLocale;
   // No saved choice yet: follow the browser once, then persist it.
   return detectLocale();
 }
