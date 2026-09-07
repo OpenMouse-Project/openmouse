@@ -567,8 +567,9 @@ export const MICE: Mouse[] = [
     note: "CM protocol — not implemented" },
   { brand: "Cooler Master", model: "MM711",             status: "driver",    req: 1,
     note: "CM protocol — not implemented" },
-  { brand: "K-snake",     model: "X11",               status: "driver",    req: 1,
-    note: "VID 0xA8A4 (USB) / 0xA8A5 (2.4G) PID 0x2255 — 0x55-framed output-report protocol, vendor panel reverse-engineered, driver in progress in mouse-protocol" },
+  { brand: "K-snake",     model: "X11",               status: "supported", req: 1,
+    pids: [0x2255],
+    note: "VID 0xA8A4 (USB) / 0xA8A5 (2.4G) PID 0x2255 — 0x55-framed output-report protocol, verified on retail dongle hardware (FW 2.1.7)" },
 
   // UNKNOWNS ────────────────────────────────────────────────────────────
   { brand: "Hitscan",       model: "Hyperlight",        status: "unknown",   req: 5,

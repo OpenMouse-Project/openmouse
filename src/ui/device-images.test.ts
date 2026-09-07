@@ -223,3 +223,8 @@ test("K-snake X11 wired and dongle share the same artwork", () => {
   assert.equal(deviceImage(dongle), CDN + "ksnake-x11.png");
   assert.equal(deviceImage(null, "K-snake X11"), CDN + "ksnake-x11.png");
 });
+
+test("Attack Shark X11 does not inherit K-snake artwork", () => {
+  assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "unknown-device.png");
+});
