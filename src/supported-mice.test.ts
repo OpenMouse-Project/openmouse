@@ -176,3 +176,9 @@ test("every pinned PID on a coverage claim exists in the protocol registry", () 
     }
   }
 });
+
+test("Dareu A950 catalog PIDs match its protocol catalog", () => {
+  const dareu = MICE.find((mouse) => mouse.brand === "Dareu" && mouse.model === "A950 PRO Mg");
+  assert.deepEqual(dareu?.pids, [...DAREU_PRODUCT_IDS]);
+  for (const pid of DAREU_PRODUCT_IDS) assert.ok(PID_UNIVERSE.has(pid));
+});
