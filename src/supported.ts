@@ -2,13 +2,21 @@ import "./supported.css";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { MICE, STATUS, type Mouse, type Status } from "./supported-mice.ts";
-import { t, tp, type I18nKey } from "./i18n.ts";
+import { ensureLocale, LOCALE_NAME_KEYS, t, tp, type I18nKey } from "./i18n.ts";
 import {
   detectLocale,
   loadInterfacePreferences,
   saveInterfacePreferences,
   type InterfaceLocale,
 } from "./interface-preferences.ts";
+
+/** BCP-47 tag for the <html lang> attribute; only locales whose region
+    matters for correct rendering need an entry here (others fall through
+    to the bare code). Kept in sync with app/page-locale.tsx. */
+const HTML_LANG: Partial<Record<InterfaceLocale, string>> = {
+  pt: "pt-BR",
+  zh: "zh-Hans",
+};
 import { fetchLiveData, mergeLiveMice, type LiveData } from "./supported-live.ts";
 
 // ── Data ──────────────────────────────────────────────────────────────────
@@ -48,18 +56,24 @@ let locale: InterfaceLocale = (() => {
 })();
 
 function setLocale(next: InterfaceLocale): void {
-  locale = next;
-  try {
-    const prefs = loadInterfacePreferences(window.localStorage);
-    saveInterfacePreferences(window.localStorage, { ...prefs, locale: next });
-  } catch {
-    /* storage unavailable — in-memory choice still applies */
-  }
-  buildShell();
-  bindShell();
-  fillBrands();
-  fillTags();
-  renderList();
+  const apply = (): void => {
+    locale = next;
+    try {
+      const prefs = loadInterfacePreferences(window.localStorage);
+      saveInterfacePreferences(window.localStorage, { ...prefs, locale: next });
+    } catch {
+      /* storage unavailable — in-memory choice still applies */
+    }
+    buildShell();
+    bindShell();
+    fillBrands();
+    fillTags();
+    renderList();
+  };
+  // Resolve the table before committing so the switch never flashes English
+  // fallback strings.
+  if (next === "en") apply();
+  else void ensureLocale(next).then(apply);
 }
 
 const STATUS_LABEL: Record<Status, I18nKey> = {
@@ -190,7 +204,7 @@ const STATUS_DOT: Record<Status, string> = {
 function buildShell(): void {
   const root = document.querySelector<HTMLDivElement>("#app");
   if (!root) return;
-  document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+  document.documentElement.lang = HTML_LANG[locale] ?? locale;
   root.innerHTML = `
   <header class="site-header">
     <div class="page-wrap">
@@ -204,7 +218,10 @@ function buildShell(): void {
           <a class="nav-link" href="/donate.html">${t(locale, "supp.support")}</a>
         </div>
         <div class="header-actions">
-          <button class="theme-toggle" id="locale-btn" aria-label="${t(locale, "page.locale")}">${locale === "pt" ? "PT" : "EN"}</button>
+          <select class="page-locale-select" id="locale-select" aria-label="${t(locale, "page.locale")}">
+            ${LOCALE_NAME_KEYS.map(([option, nameKey]) =>
+              `<option value="${option}"${option === locale ? " selected" : ""}>${t(locale, nameKey)}</option>`).join("")}
+          </select>
           <button class="theme-toggle" id="theme-btn" aria-label="${t(locale, "supp.theme")}">${themeIcon(getTheme())}</button>
           <a class="github-link" href="https://github.com/OpenMouse-Project/openmouse" target="_blank" rel="noreferrer" aria-label="OpenMouse on GitHub">
             ${GH_SVG}
@@ -535,8 +552,8 @@ function bindShell(): void {
     applyTheme(getTheme() === "dark" ? "light" : "dark");
   });
 
-  document.getElementById("locale-btn")?.addEventListener("click", () => {
-    setLocale(locale === "pt" ? "en" : "pt");
+  document.getElementById("locale-select")?.addEventListener("change", (event) => {
+    setLocale((event.currentTarget as HTMLSelectElement).value as InterfaceLocale);
   });
 
   const sInput = document.getElementById("s-input") as HTMLInputElement | null;
@@ -600,6 +617,18 @@ bindShell();
 fillBrands();
 fillTags();
 renderList();
+
+// A stored non-English locale resolves after first paint; re-render once
+// the table arrives so the page doesn't stay stuck on English fallback text.
+if (locale !== "en") {
+  void ensureLocale(locale).then(() => {
+    buildShell();
+    bindShell();
+    fillBrands();
+    fillTags();
+    renderList();
+  });
+}
 
 // ── Live updates ──────────────────────────────────────────────────────────
 async function refresh(): Promise<void> {
