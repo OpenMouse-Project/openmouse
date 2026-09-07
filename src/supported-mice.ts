@@ -118,6 +118,8 @@ export const MICE: Mouse[] = [
     note: "Lightspeed dongle — HID++ 2.0 protocol supported; PID 0xc098 (USB cable, direct-connect) also in driver" },
   { brand: "Logitech", model: "MX Vertical",            status: "driver",    req: 9,
     note: "Unifying (HID++ 1.0) / Bluetooth — not implemented" },
+  { brand: "Logitech", model: "MX Master 4",            status: "supported", req: 8,
+    note: "Bluetooth (HID++ on vendor page 0xFF43) and Logi Bolt receiver both in driver" },
   { brand: "Logitech", model: "MX Master 4S",           status: "likely",    req: 8,
     note: "Logi Bolt receiver in driver — needs hardware test" },
   { brand: "Logitech", model: "G304",                   status: "supported", req: 7,
