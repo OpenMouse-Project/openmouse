@@ -26,6 +26,7 @@ import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
 import { TEEVOLUTION_PRODUCT_IDS } from "@openmouse/protocol/teevolution";
 import { ZAUNKOENIG_PRODUCT_IDS } from "@openmouse/protocol/zaunkoenig";
 import { CORSAIR_PRODUCT_IDS } from "@openmouse/protocol/corsair";
+import { DAREU_PRODUCT_IDS } from "@openmouse/protocol/dareu";
 import { KSNAKE_PRODUCTS } from "@openmouse/protocol/ksnake";
 
 import { MICE, STATUS, type Mouse, type Status } from "./supported-mice.ts";
@@ -100,6 +101,7 @@ const PID_UNIVERSE = new Set<number>([
   ...TEEVOLUTION_PRODUCT_IDS,
   ...ZAUNKOENIG_PRODUCT_IDS,
   ...CORSAIR_PRODUCT_IDS,
+  ...DAREU_PRODUCT_IDS,
   ...NINJUTSO_LEGACY_MOUSE_PRODUCT_IDS,
   ...NINJUTSO_MOUSE_PRODUCT_IDS,
   ...NINJUTSO_LEGACY_RECEIVER_PRODUCT_IDS,
