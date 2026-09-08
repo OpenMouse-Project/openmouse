@@ -834,6 +834,11 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .profile-key-card { grid-column: 1 / -1; }
 .openmouse-bridge-card { grid-column: 1 / -1; min-height: 0; }
 .openmouse-bridge-coming-soon { margin-top: .2rem; padding: .58rem .9rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; cursor: not-allowed; opacity: .72; }
+.openmouse-bridge-connection { display: inline-flex; align-items: center; gap: .5rem; width: fit-content; margin-top: .2rem; padding: .58rem .9rem; border: 1px solid var(--border-hover); border-radius: 7px; background: var(--surface-strong); color: var(--text-soft); font-size: .66rem; font-weight: 700; }
+.openmouse-bridge-connection i { width: .48rem; height: .48rem; border-radius: 50%; background: currentColor; }
+.openmouse-bridge-connection[data-state="connected"] { color: var(--accent); }
+.openmouse-bridge-connection[data-state="checking"] i { animation: bridge-pulse 1s ease-in-out infinite alternate; }
+@keyframes bridge-pulse { from { opacity: .35; } to { opacity: 1; } }
 .interface-theme-card { grid-column: 1 / -1; }
 .theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .45rem; margin: 0; padding: 0; border: 0; }
 .theme-tile { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }

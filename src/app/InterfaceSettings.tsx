@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { startBridgeHeartbeat, type BridgeConnection } from "../bridge";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { LOCALE_NAME_KEYS, t } from "../i18n";
+import { LOCALE_NAME_KEYS, t, tp } from "../i18n";
 import type { InterfacePreferences } from "../interface-preferences";
 import { Segmented } from "./ui";
 
@@ -129,6 +130,11 @@ function ProfileKeyCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const preferences = snapshot.preferences;
   const locale = preferences.locale;
+  const [bridgeConnection, setBridgeConnection] = useState<BridgeConnection>({
+    state: "checking",
+    status: null,
+  });
+  useEffect(() => startBridgeHeartbeat(setBridgeConnection), []);
   const set = <K extends keyof InterfacePreferences>(key: K) => (value: InterfacePreferences[K]): void =>
     control.setPreference(key, value);
 
@@ -161,9 +167,21 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
           <span>{t(locale, "set.bridge")}</span>
           <h3>{t(locale, "set.bridgeTitle")}</h3>
           <p>{t(locale, "set.bridgeBody")}</p>
-          <button type="button" className="openmouse-bridge-coming-soon" disabled>
-            {t(locale, "set.comingSoon")}
-          </button>
+          <div
+            className="openmouse-bridge-connection"
+            data-state={bridgeConnection.state}
+            role="status"
+            aria-live="polite"
+          >
+            <i aria-hidden="true" />
+            <span>
+              {bridgeConnection.state === "connected"
+                ? tp(locale, "set.bridgeConnected", { version: bridgeConnection.status.version })
+                : bridgeConnection.state === "checking"
+                  ? t(locale, "set.bridgeChecking")
+                  : t(locale, "set.bridgeDisconnected")}
+            </span>
+          </div>
         </article>
 
         <article className="interface-setting-card interface-theme-card">

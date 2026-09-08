@@ -1,5 +1,6 @@
 const BRIDGE_URL = "http://127.0.0.1:17846";
 const BRIDGE_TIMEOUT_MS = 1_500;
+const BRIDGE_HEARTBEAT_MS = 5_000;
 
 export interface BridgeStatus {
   version: string;
@@ -46,6 +47,55 @@ export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> 
 
 export async function bridgeHandshake(signal?: AbortSignal): Promise<void> {
   await bridgeRequest("/v1/handshake", { method: "PUT" }, signal);
+}
+
+export async function checkBridgeConnection(signal?: AbortSignal): Promise<BridgeStatus> {
+  await bridgeHandshake(signal);
+  return bridgeStatus(signal);
+}
+
+export type BridgeConnection =
+  | { state: "checking"; status: null }
+  | { state: "connected"; status: BridgeStatus }
+  | { state: "disconnected"; status: null };
+
+export function startBridgeHeartbeat(
+  onConnectionChange: (connection: BridgeConnection) => void,
+): () => void {
+  const controller = new AbortController();
+  let checking = false;
+  let firstCheck = true;
+
+  const check = async (): Promise<void> => {
+    if (checking || controller.signal.aborted) return;
+    checking = true;
+    if (firstCheck) onConnectionChange({ state: "checking", status: null });
+    try {
+      const status = await checkBridgeConnection(controller.signal);
+      if (!controller.signal.aborted) onConnectionChange({ state: "connected", status });
+    } catch {
+      if (!controller.signal.aborted) onConnectionChange({ state: "disconnected", status: null });
+    } finally {
+      checking = false;
+      firstCheck = false;
+    }
+  };
+
+  const checkWhenVisible = (): void => {
+    if (document.visibilityState === "visible") void check();
+  };
+
+  void check();
+  const heartbeat = window.setInterval(() => void check(), BRIDGE_HEARTBEAT_MS);
+  window.addEventListener("focus", checkWhenVisible);
+  document.addEventListener("visibilitychange", checkWhenVisible);
+
+  return () => {
+    controller.abort();
+    window.clearInterval(heartbeat);
+    window.removeEventListener("focus", checkWhenVisible);
+    document.removeEventListener("visibilitychange", checkWhenVisible);
+  };
 }
 
 export async function bridgeApplications(signal?: AbortSignal): Promise<BridgeApplication[]> {
