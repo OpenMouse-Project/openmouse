@@ -1623,21 +1623,28 @@ body { height: 100vh; overflow: hidden; }
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 1.1rem 0 0.75rem;
+  gap: 0.4rem;
+  padding: 0.2rem 0 0.9rem;
   position: relative;
 }
 .device-tab-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
-  padding: 0.4rem 0.9rem;
+  padding: 0.48rem 1.05rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 650;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.device-tab-pill svg,
+.device-tab-back svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
 }
 .device-tab-pill:hover {
   color: var(--bright);
@@ -1917,7 +1924,7 @@ body { height: 100vh; overflow: hidden; }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1rem 2rem 2rem;
   scrollbar-width: none;
 }
 .full-desktop-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -2035,20 +2042,32 @@ body { height: 100vh; overflow: hidden; }
 .device-tab-back {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
-  padding: 0.4rem 0.75rem;
+  padding: 0.48rem 0.85rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 650;
   position: absolute;
   left: 0;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .device-tab-back-right {
   left: auto;
   right: 0;
+  border: 1px solid var(--ui-accent);
+  background: var(--ui-accent);
+  color: var(--ui-accent-ink);
+}
+.device-tab-back-right:hover:not(:disabled) {
+  color: var(--ui-accent-ink);
+  border-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 80%, #ffffff);
+  filter: none;
 }
 .device-tab-back:hover {
   color: var(--bright);
