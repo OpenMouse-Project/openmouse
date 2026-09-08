@@ -112,7 +112,11 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
 
   return {
     dpi: ready,
-    polling: ready,
+    polling: ready || (
+      status.brand === "Attack Shark"
+      && status.name === "Attack Shark X11"
+      && status.ui?.settingsReady === false
+    ),
     sensor: sensor && ready,
     lightforce: Boolean(status.lightforceSwitchMode),
     superstrike: traits.logitech && status.analogButtonTuning?.buttons.length === 2,

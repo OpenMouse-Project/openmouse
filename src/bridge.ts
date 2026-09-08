@@ -1,5 +1,6 @@
 const BRIDGE_URL = "http://127.0.0.1:17846";
 const BRIDGE_TIMEOUT_MS = 1_500;
+const BRIDGE_NATIVE_TIMEOUT_MS = 12_000;
 const BRIDGE_HEARTBEAT_MS = 5_000;
 
 export interface BridgeStatus {
@@ -144,8 +145,25 @@ export async function saveBridgeBattery(
   }, signal);
 }
 
-async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
-  const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
+export async function applyBridgeNativeSettings(settings: {
+  brand: string;
+  dpi?: number;
+  pollingRateHz?: number;
+}): Promise<void> {
+  await bridgeRequest("/v1/native/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  }, undefined, BRIDGE_NATIVE_TIMEOUT_MS);
+}
+
+async function bridgeRequest<T>(
+  path: string,
+  init?: RequestInit,
+  signal?: AbortSignal,
+  timeoutMs = BRIDGE_TIMEOUT_MS,
+): Promise<T> {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const response = await fetch(`${BRIDGE_URL}${path}`, {
     headers: { Accept: "application/json" },

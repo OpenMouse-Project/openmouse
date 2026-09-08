@@ -1,4 +1,5 @@
 import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "../battery-history";
+import { applyBridgeNativeSettings } from "../bridge";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -173,6 +174,8 @@ const DEFAULT_TITLE = typeof document === "undefined" ? "OpenMouse Control" : do
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const WLMOUSE_SLEEP_NEVER = 0xffff;
 export const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
+export const X11_POLLING_RATES_HZ = [125, 250, 500, 1000];
+const X11_POLLING_STORAGE_KEY = "openmouse.attack-shark-x11.polling-rate";
 export const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
   [1, "10 seconds"], [3, "30 seconds"], [6, "1 minute"], [12, "2 minutes"],
   [30, "5 minutes"], [60, "10 minutes"], [180, "30 minutes"],
@@ -188,6 +191,16 @@ const previewMode = previewModeEnabled
 const isAnyPreview = previewMode !== null;
 
 let active: SupportedClient | null = null;
+let x11PollingRateHz = (() => {
+  const saved = Number(window.localStorage.getItem(X11_POLLING_STORAGE_KEY));
+  return X11_POLLING_RATES_HZ.includes(saved) ? saved : 1000;
+})();
+
+export function isNativeAttackSharkX11(status: MouseStatus | null | undefined): boolean {
+  return status?.brand === "Attack Shark"
+    && status.name === "Attack Shark X11"
+    && status.ui?.settingsReady === false;
+}
 
 type ClientClass<T> = abstract new (...args: never[]) => T;
 
@@ -1429,6 +1442,17 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 }
 
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
+  if (isNativeAttackSharkX11(deviceStatus)) {
+    deviceStatus = {
+      ...deviceStatus,
+      pollingRateHz: x11PollingRateHz,
+      supportedPollingRates: X11_POLLING_RATES_HZ,
+      ui: {
+        ...deviceStatus.ui,
+        pollingNote: "Native control through OpenMouse Bridge. The displayed rate is the last value applied here; this firmware does not expose a readable current-rate command.",
+      },
+    };
+  }
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
@@ -2995,6 +3019,7 @@ export function setProfileReportRate(link: "wireless" | "wired", hz: number): vo
 
 export function applyPollingRate(rate: number): void {
   if (!hasActiveClient()) return;
+  const nativeX11 = isNativeAttackSharkX11(latestDeviceStatus);
   stageChange({
     key: "polling-rate",
     label: `${rate.toLocaleString()} Hz`,
@@ -3004,7 +3029,13 @@ export function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
+      if (nativeX11) {
+        await applyBridgeNativeSettings({ brand: "Attack Shark", pollingRateHz: rate });
+        x11PollingRateHz = rate;
+        window.localStorage.setItem(X11_POLLING_STORAGE_KEY, String(rate));
+      } else {
+        await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
+      }
     },
   });
 }
