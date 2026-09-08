@@ -79,6 +79,7 @@ export const ru: Record<I18nKey, string> = {
   "set.chinese": "中文",
   "set.japanese": "日本語",
   "set.korean": "한국어",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "АНИМАЦИЯ",
   "set.animations": "Анимации",
   "set.animationsBody": "Включить переходы интерфейса и анимацию смены состояний.",
@@ -880,4 +881,7 @@ export const ru: Record<I18nKey, string> = {
   "adm.peakConcurrent": "пик одновременно {n}",
   "set.russian": "Русский",
   "page.ru": "РУС",
+
+  "tab.unavailable": "Настройки «{tab}» недоступны для этого устройства.",
+  "tab.chooseAnother": "Выберите другую вкладку, чтобы продолжить настройку устройства.",
 };

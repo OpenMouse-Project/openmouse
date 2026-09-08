@@ -80,6 +80,7 @@ export const es: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "MOVIMIENTO",
   "set.animations": "Animaciones",
   "set.animationsBody": "Activa las transiciones de la interfaz y los cambios de estado animados.",
@@ -880,4 +881,7 @@ export const es: Record<I18nKey, string> = {
   "adm.loadFail": "No se pudieron cargar las estadísticas.",
   "adm.viewsWord": "vistas",
   "adm.peakConcurrent": "pico simultáneo {n}",
+
+  "tab.unavailable": "Los controles de {tab} no están disponibles para este dispositivo.",
+  "tab.chooseAnother": "Elige otra pestaña para seguir configurando el dispositivo.",
 };

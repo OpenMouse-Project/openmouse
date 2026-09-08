@@ -80,6 +80,7 @@ export const de: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "BEWEGUNG",
   "set.animations": "Animationen",
   "set.animationsBody": "Aktiviert Oberflächenübergänge und animierte Zustandsänderungen.",
@@ -880,4 +881,7 @@ export const de: Record<I18nKey, string> = {
   "adm.loadFail": "Statistiken konnten nicht geladen werden.",
   "adm.viewsWord": "Aufrufe",
   "adm.peakConcurrent": "Höchststand gleichzeitig {n}",
+
+  "tab.unavailable": "Die Steuerelemente für {tab} sind für dieses Gerät nicht verfügbar.",
+  "tab.chooseAnother": "Wähle einen anderen Tab, um mit der Konfiguration des Geräts fortzufahren.",
 };
