@@ -4,8 +4,9 @@ import { join } from "node:path";
 const BUDGET_BYTES: Record<string, number> = {
   // Raised from 103 kB for the interface themes: NieR: Automata and Liquid
   // Glass each ship their own token block, and the liquid-glass material
-  // layer (SVG displacement filters plus their component rules) adds the
-  // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
+  // layer (SVG displacement filters plus their component rules) added the
+  // largest share. Liquid Glass was removed in the theme sync (main CSS is
+  // ~104 kB again). The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
   // styles that load only on /donate.html). Raised to 180 kB in the
   // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
@@ -59,7 +60,14 @@ const BUDGET_BYTES: Record<string, number> = {
   // is 1,171.4 kB, leaving ~14 kB of headroom.
   // Raised to 1,250 kB for the Russian (ru) interface locale: the new
   // translation strings push the measured aggregate to 1,232.4 kB.
-  ".js": 1_250_000,
+  // Raised to 1,290 kB for the control-app support/UI work that landed
+  // together: the OpenMouse AI chat overlay (AiOverlay.tsx with its topic
+  // flow and Discord fallback), the Discord-embed FeedbackDialog, the
+  // What's New Desktop-app dialog, the desktop-style AppSidebar /
+  // OverviewPage shell, and the ai.* + wn.* keys added across all nine
+  // locale tables. Those add ~21 kB of strings and UI to the measured
+  // aggregate (1,271.9 kB), leaving ~18 kB of headroom.
+  ".js": 1_290_000,
 };
 
 const ASSETS = join("dist", "assets");

@@ -56,6 +56,9 @@ export interface SidebarDevice {
   name: string;
   detail: string;
   selected: boolean;
+  vendorId: number;
+  productId: number;
+  kind: "mouse" | "keyboard";
 }
 
 export interface DiagnosticsView {
@@ -155,6 +158,8 @@ export interface ControlSnapshot {
   sidebarHidden: boolean;
   interfaceSettingsOpen: boolean;
   workspaceTab: WorkspaceTab;
+  /** "list" shows the welcome/cross-device picker, "device" shows the opened dashboard. */
+  deviceView: "list" | "device";
 
   dpiOptions: number[];
   customDpiEditing: boolean;

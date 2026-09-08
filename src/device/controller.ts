@@ -132,6 +132,7 @@ import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
+import { WootingHidClient } from "@openmouse/protocol/drivers/wooting/hid";
 import {
   KEYCHRON_NAPE_KEYCODE,
   KEYCHRON_NAPE_KEY_CONTROLS,
@@ -262,7 +263,8 @@ let activationInProgress = false;
 let activationQueue: Promise<void> = Promise.resolve();
 let sidebarHidden = false;
 let interfaceSettingsOpen = false;
-let activeWorkspaceTab: WorkspaceTab = "performance";
+let activeWorkspaceTab: WorkspaceTab = "overview";
+let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
 let capabilities: DeviceCapabilities | null = null;
@@ -403,6 +405,7 @@ function buildSnapshot(): ControlSnapshot {
     sidebarHidden,
     interfaceSettingsOpen,
     workspaceTab: activeWorkspaceTab,
+    deviceView: deviceListView,
     dpiOptions,
     customDpiEditing,
     customDpiText,
@@ -464,16 +467,16 @@ function setReadStatus(text: string): void {
 }
 
 const TOAST_TIMEOUT_MS: Record<ToastKind, number> = {
-  success: 4200,
-  info: 5200,
-  warning: 6500,
-  error: 8000,
+  success: 6000,
+  info: 7000,
+  warning: 9000,
+  error: 10000,
 };
 
 const TOAST_LIMIT = 4;
 const TOAST_EXIT_MS = 180;
 
-function pushToast(kind: ToastKind, title: string, detail?: string): void {
+export function pushToast(kind: ToastKind, title: string, detail?: string): void {
   const duplicate = toasts.findIndex((entry) => entry.kind === kind && entry.title === title);
   if (duplicate !== -1) toasts.splice(duplicate, 1);
 
@@ -1485,6 +1488,13 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   emit();
 }
 
+function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
+  if (client instanceof KeychronNapeHidClient
+    || client instanceof WootingHidClient
+    || client instanceof WallhackKeyboardHidClient) return "keyboard";
+  return "mouse";
+}
+
 function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
   const supported = listLogicalDevices(devices);
   return supported.map((device, index) => {
@@ -1500,7 +1510,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const detail = status
       ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
       : `${deviceBrand(client)} · Available`;
-    return { index, name, detail, selected: device === activeDevice };
+    return { index, name, detail, selected: device === activeDevice, vendorId: device.vendorId, productId: device.productId, kind: sidebarEntryForm(client) };
   });
 }
 
@@ -1529,11 +1539,18 @@ function rememberActiveDevice(device: HIDDevice): void {
   }
 }
 
+async function waitForControllerIdle(): Promise<void> {
+  while (settingInProgress || refreshInProgress || activationInProgress) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+  }
+}
+
 export async function selectAuthorizedDevice(index: number): Promise<void> {
-  if (settingInProgress || refreshInProgress) return;
+  await waitForControllerIdle();
   const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
   const device = devices[index];
-  if (!device || device === activeDevice) return;
+  if (!device) return;
+  if (device === activeDevice && latestDeviceStatus !== null) return;
   const client = createSupportedClient(device);
   if (!client) return;
   deviceStatusText = st("ctl.switching");
@@ -1547,6 +1564,48 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
     toastForError("Connection failed", error);
     await refreshSidebar();
   }
+}
+
+/** Open the given device's dashboard from the picker, connecting it first when needed. */
+export async function openDeviceOverview(index: number): Promise<void> {
+  await waitForControllerIdle();
+  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  const device = devices[index];
+  if (!device) {
+    await connect();
+    return;
+  }
+  if (device === activeDevice && latestDeviceStatus !== null) {
+    deviceListView = "device";
+    activeWorkspaceTab = "overview";
+    emit();
+    return;
+  }
+  await selectAuthorizedDevice(index);
+  if (latestDeviceStatus !== null) {
+    deviceListView = "device";
+    activeWorkspaceTab = "overview";
+    emit();
+  }
+}
+
+/** Return from an opened device dashboard to the device picker. */
+export function showDeviceList(): void {
+  deviceListView = "list";
+  emit();
+}
+
+/** Open the connected device's dashboard from the sidebar. */
+export async function showDeviceDashboard(): Promise<void> {
+  await waitForControllerIdle();
+  if (latestDeviceStatus === null) {
+    deviceListView = "list";
+    emit();
+    return;
+  }
+  deviceListView = "device";
+  activeWorkspaceTab = "overview";
+  emit();
 }
 
 function statusNameForClient(client: SupportedClient): string {
@@ -1577,6 +1636,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   active = client;
+  activeWorkspaceTab = "overview";
 
   if (isEggWeClient(client)) await eggWePrepare(client);
   if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
@@ -3954,9 +4014,22 @@ export function start(): void {
     emit();
   });
 
-  if (previewMode === "superstrike") showSuperstrikePreview();
-  else if (previewMode === "slots") showSlotsPreview();
-  else if (previewMode !== null) void showFixturePreview(previewMode);
+  if (previewMode === "superstrike") {
+    showSuperstrikePreview();
+    deviceListView = "device";
+    emit();
+  } else if (previewMode === "slots") {
+    showSlotsPreview();
+    deviceListView = "device";
+    emit();
+  } else if (previewMode !== null && previewMode !== "list") {
+    void showFixturePreview(previewMode).then(() => {
+      if (latestDeviceStatus !== null) deviceListView = "device";
+      emit();
+    });
+  } else if (previewMode === "list") {
+    void showFixturePreview("list");
+  }
 
   if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);

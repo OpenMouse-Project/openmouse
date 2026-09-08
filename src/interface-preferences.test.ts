@@ -79,6 +79,7 @@ test("interface preferences fall back safely for malformed storage", () => {
 
 test("every interface theme persists and maps to its stylesheet slug", () => {
   const themes: ReadonlyArray<[InterfaceTheme, string]> = [
+    ["Matt", "matt"],
     ["Emerald", "emerald"],
     ["Violet", "violet"],
     ["Ice", "ice"],
@@ -89,7 +90,7 @@ test("every interface theme persists and maps to its stylesheet slug", () => {
     ["Catppuccin Macchiato", "catppuccin-macchiato"],
     ["Catppuccin Frappé", "catppuccin-frappe"],
     ["NieR: Automata", "nier-automata"],
-    ["Liquid Glass", "liquid-glass"],
+    ["Light", "light"],
   ];
 
   for (const [theme, slug] of themes) {
