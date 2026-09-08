@@ -100,6 +100,8 @@ export const ja: Record<I18nKey, string> = {
   "set.previewsTitle": "ドライバープレビュー",
   "set.previewsBody": "実機なしで対応ドライバーを表示し、各ブランドで変更点を確認できます。デバイスへの書き込みは行われません。",
   "set.reset": "インターフェース設定をリセット",
+  "set.supportTitle": "プロジェクトを支援",
+  "set.supportBody": "OpenMouseは無料でオープンソースです。コミュニティに参加し、プロジェクトをフォローするか、その背後にある活動を支援してください。",
   "pend.region": "未保存の変更",
   "pend.overline": "保留中",
   "pend.none": "保留中の変更はありません",

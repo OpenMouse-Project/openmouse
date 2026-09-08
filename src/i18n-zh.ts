@@ -100,6 +100,8 @@ export const zh: Record<I18nKey, string> = {
   "set.previewsTitle": "驱动预览",
   "set.previewsBody": "无需硬件即可查看任意支持的驱动，以便在各品牌间检查修改效果。不会写入任何设备。",
   "set.reset": "重置界面偏好设置",
+  "set.supportTitle": "支持本项目",
+  "set.supportBody": "OpenMouse 免费且开源。加入社区、关注项目，或支持其背后的工作。",
   "pend.region": "未保存的更改",
   "pend.overline": "待处理",
   "pend.none": "没有待处理的更改",

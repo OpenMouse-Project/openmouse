@@ -1922,6 +1922,14 @@ body { height: 100vh; overflow: hidden; }
 }
 .full-desktop-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
+.settings-support {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 /* Bottom social footer inside full-desktop-main (discord / x / github). */
 .app-footer {
   display: flex;

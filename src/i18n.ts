@@ -103,6 +103,8 @@ const en = {
   "set.previewsTitle": "Driver previews",
   "set.previewsBody": "Render any supported driver without its hardware, to check a change against every brand. Nothing is written to a device.",
   "set.reset": "Reset interface preferences",
+  "set.supportTitle": "Support the project",
+  "set.supportBody": "OpenMouse is free and open source. Join the community, follow the project, or support the work behind it.",
   "pend.region": "Unsaved changes",
   "pend.overline": "PENDING",
   "pend.none": "No pending changes",

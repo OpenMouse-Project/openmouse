@@ -100,6 +100,8 @@ export const ko: Record<I18nKey, string> = {
   "set.previewsTitle": "드라이버 미리보기",
   "set.previewsBody": "하드웨어 없이 지원되는 드라이버를 표시하여 각 브랜드에서 변경 사항을 확인할 수 있습니다. 장치에는 아무것도 기록되지 않습니다.",
   "set.reset": "인터페이스 환경설정 초기화",
+  "set.supportTitle": "프로젝트 후원하기",
+  "set.supportBody": "OpenMouse는 무료이며 오픈소스입니다. 커뮤니티에 참여하고, 프로젝트를 팔로우하거나, 그 뒤에 있는 작업을 지원해 주세요.",
   "pend.region": "저장되지 않은 변경 사항",
   "pend.overline": "대기 중",
   "pend.none": "대기 중인 변경 사항 없음",

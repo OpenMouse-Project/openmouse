@@ -100,6 +100,8 @@ export const de: Record<I18nKey, string> = {
   "set.previewsTitle": "Treibervorschauen",
   "set.previewsBody": "Zeigt jeden unterstützten Treiber ohne die zugehörige Hardware an, um eine Änderung bei jeder Marke zu prüfen. Es wird nichts auf ein Gerät geschrieben.",
   "set.reset": "Oberflächeneinstellungen zurücksetzen",
+  "set.supportTitle": "Projekt unterstützen",
+  "set.supportBody": "OpenMouse ist kostenlos und open source. Tritt der Community bei, folge dem Projekt oder unterstütze die Arbeit dahinter.",
   "pend.region": "Nicht gespeicherte Änderungen",
   "pend.overline": "AUSSTEHEND",
   "pend.none": "Keine ausstehenden Änderungen",

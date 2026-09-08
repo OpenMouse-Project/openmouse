@@ -3,6 +3,7 @@ import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import { LOCALE_NAME_KEYS, t } from "../i18n";
 import { interfaceThemeSlug, type InterfaceTheme } from "../interface-preferences";
+import { DiscordIcon, DISCORD_URL, GitHubIcon, GITHUB_URL, TwitterIcon, TWITTER_URL } from "./social-links";
 import { Segmented } from "./ui";
 
 const THEME_ORDER: readonly InterfaceTheme[] = [
@@ -230,6 +231,29 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
           </div>
         </div>
       ) : null}
+
+      <div className="setting-row setting-row-block">
+        <div className="setting-label">
+          <span className="setting-title">{t(locale, "set.supportTitle")}</span>
+          <span className="setting-description">{t(locale, "set.supportBody")}</span>
+        </div>
+        <div className="settings-support">
+          <a className="app-donate" href="https://openmouse.app/donate.html" target="_blank" rel="noreferrer">
+            <span className="app-donate-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 6H16V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5V11c0 3.31 2.69 6 6 6h2c3.31 0 6-2.69 6-6v-.5h1a2.5 2.5 0 0 0 0-5h-1.5zm0 3.5h-1V7h1a1 1 0 0 1 0 2zM7.5 13.5V7h9v4.5c0 2.48-2.02 4.5-4.5 4.5h-2c-2.48 0-4.5-2.02-4.5-4.5zM6 19a1 1 0 0 1 1-1h10a1 1 0 0 1 0 2H7a1 1 0 0 1-1-1z"/></svg>
+            </span>
+            <span className="app-donate-text">{t(locale, "nav.supportProject")}</span>
+            <span className="app-donate-heart">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </span>
+          </a>
+          <span className="app-footer-socials">
+            <a href={DISCORD_URL} target="_blank" rel="noreferrer" title="OpenMouse on Discord" aria-label="OpenMouse on Discord"><DiscordIcon /></a>
+            <a href={TWITTER_URL} target="_blank" rel="noreferrer" title="OpenMouse on X" aria-label="OpenMouse on X"><TwitterIcon /></a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer" title="OpenMouse on GitHub" aria-label="OpenMouse on GitHub"><GitHubIcon /></a>
+          </span>
+        </div>
+      </div>
 
       <button
         id="reset-interface-settings"

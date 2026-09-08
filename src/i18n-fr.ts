@@ -100,6 +100,8 @@ export const fr: Record<I18nKey, string> = {
   "set.previewsTitle": "Aperçus des drivers",
   "set.previewsBody": "Affiche n'importe quel driver compatible sans son matériel, pour vérifier une modification sur chaque marque. Rien n'est écrit sur un appareil.",
   "set.reset": "Réinitialiser les préférences d'interface",
+  "set.supportTitle": "Soutenir le projet",
+  "set.supportBody": "OpenMouse est gratuit et open source. Rejoignez la communauté, suivez le projet ou soutenez le travail qui le rend possible.",
   "pend.region": "Modifications non enregistrées",
   "pend.overline": "EN ATTENTE",
   "pend.none": "Aucune modification en attente",
