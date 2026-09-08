@@ -96,7 +96,7 @@ export function App(): ReactNode {
       </main>
 
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
-      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} locale={locale} />
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} locale={locale} canAttachDiagnostics={status !== null} />
       <WhatsNewDialog open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} locale={locale} />
       <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
       <AiOverlay locale={locale} />

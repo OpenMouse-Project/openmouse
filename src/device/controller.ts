@@ -1260,8 +1260,8 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
   configureProfileCapture(status);
   if (!diagnosticsOpen) return;
 
-  const device = activeDevice;
-  if (!device && !status && !lastDiagnosticError) {
+  const bundle = collectDiagnosticsSnapshot(status);
+  if (!bundle) {
     diagnosticsView = {
       overview: [],
       snapshot: "Connect a mouse to collect diagnostics.",
@@ -1272,6 +1272,24 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
     emit();
     return;
   }
+  diagnosticsView = {
+    overview: bundle.overview,
+    snapshot: JSON.stringify(bundle.snapshot, null, 2),
+    reads: renderReadTable(),
+    downloadReady: true,
+    downloadStatus: diagnosticDownloadStatus,
+  };
+  emit();
+}
+
+/** Builds (and caches) the diagnostic snapshot regardless of whether the
+    diagnostics panel is open, so support attachments work on demand. */
+function collectDiagnosticsSnapshot(status: MouseStatus | null): {
+  overview: Array<[string, string]>;
+  snapshot: Record<string, unknown>;
+} | null {
+  const device = activeDevice;
+  if (!device && !status && !lastDiagnosticError) return null;
   const driver = status
     ? (status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand)
     : "No driver read this device";
@@ -1308,14 +1326,7 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
     },
   };
   latestDiagnosticsSnapshot = collected;
-  diagnosticsView = {
-    overview,
-    snapshot: JSON.stringify(collected, null, 2),
-    reads: renderReadTable(),
-    downloadReady: true,
-    downloadStatus: diagnosticDownloadStatus,
-  };
-  emit();
+  return { overview, snapshot: collected };
 }
 
 function maskBytes(bytes: Uint8Array): string {
@@ -1388,7 +1399,9 @@ function diagnosticsLog(): object[] {
 
 /** Returns exactly the diagnostic object shown for consent before an upload. */
 export function supportDiagnosticBundle(): Record<string, unknown> | null {
-  if (!latestDiagnosticsSnapshot || !activeDevice) return null;
+  if (!activeDevice) return null;
+  if (!latestDiagnosticsSnapshot) collectDiagnosticsSnapshot(latestDiagnosticStatus);
+  if (!latestDiagnosticsSnapshot) return null;
   const rows = hidTraffic(activeDevice);
   return {
     ...latestDiagnosticsSnapshot,

@@ -9,14 +9,16 @@ const SUBMIT_COOLDOWN_MS = 60_000;
 const MAX_SESSION_SUBMITS = 5;
 const STORAGE_KEY = "om.feedback.sentAt";
 
-export function FeedbackDialog({ open, onClose, locale = "en" }: {
+export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnostics = false }: {
   open: boolean;
   onClose: () => void;
   locale?: InterfaceLocale;
+  canAttachDiagnostics?: boolean;
 }): ReactNode {
   const dialog = useRef<HTMLDialogElement>(null);
   const [feedback, setFeedback] = useState("");
   const [handle, setHandle] = useState("");
+  const [attach, setAttach] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -111,17 +113,42 @@ export function FeedbackDialog({ open, onClose, locale = "en" }: {
     setError(false);
     let ok = false;
     try {
+      const bundle = attach ? control.supportDiagnosticBundle() : null;
+      const statusBundle = bundle?.status as { name?: string | null } | undefined;
+      const webhid = bundle?.webhid as { productName?: string | null } | undefined;
+      const deviceName = bundle
+        ? statusBundle?.name ?? webhid?.productName ?? null
+        : null;
       const embed = {
         title: "New Feedback",
         description: trimmed.slice(0, 4000),
         color: 0x00b0f4,
         ...(handle.trim() ? { footer: { text: `@${handle.trim()}` } } : {}),
+        ...(deviceName ? { fields: [{ name: "Device", value: `**${deviceName}**`, inline: true }] } : {}),
       };
-      const response = await fetch(FEEDBACK_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ embeds: [embed] }),
-      });
+      let response: Response;
+      if (bundle) {
+        const form = new FormData();
+        form.append(
+          "payload_json",
+          JSON.stringify({
+            embeds: [embed],
+            attachments: [{ id: "0", description: "Device details and diagnostic log", filename: "openmouse-diagnostics.json" }],
+          }),
+        );
+        form.append(
+          "files[0]",
+          new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }),
+          "openmouse-diagnostics.json",
+        );
+        response = await fetch(FEEDBACK_WEBHOOK_URL, { method: "POST", body: form });
+      } else {
+        response = await fetch(FEEDBACK_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embeds: [embed] }),
+        });
+      }
       ok = response.ok;
       if (!ok) throw new Error(String(response.status));
       recordSent();
@@ -178,6 +205,20 @@ export function FeedbackDialog({ open, onClose, locale = "en" }: {
             value={handle}
             onChange={(event) => setHandle(event.currentTarget.value.replace(/^@/, ""))}
           />
+        </label>
+
+        <label className="feedback-attach">
+          <input
+            id="feedback-attach"
+            type="checkbox"
+            checked={attach}
+            disabled={!canAttachDiagnostics || busy}
+            onChange={(event) => setAttach(event.currentTarget.checked)}
+          />
+          <span>
+            <strong>{t(locale, "fb.attachLabel")}</strong>
+            <small>{t(locale, "fb.attachDetail")}</small>
+          </span>
         </label>
 
         {error ? (
