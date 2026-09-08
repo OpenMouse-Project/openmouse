@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
 import { t, connectionText, type I18nKey } from "../i18n";
@@ -80,7 +80,6 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const status = snapshot.status;
   if (!status) return null;
   const locale = snapshot.preferences.locale;
-  const [unreachable, setUnreachable] = useState(false);
   const image = snapshot.deviceArtwork;
 
   return (
@@ -88,11 +87,17 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
       <h1 className="device-showcase-name">{status.name}</h1>
       <p className="device-showcase-brand">{status.brand}</p>
       <div className="device-showcase-visual">
-        {image && !unreachable ? (
+        {image ? (
           <img
             className="device-showcase-image"
             src={image}
-            onError={() => setUnreachable(true)}
+            onError={(event) => {
+              // Some drivers resolve to artwork that hasn't been uploaded to
+              // the R2 bucket yet (see public/devices/README.md); fall back to
+              // the generic placeholder instead of dropping the thumbnail.
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = deviceImage(null);
+            }}
             alt={status.name}
           />
         ) : null}
