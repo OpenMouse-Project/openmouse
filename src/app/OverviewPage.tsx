@@ -511,20 +511,6 @@ export function OverviewPage({
   const locale = preferences.locale;
 
   useEffect(() => {
-    const element = panel.current?.closest<HTMLElement>(".full-desktop-content");
-    if (!element) return;
-    const onWheel = (event: WheelEvent): void => {
-      const target = panel.current;
-      const source = event.target as Element;
-      if (!target || target.contains(source) || source.closest("dialog") || event.deltaY === 0) return;
-      target.scrollTop += event.deltaY;
-      event.preventDefault();
-    };
-    element.addEventListener("wheel", onWheel, { passive: false });
-    return () => element.removeEventListener("wheel", onWheel);
-  }, []);
-
-  useEffect(() => {
     const scrollTarget = panel.current?.closest<HTMLElement>(".full-desktop-content") ?? panel.current;
     scrollTarget?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [snapshot.workspaceTab]);
