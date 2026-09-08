@@ -1,4 +1,4 @@
-import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "../battery-history";
+import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -1162,7 +1162,7 @@ export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
   const now = Date.now();
-  const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
+  const samples = cachedBatterySamples(localStorage, status.name, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
   const state = batteryStateText(locale, status.batteryState);
@@ -1434,6 +1434,12 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
+  // Battery samples are recorded at device-update cadence; renders read the
+  // cache via batteryDetail instead of touching storage on every frame.
+  const sampleMode = batteryMode(deviceStatus.batteryState);
+  if (deviceStatus.batteryPercent !== null && sampleMode) {
+    recordBatterySample(localStorage, deviceStatus.name, deviceStatus.batteryPercent, sampleMode, Date.now());
+  }
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
   reportMouseUsage(status.name);

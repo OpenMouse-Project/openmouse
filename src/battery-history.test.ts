@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { estimateBatteryTime, saveBatterySample } from "./battery-history.ts";
+import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, saveBatterySample } from "./battery-history.ts";
 
 class MemoryStorage implements Storage {
   #values = new Map<string, string>();
@@ -37,4 +37,21 @@ test("battery estimate requires a recent continuous trend", () => {
 
   assert.equal(estimateBatteryTime(samples, 90, "discharging", 60 * 60 * 1000), "~9.0 hr");
   assert.equal(estimateBatteryTime(samples, 90, "discharging", 2 * 60 * 60 * 1000), null);
+});
+
+test("cached battery samples serve renders without storage IO", () => {
+  const storage = new MemoryStorage();
+  recordBatterySample(storage, "RenderMouse", 75, "discharging", 0);
+  storage.getItem = () => { throw new Error("render path must not touch storage"); };
+  const samples = cachedBatterySamples(storage, "RenderMouse", 60_000);
+  assert.equal(samples.length, 1);
+  assert.equal(samples[0]?.percent, 75);
+});
+
+test("cached battery samples load once from storage on cold start", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "ColdMouse", 75, "discharging", 0);
+  const samples = cachedBatterySamples(storage, "ColdMouse", 60_000);
+  assert.equal(samples.length, 1);
+  assert.equal(samples[0]?.percent, 75);
 });
