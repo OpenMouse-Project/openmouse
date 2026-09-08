@@ -1624,7 +1624,7 @@ body { height: 100vh; overflow: hidden; }
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.35rem;
-  padding: 0.25rem 0 0.5rem;
+  padding: 1.1rem 0 0.75rem;
   position: relative;
 }
 .device-tab-pill {
