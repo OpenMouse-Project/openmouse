@@ -6,7 +6,6 @@ import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { Superstrike } from "./Superstrike";
-import { PendingBar } from "./PendingBar";
 import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
@@ -614,7 +613,6 @@ export function OverviewPage({
           </nav>
 
           <Workspace snapshot={snapshot} onOpenCapture={onOpenCapture} />
-          <PendingBar snapshot={snapshot} />
         </>
       ) : (
         <DeviceListView snapshot={snapshot} />

@@ -7,6 +7,7 @@ import { OverviewPage } from "./OverviewPage";
 import { CaptureDialog } from "./CaptureDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { InterfaceSettings } from "./InterfaceSettings";
+import { PendingBar } from "./PendingBar";
 import { ShareProfileDialog } from "./ShareProfileDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
 import { AiOverlay } from "./AiOverlay";
@@ -91,6 +92,7 @@ export function App(): ReactNode {
             {snapshot.readStatus}
           </p>
         </div>
+        <PendingBar snapshot={snapshot} />
       </main>
 
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
