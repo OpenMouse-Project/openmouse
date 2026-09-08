@@ -55,6 +55,14 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3837:100a", "mchose-a7-v2.png"],
   ["3837:100b", "mchose-a7-v2.png"],
   ["3837:1020", "mchose-a7-v2.png"],
+  // MCHOSE A7 V3 family — a different shell and a different protocol from the
+  // V2 above. Its two receiver ids are shared with the other V3-generation
+  // models, so they are deliberately not mapped: a K5 or R7 behind the same
+  // dongle would get an A7 render.
+  ["3837:4030", "mchose-a7-v3.png"],
+  ["3837:4031", "mchose-a7-v3.png"],
+  ["3837:4032", "mchose-a7-v3.png"],
+  ["3837:4033", "mchose-a7-v3.png"],
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "crdrako-ko-one.png"],
   ["373e:006b", "crdrako-ko-one.png"],
@@ -307,7 +315,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
   if (/k[\s-]*snake/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
-  // Catches any A7 V2 variant whose product id is not pinned above.
+  // Catches any A7 variant whose product id is not pinned above. V3 first, so
+  // an "A7 V3" name is not swallowed by a looser A7 match later.
+  if (/\ba7\s*v3\b/i.test(displayName)) return "mchose-a7-v3.png";
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";

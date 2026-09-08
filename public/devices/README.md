@@ -182,3 +182,7 @@ package:
   place and falls back to the placeholder until then. Not yet cleared for
   licensing: it is vendor product art, so treat it as a request rather than an
   approved asset.
+- `mchose-a7-v3.png` — MCHOSE A7 V3 render. Same story as the V2 above:
+  MCHOSE publishes only `A7V3Pro_*` renders and the four V3 models share a
+  shell, so one image covers the family. **Needs a maintainer upload**, and
+  carries the same unresolved licensing question.
