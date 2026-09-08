@@ -78,6 +78,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1915:ae1c", "ninjutso-sora-v2.png"],
   ["1915:ae8a", "ninjutso-sora-v2.png"],
   ["1915:ae8c", "ninjutso-sora-v2.png"],
+  // Incott G23V2Pro: the dongle (0x522c) and the wired transport (0x622c)
+  // are the same mouse, so they share one render.
+  ["093a:522c", "incott-g23-v2-pro.png"],
+  ["093a:622c", "incott-g23-v2-pro.png"],
   ["093a:e010", "ninjutso-sora-v3.png"],
   ["093a:eb02", "ninjutso-sora-v3.png"],
   ["093a:e020", "ninjutso-ten.png"],
