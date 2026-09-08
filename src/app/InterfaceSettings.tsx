@@ -1,10 +1,9 @@
 import { useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { LOCALE_NAME_KEYS, t } from "../i18n";
+import { t } from "../i18n";
 import { interfaceThemeSlug, type InterfaceTheme } from "../interface-preferences";
 import { DiscordIcon, DISCORD_URL, GitHubIcon, GITHUB_URL, TwitterIcon, TWITTER_URL } from "./social-links";
-import { Segmented } from "./ui";
 
 const THEME_ORDER: readonly InterfaceTheme[] = [
   "Matt",
@@ -161,20 +160,6 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
             </button>
           ))}
         </fieldset>
-      </div>
-
-      <div className="setting-row">
-        <div className="setting-label">
-          <span className="setting-title">{t(locale, "set.languageTitle")}</span>
-          <span className="setting-description">{t(locale, "set.languageBody")}</span>
-        </div>
-        <Segmented
-          id="interface-locale"
-          ariaLabel={t(locale, "set.languageTitle")}
-          value={preferences.locale}
-          onChange={set("locale")}
-          options={LOCALE_NAME_KEYS.map(([value, nameKey]) => ({ value, label: t(locale, nameKey) }))}
-        />
       </div>
 
       {switchRow(
