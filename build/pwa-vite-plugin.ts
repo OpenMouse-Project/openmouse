@@ -11,6 +11,7 @@ const STATIC_PRECACHE = [
   "/favicon-32.png",
   "/apple-touch-icon.png",
   "/icon-512.png",
+  "/icon-512-maskable.png",
   "/favicon-dark.svg",
 ];
 
