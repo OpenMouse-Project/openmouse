@@ -3,7 +3,7 @@ import * as control from "../device/controller";
 import { t, tp } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
 
-const FEEDBACK_WEBHOOK_URL = "https://discordapp.com/api/webhooks/1546859709552926900/u0xSz5M7aoMirSOparKZdiqJIoj3A0mTZnwvf2fuhQ4Nr2XuRPPs8w3sQAWlMFKRR4_b";
+const FEEDBACK_WEBHOOK_URL = "";
 const MAX_FEEDBACK_LENGTH = 1800;
 const SUBMIT_COOLDOWN_MS = 60_000;
 const MAX_SESSION_SUBMITS = 5;
@@ -75,7 +75,8 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
   }, [cooldown]);
 
   const trimmed = feedback.trim();
-  const canSend = trimmed.length > 0 && !busy && cooldown <= 0 && sendRef.current < MAX_SESSION_SUBMITS;
+  const webhookConfigured = FEEDBACK_WEBHOOK_URL.length > 0;
+  const canSend = trimmed.length > 0 && !busy && cooldown <= 0 && sendRef.current < MAX_SESSION_SUBMITS && webhookConfigured;
 
   function reset(): void {
     setFeedback("");
