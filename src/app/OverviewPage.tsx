@@ -1,3 +1,19 @@
+import {
+  ArrowLeft,
+  BarChart3,
+  Clock,
+  Gauge,
+  Keyboard,
+  Layers,
+  Lightbulb,
+  Mouse,
+  MousePointerClick,
+  Plus,
+  Settings2,
+  Share2,
+  Wifi,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
@@ -41,38 +57,18 @@ function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
 }
 
-const TAB_ICON_PATH: Record<WorkspaceTab, ReactNode> = {
-  overview: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-.1 4.1h.2M12 10v6" />,
-  performance: (
-    <path d="M2 5h20M4 5v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V5M2 18h20M9 5v13" />
-  ),
-  lighting: (
-    <>
-      <path d="M9 18h6M10 21h4" />
-      <path d="M12 3a6 6 0 0 0-3.6 10.8c.9.7 1.6 1.6 1.6 2.2h4c0-.6.7-1.5 1.6-2.2A6 6 0 0 0 12 3Z" />
-    </>
-  ),
-  buttons: <path d="M4 5v14M20 5v14M4 12h16M8 19h8" />,
-  profiles: (
-    <>
-      <path d="m12 3 9 5-9 5-9-5Z" />
-      <path d="m3 13 9 5 9-5M3 18l9 5 9-5" />
-    </>
-  ),
-  advanced: (
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" />
-    </>
-  ),
+const TAB_ICON: Record<WorkspaceTab, LucideIcon> = {
+  overview: Gauge,
+  performance: BarChart3,
+  lighting: Lightbulb,
+  buttons: MousePointerClick,
+  profiles: Layers,
+  advanced: Settings2,
 };
 
 function TabIcon({ tab }: { tab: WorkspaceTab }): ReactNode {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {TAB_ICON_PATH[tab]}
-    </svg>
-  );
+  const Icon = TAB_ICON[tab];
+  return <Icon size={13} strokeWidth={1.8} aria-hidden="true" />;
 }
 
 function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
@@ -210,73 +206,11 @@ function DeviceInfoGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 }
 
 function MouseDeviceSvg(): ReactNode {
-  return (
-    <svg className="add-device-mouse" viewBox="-8 175 190 345" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M85.292 505.94c-73.244 0-84.317-65.02-83.559-85.62 1.127-19.43 2.065-97.59-1.17-163.4.824-71.92 55.773-70.2 84.709-70.2 28.94 0 83.89-1.72 84.72 70.2-3.24 65.81-2.3 143.97-1.17 163.4.75 20.6-10.32 85.61-83.56 85.61Z"
-        fill="color-mix(in srgb, currentColor 14%, transparent)"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M85.262 187.14v118.58" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2.43 309.58h82.83" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M85.26 310.33h82.89" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <ellipse cx="85.2" cy="247.6" rx="15.6" ry="43" fill="color-mix(in srgb, currentColor 18%, transparent)" stroke="currentColor" strokeWidth="1.5" />
-      <ellipse cx="85.5" cy="247" rx="11" ry="26" fill="color-mix(in srgb, currentColor 30%, transparent)" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
+  return <Mouse className="add-device-mouse" strokeWidth={1.4} aria-hidden="true" />;
 }
 
-const KEYBOARD_ROWS: ReadonlyArray<{ y: number; h: number; widths: readonly number[] }> = [
-  { y: 10, h: 14, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 29, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 56, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 83, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 110, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 137, h: 23, widths: [44, 130, 44, 44, 44, 56] },
-];
-
-const KEYBOARD_KEY_GAP = 3.5;
-const KEYBOARD_X0 = 10;
-
 function KeyboardDeviceSvg(): ReactNode {
-  const rects: ReactNode[] = [];
-  let keyIndex = 0;
-  for (const row of KEYBOARD_ROWS) {
-    let x = KEYBOARD_X0;
-    for (const width of row.widths) {
-      rects.push(
-        <rect
-          key={keyIndex++}
-          x={x}
-          y={row.y}
-          width={width}
-          height={row.h}
-          rx="3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-        />,
-      );
-      x += width + KEYBOARD_KEY_GAP;
-    }
-  }
-  return (
-    <svg className="add-device-keyboard" viewBox="0 0 400 232" xmlns="http://www.w3.org/2000/svg">
-      <rect
-        x="2"
-        y="2"
-        width="396"
-        height="168"
-        rx="14"
-        fill="color-mix(in srgb, currentColor 10%, transparent)"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      {rects}
-    </svg>
-  );
+  return <Keyboard className="add-device-keyboard" strokeWidth={1.4} aria-hidden="true" />;
 }
 
 function AddDeviceCard({ snapshot, kind }: { snapshot: ControlSnapshot; kind: "mouse" | "keyboard" }): ReactNode {
@@ -303,9 +237,7 @@ function AddDeviceCard({ snapshot, kind }: { snapshot: ControlSnapshot; kind: "m
           void control.connect().finally(() => setBusy(false));
         }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
         {label}
       </button>
     </div>
@@ -549,16 +481,10 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                   <span className="device-tile-name">{device.name}</span>
                   <div className="device-tile-stats" aria-label="Device status">
                     <span className="device-tile-stat">
-                      <svg className="device-tile-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <path d="M4 11.5a8.5 8.5 0 0 1 16 0M7.5 14.8a5 5 0 0 1 9 0" />
-                        <circle cx="12" cy="18.4" r="1.2" fill="currentColor" />
-                      </svg>
+                      <Wifi className="device-tile-stat-icon" strokeWidth={2} aria-hidden="true" />
                     </span>
                     <span className="device-tile-stat">
-                      <svg className="device-tile-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" />
-                        <path d="M12 8v4.2l2.5 1.5" />
-                      </svg>
+                      <Clock className="device-tile-stat-icon" strokeWidth={1.8} aria-hidden="true" />
                       <span className="device-tile-stat-text">{pollText}</span>
                     </span>
                     <span className="device-tile-stat">
@@ -592,10 +518,7 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                       void control.openDeviceOverview(device.index);
                     }}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
-                    </svg>
+                    <Settings2 size={16} strokeWidth={1.7} aria-hidden="true" />
                   </button>
                 </li>
               );
@@ -689,9 +612,7 @@ export function OverviewPage({
               className="device-tab-back"
               onClick={() => control.showDeviceList()}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
+              <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
               {t(locale, "common.back")}
             </button>
             {tabs.map((tab) => (
@@ -715,9 +636,7 @@ export function OverviewPage({
               className="device-tab-back device-tab-back-right"
               onClick={onShareProfile}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 7h12v10H4zM16 9h3v6h-3" />
-              </svg>
+              <Share2 size={13} strokeWidth={1.8} aria-hidden="true" />
               {t(locale, "panel.shareProfile")}
             </button>
           </nav>

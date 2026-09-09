@@ -67,7 +67,16 @@ const BUDGET_BYTES: Record<string, number> = {
   // OverviewPage shell, and the ai.* + wn.* keys added across all nine
   // locale tables. Those add ~21 kB of strings and UI to the measured
   // aggregate (1,271.9 kB), leaving ~18 kB of headroom.
-  ".js": 1_290_000,
+  // Raised to 1,300 kB for swapping hand-rolled icons for lucide-react,
+  // tree-shaken per icon: the profile-row icons in icons.tsx
+  // (enable/disable, link/unlink, rename, running/activate, refresh, trash),
+  // the AppSidebar nav icons (home, mouse config, docs, what's new,
+  // feedback, settings, chevron), the AiOverlay launcher/close/header
+  // icons, and the OverviewPage icons (workspace tabs, device-tile stats,
+  // back/share/plus controls, and the add-device mouse/keyboard glyphs,
+  // which replace their old hand-drawn illustrations). The measured
+  // aggregate is 1,290.4 kB, leaving ~10 kB of headroom.
+  ".js": 1_300_000,
 };
 
 const ASSETS = join("dist", "assets");
