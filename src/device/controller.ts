@@ -4002,7 +4002,15 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
 
 export function start(): void {
   startHidCapture();
-  void loadCrowdArtworkCache();
+  // A device can connect and render its (placeholder) artwork before this
+  // resolves — nothing here forced a re-render once it did, so the panel
+  // stayed on the placeholder until some unrelated status update happened
+  // to trigger one. Re-render as soon as the crowd list is actually in.
+  void loadCrowdArtworkCache().then(() => {
+    artworkKey = null;
+    artworkValue = null;
+    emit();
+  });
   onPendingChanges(() => {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
