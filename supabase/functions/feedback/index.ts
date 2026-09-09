@@ -22,6 +22,42 @@ const ALLOWED_ORIGINS = new Set([
   "https://control.openmouse.app",
 ]);
 
+const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
+
+// Deno KV-backed rate limiting. Global buckets are the real backstop — they
+// hold even if a caller spoofs the forwarded-IP headers. Per-IP buckets spread
+// the allowance across real users. Best-effort: if KV is unavailable, requests
+// are served rather than failing feedback.
+const MAX_GLOBAL_PER_MIN = 30;
+const MAX_GLOBAL_PER_HOUR = 200;
+const MAX_PER_IP_PER_MIN = 5;
+const MAX_PER_IP_PER_HOUR = 30;
+
+let kv: Deno.Kv | null = null;
+try {
+  kv = await Deno.openKv();
+} catch {
+  kv = null;
+}
+
+function clientIp(req: Request): string {
+  return (
+    req.headers.get("x-real-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown"
+  );
+}
+
+async function overLimit(id: string, key: string, periodMs: number, max: number): Promise<boolean> {
+  if (!kv) return false;
+  const k = ["feedback", "ratelimit", id, key, Math.floor(Date.now() / periodMs)];
+  const res = await kv.atomic().mutate({ key: k, type: "sum", value: new Deno.KvU64(1n) }).commit();
+  if (!res.ok) return false;
+  const value = (await kv.get<Deno.KvU64>(k)).value?.value ?? 0n;
+  return value > BigInt(max);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ message: "Method not allowed." }, 405);
@@ -29,6 +65,23 @@ Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
     return json({ message: "Origin not allowed." }, 403);
+  }
+
+  const ip = clientIp(req);
+  if (
+    (await overLimit("ip", ip, MINUTE_MS, MAX_PER_IP_PER_MIN)) ||
+    (await overLimit("ip", ip, HOUR_MS, MAX_PER_IP_PER_HOUR)) ||
+    (await overLimit("global", "all", MINUTE_MS, MAX_GLOBAL_PER_MIN)) ||
+    (await overLimit("global", "all", HOUR_MS, MAX_GLOBAL_PER_HOUR))
+  ) {
+    return new Response(JSON.stringify({ message: "Too many requests. Try again later." }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Retry-After": "60",
+      },
+    });
   }
 
   const webhook = Deno.env.get("DISCORD_FEEDBACK_WEBHOOK");
