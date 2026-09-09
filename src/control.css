@@ -1973,10 +1973,9 @@ body { height: 100vh; overflow: hidden; }
 }
 .add-device-mouse,
 .add-device-keyboard {
-  width: 40%;
-  height: 40%;
+  width: 100%;
+  height: 100%;
   color: var(--dim);
-  stroke-width: 1.2;
 }
 .add-device-button {
   display: inline-flex;

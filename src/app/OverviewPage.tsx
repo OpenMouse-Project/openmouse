@@ -3,10 +3,8 @@ import {
   BarChart3,
   Clock,
   Gauge,
-  Keyboard,
   Layers,
   Lightbulb,
-  Mouse,
   MousePointerClick,
   Plus,
   Settings2,
@@ -206,11 +204,73 @@ function DeviceInfoGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 }
 
 function MouseDeviceSvg(): ReactNode {
-  return <Mouse className="add-device-mouse" strokeWidth={1.4} aria-hidden="true" />;
+  return (
+    <svg className="add-device-mouse" viewBox="-8 175 190 345" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M85.292 505.94c-73.244 0-84.317-65.02-83.559-85.62 1.127-19.43 2.065-97.59-1.17-163.4.824-71.92 55.773-70.2 84.709-70.2 28.94 0 83.89-1.72 84.72 70.2-3.24 65.81-2.3 143.97-1.17 163.4.75 20.6-10.32 85.61-83.56 85.61Z"
+        fill="color-mix(in srgb, currentColor 14%, transparent)"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M85.262 187.14v118.58" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2.43 309.58h82.83" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M85.26 310.33h82.89" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <ellipse cx="85.2" cy="247.6" rx="15.6" ry="43" fill="color-mix(in srgb, currentColor 18%, transparent)" stroke="currentColor" strokeWidth="1.5" />
+      <ellipse cx="85.5" cy="247" rx="11" ry="26" fill="color-mix(in srgb, currentColor 30%, transparent)" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
 }
 
+const KEYBOARD_ROWS: ReadonlyArray<{ y: number; h: number; widths: readonly number[] }> = [
+  { y: 10, h: 14, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 29, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 56, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 83, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 110, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 137, h: 23, widths: [44, 130, 44, 44, 44, 56] },
+];
+
+const KEYBOARD_KEY_GAP = 3.5;
+const KEYBOARD_X0 = 10;
+
 function KeyboardDeviceSvg(): ReactNode {
-  return <Keyboard className="add-device-keyboard" strokeWidth={1.4} aria-hidden="true" />;
+  const rects: ReactNode[] = [];
+  let keyIndex = 0;
+  for (const row of KEYBOARD_ROWS) {
+    let x = KEYBOARD_X0;
+    for (const width of row.widths) {
+      rects.push(
+        <rect
+          key={keyIndex++}
+          x={x}
+          y={row.y}
+          width={width}
+          height={row.h}
+          rx="3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+        />,
+      );
+      x += width + KEYBOARD_KEY_GAP;
+    }
+  }
+  return (
+    <svg className="add-device-keyboard" viewBox="0 0 400 232" xmlns="http://www.w3.org/2000/svg">
+      <rect
+        x="2"
+        y="2"
+        width="396"
+        height="168"
+        rx="14"
+        fill="color-mix(in srgb, currentColor 10%, transparent)"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      {rects}
+    </svg>
+  );
 }
 
 function AddDeviceCard({ snapshot, kind }: { snapshot: ControlSnapshot; kind: "mouse" | "keyboard" }): ReactNode {
