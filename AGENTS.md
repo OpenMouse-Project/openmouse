@@ -30,6 +30,20 @@ npm run check                                # full local check (dev readiness)
 
 Run `npm run build` (or `npx tsc --noEmit`) after any change before finishing.
 
+## Secrets
+
+Never commit a webhook or API secret. Production webhooks live in remote
+secret stores, never in this repo:
+
+- Feedback → **Supabase Edge Function** `supabase/functions/feedback`,
+  secret `DISCORD_FEEDBACK_WEBHOOK`:
+  `supabase link --project-ref <ref>`, `supabase secrets set
+  DISCORD_FEEDBACK_WEBHOOK="..."`, `supabase functions deploy feedback`.
+  The client talks to it via `VITE_SUPABASE_URL` +
+  `VITE_SUPABASE_ANON_KEY` (public anon key is fine).
+- Changelog → **GitHub Actions secret** `DISCORD_CHANGELOG_WEBHOOK`
+  (see `.github/workflows/discord-changelog.yml`).
+
 ## Repo orientation
 
 - `src/control.css` — all theme tokens and UI styles (single stylesheet).
