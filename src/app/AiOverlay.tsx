@@ -1,3 +1,4 @@
+import { Bot, BotMessageSquare, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
@@ -87,14 +88,9 @@ export function AiOverlay({ locale = "en" }: { locale?: InterfaceLocale }): Reac
         onClick={() => setOpen((value) => !value)}
       >
         {open ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
+          <X size={20} strokeWidth={2} aria-hidden="true" />
         ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 8V4M12 4l-1.5 1.5M12 4l1.5 1.5" />
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
+          <BotMessageSquare size={20} strokeWidth={1.9} aria-hidden="true" />
         )}
       </button>
 
@@ -103,10 +99,7 @@ export function AiOverlay({ locale = "en" }: { locale?: InterfaceLocale }): Reac
           <header className="ai-head">
             <div className="ai-head-brand">
               <span className="ai-head-mark">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="4" y="8" width="16" height="10" rx="2" />
-                  <path d="M12 8V6M8 12h.01M12 12h.01M16 12h.01M9 15h6" />
-                </svg>
+                <Bot size={18} strokeWidth={1.9} aria-hidden="true" />
               </span>
               <div>
                 <strong>{t(locale, "ai.title")}</strong>
