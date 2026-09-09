@@ -77,11 +77,14 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const activeDevice = control.getActiveDevice();
-  const needsArtwork = activeDevice && image && isUnknownDevice(
-    { vendorId: activeDevice.vendorId, productId: activeDevice.productId } as HIDDevice,
-    status.name,
+  const needsArtwork = activeDevice && (
+    imageFailed || isUnknownDevice(
+      { vendorId: activeDevice.vendorId, productId: activeDevice.productId } as HIDDevice,
+      status.name,
+    )
   );
 
   return (
@@ -94,11 +97,9 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             className="device-showcase-image"
             src={image}
             onError={(event) => {
-              // Some drivers resolve to artwork that hasn't been uploaded to
-              // the R2 bucket yet (see public/devices/README.md); fall back to
-              // the generic placeholder instead of dropping the thumbnail.
               event.currentTarget.onerror = null;
               event.currentTarget.src = deviceImage(null);
+              setImageFailed(true);
             }}
             alt={status.name}
           />
