@@ -12,11 +12,26 @@ describe("polling stats", () => {
     assert.ok(r.avgHz > 900 && r.avgHz < 1100, `avg ${r.avgHz}Hz ~ 1000`);
   });
 
-  it("keeps a genuine burst within jitter range", () => {
+  it("keeps a genuine burst within the jitter ceiling", () => {
     const intervals = Array.from({ length: 2000 }, () => 1.0);
-    intervals.push(0.85, 0.9, 0.88);
+    intervals.push(0.95, 0.92, 0.98);
     const r = computeResults(intervals, 2000);
-    assert.ok(r.peakHz >= 1100 && r.peakHz <= 1200, `burst ${r.peakHz}Hz allowed`);
+    assert.ok(r.peakHz >= 1010 && r.peakHz <= 1111, `burst ${r.peakHz}Hz bounded`);
+  });
+
+  it("caps peak at ~11% above the modal rate", () => {
+    const intervals = Array.from({ length: 2000 }, () => 1.0);
+    intervals.push(0.95);
+    const r = computeResults(intervals, 2000);
+    assert.ok(r.peakHz <= 1100.1, `peak ${r.peakHz}Hz must not cross ceiling`);
+  });
+
+  it("applies the same ceiling to a real 2k mouse", () => {
+    const intervals = Array.from({ length: 4000 }, () => 0.5);
+    intervals.push(0.45);
+    const r = computeResults(intervals, 2000);
+    assert.ok(r.avgHz > 1900 && r.avgHz < 2150, `avg ${r.avgHz}Hz ~ 2000`);
+    assert.ok(r.peakHz > 1950 && r.peakHz < 2250, `peak ${r.peakHz}Hz ~ 2000`);
   });
 
   it("reports the true sustained rate of an 8k mouse", () => {

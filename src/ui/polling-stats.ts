@@ -22,8 +22,13 @@ export function computeResults(intervals: number[], durationMs: number): TestRes
   const sorted = [...hzValues].sort((a, b) => a - b);
   const sumMs = filtered.reduce((s, v) => s + v, 0);
   const avg = (filtered.length * 1000) / sumMs;
-  const peakMinInterval = medianInterval * 0.8;
-  const peak = filtered.reduce((mx, ms) => (ms >= peakMinInterval ? Math.max(mx, 1000 / ms) : mx), 0) || 1;
+  const medianHz = 1000 / medianInterval;
+  const minValidInterval = medianInterval * 0.9;
+  const peak =
+    Math.min(
+      filtered.reduce((mx, ms) => (ms >= minValidInterval ? Math.max(mx, 1000 / ms) : mx), 0),
+      medianHz * 1.1
+    ) || medianHz;
   const low5Idx = Math.max(0, Math.floor(sorted.length * 0.05));
   const low5 = sorted[low5Idx]!;
   const meanInterval = sumMs / filtered.length;
