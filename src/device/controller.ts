@@ -198,7 +198,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
   return null;
 }
 
-const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
+const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
 const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
@@ -207,8 +207,8 @@ const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppC
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
 const eggWeClient = (): EggWeHidClient | null =>
   active !== null && isEggWeClient(active) ? active : null;
-const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
-  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
+const dmClient = (): WLMouseHidClient | LamzuHidClient | LamzuAtlantisHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
+  activeAs<WLMouseHidClient | LamzuHidClient | LamzuAtlantisHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
 const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null =>
   activeAs<RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient>(...RAZER_CLASSES);
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
