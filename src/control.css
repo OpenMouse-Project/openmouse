@@ -3076,7 +3076,7 @@ body { height: 100vh; overflow: hidden; }
 }
 .mouse-test-area {
   position: relative;
-  height: clamp(300px, 42vh, 380px);
+  height: clamp(360px, 56vh, 520px);
   border-radius: 18px;
   background: var(--surface-panel);
   border: 1px solid var(--line);
@@ -3091,6 +3091,17 @@ body { height: 100vh; overflow: hidden; }
 .mouse-test-area.active {
   border-color: var(--info);
   box-shadow: 0 0 0 3px rgb(103 216 255 / 12%);
+}
+.mouse-test-chart {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  height: 45%;
+  pointer-events: none;
+  opacity: 0.65;
 }
 .mouse-test-chip {
   position: absolute;
@@ -3120,9 +3131,14 @@ body { height: 100vh; overflow: hidden; }
   bottom: 0.8rem;
   left: 50%;
   transform: translateX(-50%);
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
   font-size: 0.72rem;
   color: var(--dim);
   white-space: nowrap;
+  z-index: 1;
 }
 .mouse-test-idle {
   display: flex;
@@ -3264,19 +3280,6 @@ body { height: 100vh; overflow: hidden; }
 }
 .mouse-test-reset-btn:hover {
   background: var(--surface-strong);
-}
-.mouse-test-chart-container {
-  border-radius: 16px;
-  background: var(--surface-panel);
-  border: 1px solid var(--line);
-  padding: 0.75rem;
-  overflow: hidden;
-}
-.mouse-test-chart {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 10px;
 }
 .mouse-test-results {
   display: grid;

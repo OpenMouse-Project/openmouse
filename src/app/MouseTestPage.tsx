@@ -13,8 +13,6 @@ interface ButtonState {
   forward: boolean;
 }
 
-const CHART_WIDTH = 600;
-const CHART_HEIGHT = 160;
 const SAMPLE_WINDOW = 200;
 const DURATION_OPTIONS = [5, 8, 10] as const;
 
@@ -22,21 +20,17 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = CHART_WIDTH * dpr;
-  canvas.height = CHART_HEIGHT * dpr;
-  canvas.style.width = `${CHART_WIDTH}px`;
-  canvas.style.height = `${CHART_HEIGHT}px`;
-  ctx.scale(dpr, dpr);
-
-  const w = CHART_WIDTH;
-  const h = CHART_HEIGHT;
-  const pad = { top: 20, bottom: 30, left: 50, right: 16 };
+  const w = canvas.clientWidth || 600;
+  const h = canvas.clientHeight || 160;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pad = { top: 16, bottom: 24, left: 40, right: 12 };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top - pad.bottom;
 
   const styles = getComputedStyle(canvas);
   const color = (name: string, fallback: string): string => styles.getPropertyValue(name).trim() || fallback;
-  const panel = color("--surface-panel", "#0e1012");
   const lineSoft = color("--line-soft", "#25292e");
   const dim = color("--dim", "#6c727b");
   const info = color("--info", "#67d8ff");
@@ -54,9 +48,6 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
   const hzValues = recent.map((ms) => (ms > 0 ? Math.min(1000 / ms, Math.max(targetHz * 2, 250)) : 0));
   const maxHz = Math.max(targetHz * 1.5, ...hzValues) * 1.1;
   const minHz = 0;
-
-  ctx.fillStyle = panel;
-  ctx.fillRect(0, 0, w, h);
 
   const gridLines = 4;
   ctx.strokeStyle = lineSoft;
@@ -110,11 +101,6 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
   ctx.closePath();
   ctx.fillStyle = gradient;
   ctx.fill();
-
-  ctx.fillStyle = dim;
-  ctx.font = "10px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("Samples", w / 2, h - 4);
 }
 
 export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
@@ -175,7 +161,12 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
 
   useEffect(() => {
     const canvas = chartCanvasRef.current;
-    if (canvas) drawChart(canvas, chartIntervals, status?.pollingRateHz ?? 1000);
+    if (!canvas) return;
+    const redraw = () => drawChart(canvas, chartIntervals, status?.pollingRateHz ?? 1000);
+    redraw();
+    const ro = new ResizeObserver(redraw);
+    ro.observe(canvas);
+    return () => ro.disconnect();
   }, [chartIntervals, status?.pollingRateHz]);
 
   const startTest = useCallback(() => {
@@ -262,6 +253,8 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
               {phase === "done" && results && `${results.events} samples`}
             </div>
 
+            <canvas ref={chartCanvasRef} className="mouse-test-chart" />
+
             {phase === "idle" && (
               <div className="mouse-test-idle">
                 <div className="mouse-test-idle-icon">&#x1F5B1;</div>
@@ -318,10 +311,6 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
                 {t(locale, "test.reset")}
               </button>
             )}
-          </div>
-
-          <div className="mouse-test-chart-container">
-            <canvas ref={chartCanvasRef} className="mouse-test-chart" />
           </div>
 
           {results && results.events > 0 && (
