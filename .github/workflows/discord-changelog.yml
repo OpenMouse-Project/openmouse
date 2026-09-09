@@ -20,7 +20,7 @@ jobs:
       - name: Push changelog to Discord
         if: github.event_name == 'push'
         env:
-          DISCORD_WEBHOOK: https://discordapp.com/api/webhooks/1547126635382439966/34JCYhCLATBEznQSAQmJeLZgXRanAobdRwZVmM_Ayge2d6SoX88ncL9SRRhzyG453RQ7
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CHANGELOG_WEBHOOK }}
         run: |
           set -euo pipefail
           pushed=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
@@ -37,12 +37,12 @@ jobs:
             --argjson color 6151817 \
             '{embeds:[{title:$title,url:$url,description:$desc,color:$color,author:{name:$author},footer:{text:$footer},timestamp:(now|todate)}]}' \
             > payload.json
-          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK"
+          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK" || true
 
       - name: Pull request changelog to Discord
         if: github.event_name == 'pull_request'
         env:
-          DISCORD_WEBHOOK: https://discordapp.com/api/webhooks/1547126635382439966/34JCYhCLATBEznQSAQmJeLZgXRanAobdRwZVmM_Ayge2d6SoX88ncL9SRRhzyG453RQ7
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CHANGELOG_WEBHOOK }}
         run: |
           set -euo pipefail
           number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
@@ -61,4 +61,4 @@ jobs:
             --argjson color 6151817 \
             '{embeds:[{title:$title,url:$url,description:$desc,color:$color,author:{name:$author},footer:{text:$footer},timestamp:(now|todate)}]}' \
             > payload.json
-          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK"
+          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK" || true
