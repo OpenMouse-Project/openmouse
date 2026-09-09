@@ -17,17 +17,21 @@
 // and returns before any origin work is done. Rate counters self-expire, and a
 // cleared strike bucket can't clear a permanent ban.
 
-const BLOCK = new Response("403 Forbidden", {
+// Built lazily inside the handler, not at module scope — constructing a
+// Response at global scope is exactly the kind of thing workerd's "no I/O
+// outside a handler" rule blocks (it fails the whole Worker at startup, not
+// just the request), even though nothing here looks like I/O.
+const block = () => new Response("403 Forbidden", {
   status: 403,
   headers: { "Content-Type": "text/plain", "Cache-Control": "no-store", "Retry-After": "3600" },
 });
 
-const TOO_MANY = new Response("429 Too Many Requests", {
+const tooMany = () => new Response("429 Too Many Requests", {
   status: 429,
   headers: { "Content-Type": "text/plain", "Cache-Control": "no-store", "Retry-After": "60" },
 });
 
-const TOO_LARGE = new Response("413 Payload Too Large", {
+const tooLarge = () => new Response("413 Payload Too Large", {
   status: 413,
   headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
 });
@@ -77,14 +81,14 @@ export async function onRequest({ request, env, next }) {
   if (!kv) return next();
 
   const ip = clientIp(request);
-  if (await kv.get(`ban:${ip}`)) return BLOCK;
+  if (await kv.get(`ban:${ip}`)) return block();
 
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
 
   if (EXPLOIT_RE.test(url.href)) {
     await strike(kv, ip);
-    return BLOCK;
+    return block();
   }
 
   // Block cross-site state-changing calls (browsers send Origin; same-site
@@ -92,17 +96,17 @@ export async function onRequest({ request, env, next }) {
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin && method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     await strike(kv, ip);
-    return BLOCK;
+    return block();
   }
 
   if (method === "POST" && Number(request.headers.get("Content-Length") ?? "0") > MAX_BODY_BYTES) {
     await strike(kv, ip);
-    return TOO_LARGE;
+    return tooLarge();
   }
 
   if (await enforceRateLimit(kv, request, ip)) {
     await strike(kv, ip);
-    return TOO_MANY;
+    return tooMany();
   }
 
   return next();
