@@ -2862,10 +2862,20 @@ body { height: 100vh; overflow: hidden; }
 
 /* Artwork description */
 .artwork-description {
-  margin: 0 0 1rem;
+  margin: 0 0 0.5rem;
   font-size: 0.8rem;
   color: var(--muted);
   line-height: 1.5;
+}
+.artwork-name-hint {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: var(--faint);
+  line-height: 1.5;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--ui-accent) 8%, var(--surface-panel-strong));
+  border-radius: 8px;
+  border-left: 2px solid var(--ui-accent);
 }
 
 /* Dropzone */

@@ -164,11 +164,30 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
     };
   }
 
+  const allowedTypes = ["image/png", "image/webp", "image/jpeg"];
+  if (!allowedTypes.includes(file.type)) {
+    return {
+      passed: false,
+      confidence: 0,
+      reason: "Only PNG, WebP, or JPEG allowed",
+      needsExternalReview: false,
+    };
+  }
+
   if (file.size > 5 * 1024 * 1024) {
     return {
       passed: false,
       confidence: 0,
       reason: "File too large (max 5MB)",
+      needsExternalReview: false,
+    };
+  }
+
+  if (file.size < 1024) {
+    return {
+      passed: false,
+      confidence: 0,
+      reason: "File too small (likely corrupted)",
       needsExternalReview: false,
     };
   }
@@ -194,12 +213,21 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
     };
   }
 
-  const aspectRatio = Math.max(img.width, img.height) / Math.min(img.width, img.height);
-  if (aspectRatio > 4) {
+  if (img.width > 4000 || img.height > 4000) {
     return {
       passed: false,
       confidence: 0,
-      reason: "Aspect ratio not suitable for mouse artwork",
+      reason: "Image too large (max 4000x4000)",
+      needsExternalReview: false,
+    };
+  }
+
+  const aspectRatio = Math.max(img.width, img.height) / Math.min(img.width, img.height);
+  if (aspectRatio > 3) {
+    return {
+      passed: false,
+      confidence: 0,
+      reason: "Aspect ratio too extreme (max 3:1)",
       needsExternalReview: false,
     };
   }
@@ -224,7 +252,7 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
   const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
 
   const skinToneRatio = detectSkinTones(imageData);
-  if (skinToneRatio > 0.35) {
+  if (skinToneRatio > 0.25) {
     return {
       passed: false,
       confidence: 0,
@@ -236,7 +264,7 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
   const colorStats = analyzeColors(imageData);
   const mouseScore = calculateMouseScore(colorStats, aspectRatio, img.width, img.height);
 
-  if (mouseScore > 0.65) {
+  if (mouseScore > 0.5) {
     return {
       passed: true,
       confidence: mouseScore,
@@ -244,7 +272,7 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
     };
   }
 
-  if (mouseScore > 0.35) {
+  if (mouseScore > 0.3) {
     return {
       passed: false,
       confidence: mouseScore,
