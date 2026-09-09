@@ -3385,44 +3385,16 @@ body { height: 100vh; overflow: hidden; }
   color: var(--muted);
   line-height: 1.4;
 }
-.mouse-test-button-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.35rem;
+.mouse-test-mouse {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+  touch-action: none;
 }
-.mouse-test-btn-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.5rem 0.2rem;
-  border-radius: 10px;
-  background: var(--surface-control);
-  transition: all 0.1s ease;
-}
-.mouse-test-btn-indicator.pressed {
-  background: rgb(93 222 137 / 14%);
-  box-shadow: inset 0 0 0 1px rgb(93 222 137 / 35%);
-}
-.mouse-test-btn-circle {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--surface-strong);
-  border: 1px solid var(--line-strong);
-  transition: all 0.1s ease;
-}
-.mouse-test-btn-indicator.pressed .mouse-test-btn-circle {
-  background: var(--success);
-  border-color: var(--success);
-  box-shadow: 0 0 8px rgb(93 222 137 / 60%);
-}
-.mouse-test-btn-label {
-  font-size: 0.66rem;
-  color: var(--dim);
-}
-.mouse-test-btn-indicator.pressed .mouse-test-btn-label {
-  color: var(--success);
+.mouse-test-mouse-btn.pressed,
+.mouse-test-wheel.active {
+  fill: #73a9ef !important;
 }
 .mouse-test-button-hint {
   margin: 0;
@@ -3437,8 +3409,5 @@ body { height: 100vh; overflow: hidden; }
   }
   .mouse-test-results {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .mouse-test-button-grid {
-    grid-template-columns: repeat(5, 1fr);
   }
 }

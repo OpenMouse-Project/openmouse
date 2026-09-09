@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
 import { computeResults, formatHz, rollingLiveHz, stabilityClass, type TestResults } from "../ui/polling-stats";
+import { MouseTestMouse } from "./MouseTestMouse";
 
 type TestPhase = "idle" | "countdown" | "sampling" | "done";
 
@@ -115,12 +116,14 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
   const [results, setResults] = useState<TestResults | null>(null);
   const [chartIntervals, setChartIntervals] = useState<number[]>([]);
   const [buttons, setButtons] = useState<ButtonState>({ left: false, right: false, middle: false, back: false, forward: false });
+  const [wheelDir, setWheelDir] = useState<"up" | "down" | null>(null);
 
   const intervalsRef = useRef<number[]>([]);
   const lastTimeRef = useRef(0);
   const phaseRef = useRef<TestPhase>("idle");
   const startTimeRef = useRef(0);
   const timerRef = useRef<number>(0);
+  const wheelTimerRef = useRef<number>(0);
   const chartCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -157,6 +160,12 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
   const handlePointerUp = useCallback((e: PointerEvent) => {
     const key = e.button === 0 ? "left" : e.button === 1 ? "middle" : e.button === 2 ? "right" : e.button === 3 ? "back" : e.button === 4 ? "forward" : null;
     if (key) setButtons((prev) => ({ ...prev, [key]: false }));
+  }, []);
+
+  const handleWheel = useCallback((e: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    setWheelDir(e.deltaY < 0 ? "up" : "down");
+    window.clearTimeout(wheelTimerRef.current);
+    wheelTimerRef.current = window.setTimeout(() => setWheelDir(null), 180);
   }, []);
 
   useEffect(() => {
@@ -212,10 +221,14 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
     setChartIntervals([]);
     setElapsed(0);
     setButtons({ left: false, right: false, middle: false, back: false, forward: false });
+    setWheelDir(null);
   }, []);
 
   useEffect(() => {
-    return () => window.clearInterval(timerRef.current);
+    return () => {
+      window.clearInterval(timerRef.current);
+      window.clearTimeout(wheelTimerRef.current);
+    };
   }, []);
 
   const targetHz = status?.pollingRateHz ?? 1000;
@@ -238,6 +251,7 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
             onPointerMove={handlePointerMove}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
+            onWheel={handleWheel}
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="mouse-test-chip mouse-test-chip-left">
@@ -419,16 +433,15 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
             </div>
           )}
 
-          <div className="mouse-test-device-card">
+          <div
+            className="mouse-test-device-card"
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onWheel={handleWheel}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             <h3 className="mouse-test-device-title">{t(locale, "test.buttonTest")}</h3>
-            <div className="mouse-test-button-grid">
-              {(["left", "right", "middle", "back", "forward"] as const).map((btn) => (
-                <div key={btn} className={`mouse-test-btn-indicator${buttons[btn] ? " pressed" : ""}`}>
-                  <div className="mouse-test-btn-circle" />
-                  <span className="mouse-test-btn-label">{t(locale, `test.btn.${btn}`)}</span>
-                </div>
-              ))}
-            </div>
+            <MouseTestMouse buttons={buttons} wheel={wheelDir} />
             <p className="mouse-test-button-hint">{t(locale, "test.buttonHint")}</p>
           </div>
         </div>

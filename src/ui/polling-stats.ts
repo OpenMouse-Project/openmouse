@@ -24,20 +24,18 @@ export function computeResults(intervals: number[], durationMs: number): TestRes
   const avg = (filtered.length * 1000) / sumMs;
   const medianHz = 1000 / medianInterval;
   const minValidInterval = medianInterval * 0.9;
-  const peak =
-    Math.min(
-      filtered.reduce((mx, ms) => (ms >= minValidInterval ? Math.max(mx, 1000 / ms) : mx), 0),
-      medianHz * 1.1
-    ) || medianHz;
+  const peak = Math.min(
+    filtered.reduce((mx, ms) => (ms >= minValidInterval ? Math.max(mx, 1000 / ms) : mx), 0),
+    medianHz
+  ) || medianHz;
   const low5Idx = Math.max(0, Math.floor(sorted.length * 0.05));
   const low5 = sorted[low5Idx]!;
   const meanInterval = sumMs / filtered.length;
-  const variance = filtered.reduce((s, v) => s + (v - meanInterval) ** 2, 0) / filtered.length;
-  const stdDev = Math.sqrt(variance);
-  const jitter = meanInterval > 0 ? (stdDev / meanInterval) * 100 : 0;
-  const stability = Math.max(0, 100 - jitter);
-  const expectedInterval = avg > 0 ? 1000 / avg : 1;
-  const dropouts = filtered.filter((ms) => ms > expectedInterval * 2.5).length;
+  const tolerance = medianInterval * 0.5;
+  const inBand = filtered.filter((ms) => ms >= medianInterval - tolerance && ms <= medianInterval + tolerance).length;
+  const stability = (inBand / filtered.length) * 100;
+  const jitter = Math.round(Math.max(0, 100 - stability) * 10) / 10;
+  const dropouts = filtered.filter((ms) => ms > medianInterval * 2.5).length;
   return { avgHz: avg, peakHz: peak, low5Hz: low5, jitter, stability, dropouts, events: hzValues.length, duration: durationMs / 1000, avgInterval: meanInterval, intervals };
 }
 
