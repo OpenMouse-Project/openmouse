@@ -165,12 +165,12 @@ export function ArtworkUploadDialog({
                 </svg>
               </div>
               <p className="artwork-dropzone-text">{t(locale, "artwork.dragDrop" as I18nKey)}</p>
-              <p className="artwork-dropzone-hint">PNG, WebP, or JPEG · Max 5MB · Min 200×200</p>
+              <p className="artwork-dropzone-hint">PNG or WebP, transparent background · Max 5MB · Min 200×200</p>
             </div>
             <input
               ref={fileInput}
               type="file"
-              accept="image/png,image/webp,image/jpeg"
+              accept="image/png,image/webp"
               className="artwork-file-input"
               onChange={handleFileChange}
             />

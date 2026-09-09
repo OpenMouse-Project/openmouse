@@ -103,6 +103,35 @@ function analyzeColors(imageData: ImageData): ColorStats {
   };
 }
 
+// Samples the outer edge of the image — a real cutout's background is
+// transparent right up to the frame, whereas a flat photo/screenshot fills
+// it edge to edge. A margin of solid pixels on the border is enough to
+// reject those without needing to understand the actual subject.
+function hasTransparentBackground(imageData: ImageData): boolean {
+  const { data, width, height } = imageData;
+  const ALPHA_THRESHOLD = 20;
+  const step = 2;
+  let borderPixels = 0;
+  let transparentBorderPixels = 0;
+
+  for (let x = 0; x < width; x += step) {
+    for (const y of [0, height - 1]) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      borderPixels++;
+      if (alpha < ALPHA_THRESHOLD) transparentBorderPixels++;
+    }
+  }
+  for (let y = 0; y < height; y += step) {
+    for (const x of [0, width - 1]) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      borderPixels++;
+      if (alpha < ALPHA_THRESHOLD) transparentBorderPixels++;
+    }
+  }
+
+  return borderPixels > 0 && transparentBorderPixels / borderPixels > 0.6;
+}
+
 function detectSkinTones(imageData: ImageData): number {
   const { data } = imageData;
   let skinPixels = 0;
@@ -164,12 +193,15 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
     };
   }
 
-  const allowedTypes = ["image/png", "image/webp", "image/jpeg"];
+  // JPEG is deliberately excluded: it can't carry an alpha channel, and this
+  // artwork needs a transparent background to composite over the device
+  // panel.
+  const allowedTypes = ["image/png", "image/webp"];
   if (!allowedTypes.includes(file.type)) {
     return {
       passed: false,
       confidence: 0,
-      reason: "Only PNG, WebP, or JPEG allowed",
+      reason: "Only PNG or WebP allowed",
       needsExternalReview: false,
     };
   }
@@ -250,6 +282,15 @@ export async function verifyArtwork(file: File): Promise<VerificationResult> {
   ctx.drawImage(img, 0, 0, sampleWidth, sampleHeight);
 
   const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+
+  if (!hasTransparentBackground(imageData)) {
+    return {
+      passed: false,
+      confidence: 0,
+      reason: "Image needs a transparent background",
+      needsExternalReview: false,
+    };
+  }
 
   const skinToneRatio = detectSkinTones(imageData);
   if (skinToneRatio > 0.25) {

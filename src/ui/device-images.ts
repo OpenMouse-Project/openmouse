@@ -167,35 +167,53 @@ function deviceKey(device: HIDDevice): string {
 let crowdArtworkCache: Map<string, string> | null = null;
 let crowdArtworkPromise: Promise<void> | null = null;
 
+async function fetchCrowdArtworkMap(): Promise<Map<string, string> | null> {
+  try {
+    const response = await fetch("/api/artwork/list", {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    if (!text) return null;
+    const data = JSON.parse(text);
+    if (!Array.isArray(data.artworks)) return null;
+
+    const map = new Map<string, string>();
+    for (const entry of data.artworks) {
+      if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
+        const hex = (v: number) => v.toString(16).padStart(4, "0");
+        map.set(`${hex(entry.vendorId)}:${hex(entry.productId)}`, entry.filename);
+      }
+    }
+    return map;
+  } catch {
+    // Network error — continue without crowd art
+    return null;
+  }
+}
+
 export async function loadCrowdArtworkCache(): Promise<void> {
   if (crowdArtworkCache) return;
   if (crowdArtworkPromise) return crowdArtworkPromise;
 
   crowdArtworkPromise = (async () => {
-    try {
-      const response = await fetch("/api/artwork/list", {
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) return;
-      const text = await response.text();
-      if (!text) return;
-      const data = JSON.parse(text);
-      if (!Array.isArray(data.artworks)) return;
-
-      const map = new Map<string, string>();
-      for (const entry of data.artworks) {
-        if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
-          const hex = (v: number) => v.toString(16).padStart(4, "0");
-          map.set(`${hex(entry.vendorId)}:${hex(entry.productId)}`, entry.filename);
-        }
-      }
-      crowdArtworkCache = map;
-    } catch {
-      // Network error — continue without crowd art
-    }
+    const map = await fetchCrowdArtworkMap();
+    if (map) crowdArtworkCache = map;
   })();
 
   return crowdArtworkPromise;
+}
+
+/**
+ * Forces a fresh fetch of the crowd-artwork list, replacing the cache in
+ * place. Call this right after a successful upload — otherwise the uploader
+ * keeps seeing the placeholder until they reload, since `loadCrowdArtworkCache`
+ * is a no-op once the cache has been populated once.
+ */
+export async function refreshCrowdArtworkCache(): Promise<void> {
+  crowdArtworkPromise = null;
+  const map = await fetchCrowdArtworkMap();
+  if (map) crowdArtworkCache = map;
 }
 
 export function hasCrowdArtwork(vendorId: number, productId: number): boolean {
@@ -293,8 +311,13 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
  * Base URL of the public R2 bucket that hosts device art (see
  * `public/devices/README.md` for the upload workflow). Kept as a single
  * constant so the bucket can move without touching every entry above.
+ *
+ * Served from a custom domain (img.openmouse.app) bound to the bucket
+ * rather than its r2.dev URL — the r2.dev subdomain is unauthenticated,
+ * shared, and rate-limited by Cloudflare, and isn't meant for production
+ * traffic.
  */
-const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
+const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   // Crowd-sourced artwork takes priority
