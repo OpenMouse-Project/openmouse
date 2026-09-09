@@ -1511,8 +1511,14 @@ body { height: 100vh; overflow: hidden; }
   flex-direction: column;
   min-height: 0;
   padding: 0.75rem 0.5rem;
-  background: var(--sidebar);
-  border-right: 1px solid var(--line);
+  margin: 0.55rem 0 0.55rem 0.55rem;
+  background: linear-gradient(180deg, var(--surface-strong), var(--surface-dialog));
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  box-shadow:
+    5px 8px 22px -12px rgb(0 0 0 / 0.65),
+    1px 2px 6px -2px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
 }
 .app-sidebar-top {
   display: flex;
@@ -1580,15 +1586,31 @@ body { height: 100vh; overflow: hidden; }
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--muted);
+  color: var(--dim);
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.app-sidebar-nav-item svg {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+.app-sidebar-nav-item + .app-sidebar-nav-item {
+  border-top: 1px solid var(--line-strong);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
+.app-sidebar-nav-item > .app-sidebar-nav-icon {
+  flex-shrink: 0;
+  width: 21px;
+  height: 21px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+}
+.app-sidebar-nav-arrow {
+  flex-shrink: 0;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-left: auto;
+  color: var(--ghost);
+  opacity: 0.9;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.app-sidebar-nav-item:hover .app-sidebar-nav-arrow { color: var(--bright); transform: translateX(2px); }
 .app-sidebar-nav-item:hover { background: var(--hover); color: var(--bright); }
 .app-sidebar-nav-item.active { background: var(--raised); color: var(--text); }
 .app-sidebar-nav-item:disabled { opacity: 0.5; cursor: default; }
@@ -1596,8 +1618,9 @@ body { height: 100vh; overflow: hidden; }
 .app-sidebar-nav-label {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.92rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 .app-sidebar-bottom {
   display: flex;
@@ -1796,14 +1819,55 @@ body { height: 100vh; overflow: hidden; }
 .welcome-with-devices {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 1.5rem;
-  min-height: 100%;
+  min-height: calc(100vh - 3rem);
 }
 .detected-devices {
   width: 100%;
-  max-width: 860px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 0 0 2rem;
+}
+.welcome-with-devices .device-grid {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 420px));
+}
+.welcome-with-devices .device-grid .device-tile {
+  aspect-ratio: 1 / 1;
+  background: var(--surface-strong);
+  border-color: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+.welcome-with-devices .device-grid .device-tile.is-connected,
+.welcome-with-devices .device-grid .device-tile.is-connected::before {
+  border-color: transparent;
+  box-shadow: none;
+}
+.welcome-with-devices .device-grid .device-tile:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 14px 34px -26px rgb(0 0 0 / 0.55);
+}
+.welcome-with-devices .device-grid .device-tile.is-keyboard {
+  aspect-ratio: 1 / 1;
+  gap: 0.28rem;
+  padding: 0.85rem 0.9rem 0.9rem;
+}
+.welcome-with-devices .device-grid .device-tile.add-device-tile {
+  flex: none;
+  max-width: none;
+}
+.welcome-with-devices .device-grid .device-tile .device-tile-visual {
+  position: relative;
+}
+.welcome-with-devices .device-grid .device-tile-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  transform: scale(1.1);
 }
 .detected-devices-head {
   display: flex;
@@ -1824,7 +1888,7 @@ body { height: 100vh; overflow: hidden; }
   flex-direction: column;
   align-items: center;
   text-align: center;
-  max-width: 540px;
+  max-width: 1000px;
 }
 /* Soft aurora glow behind the content */
 .welcome-aurora {
@@ -1885,7 +1949,62 @@ body { height: 100vh; overflow: hidden; }
   font-size: 0.94rem;
   line-height: 1.6;
 }
-/* "Add device" is handled by the sidebar's bottom button. */
+.add-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(340px, 420px));
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.device-tile.add-device-tile {
+  aspect-ratio: 1 / 1;
+  cursor: default;
+}
+.device-tile.add-device-tile:hover {
+  transform: none;
+}
+.device-tile.add-device-tile.is-keyboard {
+  aspect-ratio: 1 / 1;
+  gap: 0.28rem;
+  padding: 0.85rem 0.9rem 0.9rem;
+}
+.add-device-mouse,
+.add-device-keyboard {
+  width: 100%;
+  height: 100%;
+  color: var(--dim);
+}
+.add-device-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.62rem 0.8rem;
+  border: none;
+  border-radius: 9px;
+  background: var(--ui-accent);
+  color: #0c120e;
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.add-device-button svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+.add-device-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.add-device-button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
 
 /* Interface settings rendered as a page (settings tab), not an overlay */
 .control-panel.showing-settings .interface-settings-page { display: block; }
@@ -2035,6 +2154,7 @@ body { height: 100vh; overflow: hidden; }
 .page-overview {
   max-width: none;
   margin: 0;
+  min-height: 100%;
 }
 .page-title {
   font-size: 1rem;
@@ -2204,20 +2324,20 @@ body { height: 100vh; overflow: hidden; }
   place-items: center;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 8px;
-  background: var(--raised);
+  background: transparent;
   color: var(--dim);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 .device-tile-gear svg {
-  width: 15px;
-  height: 15px;
+  width: 24px;
+  height: 24px;
+  overflow: visible;
 }
 .device-tile-gear:hover:not(:disabled) {
   color: var(--bright);
-  border-color: var(--ui-accent);
   background: var(--hover);
 }
 .connect-button {
@@ -2466,7 +2586,7 @@ body { height: 100vh; overflow: hidden; }
 .ai-launcher {
   position: absolute;
   right: 1.25rem;
-  bottom: 4.4rem;
+  bottom: 1.5rem;
   z-index: 60;
   display: inline-flex;
   align-items: center;
@@ -2492,7 +2612,7 @@ body { height: 100vh; overflow: hidden; }
 .ai-overlay {
   position: absolute;
   right: 1.25rem;
-  bottom: 8rem;
+  bottom: 5.25rem;
   z-index: 60;
   display: flex;
   flex-direction: column;

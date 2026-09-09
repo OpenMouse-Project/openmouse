@@ -238,6 +238,15 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
           <span className="setting-description">{t(locale, "set.supportBody")}</span>
         </div>
         <div className="settings-support">
+          <a className="app-donate" href="https://openmouse.app/supported" target="_blank" rel="noreferrer">
+            <span className="app-donate-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </span>
+            <span className="app-donate-text">{t(locale, "nav.supported")}</span>
+            <span className="app-donate-heart">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m9 6 6 6-6 6" transform="rotate(180 12 12)"/></svg>
+            </span>
+          </a>
           <a className="app-donate" href="https://openmouse.app/donate.html" target="_blank" rel="noreferrer">
             <span className="app-donate-icon">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.5 6H16V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5V11c0 3.31 2.69 6 6 6h2c3.31 0 6-2.69 6-6v-.5h1a2.5 2.5 0 0 0 0-5h-1.5zm0 3.5h-1V7h1a1 1 0 0 1 0 2zM7.5 13.5V7h9v4.5c0 2.48-2.02 4.5-4.5 4.5h-2c-2.48 0-4.5-2.02-4.5-4.5zM6 19a1 1 0 0 1 1-1h10a1 1 0 0 1 0 2H7a1 1 0 0 1-1-1z"/></svg>

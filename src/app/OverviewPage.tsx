@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
 import { t, connectionText, type I18nKey } from "../i18n";
@@ -209,6 +209,109 @@ function DeviceInfoGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
+function MouseDeviceSvg(): ReactNode {
+  return (
+    <svg className="add-device-mouse" viewBox="-8 175 190 345" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M85.292 505.94c-73.244 0-84.317-65.02-83.559-85.62 1.127-19.43 2.065-97.59-1.17-163.4.824-71.92 55.773-70.2 84.709-70.2 28.94 0 83.89-1.72 84.72 70.2-3.24 65.81-2.3 143.97-1.17 163.4.75 20.6-10.32 85.61-83.56 85.61Z"
+        fill="color-mix(in srgb, currentColor 14%, transparent)"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M85.262 187.14v118.58" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2.43 309.58h82.83" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M85.26 310.33h82.89" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <ellipse cx="85.2" cy="247.6" rx="15.6" ry="43" fill="color-mix(in srgb, currentColor 18%, transparent)" stroke="currentColor" strokeWidth="1.5" />
+      <ellipse cx="85.5" cy="247" rx="11" ry="26" fill="color-mix(in srgb, currentColor 30%, transparent)" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+const KEYBOARD_ROWS: ReadonlyArray<{ y: number; h: number; widths: readonly number[] }> = [
+  { y: 10, h: 14, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 29, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 56, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 83, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 110, h: 22, widths: Array.from({ length: 13 }, () => 26) },
+  { y: 137, h: 23, widths: [44, 130, 44, 44, 44, 56] },
+];
+
+const KEYBOARD_KEY_GAP = 3.5;
+const KEYBOARD_X0 = 10;
+
+function KeyboardDeviceSvg(): ReactNode {
+  const rects: ReactNode[] = [];
+  let keyIndex = 0;
+  for (const row of KEYBOARD_ROWS) {
+    let x = KEYBOARD_X0;
+    for (const width of row.widths) {
+      rects.push(
+        <rect
+          key={keyIndex++}
+          x={x}
+          y={row.y}
+          width={width}
+          height={row.h}
+          rx="3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+        />,
+      );
+      x += width + KEYBOARD_KEY_GAP;
+    }
+  }
+  return (
+    <svg className="add-device-keyboard" viewBox="0 0 400 232" xmlns="http://www.w3.org/2000/svg">
+      <rect
+        x="2"
+        y="2"
+        width="396"
+        height="168"
+        rx="14"
+        fill="color-mix(in srgb, currentColor 10%, transparent)"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      {rects}
+    </svg>
+  );
+}
+
+function AddDeviceCard({ snapshot, kind }: { snapshot: ControlSnapshot; kind: "mouse" | "keyboard" }): ReactNode {
+  const locale = snapshot.preferences.locale;
+  const [busy, setBusy] = useState(false);
+  const label = busy ? t(locale, "conn.connecting") : t(locale, "conn.add");
+  const disabled = busy || snapshot.connectDisabled;
+  return (
+    <div
+      className={`device-tile add-device-tile${kind === "keyboard" ? " is-keyboard" : ""}${busy ? " is-busy" : ""}`}
+      aria-label={label}
+    >
+      <span className="device-tile-name">{label}</span>
+      <div className="device-tile-visual" aria-hidden="true">
+        {kind === "keyboard" ? <KeyboardDeviceSvg /> : <MouseDeviceSvg />}
+      </div>
+      <button
+        type="button"
+        className="add-device-button"
+        disabled={disabled}
+        onClick={() => {
+          if (busy) return;
+          setBusy(true);
+          void control.connect().finally(() => setBusy(false));
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        {label}
+      </button>
+    </div>
+  );
+}
+
 function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapshot; compact?: boolean }): ReactNode {
   const locale = snapshot.preferences.locale;
   return (
@@ -219,6 +322,12 @@ function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapsho
       <div className="welcome-hero">
         <h2 className="welcome-title">{t(locale, "empty.title")}</h2>
         <p className="welcome-body">{t(locale, "empty.body")}</p>
+        {!compact ? (
+          <div className="add-device-grid">
+            <AddDeviceCard snapshot={snapshot} kind="mouse" />
+            <AddDeviceCard snapshot={snapshot} kind="keyboard" />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -402,15 +511,14 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const devices = snapshot.devices;
   const locale = snapshot.preferences.locale;
 
+  if (devices.length === 0) {
+    return <OverviewEmpty snapshot={snapshot} />;
+  }
+
   return (
     <div className="welcome-with-devices">
-      <OverviewEmpty snapshot={snapshot} compact={devices.length > 0} />
-      {devices.length > 0 ? (
-        <section className="detected-devices" aria-label={t(locale, "side.connectedDevices")}>
-          <div className="detected-devices-head">
-            <h2 className="page-title detected-devices-title">{t(locale, "side.connectedDevices")}</h2>
-          </div>
-          <ul className="device-grid">
+      <section className="detected-devices" aria-label={t(locale, "side.connectedDevices")}>
+        <ul className="device-grid">
             {(() => {
               const ordered = devices.slice();
               const connectedIndex = ordered.findIndex((device) => device.selected);
@@ -493,9 +601,11 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               );
             });
             })()}
+            <li key="add-keyboard">
+              <AddDeviceCard snapshot={snapshot} kind="keyboard" />
+            </li>
           </ul>
         </section>
-      ) : null}
     </div>
   );
 }
