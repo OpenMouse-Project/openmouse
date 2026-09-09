@@ -16,13 +16,18 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
+const ALLOWED_ORIGINS = new Set([
+  "https://openmouse.app",
+  "https://www.openmouse.app",
+  "https://control.openmouse.app",
+]);
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ message: "Method not allowed." }, 405);
   }
   const origin = req.headers.get("Origin");
-  const requestUrl = new URL(req.url);
-  if (origin && origin !== requestUrl.origin) {
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
     return json({ message: "Origin not allowed." }, 403);
   }
 
