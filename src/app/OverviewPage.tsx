@@ -47,8 +47,9 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
-import { deviceImage, showcaseDeviceImageUrls } from "../ui/device-images";
+import { deviceImage, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
+import { ArtworkUploadDialog } from "./ArtworkUploadDialog";
 import type { MouseStatus } from "@openmouse/protocol/drivers";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
@@ -74,6 +75,13 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+
+  const activeDevice = control.getActiveDevice();
+  const needsArtwork = activeDevice && image && isUnknownDevice(
+    { vendorId: activeDevice.vendorId, productId: activeDevice.productId } as HIDDevice,
+    status.name,
+  );
 
   return (
     <div className="device-showcase">
@@ -94,6 +102,15 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             alt={status.name}
           />
         ) : null}
+        {needsArtwork ? (
+          <button
+            type="button"
+            className="artwork-upload-trigger"
+            onClick={() => setShowUploadDialog(true)}
+          >
+            {t(locale, "artwork.upload" as I18nKey)}
+          </button>
+        ) : null}
       </div>
       <div className="device-showcase-status">
         <span className="device-showcase-dot" aria-hidden="true" />
@@ -111,6 +128,19 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           </span>
         ) : null}
       </div>
+      {activeDevice ? (
+        <ArtworkUploadDialog
+          isOpen={showUploadDialog}
+          onClose={() => setShowUploadDialog(false)}
+          locale={locale}
+          vendorId={activeDevice.vendorId}
+          productId={activeDevice.productId}
+          displayName={status.name}
+          onArtworkUploaded={() => {
+            control.refreshArtwork();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

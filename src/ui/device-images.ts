@@ -9,6 +9,10 @@
  * time, so the panel drops the thumbnail on that error and keeps the layout
  * it had before any art existed. See `public/devices/README.md` for how to
  * upload new art.
+ *
+ * Crowd-sourced artworks are fetched from `/api/artwork/list` and cached
+ * locally. Once a device has crowd-sourced artwork, it takes priority over
+ * the static map and name-fallback regexes below.
  */
 
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
@@ -155,9 +159,58 @@ function deviceKey(device: HIDDevice): string {
   return `${hex(device.vendorId)}:${hex(device.productId)}`;
 }
 
+/**
+ * Crowd-sourced artwork cache. Populated asynchronously on app load from
+ * `/api/artwork/list`. Once loaded, checked synchronously in
+ * `resolveDeviceImageFilename` before the static map and name fallbacks.
+ */
+let crowdArtworkCache: Map<string, string> | null = null;
+let crowdArtworkPromise: Promise<void> | null = null;
+
+export async function loadCrowdArtworkCache(): Promise<void> {
+  if (crowdArtworkCache) return;
+  if (crowdArtworkPromise) return crowdArtworkPromise;
+
+  crowdArtworkPromise = (async () => {
+    try {
+      const response = await fetch("/api/artwork/list", {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!Array.isArray(data.artworks)) return;
+
+      const map = new Map<string, string>();
+      for (const entry of data.artworks) {
+        if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
+          const hex = (v: number) => v.toString(16).padStart(4, "0");
+          map.set(`${hex(entry.vendorId)}:${hex(entry.productId)}`, entry.filename);
+        }
+      }
+      crowdArtworkCache = map;
+    } catch {
+      // Network error — continue without crowd art
+    }
+  })();
+
+  return crowdArtworkPromise;
+}
+
+export function hasCrowdArtwork(vendorId: number, productId: number): boolean {
+  if (!crowdArtworkCache) return false;
+  const hex = (v: number) => v.toString(16).padStart(4, "0");
+  return crowdArtworkCache.has(`${hex(vendorId)}:${hex(productId)}`);
+}
+
 function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displayName = ""): string {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
+
+  // Check crowd-sourced artwork cache
+  if (device && crowdArtworkCache) {
+    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+    if (crowdFilename) return `crowd/${crowdFilename}`;
+  }
   // Lightspeed receivers are shared product IDs, so paired G502 X variants
   // must use the friendly name read from the mouse itself.
   if (/g502\s*x\s*plus/i.test(displayName)) return "logitech-g502-x-plus.png";
@@ -279,4 +332,10 @@ const SHOWCASE_DEVICE_FILENAMES: readonly string[] = [
 
 export function showcaseDeviceImageUrls(): readonly string[] {
   return SHOWCASE_DEVICE_FILENAMES.map((filename) => DEVICE_IMAGE_BASE_URL + filename);
+}
+
+export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
+
+export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
+  return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;
 }

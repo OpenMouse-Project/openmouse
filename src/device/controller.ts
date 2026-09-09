@@ -23,6 +23,7 @@ import {
   type PendingChange,
 } from "../pending-changes";
 import { deviceImage } from "../ui/device-images";
+import { loadCrowdArtworkCache } from "../ui/artwork-storage";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
   isVxeR1SePlusReceiver,
@@ -343,6 +344,16 @@ function batch(run: () => void): void {
       emit();
     }
   }
+}
+
+export function getActiveDevice(): HIDDevice | null {
+  return activeDevice;
+}
+
+export async function refreshArtwork(): Promise<void> {
+  artworkKey = null;
+  artworkValue = null;
+  emit();
 }
 
 function buildProfileView(): ProfileView {
@@ -4001,6 +4012,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
 
 export function start(): void {
   startHidCapture();
+  void loadCrowdArtworkCache();
   onPendingChanges(() => {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
