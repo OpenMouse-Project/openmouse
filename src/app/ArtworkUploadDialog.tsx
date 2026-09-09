@@ -139,7 +139,7 @@ export function ArtworkUploadDialog({
           <>
             <p className="artwork-description">{t(locale, "artwork.description" as I18nKey)}</p>
             <p className="artwork-name-hint">
-              Device name is auto-detected. Please ensure your device reports its full name (e.g. "Logitech G Pro X Superlight 2 SE") so artwork maps correctly.
+              Please use the correct device name (e.g. "Logitech G Pro X Superlight 2 SE") so artwork maps correctly.
             </p>
             <div
               ref={dropZone}
