@@ -19,6 +19,8 @@ const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
     date-based number when git is unavailable (e.g. source archives). */
 const versionBase = packageVersion.version.replace(/\.\d+$/, "");
 function betaBuildVersion(): string {
+  const envNumber = process.env.OPENMOUSE_BUILD_NUMBER?.trim();
+  if (envNumber) return `${versionBase}.${envNumber}`;
   try {
     const number = execSync("git rev-list --count HEAD", {
       stdio: ["ignore", "pipe", "ignore"],
