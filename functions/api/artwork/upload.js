@@ -17,7 +17,9 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 });
 
 const VENDOR_RE = /^[0-9a-f]{4}$/i;
-const DATA_URL_RE = /^data:image\/(png|webp|jpeg|jpg);base64,(.+)$/;
+// PNG/WebP only — JPEG can't carry an alpha channel, and this artwork is
+// composited over the device panel, so it needs a transparent background.
+const DATA_URL_RE = /^data:image\/(png|webp);base64,(.+)$/;
 
 export async function onRequest({ request, env }) {
   if (request.method !== "POST") {
@@ -58,7 +60,8 @@ export async function onRequest({ request, env }) {
     return json({ message: "Invalid image data URL format." }, 400);
   }
 
-  const ext = dataUrlMatch[1] === "jpg" ? "png" : dataUrlMatch[1];
+  const ext = dataUrlMatch[1];
+  const contentType = `image/${ext}`;
   const base64Data = dataUrlMatch[2];
   const vendorHex = vendorId.toString(16).padStart(4, "0");
   const productHex = productId.toString(16).padStart(4, "0");
@@ -80,7 +83,7 @@ export async function onRequest({ request, env }) {
 
     await env.ARTWORK_BUCKET.put(objectKey, binaryData, {
       httpMetadata: {
-        contentType: `image/${ext}`,
+        contentType,
         cacheControl: "public, max-age=31536000",
       },
       customMetadata: {

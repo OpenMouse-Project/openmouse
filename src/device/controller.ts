@@ -22,8 +22,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "../pending-changes";
-import { deviceImage } from "../ui/device-images";
-import { loadCrowdArtworkCache } from "../ui/device-images";
+import { deviceImage, loadCrowdArtworkCache, refreshCrowdArtworkCache } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
   isVxeR1SePlusReceiver,
@@ -338,6 +337,11 @@ export function getActiveDevice(): HIDDevice | null {
 }
 
 export async function refreshArtwork(): Promise<void> {
+  // Re-fetch the crowd-artwork list before invalidating the memoized key —
+  // otherwise a just-uploaded image stays on the placeholder until the page
+  // is reloaded, since the cache this reads from is normally populated once
+  // at startup and never touched again.
+  await refreshCrowdArtworkCache();
   artworkKey = null;
   artworkValue = null;
   emit();
