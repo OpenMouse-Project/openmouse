@@ -1,11 +1,11 @@
-import { ChevronRight, FileText, House, MessageSquare, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
+import { Activity, ChevronRight, FileText, House, MessageSquare, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
 
 export const OPENMOUSE_URL = "https://openmouse.app/";
 
-export type DesktopPage = "home" | "dashboard" | "settings";
+export type DesktopPage = "home" | "dashboard" | "test" | "settings";
 
 function NavIcon({ icon: Icon, color }: { icon: LucideIcon; color: string }): ReactNode {
   return <Icon className="app-sidebar-nav-icon" strokeWidth={2} stroke={color} aria-hidden="true" />;
@@ -66,6 +66,16 @@ export function AppSidebar({
           >
             <NavIcon icon={Mouse} color="#67d8ff" />
             <span className="app-sidebar-nav-label">{t(locale, "nav.dashboard")}</span>
+            <NavArrow />
+          </button>
+          <button
+            className={`app-sidebar-nav-item${page === "test" ? " active" : ""}`}
+            type="button"
+            title={t(locale, "nav.mouseCheck")}
+            onClick={() => onNavigate("test")}
+          >
+            <NavIcon icon={Activity} color="#f472b6" />
+            <span className="app-sidebar-nav-label">{t(locale, "nav.mouseCheck")}</span>
             <NavArrow />
           </button>
           <a

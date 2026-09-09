@@ -82,7 +82,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // artwork-storage.ts (R2 API fetch + localStorage cache), Cloudflare
   // Functions for R2 list/upload endpoints, and artwork.* i18n keys
   // across all nine locale tables. Measured aggregate is ~1,305.5 kB.
-  ".js": 1_310_000,
+  // Raised to 1,345 kB for the in-app Mouse Test page: MouseTestPage.tsx
+  // (live polling-rate sampler, rolling chart canvas, DPI/battery device
+  // card, button tester), its Activity nav icon, and the test.* i18n keys
+  // across all nine locale tables. Measured aggregate is ~1,329.5 kB.
+  ".js": 1_345_000,
 };
 
 const ASSETS = join("dist", "assets");
