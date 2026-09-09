@@ -76,7 +76,13 @@ const BUDGET_BYTES: Record<string, number> = {
   // back/share/plus controls, and the add-device mouse/keyboard glyphs,
   // which replace their old hand-drawn illustrations). The measured
   // aggregate is 1,290.4 kB, leaving ~10 kB of headroom.
-  ".js": 1_300_000,
+  // Raised to 1,305 kB for the crowd-sourced device artwork system:
+  // ArtworkUploadDialog.tsx (drag-drop upload UI with verification
+  // states), artwork-verification.ts (canvas-based heuristic analysis),
+  // artwork-storage.ts (R2 API fetch + localStorage cache), Cloudflare
+  // Functions for R2 list/upload endpoints, and artwork.* i18n keys
+  // across all nine locale tables. Measured aggregate is 1,304.6 kB.
+  ".js": 1_305_000,
 };
 
 const ASSETS = join("dist", "assets");
