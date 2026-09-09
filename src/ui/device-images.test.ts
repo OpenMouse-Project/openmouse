@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { deviceImage } from "./device-images.ts";
 
-const CDN = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
+const CDN = "https://img.openmouse.app/";
 
 const hid = (productId: number): HIDDevice => ({ vendorId: 0x046d, productId } as HIDDevice);
 

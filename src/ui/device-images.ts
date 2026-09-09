@@ -293,8 +293,13 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
  * Base URL of the public R2 bucket that hosts device art (see
  * `public/devices/README.md` for the upload workflow). Kept as a single
  * constant so the bucket can move without touching every entry above.
+ *
+ * Served from a custom domain (img.openmouse.app) bound to the bucket
+ * rather than its r2.dev URL — the r2.dev subdomain is unauthenticated,
+ * shared, and rate-limited by Cloudflare, and isn't meant for production
+ * traffic.
  */
-const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
+const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   // Crowd-sourced artwork takes priority
