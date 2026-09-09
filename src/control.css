@@ -3076,7 +3076,7 @@ body { height: 100vh; overflow: hidden; }
 }
 .mouse-test-area {
   position: relative;
-  height: 220px;
+  height: clamp(300px, 42vh, 380px);
   border-radius: 18px;
   background: var(--surface-panel);
   border: 1px solid var(--line);
@@ -3091,6 +3091,38 @@ body { height: 100vh; overflow: hidden; }
 .mouse-test-area.active {
   border-color: var(--info);
   box-shadow: 0 0 0 3px rgb(103 216 255 / 12%);
+}
+.mouse-test-chip {
+  position: absolute;
+  top: 0.8rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.mouse-test-chip-left {
+  left: 0.8rem;
+}
+.mouse-test-chip-right {
+  right: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.mouse-test-area-note {
+  position: absolute;
+  bottom: 0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  color: var(--dim);
+  white-space: nowrap;
 }
 .mouse-test-idle {
   display: flex;
@@ -3126,7 +3158,7 @@ body { height: 100vh; overflow: hidden; }
   gap: 0.5rem;
 }
 .mouse-test-live-hz {
-  font-size: 4.5rem;
+  font-size: clamp(4.5rem, 12vw, 7rem);
   font-weight: 800;
   color: var(--info);
   font-variant-numeric: tabular-nums;
@@ -3152,10 +3184,25 @@ body { height: 100vh; overflow: hidden; }
   background: var(--info);
   transition: width 80ms linear;
 }
-.mouse-test-done-badge {
-  font-size: 1.2rem;
-  font-weight: 700;
+.mouse-test-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.mouse-test-done-hz {
+  font-size: clamp(4.5rem, 12vw, 7rem);
+  font-weight: 800;
   color: var(--success);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.mouse-test-done-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
 }
 .mouse-test-controls {
   display: flex;
@@ -3217,15 +3264,6 @@ body { height: 100vh; overflow: hidden; }
 }
 .mouse-test-reset-btn:hover {
   background: var(--surface-strong);
-}
-.mouse-test-timer {
-  font-size: 0.9rem;
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
-}
-.mouse-test-elapsed {
-  color: var(--info);
-  font-weight: 650;
 }
 .mouse-test-chart-container {
   border-radius: 16px;

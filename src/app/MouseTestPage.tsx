@@ -31,26 +31,34 @@ const SAMPLE_WINDOW = 200;
 const DURATION_OPTIONS = [5, 8, 10] as const;
 
 function computeResults(intervals: number[], durationMs: number): TestResults {
-  if (intervals.length < 2) {
+  const filtered = intervals.filter((ms) => ms > 0.25 && ms <= 1000);
+  if (filtered.length < 2) {
     return { avgHz: 0, peakHz: 0, low5Hz: 0, jitter: 0, stability: 0, dropouts: 0, events: 0, duration: 0, avgInterval: 0, intervals: [] };
   }
-  const hzValues = intervals.map((ms) => (ms > 0 ? 1000 / ms : 0)).filter((h) => h > 0 && h < 20000);
-  if (hzValues.length === 0) {
-    return { avgHz: 0, peakHz: 0, low5Hz: 0, jitter: 0, stability: 0, dropouts: 0, events: intervals.length, duration: durationMs / 1000, avgInterval: 0, intervals };
-  }
+  const hzValues = filtered.map((ms) => 1000 / ms).filter((h) => h > 0 && h < 20000);
   const sorted = [...hzValues].sort((a, b) => a - b);
-  const avg = hzValues.reduce((s, v) => s + v, 0) / hzValues.length;
+  const sumMs = filtered.reduce((s, v) => s + v, 0);
+  const avg = (filtered.length * 1000) / sumMs;
   const peak = sorted[sorted.length - 1]!;
   const low5Idx = Math.max(0, Math.floor(sorted.length * 0.05));
   const low5 = sorted[low5Idx]!;
-  const meanInterval = intervals.reduce((s, v) => s + v, 0) / intervals.length;
-  const variance = intervals.reduce((s, v) => s + (v - meanInterval) ** 2, 0) / intervals.length;
+  const meanInterval = sumMs / filtered.length;
+  const variance = filtered.reduce((s, v) => s + (v - meanInterval) ** 2, 0) / filtered.length;
   const stdDev = Math.sqrt(variance);
   const jitter = meanInterval > 0 ? (stdDev / meanInterval) * 100 : 0;
   const stability = Math.max(0, 100 - jitter);
   const expectedInterval = avg > 0 ? 1000 / avg : 1;
-  const dropouts = intervals.filter((ms) => ms > expectedInterval * 2.5).length;
+  const dropouts = filtered.filter((ms) => ms > expectedInterval * 2.5).length;
   return { avgHz: avg, peakHz: peak, low5Hz: low5, jitter, stability, dropouts, events: hzValues.length, duration: durationMs / 1000, avgInterval: meanInterval, intervals };
+}
+
+const LIVE_WINDOW = 24;
+
+function rollingLiveHz(intervals: number[]): number {
+  const recent = intervals.slice(-LIVE_WINDOW);
+  if (recent.length < 3) return 0;
+  const sorted = recent.map((ms) => (ms > 0 ? 1000 / ms : 0)).sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
 function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: number): void {
@@ -82,10 +90,7 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
 
   const recent = intervals.slice(-SAMPLE_WINDOW);
   if (recent.length < 2) {
-    ctx.fillStyle = dim;
-    ctx.font = "13px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Move your mouse here to start", w / 2, h / 2);
+    ctx.clearRect(0, 0, w, h);
     return;
   }
 
@@ -189,18 +194,26 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
     phaseRef.current = phase;
   }, [phase]);
 
-  const handlePointerMove = useCallback(() => {
+  const handlePointerMove = useCallback((e: PointerEvent) => {
     if (phaseRef.current !== "sampling") return;
-    const now = performance.now();
-    if (lastTimeRef.current > 0) {
-      const delta = now - lastTimeRef.current;
-      if (delta > 1 && delta < 500) {
-        intervalsRef.current.push(delta);
-        setLiveHz(1000 / delta);
-        setChartIntervals([...intervalsRef.current].slice(-SAMPLE_WINDOW));
+    const subEvents =
+      typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length > 0
+        ? e.getCoalescedEvents()
+        : [e];
+    for (const event of subEvents) {
+      const t = event.timeStamp;
+      if (lastTimeRef.current > 0) {
+        const delta = t - lastTimeRef.current;
+        if (delta >= 0.25 && delta <= 1000) {
+          intervalsRef.current.push(delta);
+        }
       }
+      lastTimeRef.current = t;
     }
-    lastTimeRef.current = now;
+    if (intervalsRef.current.length > 0) {
+      setLiveHz(rollingLiveHz(intervalsRef.current));
+      setChartIntervals([...intervalsRef.current].slice(-SAMPLE_WINDOW));
+    }
   }, []);
 
   const handlePointerDown = useCallback((e: PointerEvent) => {
@@ -289,6 +302,19 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
             onPointerUp={handlePointerUp}
             onContextMenu={(e) => e.preventDefault()}
           >
+            <div className="mouse-test-chip mouse-test-chip-left">
+              {phase === "idle" && t(locale, "test.ready")}
+              {phase === "countdown" && t(locale, "test.getReady")}
+              {phase === "sampling" && t(locale, "test.sampling")}
+              {phase === "done" && t(locale, "test.complete")}
+            </div>
+            <div className="mouse-test-chip mouse-test-chip-right">
+              {phase === "idle" && "—"}
+              {phase === "countdown" && `${countdown}`}
+              {phase === "sampling" && `${elapsed.toFixed(1)}s / ${duration}s`}
+              {phase === "done" && results && `${results.events} samples`}
+            </div>
+
             {phase === "idle" && (
               <div className="mouse-test-idle">
                 <div className="mouse-test-idle-icon">&#x1F5B1;</div>
@@ -311,8 +337,13 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
               </div>
             )}
             {phase === "done" && results && (
-              <div className="mouse-test-done-badge">{t(locale, "test.complete")}</div>
+              <div className="mouse-test-done">
+                <div className="mouse-test-done-hz">{formatHz(results.avgHz)}</div>
+                <div className="mouse-test-done-label">{t(locale, "test.avgHz")}</div>
+              </div>
             )}
+
+            <div className="mouse-test-area-note">{t(locale, "test.areaNote")}</div>
           </div>
 
           <div className="mouse-test-controls">
@@ -334,13 +365,6 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
               <button className="mouse-test-start-btn" type="button" onClick={startTest}>
                 {t(locale, "test.start")}
               </button>
-            )}
-            {(phase === "countdown" || phase === "sampling") && (
-              <div className="mouse-test-timer">
-                {phase === "sampling" && (
-                  <span className="mouse-test-elapsed">{elapsed.toFixed(1)}s / {duration}s</span>
-                )}
-              </div>
             )}
             {phase === "done" && (
               <button className="mouse-test-reset-btn" type="button" onClick={resetTest}>
