@@ -20,7 +20,7 @@ const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
 const versionBase = packageVersion.version.replace(/\.\d+$/, "");
 function betaBuildVersion(): string {
   const sha = process.env.CF_PAGES_COMMIT_SHA;
-  if (sha) return `${versionBase}.${sha.slice(0, 7)}`;
+  if (sha) return `${versionBase}.${sha.slice(0, 3)}`;
   try {
     const number = execSync("git rev-list --count HEAD", {
       stdio: ["ignore", "pipe", "ignore"],
