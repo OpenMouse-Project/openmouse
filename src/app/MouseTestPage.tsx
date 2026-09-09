@@ -1,21 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
+import { computeResults, formatHz, rollingLiveHz, stabilityClass, type TestResults } from "../ui/polling-stats";
 
 type TestPhase = "idle" | "countdown" | "sampling" | "done";
-
-interface TestResults {
-  avgHz: number;
-  peakHz: number;
-  low5Hz: number;
-  jitter: number;
-  stability: number;
-  dropouts: number;
-  events: number;
-  duration: number;
-  avgInterval: number;
-  intervals: number[];
-}
 
 interface ButtonState {
   left: boolean;
@@ -29,37 +17,6 @@ const CHART_WIDTH = 600;
 const CHART_HEIGHT = 160;
 const SAMPLE_WINDOW = 200;
 const DURATION_OPTIONS = [5, 8, 10] as const;
-
-function computeResults(intervals: number[], durationMs: number): TestResults {
-  const filtered = intervals.filter((ms) => ms > 0.25 && ms <= 1000);
-  if (filtered.length < 2) {
-    return { avgHz: 0, peakHz: 0, low5Hz: 0, jitter: 0, stability: 0, dropouts: 0, events: 0, duration: 0, avgInterval: 0, intervals: [] };
-  }
-  const hzValues = filtered.map((ms) => 1000 / ms).filter((h) => h > 0 && h < 20000);
-  const sorted = [...hzValues].sort((a, b) => a - b);
-  const sumMs = filtered.reduce((s, v) => s + v, 0);
-  const avg = (filtered.length * 1000) / sumMs;
-  const peak = sorted[sorted.length - 1]!;
-  const low5Idx = Math.max(0, Math.floor(sorted.length * 0.05));
-  const low5 = sorted[low5Idx]!;
-  const meanInterval = sumMs / filtered.length;
-  const variance = filtered.reduce((s, v) => s + (v - meanInterval) ** 2, 0) / filtered.length;
-  const stdDev = Math.sqrt(variance);
-  const jitter = meanInterval > 0 ? (stdDev / meanInterval) * 100 : 0;
-  const stability = Math.max(0, 100 - jitter);
-  const expectedInterval = avg > 0 ? 1000 / avg : 1;
-  const dropouts = filtered.filter((ms) => ms > expectedInterval * 2.5).length;
-  return { avgHz: avg, peakHz: peak, low5Hz: low5, jitter, stability, dropouts, events: hzValues.length, duration: durationMs / 1000, avgInterval: meanInterval, intervals };
-}
-
-const LIVE_WINDOW = 24;
-
-function rollingLiveHz(intervals: number[]): number {
-  const recent = intervals.slice(-LIVE_WINDOW);
-  if (recent.length < 3) return 0;
-  const sorted = recent.map((ms) => (ms > 0 ? 1000 / ms : 0)).sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)] ?? 0;
-}
 
 function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: number): void {
   const ctx = canvas.getContext("2d");
@@ -94,7 +51,7 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
     return;
   }
 
-  const hzValues = recent.map((ms) => (ms > 0 ? Math.min(1000 / ms, 10000) : 0));
+  const hzValues = recent.map((ms) => (ms > 0 ? Math.min(1000 / ms, Math.max(targetHz * 2, 250)) : 0));
   const maxHz = Math.max(targetHz * 1.5, ...hzValues) * 1.1;
   const minHz = 0;
 
@@ -160,16 +117,6 @@ function drawChart(canvas: HTMLCanvasElement, intervals: number[], targetHz: num
   ctx.fillText("Samples", w / 2, h - 4);
 }
 
-function formatHz(hz: number): string {
-  return hz > 0 ? `${Math.round(hz)}` : "--";
-}
-
-function stabilityClass(stability: number): string {
-  if (stability >= 90) return "is-good";
-  if (stability >= 70) return "is-mid";
-  return "is-poor";
-}
-
 export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const locale = snapshot.preferences.locale;
   const status = snapshot.status;
@@ -204,7 +151,7 @@ export function MouseTestPage({ snapshot }: { snapshot: ControlSnapshot }): Reac
       const t = event.timeStamp;
       if (lastTimeRef.current > 0) {
         const delta = t - lastTimeRef.current;
-        if (delta >= 0.25 && delta <= 1000) {
+        if (delta >= 0.05 && delta <= 1000) {
           intervalsRef.current.push(delta);
         }
       }
