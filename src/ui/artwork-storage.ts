@@ -59,7 +59,9 @@ async function fetchArtworkList(): Promise<Map<string, string>> {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) return new Map();
-    const data = await response.json();
+    const text = await response.text();
+    if (!text) return new Map();
+    const data = JSON.parse(text);
     if (!Array.isArray(data.artworks)) return new Map();
     const entries: ArtworkEntry[] = data.artworks;
     saveCacheToStorage(entries);
@@ -113,7 +115,12 @@ export async function uploadArtwork(
       body: JSON.stringify({ vendorId, productId, displayName, dataUrl }),
     });
 
-    const result = await response.json();
+    const text = await response.text();
+    if (!text) {
+      if (!response.ok) return { ok: false, error: "Upload failed" };
+      return { ok: true };
+    }
+    const result = JSON.parse(text);
 
     if (!response.ok) {
       return { ok: false, error: result.message ?? "Upload failed" };

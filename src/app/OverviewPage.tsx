@@ -9,6 +9,7 @@ import {
   Plus,
   Settings2,
   Share2,
+  Upload,
   Wifi,
   type LucideIcon,
 } from "lucide-react";
@@ -102,15 +103,6 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             alt={status.name}
           />
         ) : null}
-        {needsArtwork ? (
-          <button
-            type="button"
-            className="artwork-upload-trigger"
-            onClick={() => setShowUploadDialog(true)}
-          >
-            {t(locale, "artwork.upload" as I18nKey)}
-          </button>
-        ) : null}
       </div>
       <div className="device-showcase-status">
         <span className="device-showcase-dot" aria-hidden="true" />
@@ -128,6 +120,16 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           </span>
         ) : null}
       </div>
+      {needsArtwork ? (
+        <button
+          type="button"
+          className="artwork-upload-trigger"
+          onClick={() => setShowUploadDialog(true)}
+        >
+          <Upload size={14} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "artwork.upload" as I18nKey)}
+        </button>
+      ) : null}
       {activeDevice ? (
         <ArtworkUploadDialog
           isOpen={showUploadDialog}

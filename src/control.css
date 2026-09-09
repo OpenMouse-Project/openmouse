@@ -2787,24 +2787,23 @@ body { height: 100vh; overflow: hidden; }
 
 /* Artwork upload trigger button */
 .artwork-upload-trigger {
-  position: absolute;
-  bottom: 0.75rem;
-  right: 0.75rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--surface-strong);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: color-mix(in srgb, var(--ui-accent) 12%, var(--surface-panel-strong));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--bright);
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  z-index: 10;
 }
 .artwork-upload-trigger:hover {
-  background: var(--surface);
-  color: var(--bright);
-  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--ui-accent) 20%, var(--surface-panel-strong));
+  border-color: var(--ui-accent);
 }
 .artwork-upload-trigger:focus-visible {
   outline: 2px solid var(--ui-accent);

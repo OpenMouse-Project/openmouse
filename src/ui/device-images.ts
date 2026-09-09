@@ -177,7 +177,9 @@ export async function loadCrowdArtworkCache(): Promise<void> {
         headers: { Accept: "application/json" },
       });
       if (!response.ok) return;
-      const data = await response.json();
+      const text = await response.text();
+      if (!text) return;
+      const data = JSON.parse(text);
       if (!Array.isArray(data.artworks)) return;
 
       const map = new Map<string, string>();
