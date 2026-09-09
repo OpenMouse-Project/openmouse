@@ -57,7 +57,7 @@ const THEMES: readonly InterfaceTheme[] = [
 ];
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
-  theme: "Mono",
+  theme: "Emerald",
   colorMode: "System",
   locale: "en",
   reducedMotion: false,
