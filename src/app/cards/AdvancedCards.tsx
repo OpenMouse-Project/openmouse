@@ -431,7 +431,13 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const profile = snapshot.capabilities?.teevolutionProfile;
-  if (!status || !profile) return null;
+  const hint = status?.ui?.dpiLighting;
+  if (!status || (!hint && !profile)) return null;
+  const modes = hint?.modes ?? profile!.dpiLighting.modes;
+  const brightnessMin = hint?.brightness.at(0) ?? profile!.dpiLighting.brightness.min;
+  const brightnessMax = hint?.brightness.at(-1) ?? profile!.dpiLighting.brightness.max;
+  const speedMin = hint?.speed.at(0) ?? profile!.dpiLighting.speed.min;
+  const speedMax = hint?.speed.at(-1) ?? profile!.dpiLighting.speed.max;
   const locale = snapshot.preferences.locale;
   const lightMode = status.dpiLedMode ?? 0;
   const staged = snapshot.pending.keys.some((key) => key.startsWith("teevolution-dpi-light-"));
@@ -450,7 +456,7 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
           onChange={(event) => control.applyTeevolutionDpiLighting("mode", Number(event.currentTarget.value))}
         >
           {([[0, "adv.ledOff"], [1, "adv.ledSteady"], [2, "adv.ledBreathing"]] as const)
-            .filter(([value]) => profile.dpiLighting.modes.includes(value))
+            .filter(([value]) => modes.includes(value))
             .map(([value, label]) => <option key={value} value={value}>{t(locale, label)}</option>)}
         </select>
       </label>
@@ -464,14 +470,14 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
             <input
               id="teevolution-dpi-light-brightness"
               type="range"
-              min={profile.dpiLighting.brightness.min}
-              max={profile.dpiLighting.brightness.max}
+              min={brightnessMin}
+              max={brightnessMax}
               step={1}
-              value={status.dpiLedBrightness ?? profile.dpiLighting.brightness.min}
+              value={status.dpiLedBrightness ?? brightnessMin}
               disabled={lightMode !== 1 || status.dpiLedBrightness == null}
               style={{
-                "--fill": `${((status.dpiLedBrightness ?? profile.dpiLighting.brightness.min) - profile.dpiLighting.brightness.min)
-                  / Math.max(1, profile.dpiLighting.brightness.max - profile.dpiLighting.brightness.min) * 100}%`,
+                "--fill": `${((status.dpiLedBrightness ?? brightnessMin) - brightnessMin)
+                  / Math.max(1, brightnessMax - brightnessMin) * 100}%`,
               }}
               onChange={(event) => control.applyTeevolutionDpiLighting("brightness", Number(event.currentTarget.value))}
             />
@@ -486,14 +492,14 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
             <input
               id="teevolution-dpi-light-speed"
               type="range"
-              min={profile.dpiLighting.speed.min}
-              max={profile.dpiLighting.speed.max}
+              min={speedMin}
+              max={speedMax}
               step={1}
-              value={status.dpiLedSpeed ?? profile.dpiLighting.speed.min}
+              value={status.dpiLedSpeed ?? speedMin}
               disabled={lightMode !== 2 || status.dpiLedSpeed == null}
               style={{
-                "--fill": `${((status.dpiLedSpeed ?? profile.dpiLighting.speed.min) - profile.dpiLighting.speed.min)
-                  / Math.max(1, profile.dpiLighting.speed.max - profile.dpiLighting.speed.min) * 100}%`,
+                "--fill": `${((status.dpiLedSpeed ?? speedMin) - speedMin)
+                  / Math.max(1, speedMax - speedMin) * 100}%`,
               }}
               onChange={(event) => control.applyTeevolutionDpiLighting("speed", Number(event.currentTarget.value))}
             />
