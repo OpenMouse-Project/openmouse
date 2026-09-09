@@ -156,6 +156,7 @@ export const fr: Record<I18nKey, string> = {
   "ai.otherAns": "Pas de souci — passe sur le Discord d'OpenMouse et la communauté t'aidera.",
   "ai.joinDiscord": "Rejoindre le Discord",
   "conn.add": "Ajouter un appareil",
+  "conn.addMouse": "Ajouter une souris",
   "conn.connecting": "Connexion…",
   "conn.preview": "Mode aperçu",
   "common.apply": "Appliquer",

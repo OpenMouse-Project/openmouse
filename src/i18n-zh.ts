@@ -156,6 +156,7 @@ export const zh: Record<I18nKey, string> = {
   "ai.otherAns": "没关系，前往 OpenMouse Discord，社区会帮你解决。",
   "ai.joinDiscord": "加入 Discord",
   "conn.add": "添加设备",
+  "conn.addMouse": "添加鼠标",
   "conn.connecting": "连接中…",
   "conn.preview": "预览模式",
   "common.apply": "应用",

@@ -156,6 +156,7 @@ export const ja: Record<I18nKey, string> = {
   "ai.otherAns": "大丈夫、OpenMouseのDiscordでコミュニティに聞いてみてね。",
   "ai.joinDiscord": "Discordに参加",
   "conn.add": "デバイスを追加",
+  "conn.addMouse": "マウスを追加",
   "conn.connecting": "接続中…",
   "conn.preview": "プレビューモード",
   "common.apply": "適用",

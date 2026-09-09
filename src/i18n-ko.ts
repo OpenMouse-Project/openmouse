@@ -156,6 +156,7 @@ export const ko: Record<I18nKey, string> = {
   "ai.otherAns": "걱정 마세요. OpenMouse Discord에 가면 커뮤니티가 도와드릴 거예요.",
   "ai.joinDiscord": "Discord 참여",
   "conn.add": "장치 추가",
+  "conn.addMouse": "마우스 추가",
   "conn.connecting": "연결 중…",
   "conn.preview": "미리보기 모드",
   "common.apply": "적용",

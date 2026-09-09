@@ -159,6 +159,7 @@ const en = {
   "ai.otherAns": "No worries — hop over to the OpenMouse Discord and the community will help you out.",
   "ai.joinDiscord": "Join the Discord",
   "conn.add": "Add device",
+  "conn.addMouse": "Add mouse",
   "conn.connecting": "Connecting…",
   "conn.preview": "Preview mode",
   "common.apply": "Apply",

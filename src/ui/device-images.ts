@@ -249,3 +249,34 @@ const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.d
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
   return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
 }
+
+/**
+ * A curated, brand-diverse sample of real product renders (not every device
+ * this app supports — just enough to cycle through on the "Add mouse" card
+ * before anything is connected). Filenames only, so callers build the full
+ * URL with `showcaseDeviceImageUrls`.
+ */
+// Every filename here is checked against the R2 bucket directly (curl -o
+// /dev/null -w '%{http_code}') before landing on this list — several
+// filenames mapped in DEVICE_IMAGES above 404 because the art was never
+// uploaded (attackshark-r2.png, mchose-a7-v2.png, atk-zero.png, and the
+// Microsoft IntelliMouse renders among them), which silently fails on the
+// device panel but breaks a showcase that's shown unconditionally.
+const SHOWCASE_DEVICE_FILENAMES: readonly string[] = [
+  "logitech-g502-x-plus.png",
+  "razer-viper-v3-pro.png",
+  "endgame-gear-xm2-8k.png",
+  "finalmouse-ulx.png",
+  "pulsar-x2-v2.png",
+  "lamzu-maya-x.png",
+  "zaunkoenig-m3k.png",
+  "attackshark-r5-ultra.png",
+  "logitech-g-pro-2.png",
+  "razer-deathadder-v3.png",
+  "wlmouse-sword-x.png",
+  "wlmouse-beast-max.png",
+];
+
+export function showcaseDeviceImageUrls(): readonly string[] {
+  return SHOWCASE_DEVICE_FILENAMES.map((filename) => DEVICE_IMAGE_BASE_URL + filename);
+}

@@ -1953,7 +1953,7 @@ body { height: 100vh; overflow: hidden; }
 }
 .add-device-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(340px, 420px));
+  grid-template-columns: minmax(340px, 420px);
   justify-content: center;
   gap: 1rem;
   width: 100%;
@@ -1966,16 +1966,28 @@ body { height: 100vh; overflow: hidden; }
 .device-tile.add-device-tile:hover {
   transform: none;
 }
-.device-tile.add-device-tile.is-keyboard {
-  aspect-ratio: 1 / 1;
-  gap: 0.28rem;
-  padding: 0.85rem 0.9rem 0.9rem;
+.add-device-mouse-showcase {
+  position: relative;
+  width: 78%;
+  height: 78%;
 }
-.add-device-mouse,
-.add-device-keyboard {
+.add-device-mouse-showcase-frame {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  color: var(--dim);
+  object-fit: contain;
+  opacity: 0;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.35));
+  transition: opacity 0.9s ease;
+}
+.add-device-mouse-showcase-frame.is-active {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .add-device-mouse-showcase-frame {
+    transition: none;
+  }
 }
 .add-device-button {
   display: inline-flex;

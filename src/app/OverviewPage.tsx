@@ -47,7 +47,7 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
-import { deviceImage } from "../ui/device-images";
+import { deviceImage, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
 import type { MouseStatus } from "@openmouse/protocol/drivers";
 
@@ -203,89 +203,45 @@ function DeviceInfoGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
-function MouseDeviceSvg(): ReactNode {
+const SHOWCASE_IMAGES = showcaseDeviceImageUrls();
+const SHOWCASE_INTERVAL_MS = 3800;
+
+function MouseArtworkShowcase({ reducedMotion }: { reducedMotion: boolean }): ReactNode {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (reducedMotion || SHOWCASE_IMAGES.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((current) => (current + 1) % SHOWCASE_IMAGES.length);
+    }, SHOWCASE_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [reducedMotion]);
+
   return (
-    <svg className="add-device-mouse" viewBox="-8 175 190 345" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M85.292 505.94c-73.244 0-84.317-65.02-83.559-85.62 1.127-19.43 2.065-97.59-1.17-163.4.824-71.92 55.773-70.2 84.709-70.2 28.94 0 83.89-1.72 84.72 70.2-3.24 65.81-2.3 143.97-1.17 163.4.75 20.6-10.32 85.61-83.56 85.61Z"
-        fill="color-mix(in srgb, currentColor 14%, transparent)"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M85.262 187.14v118.58" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2.43 309.58h82.83" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M85.26 310.33h82.89" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <ellipse cx="85.2" cy="247.6" rx="15.6" ry="43" fill="color-mix(in srgb, currentColor 18%, transparent)" stroke="currentColor" strokeWidth="1.5" />
-      <ellipse cx="85.5" cy="247" rx="11" ry="26" fill="color-mix(in srgb, currentColor 30%, transparent)" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
+    <div className="add-device-mouse-showcase">
+      {SHOWCASE_IMAGES.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          draggable={false}
+          className={`add-device-mouse-showcase-frame${i === index ? " is-active" : ""}`}
+        />
+      ))}
+    </div>
   );
 }
 
-const KEYBOARD_ROWS: ReadonlyArray<{ y: number; h: number; widths: readonly number[] }> = [
-  { y: 10, h: 14, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 29, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 56, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 83, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 110, h: 22, widths: Array.from({ length: 13 }, () => 26) },
-  { y: 137, h: 23, widths: [44, 130, 44, 44, 44, 56] },
-];
-
-const KEYBOARD_KEY_GAP = 3.5;
-const KEYBOARD_X0 = 10;
-
-function KeyboardDeviceSvg(): ReactNode {
-  const rects: ReactNode[] = [];
-  let keyIndex = 0;
-  for (const row of KEYBOARD_ROWS) {
-    let x = KEYBOARD_X0;
-    for (const width of row.widths) {
-      rects.push(
-        <rect
-          key={keyIndex++}
-          x={x}
-          y={row.y}
-          width={width}
-          height={row.h}
-          rx="3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-        />,
-      );
-      x += width + KEYBOARD_KEY_GAP;
-    }
-  }
-  return (
-    <svg className="add-device-keyboard" viewBox="0 0 400 232" xmlns="http://www.w3.org/2000/svg">
-      <rect
-        x="2"
-        y="2"
-        width="396"
-        height="168"
-        rx="14"
-        fill="color-mix(in srgb, currentColor 10%, transparent)"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      {rects}
-    </svg>
-  );
-}
-
-function AddDeviceCard({ snapshot, kind }: { snapshot: ControlSnapshot; kind: "mouse" | "keyboard" }): ReactNode {
+function AddDeviceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const locale = snapshot.preferences.locale;
   const [busy, setBusy] = useState(false);
-  const label = busy ? t(locale, "conn.connecting") : t(locale, "conn.add");
+  const label = busy ? t(locale, "conn.connecting") : t(locale, "conn.addMouse");
   const disabled = busy || snapshot.connectDisabled;
   return (
-    <div
-      className={`device-tile add-device-tile${kind === "keyboard" ? " is-keyboard" : ""}${busy ? " is-busy" : ""}`}
-      aria-label={label}
-    >
+    <div className={`device-tile add-device-tile${busy ? " is-busy" : ""}`} aria-label={label}>
       <span className="device-tile-name">{label}</span>
       <div className="device-tile-visual" aria-hidden="true">
-        {kind === "keyboard" ? <KeyboardDeviceSvg /> : <MouseDeviceSvg />}
+        <MouseArtworkShowcase reducedMotion={snapshot.preferences.reducedMotion} />
       </div>
       <button
         type="button"
@@ -316,8 +272,7 @@ function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapsho
         <p className="welcome-body">{t(locale, "empty.body")}</p>
         {!compact ? (
           <div className="add-device-grid">
-            <AddDeviceCard snapshot={snapshot} kind="mouse" />
-            <AddDeviceCard snapshot={snapshot} kind="keyboard" />
+            <AddDeviceCard snapshot={snapshot} />
           </div>
         ) : null}
       </div>
@@ -584,8 +539,8 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               );
             });
             })()}
-            <li key="add-keyboard">
-              <AddDeviceCard snapshot={snapshot} kind="keyboard" />
+            <li key="add-mouse">
+              <AddDeviceCard snapshot={snapshot} />
             </li>
           </ul>
         </section>
