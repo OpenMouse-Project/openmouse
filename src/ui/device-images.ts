@@ -167,10 +167,15 @@ function deviceKey(device: HIDDevice): string {
 let crowdArtworkCache: Map<string, string> | null = null;
 let crowdArtworkPromise: Promise<void> | null = null;
 
-async function fetchCrowdArtworkMap(): Promise<Map<string, string> | null> {
+async function fetchCrowdArtworkMap(bypassHttpCache = false): Promise<Map<string, string> | null> {
   try {
-    const response = await fetch("/api/artwork/list", {
+    // /api/artwork/list is served with a 5-minute Cache-Control so normal
+    // page loads are cheap, but that means a plain fetch() right after an
+    // upload can still be answered from the browser's HTTP cache with the
+    // pre-upload list. refreshCrowdArtworkCache needs a real network hit.
+    const response = await fetch(bypassHttpCache ? "/api/artwork/list?fresh=1" : "/api/artwork/list", {
       headers: { Accept: "application/json" },
+      cache: bypassHttpCache ? "no-store" : "default",
     });
     if (!response.ok) return null;
     const text = await response.text();
@@ -212,7 +217,7 @@ export async function loadCrowdArtworkCache(): Promise<void> {
  */
 export async function refreshCrowdArtworkCache(): Promise<void> {
   crowdArtworkPromise = null;
-  const map = await fetchCrowdArtworkMap();
+  const map = await fetchCrowdArtworkMap(true);
   if (map) crowdArtworkCache = map;
 }
 

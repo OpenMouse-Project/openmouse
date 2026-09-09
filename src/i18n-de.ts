@@ -211,6 +211,7 @@ export const de: Record<I18nKey, string> = {
   "common.close": "Schließen",
   "common.back": "Zurück",
   "common.cancel": "Abbrechen",
+  "common.done": "Fertig",
   "common.save": "Speichern",
   "common.on": "Ein",
   "common.off": "Aus",

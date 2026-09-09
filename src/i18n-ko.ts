@@ -211,6 +211,7 @@ export const ko: Record<I18nKey, string> = {
   "common.close": "닫기",
   "common.back": "뒤로",
   "common.cancel": "취소",
+  "common.done": "완료",
   "common.save": "저장",
   "common.on": "켜짐",
   "common.off": "꺼짐",

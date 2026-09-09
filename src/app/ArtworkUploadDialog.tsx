@@ -218,7 +218,7 @@ export function ArtworkUploadDialog({
             <p>{t(locale, "artwork.verified" as I18nKey)}</p>
             <div className="artwork-actions">
               <button type="button" className="is-primary" onClick={handleClose}>
-                {t(locale, "common.done" as I18nKey)}
+                {t(locale, "common.done")}
               </button>
             </div>
           </div>

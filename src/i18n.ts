@@ -214,6 +214,7 @@ const en = {
   "common.close": "Close",
   "common.back": "Back",
   "common.cancel": "Cancel",
+  "common.done": "Done",
   "common.save": "Save",
   "common.on": "On",
   "common.off": "Off",

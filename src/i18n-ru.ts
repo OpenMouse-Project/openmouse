@@ -210,6 +210,7 @@ export const ru: Record<I18nKey, string> = {
   "common.close": "Закрыть",
   "common.back": "Назад",
   "common.cancel": "Отмена",
+  "common.done": "Готово",
   "common.save": "Сохранить",
   "common.on": "Вкл",
   "common.off": "Выкл",

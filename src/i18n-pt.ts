@@ -211,6 +211,7 @@ export const pt: Record<I18nKey, string> = {
   "common.close": "Fechar",
   "common.back": "Voltar",
   "common.cancel": "Cancelar",
+  "common.done": "Concluído",
   "common.save": "Salvar",
   "common.on": "Ligado",
   "common.off": "Desligado",

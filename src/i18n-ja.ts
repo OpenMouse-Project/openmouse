@@ -211,6 +211,7 @@ export const ja: Record<I18nKey, string> = {
   "common.close": "閉じる",
   "common.back": "戻る",
   "common.cancel": "キャンセル",
+  "common.done": "完了",
   "common.save": "保存",
   "common.on": "オン",
   "common.off": "オフ",

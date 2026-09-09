@@ -211,6 +211,7 @@ export const zh: Record<I18nKey, string> = {
   "common.close": "关闭",
   "common.back": "返回",
   "common.cancel": "取消",
+  "common.done": "完成",
   "common.save": "保存",
   "common.on": "开",
   "common.off": "关",
