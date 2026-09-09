@@ -23,7 +23,7 @@ import {
   type PendingChange,
 } from "../pending-changes";
 import { deviceImage } from "../ui/device-images";
-import { loadCrowdArtworkCache } from "../ui/artwork-storage";
+import { loadCrowdArtworkCache } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
   isVxeR1SePlusReceiver,

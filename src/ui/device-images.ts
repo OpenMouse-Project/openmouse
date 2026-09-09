@@ -208,11 +208,6 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
 
-  // Check crowd-sourced artwork cache
-  if (device && crowdArtworkCache) {
-    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
-    if (crowdFilename) return `crowd/${crowdFilename}`;
-  }
   // Lightspeed receivers are shared product IDs, so paired G502 X variants
   // must use the friendly name read from the mouse itself.
   if (/g502\s*x\s*plus/i.test(displayName)) return "logitech-g502-x-plus.png";
@@ -302,6 +297,11 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
 const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
+  // Crowd-sourced artwork takes priority
+  if (device && crowdArtworkCache) {
+    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+    if (crowdFilename) return DEVICE_IMAGE_BASE_URL + `crowd/${crowdFilename}`;
+  }
   return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
 }
 
@@ -339,5 +339,10 @@ export function showcaseDeviceImageUrls(): readonly string[] {
 export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
 
 export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
+  // If crowd art exists, it's not unknown
+  if (device && crowdArtworkCache) {
+    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+    if (crowdFilename) return false;
+  }
   return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;
 }
