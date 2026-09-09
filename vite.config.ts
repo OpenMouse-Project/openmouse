@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 import { pwa } from "./build/pwa-vite-plugin";
@@ -12,6 +13,22 @@ const packageVersion = JSON.parse(
   readFileSync(resolve(rootDir, "package.json"), "utf8"),
 ) as { version: string };
 const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
+
+/** Beta build number: total commits on this history (monotonic, unique per
+    push) so every beta release carries its own version. Falls back to a
+    date-based number when git is unavailable (e.g. source archives). */
+function betaBuildNumber(): string {
+  try {
+    return execSync("git rev-list --count HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  }
+}
+const buildId = buildChannel === "beta" ? `-beta.${betaBuildNumber()}` : "";
 
 export default defineConfig({
   plugins: [sites(), pwa(packageVersion.version)],
@@ -25,6 +42,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(packageVersion.version),
     __BUILD_CHANNEL__: JSON.stringify(buildChannel),
+    __BUILD_ID__: JSON.stringify(buildId),
   },
   build: {
     rollupOptions: {

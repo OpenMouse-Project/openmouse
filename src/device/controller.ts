@@ -169,7 +169,7 @@ import type {
   WorkspaceTab,
 } from "./types";
 
-export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}${__BUILD_ID__}`;
 const DEFAULT_TITLE = typeof document === "undefined" ? "OpenMouse Control" : document.title;
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const WLMOUSE_SLEEP_NEVER = 0xffff;
