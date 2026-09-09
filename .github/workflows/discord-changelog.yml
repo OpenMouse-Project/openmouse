@@ -23,7 +23,7 @@ jobs:
           author=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
           list=$(jq -r '[.commits[] | "- **" + .author.name + ":** " + (.message | split("\n")[0])] | join("\n")' "$GITHUB_EVENT_PATH" | head -c 3800)
           jq -n \
-            --arg title "New push to OpenMouse" \
+            --arg title "New push to OpenMouse Web" \
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
             --arg author "$author" \
             --arg desc "$list" \
