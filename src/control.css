@@ -1497,7 +1497,7 @@ body { height: 100vh; overflow: hidden; }
    ═══════════════════════════════════════════════════════════════════════ */
 
 .control-shell {
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: 256px minmax(0, 1fr);
 }
 .control-shell.sidebar-hidden .app-sidebar { display: none; }
 .control-shell.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
@@ -1531,9 +1531,9 @@ body { height: 100vh; overflow: hidden; }
 .app-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   height: 40px;
-  padding: 0 0.6rem;
+  padding: 0 0.5rem;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -1541,19 +1541,21 @@ body { height: 100vh; overflow: hidden; }
   transition: background 0.15s ease, opacity 0.15s ease;
 }
 .app-sidebar-brand-text {
-  font-size: 0.95rem;
+  flex-shrink: 0;
+  font-size: 0.92rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
   white-space: nowrap;
 }
 .app-sidebar-brand-version {
+  flex-shrink: 0;
   margin-left: auto;
+  white-space: nowrap;
   color: var(--faint);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: -0.015em;
-  white-space: nowrap;
 }
 .app-sidebar-brand:hover { background: var(--hover); }
 .app-sidebar-brand .brand-mark {

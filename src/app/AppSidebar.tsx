@@ -58,7 +58,9 @@ export function AppSidebar({
         >
           <img className="brand-mark" src="/logo.png" alt="" width={16} height={24} />
           <span className="app-sidebar-brand-text">OpenMouse</span>
-          <span className="app-sidebar-brand-version">{snapshot.buildLabel}</span>
+          <span className="app-sidebar-brand-version" title={snapshot.buildLabel}>
+            {snapshot.buildLabel}
+          </span>
         </a>
 
         <nav className="app-sidebar-nav">
