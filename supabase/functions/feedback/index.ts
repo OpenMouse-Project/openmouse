@@ -1,14 +1,8 @@
-// Feedback relay to Discord. The webhook URL is stored only as the Supabase
-// Edge Function secret DISCORD_FEEDBACK_WEBHOOK (supabase secrets set ...) —
-// it never ships to the browser and never lives in this repository. The
-// client's payload (the JSON embed, or the multipart form with the
-// diagnostics attachment) is streamed straight to Discord.
-//
-// Deploy:
-//   supabase link --project-ref <project-ref>
-//   supabase secrets set DISCORD_FEEDBACK_WEBHOOK="https://discordapp.com/api/webhooks/..."
-//   supabase functions deploy feedback
-//   supabase functions deploy feedback --project-ref <project-ref> (unlinked)
+// Feedback relay to Discord. The webhook URL lives only in an Edge Function
+// secret provisioned by a maintainer — it never ships to the browser and never
+// lives in this repository. The client's payload (the JSON embed, or the
+// multipart form with the diagnostics attachment) is streamed straight to
+// Discord.
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
