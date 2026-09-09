@@ -14,21 +14,23 @@ const packageVersion = JSON.parse(
 ) as { version: string };
 const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
 
-/** Beta build number: total commits on this history (monotonic, unique per
-    push) so every beta release carries its own version. Falls back to a
+/** Beta build version: major.minor from the package plus the build number
+    (total commits on this history, monotonic per push). Falls back to a
     date-based number when git is unavailable (e.g. source archives). */
-function betaBuildNumber(): string {
+const versionBase = packageVersion.version.replace(/\.\d+$/, "");
+function betaBuildVersion(): string {
   try {
-    return execSync("git rev-list --count HEAD", {
+    const number = execSync("git rev-list --count HEAD", {
       stdio: ["ignore", "pipe", "ignore"],
     })
       .toString()
       .trim();
+    return `${versionBase}.${number}`;
   } catch {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return `${versionBase}.${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
   }
 }
-const buildId = buildChannel === "beta" ? `-beta.${betaBuildNumber()}` : "";
+const buildId = buildChannel === "beta" ? betaBuildVersion() : "";
 
 export default defineConfig({
   plugins: [sites(), pwa(packageVersion.version)],

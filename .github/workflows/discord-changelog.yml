@@ -25,10 +25,11 @@ jobs:
           set -euo pipefail
           pushed=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
           author=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
+          version=$(jq -r '.version' package.json | cut -d. -f1-2)
           build=$(git rev-list --count HEAD)
           list=$(jq -r '[.commits[] | "- **" + .author.name + ":** " + (.message | split("\n")[0])] | join("\n")' "$GITHUB_EVENT_PATH" | head -c 3800)
           jq -n \
-            --arg title "New push to OpenMouse Web · beta.$build" \
+            --arg title "New push to OpenMouse Web · Beta $version.$build" \
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
             --arg author "$author" \
             --arg desc "$list" \
