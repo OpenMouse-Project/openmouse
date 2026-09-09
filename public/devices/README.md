@@ -182,3 +182,11 @@ package:
   place and falls back to the placeholder until then. Not yet cleared for
   licensing: it is vendor product art, so treat it as a request rather than an
   approved asset.
+
+`vxe-r1-series.png` ? **needs a maintainer upload.** It is shared by the
+VXE R1 family (R1, R1 SE, R1 SE+, R1 Pro, and R1 Pro Max), which use the same
+external shell. The render was extracted from ATK Hub, ATK/VXE's official device
+configurator, and normalized as a transparent PNG for the device panel. The
+mapping is already in place and falls back cleanly until the file is uploaded.
+Vendor product artwork ? confirm redistribution terms before including it in a
+public release package.

@@ -97,6 +97,13 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Beast Max wired / 4K8K receiver transports share the same shell.
   ["36a7:a881", "wlmouse-beast-max.png"],
   ["36a7:a880", "wlmouse-beast-max.png"],
+  // VXE R1 family. R1, R1 SE/SE+, R1 Pro, and R1 Pro Max share the same shell.
+  // Known wired / receiver transports therefore reuse one family render.
+  ["3554:f58a", "vxe-r1-series.png"],
+  ["3554:f58c", "vxe-r1-series.png"],
+  ["3554:f58e", "vxe-r1-series.png"],
+  ["3554:f58f", "vxe-r1-series.png"],
+  ["373b:1085", "vxe-r1-series.png"],
   // Teevolution Terra Pro wired / receiver Compx transports.
   ["3554:f520", "teevolution-terra-pro.png"],
   ["3554:f522", "teevolution-terra-pro.png"],
@@ -257,6 +264,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bcobra\b/i.test(displayName)) return "razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
+  if (/\bvxe\s+r1(?:\s+(?:se\+?|pro(?:\s+max)?))?\b/i.test(displayName)) {
+    return "vxe-r1-series.png";
+  }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.

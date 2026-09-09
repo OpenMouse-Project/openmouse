@@ -61,6 +61,23 @@ test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
   assert.equal(deviceImage(null, "Pulsar X2 V2 Pro"), CDN + "pulsar-x2-v2.png");
 });
 
+test("VXE R1 family transports and names share one shell render", () => {
+  const vxe = (vendorId: number, productId: number): HIDDevice =>
+    ({ vendorId, productId } as HIDDevice);
+
+  assert.equal(deviceImage(vxe(0x3554, 0xf58a)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58c)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58e)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58f)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x373b, 0x1085)), CDN + "vxe-r1-series.png");
+
+  assert.equal(deviceImage(null, "VXE R1"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 SE"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 SE+"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro Max"), CDN + "vxe-r1-series.png");
+});
+
 test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
   const hid373e = (productId: number): HIDDevice => ({ vendorId: 0x373e, productId } as HIDDevice);
   assert.equal(deviceImage(hid373e(0x0046)), CDN + "attackshark-r5-ultra.png");
