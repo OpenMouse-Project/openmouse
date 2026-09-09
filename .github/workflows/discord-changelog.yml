@@ -13,21 +13,24 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - name: Push changelog to Discord
         if: github.event_name == 'push'
         env:
           DISCORD_WEBHOOK: https://discordapp.com/api/webhooks/1547126635382439966/34JCYhCLATBEznQSAQmJeLZgXRanAobdRwZVmM_Ayge2d6SoX88ncL9SRRhzyG453RQ7
         run: |
           set -euo pipefail
-          count=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
+          pushed=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
           author=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
+          build=$(git rev-list --count HEAD)
           list=$(jq -r '[.commits[] | "- **" + .author.name + ":** " + (.message | split("\n")[0])] | join("\n")' "$GITHUB_EVENT_PATH" | head -c 3800)
           jq -n \
-            --arg title "New push to OpenMouse Web" \
+            --arg title "New push to OpenMouse Web · beta.$build" \
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
             --arg author "$author" \
             --arg desc "$list" \
-            --arg footer "$count commit(s) · $GITHUB_REPOSITORY" \
+            --arg footer "$pushed commit(s) · $GITHUB_REPOSITORY" \
             --argjson color 6151817 \
             '{embeds:[{title:$title,url:$url,description:$desc,color:$color,author:{name:$author},footer:{text:$footer},timestamp:(now|todate)}]}' \
             > payload.json
