@@ -8,15 +8,7 @@ const SUBMIT_COOLDOWN_MS = 60_000;
 const MAX_SESSION_SUBMITS = 5;
 const STORAGE_KEY = "om.feedback.sentAt";
 
-const FEEDBACK_RELAY = (() => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-  return {
-    url: `${url.replace(/\/$/, "")}/functions/v1/feedback`,
-    anon,
-  };
-})();
+const FEEDBACK_URL = "/api/feedback";
 
 export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnostics = false }: {
   open: boolean;
@@ -84,7 +76,7 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
   }, [cooldown]);
 
   const trimmed = feedback.trim();
-  const canSend = trimmed.length > 0 && !busy && cooldown <= 0 && sendRef.current < MAX_SESSION_SUBMITS && FEEDBACK_RELAY !== null;
+  const canSend = trimmed.length > 0 && !busy && cooldown <= 0 && sendRef.current < MAX_SESSION_SUBMITS;
 
   function reset(): void {
     setFeedback("");
@@ -122,8 +114,6 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
     setError(false);
     let ok = false;
     try {
-      const relay = FEEDBACK_RELAY;
-      if (!relay) return;
       const bundle = attach ? control.supportDiagnosticBundle() : null;
       const statusBundle = bundle?.status as { name?: string | null } | undefined;
       const webhid = bundle?.webhid as { productName?: string | null } | undefined;
@@ -137,7 +127,6 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
         ...(handle.trim() ? { footer: { text: `@${handle.trim()}` } } : {}),
         ...(deviceName ? { fields: [{ name: "Device", value: `**${deviceName}**`, inline: true }] } : {}),
       };
-      const headers = { apikey: relay.anon, Authorization: `Bearer ${relay.anon}` };
       let response: Response;
       if (bundle) {
         const form = new FormData();
@@ -153,11 +142,11 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
           new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }),
           "openmouse-diagnostics.json",
         );
-        response = await fetch(relay.url, { method: "POST", headers, body: form });
+        response = await fetch(FEEDBACK_URL, { method: "POST", body: form });
       } else {
-        response = await fetch(relay.url, {
+        response = await fetch(FEEDBACK_URL, {
           method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ embeds: [embed] }),
         });
       }

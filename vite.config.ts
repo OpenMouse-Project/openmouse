@@ -52,10 +52,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        // Gated stats dashboard for the operator (password-protected via
-        // functions/api/admin/*, not linked from anywhere in the UI) —
-        // lives on control.openmouse.app alongside the app.
-        admin: resolve(__dirname, "admin.html"),
       },
     },
   },
