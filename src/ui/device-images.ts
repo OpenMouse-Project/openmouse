@@ -152,6 +152,12 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Microsoft Intellimouse
   ["045e:0823", "microsoft-classic-intellimouse.png"],
   ["045e:082a", "microsoft-pro-intellimouse.png"],
+  // HyperX Pulsefire Haste: Kingston-era wired (0x0951:0x1727) and HP-era
+  // wired / wired-mode / wireless dongle transports share one shell.
+  ["0951:1727", "hyperx-pulsefire-haste.png"],
+  ["03f0:0f8f", "hyperx-pulsefire-haste.png"],
+  ["03f0:048e", "hyperx-pulsefire-haste.png"],
+  ["03f0:028e", "hyperx-pulsefire-haste.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -305,6 +311,7 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bintellimouse\s*classic\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
   if (/\bpro\s*intellimouse\b/i.test(displayName)) return "microsoft-pro-intellimouse.png";
   if (/\bintellimouse\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
+  if (/\bpulsefire\s*haste\b/i.test(displayName)) return "hyperx-pulsefire-haste.png";
   // Pulsar 4K Wireless Receiver ships with the X2 V2 4K dongle kit; the receiver
   // product id is not yet published, so match the name reported by WebHID.
   if (/pulsar/i.test(displayName)) return "pulsar-x2-v2.png";
