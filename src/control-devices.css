@@ -80,8 +80,8 @@
 .device-debug-raw .device-debug-snapshot { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .device-debug-snapshot { max-height: 26rem; margin: 0; padding: .8rem; overflow: auto; border: 1px solid var(--line); border-radius: 7px; background: var(--well); color: var(--text-strong); font: .64rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 
-.testing-note { display: flex; align-items: flex-start; gap: .75rem; margin-top: .55rem; padding: .65rem .8rem; border: 1px solid #3b3428; border-radius: 8px; background: #16140f; color: #aaa08d; font-size: .65rem; line-height: 1.45; }
-.testing-note strong { flex: 0 0 auto; color: #d8c58f; font-family: var(--font-mono); font-size: .57rem; letter-spacing: .08em; text-transform: uppercase; }
+.testing-note { display: flex; align-items: flex-start; gap: .75rem; margin-top: .55rem; padding: .65rem .8rem; border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--surface-panel)); border-radius: 8px; background: color-mix(in srgb, var(--warning) 8%, var(--surface-panel)); color: color-mix(in srgb, var(--warning) 62%, var(--text-soft)); font-size: .65rem; line-height: 1.45; }
+.testing-note strong { flex: 0 0 auto; color: color-mix(in srgb, var(--warning) 78%, var(--text-hover)); font-family: var(--font-mono); font-size: .57rem; letter-spacing: .08em; text-transform: uppercase; }
 .testing-note span { max-width: 780px; }
 
 @media (max-width: 1100px) {

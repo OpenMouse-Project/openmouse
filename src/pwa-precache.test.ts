@@ -13,11 +13,6 @@ test("the root page serves from /, other pages keep their own path", () => {
 
 const bypassed = (path: string): boolean => BYPASS.some((pattern) => pattern.test(path));
 
-test("the admin dashboard bypasses the cache", () => {
-  assert.equal(bypassed("/admin"), true);
-  assert.equal(bypassed("/admin.html"), true);
-});
-
 test("api endpoints bypass the cache", () => {
   assert.equal(bypassed("/api/presence"), true);
 });

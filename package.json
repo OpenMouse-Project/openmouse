@@ -1,6 +1,6 @@
 {
   "name": "openmouse",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git",
+    "lucide-react": "^1.43.0",
     "preact": "^10.29.8"
   },
   "devDependencies": {

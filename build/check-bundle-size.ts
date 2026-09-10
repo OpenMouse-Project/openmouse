@@ -4,8 +4,9 @@ import { join } from "node:path";
 const BUDGET_BYTES: Record<string, number> = {
   // Raised from 103 kB for the interface themes: NieR: Automata and Liquid
   // Glass each ship their own token block, and the liquid-glass material
-  // layer (SVG displacement filters plus their component rules) adds the
-  // largest share. The measured bundle is 153.7 kB; 175 kB adds headroom for
+  // layer (SVG displacement filters plus their component rules) added the
+  // largest share. Liquid Glass was removed in the theme sync (main CSS is
+  // ~104 kB again). The measured bundle is 153.7 kB; 175 kB adds headroom for
   // the Developer Hall of Fame page (~15 kB of animated card and hero
   // styles that load only on /donate.html). Raised to 180 kB in the
   // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
@@ -59,7 +60,33 @@ const BUDGET_BYTES: Record<string, number> = {
   // is 1,171.4 kB, leaving ~14 kB of headroom.
   // Raised to 1,250 kB for the Russian (ru) interface locale: the new
   // translation strings push the measured aggregate to 1,232.4 kB.
-  ".js": 1_250_000,
+  // Raised to 1,290 kB for the control-app support/UI work that landed
+  // together: the OpenMouse AI chat overlay (AiOverlay.tsx with its topic
+  // flow and Discord fallback), the Discord-embed FeedbackDialog, the
+  // What's New Desktop-app dialog, the desktop-style AppSidebar /
+  // OverviewPage shell, and the ai.* + wn.* keys added across all nine
+  // locale tables. Those add ~21 kB of strings and UI to the measured
+  // aggregate (1,271.9 kB), leaving ~18 kB of headroom.
+  // Raised to 1,300 kB for swapping hand-rolled icons for lucide-react,
+  // tree-shaken per icon: the profile-row icons in icons.tsx
+  // (enable/disable, link/unlink, rename, running/activate, refresh, trash),
+  // the AppSidebar nav icons (home, mouse config, docs, what's new,
+  // feedback, settings, chevron), the AiOverlay launcher/close/header
+  // icons, and the OverviewPage icons (workspace tabs, device-tile stats,
+  // back/share/plus controls, and the add-device mouse/keyboard glyphs,
+  // which replace their old hand-drawn illustrations). The measured
+  // aggregate is 1,290.4 kB, leaving ~10 kB of headroom.
+  // Raised to 1,310 kB for the crowd-sourced device artwork system:
+  // ArtworkUploadDialog.tsx (drag-drop upload UI with verification
+  // states), artwork-verification.ts (canvas-based heuristic analysis),
+  // artwork-storage.ts (R2 API fetch + localStorage cache), Cloudflare
+  // Functions for R2 list/upload endpoints, and artwork.* i18n keys
+  // across all nine locale tables. Measured aggregate is ~1,305.5 kB.
+  // Raised to 1,345 kB for the in-app Mouse Test page: MouseTestPage.tsx
+  // (live polling-rate sampler, rolling chart canvas, DPI/battery device
+  // card, button tester), its Activity nav icon, and the test.* i18n keys
+  // across all nine locale tables. Measured aggregate is ~1,329.5 kB.
+  ".js": 1_345_000,
 };
 
 const ASSETS = join("dist", "assets");

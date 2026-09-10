@@ -39,6 +39,7 @@ jobs:
           const { dependencies = {} } = require("./package.json");
           const approved = {
             "@openmouse/protocol": "https://github.com/OpenMouse-Project/mouse-protocol.git",
+            "lucide-react": "^1.43.0",
             "preact": "^10.29.8",
           };
 

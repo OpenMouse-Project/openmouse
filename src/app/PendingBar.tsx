@@ -5,60 +5,46 @@ import { t } from "../i18n";
 
 export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { pending } = snapshot;
-  if (pending.suppressed) return null;
+  if (pending.suppressed || pending.count === 0) return null;
   const locale = snapshot.preferences.locale;
-  const idle = pending.count === 0;
+  const busy = pending.busy;
+  const label = pending.count === 1
+    ? t(locale, "pend.one")
+    : `${pending.count} ${t(locale, "pend.many")}`;
   return (
     <div
       id="pending-changes-bar"
-      className={`pending-bar${pending.busy ? " is-flashing" : ""}`}
+      className={`apply-bar${busy ? " is-applying" : ""}`}
       role="region"
       aria-label={t(locale, "pend.region")}
     >
-      <i className="lg-glass__refract" aria-hidden="true" />
-      <i className="lg-glass__tint" aria-hidden="true" />
-      <i className="lg-glass__specular" aria-hidden="true" />
-      <div className="pending-bar-inner">
-        <span className="pending-bar-progress" aria-hidden="true" />
-        <span className="pending-bar-dot" aria-hidden="true" />
-        <div className="pending-bar-copy">
-          <p className="overline">{t(locale, "pend.overline")}</p>
-          <strong id="pending-changes-count">
-            {idle ? t(locale, "pend.none") : pending.count === 1 ? t(locale, "pend.one") : `${pending.count} ${t(locale, "pend.many")}`}
-          </strong>
-          <small id="pending-changes-summary" role="status" aria-live="polite">
-            {pending.statusText
-              ?? (idle ? t(locale, "pend.idleHint") : pending.labels.join(" · "))}
-          </small>
-        </div>
-        <div className="pending-bar-actions">
-          <button
-            id="pending-revert"
-            className="pending-revert"
-            type="button"
-            disabled={idle || pending.busy}
-            onClick={control.revertPendingChanges}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3.5 8.5h11a5.5 5.5 0 0 1 0 11H8" />
-              <path d="M7.5 4 3 8.5 7.5 13" />
-            </svg>
-            <span>{t(locale, "pend.revert")}</span>
-          </button>
-          <button
-            id="pending-flash"
-            className="pending-flash"
-            type="button"
-            disabled={idle || pending.busy}
-            onClick={() => void control.flashPendingChanges()}
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M13.8 2 4 13.9h5.7L8.9 22 20 9.8h-6.1L13.8 2Z" />
-            </svg>
-            <i className="pending-spinner" aria-hidden="true" />
-            <span id="pending-flash-label">{pending.busy ? t(locale, "pend.applying") : t(locale, "pend.apply")}</span>
-          </button>
-        </div>
+      <span className="apply-bar-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3 2.5 20h19L12 3Z" />
+          <path d="M12 9.5v4M12 16.8v.2" />
+        </svg>
+        {label}
+        {pending.labels.length > 0 ? <em className="apply-bar-summary">{pending.labels.join(" · ")}</em> : null}
+      </span>
+      <div className="apply-bar-actions">
+        <button
+          id="pending-revert"
+          className="apply-bar-revert"
+          type="button"
+          disabled={busy}
+          onClick={control.revertPendingChanges}
+        >
+          {t(locale, "pend.revert")}
+        </button>
+        <button
+          id="pending-flash"
+          className="apply-bar-apply"
+          type="button"
+          disabled={busy}
+          onClick={() => void control.flashPendingChanges()}
+        >
+          {busy ? t(locale, "pend.applying") : t(locale, "pend.apply")}
+        </button>
       </div>
     </div>
   );
