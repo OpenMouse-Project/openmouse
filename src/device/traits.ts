@@ -56,6 +56,12 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // MCHOSE reads debounce and sleep from its config blob and writes both, but
   // it is not a direct-mode (CompX) driver, so it takes the plain flags.
   mchose: { advancedSection: true, sleep: true, debounce: true },
+  // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
+  // vendor protocol, not the CompX direct-mode transport, so it takes the
+  // plain flags rather than DIRECT_MODE (its advancedSection already comes
+  // from ui.showAdvancedSection, but sleep/debounce still need the flags
+  // here or the cards never render regardless of applyPulsarValue's list).
+  incott: { advancedSection: true, sleep: true, debounce: true },
   // HyperX publishes DPI, polling rate and lift-off in the settings grid only;
   // no signal, sleep or debounce card exists, and the processing card is
   // deliberately hidden, so no advanced-section flags are needed.
