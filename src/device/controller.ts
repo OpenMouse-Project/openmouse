@@ -22,7 +22,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "../pending-changes";
-import { deviceImage } from "../ui/device-images";
+import { deviceImage, loadCrowdArtworkCache, refreshCrowdArtworkCache } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
   isVxeR1SePlusReceiver,
@@ -132,6 +132,7 @@ import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
+import { WootingHidClient } from "@openmouse/protocol/drivers/wooting/hid";
 import {
   KEYCHRON_NAPE_KEYCODE,
   KEYCHRON_NAPE_KEY_CONTROLS,
@@ -147,6 +148,7 @@ import {
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
+import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
@@ -168,7 +170,7 @@ import type {
   WorkspaceTab,
 } from "./types";
 
-export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__BUILD_ID__ || __APP_VERSION__}`;
 const DEFAULT_TITLE = typeof document === "undefined" ? "OpenMouse Control" : document.title;
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const WLMOUSE_SLEEP_NEVER = 0xffff;
@@ -198,7 +200,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient] as const;
+const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -217,6 +219,7 @@ const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
+const incottClient = (): IncottHidClient | null => activeAs(IncottHidClient);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
@@ -239,19 +242,6 @@ let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
-// Anonymous "this model was seen" ping for the admin dashboard's "most used
-// mice" stat — one per model per page load, best-effort, never blocks or
-// throws into the caller.
-const reportedMouseModels = new Set<string>();
-function reportMouseUsage(mouseModel: string): void {
-  if (!mouseModel || reportedMouseModels.has(mouseModel)) return;
-  reportedMouseModels.add(mouseModel);
-  fetch("/api/telemetry/mouse-usage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mouseModel }),
-  }).catch(() => {});
-}
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 let latestDeviceStatus: MouseStatus | null = null;
@@ -262,7 +252,8 @@ let activationInProgress = false;
 let activationQueue: Promise<void> = Promise.resolve();
 let sidebarHidden = false;
 let interfaceSettingsOpen = false;
-let activeWorkspaceTab: WorkspaceTab = "performance";
+let activeWorkspaceTab: WorkspaceTab = "overview";
+let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
 let capabilities: DeviceCapabilities | null = null;
@@ -343,6 +334,21 @@ function batch(run: () => void): void {
   }
 }
 
+export function getActiveDevice(): HIDDevice | null {
+  return activeDevice;
+}
+
+export async function refreshArtwork(): Promise<void> {
+  // Re-fetch the crowd-artwork list before invalidating the memoized key —
+  // otherwise a just-uploaded image stays on the placeholder until the page
+  // is reloaded, since the cache this reads from is normally populated once
+  // at startup and never touched again.
+  await refreshCrowdArtworkCache();
+  artworkKey = null;
+  artworkValue = null;
+  emit();
+}
+
 function buildProfileView(): ProfileView {
   const entry = editedProfileEntry();
   const rates = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).reportRates : null;
@@ -403,6 +409,7 @@ function buildSnapshot(): ControlSnapshot {
     sidebarHidden,
     interfaceSettingsOpen,
     workspaceTab: activeWorkspaceTab,
+    deviceView: deviceListView,
     dpiOptions,
     customDpiEditing,
     customDpiText,
@@ -464,16 +471,16 @@ function setReadStatus(text: string): void {
 }
 
 const TOAST_TIMEOUT_MS: Record<ToastKind, number> = {
-  success: 4200,
-  info: 5200,
-  warning: 6500,
-  error: 8000,
+  success: 6000,
+  info: 7000,
+  warning: 9000,
+  error: 10000,
 };
 
 const TOAST_LIMIT = 4;
 const TOAST_EXIT_MS = 180;
 
-function pushToast(kind: ToastKind, title: string, detail?: string): void {
+export function pushToast(kind: ToastKind, title: string, detail?: string): void {
   const duplicate = toasts.findIndex((entry) => entry.kind === kind && entry.title === title);
   if (duplicate !== -1) toasts.splice(duplicate, 1);
 
@@ -1257,8 +1264,8 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
   configureProfileCapture(status);
   if (!diagnosticsOpen) return;
 
-  const device = activeDevice;
-  if (!device && !status && !lastDiagnosticError) {
+  const bundle = collectDiagnosticsSnapshot(status);
+  if (!bundle) {
     diagnosticsView = {
       overview: [],
       snapshot: "Connect a mouse to collect diagnostics.",
@@ -1269,6 +1276,24 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
     emit();
     return;
   }
+  diagnosticsView = {
+    overview: bundle.overview,
+    snapshot: JSON.stringify(bundle.snapshot, null, 2),
+    reads: renderReadTable(),
+    downloadReady: true,
+    downloadStatus: diagnosticDownloadStatus,
+  };
+  emit();
+}
+
+/** Builds (and caches) the diagnostic snapshot regardless of whether the
+    diagnostics panel is open, so support attachments work on demand. */
+function collectDiagnosticsSnapshot(status: MouseStatus | null): {
+  overview: Array<[string, string]>;
+  snapshot: Record<string, unknown>;
+} | null {
+  const device = activeDevice;
+  if (!device && !status && !lastDiagnosticError) return null;
   const driver = status
     ? (status.ui?.family ? `${status.brand} · ${status.ui.family}` : status.brand)
     : "No driver read this device";
@@ -1305,14 +1330,7 @@ function renderDeviceDiagnostics(status: MouseStatus | null): void {
     },
   };
   latestDiagnosticsSnapshot = collected;
-  diagnosticsView = {
-    overview,
-    snapshot: JSON.stringify(collected, null, 2),
-    reads: renderReadTable(),
-    downloadReady: true,
-    downloadStatus: diagnosticDownloadStatus,
-  };
-  emit();
+  return { overview, snapshot: collected };
 }
 
 function maskBytes(bytes: Uint8Array): string {
@@ -1385,7 +1403,9 @@ function diagnosticsLog(): object[] {
 
 /** Returns exactly the diagnostic object shown for consent before an upload. */
 export function supportDiagnosticBundle(): Record<string, unknown> | null {
-  if (!latestDiagnosticsSnapshot || !activeDevice) return null;
+  if (!activeDevice) return null;
+  if (!latestDiagnosticsSnapshot) collectDiagnosticsSnapshot(latestDiagnosticStatus);
+  if (!latestDiagnosticsSnapshot) return null;
   const rows = hidTraffic(activeDevice);
   return {
     ...latestDiagnosticsSnapshot,
@@ -1433,7 +1453,6 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDiagnosticStatus = deviceStatus;
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
-  reportMouseUsage(status.name);
 
   const battery = status.batteryPercent;
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
@@ -1485,6 +1504,13 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   emit();
 }
 
+function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
+  if (client instanceof KeychronNapeHidClient
+    || client instanceof WootingHidClient
+    || client instanceof WallhackKeyboardHidClient) return "keyboard";
+  return "mouse";
+}
+
 function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
   const supported = listLogicalDevices(devices);
   return supported.map((device, index) => {
@@ -1500,7 +1526,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const detail = status
       ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
       : `${deviceBrand(client)} · Available`;
-    return { index, name, detail, selected: device === activeDevice };
+    return { index, name, detail, selected: device === activeDevice, vendorId: device.vendorId, productId: device.productId, kind: sidebarEntryForm(client) };
   });
 }
 
@@ -1529,11 +1555,18 @@ function rememberActiveDevice(device: HIDDevice): void {
   }
 }
 
+async function waitForControllerIdle(): Promise<void> {
+  while (settingInProgress || refreshInProgress || activationInProgress) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+  }
+}
+
 export async function selectAuthorizedDevice(index: number): Promise<void> {
-  if (settingInProgress || refreshInProgress) return;
+  await waitForControllerIdle();
   const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
   const device = devices[index];
-  if (!device || device === activeDevice) return;
+  if (!device) return;
+  if (device === activeDevice && latestDeviceStatus !== null) return;
   const client = createSupportedClient(device);
   if (!client) return;
   deviceStatusText = st("ctl.switching");
@@ -1547,6 +1580,48 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
     toastForError("Connection failed", error);
     await refreshSidebar();
   }
+}
+
+/** Open the given device's dashboard from the picker, connecting it first when needed. */
+export async function openDeviceOverview(index: number): Promise<void> {
+  await waitForControllerIdle();
+  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  const device = devices[index];
+  if (!device) {
+    await connect();
+    return;
+  }
+  if (device === activeDevice && latestDeviceStatus !== null) {
+    deviceListView = "device";
+    activeWorkspaceTab = "overview";
+    emit();
+    return;
+  }
+  await selectAuthorizedDevice(index);
+  if (latestDeviceStatus !== null) {
+    deviceListView = "device";
+    activeWorkspaceTab = "overview";
+    emit();
+  }
+}
+
+/** Return from an opened device dashboard to the device picker. */
+export function showDeviceList(): void {
+  deviceListView = "list";
+  emit();
+}
+
+/** Open the connected device's dashboard from the sidebar. */
+export async function showDeviceDashboard(): Promise<void> {
+  await waitForControllerIdle();
+  if (latestDeviceStatus === null) {
+    deviceListView = "list";
+    emit();
+    return;
+  }
+  deviceListView = "device";
+  activeWorkspaceTab = "overview";
+  emit();
 }
 
 function statusNameForClient(client: SupportedClient): string {
@@ -1577,6 +1652,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   active = client;
+  activeWorkspaceTab = "overview";
 
   if (isEggWeClient(client)) await eggWePrepare(client);
   if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
@@ -3163,7 +3239,8 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient()
+    ?? incottClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3928,6 +4005,15 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
 
 export function start(): void {
   startHidCapture();
+  // A device can connect and render its (placeholder) artwork before this
+  // resolves — nothing here forced a re-render once it did, so the panel
+  // stayed on the placeholder until some unrelated status update happened
+  // to trigger one. Re-render as soon as the crowd list is actually in.
+  void loadCrowdArtworkCache().then(() => {
+    artworkKey = null;
+    artworkValue = null;
+    emit();
+  });
   onPendingChanges(() => {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
@@ -3954,9 +4040,22 @@ export function start(): void {
     emit();
   });
 
-  if (previewMode === "superstrike") showSuperstrikePreview();
-  else if (previewMode === "slots") showSlotsPreview();
-  else if (previewMode !== null) void showFixturePreview(previewMode);
+  if (previewMode === "superstrike") {
+    showSuperstrikePreview();
+    deviceListView = "device";
+    emit();
+  } else if (previewMode === "slots") {
+    showSlotsPreview();
+    deviceListView = "device";
+    emit();
+  } else if (previewMode !== null && previewMode !== "list") {
+    void showFixturePreview(previewMode).then(() => {
+      if (latestDeviceStatus !== null) deviceListView = "device";
+      emit();
+    });
+  } else if (previewMode === "list") {
+    void showFixturePreview("list");
+  }
 
   if (!isAnyPreview) {
     navigator.hid?.addEventListener("connect", handleHidConnect);

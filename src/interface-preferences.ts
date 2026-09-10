@@ -1,4 +1,5 @@
 export type InterfaceTheme =
+  | "Matt"
   | "Emerald"
   | "Violet"
   | "Ice"
@@ -9,7 +10,7 @@ export type InterfaceTheme =
   | "Catppuccin Macchiato"
   | "Catppuccin Frappé"
   | "NieR: Automata"
-  | "Liquid Glass";
+  | "Light";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
 export type InterfaceLocale = "en" | "pt" | "es" | "fr" | "de" | "zh" | "ja" | "ko" | "ru";
 
@@ -41,6 +42,7 @@ export interface InterfacePreferences {
 
 const STORAGE_KEY = "openmouse-interface-settings-v1";
 const THEMES: readonly InterfaceTheme[] = [
+  "Matt",
   "Emerald",
   "Violet",
   "Ice",
@@ -51,11 +53,11 @@ const THEMES: readonly InterfaceTheme[] = [
   "Catppuccin Macchiato",
   "Catppuccin Frappé",
   "NieR: Automata",
-  "Liquid Glass",
+  "Light",
 ];
 
 export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
-  theme: "Mono",
+  theme: "Emerald",
   colorMode: "System",
   locale: "en",
   reducedMotion: false,

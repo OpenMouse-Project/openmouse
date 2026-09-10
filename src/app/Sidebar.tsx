@@ -108,9 +108,6 @@ export function Sidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
   return (
     <aside className="sidebar">
-      <i className="lg-glass__refract" aria-hidden="true" />
-      <i className="lg-glass__tint" aria-hidden="true" />
-      <i className="lg-glass__specular" aria-hidden="true" />
       <span className="demo-wordmark">
         <img src="/logo.png" alt="" width={181} height={268} />
         OpenMouse
