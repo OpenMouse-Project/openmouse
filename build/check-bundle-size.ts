@@ -86,7 +86,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // (live polling-rate sampler, rolling chart canvas, DPI/battery device
   // card, button tester), its Activity nav icon, and the test.* i18n keys
   // across all nine locale tables. Measured aggregate is ~1,329.5 kB.
-  ".js": 1_345_000,
+  // Raised to 1,370 kB for the HyperX and Incott drivers: both register in
+  // registry.ts/vendors.ts, and the Incott one brings a full vendor codec
+  // plus applyPulsarValue/traits/device-images wiring. Measured aggregate
+  // is 1,351.0 kB, leaving ~19 kB of headroom.
+  ".js": 1_370_000,
 };
 
 const ASSETS = join("dist", "assets");
