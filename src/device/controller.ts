@@ -182,6 +182,9 @@ export const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
 const BACKGROUND = "Background refresh";
 const FLASH_STEP_DELAY_MS = 420;
 const FLASH_SETTLE_MS = 320;
+// Longest a flash waits for an in-flight device refresh before giving up
+// instead of busy-waiting forever.
+const REFRESH_WAIT_TIMEOUT_MS = 2000;
 
 const previewModeEnabled = previewsEnabled(__BUILD_CHANNEL__, import.meta.env.DEV);
 const previewMode = previewModeEnabled
@@ -257,6 +260,9 @@ let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
+// Set when Apply is clicked while a flash is already writing: the running
+// flash performs one more pass at the end instead of swallowing the click.
+let flashQueued = false;
 let capabilities: DeviceCapabilities | null = null;
 let sidebarDevices: SidebarDevice[] = [];
 let lastSleepSeconds = 60;
@@ -1047,20 +1053,32 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 
 export async function flashPendingChanges(): Promise<void> {
   const batches = pendingChangeBatches();
-  if (batches.length === 0 || settingInProgress) return;
+  if (batches.length === 0) return;
+  if (settingInProgress) {
+    flashQueued = true;
+    setReadStatus(st("ctl.waitFlash"));
+    return;
+  }
   settingInProgress = true;
   pendingBusy = true;
   emit();
+  let written = 0;
+  let failure: string | null = null;
   if (refreshInProgress) {
     pendingStatusText = st("ctl.waitRefresh");
     readStatus = pendingStatusText;
     emit();
-    while (refreshInProgress) await wait(25);
+    const refreshDeadline = Date.now() + REFRESH_WAIT_TIMEOUT_MS;
+    while (refreshInProgress && Date.now() <= refreshDeadline) await wait(25);
+    if (refreshInProgress) {
+      const timeout = new Error("Timed out waiting for the device refresh.");
+      recordDiagnosticError(timeout, st("ctl.unableFlash"));
+      failure = timeout.message;
+    }
   }
-  let written = 0;
-  let failure: string | null = null;
   try {
     for (const batch of batches) {
+      if (failure) break;
       const writer = batch[batch.length - 1];
       if (!writer) continue;
       pendingStatusText = `${writer.progress} (${written + 1} of ${batches.length})`;
@@ -1082,6 +1100,10 @@ export async function flashPendingChanges(): Promise<void> {
   if (status) applyStatus(status);
   endDeviceWrite();
   pendingBusy = false;
+  if (flashQueued) {
+    flashQueued = false;
+    if (hasPendingChanges()) return flashPendingChanges();
+  }
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
