@@ -96,7 +96,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // new protocol-side driver grows this bundle even before any app code
   // references it directly. Measured aggregate is 1,386.8 kB, leaving ~23 kB
   // of headroom for the VXE app-side integration PR.
-  ".js": 1_410_000,
+  // Raised to 1,465 kB for the Vietnamese (vi) interface locale landing on
+  // top of that: same lazy-chunk pattern as the other non-English tables
+  // (i18n-vi-*.js, loaded only when selected), adding ~47 kB.
+  ".js": 1_465_000,
 };
 
 const ASSETS = join("dist", "assets");

@@ -16,7 +16,7 @@ import {
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
-import { t, connectionText, type I18nKey } from "../i18n";
+import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
@@ -417,9 +417,11 @@ export function Workspace({
       {!anyPanel ? (
         <section id="workspace-tab-empty" className="workspace-tab-empty device-data" role="tabpanel">
           <p id="workspace-tab-empty-title">
-            {`${tab[0].toUpperCase()}${tab.slice(1)}`} controls are not available for this mouse.
+            {tp(locale, "tab.unavailable", {
+              tab: t(locale, `tab.${tab}` as I18nKey),
+            })}
           </p>
-          <small>Choose another tab to continue configuring the device.</small>
+          <small>{t(locale, "tab.chooseAnother")}</small>
         </section>
       ) : null}
 
