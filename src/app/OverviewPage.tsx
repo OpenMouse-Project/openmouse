@@ -48,6 +48,7 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
+import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
 import { ArtworkUploadDialog } from "./ArtworkUploadDialog";
@@ -371,9 +372,9 @@ export function Workspace({
     show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
     show(has.powerMode, ["performance"])
       ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
-    show(has.buttonMapping, ["buttons"])
+    show(has.buttonMapping && !snapshot.traits.teevolution, ["buttons"])
       ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
-    show(has.onboardProfiles, ["profiles"])
+    show(has.onboardProfiles && !snapshot.traits.teevolution, ["profiles"])
       ? <OnboardProfileCard key="onboard-profile" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
@@ -387,6 +388,7 @@ export function Workspace({
   ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
+  const showTeevolutionProfiles = show(snapshot.traits.teevolution && has.onboardProfiles, ["profiles"]);
   const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
   const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
@@ -396,8 +398,8 @@ export function Workspace({
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
-    || showProfiles || showNapeLayers || showSuperstrike || showLogitechDetails || showMxMaster
-    || showDiagnostics || showOverview;
+    || showProfiles || showTeevolutionProfiles || showNapeLayers || showSuperstrike
+    || showLogitechDetails || showMxMaster || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
   const stagesAvailable = Boolean(status.ui?.dpiStageEditor)
@@ -422,6 +424,7 @@ export function Workspace({
       ) : null}
 
       {showProfiles ? <Profiles snapshot={snapshot} /> : null}
+      {showTeevolutionProfiles ? <TeevolutionProfileCard snapshot={snapshot} /> : null}
       {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
       {performance.length > 0 ? (

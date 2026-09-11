@@ -466,6 +466,7 @@ const TEEVOLUTION: MouseStatus = {
   pollingRateHz: 1000,
   supportedPollingRates: [125, 250, 500, 1000],
   activeProfile: 1,
+  profileCount: 4,
   liftOffDistance: "Medium",
   connectionType: "Wireless",
   connectionDetail: "CID 1 · MID 2 · Type 3",
@@ -481,6 +482,27 @@ const TEEVOLUTION: MouseStatus = {
   debounceMs: 4,
   sleepTimeout: 60,
   firmware: ["1.0.2"],
+  buttonMappings: {
+    Left: "Left Click",
+    Right: "Right Click",
+    Middle: "Middle Click",
+    Back: "Backward",
+    Forward: "Forward",
+    DPI: "DPI Loop",
+  },
+  buttonOptions: [
+    "Left Click",
+    "Right Click",
+    "Middle Click",
+    "Backward",
+    "Forward",
+    "DPI Loop",
+    "DPI+",
+    "DPI-",
+    "Scroll Left",
+    "Scroll Right",
+    "Disable",
+  ],
 };
 
 const VGN: MouseStatus = {
