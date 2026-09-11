@@ -38,7 +38,21 @@ export function App(): ReactNode {
 
   useEffect(() => {
     try {
-      document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+      const htmlLang: Record<typeof locale, string> = {
+        pt: "pt-BR",
+        es: "es",
+        fr: "fr",
+        de: "de",
+        zh: "zh-CN",
+        ja: "ja",
+        ko: "ko",
+        ru: "ru",
+        en: "en",
+      };
+      const nextLang = htmlLang[locale] ?? "en";
+      if (document.documentElement.lang !== nextLang) {
+        document.documentElement.lang = nextLang;
+      }
     } catch {
       /* non-DOM environment (tests) */
     }
