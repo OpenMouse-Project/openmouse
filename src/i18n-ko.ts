@@ -114,6 +114,7 @@ export const ko: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "모션",
   "set.animations": "애니메이션",
   "set.animationsBody": "인터페이스 전환 효과와 애니메이션 상태 변화를 활성화합니다.",
@@ -930,4 +931,7 @@ export const ko: Record<I18nKey, string> = {
   "adm.loadFail": "통계를 불러올 수 없습니다.",
   "adm.viewsWord": "조회수",
   "adm.peakConcurrent": "동시 접속 최고치 {n}",
+
+  "tab.unavailable": "이 장치에서는 {tab} 설정을 사용할 수 없습니다.",
+  "tab.chooseAnother": "다른 탭을 선택해 장치 설정을 계속하세요.",
 };

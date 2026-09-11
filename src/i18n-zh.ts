@@ -114,6 +114,7 @@ export const zh: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "动效",
   "set.animations": "动画",
   "set.animationsBody": "启用界面过渡效果和动态状态变化。",
@@ -930,4 +931,7 @@ export const zh: Record<I18nKey, string> = {
   "adm.loadFail": "无法加载统计信息。",
   "adm.viewsWord": "访问量",
   "adm.peakConcurrent": "峰值同时在线 {n}",
+
+  "tab.unavailable": "此设备不支持 {tab} 控制项。",
+  "tab.chooseAnother": "请选择其他标签页以继续配置设备。",
 };

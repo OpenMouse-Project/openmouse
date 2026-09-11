@@ -20,8 +20,8 @@ export function unsupportedNotice(env: BrowserEnvironment): UnsupportedNotice | 
   }
   if (!env.chromium) {
     return {
-      headline: "Use a Chromium browser.",
-      detail: "OpenMouse needs WebHID. Try Chrome, Edge, or Helium.",
+      headline: "Install Bridge, or use a Chromium browser.",
+      detail: "This browser has no WebHID. OpenMouse Bridge gives it native access to your mouse; without it, use Chrome, Edge, or Helium.",
     };
   }
   if (!env.secureContext) {

@@ -168,7 +168,9 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const { traits, capabilities } = snapshot;
   const keychronSleep = status.ui?.family === "keychron-nape";
 
-  let options: ReadonlyArray<readonly [number, string]> = PULSAR_SLEEP_OPTIONS;
+  let options: ReadonlyArray<readonly [number, string]> = PULSAR_SLEEP_OPTIONS.map(
+  ([value]) => [value, sleepLabel(value * 10, locale)] as const,
+  );
   // A driver that publishes its own timeouts wins over the Pulsar-unit default,
   // whether or not it is a direct-mode driver.
   if (!keychronSleep && (traits.directMode || capabilities?.sleepOptions)) {

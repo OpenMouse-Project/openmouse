@@ -1,4 +1,4 @@
-import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "../battery-history";
+import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -182,6 +182,9 @@ export const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
 const BACKGROUND = "Background refresh";
 const FLASH_STEP_DELAY_MS = 420;
 const FLASH_SETTLE_MS = 320;
+// Longest a flash waits for an in-flight device refresh before giving up
+// instead of busy-waiting forever.
+const REFRESH_WAIT_TIMEOUT_MS = 2000;
 
 const previewModeEnabled = previewsEnabled(__BUILD_CHANNEL__, import.meta.env.DEV);
 const previewMode = previewModeEnabled
@@ -220,6 +223,7 @@ const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHi
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
+const keychronM6Client = (): KeychronM6HidClient | null => activeAs(KeychronM6HidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
 const incottClient = (): IncottHidClient | null => activeAs(IncottHidClient);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
@@ -258,6 +262,9 @@ let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
+// Set when Apply is clicked while a flash is already writing: the running
+// flash performs one more pass at the end instead of swallowing the click.
+let flashQueued = false;
 let capabilities: DeviceCapabilities | null = null;
 let sidebarDevices: SidebarDevice[] = [];
 let lastSleepSeconds = 60;
@@ -621,12 +628,20 @@ function queueInstantFlash(): void {
   });
 }
 
+// Baseline serialization of the last seen device status. stageChange calls
+// matchesDeviceStatus on every edit while the status object stays identical,
+// so reusing it halves the serialization cost (one stringify, not two).
+let matchesBaseline: { status: MouseStatus; json: string } | null = null;
+
 function matchesDeviceStatus(change: PendingChange): boolean {
   if (!latestDeviceStatus) return false;
   if (!change.preview) return false;
+  if (matchesBaseline?.status !== latestDeviceStatus) {
+    matchesBaseline = { status: latestDeviceStatus, json: JSON.stringify(latestDeviceStatus) };
+  }
   const preview = structuredClone(latestDeviceStatus);
   change.preview(preview);
-  return JSON.stringify(preview) === JSON.stringify(latestDeviceStatus);
+  return JSON.stringify(preview) === matchesBaseline.json;
 }
 
 export function revertPendingChanges(): void {
@@ -1040,20 +1055,32 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 
 export async function flashPendingChanges(): Promise<void> {
   const batches = pendingChangeBatches();
-  if (batches.length === 0 || settingInProgress) return;
+  if (batches.length === 0) return;
+  if (settingInProgress) {
+    flashQueued = true;
+    setReadStatus(st("ctl.waitFlash"));
+    return;
+  }
   settingInProgress = true;
   pendingBusy = true;
   emit();
+  let written = 0;
+  let failure: string | null = null;
   if (refreshInProgress) {
     pendingStatusText = st("ctl.waitRefresh");
     readStatus = pendingStatusText;
     emit();
-    while (refreshInProgress) await wait(25);
+    const refreshDeadline = Date.now() + REFRESH_WAIT_TIMEOUT_MS;
+    while (refreshInProgress && Date.now() <= refreshDeadline) await wait(25);
+    if (refreshInProgress) {
+      const timeout = new Error("Timed out waiting for the device refresh.");
+      recordDiagnosticError(timeout, st("ctl.unableFlash"));
+      failure = timeout.message;
+    }
   }
-  let written = 0;
-  let failure: string | null = null;
   try {
     for (const batch of batches) {
+      if (failure) break;
       const writer = batch[batch.length - 1];
       if (!writer) continue;
       pendingStatusText = `${writer.progress} (${written + 1} of ${batches.length})`;
@@ -1075,6 +1102,10 @@ export async function flashPendingChanges(): Promise<void> {
   if (status) applyStatus(status);
   endDeviceWrite();
   pendingBusy = false;
+  if (flashQueued) {
+    flashQueued = false;
+    if (hasPendingChanges()) return flashPendingChanges();
+  }
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
@@ -1168,7 +1199,7 @@ export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
   const now = Date.now();
-  const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
+  const samples = cachedBatterySamples(localStorage, status.name, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
   const state = batteryStateText(locale, status.batteryState);
@@ -1453,6 +1484,12 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
+  // Battery samples are recorded at device-update cadence; renders read the
+  // cache via batteryDetail instead of touching storage on every frame.
+  const sampleMode = batteryMode(deviceStatus.batteryState);
+  if (deviceStatus.batteryPercent !== null && sampleMode) {
+    recordBatterySample(localStorage, deviceStatus.name, deviceStatus.batteryPercent, sampleMode, Date.now());
+  }
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
 
@@ -3241,7 +3278,7 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient()
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? wallhackMouseClient()
     ?? incottClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({

@@ -114,6 +114,7 @@ export const ja: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "モーション",
   "set.animations": "アニメーション",
   "set.animationsBody": "インターフェースの遷移とアニメーション付き状態変化を有効にします。",
@@ -930,4 +931,7 @@ export const ja: Record<I18nKey, string> = {
   "adm.loadFail": "統計情報を読み込めませんでした。",
   "adm.viewsWord": "閲覧数",
   "adm.peakConcurrent": "同時接続ピーク{n}",
+
+  "tab.unavailable": "このデバイスでは{tab}の設定を利用できません。",
+  "tab.chooseAnother": "別のタブを選択してデバイスの設定を続けてください。",
 };
