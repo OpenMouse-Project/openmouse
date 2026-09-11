@@ -1000,7 +1000,13 @@ export function t(locale: InterfaceLocale, key: I18nKey): string {
 
 /** Translate a template with {placeholders}. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
-  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? ""));
+  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
+    const value = vars[name];
+    if (value === undefined && import.meta.env?.DEV === true) {
+      console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
+    }
+    return String(value ?? "");
+  });
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */
