@@ -3111,6 +3111,10 @@ export function setProfileReportRate(link: "wireless" | "wired", hz: number): vo
 
 export function applyPollingRate(rate: number): void {
   if (!hasActiveClient()) return;
+  // The slider only offers device-advertised rates (or RATE_STEPS_HZ); anything
+  // else arrives from an imported profile key, so reject it before staging.
+  const allowed = latestDeviceStatus?.supportedPollingRates ?? RATE_STEPS_HZ;
+  if (!Number.isInteger(rate) || !allowed.includes(rate)) return;
   stageChange({
     key: "polling-rate",
     label: `${rate.toLocaleString()} Hz`,
