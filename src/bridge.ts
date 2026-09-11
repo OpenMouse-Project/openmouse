@@ -1,5 +1,9 @@
 const BRIDGE_URL = "http://127.0.0.1:17846";
 const BRIDGE_TIMEOUT_MS = 1_500;
+// Native settings writes go through a real hardware channel Bridge alone can
+// reach (e.g. a libusb claim on an interface WebHID cannot see), so they get
+// a much longer budget than the plain REST calls above.
+const BRIDGE_NATIVE_TIMEOUT_MS = 12_000;
 
 export interface BridgeStatus {
   version: string;
@@ -94,8 +98,33 @@ export async function saveBridgeBattery(
   }, signal);
 }
 
-async function bridgeRequest<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
-  const timeout = AbortSignal.timeout(BRIDGE_TIMEOUT_MS);
+/**
+ * Ask Bridge to apply settings on a device it controls natively, bypassing
+ * WebHID entirely (e.g. the Attack Shark X11 family, whose config channel is
+ * an interface a browser is never allowed to open — see
+ * `attackSharkNativeOnlyMessage` in @openmouse/protocol). Bridge itself claims
+ * the hardware and applies the change, which can take longer than a normal
+ * status round-trip.
+ */
+export async function applyBridgeNativeSettings(settings: {
+  brand: string;
+  dpi?: number;
+  pollingRateHz?: number;
+}): Promise<void> {
+  await bridgeRequest("/v1/native/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  }, undefined, BRIDGE_NATIVE_TIMEOUT_MS);
+}
+
+async function bridgeRequest<T>(
+  path: string,
+  init?: RequestInit,
+  signal?: AbortSignal,
+  timeoutMs = BRIDGE_TIMEOUT_MS,
+): Promise<T> {
+  const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const response = await fetch(`${BRIDGE_URL}${path}`, {
     headers: { Accept: "application/json" },
