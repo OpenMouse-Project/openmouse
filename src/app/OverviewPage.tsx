@@ -1,7 +1,22 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import {
+  ArrowLeft,
+  BarChart3,
+  Clock,
+  Gauge,
+  Layers,
+  Lightbulb,
+  MousePointerClick,
+  Plus,
+  Settings2,
+  Share2,
+  Upload,
+  Wifi,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
-import { t, connectionText, type I18nKey } from "../i18n";
+import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
@@ -33,46 +48,28 @@ import {
   TeevolutionDpiLightingCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
-import { deviceImage } from "../ui/device-images";
+import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
+import { deviceImage, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
+import { ArtworkUploadDialog } from "./ArtworkUploadDialog";
 import type { MouseStatus } from "@openmouse/protocol/drivers";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
 }
 
-const TAB_ICON_PATH: Record<WorkspaceTab, ReactNode> = {
-  overview: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-.1 4.1h.2M12 10v6" />,
-  performance: (
-    <path d="M2 5h20M4 5v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V5M2 18h20M9 5v13" />
-  ),
-  lighting: (
-    <>
-      <path d="M9 18h6M10 21h4" />
-      <path d="M12 3a6 6 0 0 0-3.6 10.8c.9.7 1.6 1.6 1.6 2.2h4c0-.6.7-1.5 1.6-2.2A6 6 0 0 0 12 3Z" />
-    </>
-  ),
-  buttons: <path d="M4 5v14M20 5v14M4 12h16M8 19h8" />,
-  profiles: (
-    <>
-      <path d="m12 3 9 5-9 5-9-5Z" />
-      <path d="m3 13 9 5 9-5M3 18l9 5 9-5" />
-    </>
-  ),
-  advanced: (
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" />
-    </>
-  ),
+const TAB_ICON: Record<WorkspaceTab, LucideIcon> = {
+  overview: Gauge,
+  performance: BarChart3,
+  lighting: Lightbulb,
+  buttons: MousePointerClick,
+  profiles: Layers,
+  advanced: Settings2,
 };
 
 function TabIcon({ tab }: { tab: WorkspaceTab }): ReactNode {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {TAB_ICON_PATH[tab]}
-    </svg>
-  );
+  const Icon = TAB_ICON[tab];
+  return <Icon size={13} strokeWidth={1.8} aria-hidden="true" />;
 }
 
 function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
@@ -80,6 +77,16 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const activeDevice = control.getActiveDevice();
+  const needsArtwork = activeDevice && (
+    imageFailed || isUnknownDevice(
+      { vendorId: activeDevice.vendorId, productId: activeDevice.productId } as HIDDevice,
+      status.name,
+    )
+  );
 
   return (
     <div className="device-showcase">
@@ -91,11 +98,9 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             className="device-showcase-image"
             src={image}
             onError={(event) => {
-              // Some drivers resolve to artwork that hasn't been uploaded to
-              // the R2 bucket yet (see public/devices/README.md); fall back to
-              // the generic placeholder instead of dropping the thumbnail.
               event.currentTarget.onerror = null;
               event.currentTarget.src = deviceImage(null);
+              setImageFailed(true);
             }}
             alt={status.name}
           />
@@ -117,6 +122,29 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           </span>
         ) : null}
       </div>
+      {needsArtwork ? (
+        <button
+          type="button"
+          className="artwork-upload-trigger"
+          onClick={() => setShowUploadDialog(true)}
+        >
+          <Upload size={14} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "artwork.upload" as I18nKey)}
+        </button>
+      ) : null}
+      {activeDevice ? (
+        <ArtworkUploadDialog
+          isOpen={showUploadDialog}
+          onClose={() => setShowUploadDialog(false)}
+          locale={locale}
+          vendorId={activeDevice.vendorId}
+          productId={activeDevice.productId}
+          displayName={status.name}
+          onArtworkUploaded={() => {
+            control.refreshArtwork();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -209,6 +237,63 @@ function DeviceInfoGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
+const SHOWCASE_IMAGES = showcaseDeviceImageUrls();
+const SHOWCASE_INTERVAL_MS = 3800;
+
+function MouseArtworkShowcase({ reducedMotion }: { reducedMotion: boolean }): ReactNode {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (reducedMotion || SHOWCASE_IMAGES.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((current) => (current + 1) % SHOWCASE_IMAGES.length);
+    }, SHOWCASE_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [reducedMotion]);
+
+  return (
+    <div className="add-device-mouse-showcase">
+      {SHOWCASE_IMAGES.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          draggable={false}
+          className={`add-device-mouse-showcase-frame${i === index ? " is-active" : ""}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AddDeviceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const locale = snapshot.preferences.locale;
+  const [busy, setBusy] = useState(false);
+  const label = busy ? t(locale, "conn.connecting") : t(locale, "conn.addMouse");
+  const disabled = busy || snapshot.connectDisabled;
+  return (
+    <div className={`device-tile add-device-tile${busy ? " is-busy" : ""}`} aria-label={label}>
+      <span className="device-tile-name">{label}</span>
+      <div className="device-tile-visual" aria-hidden="true">
+        <MouseArtworkShowcase reducedMotion={snapshot.preferences.reducedMotion} />
+      </div>
+      <button
+        type="button"
+        className="add-device-button"
+        disabled={disabled}
+        onClick={() => {
+          if (busy) return;
+          setBusy(true);
+          void control.connect().finally(() => setBusy(false));
+        }}
+      >
+        <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+        {label}
+      </button>
+    </div>
+  );
+}
+
 function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapshot; compact?: boolean }): ReactNode {
   const locale = snapshot.preferences.locale;
   return (
@@ -219,6 +304,11 @@ function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapsho
       <div className="welcome-hero">
         <h2 className="welcome-title">{t(locale, "empty.title")}</h2>
         <p className="welcome-body">{t(locale, "empty.body")}</p>
+        {!compact ? (
+          <div className="add-device-grid">
+            <AddDeviceCard snapshot={snapshot} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -282,9 +372,9 @@ export function Workspace({
     show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
     show(has.powerMode, ["performance"])
       ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
-    show(has.buttonMapping, ["buttons"])
+    show(has.buttonMapping && !snapshot.traits.teevolution, ["buttons"])
       ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
-    show(has.onboardProfiles, ["profiles"])
+    show(has.onboardProfiles && !snapshot.traits.teevolution, ["profiles"])
       ? <OnboardProfileCard key="onboard-profile" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
@@ -298,6 +388,7 @@ export function Workspace({
   ].filter((node) => node !== null);
 
   const showProfiles = show(has.profiles, ["profiles"]);
+  const showTeevolutionProfiles = show(snapshot.traits.teevolution && has.onboardProfiles, ["profiles"]);
   const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
   const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
@@ -307,8 +398,8 @@ export function Workspace({
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
-    || showProfiles || showNapeLayers || showSuperstrike || showLogitechDetails || showMxMaster
-    || showDiagnostics || showOverview;
+    || showProfiles || showTeevolutionProfiles || showNapeLayers || showSuperstrike
+    || showLogitechDetails || showMxMaster || showDiagnostics || showOverview;
 
   const slotsAvailable = snapshot.profile.slotsAvailable;
   const stagesAvailable = Boolean(status.ui?.dpiStageEditor)
@@ -326,13 +417,16 @@ export function Workspace({
       {!anyPanel ? (
         <section id="workspace-tab-empty" className="workspace-tab-empty device-data" role="tabpanel">
           <p id="workspace-tab-empty-title">
-            {`${tab[0].toUpperCase()}${tab.slice(1)}`} controls are not available for this mouse.
+            {tp(locale, "tab.unavailable", {
+              tab: t(locale, `tab.${tab}` as I18nKey),
+            })}
           </p>
-          <small>Choose another tab to continue configuring the device.</small>
+          <small>{t(locale, "tab.chooseAnother")}</small>
         </section>
       ) : null}
 
       {showProfiles ? <Profiles snapshot={snapshot} /> : null}
+      {showTeevolutionProfiles ? <TeevolutionProfileCard snapshot={snapshot} /> : null}
       {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
       {performance.length > 0 ? (
@@ -402,15 +496,14 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const devices = snapshot.devices;
   const locale = snapshot.preferences.locale;
 
+  if (devices.length === 0) {
+    return <OverviewEmpty snapshot={snapshot} />;
+  }
+
   return (
     <div className="welcome-with-devices">
-      <OverviewEmpty snapshot={snapshot} compact={devices.length > 0} />
-      {devices.length > 0 ? (
-        <section className="detected-devices" aria-label={t(locale, "side.connectedDevices")}>
-          <div className="detected-devices-head">
-            <h2 className="page-title detected-devices-title">{t(locale, "side.connectedDevices")}</h2>
-          </div>
-          <ul className="device-grid">
+      <section className="detected-devices" aria-label={t(locale, "side.connectedDevices")}>
+        <ul className="device-grid">
             {(() => {
               const ordered = devices.slice();
               const connectedIndex = ordered.findIndex((device) => device.selected);
@@ -441,16 +534,10 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                   <span className="device-tile-name">{device.name}</span>
                   <div className="device-tile-stats" aria-label="Device status">
                     <span className="device-tile-stat">
-                      <svg className="device-tile-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <path d="M4 11.5a8.5 8.5 0 0 1 16 0M7.5 14.8a5 5 0 0 1 9 0" />
-                        <circle cx="12" cy="18.4" r="1.2" fill="currentColor" />
-                      </svg>
+                      <Wifi className="device-tile-stat-icon" strokeWidth={2} aria-hidden="true" />
                     </span>
                     <span className="device-tile-stat">
-                      <svg className="device-tile-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" />
-                        <path d="M12 8v4.2l2.5 1.5" />
-                      </svg>
+                      <Clock className="device-tile-stat-icon" strokeWidth={1.8} aria-hidden="true" />
                       <span className="device-tile-stat-text">{pollText}</span>
                     </span>
                     <span className="device-tile-stat">
@@ -484,18 +571,17 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                       void control.openDeviceOverview(device.index);
                     }}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
-                    </svg>
+                    <Settings2 size={16} strokeWidth={1.7} aria-hidden="true" />
                   </button>
                 </li>
               );
             });
             })()}
+            <li key="add-mouse">
+              <AddDeviceCard snapshot={snapshot} />
+            </li>
           </ul>
         </section>
-      ) : null}
     </div>
   );
 }
@@ -513,20 +599,6 @@ export function OverviewPage({
   const panel = useRef<HTMLElement>(null);
   const { preferences } = snapshot;
   const locale = preferences.locale;
-
-  useEffect(() => {
-    const element = panel.current?.closest<HTMLElement>(".full-desktop-content");
-    if (!element) return;
-    const onWheel = (event: WheelEvent): void => {
-      const target = panel.current;
-      const source = event.target as Element;
-      if (!target || target.contains(source) || source.closest("dialog") || event.deltaY === 0) return;
-      target.scrollTop += event.deltaY;
-      event.preventDefault();
-    };
-    element.addEventListener("wheel", onWheel, { passive: false });
-    return () => element.removeEventListener("wheel", onWheel);
-  }, []);
 
   useEffect(() => {
     const scrollTarget = panel.current?.closest<HTMLElement>(".full-desktop-content") ?? panel.current;
@@ -579,9 +651,7 @@ export function OverviewPage({
               className="device-tab-back"
               onClick={() => control.showDeviceList()}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
+              <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
               {t(locale, "common.back")}
             </button>
             {tabs.map((tab) => (
@@ -605,9 +675,7 @@ export function OverviewPage({
               className="device-tab-back device-tab-back-right"
               onClick={onShareProfile}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 7h12v10H4zM16 9h3v6h-3" />
-              </svg>
+              <Share2 size={13} strokeWidth={1.8} aria-hidden="true" />
               {t(locale, "panel.shareProfile")}
             </button>
           </nav>

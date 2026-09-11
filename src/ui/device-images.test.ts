@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { deviceImage } from "./device-images.ts";
 
-const CDN = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
+const CDN = "https://img.openmouse.app/";
 
 const hid = (productId: number): HIDDevice => ({ vendorId: 0x046d, productId } as HIDDevice);
 
@@ -59,6 +59,23 @@ test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
   assert.equal(deviceImage(null, "Pulsar 4K Wireless Receiver"), CDN + "pulsar-x2-v2.png");
   assert.equal(deviceImage(null, "Pulsar X2 V2"), CDN + "pulsar-x2-v2.png");
   assert.equal(deviceImage(null, "Pulsar X2 V2 Pro"), CDN + "pulsar-x2-v2.png");
+});
+
+test("VXE R1 family transports and names share one shell render", () => {
+  const vxe = (vendorId: number, productId: number): HIDDevice =>
+    ({ vendorId, productId } as HIDDevice);
+
+  assert.equal(deviceImage(vxe(0x3554, 0xf58a)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58c)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58e)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x3554, 0xf58f)), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(vxe(0x373b, 0x1085)), CDN + "vxe-r1-series.png");
+
+  assert.equal(deviceImage(null, "VXE R1"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 SE"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 SE+"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro"), CDN + "vxe-r1-series.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro Max"), CDN + "vxe-r1-series.png");
 });
 
 test("Attack Shark R5 Ultra wired and wireless share the same artwork", () => {
@@ -236,4 +253,24 @@ test("K-snake X11 wired and dongle share the same artwork", () => {
 test("Attack Shark X11 does not inherit K-snake artwork", () => {
   assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "unknown-device.png");
+});
+
+test("the MCHOSE A7 V3 family gets its own render, not the V2's", () => {
+  const mchose = (productId: number): HIDDevice =>
+    ({ vendorId: 0x3837, productId } as HIDDevice);
+
+  for (const productId of [0x4030, 0x4031, 0x4032, 0x4033]) {
+    assert.equal(deviceImage(mchose(productId)), CDN + "mchose-a7-v3.png");
+  }
+  assert.equal(deviceImage(mchose(0x4021)), CDN + "mchose-a7-v2.png");
+
+  // The V3 receivers are shared with the K5, R7 and A5 V3, so mapping them to
+  // an A7 render would put the wrong mouse on screen for those owners.
+  assert.equal(deviceImage(mchose(0x1014)), CDN + "unknown-device.png");
+  assert.equal(deviceImage(mchose(0x1018)), CDN + "unknown-device.png");
+});
+
+test("an A7 V3 name is not swallowed by the A7 V2 fallback", () => {
+  assert.equal(deviceImage(null, "MCHOSE A7 V3 Ultra+"), CDN + "mchose-a7-v3.png");
+  assert.equal(deviceImage(null, "MCHOSE A7 V2 Ultra+"), CDN + "mchose-a7-v2.png");
 });

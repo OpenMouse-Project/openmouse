@@ -1,0 +1,64 @@
+name: Discord Changelog
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Push changelog to Discord
+        if: github.event_name == 'push'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CHANGELOG_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          pushed=$(jq '.commits | length' "$GITHUB_EVENT_PATH")
+          author=$(jq -r '.head_commit.author.name // "Unknown"' "$GITHUB_EVENT_PATH")
+          version=$(jq -r '.version' package.json | cut -d. -f1-2)
+          build=$(git rev-list --count HEAD)
+          list=$(jq -r '[.commits[] | "- **" + .author.name + ":** " + (.message | split("\n")[0])] | join("\n")' "$GITHUB_EVENT_PATH" | head -c 3800)
+          jq -n \
+            --arg title "New push to OpenMouse Web · Beta $version.$build" \
+            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
+            --arg author "$author" \
+            --arg desc "$list" \
+            --arg footer "$pushed commit(s) · $GITHUB_REPOSITORY" \
+            --argjson color 6151817 \
+            '{embeds:[{title:$title,url:$url,description:$desc,color:$color,author:{name:$author},footer:{text:$footer},timestamp:(now|todate)}]}' \
+            > payload.json
+          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK" || true
+
+      - name: Pull request changelog to Discord
+        if: github.event_name == 'pull_request'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CHANGELOG_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          number=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+          title=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+          body=$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" | head -c 2800)
+          user=$(jq -r '.pull_request.user.login // "Unknown"' "$GITHUB_EVENT_PATH")
+          adds=$(jq -r '.pull_request.additions // 0' "$GITHUB_EVENT_PATH")
+          dels=$(jq -r '.pull_request.deletions // 0' "$GITHUB_EVENT_PATH")
+          files=$(jq -r '.pull_request.changed_files // 0' "$GITHUB_EVENT_PATH")
+          jq -n \
+            --arg title "PR #$number · $title" \
+            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$number" \
+            --arg author "$user" \
+            --arg desc "$body" \
+            --arg footer "$files files · +$adds −$dels · $GITHUB_REPOSITORY" \
+            --argjson color 6151817 \
+            '{embeds:[{title:$title,url:$url,description:$desc,color:$color,author:{name:$author},footer:{text:$footer},timestamp:(now|todate)}]}' \
+            > payload.json
+          curl -sS -o /dev/null -H 'Content-Type: application/json' --data-binary @payload.json "$DISCORD_WEBHOOK" || true

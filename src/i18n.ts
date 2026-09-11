@@ -46,6 +46,40 @@ const en = {
   "ov.led": "Receiver LED",
   "ov.on": "On",
   "ov.off": "Off",
+  "test.title": "Mouse Polling Rate Test",
+  "test.subtitle": "Move your mouse in small circles to measure its real polling rate.",
+  "test.movePrompt": "Move your mouse here to detect movement",
+  "test.ready": "Ready",
+  "test.getReady": "Get ready…",
+  "test.sampling": "Sampling…",
+  "test.areaNote": "Keep moving smoothly during the countdown and sampling.",
+  "test.complete": "Test complete",
+  "test.start": "Start test",
+  "test.reset": "Reset",
+  "test.avgHz": "Average",
+  "test.peakHz": "Peak",
+  "test.low5": "Low 5%",
+  "test.stability": "Stability",
+  "test.jitter": "Jitter",
+  "test.dropouts": "Dropouts",
+  "test.events": "Events",
+  "test.avgInterval": "Avg interval",
+  "test.deviceInfo": "DEVICE INFO",
+  "test.deviceName": "Device",
+  "test.connection": "Connection",
+  "test.reportedHz": "Reported polling rate",
+  "test.dpi": "DPI",
+  "test.dpiStages": "DPI stages",
+  "test.battery": "Battery",
+  "test.firmware": "Firmware",
+  "test.noDevice": "No device connected. Test your polling rate anyway, or open Mouse Config to connect.",
+  "test.buttonTest": "BUTTON TEST",
+  "test.buttonHint": "Click any mouse button to see it light up here.",
+  "test.btn.left": "Left",
+  "test.btn.right": "Right",
+  "test.btn.middle": "Middle",
+  "test.btn.back": "Back",
+  "test.btn.forward": "Forward",
   "set.title": "Settings",
   "set.back": "Back to device",
   "set.profiles": "PROFILES",
@@ -83,6 +117,7 @@ const en = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "MOTION",
   "set.animations": "Animations",
   "set.animationsBody": "Enable interface transitions and animated state changes.",
@@ -140,6 +175,16 @@ const en = {
   "fb.errorDetail": "Check your connection and try again.",
   "fb.cooldown": "You can send feedback again in {seconds}s.",
   "fb.limit": "You've reached the feedback limit for now. Try again later.",
+  "artwork.upload": "Upload Artwork",
+  "artwork.uploadTitle": "Upload Device Artwork",
+  "artwork.description": "Help other users by contributing artwork for this device. The image will be verified automatically and shared with the community.",
+  "artwork.dragDrop": "Drag & drop an image here, or click to select",
+  "artwork.verifying": "Verifying image...",
+  "artwork.uploading": "Uploading artwork...",
+  "artwork.verified": "Artwork verified and uploaded!",
+  "artwork.chooseDifferent": "Choose different image",
+  "artwork.confirmUpload": "Upload artwork",
+  "artwork.tryAgain": "Try again",
   "wn.title": "OpenMouse Desktop App",
   "wn.body": "Now available in alpha: the OpenMouse Desktop app. Run OpenMouse with a dedicated installable app — no need to keep a browser tab open. It includes native HID access, game profiles, and a unified interface across web and desktop. Head over to our release page to download it for your platform.",
   "wn.download": "Download for desktop",
@@ -159,6 +204,7 @@ const en = {
   "ai.otherAns": "No worries — hop over to the OpenMouse Discord and the community will help you out.",
   "ai.joinDiscord": "Join the Discord",
   "conn.add": "Add device",
+  "conn.addMouse": "Add mouse",
   "conn.connecting": "Connecting…",
   "conn.preview": "Preview mode",
   "common.apply": "Apply",
@@ -169,6 +215,7 @@ const en = {
   "common.close": "Close",
   "common.back": "Back",
   "common.cancel": "Cancel",
+  "common.done": "Done",
   "common.save": "Save",
   "common.on": "On",
   "common.off": "Off",
@@ -887,6 +934,9 @@ const en = {
   "adm.loadFail": "Could not load stats.",
   "adm.viewsWord": "views",
   "adm.peakConcurrent": "peak concurrent {n}",
+
+  "tab.unavailable": "{tab} controls are not available for this device.",
+  "tab.chooseAnother": "Choose another tab to continue configuring the device.",
 } as const;
 
 export type I18nKey = keyof typeof en;
@@ -903,6 +953,7 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
   ["ja", "set.japanese"],
   ["ko", "set.korean"],
   ["ru", "set.russian"],
+  ["vi", "set.vietnamese"],
 ];
 
 /** Non-English tables load on demand so the initial bundle ships English
@@ -924,6 +975,7 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   ja: () => import("./i18n-ja.ts").then((m) => m.ja),
   ko: () => import("./i18n-ko.ts").then((m) => m.ko),
   ru: () => import("./i18n-ru.ts").then((m) => m.ru),
+  vi: () => import("./i18n-vi.ts").then((m) => m.vi),
 };
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {
@@ -954,7 +1006,13 @@ export function t(locale: InterfaceLocale, key: I18nKey): string {
 
 /** Translate a template with {placeholders}. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
-  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? ""));
+  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
+    const value = vars[name];
+    if (value === undefined && import.meta.env?.DEV === true) {
+      console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
+    }
+    return String(value ?? "");
+  });
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */

@@ -24,6 +24,24 @@ function loadHistory(storage: Storage): BatteryHistory {
   }
 }
 
+function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((sample): sample is BatterySample =>
+    typeof sample === "object"
+    && sample !== null
+    && Number.isFinite((sample as BatterySample).timestamp)
+    && Number.isFinite((sample as BatterySample).percent)
+    && (sample as BatterySample).timestamp >= cutoff
+    && (sample as BatterySample).percent >= 0
+    && (sample as BatterySample).percent <= 100
+    && ((sample as BatterySample).mode === "charging" || (sample as BatterySample).mode === "discharging"));
+}
+
+// In-memory copy of each device's samples. Renders read from here instead of
+// parsing storage on every frame; device updates refresh it via
+// recordBatterySample below.
+const memorySamples = new Map<string, BatterySample[]>();
+
 export function saveBatterySample(
   storage: Storage,
   deviceName: string,
@@ -33,14 +51,9 @@ export function saveBatterySample(
 ): BatterySample[] {
   const history = loadHistory(storage);
   const cutoff = now - MAX_SAMPLE_AGE_MS;
-  const storedSamples = Array.isArray(history[deviceName]) ? history[deviceName] : [];
-  const samples = storedSamples.filter((sample) =>
-    Number.isFinite(sample.timestamp)
-    && Number.isFinite(sample.percent)
-    && sample.timestamp >= cutoff
-    && sample.percent >= 0
-    && sample.percent <= 100
-    && (sample.mode === "charging" || sample.mode === "discharging"));
+  const stored = history[deviceName];
+  const storedCount = Array.isArray(stored) ? stored.length : 0;
+  const samples = pruneSamples(stored, cutoff);
   const previous = samples.at(-1);
   const shouldSave = !previous
     || previous.mode !== mode
@@ -50,7 +63,7 @@ export function saveBatterySample(
   if (shouldSave) samples.push({ timestamp: now, percent, mode });
   const retainedSamples = samples.slice(-MAX_SAMPLES_PER_DEVICE);
   history[deviceName] = retainedSamples;
-  if (shouldSave || retainedSamples.length !== storedSamples.length) {
+  if (shouldSave || retainedSamples.length !== storedCount) {
     try {
       storage.setItem(STORAGE_KEY, JSON.stringify(history));
     } catch {
@@ -58,6 +71,36 @@ export function saveBatterySample(
     }
   }
   return retainedSamples;
+}
+
+/**
+ * Records one sample at device-update cadence (not render cadence) and caches
+ * it for render reads. Call this when a fresh device status arrives.
+ */
+export function recordBatterySample(
+  storage: Storage,
+  deviceName: string,
+  percent: number,
+  mode: BatteryMode,
+  now = Date.now(),
+): void {
+  memorySamples.set(deviceName, saveBatterySample(storage, deviceName, percent, mode, now));
+}
+
+/**
+ * Render-safe read: memory first, a single storage parse on cold start, and
+ * never a write. Renders must call this instead of saveBatterySample.
+ */
+export function cachedBatterySamples(
+  storage: Storage,
+  deviceName: string,
+  now = Date.now(),
+): BatterySample[] {
+  const hit = memorySamples.get(deviceName);
+  if (hit) return hit;
+  const samples = pruneSamples(loadHistory(storage)[deviceName], now - MAX_SAMPLE_AGE_MS);
+  memorySamples.set(deviceName, samples);
+  return samples;
 }
 
 function formatEstimate(milliseconds: number): string {

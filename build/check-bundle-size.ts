@@ -67,7 +67,43 @@ const BUDGET_BYTES: Record<string, number> = {
   // OverviewPage shell, and the ai.* + wn.* keys added across all nine
   // locale tables. Those add ~21 kB of strings and UI to the measured
   // aggregate (1,271.9 kB), leaving ~18 kB of headroom.
-  ".js": 1_290_000,
+  // Raised to 1,300 kB for swapping hand-rolled icons for lucide-react,
+  // tree-shaken per icon: the profile-row icons in icons.tsx
+  // (enable/disable, link/unlink, rename, running/activate, refresh, trash),
+  // the AppSidebar nav icons (home, mouse config, docs, what's new,
+  // feedback, settings, chevron), the AiOverlay launcher/close/header
+  // icons, and the OverviewPage icons (workspace tabs, device-tile stats,
+  // back/share/plus controls, and the add-device mouse/keyboard glyphs,
+  // which replace their old hand-drawn illustrations). The measured
+  // aggregate is 1,290.4 kB, leaving ~10 kB of headroom.
+  // Raised to 1,310 kB for the crowd-sourced device artwork system:
+  // ArtworkUploadDialog.tsx (drag-drop upload UI with verification
+  // states), artwork-verification.ts (canvas-based heuristic analysis),
+  // artwork-storage.ts (R2 API fetch + localStorage cache), Cloudflare
+  // Functions for R2 list/upload endpoints, and artwork.* i18n keys
+  // across all nine locale tables. Measured aggregate is ~1,305.5 kB.
+  // Raised to 1,345 kB for the in-app Mouse Test page: MouseTestPage.tsx
+  // (live polling-rate sampler, rolling chart canvas, DPI/battery device
+  // card, button tester), its Activity nav icon, and the test.* i18n keys
+  // across all nine locale tables. Measured aggregate is ~1,329.5 kB.
+  // Raised to 1,370 kB for the HyperX and Incott drivers: both register in
+  // registry.ts/vendors.ts, and the Incott one brings a full vendor codec
+  // plus applyPulsarValue/traits/device-images wiring. Measured aggregate
+  // is 1,351.0 kB, leaving ~19 kB of headroom.
+  // Raised to 1,410 kB for the @openmouse/protocol lockfile bump that picks
+  // up the VXE R1 Pro Max driver on the protocol side: bridge-hid.ts pulls
+  // in every registered vendor's HID filters via SUPPORTED_HID_FILTERS, so a
+  // new protocol-side driver grows this bundle even before any app code
+  // references it directly. Measured aggregate is 1,386.8 kB, leaving ~23 kB
+  // of headroom for the VXE app-side integration PR.
+  // Raised to 1,465 kB for the Vietnamese (vi) interface locale landing on
+  // top of that: same lazy-chunk pattern as the other non-English tables
+  // (i18n-vi-*.js, loaded only when selected), adding ~47 kB.
+  // Raised to 1,500 kB for the MCHOSE A5 Pro Max Gen 1 driver: it registers
+  // in controller.ts/traits.ts and pulls in its own protocol-side codec via
+  // bridge-hid's SUPPORTED_HID_FILTERS, same growth pattern as prior drivers.
+  // Measured aggregate is 1,482.3 kB, leaving ~18 kB of headroom.
+  ".js": 1_500_000,
 };
 
 const ASSETS = join("dist", "assets");

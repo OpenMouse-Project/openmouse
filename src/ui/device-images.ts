@@ -9,6 +9,10 @@
  * time, so the panel drops the thumbnail on that error and keeps the layout
  * it had before any art existed. See `public/devices/README.md` for how to
  * upload new art.
+ *
+ * Crowd-sourced artworks are fetched from `/api/artwork/list` and cached
+ * locally. Once a device has crowd-sourced artwork, it takes priority over
+ * the static map and name-fallback regexes below.
  */
 
 const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
@@ -51,6 +55,14 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["3837:100a", "mchose-a7-v2.png"],
   ["3837:100b", "mchose-a7-v2.png"],
   ["3837:1020", "mchose-a7-v2.png"],
+  // MCHOSE A7 V3 family — a different shell and a different protocol from the
+  // V2 above. Its two receiver ids are shared with the other V3-generation
+  // models, so they are deliberately not mapped: a K5 or R7 behind the same
+  // dongle would get an A7 render.
+  ["3837:4030", "mchose-a7-v3.png"],
+  ["3837:4031", "mchose-a7-v3.png"],
+  ["3837:4032", "mchose-a7-v3.png"],
+  ["3837:4033", "mchose-a7-v3.png"],
   // CRDRAKO KO-ONE wired and receiver transports share the same shell.
   ["373e:006a", "crdrako-ko-one.png"],
   ["373e:006b", "crdrako-ko-one.png"],
@@ -78,6 +90,10 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["1915:ae1c", "ninjutso-sora-v2.png"],
   ["1915:ae8a", "ninjutso-sora-v2.png"],
   ["1915:ae8c", "ninjutso-sora-v2.png"],
+  // Incott G23V2Pro: the dongle (0x522c) and the wired transport (0x622c)
+  // are the same mouse, so they share one render.
+  ["093a:522c", "incott-g23-v2-pro.png"],
+  ["093a:622c", "incott-g23-v2-pro.png"],
   ["093a:e010", "ninjutso-sora-v3.png"],
   ["093a:eb02", "ninjutso-sora-v3.png"],
   ["093a:e020", "ninjutso-ten.png"],
@@ -89,6 +105,13 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Beast Max wired / 4K8K receiver transports share the same shell.
   ["36a7:a881", "wlmouse-beast-max.png"],
   ["36a7:a880", "wlmouse-beast-max.png"],
+  // VXE R1 family. R1, R1 SE/SE+, R1 Pro, and R1 Pro Max share the same shell.
+  // Known wired / receiver transports therefore reuse one family render.
+  ["3554:f58a", "vxe-r1-series.png"],
+  ["3554:f58c", "vxe-r1-series.png"],
+  ["3554:f58e", "vxe-r1-series.png"],
+  ["3554:f58f", "vxe-r1-series.png"],
+  ["373b:1085", "vxe-r1-series.png"],
   // Teevolution Terra Pro wired / receiver Compx transports.
   ["3554:f520", "teevolution-terra-pro.png"],
   ["3554:f522", "teevolution-terra-pro.png"],
@@ -148,6 +171,15 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // Microsoft Intellimouse
   ["045e:0823", "microsoft-classic-intellimouse.png"],
   ["045e:082a", "microsoft-pro-intellimouse.png"],
+  // HyperX Pulsefire Haste: Kingston-era wired (0x0951:0x1727) and HP-era
+  // wired / wired-mode / wireless dongle transports share one shell.
+  ["0951:1727", "hyperx-pulsefire-haste.png"],
+  ["03f0:0f8f", "hyperx-pulsefire-haste.png"],
+  ["03f0:048e", "hyperx-pulsefire-haste.png"],
+  ["03f0:028e", "hyperx-pulsefire-haste.png"],
+  // Keychron M6 (1K, PixArt 3395) wired and its Link-KM receiver share one shell.
+  ["3434:d060", "keychron-m6.png"],
+  ["3434:d029", "keychron-m6.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {
@@ -155,9 +187,78 @@ function deviceKey(device: HIDDevice): string {
   return `${hex(device.vendorId)}:${hex(device.productId)}`;
 }
 
+/**
+ * Crowd-sourced artwork cache. Populated asynchronously on app load from
+ * `/api/artwork/list`. Once loaded, checked synchronously in
+ * `resolveDeviceImageFilename` before the static map and name fallbacks.
+ */
+let crowdArtworkCache: Map<string, string> | null = null;
+let crowdArtworkPromise: Promise<void> | null = null;
+
+async function fetchCrowdArtworkMap(bypassHttpCache = false): Promise<Map<string, string> | null> {
+  try {
+    // /api/artwork/list is served with a 5-minute Cache-Control so normal
+    // page loads are cheap, but that means a plain fetch() right after an
+    // upload can still be answered from the browser's HTTP cache with the
+    // pre-upload list. refreshCrowdArtworkCache needs a real network hit.
+    const response = await fetch(bypassHttpCache ? "/api/artwork/list?fresh=1" : "/api/artwork/list", {
+      headers: { Accept: "application/json" },
+      cache: bypassHttpCache ? "no-store" : "default",
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    if (!text) return null;
+    const data = JSON.parse(text);
+    if (!Array.isArray(data.artworks)) return null;
+
+    const map = new Map<string, string>();
+    for (const entry of data.artworks) {
+      if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
+        const hex = (v: number) => v.toString(16).padStart(4, "0");
+        map.set(`${hex(entry.vendorId)}:${hex(entry.productId)}`, entry.filename);
+      }
+    }
+    return map;
+  } catch {
+    // Network error — continue without crowd art
+    return null;
+  }
+}
+
+export async function loadCrowdArtworkCache(): Promise<void> {
+  if (crowdArtworkCache) return;
+  if (crowdArtworkPromise) return crowdArtworkPromise;
+
+  crowdArtworkPromise = (async () => {
+    const map = await fetchCrowdArtworkMap();
+    if (map) crowdArtworkCache = map;
+  })();
+
+  return crowdArtworkPromise;
+}
+
+/**
+ * Forces a fresh fetch of the crowd-artwork list, replacing the cache in
+ * place. Call this right after a successful upload — otherwise the uploader
+ * keeps seeing the placeholder until they reload, since `loadCrowdArtworkCache`
+ * is a no-op once the cache has been populated once.
+ */
+export async function refreshCrowdArtworkCache(): Promise<void> {
+  crowdArtworkPromise = null;
+  const map = await fetchCrowdArtworkMap(true);
+  if (map) crowdArtworkCache = map;
+}
+
+export function hasCrowdArtwork(vendorId: number, productId: number): boolean {
+  if (!crowdArtworkCache) return false;
+  const hex = (v: number) => v.toString(16).padStart(4, "0");
+  return crowdArtworkCache.has(`${hex(vendorId)}:${hex(productId)}`);
+}
+
 function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displayName = ""): string {
   const mapped = device ? DEVICE_IMAGES.get(deviceKey(device)) ?? null : null;
   if (mapped) return mapped;
+
   // Lightspeed receivers are shared product IDs, so paired G502 X variants
   // must use the friendly name read from the mouse itself.
   if (/g502\s*x\s*plus/i.test(displayName)) return "logitech-g502-x-plus.png";
@@ -174,6 +275,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bcobra\b/i.test(displayName)) return "razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
+  if (/\bvxe\s+r1(?:\s+(?:se\+?|pro(?:\s+max)?))?\b/i.test(displayName)) {
+    return "vxe-r1-series.png";
+  }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
@@ -224,7 +328,9 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
   if (/k[\s-]*snake/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
-  // Catches any A7 V2 variant whose product id is not pinned above.
+  // Catches any A7 variant whose product id is not pinned above. V3 first, so
+  // an "A7 V3" name is not swallowed by a looser A7 match later.
+  if (/\ba7\s*v3\b/i.test(displayName)) return "mchose-a7-v3.png";
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
@@ -232,6 +338,7 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   if (/\bintellimouse\s*classic\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
   if (/\bpro\s*intellimouse\b/i.test(displayName)) return "microsoft-pro-intellimouse.png";
   if (/\bintellimouse\b/i.test(displayName)) return "microsoft-classic-intellimouse.png";
+  if (/\bpulsefire\s*haste\b/i.test(displayName)) return "hyperx-pulsefire-haste.png";
   // Pulsar 4K Wireless Receiver ships with the X2 V2 4K dongle kit; the receiver
   // product id is not yet published, so match the name reported by WebHID.
   if (/pulsar/i.test(displayName)) return "pulsar-x2-v2.png";
@@ -243,9 +350,61 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
  * Base URL of the public R2 bucket that hosts device art (see
  * `public/devices/README.md` for the upload workflow). Kept as a single
  * constant so the bucket can move without touching every entry above.
+ *
+ * Served from a custom domain (img.openmouse.app) bound to the bucket
+ * rather than its r2.dev URL — the r2.dev subdomain is unauthenticated,
+ * shared, and rate-limited by Cloudflare, and isn't meant for production
+ * traffic.
  */
-const DEVICE_IMAGE_BASE_URL = "https://pub-ac470fd1b7084597b8a4a45cfc3318fc.r2.dev/";
+const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
+  // Crowd-sourced artwork takes priority
+  if (device && crowdArtworkCache) {
+    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+    if (crowdFilename) return DEVICE_IMAGE_BASE_URL + `crowd/${crowdFilename}`;
+  }
   return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
+}
+
+/**
+ * A curated, brand-diverse sample of real product renders (not every device
+ * this app supports — just enough to cycle through on the "Add mouse" card
+ * before anything is connected). Filenames only, so callers build the full
+ * URL with `showcaseDeviceImageUrls`.
+ */
+// Every filename here is checked against the R2 bucket directly (curl -o
+// /dev/null -w '%{http_code}') before landing on this list — several
+// filenames mapped in DEVICE_IMAGES above 404 because the art was never
+// uploaded (attackshark-r2.png, mchose-a7-v2.png, atk-zero.png, and the
+// Microsoft IntelliMouse renders among them), which silently fails on the
+// device panel but breaks a showcase that's shown unconditionally.
+const SHOWCASE_DEVICE_FILENAMES: readonly string[] = [
+  "logitech-g502-x-plus.png",
+  "razer-viper-v3-pro.png",
+  "endgame-gear-xm2-8k.png",
+  "finalmouse-ulx.png",
+  "pulsar-x2-v2.png",
+  "lamzu-maya-x.png",
+  "zaunkoenig-m3k.png",
+  "attackshark-r5-ultra.png",
+  "logitech-g-pro-2.png",
+  "razer-deathadder-v3.png",
+  "wlmouse-sword-x.png",
+  "wlmouse-beast-max.png",
+];
+
+export function showcaseDeviceImageUrls(): readonly string[] {
+  return SHOWCASE_DEVICE_FILENAMES.map((filename) => DEVICE_IMAGE_BASE_URL + filename);
+}
+
+export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
+
+export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
+  // If crowd art exists, it's not unknown
+  if (device && crowdArtworkCache) {
+    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+    if (crowdFilename) return false;
+  }
+  return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;
 }

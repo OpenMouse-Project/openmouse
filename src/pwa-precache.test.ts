@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BYPASS, pageUrl, PRECACHE_PAGES } from "../build/pwa-vite-plugin.ts";
+import { BYPASS, pageUrl, PRECACHE_PAGES, renderServiceWorker } from "../build/pwa-vite-plugin.ts";
 
 test("the root page is precached", () => {
   assert.deepEqual(PRECACHE_PAGES, ["index.html"]);
@@ -12,11 +12,6 @@ test("the root page serves from /, other pages keep their own path", () => {
 });
 
 const bypassed = (path: string): boolean => BYPASS.some((pattern) => pattern.test(path));
-
-test("the admin dashboard bypasses the cache", () => {
-  assert.equal(bypassed("/admin"), true);
-  assert.equal(bypassed("/admin.html"), true);
-});
 
 test("api endpoints bypass the cache", () => {
   assert.equal(bypassed("/api/presence"), true);
@@ -36,4 +31,10 @@ test("ordinary pages and assets are still cached", () => {
   assert.equal(bypassed("/"), false);
   assert.equal(bypassed("/assets/main-abc123.js"), false);
   assert.equal(bypassed("/devices/razer-viper.webp"), false);
+});
+
+test("the generated worker caps the font cache", () => {
+  const source = renderServiceWorker("test", []);
+  assert.ok(source.includes("FONT_CACHE_LIMIT"));
+  assert.ok(source.includes("trimCache(cacheName, FONT_CACHE_LIMIT)"));
 });

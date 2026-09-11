@@ -7,6 +7,7 @@ import { OverviewPage } from "./OverviewPage";
 import { CaptureDialog } from "./CaptureDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { InterfaceSettings } from "./InterfaceSettings";
+import { MouseTestPage } from "./MouseTestPage";
 import { PendingBar } from "./PendingBar";
 import { ShareProfileDialog } from "./ShareProfileDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
@@ -29,13 +30,30 @@ export function App(): ReactNode {
 
   const resolvedPage: DesktopPage = showingSettings
     ? "settings"
-    : status !== null && snapshot.deviceView === "device"
-      ? "dashboard"
-      : "home";
+    : page === "test"
+      ? "test"
+      : status !== null && snapshot.deviceView === "device"
+        ? "dashboard"
+        : "home";
 
   useEffect(() => {
     try {
-      document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
+      const htmlLang: Record<typeof locale, string> = {
+        pt: "pt-BR",
+        es: "es",
+        fr: "fr",
+        de: "de",
+        zh: "zh-CN",
+        ja: "ja",
+        ko: "ko",
+        ru: "ru",
+        vi: "vi",
+        en: "en",
+      };
+      const nextLang = htmlLang[locale] ?? "en";
+      if (document.documentElement.lang !== nextLang) {
+        document.documentElement.lang = nextLang;
+      }
     } catch {
       /* non-DOM environment (tests) */
     }
@@ -58,6 +76,9 @@ export function App(): ReactNode {
     if (next === "dashboard") {
       void control.showDeviceDashboard();
       setPage("dashboard");
+    } else if (next === "test") {
+      control.showDeviceList();
+      setPage("test");
     } else {
       control.showDeviceList();
       setPage("home");
@@ -81,6 +102,8 @@ export function App(): ReactNode {
         <div className="full-desktop-content" ref={panel}>
           {showingSettings ? (
             <InterfaceSettings snapshot={snapshot} />
+          ) : page === "test" ? (
+            <MouseTestPage snapshot={snapshot} />
           ) : (
             <OverviewPage
               snapshot={snapshot}

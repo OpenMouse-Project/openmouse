@@ -3,11 +3,12 @@ import * as control from "../device/controller";
 import { t, tp } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
 
-const FEEDBACK_WEBHOOK_URL = "https://discordapp.com/api/webhooks/1546859709552926900/u0xSz5M7aoMirSOparKZdiqJIoj3A0mTZnwvf2fuhQ4Nr2XuRPPs8w3sQAWlMFKRR4_b";
 const MAX_FEEDBACK_LENGTH = 1800;
 const SUBMIT_COOLDOWN_MS = 60_000;
 const MAX_SESSION_SUBMITS = 5;
 const STORAGE_KEY = "om.feedback.sentAt";
+
+const FEEDBACK_URL = "/api/feedback";
 
 export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnostics = false }: {
   open: boolean;
@@ -141,9 +142,9 @@ export function FeedbackDialog({ open, onClose, locale = "en", canAttachDiagnost
           new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }),
           "openmouse-diagnostics.json",
         );
-        response = await fetch(FEEDBACK_WEBHOOK_URL, { method: "POST", body: form });
+        response = await fetch(FEEDBACK_URL, { method: "POST", body: form });
       } else {
-        response = await fetch(FEEDBACK_WEBHOOK_URL, {
+        response = await fetch(FEEDBACK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ embeds: [embed] }),

@@ -1,4 +1,4 @@
-import { estimateBatteryTime, saveBatterySample, type BatteryMode } from "../battery-history";
+import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -22,7 +22,7 @@ import {
   withPendingChanges,
   type PendingChange,
 } from "../pending-changes";
-import { deviceImage } from "../ui/device-images";
+import { deviceImage, loadCrowdArtworkCache, refreshCrowdArtworkCache } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
   isVxeR1SePlusReceiver,
@@ -130,6 +130,8 @@ import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
 import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
 import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
+import { MchoseA5ProMaxHidClient } from "@openmouse/protocol/drivers/mchose/a5-gen1-hid";
+import { MchoseV3HidClient } from "@openmouse/protocol/drivers/mchose/v3-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
 import { WallhackKeyboardHidClient } from "@openmouse/protocol/drivers/wallhack/keyboard-hid";
@@ -149,6 +151,7 @@ import {
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
+import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
@@ -170,7 +173,7 @@ import type {
   WorkspaceTab,
 } from "./types";
 
-export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__APP_VERSION__}`;
+export const BUILD_LABEL = `${__BUILD_CHANNEL__.toUpperCase()} · v${__BUILD_ID__ || __APP_VERSION__}`;
 const DEFAULT_TITLE = typeof document === "undefined" ? "OpenMouse Control" : document.title;
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const WLMOUSE_SLEEP_NEVER = 0xffff;
@@ -182,6 +185,9 @@ export const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
 const BACKGROUND = "Background refresh";
 const FLASH_STEP_DELAY_MS = 420;
 const FLASH_SETTLE_MS = 320;
+// Longest a flash waits for an in-flight device refresh before giving up
+// instead of busy-waiting forever.
+const REFRESH_WAIT_TIMEOUT_MS = 2000;
 
 const previewModeEnabled = previewsEnabled(__BUILD_CHANNEL__, import.meta.env.DEV);
 const previewMode = previewModeEnabled
@@ -200,7 +206,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MicrosoftHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -214,11 +220,15 @@ const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHid
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
 
 const teevolutionClient = (): TeevolutionHidClient | null => activeAs(TeevolutionHidClient);
+const dpiLightingClient = (): TeevolutionHidClient | AtkHidClient | null =>
+  activeAs<TeevolutionHidClient | AtkHidClient>(TeevolutionHidClient, AtkHidClient);
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
+const keychronM6Client = (): KeychronM6HidClient | null => activeAs(KeychronM6HidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
+const incottClient = (): IncottHidClient | null => activeAs(IncottHidClient);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
@@ -241,19 +251,6 @@ let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
-// Anonymous "this model was seen" ping for the admin dashboard's "most used
-// mice" stat — one per model per page load, best-effort, never blocks or
-// throws into the caller.
-const reportedMouseModels = new Set<string>();
-function reportMouseUsage(mouseModel: string): void {
-  if (!mouseModel || reportedMouseModels.has(mouseModel)) return;
-  reportedMouseModels.add(mouseModel);
-  fetch("/api/telemetry/mouse-usage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mouseModel }),
-  }).catch(() => {});
-}
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 let latestDeviceStatus: MouseStatus | null = null;
@@ -268,6 +265,9 @@ let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
+// Set when Apply is clicked while a flash is already writing: the running
+// flash performs one more pass at the end instead of swallowing the click.
+let flashQueued = false;
 let capabilities: DeviceCapabilities | null = null;
 let sidebarDevices: SidebarDevice[] = [];
 let lastSleepSeconds = 60;
@@ -344,6 +344,21 @@ function batch(run: () => void): void {
       emit();
     }
   }
+}
+
+export function getActiveDevice(): HIDDevice | null {
+  return activeDevice;
+}
+
+export async function refreshArtwork(): Promise<void> {
+  // Re-fetch the crowd-artwork list before invalidating the memoized key —
+  // otherwise a just-uploaded image stays on the placeholder until the page
+  // is reloaded, since the cache this reads from is normally populated once
+  // at startup and never touched again.
+  await refreshCrowdArtworkCache();
+  artworkKey = null;
+  artworkValue = null;
+  emit();
 }
 
 function buildProfileView(): ProfileView {
@@ -616,12 +631,20 @@ function queueInstantFlash(): void {
   });
 }
 
+// Baseline serialization of the last seen device status. stageChange calls
+// matchesDeviceStatus on every edit while the status object stays identical,
+// so reusing it halves the serialization cost (one stringify, not two).
+let matchesBaseline: { status: MouseStatus; json: string } | null = null;
+
 function matchesDeviceStatus(change: PendingChange): boolean {
   if (!latestDeviceStatus) return false;
   if (!change.preview) return false;
+  if (matchesBaseline?.status !== latestDeviceStatus) {
+    matchesBaseline = { status: latestDeviceStatus, json: JSON.stringify(latestDeviceStatus) };
+  }
   const preview = structuredClone(latestDeviceStatus);
   change.preview(preview);
-  return JSON.stringify(preview) === JSON.stringify(latestDeviceStatus);
+  return JSON.stringify(preview) === matchesBaseline.json;
 }
 
 export function revertPendingChanges(): void {
@@ -1035,20 +1058,32 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 
 export async function flashPendingChanges(): Promise<void> {
   const batches = pendingChangeBatches();
-  if (batches.length === 0 || settingInProgress) return;
+  if (batches.length === 0) return;
+  if (settingInProgress) {
+    flashQueued = true;
+    setReadStatus(st("ctl.waitFlash"));
+    return;
+  }
   settingInProgress = true;
   pendingBusy = true;
   emit();
+  let written = 0;
+  let failure: string | null = null;
   if (refreshInProgress) {
     pendingStatusText = st("ctl.waitRefresh");
     readStatus = pendingStatusText;
     emit();
-    while (refreshInProgress) await wait(25);
+    const refreshDeadline = Date.now() + REFRESH_WAIT_TIMEOUT_MS;
+    while (refreshInProgress && Date.now() <= refreshDeadline) await wait(25);
+    if (refreshInProgress) {
+      const timeout = new Error("Timed out waiting for the device refresh.");
+      recordDiagnosticError(timeout, st("ctl.unableFlash"));
+      failure = timeout.message;
+    }
   }
-  let written = 0;
-  let failure: string | null = null;
   try {
     for (const batch of batches) {
+      if (failure) break;
       const writer = batch[batch.length - 1];
       if (!writer) continue;
       pendingStatusText = `${writer.progress} (${written + 1} of ${batches.length})`;
@@ -1070,6 +1105,10 @@ export async function flashPendingChanges(): Promise<void> {
   if (status) applyStatus(status);
   endDeviceWrite();
   pendingBusy = false;
+  if (flashQueued) {
+    flashQueued = false;
+    if (hasPendingChanges()) return flashPendingChanges();
+  }
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
@@ -1163,7 +1202,7 @@ export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
   const now = Date.now();
-  const samples = saveBatterySample(localStorage, status.name, status.batteryPercent, mode, now);
+  const samples = cachedBatterySamples(localStorage, status.name, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
   const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
   const state = batteryStateText(locale, status.batteryState);
@@ -1448,9 +1487,14 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
+  // Battery samples are recorded at device-update cadence; renders read the
+  // cache via batteryDetail instead of touching storage on every frame.
+  const sampleMode = batteryMode(deviceStatus.batteryState);
+  if (deviceStatus.batteryPercent !== null && sampleMode) {
+    recordBatterySample(localStorage, deviceStatus.name, deviceStatus.batteryPercent, sampleMode, Date.now());
+  }
   lastRenderedStatusKey = statusKey ?? JSON.stringify(deviceStatus);
   const status = withPendingChanges(deviceStatus);
-  reportMouseUsage(status.name);
 
   const battery = status.batteryPercent;
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
@@ -3069,6 +3113,10 @@ export function setProfileReportRate(link: "wireless" | "wired", hz: number): vo
 
 export function applyPollingRate(rate: number): void {
   if (!hasActiveClient()) return;
+  // The slider only offers device-advertised rates (or RATE_STEPS_HZ); anything
+  // else arrives from an imported profile key, so reject it before staging.
+  const allowed = latestDeviceStatus?.supportedPollingRates ?? RATE_STEPS_HZ;
+  if (!Number.isInteger(rate) || !allowed.includes(rate)) return;
   stageChange({
     key: "polling-rate",
     label: `${rate.toLocaleString()} Hz`,
@@ -3237,7 +3285,8 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
   if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? wallhackMouseClient())) return;
+    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? wallhackMouseClient()
+    ?? incottClient())) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3489,20 +3538,21 @@ export function applyTeevolutionPerformanceDuration(duration: number): void {
 const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
 
 async function writeStagedTeevolutionDpiLighting(): Promise<void> {
-  const client = teevolutionClient();
+  const client = dpiLightingClient();
   if (!client || !latestDeviceStatus) {
-    throw new Error(st("ctl.teeGone"));
+    throw new Error("The DPI-lighting device is no longer connected.");
   }
   const status = withPendingChanges(latestDeviceStatus);
+  const hint = status.ui?.dpiLighting;
   await client.setDpiLighting(
-    status.dpiLedMode ?? 0,
-    status.dpiLedBrightness ?? 5,
-    status.dpiLedSpeed ?? 3,
+    status.dpiLedMode ?? hint?.modes[0] ?? 0,
+    status.dpiLedBrightness ?? hint?.brightness[0] ?? 5,
+    status.dpiLedSpeed ?? hint?.speed[0] ?? 3,
   );
 }
 
 export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
-  if (!teevolutionClient()) return;
+  if (!dpiLightingClient()) return;
   const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
   const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
   stageChange({
@@ -4002,6 +4052,15 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
 
 export function start(): void {
   startHidCapture();
+  // A device can connect and render its (placeholder) artwork before this
+  // resolves — nothing here forced a re-render once it did, so the panel
+  // stayed on the placeholder until some unrelated status update happened
+  // to trigger one. Re-render as soon as the crowd list is actually in.
+  void loadCrowdArtworkCache().then(() => {
+    artworkKey = null;
+    artworkValue = null;
+    emit();
+  });
   onPendingChanges(() => {
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
