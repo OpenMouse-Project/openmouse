@@ -99,7 +99,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 1,465 kB for the Vietnamese (vi) interface locale landing on
   // top of that: same lazy-chunk pattern as the other non-English tables
   // (i18n-vi-*.js, loaded only when selected), adding ~47 kB.
-  ".js": 1_465_000,
+  // Raised to 1,500 kB for the MCHOSE A5 Pro Max Gen 1 driver: it registers
+  // in controller.ts/traits.ts and pulls in its own protocol-side codec via
+  // bridge-hid's SUPPORTED_HID_FILTERS, same growth pattern as prior drivers.
+  // Measured aggregate is 1,482.3 kB, leaving ~18 kB of headroom.
+  ".js": 1_500_000,
 };
 
 const ASSETS = join("dist", "assets");
