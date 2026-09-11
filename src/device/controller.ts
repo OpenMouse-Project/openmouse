@@ -620,12 +620,20 @@ function queueInstantFlash(): void {
   });
 }
 
+// Baseline serialization of the last seen device status. stageChange calls
+// matchesDeviceStatus on every edit while the status object stays identical,
+// so reusing it halves the serialization cost (one stringify, not two).
+let matchesBaseline: { status: MouseStatus; json: string } | null = null;
+
 function matchesDeviceStatus(change: PendingChange): boolean {
   if (!latestDeviceStatus) return false;
   if (!change.preview) return false;
+  if (matchesBaseline?.status !== latestDeviceStatus) {
+    matchesBaseline = { status: latestDeviceStatus, json: JSON.stringify(latestDeviceStatus) };
+  }
   const preview = structuredClone(latestDeviceStatus);
   change.preview(preview);
-  return JSON.stringify(preview) === JSON.stringify(latestDeviceStatus);
+  return JSON.stringify(preview) === matchesBaseline.json;
 }
 
 export function revertPendingChanges(): void {
