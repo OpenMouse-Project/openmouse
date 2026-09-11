@@ -1,11 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isVxeR1SePlusReceiver, receiverPairingSucceeded } from "./atk.ts";
+import {
+  isVxeR1ProMaxReceiver,
+  isVxeR1ProMaxWired,
+  isVxeR1SePlusReceiver,
+  receiverPairingSucceeded,
+} from "./atk.ts";
 
 test("R1 SE+ pairing controls require the exact verified receiver", () => {
   assert.equal(isVxeR1SePlusReceiver({ vendorId: 0x3554, productId: 0xf58e }), true);
   assert.equal(isVxeR1SePlusReceiver({ vendorId: 0x373b, productId: 0x1085 }), false);
+  assert.equal(isVxeR1SePlusReceiver({ vendorId: 0x3554, productId: 0xf58a }), false);
   assert.equal(isVxeR1SePlusReceiver(null), false);
+});
+
+test("R1 Pro Max identities distinguish receiver and wired transports", () => {
+  assert.equal(isVxeR1ProMaxReceiver({ vendorId: 0x3554, productId: 0xf58a }), true);
+  assert.equal(isVxeR1ProMaxReceiver({ vendorId: 0x3554, productId: 0xf58c }), false);
+  assert.equal(isVxeR1ProMaxReceiver({ vendorId: 0x373b, productId: 0xf58a }), false);
+
+  assert.equal(isVxeR1ProMaxWired({ vendorId: 0x3554, productId: 0xf58c }), true);
+  assert.equal(isVxeR1ProMaxWired({ vendorId: 0x3554, productId: 0xf58a }), false);
+  assert.equal(isVxeR1ProMaxWired(null), false);
 });
 
 test("pairing requires terminal status and online telemetry", () => {
