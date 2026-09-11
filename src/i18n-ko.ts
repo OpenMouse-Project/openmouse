@@ -375,6 +375,7 @@ export const ko: Record<I18nKey, string> = {
   "adv.ledBatteryStatus": "배터리 상태",
   "adv.ledBatteryWarning": "배터리 경고",
   "adv.fireKeyTimes": "누를 때 클릭 수",
+  "adv.fireKeyHold": "누르고 있는 동안 연사",
   "adv.fireKeyInterval": "간격 (ms)",
   "adv.batteryIndicator": "배터리 표시등",
   "adv.solidWhite": "고정 흰색",

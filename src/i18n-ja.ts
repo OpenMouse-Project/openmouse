@@ -375,6 +375,7 @@ export const ja: Record<I18nKey, string> = {
   "adv.ledBatteryStatus": "バッテリー状態",
   "adv.ledBatteryWarning": "バッテリー警告",
   "adv.fireKeyTimes": "1回あたりのクリック数",
+  "adv.fireKeyHold": "押し続けて連射",
   "adv.fireKeyInterval": "間隔 (ms)",
   "adv.batteryIndicator": "バッテリーインジケーター",
   "adv.solidWhite": "白色点灯",

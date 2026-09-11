@@ -378,6 +378,7 @@ const en = {
   "adv.ledBatteryStatus": "Battery status",
   "adv.ledBatteryWarning": "Battery warning",
   "adv.fireKeyTimes": "Clicks per press",
+  "adv.fireKeyHold": "Hold to fire",
   "adv.fireKeyInterval": "Interval (ms)",
   "adv.batteryIndicator": "Battery indicator",
   "adv.solidWhite": "Solid white",

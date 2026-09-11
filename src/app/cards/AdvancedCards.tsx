@@ -667,6 +667,9 @@ export function IncottCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
               value={times}
               onChange={(event) => control.applyIncottFireKey(Number(event.currentTarget.value), interval)}
             >
+              {/* 0 is not "off": it fires continuously while the button is
+                  held and stops on release. */}
+              <option value={0}>{t(locale, "adv.fireKeyHold")}</option>
               <option value={1}>1</option>
               <option value={2}>2</option>
               <option value={3}>3</option>

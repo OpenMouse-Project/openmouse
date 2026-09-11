@@ -375,6 +375,7 @@ export const zh: Record<I18nKey, string> = {
   "adv.ledBatteryStatus": "电量状态",
   "adv.ledBatteryWarning": "低电量提醒",
   "adv.fireKeyTimes": "每次按下点击次数",
+  "adv.fireKeyHold": "按住连发",
   "adv.fireKeyInterval": "间隔 (ms)",
   "adv.batteryIndicator": "电量指示灯",
   "adv.solidWhite": "纯白常亮",

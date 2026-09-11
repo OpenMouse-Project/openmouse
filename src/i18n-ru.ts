@@ -374,6 +374,7 @@ export const ru: Record<I18nKey, string> = {
   "adv.ledBatteryStatus": "Состояние батареи",
   "adv.ledBatteryWarning": "Предупреждение о заряде",
   "adv.fireKeyTimes": "Кликов за нажатие",
+  "adv.fireKeyHold": "Удерживать для стрельбы",
   "adv.fireKeyInterval": "Интервал (мс)",
   "adv.batteryIndicator": "Индикатор заряда",
   "adv.solidWhite": "Ровный белый",

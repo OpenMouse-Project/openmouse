@@ -375,6 +375,7 @@ export const de: Record<I18nKey, string> = {
   "adv.ledBatteryStatus": "Akkustatus",
   "adv.ledBatteryWarning": "Akkuwarnung",
   "adv.fireKeyTimes": "Klicks pro Druck",
+  "adv.fireKeyHold": "Halten zum Feuern",
   "adv.fireKeyInterval": "Intervall (ms)",
   "adv.batteryIndicator": "Akkuanzeige",
   "adv.solidWhite": "Durchgehend weiß",
