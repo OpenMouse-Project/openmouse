@@ -62,6 +62,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // "mchose-v3" is deliberately absent: that driver reads and cannot write, so
   // every card these flags open would render controls with nothing behind
   // them. Give it the same flags as `mchose` once it grows setters.
+  dareu: { advancedSection: true, sleep: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
   // plain flags rather than DIRECT_MODE (its advancedSection already comes

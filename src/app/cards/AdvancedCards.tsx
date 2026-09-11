@@ -430,7 +430,7 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
   );
 }
 
-export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+export function DpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const profile = snapshot.capabilities?.teevolutionProfile;
   const hint = status?.ui?.dpiLighting;
@@ -442,14 +442,15 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
   const speedMax = hint?.speed.at(-1) ?? profile!.dpiLighting.speed.max;
   const locale = snapshot.preferences.locale;
   const lightMode = status.dpiLedMode ?? 0;
-  const staged = snapshot.pending.keys.some((key) => key.startsWith("teevolution-dpi-light-"));
+  const powerOverview = status.ui?.powerOverview === true;
+  const staged = snapshot.pending.keys.some((key) => key.startsWith("teevolution-dpi-light-") || key === "dpi-light-sleep");
   return (
     <article
       id="teevolution-dpi-lighting"
       className={`setting-card${staged ? " is-staged" : ""}`}
-      data-pending-key="teevolution-dpi-light-mode teevolution-dpi-light-brightness teevolution-dpi-light-speed"
+      data-pending-key="teevolution-dpi-light-mode teevolution-dpi-light-brightness teevolution-dpi-light-speed dpi-light-sleep"
     >
-      <div className="setting-heading compact"><div><p>LIGHTING</p><h2>{t(locale, "adv.dpiIndicator")}</h2></div></div>
+      <div className="setting-heading compact"><div><p>{powerOverview ? "POWER" : "LIGHTING"}</p><h2>{t(locale, "adv.dpiIndicator")}</h2></div></div>
       <label className="field-label">
         {t(locale, "adv.effect")}
         <select
@@ -476,7 +477,7 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
               max={brightnessMax}
               step={1}
               value={status.dpiLedBrightness ?? brightnessMin}
-              disabled={lightMode !== 1 || status.dpiLedBrightness == null}
+              disabled={lightMode === 0 || status.dpiLedBrightness == null}
               style={{
                 "--fill": `${((status.dpiLedBrightness ?? brightnessMin) - brightnessMin)
                   / Math.max(1, brightnessMax - brightnessMin) * 100}%`,
@@ -508,10 +509,27 @@ export function TeevolutionDpiLightingCard({ snapshot }: { snapshot: ControlSnap
           </span>
         </label>
       </div>
+      {hint?.sleepTimeouts?.length && status.dpiLedSleepTimeout != null ? (
+        <label className="field-label spaced">
+          {t(locale, "adv.autoSleep")}
+          <select
+            id="dpi-light-sleep-timeout"
+            value={status.dpiLedSleepTimeout}
+            onChange={(event) => control.applyDpiLightingSleepTimeout(Number(event.currentTarget.value))}
+          >
+            {hint.sleepTimeouts.map((seconds) => (
+              <option key={seconds} value={seconds}>{sleepLabel(seconds, locale)}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <small className="setting-note">{t(locale, "adv.dpiStageNote")}</small>
     </article>
   );
 }
+
+/** @deprecated Kept as an import alias for integrations built before generic DPI lighting. */
+export const TeevolutionDpiLightingCard = DpiLightingCard;
 
 export function NinjutsoSensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;

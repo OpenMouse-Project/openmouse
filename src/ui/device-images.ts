@@ -168,6 +168,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   // K-snake X11 wired / 2.4 GHz dongle share the same shell.
   ["a8a4:2255", "ksnake-x11.png"],
   ["a8a5:2255", "ksnake-x11.png"],
+  // A950 PRO Mg wired mouse and its dedicated 2.4 GHz receiver.
+  ["260d:1117", "dareu-a950-pro-mg.png"],
+  ["260d:1114", "dareu-a950-pro-mg.png"],
   // Microsoft Intellimouse
   ["045e:0823", "microsoft-classic-intellimouse.png"],
   ["045e:082a", "microsoft-pro-intellimouse.png"],
@@ -332,6 +335,7 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
   // an "A7 V3" name is not swallowed by a looser A7 match later.
   if (/\ba7\s*v3\b/i.test(displayName)) return "mchose-a7-v3.png";
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
+  if (/\ba950\s*pro\s*mg\b/i.test(displayName)) return "dareu-a950-pro-mg.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";

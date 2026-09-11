@@ -124,6 +124,26 @@ test("ATK exposes its processing and DPI-lighting cards from reported controls",
   assert.equal(has.teevolutionDpiLighting, true);
 });
 
+test("Dareu exposes its verified mouse and DPI-indicator sleep controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Dareu",
+      ui: {
+        family: "dareu",
+        showAdvancedSection: true,
+        dpiLighting: {
+          modes: [0, 1, 2], brightness: [1, 2], speed: [1, 2], sleepTimeouts: [0, 60],
+        },
+      },
+      sleepTimeout: 180,
+      dpiLedSleepTimeout: 180,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.sleep, true);
+  assert.equal(has.teevolutionDpiLighting, true);
+});
+
 test("ATK inspection cards require data actually read from the device", () => {
   const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
   assert.equal(empty.atkButtons, false);
