@@ -254,3 +254,23 @@ test("Attack Shark X11 does not inherit K-snake artwork", () => {
   assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "unknown-device.png");
 });
+
+test("the MCHOSE A7 V3 family gets its own render, not the V2's", () => {
+  const mchose = (productId: number): HIDDevice =>
+    ({ vendorId: 0x3837, productId } as HIDDevice);
+
+  for (const productId of [0x4030, 0x4031, 0x4032, 0x4033]) {
+    assert.equal(deviceImage(mchose(productId)), CDN + "mchose-a7-v3.png");
+  }
+  assert.equal(deviceImage(mchose(0x4021)), CDN + "mchose-a7-v2.png");
+
+  // The V3 receivers are shared with the K5, R7 and A5 V3, so mapping them to
+  // an A7 render would put the wrong mouse on screen for those owners.
+  assert.equal(deviceImage(mchose(0x1014)), CDN + "unknown-device.png");
+  assert.equal(deviceImage(mchose(0x1018)), CDN + "unknown-device.png");
+});
+
+test("an A7 V3 name is not swallowed by the A7 V2 fallback", () => {
+  assert.equal(deviceImage(null, "MCHOSE A7 V3 Ultra+"), CDN + "mchose-a7-v3.png");
+  assert.equal(deviceImage(null, "MCHOSE A7 V2 Ultra+"), CDN + "mchose-a7-v2.png");
+});

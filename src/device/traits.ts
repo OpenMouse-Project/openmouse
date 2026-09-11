@@ -59,6 +59,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // MCHOSE reads debounce and sleep from its config blob and writes both, but
   // it is not a direct-mode (CompX) driver, so it takes the plain flags.
   mchose: { advancedSection: true, sleep: true, debounce: true },
+  // "mchose-v3" is deliberately absent: that driver reads and cannot write, so
+  // every card these flags open would render controls with nothing behind
+  // them. Give it the same flags as `mchose` once it grows setters.
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
   // plain flags rather than DIRECT_MODE (its advancedSection already comes

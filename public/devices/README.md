@@ -197,3 +197,7 @@ package:
   mapping in `src/ui/device-images.ts` is already in place and falls back
   cleanly until then. Vendor product art, not yet cleared for licensing, so
   treat it as a request rather than an approved asset.
+- `mchose-a7-v3.png` — MCHOSE A7 V3 render. Same story as the V2 above:
+  MCHOSE publishes only `A7V3Pro_*` renders and the four V3 models share a
+  shell, so one image covers the family. **Needs a maintainer upload**, and
+  carries the same unresolved licensing question.
