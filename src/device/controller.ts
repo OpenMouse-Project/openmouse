@@ -592,12 +592,19 @@ function requireClientMethod<K extends string>(
   return client as Extract<SupportedClient, Record<K, unknown>>;
 }
 
+/** Whether the connected client exposes a given method, for capabilities that are read-only on some firmware. */
+function clientHasMethod(method: string): boolean {
+  const client = active as unknown as Record<string, unknown> | null;
+  return typeof client?.[method] === "function";
+}
+
 function readCapabilities(): DeviceCapabilities {
   const razer = activeAs<RazerHidClient>(RazerHidClient);
   const dm = dmClient();
   const keychron = keychronNapeClient();
   return {
     canDisableSleep: dm?.canDisableSleep === true,
+    angleTuningWritable: clientHasMethod("setAngleTuning"),
     // Any client may publish these; the two named drivers are just the ones
     // that predate the generic lookup below.
     sleepOptions: dm
