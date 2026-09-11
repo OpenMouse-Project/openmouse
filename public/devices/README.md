@@ -178,10 +178,18 @@ package:
   (`https://cdn.mchose.com.cn/configCenter/assets/img/mouse/A7V2Pro_white.png`).
   MCHOSE only publishes `A7V2Pro_*` renders and the Pro / Pro+ / Ultra / Ultra+
   are one shell, so this single image covers the whole A7 V2 family. **Needs a
-  maintainer upload** — the mapping in `src/ui/device-images.ts` is already in
+  maintainer upload**, the mapping in `src/ui/device-images.ts` is already in
   place and falls back to the placeholder until then. Not yet cleared for
   licensing: it is vendor product art, so treat it as a request rather than an
   approved asset.
+- `keychron-m6.png`: Keychron M6 (1K, PixArt 3395; PID 0x3434:0xd060, receiver
+  0x3434:0xd029) render, from Keychron Launcher's own product catalogue
+  (`https://sysmgr.keychron.cn/api/upload/cover/25/1751522970525.png`; a second
+  angled view is at `.../1751522970560.png`). Transparent 2560×2560 PNG, needs
+  the usual crop/downscale to the ~340 px panel size. **Needs a maintainer
+  upload**, the mapping in `src/ui/device-images.ts` is in place and falls back
+  to the placeholder until then. Vendor product art, not yet cleared for
+  licensing, so treat it as a request rather than an approved asset.
 - `mchose-a7-v3.png` — MCHOSE A7 V3 render. Same story as the V2 above:
   MCHOSE publishes only `A7V3Pro_*` renders and the four V3 models share a
   shell, so one image covers the family. **Needs a maintainer upload**, and

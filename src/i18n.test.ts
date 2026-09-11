@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { batteryStateText, connectLabelText, ensureLocale, missingTranslations, t } from "./i18n.ts";
+import { batteryStateText, connectLabelText, ensureLocale, missingTranslations, t, tp } from "./i18n.ts";
 
 test("i18n falls back to English until the locale table resolves", async () => {
   assert.equal(t("pt", "nav.settings"), "Settings");
@@ -28,4 +28,9 @@ test("i18n maps known connect labels and passes dynamic ones through", () => {
 
 test("every locale translates every key", async () => {
   assert.deepEqual(await missingTranslations(), []);
+});
+
+test("tp renders provided placeholders and blanks missing ones", () => {
+  assert.equal(tp("en", "dpi.slotX", { n: 2 }), "Slot 2 X DPI");
+  assert.equal(tp("en", "dpi.slotX", {}), "Slot  X DPI");
 });

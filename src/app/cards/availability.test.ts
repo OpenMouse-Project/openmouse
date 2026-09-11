@@ -251,6 +251,28 @@ test("the Razer buttons card appears only when the driver reported mappings", ()
   assert.equal(cardAvailability(snapshot({ status: { brand: "Razer" } })).razerButtons, false);
 });
 
+test("Terra Pro remap uses the generic button card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Teevolution",
+      buttonMappings: { Left: "Left Click", Forward: "Forward" },
+      buttonOptions: ["Left Click", "Forward"],
+    },
+  }));
+  assert.equal(has.buttonMapping, true);
+});
+
+test("Terra Pro onboard banks use the generic profile card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Teevolution",
+      activeProfile: 1,
+      profileCount: 4,
+    },
+  }));
+  assert.equal(has.onboardProfiles, true);
+});
+
 test("the generic button card follows the K-snake key-map read", () => {
   // The driver opens the advanced section only when getKeys() succeeded,
   // so the card must not appear on a silent dongle even though the family

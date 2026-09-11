@@ -170,6 +170,9 @@ const DEVICE_IMAGES: ReadonlyMap<string, string> = new Map([
   ["03f0:0f8f", "hyperx-pulsefire-haste.png"],
   ["03f0:048e", "hyperx-pulsefire-haste.png"],
   ["03f0:028e", "hyperx-pulsefire-haste.png"],
+  // Keychron M6 (1K, PixArt 3395) wired and its Link-KM receiver share one shell.
+  ["3434:d060", "keychron-m6.png"],
+  ["3434:d029", "keychron-m6.png"],
 ]);
 
 function deviceKey(device: HIDDevice): string {

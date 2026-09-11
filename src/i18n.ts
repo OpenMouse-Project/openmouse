@@ -117,6 +117,7 @@ const en = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.russian": "Русский",
+  "set.vietnamese": "Tiếng Việt",
   "set.motion": "MOTION",
   "set.animations": "Animations",
   "set.animationsBody": "Enable interface transitions and animated state changes.",
@@ -933,6 +934,9 @@ const en = {
   "adm.loadFail": "Could not load stats.",
   "adm.viewsWord": "views",
   "adm.peakConcurrent": "peak concurrent {n}",
+
+  "tab.unavailable": "{tab} controls are not available for this device.",
+  "tab.chooseAnother": "Choose another tab to continue configuring the device.",
 } as const;
 
 export type I18nKey = keyof typeof en;
@@ -949,6 +953,7 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
   ["ja", "set.japanese"],
   ["ko", "set.korean"],
   ["ru", "set.russian"],
+  ["vi", "set.vietnamese"],
 ];
 
 /** Non-English tables load on demand so the initial bundle ships English
@@ -970,6 +975,7 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   ja: () => import("./i18n-ja.ts").then((m) => m.ja),
   ko: () => import("./i18n-ko.ts").then((m) => m.ko),
   ru: () => import("./i18n-ru.ts").then((m) => m.ru),
+  vi: () => import("./i18n-vi.ts").then((m) => m.vi),
 };
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {
@@ -1000,7 +1006,13 @@ export function t(locale: InterfaceLocale, key: I18nKey): string {
 
 /** Translate a template with {placeholders}. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
-  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? ""));
+  return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
+    const value = vars[name];
+    if (value === undefined && import.meta.env?.DEV === true) {
+      console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
+    }
+    return String(value ?? "");
+  });
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */
