@@ -47,6 +47,7 @@ export function App(): ReactNode {
         ja: "ja",
         ko: "ko",
         ru: "ru",
+        vi: "vi",
         en: "en",
       };
       const nextLang = htmlLang[locale] ?? "en";
