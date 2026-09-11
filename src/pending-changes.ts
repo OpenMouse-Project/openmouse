@@ -29,8 +29,11 @@ export interface PendingChange {
 const changes = new Map<string, PendingChange>();
 const listeners = new Set<() => void>();
 
-export function onPendingChanges(listener: () => void): void {
+export function onPendingChanges(listener: () => void): () => void {
   listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function notify(): void {

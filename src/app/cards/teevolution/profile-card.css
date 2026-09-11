@@ -1,0 +1,14 @@
+/* Same panel slot as #logitech-onboard: full-width, not a 2-col setting-card. */
+#teevolution-onboard { order: 5; }
+
+#teevolution-profile-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .3rem;
+  padding-bottom: .5rem;
+}
+
+#teevolution-profile-list > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
