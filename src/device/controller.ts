@@ -218,6 +218,8 @@ const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHid
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
 
 const teevolutionClient = (): TeevolutionHidClient | null => activeAs(TeevolutionHidClient);
+const dpiLightingClient = (): TeevolutionHidClient | AtkHidClient | null =>
+  activeAs<TeevolutionHidClient | AtkHidClient>(TeevolutionHidClient, AtkHidClient);
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
@@ -3530,20 +3532,21 @@ export function applyTeevolutionPerformanceDuration(duration: number): void {
 const TEEVOLUTION_DPI_LIGHT_GROUP = "teevolution-dpi-lighting";
 
 async function writeStagedTeevolutionDpiLighting(): Promise<void> {
-  const client = teevolutionClient();
+  const client = dpiLightingClient();
   if (!client || !latestDeviceStatus) {
-    throw new Error(st("ctl.teeGone"));
+    throw new Error("The DPI-lighting device is no longer connected.");
   }
   const status = withPendingChanges(latestDeviceStatus);
+  const hint = status.ui?.dpiLighting;
   await client.setDpiLighting(
-    status.dpiLedMode ?? 0,
-    status.dpiLedBrightness ?? 5,
-    status.dpiLedSpeed ?? 3,
+    status.dpiLedMode ?? hint?.modes[0] ?? 0,
+    status.dpiLedBrightness ?? hint?.brightness[0] ?? 5,
+    status.dpiLedSpeed ?? hint?.speed[0] ?? 3,
   );
 }
 
 export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
-  if (!teevolutionClient()) return;
+  if (!dpiLightingClient()) return;
   const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
   const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
   stageChange({

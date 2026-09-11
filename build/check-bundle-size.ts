@@ -90,10 +90,16 @@ const BUDGET_BYTES: Record<string, number> = {
   // registry.ts/vendors.ts, and the Incott one brings a full vendor codec
   // plus applyPulsarValue/traits/device-images wiring. Measured aggregate
   // is 1,351.0 kB, leaving ~19 kB of headroom.
-  // Raised to 1,425 kB for the Vietnamese (vi) interface locale: same
-  // lazy-chunk pattern as the other non-English tables (i18n-vi-*.js, loaded
-  // only when selected), adding ~47 kB to the measured aggregate (1,417.9 kB).
-  ".js": 1_425_000,
+  // Raised to 1,410 kB for the @openmouse/protocol lockfile bump that picks
+  // up the VXE R1 Pro Max driver on the protocol side: bridge-hid.ts pulls
+  // in every registered vendor's HID filters via SUPPORTED_HID_FILTERS, so a
+  // new protocol-side driver grows this bundle even before any app code
+  // references it directly. Measured aggregate is 1,386.8 kB, leaving ~23 kB
+  // of headroom for the VXE app-side integration PR.
+  // Raised to 1,465 kB for the Vietnamese (vi) interface locale landing on
+  // top of that: same lazy-chunk pattern as the other non-English tables
+  // (i18n-vi-*.js, loaded only when selected), adding ~47 kB.
+  ".js": 1_465_000,
 };
 
 const ASSETS = join("dist", "assets");

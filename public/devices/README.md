@@ -190,6 +190,13 @@ package:
   upload**, the mapping in `src/ui/device-images.ts` is in place and falls back
   to the placeholder until then. Vendor product art, not yet cleared for
   licensing, so treat it as a request rather than an approved asset.
+- `vxe-r1-series.png` — shared by the VXE R1 family (R1, R1 SE, R1 SE+, R1 Pro,
+  and R1 Pro Max), which use the same external shell. The render was extracted
+  from ATK Hub, ATK/VXE's official device configurator, and normalized as a
+  transparent PNG for the device panel. **Needs a maintainer upload**, the
+  mapping in `src/ui/device-images.ts` is already in place and falls back
+  cleanly until then. Vendor product art, not yet cleared for licensing, so
+  treat it as a request rather than an approved asset.
 - `mchose-a7-v3.png` — MCHOSE A7 V3 render. Same story as the V2 above:
   MCHOSE publishes only `A7V3Pro_*` renders and the four V3 models share a
   shell, so one image covers the family. **Needs a maintainer upload**, and
