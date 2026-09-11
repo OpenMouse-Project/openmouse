@@ -329,3 +329,35 @@ test("the generic button card follows the K-snake key-map read", () => {
   }));
   assert.equal(silent.buttonMapping, false);
 });
+
+test("the Incott card follows the fields the device reported, not a brand trait", () => {
+  // Wireless: both controls are present.
+  const wireless = cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      ui: { family: "incott", showAdvancedSection: true },
+      incottReceiverLedMode: 0,
+      incottFireKeyTimes: 3,
+      incottFireKeyIntervalMs: 10,
+    },
+  }));
+  assert.equal(wireless.incott, true);
+
+  // Wired: the receiver LED is gone with the dongle, but rapid fire lives in
+  // the mouse, so the card still has something to show.
+  const wired = cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      ui: { family: "incott", showAdvancedSection: true },
+      incottFireKeyTimes: 3,
+      incottFireKeyIntervalMs: 10,
+    },
+  }));
+  assert.equal(wired.incott, true);
+
+  // Neither read answered: no card at all rather than an empty one.
+  const silent = cardAvailability(snapshot({
+    status: { brand: "Incott", ui: { family: "incott", showAdvancedSection: true } },
+  }));
+  assert.equal(silent.incott, false);
+});

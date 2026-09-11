@@ -3907,6 +3907,46 @@ export function applyFinalmouseSetting(
   });
 }
 
+/**
+ * Incott's 2.4 GHz receiver LED (0 connect & polling rate, 1 battery status,
+ * 2 battery warning). Wireless only — the driver omits the field entirely
+ * over the cable, so the card that calls this is not rendered there.
+ */
+export function applyIncottReceiverLed(mode: number): void {
+  stageChange({
+    key: "incott-receiver-led",
+    label: `Receiver LED ${mode}`,
+    command: "Change receiver LED mode",
+    progress: "Changing receiver LED mode…",
+    preview: (status) => { status.incottReceiverLedMode = mode; },
+    apply: () => callClientMethod("setReceiverLed", "receiver LED mode", mode),
+  });
+}
+
+/**
+ * Incott's "Fire Key" rapid-fire settings. Both values ride in one command,
+ * so a change to either sends both — the caller passes the pair it wants,
+ * and the card fills the unchanged half from the current status.
+ */
+export function applyIncottFireKey(times: number, intervalMs: number): void {
+  stageChange({
+    key: "incott-fire-key",
+    label: `Rapid fire ${times}x @ ${intervalMs} ms`,
+    command: "Change rapid fire",
+    progress: "Changing rapid fire…",
+    preview: (status) => {
+      status.incottFireKeyTimes = times;
+      status.incottFireKeyIntervalMs = intervalMs;
+    },
+    apply: async () => {
+      const client = requireClientMethod("setFireKey", "rapid fire") as unknown as {
+        setFireKey(times: number, intervalMs: number): Promise<unknown>;
+      };
+      await client.setFireKey(times, intervalMs);
+    },
+  });
+}
+
 function startAutomaticRefresh(): void {
   if (refreshTimer !== null) window.clearInterval(refreshTimer);
   const client = activeSettingsClient();

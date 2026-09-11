@@ -627,6 +627,69 @@ export function NinjutsoClickCard({ snapshot }: { snapshot: ControlSnapshot }): 
   );
 }
 
+export function IncottCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.some((key) => key.startsWith("incott-"));
+  const times = status.incottFireKeyTimes ?? 1;
+  const interval = status.incottFireKeyIntervalMs ?? 0;
+  return (
+    <article
+      id="incott-settings"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="incott-receiver-led incott-fire-key"
+    >
+      <div className="setting-heading compact">
+        <div><p>INCOTT</p><h2>{t(locale, "adv.receiverRapidFire")}</h2></div>
+      </div>
+      {/* Absent over the cable: there is no dongle to light up. */}
+      {status.incottReceiverLedMode != null ? (
+        <label className="field-label">
+          {t(locale, "adv.dongleLed")}
+          <select
+            id="incott-receiver-led"
+            value={status.incottReceiverLedMode}
+            onChange={(event) => control.applyIncottReceiverLed(Number(event.currentTarget.value))}
+          >
+            <option value={0}>{t(locale, "adv.ledConnectRate")}</option>
+            <option value={1}>{t(locale, "adv.ledBatteryStatus")}</option>
+            <option value={2}>{t(locale, "adv.ledBatteryWarning")}</option>
+          </select>
+        </label>
+      ) : null}
+      {status.incottFireKeyTimes != null ? (
+        <>
+          <label className="field-label spaced">
+            {t(locale, "adv.fireKeyTimes")}
+            <select
+              id="incott-fire-key-times"
+              value={times}
+              onChange={(event) => control.applyIncottFireKey(Number(event.currentTarget.value), interval)}
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+            </select>
+          </label>
+          <label className="field-label spaced">
+            {t(locale, "adv.fireKeyInterval")}
+            <input
+              id="incott-fire-key-interval"
+              type="number"
+              min={0}
+              max={255}
+              step={1}
+              value={interval}
+              onChange={(event) => control.applyIncottFireKey(times, Number(event.currentTarget.value))}
+            />
+          </label>
+        </>
+      ) : null}
+    </article>
+  );
+}
+
 export function FinalmouseCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
