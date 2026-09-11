@@ -46,3 +46,9 @@ export function selectableValues(offered: number[], current: number | null | und
   if (current < offered[0] || current > offered[offered.length - 1]) return null;
   return offered.includes(current) ? offered : [...offered, current].sort((left, right) => left - right);
 }
+
+/** Keep an unwritable firmware value visible without adding it to the offered set. */
+export function valuesWithCurrent(offered: number[], current: number | null | undefined): number[] {
+  if (current === null || current === undefined || offered.includes(current)) return offered;
+  return [...offered, current].sort((left, right) => left - right);
+}
