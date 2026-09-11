@@ -6,7 +6,7 @@ import {
   reportRatesFor,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
-import { RATE_STEPS_HZ } from "../../device/controller";
+import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
 import type { InterfaceLocale } from "../../interface-preferences";
@@ -28,6 +28,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
   const perProfile = entry !== null && rates !== null;
   const locked = snapshot.profileFormat?.writable !== true;
   const shared = (snapshot.profileFormat?.id ?? 6) < 6;
+  const nativeX11 = isNativeAttackSharkX11(status);
 
   const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
     .filter((rate) => !(snapshot.traits.eggControls && rate < 1000))
@@ -86,7 +87,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           locale={locale}
           options={advertisedRates}
           valueHz={status.pollingRateHz}
-          disabled={snapshot.settingsPending || status.ui?.pollingReadOnly === true}
+          disabled={(snapshot.settingsPending && !nativeX11) || status.ui?.pollingReadOnly === true}
           bubble={false}
           onChange={control.applyPollingRate}
         />

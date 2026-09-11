@@ -1,4 +1,5 @@
 import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
+import { applyBridgeNativeSettings } from "../bridge";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -58,6 +59,7 @@ import {
 } from "@openmouse/protocol/drivers/endgame/egg-we-control";
 import { AtkBitmouseHidClient } from "@openmouse/protocol/drivers/atk/bitmouse-hid";
 import { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
+import { LamzuAtlantisHidClient } from "@openmouse/protocol/drivers/lamzu-atlantis/hid";
 import { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import {
   LogitechHidppClient,
@@ -129,6 +131,7 @@ import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
 import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
 import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
+import { MchoseA5ProMaxHidClient } from "@openmouse/protocol/drivers/mchose/a5-gen1-hid";
 import { MchoseV3HidClient } from "@openmouse/protocol/drivers/mchose/v3-hid";
 import { FantechHidClient } from "@openmouse/protocol/drivers/fantech/hid";
 import { WallhackMouseHidClient } from "@openmouse/protocol/drivers/wallhack/mouse-hid";
@@ -177,6 +180,15 @@ const DEFAULT_TITLE = typeof document === "undefined" ? "OpenMouse Control" : do
 const ACTIVE_DEVICE_STORAGE_KEY = "openmouse.active-device";
 const WLMOUSE_SLEEP_NEVER = 0xffff;
 export const RATE_STEPS_HZ = [125, 250, 500, 1000, 2000, 4000, 8000];
+// Real Attack Shark X11 hardware exposes no HID feature reports the browser
+// can reach (see attackSharkNativeOnlyMessage in @openmouse/protocol); the
+// driver reports it with `ui.settingsReady: false`. Polling rate can still be
+// set through OpenMouse Bridge, which claims the native interface directly,
+// so this app-side allowlist of rates and a small local cache of the last
+// value we told Bridge to apply (the firmware exposes no read-back command)
+// stand in for what the driver would normally advertise.
+export const X11_POLLING_RATES_HZ = [125, 250, 500, 1000];
+const X11_POLLING_STORAGE_KEY = "openmouse.attack-shark-x11.polling-rate";
 export const PULSAR_SLEEP_OPTIONS: ReadonlyArray<readonly [number, string]> = [
   [1, "10 seconds"], [3, "30 seconds"], [6, "1 minute"], [12, "2 minutes"],
   [30, "5 minutes"], [60, "10 minutes"], [180, "30 minutes"],
@@ -195,6 +207,17 @@ const previewMode = previewModeEnabled
 const isAnyPreview = previewMode !== null;
 
 let active: SupportedClient | null = null;
+let x11PollingRateHz = (() => {
+  const saved = Number(window.localStorage.getItem(X11_POLLING_STORAGE_KEY));
+  return X11_POLLING_RATES_HZ.includes(saved) ? saved : 1000;
+})();
+
+/** True for the specific Attack Shark X11 units whose settings channel is native-only. */
+export function isNativeAttackSharkX11(status: MouseStatus | null | undefined): boolean {
+  return status?.brand === "Attack Shark"
+    && status.name === "Attack Shark X11"
+    && status.ui?.settingsReady === false;
+}
 
 type ClientClass<T> = abstract new (...args: never[]) => T;
 
@@ -203,17 +226,17 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
   return null;
 }
 
-const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
+const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
 const eggClient = (): EggOp1HidClient | null => activeAs(EggOp1HidClient);
 const eggWeClient = (): EggWeHidClient | null =>
   active !== null && isEggWeClient(active) ? active : null;
-const dmClient = (): WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
-  activeAs<WLMouseHidClient | LamzuHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
+const dmClient = (): WLMouseHidClient | LamzuHidClient | LamzuAtlantisHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient | null =>
+  activeAs<WLMouseHidClient | LamzuHidClient | LamzuAtlantisHidClient | AtkHidClient | AtkBitmouseHidClient | NinjutsoHidClient>(...DM_CLASSES);
 const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient | null =>
   activeAs<RazerHidClient | RazerViperMiniHidClient | RazerViperHidClient | RazerCobraHidClient>(...RAZER_CLASSES);
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
@@ -1484,6 +1507,20 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
 }
 
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
+  if (isNativeAttackSharkX11(deviceStatus)) {
+    // The firmware has no read-back command for polling rate, so show the
+    // last value this app told Bridge to apply instead of the driver's 0.
+    deviceStatus = {
+      ...deviceStatus,
+      pollingRateHz: x11PollingRateHz,
+      supportedPollingRates: X11_POLLING_RATES_HZ,
+      ui: {
+        ...deviceStatus.ui,
+        pollingNote: "Native control through OpenMouse Bridge. The displayed rate is the "
+          + "last value applied here; this firmware does not expose a readable current-rate command.",
+      },
+    };
+  }
   latestDeviceStatus = deviceStatus;
   latestDiagnosticStatus = deviceStatus;
   // Battery samples are recorded at device-update cadence; renders read the
@@ -3111,6 +3148,11 @@ export function setProfileReportRate(link: "wireless" | "wired", hz: number): vo
 
 export function applyPollingRate(rate: number): void {
   if (!hasActiveClient()) return;
+  // The slider only offers device-advertised rates (or RATE_STEPS_HZ); anything
+  // else arrives from an imported profile key, so reject it before staging.
+  const allowed = latestDeviceStatus?.supportedPollingRates ?? RATE_STEPS_HZ;
+  if (!Number.isInteger(rate) || !allowed.includes(rate)) return;
+  const nativeX11 = isNativeAttackSharkX11(latestDeviceStatus);
   stageChange({
     key: "polling-rate",
     label: `${rate.toLocaleString()} Hz`,
@@ -3120,7 +3162,13 @@ export function applyPollingRate(rate: number): void {
       status.pollingRateHz = rate;
     },
     apply: async () => {
-      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
+      if (nativeX11) {
+        await applyBridgeNativeSettings({ brand: "Attack Shark", pollingRateHz: rate });
+        x11PollingRateHz = rate;
+        window.localStorage.setItem(X11_POLLING_STORAGE_KEY, String(rate));
+      } else {
+        await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
+      }
     },
   });
 }
