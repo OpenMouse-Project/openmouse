@@ -191,6 +191,32 @@ function deviceKey(device: HIDDevice): string {
 }
 
 /**
+ * VID:PID pairs known to be genuinely shared across different physical
+ * products (a receiver or ODM board reused by several models), transcribed
+ * from the name-fallback comments below rather than kept as a second source
+ * of truth. Crowd-sourced artwork is keyed by VID:PID alone (see
+ * `deviceImage`), so without this, uploading art for one model sharing one
+ * of these ids would apply it to every other model behind the same id —
+ * these are skipped so crowd art is only ever trusted for a PID that maps to
+ * exactly one product.
+ *
+ * Add an entry here whenever a name-fallback regex is added below for the
+ * same reason (a shared receiver/PID, not just an unmapped model).
+ */
+const SHARED_PID_KEYS: ReadonlySet<string> = new Set([
+  "046d:c539", // Logitech Lightspeed receiver (G502 X, G703, G Pro Wireless, ...)
+  "3151:402d", // GearHub 2.4 GHz receiver (Attack Shark R2, Lingbao M5 Pro)
+  "3837:4030", "3837:4031", "3837:4032", "3837:4033", // MCHOSE A7 V3-generation receiver ids
+]);
+
+/** WLMouse has no single shared receiver PID — its whole vendor id is name-resolved. */
+const SHARED_PID_VENDOR_IDS: ReadonlySet<number> = new Set([0x36a7]);
+
+function isSharedPidDevice(device: HIDDevice): boolean {
+  return SHARED_PID_VENDOR_IDS.has(device.vendorId) || SHARED_PID_KEYS.has(deviceKey(device));
+}
+
+/**
  * Crowd-sourced artwork cache. Populated asynchronously on app load from
  * `/api/artwork/list`. Once loaded, checked synchronously in
  * `resolveDeviceImageFilename` before the static map and name fallbacks.
@@ -363,8 +389,12 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
 const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  // Crowd-sourced artwork takes priority
-  if (device && crowdArtworkCache) {
+  // Crowd-sourced artwork takes priority — except for a shared VID:PID, where
+  // it's keyed to whichever model someone happened to upload for and would be
+  // wrong for every other model behind the same id. Those fall through to
+  // resolveDeviceImageFilename's name-based checks instead, same as the
+  // static map already does for them.
+  if (device && crowdArtworkCache && !isSharedPidDevice(device)) {
     const crowdFilename = crowdArtworkCache.get(deviceKey(device));
     if (crowdFilename) return DEVICE_IMAGE_BASE_URL + `crowd/${crowdFilename}`;
   }
