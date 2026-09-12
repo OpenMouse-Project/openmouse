@@ -201,3 +201,10 @@ package:
   MCHOSE publishes only `A7V3Pro_*` renders and the four V3 models share a
   shell, so one image covers the family. **Needs a maintainer upload**, and
   carries the same unresolved licensing question.
+
+- `dareu-a950-pro-mg.png` — **needs a maintainer upload.** The mapping covers
+  the A950 PRO Mg mouse (`0x260d:0x1117`) and dedicated receiver
+  (`0x260d:0x1114`). Suggested source: the contributor-supplied transparent
+  render from Dareu's driver panel
+  (`https://driver.dareu.com/allinone/products/1117/TM271F.png?v=1.3.24`). It
+  is vendor product art; request licensing review before publishing it in R2.

@@ -152,6 +152,7 @@ import {
 import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
+import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
@@ -227,7 +228,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, IncottHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -241,8 +242,8 @@ const razerClient = (): RazerHidClient | RazerViperMiniHidClient | RazerViperHid
 const viperClient = (): RazerViperV4ProHidClient | null => activeAs(RazerViperV4ProHidClient);
 
 const teevolutionClient = (): TeevolutionHidClient | null => activeAs(TeevolutionHidClient);
-const dpiLightingClient = (): TeevolutionHidClient | AtkHidClient | null =>
-  activeAs<TeevolutionHidClient | AtkHidClient>(TeevolutionHidClient, AtkHidClient);
+const dpiLightingClient = (): TeevolutionHidClient | AtkHidClient | DareuHidClient | null =>
+  activeAs<TeevolutionHidClient | AtkHidClient | DareuHidClient>(TeevolutionHidClient, AtkHidClient, DareuHidClient);
 const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHidClient);
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
@@ -1753,7 +1754,6 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
       lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
     }
     deviceStatuses.set(client.device, status);
-    capabilities = readCapabilities();
     applyStatus(status);
     await readButtons();
     await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
@@ -3333,9 +3333,12 @@ export function applyPulsarToggle(setting: PulsarToggleSetting, enabled: boolean
 }
 
 export function applyPulsarValue(setting: "debounce" | "sleep", value: number): void {
-  if (!(pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-    ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? wallhackMouseClient()
-    ?? incottClient())) return;
+  const client = setting === "sleep"
+    ? activeSettingsClient()
+    : pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
+      ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? wallhackMouseClient()
+      ?? incottClient();
+  if (!client || (setting === "sleep" && !("setSleepTimeout" in client))) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
     key: setting,
@@ -3602,6 +3605,9 @@ async function writeStagedTeevolutionDpiLighting(): Promise<void> {
 
 export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "speed", value: number): void {
   if (!dpiLightingClient()) return;
+  const hint = latestDeviceStatus?.ui?.dpiLighting;
+  const allowed = setting === "mode" ? hint?.modes : setting === "brightness" ? hint?.brightness : hint?.speed;
+  if (allowed && !allowed.includes(value)) return;
   const names = { mode: "effect", brightness: "brightness", speed: "speed" } as const;
   const display = setting === "mode" ? (["Off", "Steady", "Breathing"][value] ?? `${value}`) : `${value}`;
   stageChange({
@@ -3616,6 +3622,24 @@ export function applyTeevolutionDpiLighting(setting: "mode" | "brightness" | "sp
       if (setting === "speed") status.dpiLedSpeed = value;
     },
     apply: writeStagedTeevolutionDpiLighting,
+  });
+}
+
+export function applyDpiLightingSleepTimeout(seconds: number): void {
+  const allowed = latestDeviceStatus?.ui?.dpiLighting?.sleepTimeouts;
+  if (!allowed?.includes(seconds)) return;
+  stageChange({
+    key: "dpi-light-sleep",
+    label: `DPI indicator sleep ${sleepLabel(seconds, interfacePreferences.locale)}`,
+    command: `Set DPI indicator sleep to ${sleepLabel(seconds, interfacePreferences.locale)}`,
+    progress: "Setting DPI indicator sleep…",
+    preview: (status) => { status.dpiLedSleepTimeout = seconds; },
+    apply: async () => {
+      const client = requireClientMethod("setDpiLedSleepTimeout", "DPI indicator sleep") as unknown as {
+        setDpiLedSleepTimeout(value: number): Promise<unknown>;
+      };
+      await client.setDpiLedSleepTimeout(seconds);
+    },
   });
 }
 
