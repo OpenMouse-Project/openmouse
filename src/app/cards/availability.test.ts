@@ -144,6 +144,19 @@ test("Dareu exposes its verified mouse and DPI-indicator sleep controls", () => 
   assert.equal(has.teevolutionDpiLighting, true);
 });
 
+test("angle tuning belongs to processing rather than creating a second power-mode card", () => {
+  const angleOnly = cardAvailability(snapshot({
+    status: { brand: "VXE", ui: { family: "atk" }, angleTuning: 0 },
+  }));
+  assert.equal(angleOnly.processing, true);
+  assert.equal(angleOnly.powerMode, false);
+
+  const namedModes = cardAvailability(snapshot({
+    status: { brand: "MCHOSE", ui: { family: "mchose" }, powerModes: ["Eco", "Performance"] },
+  }));
+  assert.equal(namedModes.powerMode, true);
+});
+
 test("ATK inspection cards require data actually read from the device", () => {
   const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
   assert.equal(empty.atkButtons, false);

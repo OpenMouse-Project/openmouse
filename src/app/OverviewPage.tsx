@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
-import { WORKSPACE_TAB_ORDER, type ControlSnapshot, type WorkspaceTab } from "../device/types";
+import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
 import { KeychronNapeLayers } from "./KeychronNapeLayers";
@@ -52,7 +52,7 @@ import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
 import { ArtworkUploadDialog } from "./ArtworkUploadDialog";
-import type { MouseStatus } from "@openmouse/protocol/drivers";
+import { availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
@@ -609,30 +609,25 @@ export function OverviewPage({
   const { preferences } = snapshot;
   const locale = preferences.locale;
 
+  const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot));
+  const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
+  const workspaceSnapshot = workspaceTab === snapshot.workspaceTab
+    ? snapshot
+    : { ...snapshot, workspaceTab };
+
   useEffect(() => {
     const scrollTarget = panel.current?.closest<HTMLElement>(".full-desktop-content") ?? panel.current;
     scrollTarget?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
-  }, [snapshot.workspaceTab]);
+  }, [workspaceTab]);
 
-  const filterTabs = (deviceStatus: MouseStatus | null): readonly WorkspaceTab[] => {
-    let tempTabs = WORKSPACE_TAB_ORDER;
-    const has = cardAvailability(snapshot);
-    if (deviceStatus == null) return tempTabs;
-    if (!has.lighting && (!has.teevolutionDpiLighting || deviceStatus.ui?.powerOverview === true)) tempTabs = tempTabs.filter((tab) => tab !== "lighting");
-    if (
-      !has.eggButtons
-      && !has.razerButtons
-      && !has.mxMasterButtons
-      && !has.atkButtons
-      && !has.buttonMapping
-      && !has.debounce
-      && !has.lightforce
-      && !has.eggSpdt
-      && !has.superstrike
-    ) tempTabs = tempTabs.filter((tab) => tab !== "buttons");
-    return tempTabs;
-  };
-  const tabs = filterTabs(status);
+  useEffect(() => {
+    if (workspaceTab === snapshot.workspaceTab) return;
+    control.setWorkspaceTab(workspaceTab);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`#workspace-tab-${workspaceTab}`)?.focus();
+    });
+  }, [snapshot.workspaceTab, workspaceTab]);
+
   const showingDeviceDashboard = status !== null
     && (snapshot.deviceView === "device" || snapshot.previewMode !== null);
 
@@ -669,9 +664,9 @@ export function OverviewPage({
                 id={`workspace-tab-${tab}`}
                 type="button"
                 role="tab"
-                className={`device-tab-pill${snapshot.workspaceTab === tab ? " active" : ""}`}
-                aria-selected={snapshot.workspaceTab === tab}
-                tabIndex={snapshot.workspaceTab === tab ? 0 : -1}
+                className={`device-tab-pill${workspaceTab === tab ? " active" : ""}`}
+                aria-selected={workspaceTab === tab}
+                tabIndex={workspaceTab === tab ? 0 : -1}
                 onClick={() => control.setWorkspaceTab(tab)}
                 onKeyDown={(event) => onTabKey(event, tab)}
               >
@@ -689,7 +684,7 @@ export function OverviewPage({
             </button>
           </nav>
 
-          <Workspace snapshot={snapshot} onOpenCapture={onOpenCapture} />
+          <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} />
         </>
       ) : (
         <DeviceListView snapshot={snapshot} />

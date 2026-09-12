@@ -127,7 +127,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lightingAdvanced: host && Boolean(status.lighting || status.lightingZones?.length),
     onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
     buttonMapping: host && Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
-    powerMode: host && (Boolean(status.powerModes?.length) || status.angleTuning != null),
+    powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
     keychronNapeLayers: status.napeLayerCount != null && status.napeLayerCount >= 1,

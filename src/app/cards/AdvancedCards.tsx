@@ -21,7 +21,7 @@ import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import { isPulsarProProtocol } from "../../device/traits";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
-import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
+import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
 import type { ControlSnapshot } from "../../device/types";
 import { t, tp } from "../../i18n";
 import type { InterfaceLocale } from "../../interface-preferences";
@@ -143,7 +143,7 @@ export function DebounceCard({ snapshot }: { snapshot: ControlSnapshot }): React
     : snapshot.capabilities?.teevolutionProfile?.debounce.max ?? 20;
   const offered = snapshot.capabilities?.debounceOptions;
   const options = offered
-    ? selectableValues([...offered], status.debounceMs) ?? offered
+    ? valuesWithCurrent([...offered], status.debounceMs)
     : Array.from({ length: max + 1 }, (_, ms) => ms);
   const staged = snapshot.pending.keys.includes("debounce");
   return (
@@ -155,7 +155,9 @@ export function DebounceCard({ snapshot }: { snapshot: ControlSnapshot }): React
         disabled={status.debounceMs === null || status.debounceMs === undefined}
         onChange={(event) => control.applyPulsarValue("debounce", Number(event.currentTarget.value))}
       >
-        {options.map((ms) => <option key={ms} value={ms}>{ms} ms</option>)}
+        {options.map((ms) => (
+          <option key={ms} value={ms} disabled={offered != null && !offered.includes(ms)}>{ms} ms</option>
+        ))}
       </select>
     </article>
   );
@@ -399,15 +401,17 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
       {angleTuning != null ? (
         <label className="field-label spaced">
           {t(locale, "adv.angleTune")}
-          <select
-            id="angle-tune-select"
-            value={angleTuning}
-            onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
-          >
-            {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
-              <option key={angle} value={angle}>{angle}°</option>
-            ))}
-          </select>
+          {capabilities?.angleTuningWritable ? (
+            <select
+              id="angle-tune-select"
+              value={angleTuning}
+              onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
+            >
+              {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
+                <option key={angle} value={angle}>{angle}°</option>
+              ))}
+            </select>
+          ) : <output id="angle-tune-value">{angleTuning}°</output>}
         </label>
       ) : null}
 
@@ -1157,39 +1161,23 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
  * offers one. Driven entirely by what the driver reports, so it stays
  * brand-agnostic.
  */
+/** A device's named power/performance modes. */
 export function PowerModeCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const modes = status.powerModes;
-  const tuning = status.angleTuning;
-  if (!modes?.length && tuning == null) return null;
+  if (!modes?.length) return null;
   return (
     <article id="power-mode-settings" className="setting-card">
       <div className="setting-heading compact"><div><p>SENSOR</p><h2>{t(locale, "pow.mode")}</h2></div></div>
-      {modes?.length ? (
-        <Segmented
-          className={modes.length === 3 ? "three" : undefined}
-          ariaLabel={t(locale, "pow.perfMode")}
-          options={modes.map((mode) => ({ value: mode, label: mode }))}
-          value={status.powerMode ?? modes[0]!}
-          onChange={(next) => control.applyPowerMode(String(next))}
-        />
-      ) : null}
-      {tuning != null ? (
-        <label className="field-label spaced">
-          {t(locale, "adv.angleTuning")}
-          <select
-            id="angle-tuning-select"
-            value={tuning}
-            onChange={(event) => control.applyAngleTuning(Number(event.currentTarget.value))}
-          >
-            {Array.from({ length: 61 }, (_, index) => index - 30).map((angle) => (
-              <option key={angle} value={angle}>{angle}°</option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+      <Segmented
+        className={modes.length === 3 ? "three" : undefined}
+        ariaLabel={t(locale, "pow.perfMode")}
+        options={modes.map((mode) => ({ value: mode, label: mode }))}
+        value={status.powerMode ?? modes[0]!}
+        onChange={(next) => control.applyPowerMode(String(next))}
+      />
     </article>
   );
 }
