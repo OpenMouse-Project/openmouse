@@ -4,7 +4,13 @@
  *
  * GET /api/artwork/list
  *
- * Response: { artworks: Array<{ vendorId: number, productId: number, filename: string }> }
+ * Response: { artworks: Array<{ vendorId: number, productId: number, filename: string, nameSlug?: string }> }
+ *
+ * A device whose id is shared across different physical products (see
+ * upload.js's SHARED_PID_KEYS) uploads under `{vid}:{pid}:{nameSlug}.{ext}`
+ * instead of the plain `{vid}:{pid}.{ext}` every other device uses, so two
+ * different models behind one id each get their own entry here rather than
+ * one clobbering the other.
  */
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -26,10 +32,17 @@ export async function onRequest({ env }) {
 
     for (const object of listed.objects) {
       const filename = object.key.replace("crowd/", "");
-      const match = filename.match(/^([0-9a-f]{4}):([0-9a-f]{4})\.(png|webp)$/i);
-      if (match) {
-        const vendorId = parseInt(match[1], 16);
-        const productId = parseInt(match[2], 16);
+      const named = filename.match(/^([0-9a-f]{4}):([0-9a-f]{4}):([a-z0-9-]+)\.(png|webp)$/i);
+      if (named) {
+        const vendorId = parseInt(named[1], 16);
+        const productId = parseInt(named[2], 16);
+        artworks.push({ vendorId, productId, filename, nameSlug: named[3].toLowerCase() });
+        continue;
+      }
+      const plain = filename.match(/^([0-9a-f]{4}):([0-9a-f]{4})\.(png|webp)$/i);
+      if (plain) {
+        const vendorId = parseInt(plain[1], 16);
+        const productId = parseInt(plain[2], 16);
         artworks.push({ vendorId, productId, filename });
       }
     }

@@ -21,6 +21,29 @@ const VENDOR_RE = /^[0-9a-f]{4}$/i;
 // composited over the device panel, so it needs a transparent background.
 const DATA_URL_RE = /^data:image\/(png|webp);base64,(.+)$/;
 
+// VID:PID pairs (and, for WLMouse, a whole vendor id) known to be genuinely
+// shared across different physical products — a receiver or ODM board reused
+// by several models. Kept in sync by hand with the same list in
+// src/ui/device-images.ts; duplicated here because these Functions run
+// outside that module's build. For these, the object key includes a slug of
+// the device's own reported name so two different models behind one shared
+// id each get their own upload instead of clobbering one another the way a
+// bare VID:PID key would.
+const SHARED_PID_KEYS = new Set([
+  "046d:c539", // Logitech Lightspeed receiver (G502 X, G703, G Pro Wireless, ...)
+  "3151:402d", // GearHub 2.4 GHz receiver (Attack Shark R2, Lingbao M5 Pro)
+  "3837:4030", "3837:4031", "3837:4032", "3837:4033", // MCHOSE A7 V3-generation receiver ids
+]);
+const SHARED_PID_VENDOR_IDS = new Set([0x36a7]); // WLMouse — no single shared receiver PID
+
+function isSharedPid(vendorId, productId, vendorHex, productHex) {
+  return SHARED_PID_VENDOR_IDS.has(vendorId) || SHARED_PID_KEYS.has(`${vendorHex}:${productHex}`);
+}
+
+function slugifyName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 export async function onRequest({ request, env }) {
   if (request.method !== "POST") {
     return json({ message: "Method not allowed." }, 405);
@@ -65,15 +88,27 @@ export async function onRequest({ request, env }) {
   const base64Data = dataUrlMatch[2];
   const vendorHex = vendorId.toString(16).padStart(4, "0");
   const productHex = productId.toString(16).padStart(4, "0");
-  const filename = `${vendorHex}:${productHex}.${ext}`;
+
+  const shared = isSharedPid(vendorId, productId, vendorHex, productHex);
+  let keyBase = `${vendorHex}:${productHex}`;
+  if (shared) {
+    const nameSlug = slugifyName(displayName);
+    if (!nameSlug) {
+      return json({ message: "This device's id is shared with other models — a device name is required to tell them apart." }, 400);
+    }
+    keyBase += `:${nameSlug}`;
+  }
+  const filename = `${keyBase}.${ext}`;
   const objectKey = `crowd/${filename}`;
 
   // Checked by prefix, not by the exact key: the extension is part of the key
-  // (crowd/{vendor}:{product}.{ext}), so a .head() on this one key alone would
-  // miss an existing upload in the *other* format and let both land in the
-  // bucket for the same device — two objects the list endpoint can then only
-  // arbitrarily pick between.
-  const existing = await env.ARTWORK_BUCKET.list({ prefix: `crowd/${filename.replace(/\.[^.]+$/, "")}.` });
+  // (crowd/{keyBase}.{ext}), so a .head() on this one key alone would miss an
+  // existing upload in the *other* format and let both land in the bucket for
+  // the same device — two objects the list endpoint can then only
+  // arbitrarily pick between. For a shared id, keyBase already includes the
+  // name slug, so this only matches the same model's other format, not a
+  // different model sharing the same raw VID:PID.
+  const existing = await env.ARTWORK_BUCKET.list({ prefix: `crowd/${keyBase}.` });
   if (existing.objects.length > 0) {
     return json({ ok: true, message: "Artwork already exists." });
   }
