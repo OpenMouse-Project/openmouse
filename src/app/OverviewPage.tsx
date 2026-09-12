@@ -138,8 +138,6 @@ function DeviceShowcase({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           isOpen={showUploadDialog}
           onClose={() => setShowUploadDialog(false)}
           locale={locale}
-          vendorId={activeDevice.vendorId}
-          productId={activeDevice.productId}
           displayName={status.name}
           onArtworkUploaded={() => {
             control.refreshArtwork();
