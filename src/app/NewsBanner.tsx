@@ -1,7 +1,14 @@
+import { AlertTriangle, Info, OctagonAlert, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { fetchNews, type NewsItem } from "../news";
+import { fetchNews, type NewsItem, type NewsLevel } from "../news";
 import { t } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
+
+const LEVEL_ICON: Record<NewsLevel, LucideIcon> = {
+  info: Info,
+  warning: AlertTriangle,
+  critical: OctagonAlert,
+};
 
 const DISMISSED_STORAGE_KEY = "openmouse.news.dismissed";
 const POLL_INTERVAL_MS = 10 * 60 * 1000;
@@ -62,9 +69,11 @@ export function NewsBanner({ locale }: { locale: InterfaceLocale }): ReactNode {
   ) : (
     <span className="news-banner-link">{news.message}</span>
   );
+  const Icon = LEVEL_ICON[news.level];
 
   return (
     <div className={`news-banner news-banner-${news.level}`} role="status">
+      <Icon className="news-banner-icon" size={15} strokeWidth={2.2} aria-hidden="true" />
       {body}
       <button
         type="button"
