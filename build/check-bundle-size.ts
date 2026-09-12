@@ -103,7 +103,10 @@ const BUDGET_BYTES: Record<string, number> = {
   // in controller.ts/traits.ts and pulls in its own protocol-side codec via
   // bridge-hid's SUPPORTED_HID_FILTERS, same growth pattern as prior drivers.
   // Measured aggregate is 1,482.3 kB, leaving ~18 kB of headroom.
-  ".js": 1_500_000,
+  // Raised to 1,530 kB for Incott's receiver-LED and rapid-fire card: a new
+  // AdvancedCards section plus its availability/control wiring. Measured
+  // aggregate is 1,508.0 kB, leaving ~22 kB of headroom.
+  ".js": 1_530_000,
 };
 
 const ASSETS = join("dist", "assets");

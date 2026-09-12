@@ -19,6 +19,7 @@ export interface CardAvailability {
   ninjutsoClick: boolean;
   teevolutionDpiLighting: boolean;
   finalmouse: boolean;
+  incott: boolean;
   eggFilter: boolean;
   eggSpdt: boolean;
   eggPolling: boolean;
@@ -56,6 +57,7 @@ const NOTHING: CardAvailability = {
   ninjutsoClick: false,
   teevolutionDpiLighting: false,
   finalmouse: false,
+  incott: false,
   eggFilter: false,
   eggSpdt: false,
   eggPolling: false,
@@ -147,6 +149,11 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     teevolutionDpiLighting: host && (ui?.dpiLighting != null
       || (traits.teevolution && capabilities?.teevolutionProfile != null)),
     finalmouse: host && traits.finalmouse,
+    // Gated on the fields themselves rather than a brand trait: the receiver
+    // LED is absent over the cable, so the card follows what the device
+    // actually reported.
+    incott: host
+      && (status.incottFireKeyTimes != null || status.incottReceiverLedMode != null),
     eggFilter: eggs,
     eggSpdt: eggs,
     eggPolling: eggs && snapshot.preferences.showExperimental,
