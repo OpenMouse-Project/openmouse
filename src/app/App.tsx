@@ -8,6 +8,7 @@ import { CaptureDialog } from "./CaptureDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { InterfaceSettings } from "./InterfaceSettings";
 import { MouseTestPage } from "./MouseTestPage";
+import { NewsBanner } from "./NewsBanner";
 import { PendingBar } from "./PendingBar";
 import { ShareProfileDialog } from "./ShareProfileDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
@@ -96,6 +97,7 @@ export function App(): ReactNode {
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
     >
+      <NewsBanner locale={locale} />
       <AppSidebar snapshot={snapshot} page={resolvedPage} onNavigate={navigate} onOpenFeedback={() => setFeedbackOpen(true)} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
 
       <main className="full-desktop-main">
