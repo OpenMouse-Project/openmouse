@@ -47,7 +47,13 @@ function saveCacheToStorage(entries: ArtworkEntry[]): void {
 
 function buildMap(entries: ArtworkEntry[]): Map<string, string> {
   const map = new Map<string, string>();
-  for (const entry of entries) {
+  // The upload endpoint now refuses a second format for a device that already
+  // has one, but the bucket may still carry pre-existing .png/.webp pairs
+  // from before that check existed. Sort so any leftover duplicate resolves
+  // to the same filename every time instead of whichever the API happened to
+  // list last — R2's list order isn't something this app controls.
+  const sorted = [...entries].sort((a, b) => a.filename.localeCompare(b.filename));
+  for (const entry of sorted) {
     map.set(getCacheKey(entry.vendorId, entry.productId), entry.filename);
   }
   return map;
