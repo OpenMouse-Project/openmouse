@@ -1951,27 +1951,24 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     if (probed) return probed;
   }
 
-  // Seen repeatedly since a wave of Windows Update pushes reinstalled a legacy
-  // "Razer common" HID driver (reports as an old 10.0.x or 6.2.9600 driver in
-  // Device Manager) that binds ahead of the generic HID class driver and
-  // claims the mouse's vendor collection for itself. Chrome then never gets
-  // that collection offered at all -- only the boot-mouse/consumer-control
-  // leftovers -- so every Razer model breaks at once with no app change and
-  // no Synapse process running (resolves as "not a supported control
-  // interface" with zero usable candidates rather than a probe failure).
-  // Uninstalling the driver from Device Manager isn't enough on its own if
-  // Windows Update just reinstalls it on the next scan/reboot; the driver
-  // package has to be removed from the driver store (pnputil /delete-driver
-  // with /uninstall, matched against the oem*.inf reported by
-  // `pnputil /enum-drivers`) or driver updates blocked for that device.
-  const razerVendorCollectionSeen = razerCandidates.some((device) =>
-    device.collections.some((collection) => collection.usagePage === 0x01 && collection.usage === 0x02));
-  const windowsDriverHint = probedRazer && !razerVendorCollectionSeen
-    ? " This looks like a Windows Update-reinstalled legacy Razer HID driver claiming the mouse's "
-      + "control interface exclusively (check Device Manager for a 'Razer' entry under Human Interface "
-      + "Devices with an old driver date/version, then remove it from the driver store with "
-      + "`pnputil /delete-driver <oemN.inf> /uninstall /force` so Windows Update can't silently put it "
-      + "back) rather than something this app can fix."
+  // Confirmed on real hardware (issue #253): Chrome 153 (released 2026-09-08)
+  // denies feature-report access to a Razer control collection that the exact
+  // same machine/mouse/Windows install answers on under Chrome 152 -- an A/B
+  // test with a portable pre-153 Chromium build isolated it to the browser
+  // build alone, nothing OS- or driver-side. (Earlier theories in that thread
+  // -- a Windows Update-reinstalled legacy Razer driver, an exclusive-handle
+  // holder, a sandbox/ACL restriction -- were each tested and ruled out.) The
+  // exact regressed Chromium change isn't pinned down yet, so this can only
+  // warn by browser version, not detect the failure mode directly.
+  const chrome153Plus = (() => {
+    const match = /Chrome\/(\d+)/.exec(navigator.userAgent);
+    return match !== null && Number(match[1]) >= 153;
+  })();
+  const chromeRegressionHint = probedRazer && chrome153Plus
+    ? " This matches a Chrome 153+ regression: Chrome denies feature-report access to the Razer "
+      + "control collection that older Chrome builds reach fine on the same machine (confirmed by "
+      + "an A/B test against Chrome 152). Until Chromium fixes this, the workaround is running a "
+      + "pre-153 Chromium build for this app instead of your regular Chrome."
     : "";
 
   throw new Error(
@@ -1980,7 +1977,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     + `. `
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message."
-    + windowsDriverHint,
+    + chromeRegressionHint,
   );
 }
 
