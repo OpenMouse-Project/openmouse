@@ -68,8 +68,13 @@ export async function onRequest({ request, env }) {
   const filename = `${vendorHex}:${productHex}.${ext}`;
   const objectKey = `crowd/${filename}`;
 
-  const existing = await env.ARTWORK_BUCKET.head(objectKey);
-  if (existing) {
+  // Checked by prefix, not by the exact key: the extension is part of the key
+  // (crowd/{vendor}:{product}.{ext}), so a .head() on this one key alone would
+  // miss an existing upload in the *other* format and let both land in the
+  // bucket for the same device — two objects the list endpoint can then only
+  // arbitrarily pick between.
+  const existing = await env.ARTWORK_BUCKET.list({ prefix: `crowd/${filename.replace(/\.[^.]+$/, "")}.` });
+  if (existing.objects.length > 0) {
     return json({ ok: true, message: "Artwork already exists." });
   }
 
