@@ -60,9 +60,10 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // it is not a direct-mode (CompX) driver, so it takes the plain flags.
   mchose: { advancedSection: true, sleep: true, debounce: true },
   "mchose-a5-gen1": { advancedSection: true, sleep: true, debounce: true },
-  // "mchose-v3" is deliberately absent: that driver reads and cannot write, so
-  // every card these flags open would render controls with nothing behind
-  // them. Give it the same flags as `mchose` once it grows setters.
+  // The A7 V3 generation now writes its settings block, so it takes the same
+  // flags as the V2 above. Like it, this is not a direct-mode (CompX) driver:
+  // it publishes its own sleep and debounce option lists.
+  "mchose-v3": { advancedSection: true, sleep: true, debounce: true },
   dareu: { advancedSection: true, sleep: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
