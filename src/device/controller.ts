@@ -103,7 +103,7 @@ import { PulsarHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-hid";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { PulsarXs1HidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-xs1-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
-import { RazerHidClient } from "@openmouse/protocol/drivers/razer/hid";
+import { RazerHidClient, razerProbeControlInterface } from "@openmouse/protocol/drivers/razer/hid";
 import {
   RAZER_BUTTON_CONTROL_LABEL,
   RAZER_TOGGLE_CONTROL_INFO,
@@ -149,7 +149,7 @@ import {
   type KeychronNapeButtonAction,
   type KeychronNapeLayerKeymap,
 } from "@openmouse/protocol/keychron";
-import { SUPPORTED_HID_FILTERS } from "@openmouse/protocol/drivers/vendors";
+import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
@@ -1936,8 +1936,25 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
       + "Synapse app, so this mouse needs a native client.",
     );
   }
+  // The shape check above assumes a Razer control channel is always a single
+  // Generic Desktop Mouse collection. That has held for every model verified
+  // so far, but what collections a browser/OS combination actually exposes
+  // over WebHID is decided below this app, by the platform — a mismatch there
+  // wouldn't show up as a code difference. Rather than guess a new shape,
+  // try the protocol itself against every Razer-vendor collection Chrome
+  // granted before giving up.
+  const razerCandidates = devices.filter((device) => device.vendorId === VENDOR_ID.razer);
+  let probedRazer = false;
+  if (razerCandidates.length > 0) {
+    probedRazer = true;
+    const probed = await razerProbeControlInterface(devices);
+    if (probed) return probed;
+  }
+
   throw new Error(
-    `Selected device is not a supported control interface (${details}). `
+    `Selected device is not a supported control interface (${details})`
+    + (probedRazer ? ` [probed ${razerCandidates.length} Razer collection(s), none answered]` : "")
+    + `. `
     + "Pick a vendor control interface (not a plain boot mouse). "
     + "If this keeps failing, note the VID/PID from this message.",
   );
