@@ -1,10 +1,11 @@
 name: Discord Changelog
 
+# Disabled 2026-09-12: raw per-push/per-PR posts to #updates were too
+# technical for non-developers to follow (see Florian's feedback in
+# Discord). Replaced with a plain-English daily digest, planned for the
+# following Monday -- until then this workflow only runs on manual trigger.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
 
 permissions:
   contents: read
