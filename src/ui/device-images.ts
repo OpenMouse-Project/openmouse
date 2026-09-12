@@ -216,6 +216,11 @@ function isSharedPidDevice(device: HIDDevice): boolean {
   return SHARED_PID_VENDOR_IDS.has(device.vendorId) || SHARED_PID_KEYS.has(deviceKey(device));
 }
 
+/** Matches upload.js's slug exactly — the two must agree for the lookup to ever hit. */
+function slugifyName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 /**
  * Crowd-sourced artwork cache. Populated asynchronously on app load from
  * `/api/artwork/list`. Once loaded, checked synchronously in
@@ -244,7 +249,12 @@ async function fetchCrowdArtworkMap(bypassHttpCache = false): Promise<Map<string
     for (const entry of data.artworks) {
       if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
         const hex = (v: number) => v.toString(16).padStart(4, "0");
-        map.set(`${hex(entry.vendorId)}:${hex(entry.productId)}`, entry.filename);
+        const pidKey = `${hex(entry.vendorId)}:${hex(entry.productId)}`;
+        // A shared-id upload carries a nameSlug (see upload.js/list.js) so it
+        // doesn't collide with a different model behind the same raw id —
+        // keyed separately here, looked up the same way in deviceImage().
+        const key = typeof entry.nameSlug === "string" && entry.nameSlug ? `${pidKey}:${entry.nameSlug}` : pidKey;
+        map.set(key, entry.filename);
       }
     }
     return map;
@@ -389,13 +399,18 @@ function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displa
 const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  // Crowd-sourced artwork takes priority — except for a shared VID:PID, where
-  // it's keyed to whichever model someone happened to upload for and would be
-  // wrong for every other model behind the same id. Those fall through to
-  // resolveDeviceImageFilename's name-based checks instead, same as the
-  // static map already does for them.
-  if (device && crowdArtworkCache && !isSharedPidDevice(device)) {
-    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
+  // Crowd-sourced artwork takes priority. For a shared VID:PID, a bare
+  // vendorId:productId key would be whichever model someone happened to
+  // upload for and wrong for every other model behind the same id — so those
+  // devices are looked up by vendorId:productId:nameSlug instead (matching
+  // how upload.js keys them), and only served when the reported name
+  // actually matches. No name match falls through to
+  // resolveDeviceImageFilename's own name-based checks, same as it already
+  // does when there's no crowd art at all.
+  if (device && crowdArtworkCache) {
+    const shared = isSharedPidDevice(device);
+    const key = shared ? `${deviceKey(device)}:${slugifyName(displayName)}` : deviceKey(device);
+    const crowdFilename = crowdArtworkCache.get(key);
     if (crowdFilename) return DEVICE_IMAGE_BASE_URL + `crowd/${crowdFilename}`;
   }
   return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
