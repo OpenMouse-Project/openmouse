@@ -24,46 +24,17 @@
  * the name-fallback regexes below.
  */
 
-function deviceKey(device: HIDDevice): string {
-  const hex = (value: number): string => value.toString(16).padStart(4, "0");
-  return `${hex(device.vendorId)}:${hex(device.productId)}`;
-}
-
-/**
- * VID:PID pairs known to be genuinely shared across different physical
- * products (a receiver or ODM board reused by several models), transcribed
- * from the name-fallback comments below rather than kept as a second source
- * of truth. Crowd-sourced artwork is keyed by VID:PID alone (see
- * `deviceImage`), so without this, uploading art for one model sharing one
- * of these ids would apply it to every other model behind the same id —
- * these are skipped so crowd art is only ever trusted for a PID that maps to
- * exactly one product.
- *
- * Add an entry here whenever a name-fallback regex is added below for the
- * same reason (a shared receiver/PID, not just an unmapped model).
- */
-const SHARED_PID_KEYS: ReadonlySet<string> = new Set([
-  "046d:c539", // Logitech Lightspeed receiver (G502 X, G703, G Pro Wireless, ...)
-  "3151:402d", // GearHub 2.4 GHz receiver (Attack Shark R2, Lingbao M5 Pro)
-  "3837:4030", "3837:4031", "3837:4032", "3837:4033", // MCHOSE A7 V3-generation receiver ids
-]);
-
-/** WLMouse has no single shared receiver PID — its whole vendor id is name-resolved. */
-const SHARED_PID_VENDOR_IDS: ReadonlySet<number> = new Set([0x36a7]);
-
-function isSharedPidDevice(device: HIDDevice): boolean {
-  return SHARED_PID_VENDOR_IDS.has(device.vendorId) || SHARED_PID_KEYS.has(deviceKey(device));
-}
-
 /** Matches upload.js's slug exactly — the two must agree for the lookup to ever hit. */
 function slugifyName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 /**
- * Crowd-sourced artwork cache. Populated asynchronously on app load from
- * `/api/artwork/list`. Once loaded, checked synchronously in
- * `resolveDeviceImageFilename` before the static map and name fallbacks.
+ * Crowd-sourced artwork cache, keyed by the same name slug as the built-in
+ * art below — never by VID:PID, for the same reason: an id is not always
+ * unique to one physical product. Populated asynchronously on app load from
+ * `/api/artwork/list`. Once loaded, checked synchronously in `deviceImage`
+ * before the name-fallback regexes.
  */
 let crowdArtworkCache: Map<string, string> | null = null;
 let crowdArtworkPromise: Promise<void> | null = null;
@@ -86,14 +57,8 @@ async function fetchCrowdArtworkMap(bypassHttpCache = false): Promise<Map<string
 
     const map = new Map<string, string>();
     for (const entry of data.artworks) {
-      if (typeof entry.vendorId === "number" && typeof entry.productId === "number" && typeof entry.filename === "string") {
-        const hex = (v: number) => v.toString(16).padStart(4, "0");
-        const pidKey = `${hex(entry.vendorId)}:${hex(entry.productId)}`;
-        // A shared-id upload carries a nameSlug (see upload.js/list.js) so it
-        // doesn't collide with a different model behind the same raw id —
-        // keyed separately here, looked up the same way in deviceImage().
-        const key = typeof entry.nameSlug === "string" && entry.nameSlug ? `${pidKey}:${entry.nameSlug}` : pidKey;
-        map.set(key, entry.filename);
+      if (typeof entry.nameSlug === "string" && entry.nameSlug && typeof entry.filename === "string") {
+        map.set(entry.nameSlug, entry.filename);
       }
     }
     return map;
@@ -127,10 +92,9 @@ export async function refreshCrowdArtworkCache(): Promise<void> {
   if (map) crowdArtworkCache = map;
 }
 
-export function hasCrowdArtwork(vendorId: number, productId: number): boolean {
+export function hasCrowdArtwork(displayName: string): boolean {
   if (!crowdArtworkCache) return false;
-  const hex = (v: number) => v.toString(16).padStart(4, "0");
-  return crowdArtworkCache.has(`${hex(vendorId)}:${hex(productId)}`);
+  return crowdArtworkCache.has(slugifyName(displayName));
 }
 
 function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displayName = ""): string {
@@ -227,8 +191,28 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";
-  // Incott reports its model as "Esports G23V2Pro" (see incott/index.ts).
+  // Incott: six model families, each sold in a base and a Pro version with
+  // a different shell finish, so all twelve get their own render. The driver
+  // reads the model from the device and appends "Pro" when the PAW3950 is
+  // fitted (see incott/index.ts), giving names like "Ghero", "G23V2 Pro" or
+  // "Zero 39". Wired with no identity read it falls back to the product
+  // string, "Esports G23V2Pro", which these same patterns match because
+  // every separator is optional.
+  //
+  // Each Pro pattern MUST precede its base model, and the G23V2 pair must
+  // precede the plain G23 pair, or the looser rule swallows the tighter one.
   if (/\bg23\s*v2\s*pro\b/i.test(displayName)) return "incott-g23-v2-pro.png";
+  if (/\bg23\s*v2\b/i.test(displayName)) return "incott-g23-v2.png";
+  if (/\bg23\s*pro\b/i.test(displayName)) return "incott-g23-pro.png";
+  if (/\bg23\b/i.test(displayName)) return "incott-g23.png";
+  if (/\bg24\s*pro\b/i.test(displayName)) return "incott-g24-pro.png";
+  if (/\bg24\b/i.test(displayName)) return "incott-g24.png";
+  if (/\bghero\s*pro\b/i.test(displayName)) return "incott-ghero-pro.png";
+  if (/\bghero\b/i.test(displayName)) return "incott-ghero.png";
+  if (/\bzero\s*29\s*pro\b/i.test(displayName)) return "incott-zero-29-pro.png";
+  if (/\bzero\s*29\b/i.test(displayName)) return "incott-zero-29.png";
+  if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
+  if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
@@ -257,18 +241,13 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
 const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  // Crowd-sourced artwork takes priority. For a shared VID:PID, a bare
-  // vendorId:productId key would be whichever model someone happened to
-  // upload for and wrong for every other model behind the same id — so those
-  // devices are looked up by vendorId:productId:nameSlug instead (matching
-  // how upload.js keys them), and only served when the reported name
-  // actually matches. No name match falls through to
-  // resolveDeviceImageFilename's own name-based checks, same as it already
-  // does when there's no crowd art at all.
-  if (device && crowdArtworkCache) {
-    const shared = isSharedPidDevice(device);
-    const key = shared ? `${deviceKey(device)}:${slugifyName(displayName)}` : deviceKey(device);
-    const crowdFilename = crowdArtworkCache.get(key);
+  // Crowd-sourced artwork takes priority, looked up by the device's own name
+  // — never by VID:PID, since an id is not always unique to one physical
+  // product. No name (not yet connected/read) or no match falls through to
+  // resolveDeviceImageFilename's name-based checks, same as it already does
+  // when there's no crowd art at all.
+  if (crowdArtworkCache && displayName) {
+    const crowdFilename = crowdArtworkCache.get(slugifyName(displayName));
     if (crowdFilename) return DEVICE_IMAGE_BASE_URL + `crowd/${crowdFilename}`;
   }
   return DEVICE_IMAGE_BASE_URL + resolveDeviceImageFilename(device, displayName);
@@ -309,9 +288,6 @@ export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
 
 export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
   // If crowd art exists, it's not unknown
-  if (device && crowdArtworkCache) {
-    const crowdFilename = crowdArtworkCache.get(deviceKey(device));
-    if (crowdFilename) return false;
-  }
+  if (crowdArtworkCache && displayName && crowdArtworkCache.has(slugifyName(displayName))) return false;
   return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;
 }

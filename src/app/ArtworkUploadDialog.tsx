@@ -16,8 +16,6 @@ interface ArtworkUploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   locale: InterfaceLocale;
-  vendorId: number;
-  productId: number;
   displayName: string;
   onArtworkUploaded: () => void;
 }
@@ -26,8 +24,6 @@ export function ArtworkUploadDialog({
   isOpen,
   onClose,
   locale,
-  vendorId,
-  productId,
   displayName,
   onArtworkUploaded,
 }: ArtworkUploadDialogProps): ReactNode {
@@ -97,14 +93,14 @@ export function ArtworkUploadDialog({
     if (state.status !== "preview") return;
     setState({ status: "uploading", fileName: state.fileName, dataUrl: state.dataUrl });
 
-    const result = await uploadArtwork(vendorId, productId, displayName, state.dataUrl);
+    const result = await uploadArtwork(displayName, state.dataUrl);
     if (result.ok) {
       setState({ status: "done" });
       onArtworkUploaded();
     } else {
       setState({ status: "error", message: result.error ?? "Upload failed" });
     }
-  }, [state, vendorId, productId, displayName, onArtworkUploaded]);
+  }, [state, displayName, onArtworkUploaded]);
 
   const handleClose = useCallback(() => {
     if (state.status === "uploading") return;
