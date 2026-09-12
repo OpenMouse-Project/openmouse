@@ -33,6 +33,7 @@ const SHARED_PID_KEYS = new Set([
   "046d:c539", // Logitech Lightspeed receiver (G502 X, G703, G Pro Wireless, ...)
   "3151:402d", // GearHub 2.4 GHz receiver (Attack Shark R2, Lingbao M5 Pro)
   "3837:4030", "3837:4031", "3837:4032", "3837:4033", // MCHOSE A7 V3-generation receiver ids
+  "093a:522c", "093a:622c", // Incott dongle / wired ids, shared by all six families
 ]);
 const SHARED_PID_VENDOR_IDS = new Set([0x36a7]); // WLMouse — no single shared receiver PID
 

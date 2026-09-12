@@ -243,3 +243,54 @@ test("Incott G23V2Pro and Keychron M6 resolve by name", () => {
   assert.equal(deviceImage(null, "Esports G23V2Pro"), CDN + "incott-g23-v2-pro.png");
   assert.equal(deviceImage(null, "Keychron M6"), CDN + "keychron-m6.png");
 });
+
+test("every Incott family resolves its own render, base and Pro separately", () => {
+  // The driver reads the model from the device and appends "Pro" when the
+  // PAW3950 is fitted, so these are the names it actually reports.
+  assert.equal(deviceImage(null, "Ghero"), CDN + "incott-ghero.png");
+  assert.equal(deviceImage(null, "Ghero Pro"), CDN + "incott-ghero-pro.png");
+  assert.equal(deviceImage(null, "G23"), CDN + "incott-g23.png");
+  assert.equal(deviceImage(null, "G23 Pro"), CDN + "incott-g23-pro.png");
+  assert.equal(deviceImage(null, "G24"), CDN + "incott-g24.png");
+  assert.equal(deviceImage(null, "G24 Pro"), CDN + "incott-g24-pro.png");
+  assert.equal(deviceImage(null, "G23V2"), CDN + "incott-g23-v2.png");
+  assert.equal(deviceImage(null, "G23V2 Pro"), CDN + "incott-g23-v2-pro.png");
+  assert.equal(deviceImage(null, "Zero 29"), CDN + "incott-zero-29.png");
+  assert.equal(deviceImage(null, "Zero 29 Pro"), CDN + "incott-zero-29-pro.png");
+  assert.equal(deviceImage(null, "Zero 39"), CDN + "incott-zero-39.png");
+  assert.equal(deviceImage(null, "Zero 39 Pro"), CDN + "incott-zero-39-pro.png");
+});
+
+test("a looser Incott rule never swallows a tighter one", () => {
+  // G23V2 must not fall into the plain G23 render, and neither base model may
+  // be matched by its own Pro pattern or vice versa. Ordering is the only
+  // thing keeping these apart.
+  assert.notEqual(deviceImage(null, "G23V2"), CDN + "incott-g23.png");
+  assert.notEqual(deviceImage(null, "G23V2 Pro"), CDN + "incott-g23-pro.png");
+  assert.notEqual(deviceImage(null, "G23 Pro"), CDN + "incott-g23.png");
+  assert.notEqual(deviceImage(null, "Ghero Pro"), CDN + "incott-ghero.png");
+});
+
+test("the wired product string resolves the same render as the read model", () => {
+  // Wired with no identity read, the driver falls back to the tidied product
+  // string — "Esports G23V2Pro", no separators at all.
+  assert.equal(deviceImage(null, "Esports G23V2Pro"), CDN + "incott-g23-v2-pro.png");
+  assert.equal(deviceImage(null, "incott Esports G23V2Pro mouse"), CDN + "incott-g23-v2-pro.png");
+});
+
+test("Incott crowd art is keyed by model name, not its shared product id", () => {
+  // All six families enumerate as 093a:522c / 093a:622c, so a bare VID:PID
+  // key would serve one model's upload to every other model.
+  assert.equal(
+    deviceImage(dev(0x093a, 0x522c), "Ghero"),
+    CDN + "incott-ghero.png",
+    "no crowd art loaded in tests, so it falls through to the name rule",
+  );
+});
+
+test("Incott names do not collide with other brands' renders", () => {
+  // "G Pro" and the Logitech G-series numbers sit in the same cascade.
+  assert.equal(deviceImage(null, "G PRO WIRELESS"), CDN + "logitech-gpro-wireless.png");
+  assert.equal(deviceImage(null, "G203 LIGHTSYNC"), CDN + "logitech-g203.png");
+  assert.equal(deviceImage(null, "G303 SHROUD"), CDN + "logitech-g303.png");
+});

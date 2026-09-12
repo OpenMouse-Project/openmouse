@@ -46,6 +46,9 @@ const SHARED_PID_KEYS: ReadonlySet<string> = new Set([
   "046d:c539", // Logitech Lightspeed receiver (G502 X, G703, G Pro Wireless, ...)
   "3151:402d", // GearHub 2.4 GHz receiver (Attack Shark R2, Lingbao M5 Pro)
   "3837:4030", "3837:4031", "3837:4032", "3837:4033", // MCHOSE A7 V3-generation receiver ids
+  // Every Incott model family enumerates under these two ids — the 2.4 GHz
+  // dongle and the wired link — so crowd art has to be keyed by name here.
+  "093a:522c", "093a:622c",
 ]);
 
 /** WLMouse has no single shared receiver PID — its whole vendor id is name-resolved. */
@@ -227,8 +230,28 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";
-  // Incott reports its model as "Esports G23V2Pro" (see incott/index.ts).
+  // Incott: six model families, each sold in a base and a Pro version with
+  // a different shell finish, so all twelve get their own render. The driver
+  // reads the model from the device and appends "Pro" when the PAW3950 is
+  // fitted (see incott/index.ts), giving names like "Ghero", "G23V2 Pro" or
+  // "Zero 39". Wired with no identity read it falls back to the product
+  // string, "Esports G23V2Pro", which these same patterns match because
+  // every separator is optional.
+  //
+  // Each Pro pattern MUST precede its base model, and the G23V2 pair must
+  // precede the plain G23 pair, or the looser rule swallows the tighter one.
   if (/\bg23\s*v2\s*pro\b/i.test(displayName)) return "incott-g23-v2-pro.png";
+  if (/\bg23\s*v2\b/i.test(displayName)) return "incott-g23-v2.png";
+  if (/\bg23\s*pro\b/i.test(displayName)) return "incott-g23-pro.png";
+  if (/\bg23\b/i.test(displayName)) return "incott-g23.png";
+  if (/\bg24\s*pro\b/i.test(displayName)) return "incott-g24-pro.png";
+  if (/\bg24\b/i.test(displayName)) return "incott-g24.png";
+  if (/\bghero\s*pro\b/i.test(displayName)) return "incott-ghero-pro.png";
+  if (/\bghero\b/i.test(displayName)) return "incott-ghero.png";
+  if (/\bzero\s*29\s*pro\b/i.test(displayName)) return "incott-zero-29-pro.png";
+  if (/\bzero\s*29\b/i.test(displayName)) return "incott-zero-29.png";
+  if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
+  if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
