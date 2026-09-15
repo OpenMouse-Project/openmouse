@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deviceImage } from "./device-images.ts";
+import { deviceImage, isUnknownDevice } from "./device-images.ts";
 
 const CDN = "https://img.openmouse.app/";
 
@@ -141,13 +141,16 @@ test("DeathAdder V2 family shares the V2 render; V4 Pro gets its own", () => {
   assert.equal(deviceImage(null, "DeathAdder Essential"), CDN + "razer-deathadder-v2.png");
   assert.equal(deviceImage(null, "DeathAdder V4 Pro"), CDN + "razer-deathadder-v4-pro.png");
   assert.equal(deviceImage(null, "DeathAdder V4 Pro Carbon Fiber Edition"), CDN + "razer-deathadder-v4-pro.png");
-  // Test-needed V3 Pro and V2 X HyperSpeed must NOT pick up V3/V2 artwork.
-  assert.equal(deviceImage(null, "DeathAdder V3 Pro"), CDN + "unknown-device.png");
+  // Test-needed V2 X HyperSpeed must NOT pick up V2 artwork.
   assert.equal(deviceImage(null, "DeathAdder V2 X HyperSpeed"), CDN + "unknown-device.png");
 });
 
-test("DeathAdder V3 wired resolves by name", () => {
+test("DeathAdder V3 and V3 Pro share the V3 render", () => {
   assert.equal(deviceImage(null, "DeathAdder V3"), CDN + "razer-deathadder-v3.png");
+  // The name the Razer driver reports for the verified 0x00b7 receiver.
+  assert.equal(deviceImage(null, "Razer DeathAdder V3 Pro"), CDN + "razer-deathadder-v3.png");
+  assert.equal(deviceImage(null, "DeathAdder V3 Pro (Wired)"), CDN + "razer-deathadder-v3.png");
+  assert.equal(isUnknownDevice(null, "DeathAdder V3 Pro"), false);
 });
 
 test("Viper family resolves each generation to its own render", () => {

@@ -187,7 +187,11 @@ package:
 - `logitech-mx-anywhere-3.png` — Logitech MX Anywhere 3 top-view render
 - `logitech-mx-ergo-s.png` — Logitech MX Ergo S top-view render
 - `razer-deathadder-v2.png` — Razer DeathAdder V2 (V2 / V2 Pro / Essential share the shell)
-- `razer-deathadder-v3.png` — Razer DeathAdder V3 render
+- `razer-deathadder-v3.png` — Razer DeathAdder V3 render. The DeathAdder V3 Pro
+  shares the shell and resolves to this file too (a dedicated cable-free V3 Pro
+  render would be an improvement). **Not in the bucket as of September 2026**:
+  `img.openmouse.app/razer-deathadder-v3.png` returns 404, so both models show
+  the placeholder (and the showcase entry 404s) until a maintainer uploads it.
 - `razer-deathadder-v4-pro.png` — Razer DeathAdder V4 Pro (Carbon Fiber SKU shares the shell)
 - `razer-viper-v3-hyperspeed.png` — Razer Viper V3 HyperSpeed render
 - `razer-viper-v4-pro.png` — Razer Viper V4 Pro render

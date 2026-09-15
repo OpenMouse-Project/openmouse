@@ -79,7 +79,11 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bmx\s*anywhere\s*3\b/i.test(displayName)) return "logitech-mx-anywhere-3.png";
   if (/\bmx\s*ergo\b/i.test(displayName)) return "logitech-mx-ergo-s.png";
   if (/\bdeathadder\s*v4\b/i.test(displayName)) return "razer-deathadder-v4-pro.png";
-  if (/\bdeathadder\s*v3\b(?!\s*pro\b)/i.test(displayName)) return "razer-deathadder-v3.png";
+  // V3 and V3 Pro are one shell (the Pro drops the cable), so the Pro shares
+  // the V3 render the same way the V2 family shares one below. The Pro used
+  // to be excluded here while it was still test-needed; it has since been
+  // verified on hardware (mouse-protocol `0x00b7`).
+  if (/\bdeathadder\s*v3\b/i.test(displayName)) return "razer-deathadder-v3.png";
   if (/\bdeathadder\s*v2\b(?!\s*x\s*hyperspeed\b)/i.test(displayName)) return "razer-deathadder-v2.png";
   if (/\bdeathadder\s*essential\b/i.test(displayName)) return "razer-deathadder-v2.png";
   if (/\bviper\s*v3\s*hyperspeed\b/i.test(displayName)) return "razer-viper-v3-hyperspeed.png";
