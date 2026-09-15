@@ -81,6 +81,8 @@ export const zh: Record<I18nKey, string> = {
   "test.btn.forward": "前进",
   "set.title": "设置",
   "set.back": "返回设备",
+  "set.soundTitle": "音效",
+  "set.soundDescription": "启用鼠标点击和新连接等声音",
   "set.profiles": "配置文件",
   "set.profileKey": "配置密钥",
   "set.profileKeyBody": "可复制粘贴的密钥，能把这只鼠标的设置带到同型号的另一台设备上。在那台设备的设置里粘贴它，即可加载相同的配置。",

@@ -94,6 +94,8 @@ const en = {
   "set.importKey": "Import a key",
   "set.importPlaceholder": "Paste a profile key here…",
   "set.import": "Import",
+  "set.soundTitle": "Sound",
+  "set.soundDescription": "Enable sounds like mouse clicks and new connections",
   "set.importNote": "Imported settings are staged like any other edit — nothing is written until you flash them.",
   "set.bridge": "OPENMOUSE BRIDGE",
   "set.bridgeTitle": "Game detection and battery alerts",

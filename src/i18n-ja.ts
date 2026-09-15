@@ -81,6 +81,8 @@ export const ja: Record<I18nKey, string> = {
   "test.btn.forward": "進む",
   "set.title": "設定",
   "set.back": "デバイスに戻る",
+  "set.soundTitle": "サウンド",
+  "set.soundDescription": "マウスクリック音と新しい接続音を有効にしてください",
   "set.profiles": "プロファイル",
   "set.profileKey": "プロファイルキー",
   "set.profileKeyBody": "このマウスの設定を、同じモデルの別の個体に移せるコピー＆ペースト用のキーです。相手側の設定画面に貼り付けると同じ設定が読み込まれます。",

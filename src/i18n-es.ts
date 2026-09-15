@@ -81,6 +81,8 @@ export const es: Record<I18nKey, string> = {
   "test.btn.forward": "Adelante",
   "set.title": "Configuración",
   "set.back": "Volver al dispositivo",
+  "set.soundTitle": "Sonido",
+  "set.soundDescription": "Activa sonidos como clics de ratón y nuevas conexiones",
   "set.profiles": "PERFILES",
   "set.profileKey": "Clave de perfil",
   "set.profileKeyBody": "Una clave para copiar y pegar que lleva la configuración de este mouse a otra unidad del mismo modelo. Pégala en Configuración allí para cargar el mismo ajuste.",

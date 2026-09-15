@@ -24,6 +24,7 @@ test("interface preferences restore only supported values", () => {
   const storage = new MemoryStorage();
   saveInterfacePreferences(storage, {
     theme: "Violet",
+    enabledSounds: true,
     colorMode: "Light",
     locale: "pt",
     reducedMotion: true,
@@ -35,6 +36,7 @@ test("interface preferences restore only supported values", () => {
 
   assert.deepEqual(loadInterfacePreferences(storage), {
     theme: "Violet",
+    enabledSounds: true,
     colorMode: "Light",
     locale: "pt",
     reducedMotion: true,

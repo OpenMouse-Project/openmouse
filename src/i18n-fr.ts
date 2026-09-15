@@ -81,6 +81,8 @@ export const fr: Record<I18nKey, string> = {
   "test.btn.forward": "Avant",
   "set.title": "Paramètres",
   "set.back": "Retour à l'appareil",
+  "set.soundTitle": "Son",
+  "set.soundDescription": "Activez des sons comme des clics de souris et de nouvelles connexions",
   "set.profiles": "PROFILS",
   "set.profileKey": "Clé de profil",
   "set.profileKeyBody": "Une clé à copier-coller qui transfère les réglages de cette souris vers une autre unité du même modèle. Collez-la dans les Paramètres là-bas pour charger la même configuration.",

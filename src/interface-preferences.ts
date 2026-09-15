@@ -39,6 +39,7 @@ export interface InterfacePreferences {
   expandSections: boolean;
   showExperimental: boolean;
   instantFlash: boolean;
+  enabledSounds: boolean;
   glassIntensity: number;
 }
 
@@ -66,6 +67,7 @@ export const DEFAULT_INTERFACE_PREFERENCES: InterfacePreferences = {
   expandSections: false,
   showExperimental: true,
   instantFlash: false,
+  enabledSounds: true,
   glassIntensity: 100,
 };
 
@@ -120,6 +122,7 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
       expandSections: saved.expandSections === true,
       showExperimental: saved.showExperimental !== false,
       instantFlash: saved.instantFlash === true,
+      enabledSounds: saved.enabledSounds !== false,
       glassIntensity: clampGlassIntensity(saved.glassIntensity),
     };
   } catch {

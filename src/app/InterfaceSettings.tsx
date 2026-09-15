@@ -178,6 +178,14 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
       </div>
 
       {switchRow(
+        "interface-sounds",
+        t(locale, "set.soundTitle"),
+        t(locale, "set.soundDescription"),
+        preferences.enabledSounds,
+        set("enabledSounds"),
+      )}
+
+      {switchRow(
         "interface-reduced-motion",
         t(locale, "set.animations"),
         t(locale, "set.animationsBody"),

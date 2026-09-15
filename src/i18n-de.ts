@@ -81,6 +81,8 @@ export const de: Record<I18nKey, string> = {
   "test.btn.forward": "Vor",
   "set.title": "Einstellungen",
   "set.back": "Zurück zum Gerät",
+  "set.soundTitle": "Klang",
+  "set.soundDescription": "Aktiviere Geräusche wie Mausklicks und neue Verbindungen",
   "set.profiles": "PROFILE",
   "set.profileKey": "Profilschlüssel",
   "set.profileKeyBody": "Ein zum Kopieren geeigneter Schlüssel, der die Einstellungen dieser Maus auf ein anderes Gerät desselben Modells überträgt. Füge ihn dort in den Einstellungen ein, um dieselbe Konfiguration zu laden.",

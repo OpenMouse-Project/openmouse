@@ -11,7 +11,6 @@ import { start } from "./device/controller";
 import { isBeforeLaunch } from "./launch";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
-import { initClickSound } from "./click-sound";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
 import { usePresence } from "./app/usePresence";
 
@@ -31,7 +30,6 @@ function isChromium(): boolean {
 
 registerServiceWorker();
 mountOfflineBanner();
-initClickSound();
 
 function LaunchHero(): ReactNode {
   return (

@@ -81,6 +81,8 @@ export const ko: Record<I18nKey, string> = {
   "test.btn.forward": "앞으로",
   "set.title": "설정",
   "set.back": "장치로 돌아가기",
+  "set.soundTitle": "사운드",
+  "set.soundDescription": "마우스 클릭 소리나 새 연결 소리 같은 소리를 활성화하세요.",
   "set.profiles": "프로필",
   "set.profileKey": "프로필 키",
   "set.profileKeyBody": "이 마우스의 설정을 같은 모델의 다른 기기로 옮길 수 있는 복사용 키입니다. 그쪽 설정에 붙여넣으면 동일한 설정을 불러올 수 있습니다.",

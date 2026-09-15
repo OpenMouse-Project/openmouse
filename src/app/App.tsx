@@ -16,6 +16,7 @@ import { WhatsNewDialog } from "./WhatsNewDialog";
 import { AiOverlay } from "./AiOverlay";
 import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
+import { setSoundsEnabled } from "../sound-manager";
 
 export function App(): ReactNode {
   const snapshot = useControl();
@@ -74,6 +75,10 @@ export function App(): ReactNode {
   useEffect(() => {
     setSidebarCollapsed(resolvedPage === "dashboard");
   }, [resolvedPage]);
+
+  useEffect(() => {
+    setSoundsEnabled(preferences.enabledSounds);
+  }, [preferences.enabledSounds]);
 
   function openArtworkRequest(): void {
     if (snapshot.status?.name) setArtworkDeviceName(snapshot.status.name);

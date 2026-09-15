@@ -81,6 +81,8 @@ export const ru: Record<I18nKey, string> = {
   "test.btn.forward": "Вперёд",
   "set.title": "Настройки",
   "set.back": "Назад к устройству",
+  "set.soundTitle": "Звук",
+  "set.soundDescription": "Включите звуки, такие как щелчки мыши и новые соединения.",
   "set.profiles": "ПРОФИЛИ",
   "set.profileKey": "Ключ профиля",
   "set.profileKeyBody": "Ключ для копирования: переносит настройки этой мыши на другую такой же модели. Вставьте его в Настройках там, чтобы получить ту же конфигурацию.",

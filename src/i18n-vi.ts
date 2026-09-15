@@ -47,6 +47,8 @@ export const vi: Record<I18nKey, string> = {
   "ov.off": "Tắt",
   "set.title": "Cài đặt",
   "set.back": "Quay lại thiết bị",
+  "set.soundTitle": "Âm thanh",
+  "set.soundDescription": "Bật các âm thanh như nhấp chuột và kết nối mới",
   "set.profiles": "PROFILES",
   "set.profileKey": "Mã profile",
   "set.profileKeyBody": "Một mã có thể sao chép và dán để mang cài đặt của chuột này sang một thiết bị khác cùng model. Dán mã đó vào phần Cài đặt trên thiết bị kia để tải cùng cấu hình.",
