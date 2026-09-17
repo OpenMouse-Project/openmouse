@@ -153,6 +153,7 @@ import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "@openmouse/protocol/drivers/ve
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
+import { RedragonHidClient } from "@openmouse/protocol/drivers/redragon/hid";
 import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
@@ -228,7 +229,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, RedragonHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
