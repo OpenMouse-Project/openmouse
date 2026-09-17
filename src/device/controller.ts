@@ -154,6 +154,7 @@ import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
+import { KyuProMx1Client } from "@openmouse/protocol/drivers/ryunix/kyu-pro-mx1-hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
@@ -228,7 +229,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, KyuProMx1Client] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -251,6 +252,7 @@ const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(Keychron
 const keychronM6Client = (): KeychronM6HidClient | null => activeAs(KeychronM6HidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
 const incottClient = (): IncottHidClient | null => activeAs(IncottHidClient);
+// const ryunixClient = (): KyuProMx1Client | null => activeAs(KyuProMx1Client);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null ? activeAs<PulsarClient>(...PULSAR_CLASSES) : null;
@@ -1743,10 +1745,6 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
       lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
     }
     deviceStatuses.set(client.device, status);
-    // Optional setters/getters are runtime capabilities of the selected
-    // client. Populate them before rendering so controls such as RAWM angle
-    // tuning are editable on the first status snapshot.
-    capabilities = readCapabilities();
     applyStatus(status);
     await readButtons();
     await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
