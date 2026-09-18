@@ -77,6 +77,12 @@ test("Dareu A950 PRO Mg resolves by name", () => {
   assert.equal(deviceImage(null, "Dareu A950 PRO Mg"), CDN + "dareu-a950-pro-mg.png");
 });
 
+test("Delux M800 Mini and M800 family resolve by name", () => {
+  assert.equal(deviceImage(null, "Delux M800 Mini"), "/devices/delux-m800-mini.png");
+  assert.equal(deviceImage(null, "Delux M800 Mini (Wireless)"), "/devices/delux-m800-mini.png");
+  assert.equal(deviceImage(null, "Delux M800 Pro"), "/devices/delux-m800-mini.png");
+});
+
 test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", () => {
   // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
   // device-images.ts / public/devices/README.md) until a maintainer uploads

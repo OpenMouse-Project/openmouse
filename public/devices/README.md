@@ -145,6 +145,12 @@ trusted.
 4. Keep this note as provenance. Vendor product art — treat as a request
    pending licensing review.
 
+`delux-m800-mini.png` — the name-fallback mapping in `src/ui/device-images.ts`
+is in place (keyed on reported names like "Delux M800 Mini", "Delux M800 Pro",
+"Delux M800 Mini (Wireless)"). The render was supplied from Delux's official
+product portal (`deluxworld.com`, `/uploads/admin/image/20251226/M800mini黑.png`),
+centered on a transparent 700×700 canvas.
+
 `attackshark-r5-ultra.png` is the top-down render of the Attack Shark R5 Ultra
 extracted from Attack Shark's official product gallery
 (`cdn.shopify.com/s/files/1/0823/5050/6282/files/R5ULTRA_C06_3.png`), keyed
