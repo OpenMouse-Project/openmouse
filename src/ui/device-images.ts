@@ -53,6 +53,9 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
   if (/\battack\s*shark\s*r2\b/i.test(displayName)) return "attackshark-r2.png";
+  if (/\bdelux\b.*\bm800/i.test(displayName) || /\bm800\s*(mini|pro)?\b/i.test(displayName)) {
+    return "delux-m800-mini.png";
+  }
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";
@@ -179,6 +182,7 @@ const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
  */
 const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "attackshark-r2.png": "/devices/attackshark-r2.png",
+  "delux-m800-mini.png": "/devices/delux-m800-mini.png",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
