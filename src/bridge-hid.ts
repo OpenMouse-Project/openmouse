@@ -89,7 +89,8 @@ type Command =
   | { type: "unlisten"; device: string }
   | { type: "sendReport"; device: string; reportId: number; data: number[] }
   | { type: "sendFeatureReport"; device: string; reportId: number; data: number[] }
-  | { type: "receiveFeatureReport"; device: string; reportId: number };
+  | { type: "receiveFeatureReport"; device: string; reportId: number }
+  | { type: "receiveInputReport"; device: string; reportId: number };
 
 class BridgeInputReportEvent extends Event {
   readonly device: HIDDevice;
@@ -200,6 +201,12 @@ class BridgeHidDevice implements HIDDevice {
 
   async sendFeatureReport(reportId: number, data: BufferSource): Promise<void> {
     await this.#client.request({ type: "sendFeatureReport", device: this.key, reportId, data: toBytes(data) });
+  }
+
+  async receiveInputReport(reportId: number): Promise<DataView> {
+    const reply = await this.#client.request({ type: "receiveInputReport", device: this.key, reportId });
+    if (reply.data === undefined) throw new Error("Bridge reply missing data");
+    return new DataView(Uint8Array.from(reply.data).buffer);
   }
 
   async receiveFeatureReport(reportId: number): Promise<DataView> {
