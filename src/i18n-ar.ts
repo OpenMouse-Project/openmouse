@@ -2,7 +2,7 @@ import type { I18nKey } from "./i18n.ts";
 
 /** French strings, split into a lazy chunk so the initial bundle ships
     English only. Loaded via ensureLocale() before first use. */
-export const fr: Record<I18nKey, string> = {
+export const ar: Record<I18nKey, string> = {
   "nav.language": "Langue",
   "nav.settings": "Paramètres",
   "nav.support": "Soutenir",

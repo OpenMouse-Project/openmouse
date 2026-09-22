@@ -13,7 +13,7 @@ export type InterfaceTheme =
   | "Light";
 export type InterfaceColorMode = "Light" | "Dark" | "System";
 export type InterfaceLocale =
-  "en" | "pt" | "es" | "fr" | "de" | "zh" | "ja" | "ko" | "ru" | "vi";
+   "en" | "pt" | "es" | "fr" | "de" | "zh" | "ja" | "ko" | "ru" | "vi" | "ar";
 
 /** Every supported locale, in picker order. Each entry's `match` decides
     which `navigator.language` prefixes resolve to it on first run — checked
@@ -29,6 +29,7 @@ export const LOCALES: ReadonlyArray<{ code: InterfaceLocale; match: readonly str
   { code: "ru", match: ["ru"] },
   { code: "vi", match: ["vi"] },
   { code: "en", match: ["en"] },
+  { code: "ar", match: ["ar"] },
 ];
 
 export interface InterfacePreferences {

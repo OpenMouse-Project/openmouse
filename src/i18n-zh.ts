@@ -128,6 +128,7 @@ export const zh: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "动效",
   "set.animations": "动画",
   "set.animationsBody": "启用界面过渡效果和动态状态变化。",
