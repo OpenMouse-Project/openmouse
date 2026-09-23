@@ -54,7 +54,44 @@ export function clientSupportScore(device: HIDDevice): number {
 }
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
+export function logicalDeviceGroups(devices: HIDDevice[] = []): HIDDevice[][] {
+  const merged = collapseBoltPeers(
+    eggWeMergeLogicalDevices(devices, (device) => createSupportedClient(device) !== null),
+  );
+  const byPhysicalDevice = new Map<string, HIDDevice[]>();
+  for (const device of merged) {
+    const key = physicalDeviceKey(device);
+    const group = byPhysicalDevice.get(key);
+    if (group) group.push(device);
+    else byPhysicalDevice.set(key, [device]);
+  }
+  return [...byPhysicalDevice.values()];
+}
+
+/**
+ * One connect-page/sidebar card per physical mouse. WebHID returns a device
+ * object per top-level HID collection, so a single mouse without a multi-path
+ * driver would otherwise surface once per interface; the browser exposes no
+ * serial number, so vendor/product/name is the most specific identity it
+ * offers. Bridge collapses each product's report paths into one device on its
+ * side — keyed by vendor/product[:serial] on every platform — so the app
+ * takes Bridge's session key verbatim, which still keeps physically distinct
+ * serial-bearing identical mice apart. Both paths merge two identical
+ * serial-less mice of one model into a single card: that is the most specific
+ * identity either platform offers.
+ */
+function physicalDeviceKey(device: HIDDevice): string {
+  if ((device as { openMouseTransport?: string }).openMouseTransport === "bridge") {
+    return `bridge:${(device as { key?: string }).key ?? ""}`;
+  }
+  return `${device.vendorId}:${device.productId}:${device.productName ?? ""}`;
+}
+
+export function pickLogicalDevice(group: HIDDevice[]): HIDDevice {
+  return group.reduce((best, device) => (clientSupportScore(device) > clientSupportScore(best) ? device : best));
+}
+
+/** Supported devices for the sidebar; multi-path drivers collapse via their module. */
 export function listLogicalDevices(devices: HIDDevice[] = []): HIDDevice[] {
-  const afterEgg = eggWeMergeLogicalDevices(devices, (device) => createSupportedClient(device) !== null);
-  return collapseBoltPeers(afterEgg);
+  return logicalDeviceGroups(devices).map(pickLogicalDevice);
 }

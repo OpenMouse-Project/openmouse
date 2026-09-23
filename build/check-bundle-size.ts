@@ -128,7 +128,15 @@ const BUDGET_BYTES: Record<string, number> = {
   // fallback apply + prior-settings restore for brands Bridge has no native
   // driver for), plus the bridge.* i18n keys across all ten locale tables.
   // Measured aggregate is 1,614.2 kB, leaving ~36 kB of headroom.
-  ".js": 1_650_000,
+  // Raised to 1,700 kB for the Games-page request flow shipping on top
+  // ("Let people request a game or app from the Games page"): the
+  // request-form dialog, game availability filtering, and submit wiring
+  // push the measured aggregate to 1,673.2 kB, already past the 1,650 kB
+  // budget. The read-only DPI stage editor (DpiCard disabled stage
+  // controls, DeviceCapabilities stage-write flags, and the RAZER preview
+  // fixture stage table) then adds ~1.7 kB more. Measured aggregate is
+  // 1,674.9 kB, leaving ~25 kB of headroom.
+  ".js": 1_700_000,
 };
 
 const ASSETS = join("dist", "assets");

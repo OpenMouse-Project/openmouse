@@ -14,12 +14,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
-import type { BridgeGame } from "../bridge";
 import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
-import { BridgeCard } from "./BridgeCard";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
-import { GameProfilePanel } from "./GameProfilePanel";
 import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { Superstrike } from "./Superstrike";
@@ -69,7 +66,7 @@ const TAB_ICON: Record<WorkspaceTab, LucideIcon> = {
   advanced: Settings2,
 };
 
-function TabIcon({ tab }: { tab: WorkspaceTab }): ReactNode {
+export function TabIcon({ tab }: { tab: WorkspaceTab }): ReactNode {
   const Icon = TAB_ICON[tab];
   return <Icon size={13} strokeWidth={1.8} aria-hidden="true" />;
 }
@@ -401,16 +398,24 @@ function OverviewContent({ snapshot, onRequestArtwork }: {
   );
 }
 
+/**
+ * `gameProfile` renders the cards for editing a game profile on the Games
+ * page: only settings, without the device showcase, diagnostics, or the
+ * cards that manage the hardware itself (signal, receiver pairing, device
+ * details), none of which belong to a per-game profile.
+ */
 export function Workspace({
   snapshot,
   onOpenCapture,
   onShareProfile,
   onRequestArtwork,
+  gameProfile = false,
 }: {
   snapshot: ControlSnapshot;
   onOpenCapture: () => void;
   onShareProfile: () => void;
   onRequestArtwork: () => void;
+  gameProfile?: boolean;
 }): ReactNode {
   const status = snapshot.status;
   const tab = snapshot.workspaceTab;
@@ -418,6 +423,7 @@ export function Workspace({
   const locale = snapshot.preferences.locale;
   const has = cardAvailability(snapshot);
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
+  const device = !gameProfile;
   const powerOverview = status.ui?.powerOverview === true;
 
   const performance = [
@@ -447,7 +453,7 @@ export function Workspace({
   ].filter((node) => node !== null);
 
   const advanced = [
-    show(has.signal, ["advanced"]) ? <SignalCard key="signal" snapshot={snapshot} /> : null,
+    device && show(has.signal, ["advanced"]) ? <SignalCard key="signal" snapshot={snapshot} /> : null,
     !powerOverview && show(has.sleep, ["advanced"]) ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
     show(has.lightingAdvanced, ["advanced"])
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
@@ -455,7 +461,7 @@ export function Workspace({
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
     show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
-    show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
+    device && show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
     show(has.onboardProfiles && !snapshot.traits.teevolution, ["profiles"])
       ? <OnboardProfileCard key="onboard-profile" snapshot={snapshot} /> : null,
     show(has.pulsarPro, ["profiles"]) ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
@@ -473,10 +479,10 @@ export function Workspace({
   const showTeevolutionProfiles = show(snapshot.traits.teevolution && has.onboardProfiles, ["profiles"]);
   const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
-  const showLogitechDetails = show(has.logitechDetails, ["advanced"]);
+  const showLogitechDetails = device && show(has.logitechDetails, ["advanced"]);
   const showMxMaster = on(tab, ["advanced"])
     && (status.hapticIntensity != null || status.wheelMode != null || status.friendlyName != null || status.hostCount != null);
-  const showDiagnostics = on(tab, ["advanced"]);
+  const showDiagnostics = device && on(tab, ["advanced"]);
   const showOverview = on(tab, ["overview"]);
 
   const anyPanel = performance.length > 0 || advanced.length > 0 || lighting.length > 0
@@ -519,9 +525,11 @@ export function Workspace({
           role="tabpanel"
           aria-label="Mouse settings"
         >
-          <aside className="performance-sidebar">
-            <DeviceShowcaseSidebar snapshot={snapshot} />
-          </aside>
+          {device ? (
+            <aside className="performance-sidebar">
+              <DeviceShowcaseSidebar snapshot={snapshot} />
+            </aside>
+          ) : null}
           <div className="performance-controls">
             {performance}
           </div>
@@ -561,7 +569,7 @@ export function Workspace({
         </section>
       ) : null}
 
-      {on(tab, ["advanced"]) ? (
+      {device && on(tab, ["advanced"]) ? (
         <aside className="testing-note" aria-label={t(locale, "misc.devTesting")}>
           <strong>{t(locale, "misc.devTesting")}</strong>
           <span>
@@ -689,7 +697,6 @@ export function OverviewPage({
   const panel = useRef<HTMLElement>(null);
   const { preferences } = snapshot;
   const locale = preferences.locale;
-  const [selectedGame, setSelectedGame] = useState<BridgeGame | null>(null);
 
   const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot));
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
@@ -775,13 +782,8 @@ export function OverviewPage({
 
           <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} onShareProfile={onShareProfile} onRequestArtwork={onRequestArtwork} />
         </>
-      ) : selectedGame ? (
-        <GameProfilePanel snapshot={snapshot} game={selectedGame} onBack={() => setSelectedGame(null)} />
       ) : (
-        <>
-          <BridgeCard locale={locale} onSelectGame={setSelectedGame} />
-          <DeviceListView snapshot={snapshot} />
-        </>
+        <DeviceListView snapshot={snapshot} />
       )}
     </section>
   );

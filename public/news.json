@@ -1,6 +1,6 @@
 {
-  "id": "2026-09-razer-chrome-153",
-  "level": "critical",
-  "message": "Using a Razer mouse? A recent Chrome update can stop it from being detected. This is a known issue we're tracking - open the workaround guide.",
-  "url": "https://openmouse.app/blog-razer-windows-chrome-153"
+  "id": "2026-09-openmouse-bridge",
+  "level": "info",
+  "message": "OpenMouse Bridge is here: Razer mice work on Windows again, plus game profiles, low-battery alerts and Firefox support. Read the announcement.",
+  "url": "https://openmouse.app/blog-openmouse-bridge"
 }

@@ -20,6 +20,9 @@ export function Profiles({
   const [shortcutRecording, setShortcutRecording] = useState(false);
   const [shortcutError, setShortcutError] = useState("");
   const lastShortcutAt = useRef(0);
+  const heldModifiers = useRef(new Set<string>());
+  const modifierChord = useRef(0);
+  const modifierUsedWithKey = useRef(false);
   const inner = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const profiles = snapshot.onboardProfiles;
@@ -266,6 +269,9 @@ export function Profiles({
                               setShortcutSteps([]);
                               setShortcutRecording(false);
                               setShortcutError("");
+                              heldModifiers.current.clear();
+                              modifierChord.current = 0;
+                              modifierUsedWithKey.current = false;
                               setShortcutTarget({ layer: assignmentLayer, button: assignment.button });
                               return;
                             }
@@ -314,10 +320,21 @@ export function Profiles({
                         setShortcutError("");
                         return;
                       }
-                      if (event.repeat || ["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
+                      if (event.repeat) return;
+                      if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) {
+                        heldModifiers.current.add(event.code);
+                        modifierChord.current |= (event.ctrlKey ? 0x01 : 0) | (event.shiftKey ? 0x02 : 0)
+                          | (event.altKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0);
+                        return;
+                      }
+                      if (heldModifiers.current.size) modifierUsedWithKey.current = true;
                       const key = hidKeyForCode(event.code);
                       if (key === null) {
                         setShortcutError(`${event.key} cannot be stored by this mouse.`);
+                        return;
+                      }
+                      if (shortcutSteps.some((step) => step.key === 0)) {
+                        setShortcutError("A modifier-only shortcut cannot be part of a sequence. Record again to replace it.");
                         return;
                       }
                       const modifiers = (event.ctrlKey ? 0x01 : 0) | (event.shiftKey ? 0x02 : 0)
@@ -325,6 +342,31 @@ export function Profiles({
                       const now = performance.now();
                       setShortcutSteps((steps) => [...steps, {
                         key, modifiers, label: shortcutLabel(event),
+                        delayMs: steps.length === 0 ? 0 : Math.min(9999, Math.round(now - lastShortcutAt.current)),
+                      }]);
+                      lastShortcutAt.current = now;
+                      setShortcutError("");
+                    }}
+                    onKeyUp={(event) => {
+                      if (!shortcutRecording || !["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
+                      event.preventDefault(); event.stopPropagation();
+                      heldModifiers.current.delete(event.code);
+                      if (heldModifiers.current.size) return;
+                      const modifiers = modifierChord.current;
+                      modifierChord.current = 0;
+                      if (modifierUsedWithKey.current || !modifiers) {
+                        modifierUsedWithKey.current = false;
+                        return;
+                      }
+                      if (shortcutSteps.length) {
+                        setShortcutError("A modifier-only shortcut cannot be part of a sequence. Record again to replace it.");
+                        return;
+                      }
+                      const label = [modifiers & 0x01 ? "Ctrl" : null, modifiers & 0x02 ? "Shift" : null,
+                        modifiers & 0x04 ? "Alt" : null, modifiers & 0x08 ? "Meta" : null].filter(Boolean).join(" + ");
+                      const now = performance.now();
+                      setShortcutSteps((steps) => [...steps, {
+                        key: 0, modifiers, label,
                         delayMs: steps.length === 0 ? 0 : Math.min(9999, Math.round(now - lastShortcutAt.current)),
                       }]);
                       lastShortcutAt.current = now;
@@ -343,6 +385,9 @@ export function Profiles({
                         } else {
                           setShortcutSteps([]);
                           setShortcutError("");
+                          heldModifiers.current.clear();
+                          modifierChord.current = 0;
+                          modifierUsedWithKey.current = false;
                           lastShortcutAt.current = performance.now();
                           setShortcutRecording(true);
                         }

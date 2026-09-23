@@ -1,3 +1,5 @@
+import type { GameProfileSnapshot } from "./device/game-profile-snapshot";
+
 const BRIDGE_URL = "http://127.0.0.1:17846";
 const BRIDGE_TIMEOUT_MS = 1_500;
 // Native settings writes go through a real hardware channel Bridge alone can
@@ -36,7 +38,22 @@ export function bridgeApplicationIconUrl(application: BridgeApplication): string
 export interface BridgeProfile {
   application: Pick<BridgeApplication, "name" | "executable" | "path">;
   device: { id: string; name: string };
-  settings: { dpi: number | null; pollingRateHz: number | null };
+  /**
+   * False keeps the profile stored without Bridge ever matching it (the
+   * game's automatic apply is off). Absent means enabled: Bridge versions
+   * before the flag only stored active profiles.
+   */
+  enabled?: boolean;
+  settings: {
+    dpi: number | null;
+    pollingRateHz: number | null;
+    /**
+     * Every other setting the profile changes. Bridge stores it untouched;
+     * only DPI and polling rate above are applied natively (Pulsar), the rest
+     * is applied by an open OpenMouse tab over WebHID.
+     */
+    snapshot?: GameProfileSnapshot | null;
+  };
 }
 
 export interface BridgeGame {
@@ -54,6 +71,15 @@ export async function bridgeHandshake(signal?: AbortSignal): Promise<void> {
 
 export async function bridgeApplications(signal?: AbortSignal): Promise<BridgeApplication[]> {
   return bridgeRequest<BridgeApplication[]>("/v1/applications", undefined, signal);
+}
+
+/**
+ * Every visible application, not just the registered games `/v1/applications`
+ * is limited to — the picker in GameRequestDialog. Bridge versions before the
+ * endpoint answer 404, which callers treat like an empty list.
+ */
+export async function bridgeRunningApplications(signal?: AbortSignal): Promise<BridgeApplication[]> {
+  return bridgeRequest<BridgeApplication[]>("/v1/running-applications", undefined, signal);
 }
 
 export async function bridgeProfiles(signal?: AbortSignal): Promise<BridgeProfile[]> {

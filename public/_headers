@@ -22,7 +22,7 @@
 # isolation buys the app nothing it needs.
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://img.openmouse.app http://127.0.0.1:17846; media-src 'self'; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net http://127.0.0.1:17846 ws://127.0.0.1:17846; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types openmouse
+  Content-Security-Policy: default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://img.openmouse.app https://cdn.cloudflare.steamstatic.com https://shared.akamai.steamstatic.com https://store-images.s-microsoft.com http://127.0.0.1:17846; media-src 'self'; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net http://127.0.0.1:17846 ws://127.0.0.1:17846; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types openmouse
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin

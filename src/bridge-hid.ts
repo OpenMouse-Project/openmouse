@@ -403,6 +403,10 @@ class BridgeHid implements HID {
   #client: BridgeClient;
   #poll: ReturnType<typeof setInterval> | null = null;
   #listing: Promise<HIDDevice[]> | null = null;
+  // Like WebHID, devices already present when the page first enumerates are
+  // not "connected" events; emitting them made the app activate each one in
+  // turn after reconnectAuthorizedDevice picked the remembered mouse.
+  #enumerated = false;
   #listeners: Record<"connect" | "disconnect", Set<(event: HIDConnectionEvent) => void>> = {
     connect: new Set(),
     disconnect: new Set(),
@@ -442,8 +446,11 @@ class BridgeHid implements HID {
   async #listDevices(): Promise<HIDDevice[]> {
     const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(SUPPORTED_HID_FILTERS) });
     const { devices, added, removed } = this.#client.reconcile(reply.devices ?? []);
-    for (const device of added) this.#emit("connect", device);
-    for (const device of removed) this.#emit("disconnect", device);
+    if (this.#enumerated) {
+      for (const device of added) this.#emit("connect", device);
+      for (const device of removed) this.#emit("disconnect", device);
+    }
+    this.#enumerated = true;
     this.#startPolling();
     return devices;
   }
@@ -451,6 +458,7 @@ class BridgeHid implements HID {
   async requestDevice(options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> {
     const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(options.filters) });
     const { devices } = this.#client.reconcile(reply.devices ?? []);
+    this.#enumerated = true;
     this.#startPolling();
     return devices.filter((device) => options.filters.some((filter) => matchesFilter(device, filter)));
   }

@@ -38,6 +38,12 @@ function DpiStageEditor({
   const isLogitech = snapshot.profile.slotsAvailable && snapshot.dpiSlotPlan !== null;
   const stageEditor = status?.ui?.dpiStageEditor;
   const isStage = Boolean(stageEditor) && Array.isArray(status?.dpiStages) && (status?.dpiStages?.length ?? 0) > 0;
+  // A driver may publish the stage table without being able to write it (the
+  // classic Razer driver never sends the unverified `0x04`/`0x06` write), so
+  // edits are gated on the method actually existing rather than on the table
+  // being present.
+  const stagesWritable = snapshot.capabilities?.dpiStagesWritable === true;
+  const activeWritable = snapshot.capabilities?.activeDpiStageWritable === true;
 
   const naturalMode: "logitech" | "stage" | "generic" = isLogitech ? "logitech" : isStage ? "stage" : "generic";
   const mode: "logitech" | "stage" | "generic" = editorView === "single" ? "generic" : naturalMode;
@@ -85,6 +91,10 @@ function DpiStageEditor({
   }, []);
 
   const fixedStageCount = mode === "stage" && stageEditor?.countEditable !== true;
+  // A table the driver cannot write is inert: no value edits, no active-stage
+  // switch. Kept distinct from `locked` (settings-pending) because the note
+  // and the disabled reasons are different.
+  const stageReadOnly = mode === "stage" && !stagesWritable && !activeWritable;
 
   // Rebuild local rows only when the device source clearly changes while the
   // user is not mid-edit; disabled-but-kept rows are local and must survive.
@@ -237,15 +247,17 @@ function DpiStageEditor({
 
   const rowTitle = mode === "logitech" ? t(locale, "dpi.makeStarting") : t(locale, "dpi.makeActive");
   const note =
-    mode === "logitech"
-      ? locked
-        ? t(locale, "dpi.slotReadonly")
-        : t(locale, "dpi.editorCountNote")
-      : fixedStageCount
-        ? tp(locale, "dpi.editorFixedNote", { total: status?.dpiStages?.length ?? 0 })
-        : mode === "stage"
-          ? t(locale, "dpi.editorCountNote")
-          : t(locale, "dpi.editorGenericNote");
+    stageReadOnly
+      ? t(locale, "dpi.stagesReadOnly")
+      : mode === "logitech"
+        ? locked
+          ? t(locale, "dpi.slotReadonly")
+          : t(locale, "dpi.editorCountNote")
+        : fixedStageCount
+          ? tp(locale, "dpi.editorFixedNote", { total: status?.dpiStages?.length ?? 0 })
+          : mode === "stage"
+            ? t(locale, "dpi.editorCountNote")
+            : t(locale, "dpi.editorGenericNote");
 
   const enabledCount = rows.filter((row) => row.enabled).length;
 
@@ -273,13 +285,13 @@ function DpiStageEditor({
                 className="dpi-editor-tick"
                 aria-label={tp(locale, "dpi.stageToggle", { n: index + 1 })}
                 checked={row.enabled}
-                disabled={locked || fixedStageCount}
+                disabled={locked || fixedStageCount || !stagesWritable}
                 onChange={() => setEnabled(index, !row.enabled)}
               />
               <button
                 type="button"
                 className="dpi-editor-index"
-                disabled={locked || !row.enabled}
+                disabled={locked || !row.enabled || (mode === "stage" && !activeWritable)}
                 title={rowTitle}
                 aria-pressed={highlighted}
                 onClick={() => setActive(index)}
@@ -294,7 +306,7 @@ function DpiStageEditor({
                 max={slider.max}
                 step={slider.step}
                 value={row.value}
-                disabled={locked}
+                disabled={locked || (mode === "stage" && !stagesWritable)}
                 onChange={(event) => setValue(index, event.currentTarget.value)}
               />
               <input
@@ -305,7 +317,7 @@ function DpiStageEditor({
                 max={slider.max}
                 step={slider.step}
                 value={slider.pos}
-                disabled={locked}
+                disabled={locked || (mode === "stage" && !stagesWritable)}
                 onChange={(event) => sliderCommit(index, Number(event.currentTarget.value))}
               />
             </div>

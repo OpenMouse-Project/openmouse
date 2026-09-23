@@ -6,6 +6,8 @@ import {
   deviceBrand,
   describeHidDevice,
   listLogicalDevices,
+  logicalDeviceGroups,
+  pickLogicalDevice,
   type PulsarClient,
   type SupportedClient,
 } from "../device-clients";
@@ -19,10 +21,18 @@ import {
   onPendingChanges,
   pendingChangeBatches,
   pendingChanges,
+  restorePendingChanges,
   stagePendingChange,
+  stashPendingChanges,
   withPendingChanges,
   type PendingChange,
 } from "../pending-changes";
+import {
+  changedFields,
+  isGameProfileField,
+  snapshotDiff,
+  type GameProfileSnapshot,
+} from "./game-profile-snapshot";
 import { deviceImage } from "../ui/device-images";
 import { batteryNeedsCharging } from "../ui/battery-icon";
 import {
@@ -269,6 +279,13 @@ let refreshTimer: number | null = null;
 let refreshInProgress = false;
 let dpiOptions: number[] = [];
 let settingInProgress = false;
+// While the Games page edits a game profile, staged changes are a draft of
+// that profile rather than edits to the mouse: nothing is flashed, and the
+// user's own unflashed changes wait in `stash` until the draft ends.
+// `touched` is every field the profile sets: its saved fields plus any a draft
+// edit has changed. A touched field stays in the profile even when its value
+// happens to match the mouse right now.
+let gameProfileDraft: { stash: PendingChange[]; touched: Set<string> } | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
@@ -471,9 +488,10 @@ function buildSnapshot(): ControlSnapshot {
       labels: changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
-      suppressed: interfacePreferences.instantFlash,
+      suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,
       keys: changes.map((change) => change.key),
     },
+    gameProfileDraft: gameProfileDraft !== null,
     diagnostics: { ...diagnosticsView, downloadStatus: diagnosticDownloadStatus },
     diagnosticsOpen,
     captureAvailable: logitechClient() !== null && latestDeviceStatus?.brand === "Logitech",
@@ -615,6 +633,13 @@ function readCapabilities(): DeviceCapabilities {
   return {
     canDisableSleep: dm?.canDisableSleep === true,
     angleTuningWritable: clientHasMethod("setAngleTuning"),
+    // A driver that publishes a stage table without the stage-write methods
+    // (the classic Razer driver: writes there are deliberately unverified)
+    // renders the table read-only instead of offering edits that can never
+    // apply. `setDpi` alone must not count — it edits the live DPI on the
+    // active stage, not the table.
+    dpiStagesWritable: clientHasMethod("setDpiStageValue"),
+    activeDpiStageWritable: clientHasMethod("setActiveDpiStage"),
     // Any client may publish these; the two named drivers are just the ones
     // that predate the generic lookup below.
     sleepOptions: dm
@@ -644,12 +669,25 @@ function stageChange(change: PendingChange): void {
     setReadStatus(st("ctl.waitFlash"));
     return;
   }
+  if (gameProfileDraft) {
+    const fields = gameProfileFieldsOf(change);
+    if (!fields) {
+      pushToast("error", st("ctl.notInGameProfile"), change.label);
+      emit();
+      return;
+    }
+    for (const field of fields) gameProfileDraft.touched.add(field);
+  }
   if (matchesDeviceStatus(change)) {
     dropPendingChange(change.key);
     setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
     return;
   }
   stagePendingChange(change);
+  if (gameProfileDraft) {
+    emit();
+    return;
+  }
   if (interfacePreferences.instantFlash) {
     queueInstantFlash();
     emit();
@@ -689,6 +727,110 @@ export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
   clearPendingChanges();
   setReadStatus(st("ctl.discarded"));
+}
+
+// A draft change is kept only if applyGameProfileSnapshot can reproduce it
+// (and write back what it replaced), which means its preview must exist and
+// touch nothing but game-profile fields. Changes without a preview (Logitech
+// onboard profile sectors, button remaps) live outside MouseStatus entirely.
+// Returns the fields the change sets, or null when it cannot be part of one.
+function gameProfileFieldsOf(change: PendingChange): string[] | null {
+  if (!change.preview || !latestDeviceStatus) return null;
+  const base = withPendingChanges(latestDeviceStatus);
+  const preview = structuredClone(base);
+  change.preview(preview);
+  const fields = changedFields(base, preview);
+  return fields.every(isGameProfileField) ? fields : null;
+}
+
+/**
+ * The Games page edits a game profile with the device page's own cards: every
+ * `apply*` they call stages into a draft that is never flashed. The user's
+ * unflashed changes are set aside and come back in `endGameProfileDraft`.
+ * `initial` is the saved profile, staged so the cards open on its values.
+ */
+export function beginGameProfileDraft(initial: GameProfileSnapshot): boolean {
+  if (gameProfileDraft) endGameProfileDraft();
+  if (settingInProgress || !latestDeviceStatus) return false;
+  gameProfileDraft = { stash: stashPendingChanges(), touched: new Set() };
+  openGameProfileDraft(initial);
+  emit();
+  return true;
+}
+
+// Stages a saved profile into the draft. Its fields stay part of the profile
+// when the mouse now shows the saved value, including one that already matched
+// (and so staged nothing); a value this mouse refused to stage is dropped
+// rather than silently replaced by whatever the mouse has.
+function openGameProfileDraft(initial: GameProfileSnapshot): void {
+  if (!gameProfileDraft || !latestDeviceStatus) return;
+  applyGameProfileSnapshot(initial);
+  const preview = withPendingChanges(latestDeviceStatus);
+  for (const [field, value] of Object.entries(initial)) {
+    if (isGameProfileField(field) && JSON.stringify(preview[field]) === JSON.stringify(value)) {
+      gameProfileDraft.touched.add(field);
+    }
+  }
+}
+
+/** The draft as a profile: every field it differs from the mouse on, plus every field it has touched. */
+export function gameProfileDraftSnapshot(): GameProfileSnapshot {
+  if (!gameProfileDraft || !latestDeviceStatus) return {};
+  const preview = withPendingChanges(latestDeviceStatus);
+  const snapshot: Record<string, unknown> = { ...snapshotDiff(latestDeviceStatus, preview) };
+  for (const field of gameProfileDraft.touched) {
+    if (field in snapshot || !isGameProfileField(field)) continue;
+    const value = preview[field];
+    if (value !== undefined) snapshot[field] = structuredClone(value);
+  }
+  return snapshot as GameProfileSnapshot;
+}
+
+/** Replaces the draft's staged values with `snapshot` (the Clear/Revert paths). */
+export function resetGameProfileDraft(snapshot: GameProfileSnapshot): void {
+  if (!gameProfileDraft) return;
+  clearPendingChanges();
+  gameProfileDraft.touched = new Set();
+  openGameProfileDraft(snapshot);
+  emit();
+}
+
+export function endGameProfileDraft(): void {
+  if (!gameProfileDraft) return;
+  const { stash } = gameProfileDraft;
+  gameProfileDraft = null;
+  restorePendingChanges(stash);
+  emit();
+}
+
+export function isGameProfileDraftActive(): boolean {
+  return gameProfileDraft !== null;
+}
+
+/**
+ * Writes `snapshot` to the mouse now (a game starting or stopping). Only the
+ * snapshot is flashed: the user's own unflashed edits are set aside for the
+ * write and staged again afterwards. "busy" means nothing was attempted (a
+ * draft is open or another write is running) and the caller should retry;
+ * "unchanged" means the mouse already had every value.
+ */
+export async function flashGameProfileSnapshot(
+  snapshot: GameProfileSnapshot,
+): Promise<"written" | "unchanged" | "busy"> {
+  if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
+  const stash = stashPendingChanges();
+  applyGameProfileSnapshot(snapshot);
+  const staged = hasPendingChanges();
+  if (staged) await flashPendingChanges();
+  restorePendingChanges(stash);
+  return staged ? "written" : "unchanged";
+}
+
+/** Writes that bypass staging must not reach the mouse while a game profile is being edited. */
+function blockedByGameProfileDraft(): boolean {
+  if (!gameProfileDraft) return false;
+  pushToast("info", st("ctl.notInGameProfile"), st("ctl.notInGameProfileDetail"));
+  return true;
 }
 
 const HAPTIC_GROUP = "logitech-haptic";
@@ -899,7 +1041,139 @@ export function importProfileKey(rawKey: string): void {
   pushToast("success", st("ctl.keyImported"), st("ctl.keyImportedDetail"));
 }
 
+const PULSAR_TOGGLE_FIELDS = [
+  "motionSync", "angleSnapping", "rippleControl", "performanceMode",
+  "hyperMode", "turboMode", "buttonCombination", "longRangeMode",
+] as const satisfies readonly PulsarToggleSetting[];
+
+function nearestHapticPreset(intensity: number): LogitechHapticPreset {
+  const presets = Object.entries(LOGITECH_HAPTIC_PRESETS) as [LogitechHapticPreset, number][];
+  return presets.reduce((best, entry) =>
+    Math.abs(entry[1] - intensity) < Math.abs(best[1] - intensity) ? entry : best)[0];
+}
+
+/**
+ * Stages every value a game profile carries through the same `apply*` the
+ * cards use, so it is validated and flashed like a manual edit. Applying a
+ * game's profile and restoring what the mouse had before it both go through
+ * here; fields the connected mouse does not have are ignored by their setter.
+ */
+export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
+  const status = latestDeviceStatus;
+  if (!status) return;
+  const s = snapshot;
+
+  if (s.asymmetricLiftOff?.enabled) applyAsymmetricLiftOff(s.asymmetricLiftOff.liftOff, s.asymmetricLiftOff.landing);
+  else if (s.liftOffDistance) applyLiftOffDistance(s.liftOffDistance);
+  if (s.liftOffScale) applyLiftOffScale(s.liftOffScale.value);
+
+  // DPI follows the editor the connected mouse actually has, not the shape of
+  // the snapshot: a plain DPI change on a stage-aware mouse also rewrites the
+  // active entry of dpiStages, so both fields can be present.
+  const stageEditor = status.ui?.dpiStageEditor;
+  if (stageEditor && status.dpiStages?.length) {
+    if (s.dpiStages?.length) {
+      if (stageEditor.countEditable === true && s.dpiStages.length !== status.dpiStages.length) {
+        applyDpiStageCount(s.dpiStages.length);
+      }
+      s.dpiStages.forEach((value, stage) => applyDpiStageValue(stage, value));
+    } else if (s.dpi != null) {
+      applyDpiValue(s.dpi);
+    }
+    s.dpiStageColors?.forEach((color, stage) => applyDpiStageColor(stage, color));
+    if (s.activeDpiStage != null) applyActiveDpiStage(s.activeDpiStage);
+  } else if (s.dpi != null) {
+    if (s.dpiY != null && s.dpiY !== s.dpi && status.supportsSeparateDpiAxes) applyLogitechAxisDpi(s.dpi, s.dpiY);
+    else applyDpiValue(s.dpi);
+  }
+  if (s.pollingRateHz != null) applyPollingRate(s.pollingRateHz);
+
+  if (s.gamingSurfaceMode) applyGamingSurfaceMode(s.gamingSurfaceMode);
+  if (s.lightforceSwitchMode) applyLightforceSwitchMode(s.lightforceSwitchMode);
+  if (s.sensorMode) {
+    if (teevolutionClient()) applyTeevolutionSensorMode(s.sensorMode);
+    else applySensorMode(s.sensorMode);
+  }
+  if (s.powerMode) applyPowerMode(s.powerMode);
+  for (const field of PULSAR_TOGGLE_FIELDS) {
+    const value = s[field];
+    if (typeof value === "boolean") applyPulsarToggle(field, value);
+  }
+  if (s.debounceMs != null) applyPulsarValue("debounce", s.debounceMs);
+  if (s.sleepTimeout != null) applyPulsarValue("sleep", s.sleepTimeout);
+  if (s.lowBatteryWarning != null) applyLowPowerThreshold(s.lowBatteryWarning);
+  const pulsarPro = pulsarClient() instanceof PulsarProHidClient;
+  if (s.angleTuning != null) {
+    if (pulsarPro) applyProSetting("angleTuning", s.angleTuning);
+    else applyAngleTuning(s.angleTuning);
+  }
+  if (typeof s.wheelAcceleration === "boolean") applyProSetting("wheelAcceleration", s.wheelAcceleration);
+
+  if (s.wheelMode) applyWheelMode(s.wheelMode);
+  if (s.smartShiftThreshold !== undefined) applySmartShiftThreshold(s.smartShiftThreshold);
+  if (typeof s.hiResScroll === "boolean") applyHiResScroll(s.hiResScroll);
+  if (typeof s.invertScroll === "boolean") applyInvertScroll(s.invertScroll);
+  if (typeof s.thumbWheelInverted === "boolean") applyThumbWheelInverted(s.thumbWheelInverted);
+  if (s.hapticIntensity != null) applyHapticIntensity(nearestHapticPreset(s.hapticIntensity));
+  if (typeof s.hapticEnabled === "boolean") applyHapticEnabled(s.hapticEnabled);
+  if (typeof s.hapticBatterySaving === "boolean") applyHapticBatterySaving(s.hapticBatterySaving);
+
+  if (s.ninjutsoSystemMode) applyNinjutsoSetting("system", s.ninjutsoSystemMode);
+  if (typeof s.ninjutsoHyperClick === "boolean") applyNinjutsoSetting("hyper", s.ninjutsoHyperClick);
+  if (s.ninjutsoOpticalEngine) applyNinjutsoSetting("optical", s.ninjutsoOpticalEngine);
+  if (s.ninjutsoSlamClick) applyNinjutsoSetting("slam", s.ninjutsoSlamClick);
+
+  if (s.performanceDuration != null) applyTeevolutionPerformanceDuration(s.performanceDuration);
+  if (s.dpiLedMode != null) applyTeevolutionDpiLighting("mode", s.dpiLedMode);
+  if (s.dpiLedBrightness != null) applyTeevolutionDpiLighting("brightness", s.dpiLedBrightness);
+  if (s.dpiLedSpeed != null) applyTeevolutionDpiLighting("speed", s.dpiLedSpeed);
+  if (s.dpiLedSleepTimeout != null) applyDpiLightingSleepTimeout(s.dpiLedSleepTimeout);
+
+  if (typeof s.slamclickFilter === "boolean") applyEggFilter("slamclick", s.slamclickFilter);
+  if (typeof s.motionJitterFilter === "boolean") applyEggFilter("motionJitter", s.motionJitterFilter);
+  if (s.leftSpdtMode) applyEggSpdtMode("left", s.leftSpdtMode);
+  if (s.rightSpdtMode) applyEggSpdtMode("right", s.rightSpdtMode);
+  if (s.eggCpiLevels != null) applyEggCpiLevels(s.eggCpiLevels);
+  s.eggCpiStages?.forEach((stage, level) => applyEggCpiStage(level, stage.x, stage.y));
+  if (s.eggPollingDivider != null) applyEggPollingDivider(s.eggPollingDivider);
+  s.eggMulticlickFilters?.forEach((value, button) => applyEggMulticlick(button as EggButtonIndex, value));
+  s.eggButtonMappings?.forEach((mapping, button) =>
+    applyEggButtonMapping(button as EggButtonIndex, mapping as EggButtonMapping));
+
+  for (const [button, action] of Object.entries(s.buttonMappings ?? {})) applyDeviceButtonMapping(button, action);
+  for (const [control, mapping] of Object.entries(s.razerButtonMappings ?? {})) {
+    applyRazerButtonMapping(control as RazerButtonControl, mapping as RazerButtonMapping);
+  }
+
+  if (s.finalmouseDongleLedMode != null) applyFinalmouseSetting("dongleLed", s.finalmouseDongleLedMode);
+  if (s.finalmouseTournamentScrollMode != null) applyFinalmouseSetting("tournamentScroll", s.finalmouseTournamentScrollMode);
+  if (s.finalmouseTournamentScrollTimeoutMs != null) {
+    applyFinalmouseSetting("tournamentTimeout", s.finalmouseTournamentScrollTimeoutMs);
+  }
+  if (s.incottReceiverLedMode != null) applyIncottReceiverLed(s.incottReceiverLedMode);
+  if (s.incottFireKeyTimes != null || s.incottFireKeyIntervalMs != null) {
+    const times = s.incottFireKeyTimes ?? status.incottFireKeyTimes;
+    const interval = s.incottFireKeyIntervalMs ?? status.incottFireKeyIntervalMs;
+    if (times != null && interval != null) applyIncottFireKey(times, interval);
+  }
+  if (typeof s.dongleLedEnabled === "boolean"
+    && withPendingChanges(status).dongleLedEnabled !== s.dongleLedEnabled) toggleDongleLed();
+
+  const zones = s.lightingZones ?? (s.lighting ? [s.lighting] : []);
+  zones.forEach((zone, zoneIndex) => {
+    if (!zone.mode) return;
+    applyLighting({
+      mode: zone.mode,
+      color: zone.color ?? undefined,
+      color2: zone.color2 ?? undefined,
+      speed: zone.speed ?? undefined,
+      brightness: zone.brightness ?? undefined,
+    }, zoneIndex);
+  });
+}
+
 export async function requestHostSwitch(slot: number): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const client = logitechClient();
   if (!client) return;
   try {
@@ -948,6 +1222,7 @@ const stagedButtonMappings = new Map<number, number>();
  * the order it was staged.
  */
 export function applyButtonMapping(controlId: number, targetControlId: number): void {
+  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
   const control = buttons?.find((candidate) => candidate.controlId === controlId);
   if (!control) return;
@@ -1037,6 +1312,7 @@ export async function selectAtkR1Profile(profile: number): Promise<void> {
 }
 
 export async function pairAtkR1SePlusReceiver(): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const client = activeAs(AtkHidClient);
   if (!client || !isVxeR1SePlusReceiver(activeDevice) || refreshInProgress || settingInProgress) return;
   const device = activeDevice;
@@ -1095,6 +1371,7 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 }
 
 export async function flashPendingChanges(): Promise<void> {
+  if (gameProfileDraft) return;
   const batches = pendingChangeBatches();
   if (batches.length === 0) return;
   if (settingInProgress) {
@@ -1606,9 +1883,14 @@ function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
 }
 
 function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
-  const supported = listLogicalDevices(devices);
-  return supported.map((device, index) => {
-    const client = createSupportedClient(device)!;
+  const groups = logicalDeviceGroups(devices);
+  const entries: SidebarDevice[] = [];
+  for (let index = 0; index < groups.length; index += 1) {
+    const group = groups[index];
+    const activeMember = group.find((member) => member === activeDevice);
+    const device = activeMember ?? pickLogicalDevice(group);
+    const client = createSupportedClient(device);
+    if (!client) continue;
     const status = deviceStatuses.get(device);
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
@@ -1623,8 +1905,18 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const transport = (device as HIDDevice & { openMouseTransport?: string }).openMouseTransport === "bridge"
       ? "bridge"
       : "webhid";
-    return { index, name, detail, selected: device === activeDevice, vendorId: device.vendorId, productId: device.productId, kind: sidebarEntryForm(client), transport };
-  });
+    entries.push({
+      index,
+      name,
+      detail,
+      selected: group.some((member) => member === activeDevice),
+      vendorId: device.vendorId,
+      productId: device.productId,
+      kind: sidebarEntryForm(client),
+      transport,
+    });
+  }
+  return entries;
 }
 
 async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
@@ -1660,35 +1952,47 @@ async function waitForControllerIdle(): Promise<void> {
 
 export async function selectAuthorizedDevice(index: number): Promise<void> {
   await waitForControllerIdle();
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
-  const device = devices[index];
-  if (!device) return;
-  if (device === activeDevice && latestDeviceStatus !== null) return;
-  const client = createSupportedClient(device);
-  if (!client) return;
+  const groups = logicalDeviceGroups(await navigator.hid?.getDevices() ?? []);
+  const group = groups[index];
+  if (!group) return;
+  if (group.some((device) => device === activeDevice) && latestDeviceStatus !== null) return;
+  const candidates = group
+    .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
+    .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
+    .sort((left, right) => right.score - left.score);
+  if (candidates.length === 0) return;
   deviceStatusText = st("ctl.switching");
-  readStatus = st("ctl.reading", { name: statusNameForClient(client) });
+  readStatus = st("ctl.reading", { name: statusNameForClient(candidates[0].client) });
   emit();
-  try {
-    await activateClient(client);
-  } catch (error) {
-    deviceStatusText = st("ctl.connFailed");
-    readStatus = error instanceof Error ? error.message : st("ctl.unableSwitchDevices");
-    toastForError("Connection failed", error);
-    await refreshSidebar();
+  let lastError: unknown = null;
+  // Switching always starts with another mouse active, and a failed candidate
+  // leaves itself as `active`, so unlike reconnectAuthorizedDevice this loop
+  // must not stop on hasActiveClient(); activateClient closes the old client.
+  for (const { client } of candidates) {
+    try {
+      await activateClient(client);
+      return;
+    } catch (error) {
+      lastError = error;
+      await client.close().catch(() => undefined);
+    }
   }
+  deviceStatusText = st("ctl.connFailed");
+  readStatus = lastError instanceof Error ? lastError.message : st("ctl.unableSwitchDevices");
+  toastForError("Connection failed", lastError);
+  await refreshSidebar();
 }
 
 /** Open the given device's dashboard from the picker, connecting it first when needed. */
 export async function openDeviceOverview(index: number): Promise<void> {
   await waitForControllerIdle();
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
-  const device = devices[index];
-  if (!device) {
+  const groups = logicalDeviceGroups(await navigator.hid?.getDevices() ?? []);
+  const group = groups[index];
+  if (!group) {
     await connect();
     return;
   }
-  if (device === activeDevice && latestDeviceStatus !== null) {
+  if (group.some((device) => device === activeDevice) && latestDeviceStatus !== null) {
     deviceListView = "device";
     activeWorkspaceTab = "overview";
     emit();
@@ -2339,11 +2643,13 @@ function stageAnalogButton(button: 0 | 1, tuning: AnalogTuning): void {
 }
 
 export function applyLogitechAnalogButton(button: 0 | 1): void {
+  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
   stageAnalogButton(button, button === 0 ? analogTuning.left : analogTuning.right);
 }
 
 export function applyLogitechAnalogButtons(): void {
+  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
   stageAnalogButton(0, analogTuning.both);
   stageAnalogButton(1, analogTuning.both);
@@ -2497,6 +2803,7 @@ function stageDpiSlots(): void {
 }
 
 export function setDpiSlotCount(count: number): void {
+  if (blockedByGameProfileDraft()) return;
   const limits = dpiSlotLimits();
   if (!dpiSlotPlan || !limits || dpiSlotsLocked()) return;
   const wanted = Math.min(limits.maxStages, Math.max(1, Math.round(count)));
@@ -2510,6 +2817,7 @@ export function setDpiSlotCount(count: number): void {
 }
 
 export function setDpiSlotAxis(index: number, axis: "x" | "y", value: number): void {
+  if (blockedByGameProfileDraft()) return;
   const limits = dpiSlotLimits();
   const stage = dpiSlotPlan?.stages[index];
   if (!stage || !limits || dpiSlotsLocked()) return;
@@ -2524,6 +2832,7 @@ export function dpiAxisLockedAt(index: number): boolean {
 }
 
 export function setDpiSlotLod(index: number, level: LiftOffLevel): void {
+  if (blockedByGameProfileDraft()) return;
   const stage = dpiSlotPlan?.stages[index];
   if (!stage || dpiSlotsLocked()) return;
   stage.lod = PROFILE_STAGE_LOD[level];
@@ -2531,6 +2840,7 @@ export function setDpiSlotLod(index: number, level: LiftOffLevel): void {
 }
 
 export function setDpiSlotDefault(index: number): void {
+  if (blockedByGameProfileDraft()) return;
   if (!dpiSlotPlan || dpiSlotsLocked()) return;
   if (index < 0 || index >= dpiSlotPlan.stages.length) return;
   dpiSlotPlan.defaultIndex = index;
@@ -2538,6 +2848,7 @@ export function setDpiSlotDefault(index: number): void {
 }
 
 export function applyDpiSlotEditor(rows: { enabled: boolean; value: number; lod: number }[]): void {
+  if (blockedByGameProfileDraft()) return;
   const limits = dpiSlotLimits();
   if (!dpiSlotPlan || !limits || dpiSlotsLocked()) return;
   const enabled = rows.filter((row) => row.enabled && row.value > 0);
@@ -2558,6 +2869,7 @@ export function applyDpiSlotEditor(rows: { enabled: boolean; value: number; lod:
 }
 
 export function setDpiAxisLock(index: number, locked: boolean): void {
+  if (blockedByGameProfileDraft()) return;
   if (dpiSlotsLocked()) return;
   dpiAxisLocks = dpiAxisLocks.slice();
   dpiAxisLocks[index] = locked;
@@ -2590,6 +2902,7 @@ function confirmDiscardingProfileEdits(target: number | "host"): boolean {
 }
 
 export function openOnboardProfile(sector: number | "host"): void {
+  if (blockedByGameProfileDraft()) return;
   if (!confirmDiscardingProfileEdits(sector)) return;
   editedProfile = sector;
   dropPendingChange(DPI_SLOTS_KEY);
@@ -2661,6 +2974,7 @@ function reportProfileStatus(): void {
 }
 
 export async function applyOnboardMode(mode: "Onboard" | "Host"): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const client = logitechClient();
   if (!client || refreshInProgress || settingInProgress) return;
   if (mode === "Host" && !confirmDiscardingProfileEdits("host")) return;
@@ -2827,12 +3141,14 @@ export function applyNapeAssignment(
   control: NapeAssignmentControl,
   action: KeychronNapeButtonAction,
 ): void {
+  if (blockedByGameProfileDraft()) return;
   if (!isAnyPreview && !keychronNapeClient()) return;
   const keycode = keychronKeycodeForAction(action);
   applyNapeAssignmentValue(layer, control, keychronActionForKeycode(keycode), keycode);
 }
 
 export function applyNapeOrientation(layer: number, index: number): void {
+  if (blockedByGameProfileDraft()) return;
   if (!isAnyPreview && !keychronNapeClient()) return;
   const next = keychronOrientationIndex(index);
   applyNapeAssignmentValue(layer, { kind: "orientation" }, keychronOrientationLabel(next), next);
@@ -2986,6 +3302,7 @@ export async function switchNapeLayer(layer: number): Promise<void> {
  * Confirm explicitly rather than treating the icon as a cheap toggle.
  */
 export async function toggleOnboardProfileEnabled(sector: number, enabled: boolean): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const client = logitechClient();
   if (!client || refreshInProgress || settingInProgress) return;
 
@@ -3015,6 +3332,7 @@ export async function applyLogitechButtonAssignment(
   button: number,
   binding: LogitechButtonAction | LogitechButtonBinding,
 ): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const entry = editedProfileEntry();
   if (!logitechClient() || !entry || settingInProgress) return;
   const label = typeof binding === "string" ? binding : binding.kind === "keyboard" ? "keyboard shortcut" : "media key";
@@ -3049,6 +3367,7 @@ export async function applyLogitechKeyboardSequence(
   button: number,
   steps: LogitechMacroStep[],
 ): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const entry = editedProfileEntry();
   if (!logitechClient() || !entry || settingInProgress || !steps.length) return;
   const key = `${PROFILE_BUTTON_KEY_PREFIX}-${layer}-${button}`;
@@ -3065,6 +3384,7 @@ export async function applyLogitechKeyboardSequence(
 }
 
 export function renameOnboardProfile(sector: number): void {
+  if (blockedByGameProfileDraft()) return;
   const entry = onboardProfiles?.find((profile) => profile.sector === sector);
   if (!entry || !logitechClient()) return;
   const maxLength = lastProfileFormat ? capabilitiesForFormat(lastProfileFormat.id).maxNameLength : null;
@@ -3103,6 +3423,7 @@ export function renameOnboardProfile(sector: number): void {
 }
 
 export async function resetLogitechProfiles(): Promise<void> {
+  if (blockedByGameProfileDraft()) return;
   const client = logitechClient();
   if (!client || settingInProgress || !supportsFactoryReset(lastProfileFormat?.id)) return;
 
@@ -3154,6 +3475,7 @@ export function bunnyHopSupported(): boolean {
  * the confirmation this rides on.
  */
 export function applyBunnyHopMs(milliseconds: number): void {
+  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
 
   const invalid = validateBunnyHoppingMs(milliseconds);
@@ -3197,6 +3519,7 @@ export function profileReportRateOptions(link: "wireless" | "wired"): number[] {
 }
 
 export function setProfileReportRate(link: "wireless" | "wired", hz: number): void {
+  if (blockedByGameProfileDraft()) return;
   const entry = editedProfileEntry();
   if (!entry || !logitechClient()) return;
   const selectedLink = (lastProfileFormat?.id ?? 6) < 6 ? "wired" : link;

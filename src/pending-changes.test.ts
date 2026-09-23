@@ -6,7 +6,9 @@ import {
   hasPendingChanges,
   pendingChangeBatches,
   pendingChanges,
+  restorePendingChanges,
   stagePendingChange,
+  stashPendingChanges,
   withPendingChanges,
 } from "./pending-changes.ts";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -127,4 +129,19 @@ test("pending changes preview without mutating the device status", () => {
   assert.equal(deviceStatus.dpi, 800);
   clearPendingChanges();
   assert.equal(hasPendingChanges(), false);
+});
+
+test("stashed changes come back in their original order after another set was staged", () => {
+  clearPendingChanges();
+  const change = (key: string) => ({ key, label: key, command: "", progress: "", apply: async () => {} });
+  stagePendingChange(change("a"));
+  stagePendingChange(change("b"));
+
+  const stashed = stashPendingChanges();
+  assert.equal(hasPendingChanges(), false);
+  stagePendingChange(change("draft"));
+
+  restorePendingChanges(stashed);
+  assert.deepEqual(pendingChanges().map((entry) => entry.key), ["a", "b"]);
+  clearPendingChanges();
 });

@@ -111,3 +111,21 @@ export function withPendingChanges(status: MouseStatus): MouseStatus {
   for (const change of changes.values()) change.preview?.(preview);
   return preview;
 }
+
+/**
+ * Takes every staged change out of the store, in staging order, so a
+ * different set can be staged in their place and the originals put back
+ * later with `restorePendingChanges`.
+ */
+export function stashPendingChanges(): PendingChange[] {
+  const stashed = [...changes.values()];
+  clearPendingChanges();
+  return stashed;
+}
+
+/** Replaces whatever is staged with `stashed`, in its original order. */
+export function restorePendingChanges(stashed: PendingChange[]): void {
+  changes.clear();
+  for (const change of stashed) changes.set(change.key, change);
+  notify();
+}

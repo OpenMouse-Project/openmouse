@@ -1,11 +1,12 @@
-import { Activity, ChevronLeft, ChevronRight, FileText, House, MessageSquare, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, FileText, Gamepad2, House, MessageSquare, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
+import { useBridgeActive } from "./GamesPage";
 
 export const OPENMOUSE_URL = "https://openmouse.app/";
 
-export type DesktopPage = "home" | "dashboard" | "test" | "settings";
+export type DesktopPage = "home" | "dashboard" | "test" | "games" | "settings";
 
 function NavIcon({ icon: Icon, color }: { icon: LucideIcon; color: string }): ReactNode {
   return <Icon className="app-sidebar-nav-icon" strokeWidth={2} stroke={color} aria-hidden="true" />;
@@ -33,6 +34,7 @@ export function AppSidebar({
   onOpenWhatsNew: () => void;
 }): ReactNode {
   const locale = snapshot.preferences.locale;
+  const bridgeActive = useBridgeActive();
   return (
     <aside className={`app-sidebar${collapsed ? " app-sidebar-collapsed" : ""}`}>
       {page === "dashboard" ? (
@@ -96,6 +98,18 @@ export function AppSidebar({
             <span className="app-sidebar-nav-label">{t(locale, "nav.mouseCheck")}</span>
             <NavArrow />
           </button>
+          {bridgeActive ? (
+            <button
+              className={`app-sidebar-nav-item${page === "games" ? " active" : ""}`}
+              type="button"
+              title={t(locale, "nav.games")}
+              onClick={() => onNavigate("games")}
+            >
+              <NavIcon icon={Gamepad2} color="#a78bfa" />
+              <span className="app-sidebar-nav-label">{t(locale, "nav.games")}</span>
+              <NavArrow />
+            </button>
+          ) : null}
           <a
             className="app-sidebar-nav-item"
             href="https://docs.openmouse.app"

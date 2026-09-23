@@ -117,19 +117,37 @@ test("re-enumeration keeps device identity and reports hot-plug both ways", asyn
   hid.addEventListener("disconnect", (event) => void events.push(`disconnect:${event.device.productName}`));
 
   const first = hid.getDevices();
-  fake.reply({ id: fake.sent[0].id, ok: true, devices: [MOUSE] });
-  const [device] = await first;
+  fake.reply({ id: fake.sent[0].id, ok: true, devices: [] });
+  assert.deepEqual(await first, []);
 
   const second = hid.getDevices();
   fake.reply({ id: fake.sent[1].id, ok: true, devices: [MOUSE] });
-  const [again] = await second;
-  assert.equal(again, device, "the same physical device must stay the same object");
+  const [device] = await second;
 
   const third = hid.getDevices();
-  fake.reply({ id: fake.sent[2].id, ok: true, devices: [] });
-  assert.deepEqual(await third, []);
+  fake.reply({ id: fake.sent[2].id, ok: true, devices: [MOUSE] });
+  const [again] = await third;
+  assert.equal(again, device, "the same physical device must stay the same object");
+
+  const fourth = hid.getDevices();
+  fake.reply({ id: fake.sent[3].id, ok: true, devices: [] });
+  assert.deepEqual(await fourth, []);
 
   assert.deepEqual(events, ["connect:Pulsar X2", "disconnect:Pulsar X2"]);
+  fake.transport.onClose?.();
+});
+
+test("devices present at the first enumeration are not reported as connects", async () => {
+  const fake = fakeTransport();
+  const hid = bridgeHid(fake.transport);
+  const events: string[] = [];
+  hid.addEventListener("connect", (event) => void events.push(`connect:${event.device.productName}`));
+
+  const first = hid.getDevices();
+  fake.reply({ id: fake.sent[0].id, ok: true, devices: [MOUSE] });
+  assert.equal((await first).length, 1);
+
+  assert.deepEqual(events, []);
   fake.transport.onClose?.();
 });
 
