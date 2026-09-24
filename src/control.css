@@ -3792,15 +3792,16 @@ body { height: 100vh; overflow: hidden; }
 }
 .hardware-test-art-img {
   display: block;
-  width: 100%;
+  width: 78%;
   height: auto;
+  margin-inline: auto;
   object-fit: contain;
 }
 .hardware-test-device-name {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 750;
   letter-spacing: -0.01em;
   color: var(--text);
