@@ -83,7 +83,6 @@ export const ko: Record<I18nKey, string> = {
   "hw.noDevice": "연결된 마우스 없음",
   "hw.noDeviceDetail": "하드웨어 테스트를 실행하려면 마우스를 연결하세요.",
   "hw.deviceCard": "기기",
-  "hw.deviceStatus": "기기 상태",
   "hw.termTitle": "테스트 터미널",
   "hw.identity": "VID / PID",
   "hw.transport": "연결 방식",

@@ -83,7 +83,6 @@ export const zh: Record<I18nKey, string> = {
   "hw.noDevice": "未连接鼠标",
   "hw.noDeviceDetail": "连接鼠标以运行硬件测试。",
   "hw.deviceCard": "设备",
-  "hw.deviceStatus": "设备状态",
   "hw.termTitle": "测试终端",
   "hw.identity": "VID / PID",
   "hw.transport": "连接方式",

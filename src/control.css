@@ -3717,6 +3717,15 @@ body { height: 100vh; overflow: hidden; }
   font-size: 0.85rem;
   color: var(--dim);
 }
+.mouse-test-device-card {
+  background: var(--surface-panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
 .mouse-test-device-rows {
   display: flex;
   flex-direction: column;
@@ -3766,132 +3775,117 @@ body { height: 100vh; overflow: hidden; }
 }
 
 /* ── Hardware test page ─────────────────────────────────────────────────── */
-.hardware-test-console {
+.hardware-test-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.hardware-test-device {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
   min-width: 0;
-  border-radius: 18px;
+}
+.hardware-test-art {
+  margin: 0;
+}
+.hardware-test-art-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.hardware-test-device-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.hardware-test-device-name-label {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.hardware-test-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-strong);
+}
+.hardware-test-verdict.pass { color: var(--success); }
+.hardware-test-verdict.fail { color: var(--destructive); }
+.hardware-test-verdict.incomplete { color: var(--warning); }
+.hardware-test-verdict-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex: none;
+}
+.hardware-test-verdict-dot.pass { background: var(--success); }
+.hardware-test-verdict-dot.fail { background: var(--destructive); }
+.hardware-test-verdict-dot.incomplete { background: var(--warning); }
+.hardware-test-crosscheck {
+  margin: 0.6rem 0 0;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--surface-strong);
+  border: 1px dashed var(--line-strong);
+}
+.hardware-test-crosscheck.is-supported { color: var(--success); border-color: var(--success); }
+.hardware-test-crosscheck.is-likely,
+.hardware-test-crosscheck.is-quickwin,
+.hardware-test-crosscheck.is-pr { color: var(--ui-accent-ink); border-color: var(--ui-accent-ink); }
+.hardware-test-no-device-title {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.hardware-test-no-device-detail {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hardware-test-no-device .hardware-test-btn-connect {
+  margin-top: 0.9rem;
+  display: block;
+  width: 100%;
+  background: var(--ui-accent);
+  color: var(--ui-accent-ink);
+  border: 0;
+}
+.hardware-test-no-device .hardware-test-btn-connect:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.hardware-test-terminal-wrap {
+  min-width: 0;
+}
+.hardware-test-terminal {
+  display: flex;
+  flex-direction: column;
+  height: clamp(460px, 62vh, 680px);
+  border-radius: 16px;
   background: var(--surface-strong);
   border: 1px solid var(--line-strong);
   box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
   overflow: hidden;
-}
-/* Head — device identity (left) facing run state + verdict (right). */
-.hardware-test-console-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  background: var(--surface-panel);
-  border-bottom: 1px solid var(--line-strong);
-}
-.hardware-test-console-identity {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  min-width: 0;
-}
-.hardware-test-console-art {
-  flex: none;
-  width: 84px;
-  height: 60px;
-  display: grid;
-  place-items: center;
-}
-.hardware-test-console-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.hardware-test-console-art-empty {
-  border-radius: 12px;
-  background: var(--surface-control);
-  color: var(--muted);
-}
-.hardware-test-console-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-.hardware-test-console-overline {
-  font-size: 0.7rem;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-}
-.hardware-test-console-name {
-  margin: 0;
-  font-size: 1.12rem;
-  font-weight: 780;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-.hardware-test-console-meta {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hardware-test-console-status {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.45rem;
-}
-.hardware-test-console-state {
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-}
-.hardware-test-console-state.is-idle { color: var(--muted); }
-.hardware-test-console-state.is-running { color: var(--success); animation: hardware-test-blink 1.1s ease-in-out infinite; }
-.hardware-test-console-state.is-pass { color: var(--success); }
-.hardware-test-console-state.is-fail { color: var(--destructive); }
-.hardware-test-console-state.is-incomplete { color: var(--warning); }
-
-/* Body — device spec (left) next to the live terminal (right). */
-.hardware-test-console-body {
-  display: grid;
-  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
-  min-width: 0;
-}
-.hardware-test-console-body.is-full {
-  grid-template-columns: minmax(0, 1fr);
-}
-.hardware-test-console-spec {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 1rem;
-  background: var(--surface-panel);
-  border-inline-end: 1px solid var(--line-strong);
-}
-.hardware-test-console-spec-title {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-.hardware-test-console-spec .hardware-test-crosscheck {
-  margin: 0;
-}
-
-.hardware-test-terminal {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--surface-strong);
 }
 .hardware-test-terminal-head {
   display: flex;
@@ -3921,9 +3915,19 @@ body { height: 100vh; overflow: hidden; }
   color: var(--muted);
   text-transform: uppercase;
 }
+.hardware-test-terminal-state {
+  margin-inline-start: auto;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.hardware-test-terminal-state.running {
+  color: var(--success);
+  animation: hardware-test-blink 1.1s ease-in-out infinite;
+}
 .hardware-test-terminal-body {
   flex: 1;
-  min-height: clamp(400px, 56vh, 600px);
   overflow-y: auto;
   padding: 0.8rem 0.9rem;
   font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -3993,14 +3997,13 @@ body { height: 100vh; overflow: hidden; }
 .hardware-test-summary.pass strong { color: var(--success); }
 .hardware-test-summary.fail strong { color: var(--destructive); }
 .hardware-test-summary.incomplete strong { color: var(--warning); }
-.hardware-test-console-foot {
+.hardware-test-terminal-bar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex-wrap: wrap;
   padding: 0.75rem 0.9rem;
-  background: var(--surface-panel);
   border-top: 1px solid var(--line-strong);
+  flex: none;
 }
 .hardware-test-btn {
   border: 0;
@@ -4048,25 +4051,14 @@ body { height: 100vh; overflow: hidden; }
 }
 
 @media (max-width: 960px) {
-  .hardware-test-console-body {
-    grid-template-columns: minmax(0, 1fr);
+  .hardware-test-layout {
+    grid-template-columns: 1fr;
   }
-  .hardware-test-console-spec {
-    border-inline-end: 0;
-    border-bottom: 1px solid var(--line-strong);
-  }
-  .hardware-test-terminal-body {
-    min-height: clamp(330px, 48vh, 500px);
-  }
-  .hardware-test-console-head {
-    flex-wrap: wrap;
-  }
-  .hardware-test-console-status {
-    flex-direction: row;
-    align-items: center;
-    margin-inline-start: auto;
+  .hardware-test-terminal {
+    height: clamp(420px, 58vh, 600px);
   }
 }
+
 /* Right-to-left (Arabic). The stylesheet uses CSS logical properties for
    direction-sensitive spacing, borders and offsets, so most of the layout
    mirrors on its own once <html dir="rtl"> is set. The rules below cover the
