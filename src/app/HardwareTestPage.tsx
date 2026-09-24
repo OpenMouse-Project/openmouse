@@ -645,13 +645,6 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         <section className="hardware-test-panel-wrap">
           <div className="hardware-test-panel" aria-label={t(locale, "hw.panelTitle")}>
             <div className="hardware-test-panel-head">
-              <svg className="hardware-test-head-glyph" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12 2 4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm-2 15-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"
-                />
-              </svg>
-              <span className="hardware-test-panel-title">{t(locale, "hw.panelTitle")}</span>
               <span className={`hardware-test-state-pill ${stateClass}`}>
                 <i aria-hidden="true" />
                 {stateText}

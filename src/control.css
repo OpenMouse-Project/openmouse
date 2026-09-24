@@ -3876,41 +3876,22 @@ body { height: 100vh; overflow: hidden; }
   filter: brightness(1.12);
 }
 
-/* ── Hardware test run panel (app-like stages, not a terminal) ──────────── */
+/* ── Hardware test run panel (blended stages, not a card) ───────────────── */
 .hardware-test-panel-wrap {
   min-width: 0;
 }
 .hardware-test-panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   height: clamp(460px, 62vh, 680px);
-  border-radius: 16px;
-  background: var(--surface-strong);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
-  overflow: hidden;
 }
 .hardware-test-panel-head {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--surface-panel);
-  border-bottom: 1px solid var(--line-strong);
+  justify-content: flex-end;
+  padding: 0 0.1rem 0.55rem;
   flex: none;
-}
-.hardware-test-head-glyph {
-  width: 1.15rem;
-  height: 1.15rem;
-  color: var(--success);
-  flex: none;
-}
-.hardware-test-panel-title {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--muted);
-  text-transform: uppercase;
 }
 .hardware-test-state-pill {
   margin-inline-start: auto;
@@ -3942,8 +3923,9 @@ body { height: 100vh; overflow: hidden; }
 
 .hardware-test-stages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0.75rem 0.9rem;
+  padding: 0.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -3976,10 +3958,7 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 12px;
-  background: var(--surface-panel);
-  border: 1px solid var(--line);
+  padding: 0.5rem 0.1rem;
   animation: hardware-test-stage-in 0.28s ease both;
 }
 .hardware-test-stage-icon {
@@ -4081,11 +4060,9 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.7rem 0.9rem;
-  margin: 0 0.75rem 0.75rem;
-  border-radius: 14px;
-  background: var(--surface-panel);
-  border: 1px solid var(--line-strong);
+  padding: 0.75rem 0.1rem;
+  margin: 0.25rem 0 0;
+  border-top: 1px solid var(--line);
   animation: hardware-test-banner-in 0.35s ease both;
 }
 .hardware-test-banner-glyph {
@@ -4152,8 +4129,7 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.75rem 0.9rem;
-  border-top: 1px solid var(--line-strong);
+  padding: 0.75rem 0;
   flex: none;
 }
 .hardware-test-btn {
