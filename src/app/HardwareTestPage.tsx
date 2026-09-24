@@ -496,7 +496,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
       <div className="hardware-test-layout">
         {/* ── Left: device showcase — the same card as the Overview
              performance tab ─────────────────────────────────────────── */}
-        <aside className="hardware-test-device">
+        <aside className={`hardware-test-device${info.present ? " has-device" : ""}`}>
           {info.present ? (
             <DeviceShowcaseSidebar snapshot={snapshot} />
           ) : (
