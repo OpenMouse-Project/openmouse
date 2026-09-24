@@ -1,5 +1,5 @@
 // Admin unban endpoint. Clears a permanent IP ban (and the counters that led
-// to it) written by functions/_middleware.js or functions/api/artwork.js.
+// to it) written by functions/_middleware.js.
 //
 // Auth: requires env.ADMIN_TOKEN and a matching bearer token. Fails closed when
 // the secret is unset, so the route is inert until configured.

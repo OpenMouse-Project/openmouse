@@ -1,5 +1,5 @@
-// "Request a game or app" — the Games page's counterpart to
-// ArtworkRequestDialog. Collects what Bridge's detector needs to add an entry
+// "Request a game or app" — the Games page's request flow. Collects what
+// Bridge's detector needs to add an entry
 // to Desktop's `games.json` (a name plus the executable it watches for) — a
 // game, or a regular app like Premiere Pro that deserves its own profile —
 // and who to ask about it, then shows the exact Discord embed before anything
@@ -320,7 +320,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                     </button>
                     {apps !== null ? (
                       apps.length === 0 ? (
-                        <p className="artreq-hint">{t(locale, "gamereq.noRunning")}</p>
+                        <p className="gamereq-hint">{t(locale, "gamereq.noRunning")}</p>
                       ) : (
                         <ul className="gamereq-apps">
                           {apps.map((app) => (
@@ -354,7 +354,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                     </button>
                   ))}
                 </div>
-                <p className="artreq-hint">{tp(locale, command.hint, { shell: command.shell })}</p>
+                <p className="gamereq-hint">{tp(locale, command.hint, { shell: command.shell })}</p>
                 <div className="gamereq-command">
                   <code className="gamereq-mono">{command.command}</code>
                   <button
@@ -367,7 +367,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                   </button>
                 </div>
                 {platform === "windows" ? (
-                  <p className="artreq-hint">{t(locale, "gamereq.explorerTip")}</p>
+                  <p className="gamereq-hint">{t(locale, "gamereq.explorerTip")}</p>
                 ) : null}
               </div>
             </div>
@@ -434,7 +434,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
 
             {error ? (
               <p className="feedback-error" role="alert">
-                {t(locale, "gamereq.error")} {t(locale, "artreq.errorDetail")}
+                {t(locale, "gamereq.error")} {t(locale, "gamereq.errorDetail")}
               </p>
             ) : cooldown > 0 ? (
               <p className="feedback-error" role="status">

@@ -153,6 +153,12 @@ const BUDGET_BYTES: Record<string, number> = {
   // as the pt/es/fr/de/zh/ja/ko/ru/vi locales above, and the aggregate counts
   // it only because the check sums every emitted chunk. Measured aggregate is
   // 1,817.7 kB, leaving ~27 kB of headroom.
+  // The in-app Mouse Test page (MouseTestPage.tsx + MouseTestMouse.tsx, the
+  // test.* keys, and its chart/button-tester CSS) and the strict artwork-
+  // submission flow (ArtworkRequestDialog.tsx, /api/artwork + images.js, the
+  // artreq.* dictionary) were both removed; artwork requests now open the
+  // documented GitHub issue form instead. The budget stays — like the earlier
+  // crowd-sourced removal, the aggregate only shrank.
   ".js": 1_845_000,
 };
 
