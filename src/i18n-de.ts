@@ -77,7 +77,7 @@ export const de: Record<I18nKey, string> = {
   "hw.subtitle": "Führt die vollständige Treiber-Verifikationssuite auf der verbundenen Maus aus — die Belege, mit denen ein Modell mit offenem Testbedarf auf der Unterstützt-Seite als unterstützt eingestuft wird.",
   "hw.start": "Test starten",
   "hw.end": "Test beenden",
-  "hw.share": "Bericht teilen",
+  "hw.download": "Log herunterladen",
   "hw.connect": "Gerät verbinden",
   "hw.ready": "Drücke „Test starten“, um die Verifikation auf der verbundenen Maus auszuführen.",
   "hw.noDevice": "Keine Maus verbunden",

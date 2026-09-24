@@ -77,7 +77,7 @@ export const pt: Record<I18nKey, string> = {
   "hw.subtitle": "Executa a suíte completa de verificação do driver no mouse conectado — a evidência usada para mover um modelo com teste pendente para suportado na página de dispositivos suportados.",
   "hw.start": "Iniciar teste",
   "hw.end": "Encerrar teste",
-  "hw.share": "Compartilhar relatório",
+  "hw.download": "Baixar log",
   "hw.connect": "Conectar dispositivo",
   "hw.ready": "Pressione Iniciar teste para executar a verificação no mouse conectado.",
   "hw.noDevice": "Nenhum mouse conectado",

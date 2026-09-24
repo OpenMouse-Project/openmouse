@@ -972,7 +972,7 @@ export const vi: Record<I18nKey, string> = {
   "hw.subtitle": "Chạy toàn bộ bộ kiểm tra driver trên chuột đang kết nối — bằng chứng cần thiết để đưa một mẫu cần kiểm tra lên trạng thái được hỗ trợ trên trang thiết bị được hỗ trợ.",
   "hw.start": "Bắt đầu kiểm tra",
   "hw.end": "Kết thúc kiểm tra",
-  "hw.share": "Chia sẻ báo cáo",
+  "hw.download": "Tải log",
   "hw.connect": "Kết nối thiết bị",
   "hw.ready": "Nhấn Bắt đầu kiểm tra để chạy bộ kiểm tra trên chuột đang kết nối.",
   "hw.noDevice": "Chưa kết nối chuột",

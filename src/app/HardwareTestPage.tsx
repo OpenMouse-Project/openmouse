@@ -6,7 +6,6 @@ import { computeResults, formatHz, rollingLiveHz } from "../ui/polling-stats";
 import { brandChecks } from "../hardware-brand-checks";
 import {
   automaticChecks,
-  buildDiscordEmbed,
   deviceInfoFromSnapshot,
   flashWriteResult,
   formatHexId,
@@ -76,7 +75,6 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
   const [stages, setStages] = useState<TestStage[]>([]);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<HardwareTestReport | null>(null);
-  const [sharing, setSharing] = useState(false);
   const [connecting, setConnecting] = useState(false);
   /** Live readout during the sampling stage. */
   const [liveSample, setLiveSample] = useState<{ hz: string; samples: number } | null>(null);
@@ -389,41 +387,19 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
     });
   }, [snapshot, locale, addStage, updateStage]);
 
-  const shareReport = useCallback(() => {
-    if (!report || sharing || running) return;
-    setSharing(true);
-    void (async () => {
-      try {
-        const response = await fetch("/api/feedback", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            embeds: [buildDiscordEmbed(report)],
-          }),
-        });
-        if (!response.ok) {
-          let message: string | null = null;
-          try {
-            const body = (await response.json()) as { message?: unknown };
-            if (typeof body?.message === "string") message = body.message;
-          } catch {
-            message = null;
-          }
-          // Surface the relay's own reason when it answered (e.g. "Feedback is
-          // not configured." or "Discord rejected the feedback.") instead of a
-          // generic "unreachable" toast that hides whether this is a config,
-          // delivery, or network problem.
-          control.pushToast("error", t(locale, "hw.reportError"), message ?? t(locale, "hw.reportErrorDetail"));
-          return;
-        }
-        control.pushToast("success", t(locale, "hw.reportSent"), t(locale, "hw.reportSentDetail"));
-      } catch {
-        control.pushToast("error", t(locale, "hw.reportError"), t(locale, "hw.reportErrorDetail"));
-      } finally {
-        setSharing(false);
-      }
-    })();
-  }, [report, sharing, running, locale]);
+  const downloadReport = useCallback(() => {
+    if (!report || running) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const deviceName = (report.device.name ?? "device").replace(/[^\p{L}\p{N}_-]+/gu, "");
+    anchor.href = url;
+    anchor.download = `${deviceName || "device"}hardwaretest.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, [report, running]);
 
   // Opens the WebHID/Bridge device picker and connects the chosen mouse.
   // Outcomes surface through the device card and the controller's own toast.
@@ -639,10 +615,10 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
               <button
                 className="hardware-test-btn hardware-test-btn-share"
                 type="button"
-                disabled={!report || sharing || running}
-                onClick={shareReport}
+                disabled={!report || running}
+                onClick={downloadReport}
               >
-                {sharing ? "…" : t(locale, "hw.share")}
+                {t(locale, "hw.download")}
               </button>
             </div>
           </div>

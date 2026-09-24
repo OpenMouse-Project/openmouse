@@ -77,7 +77,7 @@ export const fr: Record<I18nKey, string> = {
   "hw.subtitle": "Exécute la suite complète de vérification du driver sur la souris connectée — les preuves permettant de faire passer un modèle en attente de test à « compatible » sur la page des appareils compatibles.",
   "hw.start": "Démarrer le test",
   "hw.end": "Arrêter le test",
-  "hw.share": "Partager le rapport",
+  "hw.download": "Télécharger le log",
   "hw.connect": "Connecter l'appareil",
   "hw.ready": "Appuyez sur Démarrer le test pour lancer la vérification sur la souris connectée.",
   "hw.noDevice": "Aucune souris connectée",

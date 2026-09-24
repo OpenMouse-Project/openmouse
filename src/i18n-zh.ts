@@ -77,7 +77,7 @@ export const zh: Record<I18nKey, string> = {
   "hw.subtitle": "在已连接的鼠标上运行完整的驱动程序验证套件——这是将“支持页面”中待测试型号提升为“已支持”所需的证据。",
   "hw.start": "开始测试",
   "hw.end": "结束测试",
-  "hw.share": "分享报告",
+  "hw.download": "下载日志",
   "hw.connect": "连接设备",
   "hw.ready": "按“开始测试”在已连接的鼠标上运行验证套件。",
   "hw.noDevice": "未连接鼠标",

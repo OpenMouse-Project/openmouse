@@ -77,7 +77,7 @@ export const ko: Record<I18nKey, string> = {
   "hw.subtitle": "연결된 마우스에서 전체 드라이버 검증 스위트를 실행합니다. 지원 페이지에서 테스트가 필요한 모델을 지원됨으로 업데이트하는 데 필요한 증거입니다.",
   "hw.start": "테스트 시작",
   "hw.end": "테스트 종료",
-  "hw.share": "보고서 공유",
+  "hw.download": "로그 다운로드",
   "hw.connect": "기기 연결",
   "hw.ready": "시작 테스트를 눌러 연결된 마우스에서 검증 스위트를 실행하세요.",
   "hw.noDevice": "연결된 마우스 없음",

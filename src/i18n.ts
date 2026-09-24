@@ -80,7 +80,7 @@ const en = {
   "hw.subtitle": "Runs the full driver-verification suite on the connected mouse — the evidence used to move a test-needed model to supported on the supported-devices page.",
   "hw.start": "Start test",
   "hw.end": "End test",
-  "hw.share": "Share report",
+  "hw.download": "Download log",
   "hw.connect": "Connect device",
   "hw.ready": "Press Start test to run the verification suite on the connected mouse.",
   "hw.noDevice": "No mouse connected",
