@@ -161,6 +161,7 @@ import {
 } from "@openmouse/protocol/keychron";
 import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
+import { WLMouseBeastX4kHidClient } from "@openmouse/protocol/drivers/wlmouse/beast-x-4k-hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
@@ -238,7 +239,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -259,6 +260,7 @@ const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
 const keychronM6Client = (): KeychronM6HidClient | null => activeAs(KeychronM6HidClient);
+const wlmouse4kClient = (): WLMouseBeastX4kHidClient | null => activeAs(WLMouseBeastX4kHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
 const incottClient = (): IncottHidClient | null => activeAs(IncottHidClient);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
@@ -3736,7 +3738,7 @@ export function applyPulsarValue(setting: "debounce" | "sleep", value: number): 
     ? activeSettingsClient()
     : pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
       ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? wallhackMouseClient()
-      ?? incottClient();
+      ?? incottClient() ?? wlmouse4kClient();
   if (!client || (setting === "sleep" && !("setSleepTimeout" in client))) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
   stageChange({
