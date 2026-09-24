@@ -3759,8 +3759,94 @@ body { height: 100vh; overflow: hidden; }
 }
 
 /* ── Hardware test run panel (app-like stages, not a terminal) ──────────── */
+/* The run area is itself split in two: the animated test stages on one side
+   and a live device-status column (VID/PID, battery, DPI, …) on the other. */
 .hardware-test-panel-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: start;
   min-width: 0;
+}
+.hardware-test-status {
+  display: flex;
+  flex-direction: column;
+  height: clamp(460px, 62vh, 680px);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
+  overflow: hidden;
+  min-width: 0;
+}
+.hardware-test-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--line-strong);
+  flex: none;
+}
+.hardware-test-status-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.hardware-test-status .mouse-test-device-rows {
+  padding: 0.9rem 0.9rem 1.1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.mouse-test-device-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.mouse-test-device-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.82rem;
+}
+.mouse-test-device-key {
+  color: var(--dim);
+  white-space: nowrap;
+}
+.mouse-test-device-val {
+  color: var(--text);
+  font-weight: 600;
+  text-align: end;
+  min-width: 0;
+}
+.mouse-test-device-val-wrap {
+  white-space: normal;
+  word-break: break-word;
+}
+.mouse-test-dpi-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+.mouse-test-dpi-chip {
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-control);
+  color: var(--dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.mouse-test-dpi-chip.active {
+  color: var(--info);
+  border-width: 2px;
 }
 .hardware-test-panel {
   display: flex;
@@ -4087,8 +4173,14 @@ body { height: 100vh; overflow: hidden; }
   .hardware-test-layout {
     grid-template-columns: 1fr;
   }
+  .hardware-test-panel-wrap {
+    grid-template-columns: 1fr;
+  }
   .hardware-test-panel {
     height: clamp(420px, 58vh, 600px);
+  }
+  .hardware-test-status {
+    height: clamp(340px, 50vh, 520px);
   }
 }
 
