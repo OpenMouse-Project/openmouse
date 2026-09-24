@@ -13,7 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/protocol": "0.9.0",
+    "@openmouse/protocol": "0.10.0",
     "lucide-react": "^1.43.0",
     "preact": "^10.29.8"
   },
