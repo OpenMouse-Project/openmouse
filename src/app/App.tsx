@@ -87,7 +87,7 @@ export function App(): ReactNode {
   }, [page, snapshot.workspaceTab, preferences.reducedMotion]);
 
   useEffect(() => {
-    setSidebarCollapsed(resolvedPage === "dashboard");
+    setSidebarCollapsed(resolvedPage === "dashboard" || resolvedPage === "hardware-test");
   }, [resolvedPage]);
 
   useEffect(() => {
