@@ -4215,25 +4215,33 @@ body { height: 100vh; overflow: hidden; }
 }
 
 /* Page footer note — explains what the page does and points to Discord with
-   the downloadable log when a test looks wrong. */
+   the downloadable log when a test looks wrong. Open, sentence-like prose that
+   uses the empty space below the panels: centered, bold-italic, readable. */
 .hardware-test-footer {
-  margin-top: 1.4rem;
+  margin-top: 5rem;
 }
 .hardware-test-footer-note {
-  margin: 0;
-  max-width: 68ch;
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: var(--muted);
+  margin: 0 auto;
+  max-width: 80ch;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 650;
+  font-style: italic;
+  line-height: 1.9;
+  letter-spacing: 0.004em;
+  color: var(--text-soft);
 }
 .hardware-test-footer-link {
   color: var(--ui-accent);
-  font-weight: 650;
+  font-weight: 750;
+  font-style: normal;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--ui-accent) 45%, transparent);
-  transition: color 0.15s ease, border-color 0.15s ease;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-accent) 55%, transparent);
+  white-space: nowrap;
+  transition: color 0.15s ease, border-bottom-color 0.15s ease;
 }
 .hardware-test-footer-link:hover {
+  color: var(--ui-accent);
   border-bottom-color: var(--ui-accent);
 }
 
