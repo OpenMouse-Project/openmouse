@@ -3717,6 +3717,15 @@ body { height: 100vh; overflow: hidden; }
   font-size: 0.85rem;
   color: var(--dim);
 }
+.mouse-test-device-card {
+  background: var(--surface-panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
 .mouse-test-device-rows {
   display: flex;
   flex-direction: column;
@@ -3766,36 +3775,17 @@ body { height: 100vh; overflow: hidden; }
 }
 
 /* ── Hardware test page ─────────────────────────────────────────────────── */
-/* One horizontal card, three zones split by rules only (no nested cards):
-   left  = device artwork + name,
-   center= the live test process,
-   right = every device status row. */
-.hardware-test-card {
+.hardware-test-layout {
   display: grid;
-  grid-template-columns: minmax(200px, 0.8fr) minmax(0, 1.4fr) minmax(240px, 1fr);
-  align-items: stretch;
-  border-radius: 16px;
-  background: var(--surface-strong);
-  border: 1px solid var(--line);
-  overflow: hidden;
+  grid-template-columns: minmax(min-content, 380px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
 }
-.hardware-test-hero {
+.hardware-test-device {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 0.75rem;
   min-width: 0;
-  padding: 1rem;
-  border-inline-end: 1px solid var(--line);
-}
-.hardware-test-specs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  min-width: 0;
-  padding: 1rem;
-  border-inline-start: 1px solid var(--line);
 }
 .hardware-test-art {
   margin: 0;
@@ -3823,15 +3813,6 @@ body { height: 100vh; overflow: hidden; }
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--muted);
-}
-/* In the left hero zone the name sits centered under the artwork. */
-.hardware-test-hero .hardware-test-device-name {
-  justify-content: center;
-  text-align: center;
-}
-.hardware-test-hero .hardware-test-art-img {
-  width: 100%;
-  max-width: 13rem;
 }
 .hardware-test-verdict {
   display: flex;
@@ -3895,23 +3876,41 @@ body { height: 100vh; overflow: hidden; }
   filter: brightness(1.12);
 }
 
-/* ── Hardware test run stages (blended, not a card) ─────────────────────── */
-.hardware-test-card-test {
+/* ── Hardware test run panel (app-like stages, not a terminal) ──────────── */
+.hardware-test-panel-wrap {
   min-width: 0;
-  display: flex;
 }
 .hardware-test-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: clamp(460px, 62vh, 680px);
+  height: clamp(460px, 62vh, 680px);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
+  overflow: hidden;
 }
 .hardware-test-panel-head {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0.9rem 1rem 0.5rem;
+  gap: 0.55rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--line-strong);
   flex: none;
+}
+.hardware-test-head-glyph {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--success);
+  flex: none;
+}
+.hardware-test-panel-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  text-transform: uppercase;
 }
 .hardware-test-state-pill {
   margin-inline-start: auto;
@@ -3943,9 +3942,8 @@ body { height: 100vh; overflow: hidden; }
 
 .hardware-test-stages {
   flex: 1;
-  min-height: 0;
   overflow-y: auto;
-  padding: 0.4rem 1rem;
+  padding: 0.75rem 0.9rem;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -3978,7 +3976,10 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
-  padding: 0.5rem 0.1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  background: var(--surface-panel);
+  border: 1px solid var(--line);
   animation: hardware-test-stage-in 0.28s ease both;
 }
 .hardware-test-stage-icon {
@@ -4080,9 +4081,11 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.75rem 0;
-  margin: 0.25rem 1rem 0.75rem;
-  border-top: 1px solid var(--line);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0.75rem 0.75rem;
+  border-radius: 14px;
+  background: var(--surface-panel);
+  border: 1px solid var(--line-strong);
   animation: hardware-test-banner-in 0.35s ease both;
 }
 .hardware-test-banner-glyph {
@@ -4149,7 +4152,8 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid var(--line-strong);
   flex: none;
 }
 .hardware-test-btn {
@@ -4198,19 +4202,11 @@ body { height: 100vh; overflow: hidden; }
 }
 
 @media (max-width: 960px) {
-  .hardware-test-card {
+  .hardware-test-layout {
     grid-template-columns: 1fr;
   }
-  .hardware-test-hero {
-    border-inline-end: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .hardware-test-specs {
-    border-inline-start: 0;
-    border-top: 1px solid var(--line);
-  }
   .hardware-test-panel {
-    min-height: clamp(420px, 58vh, 600px);
+    height: clamp(420px, 58vh, 600px);
   }
 }
 
