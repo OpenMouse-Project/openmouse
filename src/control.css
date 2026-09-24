@@ -3804,10 +3804,10 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   flex-direction: column;
   height: clamp(460px, 62vh, 680px);
-  border-radius: 16px;
-  background: var(--surface-strong);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
+  border-radius: 14px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.35);
   overflow: hidden;
   min-width: 0;
 }
@@ -3817,7 +3817,7 @@ body { height: 100vh; overflow: hidden; }
   justify-content: space-between;
   gap: 0.55rem;
   padding: 0.6rem 0.9rem;
-  background: var(--surface-panel);
+  background: var(--surface-strong);
   border-bottom: 1px solid var(--line-strong);
   flex: none;
 }
@@ -3884,10 +3884,10 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   flex-direction: column;
   height: clamp(460px, 62vh, 680px);
-  border-radius: 16px;
-  background: var(--surface-strong);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
+  border-radius: 14px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.35);
   overflow: hidden;
 }
 .hardware-test-panel-head {
@@ -3895,7 +3895,7 @@ body { height: 100vh; overflow: hidden; }
   align-items: center;
   gap: 0.55rem;
   padding: 0.6rem 0.9rem;
-  background: var(--surface-panel);
+  background: var(--surface-strong);
   border-bottom: 1px solid var(--line-strong);
   flex: none;
 }
@@ -3978,7 +3978,7 @@ body { height: 100vh; overflow: hidden; }
   gap: 0.65rem;
   padding: 0.55rem 0.7rem;
   border-radius: 12px;
-  background: var(--surface-panel);
+  background: var(--surface-strong);
   border: 1px solid var(--line);
   animation: hardware-test-stage-in 0.28s ease both;
 }
@@ -4084,7 +4084,7 @@ body { height: 100vh; overflow: hidden; }
   padding: 0.7rem 0.9rem;
   margin: 0 0.75rem 0.75rem;
   border-radius: 14px;
-  background: var(--surface-panel);
+  background: var(--surface-strong);
   border: 1px solid var(--line-strong);
   animation: hardware-test-banner-in 0.35s ease both;
 }
