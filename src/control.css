@@ -3717,63 +3717,6 @@ body { height: 100vh; overflow: hidden; }
   font-size: 0.85rem;
   color: var(--dim);
 }
-.mouse-test-device-card {
-  background: var(--surface-panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-.mouse-test-device-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.mouse-test-device-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: baseline;
-  font-size: 0.82rem;
-}
-.mouse-test-device-key {
-  color: var(--dim);
-  white-space: nowrap;
-}
-.mouse-test-device-val {
-  color: var(--text);
-  font-weight: 600;
-  text-align: end;
-  min-width: 0;
-}
-.mouse-test-device-val-wrap {
-  white-space: normal;
-  word-break: break-word;
-}
-.mouse-test-dpi-stages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  justify-content: flex-end;
-}
-.mouse-test-dpi-chip {
-  font-size: 0.72rem;
-  font-weight: 650;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-control);
-  color: var(--dim);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.mouse-test-dpi-chip.active {
-  color: var(--info);
-  border-width: 2px;
-}
-
 /* ── Hardware test page ─────────────────────────────────────────────────── */
 .hardware-test-layout {
   display: grid;
@@ -3787,71 +3730,10 @@ body { height: 100vh; overflow: hidden; }
   gap: 0.75rem;
   min-width: 0;
 }
-.hardware-test-art {
-  margin: 0;
+.hardware-test-no-device {
+  padding: 1.25rem;
+  text-align: center;
 }
-.hardware-test-art-img {
-  display: block;
-  width: 78%;
-  height: auto;
-  margin-inline: auto;
-  object-fit: contain;
-}
-.hardware-test-device-name {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-  font-weight: 750;
-  letter-spacing: -0.01em;
-  color: var(--text);
-  white-space: nowrap;
-}
-.hardware-test-device-name-label {
-  flex: none;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-.hardware-test-verdict {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  background: var(--surface-strong);
-  border: 1px solid var(--line-strong);
-}
-.hardware-test-verdict.pass { color: var(--success); }
-.hardware-test-verdict.fail { color: var(--destructive); }
-.hardware-test-verdict.incomplete { color: var(--warning); }
-.hardware-test-verdict-dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  flex: none;
-}
-.hardware-test-verdict-dot.pass { background: var(--success); }
-.hardware-test-verdict-dot.fail { background: var(--destructive); }
-.hardware-test-verdict-dot.incomplete { background: var(--warning); }
-.hardware-test-crosscheck {
-  margin: 0.6rem 0 0;
-  padding: 0.45rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: var(--muted);
-  background: var(--surface-strong);
-  border: 1px dashed var(--line-strong);
-}
-.hardware-test-crosscheck.is-supported { color: var(--success); border-color: var(--success); }
-.hardware-test-crosscheck.is-likely,
-.hardware-test-crosscheck.is-quickwin,
-.hardware-test-crosscheck.is-pr { color: var(--ui-accent-ink); border-color: var(--ui-accent-ink); }
 .hardware-test-no-device-title {
   margin: 0.25rem 0 0;
   font-size: 0.95rem;

@@ -20,6 +20,7 @@ import {
   type HardwareTestResult,
 } from "../hardware-test-report";
 import { crosscheckSupportedDevices } from "../supported-devices-crosscheck";
+import { DeviceShowcaseSidebar } from "./OverviewPage";
 
 /**
  * One animated row in the run panel. The suite surfaces itself as a sequence
@@ -493,152 +494,25 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
       </div>
 
       <div className="hardware-test-layout">
-        {/* ── Left: device status card ─────────────────────────────────── */}
+        {/* ── Left: device showcase — the same card as the Overview
+             performance tab ─────────────────────────────────────────── */}
         <aside className="hardware-test-device">
-          <div className="mouse-test-device-card">
-            {info.present ? (
-              <>
-                <div className="hardware-test-device-name">
-                  <span className="hardware-test-device-name-label">{t(locale, "hw.deviceCard")}:</span>
-                  <span>
-                    {info.brand} {info.name}
-                  </span>
-                </div>
-                {snapshot.deviceArtwork ? (
-                  <div className="hardware-test-art">
-                    <img className="hardware-test-art-img" src={snapshot.deviceArtwork} alt="" />
-                  </div>
-                ) : null}
-                <div className="mouse-test-device-rows">
-                  {info.vendorId !== null && info.productId !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.identity")}</span>
-                      <span className="mouse-test-device-val">
-                        {formatHexId(info.vendorId)} / {formatHexId(info.productId)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="mouse-test-device-row">
-                    <span className="mouse-test-device-key">{t(locale, "hw.transport")}</span>
-                    <span className="mouse-test-device-val">{info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID"}</span>
-                  </div>
-                  {info.connectionType && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.connection")}</span>
-                      <span className="mouse-test-device-val">{info.connectionType}</span>
-                    </div>
-                  )}
-                  {info.signalStrength !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.signal")}</span>
-                      <span className="mouse-test-device-val">{info.signalStrength}%</span>
-                    </div>
-                  )}
-                  {info.receiverOnline !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.receiver")}</span>
-                      <span className="mouse-test-device-val">
-                        {info.pairingInProgress ? "pairing…" : info.receiverOnline ? "online" : "offline"}
-                        {info.receiverRfId ? ` · RF ${info.receiverRfId}` : ""}
-                      </span>
-                    </div>
-                  )}
-                  {info.collectionsSummary && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.interfaces")}</span>
-                      <span className="mouse-test-device-val mouse-test-device-val-wrap">{info.collectionsSummary}</span>
-                    </div>
-                  )}
-                  {info.driverFamily && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.driver")}</span>
-                      <span className="mouse-test-device-val">{info.driverFamily}</span>
-                    </div>
-                  )}
-                  {info.pollingRateHz !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.reportedHz")}</span>
-                      <span className="mouse-test-device-val">{info.pollingRateHz} Hz</span>
-                    </div>
-                  )}
-                  {info.supportedPollingRates && info.supportedPollingRates.length > 0 && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.rates")}</span>
-                      <span className="mouse-test-device-val">{info.supportedPollingRates.join(" / ")} Hz</span>
-                    </div>
-                  )}
-                  {info.dpi !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.dpi")}</span>
-                      <span className="mouse-test-device-val">{info.dpi.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {info.dpiStages && info.dpiStages.length > 0 && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.dpiStages")}</span>
-                      <span className="mouse-test-device-val mouse-test-dpi-stages">
-                        {info.dpiStages.map((stage, index) => (
-                          <span key={index} className={`mouse-test-dpi-chip${index === info.activeDpiStage ? " active" : ""}`}>
-                            {stage.toLocaleString()}
-                          </span>
-                        ))}
-                      </span>
-                    </div>
-                  )}
-                  {info.liftOffDistance && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.lod")}</span>
-                      <span className="mouse-test-device-val">{info.liftOffDistance}</span>
-                    </div>
-                  )}
-                  {info.batteryPercent !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.battery")}</span>
-                      <span className="mouse-test-device-val">
-                        {info.batteryPercent}% ({info.batteryState})
-                      </span>
-                    </div>
-                  )}
-                  {info.firmware && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.firmware")}</span>
-                      <span className="mouse-test-device-val">{info.firmware.join(", ")}</span>
-                    </div>
-                  )}
-                  {info.deviceMode && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.mode")}</span>
-                      <span className="mouse-test-device-val">{info.deviceMode}</span>
-                    </div>
-                  )}
-                </div>
-                {verdictLabel && report ? (
-                  <div className={`hardware-test-verdict ${report.verdict}`}>
-                    <span className={`hardware-test-verdict-dot ${report.verdict}`} />
-                    {verdictLabel}
-                  </div>
-                ) : null}
-                {report?.supportedPage ? (
-                  <p className={`hardware-test-crosscheck${report.supportedPage.listed ? ` is-${report.supportedPage.status ?? "listed"}` : ""}`}>
-                    {report.supportedPage.detail}
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <div className="hardware-test-no-device">
-                <p className="hardware-test-no-device-title">{t(locale, "hw.noDevice")}</p>
-                <p className="hardware-test-no-device-detail">{t(locale, "hw.noDeviceDetail")}</p>
-                <button
-                  className="hardware-test-btn hardware-test-btn-connect"
-                  type="button"
-                  disabled={connecting || snapshot.connectDisabled}
-                  onClick={connectDevice}
-                >
-                  {connecting ? "…" : t(locale, "hw.connect")}
-                </button>
-              </div>
-            )}
-          </div>
+          {info.present ? (
+            <DeviceShowcaseSidebar snapshot={snapshot} />
+          ) : (
+            <div className="hardware-test-no-device">
+              <p className="hardware-test-no-device-title">{t(locale, "hw.noDevice")}</p>
+              <p className="hardware-test-no-device-detail">{t(locale, "hw.noDeviceDetail")}</p>
+              <button
+                className="hardware-test-btn hardware-test-btn-connect"
+                type="button"
+                disabled={connecting || snapshot.connectDisabled}
+                onClick={connectDevice}
+              >
+                {connecting ? "…" : t(locale, "hw.connect")}
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* ── Right: live run panel ────────────────────────────────────── */}

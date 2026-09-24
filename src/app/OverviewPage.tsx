@@ -260,7 +260,7 @@ function DeviceShowcase({ snapshot }: {
   );
 }
 
-function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
   const locale = snapshot.preferences.locale;
