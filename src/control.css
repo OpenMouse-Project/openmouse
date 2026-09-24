@@ -4099,7 +4099,6 @@ body { height: 100vh; overflow: hidden; }
 }
 .hardware-test-art {
   background: var(--surface-strong);
-  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0.75rem;
   box-sizing: border-box;
