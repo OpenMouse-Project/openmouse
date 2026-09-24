@@ -136,7 +136,17 @@ const BUDGET_BYTES: Record<string, number> = {
   // controls, DeviceCapabilities stage-write flags, and the RAZER preview
   // fixture stage table) then adds ~1.7 kB more. Measured aggregate is
   // 1,674.9 kB, leaving ~25 kB of headroom.
-  ".js": 1_700_000,
+  // Raised to 1,780 kB for the in-app Hardware Test certification suite:
+  // HardwareTestPage.tsx (verification runner with live polling-rate
+  // sampling, terminal, device card, and the share flow), the report model
+  // (automatic checks, verdict, Discord embed), hardware-brand-checks.ts
+  // (brand-depth checks), the supported-devices crosscheck, and the
+  // 238-row mirrored supported-devices table (src/supported-devices-data.ts,
+  // generated from the landing page's supported-mice.ts via
+  // scripts/sync-supported-devices.mjs), plus the hw.* and
+  // nav.hardwareTest strings in all ten locale tables. Measured aggregate
+  // is 1,748.7 kB, leaving ~31 kB of headroom.
+  ".js": 1_780_000,
 };
 
 const ASSETS = join("dist", "assets");

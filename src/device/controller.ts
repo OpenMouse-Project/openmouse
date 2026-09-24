@@ -1311,6 +1311,68 @@ export async function selectAtkR1Profile(profile: number): Promise<void> {
   }
 }
 
+/**
+ * ATK F1 Ultimate settings (sensor mode, anti-mistouch, dongle light) use the
+ * shared staged flow: edits preview instantly and join the footer Apply bar
+ * like every other control.
+ */
+export function selectAtkSensorMode(mode: number): void {
+  if (!hasActiveClient()) return;
+  if (!Number.isInteger(mode) || mode < 0 || mode > 2) return;
+  stageChange({
+    key: "atk-sensor-mode",
+    label: `Sensor mode ${["Basic", "Shard", "MAX"][mode] ?? mode}`,
+    command: `Set ATK sensor mode to ${mode}`,
+    progress: `Setting ATK sensor mode…`,
+    preview: (status) => {
+      status.atkSensorMode = mode;
+    },
+    apply: async () => {
+      await (requireClientMethod("setAtkSensorMode", "the sensor mode") as unknown as {
+        setAtkSensorMode: (mode: number) => Promise<unknown>;
+      }).setAtkSensorMode(mode);
+    },
+  });
+}
+
+export function applyAtkAntiMistouch(milliseconds: number): void {
+  if (!hasActiveClient()) return;
+  if (!Number.isInteger(milliseconds) || milliseconds < 0 || milliseconds > 2550) return;
+  stageChange({
+    key: "atk-anti-mistouch",
+    label: milliseconds === 0 ? "Anti-mistouch off" : `Anti-mistouch ${milliseconds} ms`,
+    command: `Set ATK anti-mistouch to ${milliseconds} ms`,
+    progress: `Setting ATK anti-mistouch…`,
+    preview: (status) => {
+      status.atkAntiMistouchMs = milliseconds;
+    },
+    apply: async () => {
+      await (requireClientMethod("setAntiMistouchMs", "anti-mistouch") as unknown as {
+        setAntiMistouchMs: (milliseconds: number) => Promise<unknown>;
+      }).setAntiMistouchMs(milliseconds);
+    },
+  });
+}
+
+export function selectAtkDongleLight(mode: number): void {
+  if (!hasActiveClient()) return;
+  if (!Number.isInteger(mode) || mode < 0 || mode > 3) return;
+  stageChange({
+    key: "atk-dongle-light",
+    label: `Dongle light ${["Off", "Polling", "Battery", "Low battery"][mode] ?? mode}`,
+    command: `Set ATK dongle light to ${mode}`,
+    progress: `Setting ATK dongle light…`,
+    preview: (status) => {
+      status.atkDongleLight = mode;
+    },
+    apply: async () => {
+      await (requireClientMethod("setDongleLight", "the dongle light") as unknown as {
+        setDongleLight: (mode: number) => Promise<unknown>;
+      }).setDongleLight(mode);
+    },
+  });
+}
+
 export async function pairAtkR1SePlusReceiver(): Promise<void> {
   if (blockedByGameProfileDraft()) return;
   const client = activeAs(AtkHidClient);

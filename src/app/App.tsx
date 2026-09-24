@@ -8,6 +8,7 @@ import { OverviewPage } from "./OverviewPage";
 import { CaptureDialog } from "./CaptureDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { GamesPage, useBridgeActive } from "./GamesPage";
+import { HardwareTestPage } from "./HardwareTestPage";
 import { InterfaceSettings } from "./InterfaceSettings";
 import { MouseTestPage } from "./MouseTestPage";
 import { NewsBanner } from "./NewsBanner";
@@ -46,11 +47,13 @@ export function App(): ReactNode {
     ? "settings"
     : page === "test"
       ? "test"
-      : showingGames
-        ? "games"
-        : status !== null && snapshot.deviceView === "device"
-        ? "dashboard"
-        : "home";
+      : page === "hardware-test"
+        ? "hardware-test"
+        : showingGames
+          ? "games"
+          : status !== null && snapshot.deviceView === "device"
+          ? "dashboard"
+          : "home";
 
   useEffect(() => {
     try {
@@ -109,6 +112,9 @@ export function App(): ReactNode {
     } else if (next === "test") {
       control.showDeviceList();
       setPage("test");
+    } else if (next === "hardware-test") {
+      control.showDeviceList();
+      setPage("hardware-test");
     } else if (next === "games") {
       control.showDeviceList();
       setPage("games");
@@ -137,6 +143,8 @@ export function App(): ReactNode {
         <div className="full-desktop-content" ref={panel}>
           {showingSettings ? (
             <InterfaceSettings snapshot={snapshot} />
+          ) : page === "hardware-test" ? (
+            <HardwareTestPage snapshot={snapshot} />
           ) : page === "test" ? (
             <MouseTestPage snapshot={snapshot} />
           ) : showingGames ? (

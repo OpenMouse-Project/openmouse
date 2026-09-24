@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 
 import { pwa } from "./build/pwa-vite-plugin";
 import { sites } from "./build/sites-vite-plugin";
+import { devFeedback } from "./build/dev-feedback-plugin";
 
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
 
@@ -35,7 +36,7 @@ function betaBuildVersion(): string {
 const buildId = buildChannel === "beta" ? betaBuildVersion() : "";
 
 export default defineConfig({
-  plugins: [sites(), pwa(packageVersion.version)],
+  plugins: [sites(), pwa(packageVersion.version), devFeedback()],
   resolve: {
     // Prefix aliases, so react-dom/client and react/jsx-runtime follow too.
     alias: {

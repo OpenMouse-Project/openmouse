@@ -892,6 +892,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 #polling-card .title-row p, #host-lod-row .title-row p { margin: 0; }
 #polling-card .title-row h2, #host-lod-row .title-row h2 { font-size: 1.15rem; }
 .setting-note { display: block; margin-top: 1rem; color: var(--text-soft); font-size: .72rem; line-height: 1.5; }
+.setting-note-stable { min-height: 3em; }
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: var(--text-soft); font-size: .7rem; font-weight: 500; }
 .setting-action #dpi-pending { color: var(--text-strong); font-weight: 650; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid var(--text); border-radius: 6px; background: var(--text); color: var(--ink); font-size: .65rem; font-weight: 700; }
@@ -984,6 +985,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .angle-tuning-inputs input[type="range"] { width: 100%; margin: 0; accent-color: var(--ui-accent); cursor: pointer; }
 .angle-tuning-scale { display: flex; justify-content: space-between; margin: .12rem 2.15rem 0; color: var(--ghost); font: .48rem var(--font-mono); }
 .angle-tuning-scale i { font-style: normal; }
+.setting-separator { border-top: 1px solid var(--line-strong); margin-top: .55rem; }
 .teevolution-dpi-light-controls { margin-top: .55rem; }
 
 .egg-collapsible, .egg-experimental { overflow: hidden; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--card); }
@@ -3922,7 +3924,7 @@ body { height: 100vh; overflow: hidden; }
 .mouse-test-start-btn {
   border: 0;
   background: var(--ui-accent);
-  color: #fff;
+  color: var(--ui-accent-ink);
   font-size: 0.9rem;
   font-weight: 700;
   padding: 0.55rem 1.6rem;
@@ -4024,6 +4026,10 @@ body { height: 100vh; overflow: hidden; }
   text-align: right;
   min-width: 0;
 }
+.mouse-test-device-val-wrap {
+  white-space: normal;
+  word-break: break-word;
+}
 .mouse-test-dpi-stages {
   display: flex;
   flex-wrap: wrap;
@@ -4075,5 +4081,286 @@ body { height: 100vh; overflow: hidden; }
   }
   .mouse-test-results {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Hardware test page ─────────────────────────────────────────────────── */
+.hardware-test-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.hardware-test-device {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.hardware-test-art {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem;
+  box-sizing: border-box;
+}
+.hardware-test-art-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+.hardware-test-device-name {
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin-top: -0.1rem;
+}
+.hardware-test-verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-strong);
+}
+.hardware-test-verdict.pass { color: var(--success); }
+.hardware-test-verdict.fail { color: var(--destructive); }
+.hardware-test-verdict.incomplete { color: var(--warning); }
+.hardware-test-verdict-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex: none;
+}
+.hardware-test-verdict-dot.pass { background: var(--success); }
+.hardware-test-verdict-dot.fail { background: var(--destructive); }
+.hardware-test-verdict-dot.incomplete { background: var(--warning); }
+.hardware-test-crosscheck {
+  margin: 0.6rem 0 0;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--surface-strong);
+  border: 1px dashed var(--line-strong);
+}
+.hardware-test-crosscheck.is-supported { color: var(--success); border-color: var(--success); }
+.hardware-test-crosscheck.is-likely,
+.hardware-test-crosscheck.is-quickwin,
+.hardware-test-crosscheck.is-pr { color: var(--ui-accent-ink); border-color: var(--ui-accent-ink); }
+.hardware-test-no-device-title {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.hardware-test-no-device-detail {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hardware-test-no-device .hardware-test-btn-connect {
+  margin-top: 0.9rem;
+  display: block;
+  width: 100%;
+  background: var(--ui-accent);
+  color: var(--ui-accent-ink);
+  border: 0;
+}
+.hardware-test-no-device .hardware-test-btn-connect:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.hardware-test-terminal-wrap {
+  min-width: 0;
+}
+.hardware-test-terminal {
+  display: flex;
+  flex-direction: column;
+  height: clamp(460px, 62vh, 680px);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.12);
+  overflow: hidden;
+}
+.hardware-test-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--line-strong);
+  flex: none;
+}
+.hardware-test-terminal-dots {
+  display: flex;
+  gap: 0.3rem;
+}
+.hardware-test-terminal-dots i {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--destructive);
+}
+.hardware-test-terminal-dots i:nth-child(2) { background: var(--warning); }
+.hardware-test-terminal-dots i:nth-child(3) { background: var(--success); }
+.hardware-test-terminal-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.hardware-test-terminal-state {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.hardware-test-terminal-state.running {
+  color: var(--success);
+  animation: hardware-test-blink 1.1s ease-in-out infinite;
+}
+.hardware-test-terminal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem 0.9rem;
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.hardware-test-terminal-empty {
+  margin: 0;
+  color: var(--dim);
+  font-style: italic;
+}
+.hardware-test-line {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.hardware-test-line-at {
+  display: inline-block;
+  min-width: 4.6rem;
+  margin-right: 0.6rem;
+  color: var(--muted);
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.hardware-test-line-cmd { color: var(--text); font-weight: 600; }
+.hardware-test-line-ok { color: var(--success); }
+.hardware-test-line-fail { color: var(--destructive); }
+.hardware-test-line-err { color: var(--destructive); font-weight: 700; }
+.hardware-test-line-skip { color: var(--dim); }
+.hardware-test-line-info { color: var(--dim); }
+.hardware-test-line-user { color: var(--info); font-weight: 600; }
+.hardware-test-line-warn { color: var(--warning); }
+.hardware-test-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  background: var(--text);
+  animation: hardware-test-blink 1s steps(1) infinite;
+}
+@keyframes hardware-test-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.hardware-test-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--surface-panel);
+  border-top: 1px solid var(--line-strong);
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.hardware-test-summary-ok { color: var(--success); }
+.hardware-test-summary-fail { color: var(--destructive); }
+.hardware-test-summary-skip { color: var(--dim); }
+.hardware-test-summary strong {
+  margin-left: auto;
+  letter-spacing: 0.03em;
+}
+.hardware-test-summary.pass strong { color: var(--success); }
+.hardware-test-summary.fail strong { color: var(--destructive); }
+.hardware-test-summary.incomplete strong { color: var(--warning); }
+.hardware-test-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid var(--line-strong);
+  flex: none;
+}
+.hardware-test-btn {
+  border: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 1.35rem;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.hardware-test-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hardware-test-btn-start {
+  background: var(--ui-accent);
+  color: var(--ui-accent-ink);
+}
+.hardware-test-btn-start:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.hardware-test-btn-connect {
+  background: var(--surface-control);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+}
+.hardware-test-btn-connect:hover:not(:disabled) {
+  background: var(--surface-strong);
+}
+.hardware-test-btn-end {
+  background: var(--destructive);
+  color: #fff;
+}
+.hardware-test-btn-end:hover {
+  filter: brightness(1.12);
+}
+.hardware-test-btn-share {
+  margin-left: auto;
+  background: var(--surface-control);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+}
+.hardware-test-btn-share:hover:not(:disabled) {
+  background: var(--surface-strong);
+}
+
+@media (max-width: 960px) {
+  .hardware-test-layout {
+    grid-template-columns: 1fr;
+  }
+  .hardware-test-terminal {
+    height: clamp(420px, 58vh, 600px);
   }
 }

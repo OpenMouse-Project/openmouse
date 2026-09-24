@@ -138,6 +138,49 @@ export function DebounceCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const status = snapshot.status;
   if (!status) return null;
   const locale = snapshot.preferences.locale;
+  // F1 Ultimate mirrors the vendor HUB: on/off plus a 0-20 ms slider. The HUB
+  // lists 0/1/2/4/8/15/20; the driver accepts the full range and the
+  // read-back rejects anything the firmware refuses.
+  if (status.atkSensorMode != null && status.debounceMs != null) {
+    const ms = status.debounceMs;
+    const staged = snapshot.pending.keys.includes("debounce");
+    return (
+      <article id="debounce-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
+        <div className="setting-heading compact"><div><p>CLICK</p><h2>{t(locale, "adv.debounce")}</h2></div></div>
+        <div className="angle-tuning-control" data-pending-key="debounce">
+          <SwitchRow
+            id="atk-debounce-toggle"
+            label="Key debounce"
+            value={ms > 0}
+            disabled={snapshot.settingInProgress}
+            onChange={(next) => control.applyPulsarValue("debounce", next ? 1 : 0)}
+          />
+          <div className="angle-tuning-head">
+            <span>Debounce delay</span>
+            <output id="atk-debounce-value" htmlFor="atk-debounce-slider">{ms} ms</output>
+          </div>
+          <div className="angle-tuning-inputs">
+            <button type="button" aria-label="Debounce delay: decrease" disabled={ms <= 0} onClick={() => control.applyPulsarValue("debounce", Math.max(0, ms - 1))}>−</button>
+            <input
+              id="atk-debounce-slider"
+              type="range"
+              min={0}
+              max={20}
+              step={1}
+              value={ms}
+              disabled={snapshot.settingInProgress}
+              aria-label="Debounce delay"
+              aria-valuetext={`${ms} milliseconds`}
+              style={{ "--fill": `${(ms / 20) * 100}%` }}
+              onChange={(event) => control.applyPulsarValue("debounce", Number(event.currentTarget.value))}
+            />
+            <button type="button" aria-label="Debounce delay: increase" disabled={ms >= 20} onClick={() => control.applyPulsarValue("debounce", Math.min(20, ms + 1))}>+</button>
+          </div>
+          <div className="angle-tuning-scale" aria-hidden="true"><span>0 ms</span><i>10 ms</i><span>20 ms</span></div>
+        </div>
+      </article>
+    );
+  }
   const max = snapshot.traits.directMode
     ? snapshot.capabilities?.debounceMaxMs ?? 20
     : snapshot.capabilities?.teevolutionProfile?.debounce.max ?? 20;
@@ -358,6 +401,12 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         hidden={ui?.hideRippleControl === true || traits.finalmouse}
         onChange={(next) => control.applyPulsarToggle("rippleControl", next)}
       />
+      {status.atkAntiMistouchMs != null ? (
+        <AtkAntiMistouchControl
+          milliseconds={status.atkAntiMistouchMs}
+          busy={snapshot.settingInProgress}
+        />
+      ) : null}
       <SwitchRow
         id="performance-mode-toggle"
         labelId="performance-mode-label"
@@ -396,7 +445,39 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         onChange={(next) => control.applyPulsarToggle("longRangeMode", next)}
       />
       {angleTuning != null ? (
-        capabilities?.angleTuningWritable
+        status.atkSensorMode != null ? (
+          <div className="angle-tuning-control" data-pending-key="atk-rotation">
+            <SwitchRow
+              id="atk-rotation-toggle"
+              label="Sensor rotation"
+              value={false}
+              disabled
+              onChange={() => undefined}
+            />
+            <div className="angle-tuning-head">
+              <span>Sensor rotation</span>
+              <output id="atk-rotation-value" htmlFor="atk-rotation-slider">0°</output>
+            </div>
+            <div className="angle-tuning-inputs">
+              <button type="button" aria-label="Sensor rotation: decrease" disabled>−</button>
+              <input
+                id="atk-rotation-slider"
+                type="range"
+                min={-30}
+                max={30}
+                step={15}
+                value={0}
+                disabled
+                aria-label="Sensor rotation"
+                aria-valuetext="0 degrees"
+                style={{ "--fill": "50%" }}
+              />
+              <button type="button" aria-label="Sensor rotation: increase" disabled>+</button>
+            </div>
+            <div className="angle-tuning-scale" aria-hidden="true"><span>−30°</span><i>0°</i><span>30°</span></div>
+            <small className="setting-note">Precise horizontal movement regardless of mouse grip style. Rotation writes touch calibration and stay locked pending a USB capture — calibrate in ATK HUB for now.</small>
+          </div>
+        ) : capabilities?.angleTuningWritable
           ? <AngleTuningControl value={angleTuning} label={t(locale, "adv.angleTune")} />
           : (
             <div className="angle-tuning-readonly field-label spaced">
@@ -425,8 +506,60 @@ export function ProcessingCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
   );
 }
 
-function AngleTuningControl({ value, label }: { value: number; label: string }): ReactNode {
+/**
+ * ATK F1 Ultimate scroll anti-mistouch: on/off plus a 100-1000 ms window
+ * slider on the line below, mirroring the vendor HUB layout. Verified
+ * 100/500 ms on hardware; the driver accepts 10 ms steps.
+ */
+function AtkAntiMistouchControl({ milliseconds, busy }: { milliseconds: number; busy: boolean }): ReactNode {
   const [dragging, setDragging] = useState<number | null>(null);
+  const shown = dragging ?? Math.max(100, milliseconds);
+  const apply = (next: number): void => {
+    void control.applyAtkAntiMistouch(Math.max(100, Math.min(1000, next)));
+  };
+  return (
+    <div className="angle-tuning-control" data-pending-key="atk-anti-mistouch">
+      <SwitchRow
+        id="atk-anti-mistouch-toggle"
+        label="Scroll Wheel Anti-Mistouch Mode"
+        value={milliseconds > 0}
+        disabled={busy}
+        onChange={(next) => void control.applyAtkAntiMistouch(next ? 100 : 0)}
+      />
+      <div className="angle-tuning-head">
+        <span>Anti-mistouch window</span>
+        <output id="atk-anti-mistouch-value" htmlFor="atk-anti-mistouch-slider">{milliseconds} ms</output>
+      </div>
+      <div className="angle-tuning-inputs">
+        <button type="button" aria-label="Anti-mistouch window: decrease" disabled={milliseconds <= 0 || shown <= 100} onClick={() => apply(shown - 50)}>−</button>
+        <input
+          id="atk-anti-mistouch-slider"
+          type="range"
+          min={100}
+          max={1000}
+          step={50}
+          value={shown}
+          disabled={milliseconds <= 0 || busy}
+          aria-label="Anti-mistouch window"
+          aria-valuetext={`${shown} milliseconds`}
+          style={{ "--fill": `${((shown - 100) / 900) * 100}%` }}
+          onInput={(event) => setDragging(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const next = Number(event.currentTarget.value);
+            setDragging(null);
+            apply(next);
+          }}
+          onBlur={() => setDragging(null)}
+        />
+        <button type="button" aria-label="Anti-mistouch window: increase" disabled={milliseconds <= 0 || shown >= 1000} onClick={() => apply(shown + 50)}>+</button>
+      </div>
+      <div className="angle-tuning-scale" aria-hidden="true"><span>100 ms</span><i>500 ms</i><span>1000 ms</span></div>
+      <div className="setting-separator" aria-hidden="true" />
+    </div>
+  );
+}
+
+function AngleTuningControl({ value, label }: { value: number; label: string }): ReactNode {  const [dragging, setDragging] = useState<number | null>(null);
   const shown = dragging ?? value;
   const apply = (next: number): void => control.applyAngleTuning(Math.max(-30, Math.min(30, next)));
 

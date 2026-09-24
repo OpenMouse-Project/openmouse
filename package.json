@@ -7,13 +7,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "node --test \"src/**/*.test.ts\" \"build/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
     "check": "npm run build && npm test",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/protocol": "0.8.0",
+    "@openmouse/protocol": "0.9.0",
     "lucide-react": "^1.43.0",
     "preact": "^10.29.8"
   },
