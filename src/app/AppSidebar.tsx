@@ -37,7 +37,7 @@ export function AppSidebar({
   const bridgeActive = useBridgeActive();
   return (
     <aside className={`app-sidebar${collapsed ? " app-sidebar-collapsed" : ""}`}>
-      {page === "dashboard" ? (
+      {page === "dashboard" || page === "hardware-test" ? (
         <button
           type="button"
           className="app-sidebar-collapse-toggle"
