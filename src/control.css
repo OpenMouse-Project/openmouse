@@ -3777,7 +3777,7 @@ body { height: 100vh; overflow: hidden; }
 /* ── Hardware test page ─────────────────────────────────────────────────── */
 .hardware-test-layout {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(min-content, 380px) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -3805,6 +3805,7 @@ body { height: 100vh; overflow: hidden; }
   font-weight: 750;
   letter-spacing: -0.01em;
   color: var(--text);
+  white-space: nowrap;
 }
 .hardware-test-device-name-label {
   flex: none;
