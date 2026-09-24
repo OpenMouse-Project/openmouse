@@ -492,8 +492,9 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         <p className="mouse-test-subtitle">{t(locale, "hw.subtitle")}</p>
       </div>
 
-      <div className="hardware-test-layout">
-        {/* ── Left: device status card ─────────────────────────────────── */}
+      {/* ── Single horizontal card: device (left) + live test run (right) ── */}
+      <div className="hardware-test-card">
+        {/* ── Left half: device artwork, name and status ──────────────── */}
         <aside className="hardware-test-device">
           <div className="mouse-test-device-card">
             {info.present ? (
@@ -641,8 +642,8 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           </div>
         </aside>
 
-        {/* ── Right: live run panel ────────────────────────────────────── */}
-        <section className="hardware-test-panel-wrap">
+        {/* ── Right half: live test stages — blended into the card ────── */}
+        <section className="hardware-test-card-test">
           <div className="hardware-test-panel" aria-label={t(locale, "hw.panelTitle")}>
             <div className="hardware-test-panel-head">
               <span className={`hardware-test-state-pill ${stateClass}`}>
