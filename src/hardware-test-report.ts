@@ -170,6 +170,13 @@ const NO_DEVICE_DEFERRED: ReadonlyArray<[string, string]> = [
 
 const LOD_VALUES = new Set(["Low", "Medium", "High"]);
 
+/**
+ * Sanity ceiling for a DPI read-back, meant to catch garbage (0xFFFF reads
+ * back as 65535) rather than to describe any sensor. PAW3950/PAW3955 parts
+ * legitimately run to 42000, so this must stay above that.
+ */
+const MAX_PLAUSIBLE_DPI = 50_000;
+
 /** The checks that are answered purely from the driver read-back. */
 export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] {
   if (!info.present) {
@@ -217,7 +224,7 @@ export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] 
     detail: driver ?? "No driver produced a status read.",
   });
 
-  const dpiOk = info.dpi !== null && info.dpi > 0 && info.dpi <= 30000;
+  const dpiOk = info.dpi !== null && info.dpi > 0 && info.dpi <= MAX_PLAUSIBLE_DPI;
   results.push({
     key: "dpi",
     label: "DPI read-back",
@@ -271,7 +278,7 @@ export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] 
   }
 
   if (info.dpiStages && info.dpiStages.length > 0) {
-    const allValid = info.dpiStages.every((value) => value > 0 && value <= 30000);
+    const allValid = info.dpiStages.every((value) => value > 0 && value <= MAX_PLAUSIBLE_DPI);
     results.push({
       key: "dpiStages",
       label: "DPI stages read-back",
@@ -324,7 +331,7 @@ export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] 
   if (info.dpiStages && info.dpiStages.length > 0) flashFields.push("dpi stages");
   const lodOk = info.liftOffDistance === null || LOD_VALUES.has(info.liftOffDistance);
   const batteryOk = info.batteryPercent === null || (info.batteryPercent >= 0 && info.batteryPercent <= 100);
-  const stagesOk = !info.dpiStages || info.dpiStages.length === 0 || info.dpiStages.every((value) => value > 0 && value <= 30000);
+  const stagesOk = !info.dpiStages || info.dpiStages.length === 0 || info.dpiStages.every((value) => value > 0 && value <= MAX_PLAUSIBLE_DPI);
   const flashOk = dpiOk && rate !== null && rate > 0 && lodOk && batteryOk && stagesOk;
   results.push({
     key: "flashRead",
@@ -357,7 +364,7 @@ export function pickFlashDpiTarget(current: number | null, options: readonly num
   if (current === null || options.length === 0) return null;
   const candidates = [800, 1600, 2400, 3200, current * 2, Math.round(current / 2)];
   for (const candidate of candidates) {
-    if (candidate !== current && candidate > 0 && candidate <= 30000 && options.includes(candidate)) return candidate;
+    if (candidate !== current && candidate > 0 && candidate <= MAX_PLAUSIBLE_DPI && options.includes(candidate)) return candidate;
   }
   const alternate = options.find((option) => option !== current);
   return alternate ?? null;
