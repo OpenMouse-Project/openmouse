@@ -20,6 +20,7 @@ import {
 } from "../hardware-test-report";
 import { crosscheckSupportedDevices } from "../supported-devices-crosscheck";
 import { DeviceShowcaseSidebar } from "./OverviewPage";
+import { DISCORD_URL } from "./social-links";
 
 /**
  * One animated row in the run panel. The suite surfaces itself as a sequence
@@ -460,6 +461,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           : t(locale, "hw.stateStopped")
       : t(locale, "hw.stateIdle");
 
+  const footerNoteParts = t(locale, "hw.footerNote").split("{discord}");
   const samplingPercent = Math.round((samplingElapsedMs / SAMPLE_WINDOW_MS) * 100);
 
   return (
@@ -735,6 +737,16 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           ) : null}
         </section>
       </div>
+
+      <footer className="hardware-test-footer">
+        <p className="hardware-test-footer-note">
+          {footerNoteParts[0]}
+          <a className="hardware-test-footer-link" href={DISCORD_URL} target="_blank" rel="noreferrer">
+            {t(locale, "hw.discord")}
+          </a>
+          {footerNoteParts[1]}
+        </p>
+      </footer>
     </div>
   );
 }

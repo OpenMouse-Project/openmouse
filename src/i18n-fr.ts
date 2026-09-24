@@ -79,6 +79,8 @@ export const fr: Record<I18nKey, string> = {
   "hw.end": "Arrêter le test",
   "hw.download": "Télécharger le log",
   "hw.statusNote": "Remarque : ce sont les données matérielles en direct rapportées par votre souris. Aucune donnée personnelle ou sensible n'est collectée.",
+  "hw.footerNote": "Cette page de test matériel exécute les vérifications de base avec votre souris pour voir si tout fonctionne avec OpenMouse. Si le test affiche des faux positifs ou des bugs, ou si vous doutez d'un test en échec, rejoignez notre {discord} avec le journal téléchargeable et ouvrez un ticket : l'équipe OpenMouse vous aidera.",
+  "hw.discord": "Discord",
   "hw.connect": "Connecter l'appareil",
   "hw.ready": "Appuyez sur Démarrer le test pour lancer la vérification sur la souris connectée.",
   "hw.noDevice": "Aucune souris connectée",

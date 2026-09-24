@@ -974,6 +974,8 @@ export const vi: Record<I18nKey, string> = {
   "hw.end": "Kết thúc kiểm tra",
   "hw.download": "Tải log",
   "hw.statusNote": "Lưu ý: Đây là dữ liệu phần cứng trực tiếp được báo cáo từ chuột của bạn. Không thu thập bất kỳ dữ liệu cá nhân hoặc nhạy cảm nào.",
+  "hw.footerNote": "Đây là trang kiểm tra phần cứng — nó chạy các kiểm tra chức năng cơ bản với chuột của bạn để xem mọi thứ có hoạt động với OpenMouse không. Nếu kiểm tra hiển thị dương tính giả hoặc lỗi, hoặc bạn không chắc chắn về một bài kiểm tra thất bại, hãy tham gia {discord} của chúng tôi cùng với nhật ký có thể tải xuống và mở một ticket — đội ngũ OpenMouse sẽ giúp bạn.",
+  "hw.discord": "Discord",
   "hw.connect": "Kết nối thiết bị",
   "hw.ready": "Nhấn Bắt đầu kiểm tra để chạy bộ kiểm tra trên chuột đang kết nối.",
   "hw.noDevice": "Chưa kết nối chuột",

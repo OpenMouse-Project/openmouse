@@ -79,6 +79,8 @@ export const es: Record<I18nKey, string> = {
   "hw.end": "Finalizar prueba",
   "hw.download": "Descargar log",
   "hw.statusNote": "Nota: estos son los datos de hardware en vivo que reporta tu mouse. No se recopila ningún dato personal ni sensible.",
+  "hw.footerNote": "Esta es la página de prueba de hardware: ejecuta las comprobaciones básicas de funcionamiento con tu mouse para ver si todo funciona con OpenMouse. Si la prueba muestra falsos positivos o errores, o si no estás seguro de una prueba fallida, únete a nuestro {discord} con el log descargable y abre un ticket: el equipo de OpenMouse te ayudará.",
+  "hw.discord": "Discord",
   "hw.connect": "Conectar dispositivo",
   "hw.ready": "Pulsa Iniciar prueba para ejecutar la verificación en el mouse conectado.",
   "hw.noDevice": "Ningún mouse conectado",

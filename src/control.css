@@ -4214,6 +4214,29 @@ body { height: 100vh; overflow: hidden; }
   background: var(--surface-strong);
 }
 
+/* Page footer note — explains what the page does and points to Discord with
+   the downloadable log when a test looks wrong. */
+.hardware-test-footer {
+  margin-top: 1.4rem;
+}
+.hardware-test-footer-note {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.hardware-test-footer-link {
+  color: var(--ui-accent);
+  font-weight: 650;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-accent) 45%, transparent);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.hardware-test-footer-link:hover {
+  border-bottom-color: var(--ui-accent);
+}
+
 @media (max-width: 960px) {
   .hardware-test-layout {
     grid-template-columns: 1fr;

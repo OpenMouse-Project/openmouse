@@ -82,6 +82,8 @@ const en = {
   "hw.end": "End test",
   "hw.download": "Download log",
   "hw.statusNote": "Note: This is the live hardware data that is being reported from your mouse. This doesn't collect any personal or sensitive data.",
+  "hw.footerNote": "This is the hardware test page — it runs the basic functionality checks with your mouse to see whether everything works with OpenMouse. If the test shows any false positives or bugs, or if you're unsure about a failing test, join our {discord} with the downloadable log and open a ticket — the OpenMouse team will help you out.",
+  "hw.discord": "Discord",
   "hw.connect": "Connect device",
   "hw.ready": "Press Start test to run the verification suite on the connected mouse.",
   "hw.noDevice": "No mouse connected",

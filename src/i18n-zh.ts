@@ -79,6 +79,8 @@ export const zh: Record<I18nKey, string> = {
   "hw.end": "结束测试",
   "hw.download": "下载日志",
   "hw.statusNote": "注意：这是你的鼠标实时报告的硬件数据。不会收集任何个人或敏感数据。",
+  "hw.footerNote": "这是硬件测试页面——它使用你的鼠标运行基本功能测试，检查一切是否与 OpenMouse 正常工作。如果测试显示误报或错误，或者你对某项失败的测试不确定，请带着可下载的日志加入我们的{discord}并打开工单——OpenMouse 团队将帮助你。",
+  "hw.discord": "Discord",
   "hw.connect": "连接设备",
   "hw.ready": "按“开始测试”在已连接的鼠标上运行验证套件。",
   "hw.noDevice": "未连接鼠标",

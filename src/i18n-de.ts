@@ -79,6 +79,8 @@ export const de: Record<I18nKey, string> = {
   "hw.end": "Test beenden",
   "hw.download": "Log herunterladen",
   "hw.statusNote": "Hinweis: Dies sind die Live-Hardware-Daten, die von Ihrer Maus gemeldet werden. Es werden keine persönlichen oder sensiblen Daten erfasst.",
+  "hw.footerNote": "Dies ist die Hardware-Test-Seite — sie führt die grundlegenden Funktionstests mit Ihrer Maus durch, um zu prüfen, ob alles mit OpenMouse funktioniert. Falls der Test falsch-positive Ergebnisse oder Bugs anzeigt oder Sie sich bei einem fehlgeschlagenen Test unsicher sind, treten Sie unserem {discord} mit dem herunterladbaren Log bei und eröffnen Sie ein Ticket — das OpenMouse-Team hilft Ihnen weiter.",
+  "hw.discord": "Discord",
   "hw.connect": "Gerät verbinden",
   "hw.ready": "Drücke „Test starten“, um die Verifikation auf der verbundenen Maus auszuführen.",
   "hw.noDevice": "Keine Maus verbunden",

@@ -79,6 +79,8 @@ export const ko: Record<I18nKey, string> = {
   "hw.end": "테스트 종료",
   "hw.download": "로그 다운로드",
   "hw.statusNote": "참고: 마우스에서 보고되는 실시간 하드웨어 데이터입니다. 개인 정보나 민감한 데이터는 수집되지 않습니다.",
+  "hw.footerNote": "이것은 하드웨어 테스트 페이지입니다. 마우스로 기본 기능 테스트를 실행하여 OpenMouse에서 모든 것이 제대로 작동하는지 확인합니다. 테스트에서 오탐지나 버그가 표시되거나, 실패한 테스트에 대해 확신이 없다면 다운로드할 수 있는 로그를 가지고 {discord}에 참여해 티켓을 열어 주세요. OpenMouse 팀이 도와드리겠습니다.",
+  "hw.discord": "Discord",
   "hw.connect": "기기 연결",
   "hw.ready": "시작 테스트를 눌러 연결된 마우스에서 검증 스위트를 실행하세요.",
   "hw.noDevice": "연결된 마우스 없음",
