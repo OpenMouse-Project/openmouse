@@ -148,13 +148,49 @@ test("the guard rejects oversized POST bodies", async () => {
 
 test("the guard rate-limits aggressive GET traffic with a strike", async () => {
   const kv = new FakeKV();
+  // The limiter buckets requests into `window:<ip>:<method>:<minute>` from the
+  // wall clock. Pin the clock so the loop cannot straddle a minute boundary —
+  // a rollover resets the counter mid-loop and the cap is never reached, which
+  // made this test pass or fail depending on when it happened to run.
+  const now = Date.now;
+  const frozenMinute = Math.floor(now() / 60_000) * 60_000 + 1_000;
+  Date.now = () => frozenMinute;
   let lastStatus = 200;
-  for (let i = 0; i < 241; i++) {
-    const response = await guarded(new Request("https://openmouse.app/assets/app.js"), kv);
-    lastStatus = response.status;
+  try {
+    for (let i = 0; i < 240; i++) {
+      await guarded(new Request("https://openmouse.app/assets/app.js"), kv);
+    }
+    // The cap allows 240 GETs per minute; the 241st crosses it.
+    lastStatus = (
+      await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+    ).status;
+  } finally {
+    Date.now = now;
   }
   assert.equal(lastStatus, 429);
   assert.ok(await kv.get("strikes:unknown"));
+});
+
+test("the GET rate limit resets on a new minute", async () => {
+  const kv = new FakeKV();
+  const now = Date.now;
+  let clock = Math.floor(now() / 60_000) * 60_000 + 1_000;
+  Date.now = () => clock;
+  let lastStatus = 200;
+  try {
+    for (let i = 0; i < 241; i++) {
+      lastStatus = (
+        await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+      ).status;
+    }
+    clock += 60_000; // next minute -> a fresh window bucket
+    lastStatus = (
+      await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+    ).status;
+  } finally {
+    Date.now = now;
+  }
+  assert.equal(lastStatus, 200);
 });
 
 test("repeated abuse permanently bans the IP", async () => {
