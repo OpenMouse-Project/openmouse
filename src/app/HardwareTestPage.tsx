@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { t } from "../i18n";
+import { t, tp } from "../i18n";
 import { computeResults, formatHz, rollingLiveHz } from "../ui/polling-stats";
 import { brandChecks } from "../hardware-brand-checks";
 import {
@@ -18,17 +18,28 @@ import {
   type FlashSettingRoundTrip,
   type HardwareTestReport,
   type HardwareTestResult,
-  type HardwareTestStatus,
 } from "../hardware-test-report";
 import { crosscheckSupportedDevices } from "../supported-devices-crosscheck";
 
-type TermLevel = "cmd" | "ok" | "fail" | "skip" | "info" | "user" | "err" | "warn";
+/**
+ * One animated row in the run panel. The suite surfaces itself as a sequence
+ * of stages — "Test started", each check animating in with a spinner while it
+ * runs, plus dedicated sampling (determinate progress bar with a live Hz
+ * readout) and flash (indeterminate "writing" wave) stages — never a terminal
+ * log.
+ */
+type StageKind = "start" | "check" | "sampling" | "flash";
+type StageState = "running" | "pass" | "fail" | "skip";
 
-interface TermLine {
+interface TestStage {
   id: number;
-  level: TermLevel;
-  at: string;
-  text: string;
+  kind: StageKind;
+  /** Human label of the stage; check labels come from the report module. */
+  label: string;
+  state: StageState;
+  detail?: string | null;
+  /** Interactive callout shown only while the stage is running. */
+  hint?: string;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -58,58 +69,50 @@ async function hidInterfacesSummary(vendorId: number | null, productId: number |
 
 const SAMPLE_WINDOW_MS = 5000;
 
-function elapsedStamp(startedAtMs: number): string {
-  const seconds = (performance.now() - startedAtMs) / 1000;
-  return `t+${seconds.toFixed(1).padStart(5, " ")}s`;
-}
-
-function badgeFor(status: HardwareTestStatus, label: string, detail: string | null): string {
-  const badge = status === "pass" ? "[ OK ]" : status === "fail" ? "[FAIL]" : "[SKIP]";
-  return `${badge} ${label}${detail ? ` — ${detail}` : ""}`;
-}
-
 export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const locale = snapshot.preferences.locale;
 
-  const [lines, setLines] = useState<TermLine[]>([]);
+  const [stages, setStages] = useState<TestStage[]>([]);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<HardwareTestReport | null>(null);
   const [sharing, setSharing] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  /** Live readout during the sampling stage. */
+  const [liveSample, setLiveSample] = useState<{ hz: string; samples: number } | null>(null);
+  /** Elapsed sampling time, driving the determinate progress bar. 0 → SAMPLE_WINDOW_MS. */
+  const [samplingElapsedMs, setSamplingElapsedMs] = useState(0);
 
   const runningRef = useRef(false);
   const cancelRef = useRef(false);
-  const startRef = useRef(0);
-  const lineIdRef = useRef(0);
-  const termBodyRef = useRef<HTMLDivElement>(null);
+  const stageIdRef = useRef(0);
 
-  const pushLine = useCallback((level: TermLevel, text: string): void => {
-    setLines((prev) => [
-      ...prev,
-      { id: lineIdRef.current++, level, at: elapsedStamp(startRef.current), text },
-    ]);
+  const addStage = useCallback((stage: { kind: StageKind; label: string; state?: StageState; hint?: string }): number => {
+    const id = stageIdRef.current++;
+    setStages((prev) => [...prev, { id, state: "running", ...stage }]);
+    return id;
   }, []);
 
-  useEffect(() => {
-    const body = termBodyRef.current;
-    if (body) body.scrollTop = body.scrollHeight;
-  }, [lines]);
+  const updateStage = useCallback(
+    (id: number, patch: { state: StageState; detail?: string | null }): void => {
+      setStages((prev) => prev.map((stage) => (stage.id === id ? { ...stage, ...patch } : stage)));
+    },
+    [],
+  );
 
   const endTest = useCallback(() => {
     if (!runningRef.current) return;
     cancelRef.current = true;
-    pushLine("user", "» end-test requested…");
-  }, [pushLine]);
+  }, []);
 
   const startTest = useCallback(() => {
     if (runningRef.current) return;
     runningRef.current = true;
     cancelRef.current = false;
-    startRef.current = performance.now();
-    lineIdRef.current = 0;
     setRunning(true);
     setReport(null);
-    setLines([]);
+    setStages([]);
+    setLiveSample(null);
+    setSamplingElapsedMs(0);
 
     void (async () => {
       let info = deviceInfoFromSnapshot(snapshot);
@@ -117,67 +120,57 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
       let aborted = false;
       const startedAt = performance.now();
 
-      pushLine("cmd", "❯ openmouse-hardware-test");
-      pushLine("info", `build ${snapshot.buildLabel} · hardware verification suite`);
-      await sleep(200);
+      // Background descriptor lookup (feed the control-interface check detail)
+      // — no stage of its own, it is not user-visible work.
+      const interfaces = await hidInterfacesSummary(info.vendorId, info.productId);
+      if (interfaces) info = { ...info, collectionsSummary: interfaces };
 
-      const envParts: string[] = [];
-      const webhid = typeof navigator !== "undefined" && "hid" in navigator;
-      envParts.push(webhid ? "WebHID available" : "WebHID unavailable (Bridge can substitute)");
-      pushLine("info", envParts.join(" · "));
-      await sleep(240);
+      // "Test started" — the opening beat of the run.
+      const startedStage = addStage({ kind: "start", label: t(locale, "hw.testStarted") });
+      await sleep(340);
+      updateStage(startedStage, { state: "pass" });
+      await sleep(140);
 
-      if (info.present) {
-        pushLine("cmd", `$ identity ${info.brand ?? ""} ${info.name ?? ""}`.trim());
-        pushLine("info", `vid:pid ${formatHexId(info.vendorId ?? 0)}:${formatHexId(info.productId ?? 0)}`);
-        pushLine("info", `${info.productName ?? ""} · ${info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID"}${info.connectionType ? ` · ${info.connectionType}` : ""}`);
-        const interfaces = await hidInterfacesSummary(info.vendorId, info.productId);
-        if (interfaces) {
-          info = { ...info, collectionsSummary: interfaces };
-          pushLine("info", interfaces);
-        }
-        await sleep(320);
-      } else {
-        pushLine("warn", "no device connected —— device checks will fail, interactive checks will be skipped");
-        await sleep(320);
-      }
-
-      const runCheckRow = async (check: HardwareTestResult): Promise<void> => {
+      const runCheckStage = async (check: HardwareTestResult): Promise<void> => {
         if (cancelRef.current) {
           aborted = true;
           results.push({ ...check, status: "skip" as const, detail: null });
-          pushLine("skip", `[SKIP] ${check.label} — stopped by user`);
           return;
         }
-        pushLine("cmd", `$ check ${check.label.toLowerCase().replaceAll(" ", "-")}`);
-        await sleep(340);
+        const id = addStage({ kind: "check", label: check.label });
+        await sleep(300);
         if (cancelRef.current) {
           aborted = true;
+          updateStage(id, { state: "skip", detail: "stopped by user" });
           results.push({ ...check, status: "skip" as const, detail: null });
-          pushLine("skip", `[SKIP] ${check.label} — stopped by user`);
           return;
         }
         results.push(check);
-        pushLine(samplingLevel(check.status), badgeFor(check.status, check.label, check.detail));
-        await sleep(120);
+        updateStage(id, { state: check.status, detail: check.detail });
+        await sleep(130);
       };
 
       // ── Automatic (driver read-back) checks ────────────────────────────
       for (const check of automaticChecks(info)) {
-        await runCheckRow(check);
+        await runCheckStage(check);
       }
 
       // ── Brand-specific checks (docs/*-testing.md checklists) ───────────
       for (const check of brandChecks(info)) {
-        await runCheckRow(check);
+        await runCheckStage(check);
       }
 
       // ── Interactive checks ─────────────────────────────────────────────
       if (info.present && !aborted) {
-        // Polling-rate sampling: move the mouse over the window.
-        pushLine("cmd", "$ test polling-rate-sampling");
-        pushLine("user", "» Move the mouse in small circles — 5 seconds of sampling…");
-        await sleep(400);
+        // Polling-rate sampling: move the mouse over the window. The stage
+        // shows a determinate 5s progress bar plus a live Hz readout while
+        // the user moves the mouse in small circles.
+        const samplingId = addStage({
+          kind: "sampling",
+          label: pollingSampleResult({ events: 0, avgHz: 0, peakHz: 0, stability: 0, reportedHz: info.pollingRateHz }).label,
+          hint: t(locale, "hw.samplingPrompt"),
+        });
+        await sleep(320);
         const intervals: number[] = [];
         let lastT = 0;
         const onMove = (event: PointerEvent): void => {
@@ -193,11 +186,16 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           }
         };
         window.addEventListener("pointermove", onMove, { passive: true });
+        const samplingStart = performance.now();
+        const progressTimer = window.setInterval(() => {
+          setSamplingElapsedMs(Math.min(SAMPLE_WINDOW_MS, performance.now() - samplingStart));
+        }, 120);
         const liveTimer = window.setInterval(() => {
           const live = rollingLiveHz(intervals);
-          if (live > 0) pushLine("info", `  live ${formatHz(live)} Hz · ${intervals.length} samples`);
-        }, 500);
-        for (let waited = 0; waited < SAMPLE_WINDOW_MS && !cancelRef.current; waited += 150) await sleep(150);
+          if (live > 0) setLiveSample({ hz: formatHz(live), samples: intervals.length });
+        }, 250);
+        for (let waited = 0; waited < SAMPLE_WINDOW_MS && !cancelRef.current; waited += 100) await sleep(100);
+        window.clearInterval(progressTimer);
         window.clearInterval(liveTimer);
         window.removeEventListener("pointermove", onMove);
 
@@ -216,14 +214,20 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           });
         }
         results.push(samplingResult);
-        pushLine(samplingLevel(samplingResult.status), badgeFor(samplingResult.status, samplingResult.label, samplingResult.detail));
+        updateStage(samplingId, { state: samplingResult.status, detail: samplingResult.detail });
         await sleep(160);
       }
 
       // ── Flash write round-trip (write → read-back → restore) ───────────
       if (info.present && !aborted) {
-        pushLine("cmd", "$ test flash-write-round-trip");
-        await sleep(240);
+        // The stage animates as an indeterminate "writing" wave whose length
+        // varies with how many settings are writable on the device.
+        const flashId = addStage({
+          kind: "flash",
+          label: flashWriteResult({ roundTrips: [] }).label,
+          hint: t(locale, "hw.flashPrompt"),
+        });
+        await sleep(320);
 
         const runFlashLeg = async (leg: {
           setting: string;
@@ -236,7 +240,6 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           stageRestore: () => boolean;
           read: () => unknown;
         }): Promise<FlashSettingRoundTrip> => {
-          pushLine("user", `» writing ${leg.target}, reading it back, then restoring ${leg.current} — ${leg.note}`);
           await sleep(400);
           if (cancelRef.current) {
             aborted = true;
@@ -280,7 +283,6 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
             flashResult = flashWriteResult({ skipped: true, skippedReason: "no live device status — cannot round-trip a write." });
           } else if (live.settingsPending) {
             flashResult = flashWriteResult({ skipped: true, skippedReason: "you have staged, unapplied changes — apply or revert them first." });
-            pushLine("warn", "  → skip: staged changes are pending in the config UI");
           } else {
             const legs: FlashSettingRoundTrip[] = [];
 
@@ -357,27 +359,17 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           }
         }
         results.push(flashResult);
-        pushLine(samplingLevel(flashResult.status), badgeFor(flashResult.status, flashResult.label, flashResult.detail));
+        updateStage(flashId, { state: flashResult.status, detail: flashResult.detail });
         await sleep(160);
       }
 
       // ── Summary ────────────────────────────────────────────────────────
-      pushLine("cmd", "$ summary");
-      const passed = results.filter((result) => result.status === "pass").length;
-      const failed = results.filter((result) => result.status === "fail").length;
-      const skipped = results.filter((result) => result.status === "skip").length;
-      pushLine("info", `  passed ${passed} · failed ${failed} · skipped ${skipped}`);
       const verdict = verdictFor({ results, incomplete: aborted });
-      pushLine(verdict === "pass" ? "ok" : verdict === "fail" ? "fail" : "skip", `VERDICT ${verdict.toUpperCase()}${aborted ? " — stopped before completion" : ""}`);
 
       // Crosscheck the device against the supported-devices page (the mirrored
       // table behind openmouse.app/supported): is it listed, and does this run
       // qualify it to move to "Supported"? Replaces pinging a maintainer: the
       // report now carries the page-side answer itself.
-      pushLine("cmd", "$ crosscheck supported-devices");
-      const supportedPage = crosscheckSupportedDevices(info, verdict);
-      pushLine(supportedPage.listed ? (supportedPage.status === "supported" ? "info" : verdict === "pass" ? "ok" : "skip") : "info", `  ${supportedPage.detail}`);
-
       setReport({
         device: info,
         results,
@@ -385,21 +377,20 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         durationMs: performance.now() - startedAt,
         runAt: new Date().toISOString(),
         build: snapshot.buildLabel,
-        supportedPage,
+        supportedPage: crosscheckSupportedDevices(info, verdict),
       });
     })().catch(() => {
-      pushLine("err", "the suite crashed — restart the test");
+      addStage({ kind: "check", label: "The suite crashed — restart the test", state: "fail" });
       setReport(null);
     }).finally(() => {
       runningRef.current = false;
       setRunning(false);
     });
-  }, [snapshot, pushLine]);
+  }, [snapshot, locale, addStage, updateStage]);
 
   const shareReport = useCallback(() => {
     if (!report || sharing || running) return;
     setSharing(true);
-    pushLine("cmd", "$ share-report → /api/feedback");
     void (async () => {
       try {
         const response = await fetch("/api/feedback", {
@@ -417,7 +408,6 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           } catch {
             message = null;
           }
-          pushLine("err", `could not send the report${message ? ` — ${message}` : " — try again in a moment"}`);
           // Surface the relay's own reason when it answered (e.g. "Feedback is
           // not configured." or "Discord rejected the feedback.") instead of a
           // generic "unreachable" toast that hides whether this is a config,
@@ -425,38 +415,25 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           control.pushToast("error", t(locale, "hw.reportError"), message ?? t(locale, "hw.reportErrorDetail"));
           return;
         }
-        pushLine("ok", "report sent to the OpenMouse feedback channel ✓");
         control.pushToast("success", t(locale, "hw.reportSent"), t(locale, "hw.reportSentDetail"));
       } catch {
-        pushLine("err", "could not send the report — try again in a moment");
         control.pushToast("error", t(locale, "hw.reportError"), t(locale, "hw.reportErrorDetail"));
       } finally {
         setSharing(false);
       }
     })();
-  }, [report, sharing, running, pushLine, locale]);
+  }, [report, sharing, running, locale]);
 
-  // Opens the WebHID/Bridge device picker and connects the chosen mouse, then
-  // reports the outcome in the terminal. Handy when the page opens with no
-  // device connected, or to swap in a second unit for another shared report.
+  // Opens the WebHID/Bridge device picker and connects the chosen mouse.
+  // Outcomes surface through the device card and the controller's own toast.
   const connectDevice = useCallback(() => {
     if (connecting || running) return;
     setConnecting(true);
-    pushLine("cmd", "$ connect-device");
-    pushLine("user", "» pick your mouse in the browser dialog…");
     void control
       .connect()
       .catch(() => undefined) // control.connect() handles failures internally; guard against rethrows.
-      .finally(() => {
-        const next = deviceInfoFromSnapshot(control.getSnapshot());
-        if (next.present) {
-          pushLine("ok", `connected ${[next.brand, next.name].filter(Boolean).join(" ").trim()}`);
-        } else {
-          pushLine("warn", "no device selected — connect a mouse to run the hardware tests");
-        }
-        setConnecting(false);
-      });
-  }, [connecting, running, pushLine]);
+      .finally(() => setConnecting(false));
+  }, [connecting, running]);
 
   const baseInfo = deviceInfoFromSnapshot(snapshot);
   const [interfaceSummary, setInterfaceSummary] = useState<string | null>(null);
@@ -486,6 +463,27 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         ? t(locale, "hw.verdictFail")
         : t(locale, "hw.verdictIncomplete")
     : null;
+
+  const stateClass = running
+    ? "running"
+    : report
+      ? report.verdict === "pass"
+        ? "done"
+        : report.verdict === "fail"
+          ? "failed"
+          : "stopped"
+      : "idle";
+  const stateText = running
+    ? t(locale, "hw.stateRunning")
+    : report
+      ? report.verdict === "pass"
+        ? t(locale, "hw.stateDone")
+        : report.verdict === "fail"
+          ? t(locale, "hw.stateFailed")
+          : t(locale, "hw.stateStopped")
+      : t(locale, "hw.stateIdle");
+
+  const samplingPercent = Math.round((samplingElapsedMs / SAMPLE_WINDOW_MS) * 100);
 
   return (
     <div className="mouse-test-page hardware-test-page">
@@ -643,42 +641,111 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           </div>
         </aside>
 
-        {/* ── Right: live terminal ─────────────────────────────────────── */}
-        <section className="hardware-test-terminal-wrap">
-          <div className="hardware-test-terminal" role="log" aria-live="polite" aria-label={t(locale, "hw.termTitle")}>
-            <div className="hardware-test-terminal-head">
-              <span className="hardware-test-terminal-dots" aria-hidden="true">
-                <i /><i /><i />
-              </span>
-              <span className="hardware-test-terminal-title">{t(locale, "hw.termTitle")}</span>
-              <span className={`hardware-test-terminal-state${running ? " running" : ""}`}>
-                {running ? "● running" : report ? (report.verdict === "pass" ? "● done" : report.verdict === "fail" ? "● failed" : "● stopped") : "○ idle"}
+        {/* ── Right: live run panel ────────────────────────────────────── */}
+        <section className="hardware-test-panel-wrap">
+          <div className="hardware-test-panel" aria-label={t(locale, "hw.panelTitle")}>
+            <div className="hardware-test-panel-head">
+              <svg className="hardware-test-head-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M12 2 4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3zm-2 15-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"
+                />
+              </svg>
+              <span className="hardware-test-panel-title">{t(locale, "hw.panelTitle")}</span>
+              <span className={`hardware-test-state-pill ${stateClass}`}>
+                <i aria-hidden="true" />
+                {stateText}
               </span>
             </div>
 
-            <div className="hardware-test-terminal-body" ref={termBodyRef}>
-              {lines.length === 0 ? (
-                <p className="hardware-test-terminal-empty">{t(locale, "hw.ready")}</p>
+            <div className="hardware-test-stages">
+              {stages.length === 0 ? (
+                <div className="hardware-test-ready">
+                  <svg className="hardware-test-ready-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M13 1.07V9h7c0-4.08-3.05-7.44-7-7.93zM4 15c0 4.42 3.58 8 8 8s8-3.58 8-8v-4H4v4zm7-13.93C7.05 1.56 4 4.92 4 9h7V1.07z"
+                    />
+                  </svg>
+                  <p>{t(locale, "hw.ready")}</p>
+                </div>
               ) : null}
-              {lines.map((line) => (
-                <p key={line.id} className={`hardware-test-line hardware-test-line-${line.level}`}>
-                  <span className="hardware-test-line-at">{line.at}</span>
-                  {line.text}
-                </p>
+
+              {stages.map((stage) => (
+                <div key={stage.id} className={`hardware-test-stage ${stage.state}`}>
+                  <span className="hardware-test-stage-icon" aria-hidden="true">
+                    {stage.state === "running" ? (
+                      <i className="hardware-test-stage-spin" />
+                    ) : stage.state === "pass" ? (
+                      <svg viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                      </svg>
+                    ) : stage.state === "fail" ? (
+                      <svg viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                      </svg>
+                    ) : (
+                      <i className="hardware-test-stage-skip" />
+                    )}
+                  </span>
+
+                  <div className="hardware-test-stage-main">
+                    <span className="hardware-test-stage-label">
+                      {stage.state === "running" && stage.kind === "check"
+                        ? tp(locale, "hw.checking", { label: stage.label })
+                        : stage.label}
+                    </span>
+                    {stage.state === "running" && stage.hint ? (
+                      <span className="hardware-test-stage-hint">{stage.hint}</span>
+                    ) : null}
+                    {stage.state !== "running" && stage.detail ? (
+                      <span className="hardware-test-stage-detail">{stage.detail}</span>
+                    ) : null}
+                    {stage.kind === "sampling" && stage.state === "running" ? (
+                      <div className="hardware-test-progress">
+                        <i style={{ width: `${samplingPercent}%` }} />
+                      </div>
+                    ) : null}
+                    {stage.kind === "flash" && stage.state === "running" ? (
+                      <div className="hardware-test-progress hardware-test-progress-wave" aria-hidden="true" />
+                    ) : null}
+                  </div>
+
+                  {stage.kind === "sampling" && stage.state === "running" ? (
+                    <span className={`hardware-test-live${liveSample ? "" : " empty"}`} aria-live="polite">
+                      {liveSample
+                        ? tp(locale, "hw.liveHertz", { hz: liveSample.hz, samples: liveSample.samples })
+                        : "—"}
+                    </span>
+                  ) : null}
+                </div>
               ))}
-              {running ? <span className="hardware-test-cursor" aria-hidden="true" /> : null}
             </div>
 
             {report && !running ? (
-              <div className={`hardware-test-summary ${report.verdict}`}>
-                <span className="hardware-test-summary-ok">{passed} OK</span>
-                <span className="hardware-test-summary-fail">{failed} FAIL</span>
-                <span className="hardware-test-summary-skip">{skipped} SKIP</span>
-                <strong>{verdictLabel}</strong>
+              <div className={`hardware-test-banner ${report.verdict}`} role="status">
+                <svg className="hardware-test-banner-glyph" viewBox="0 0 24 24" aria-hidden="true">
+                  {report.verdict === "pass" ? (
+                    <path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                  ) : report.verdict === "fail" ? (
+                    <path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                  ) : (
+                    <path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  )}
+                </svg>
+                <div className="hardware-test-banner-text">
+                  <strong>{verdictLabel}</strong>
+                  <span>{tp(locale, "hw.finishTime", { s: (report.durationMs / 1000).toFixed(1) })}</span>
+                </div>
+                <div className="hardware-test-banner-counts">
+                  <span className="ok">{passed} OK</span>
+                  <span className="fail">{failed} FAIL</span>
+                  <span className="skip">{skipped} SKIP</span>
+                </div>
               </div>
             ) : null}
 
-            <div className="hardware-test-terminal-bar">
+            <div className="hardware-test-panel-bar">
               <button
                 className="hardware-test-btn hardware-test-btn-connect"
                 type="button"
@@ -709,9 +776,4 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
       </div>
     </div>
   );
-}
-
-/** Terminal level for a scored check result. */
-function samplingLevel(status: HardwareTestStatus): TermLevel {
-  return status === "pass" ? "ok" : status === "fail" ? "fail" : "skip";
 }
