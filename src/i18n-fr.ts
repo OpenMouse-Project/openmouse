@@ -78,6 +78,7 @@ export const fr: Record<I18nKey, string> = {
   "hw.start": "Démarrer le test",
   "hw.end": "Arrêter le test",
   "hw.download": "Télécharger le log",
+  "hw.statusNote": "Remarque : ce sont les données matérielles en direct rapportées par votre souris. Aucune donnée personnelle ou sensible n'est collectée.",
   "hw.connect": "Connecter l'appareil",
   "hw.ready": "Appuyez sur Démarrer le test pour lancer la vérification sur la souris connectée.",
   "hw.noDevice": "Aucune souris connectée",

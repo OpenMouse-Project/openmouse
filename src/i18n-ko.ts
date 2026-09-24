@@ -78,6 +78,7 @@ export const ko: Record<I18nKey, string> = {
   "hw.start": "테스트 시작",
   "hw.end": "테스트 종료",
   "hw.download": "로그 다운로드",
+  "hw.statusNote": "참고: 마우스에서 보고되는 실시간 하드웨어 데이터입니다. 개인 정보나 민감한 데이터는 수집되지 않습니다.",
   "hw.connect": "기기 연결",
   "hw.ready": "시작 테스트를 눌러 연결된 마우스에서 검증 스위트를 실행하세요.",
   "hw.noDevice": "연결된 마우스 없음",

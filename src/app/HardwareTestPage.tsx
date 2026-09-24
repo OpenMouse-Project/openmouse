@@ -730,6 +730,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   </div>
                 )}
               </div>
+              <p className="hardware-test-status-note">{t(locale, "hw.statusNote")}</p>
             </aside>
           ) : null}
         </section>

@@ -973,6 +973,7 @@ export const vi: Record<I18nKey, string> = {
   "hw.start": "Bắt đầu kiểm tra",
   "hw.end": "Kết thúc kiểm tra",
   "hw.download": "Tải log",
+  "hw.statusNote": "Lưu ý: Đây là dữ liệu phần cứng trực tiếp được báo cáo từ chuột của bạn. Không thu thập bất kỳ dữ liệu cá nhân hoặc nhạy cảm nào.",
   "hw.connect": "Kết nối thiết bị",
   "hw.ready": "Nhấn Bắt đầu kiểm tra để chạy bộ kiểm tra trên chuột đang kết nối.",
   "hw.noDevice": "Chưa kết nối chuột",

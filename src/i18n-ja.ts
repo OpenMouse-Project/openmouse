@@ -78,6 +78,7 @@ export const ja: Record<I18nKey, string> = {
   "hw.start": "テスト開始",
   "hw.end": "テスト終了",
   "hw.download": "ログをダウンロード",
+  "hw.statusNote": "注：これはマウスから報告されているライブのハードウェアデータです。個人情報や機密データは収集されません。",
   "hw.connect": "デバイスを接続",
   "hw.ready": "「テスト開始」を押すと、接続されたマウスで検証が実行されます。",
   "hw.noDevice": "マウスが接続されていません",

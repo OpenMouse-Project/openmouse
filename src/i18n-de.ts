@@ -78,6 +78,7 @@ export const de: Record<I18nKey, string> = {
   "hw.start": "Test starten",
   "hw.end": "Test beenden",
   "hw.download": "Log herunterladen",
+  "hw.statusNote": "Hinweis: Dies sind die Live-Hardware-Daten, die von Ihrer Maus gemeldet werden. Es werden keine persönlichen oder sensiblen Daten erfasst.",
   "hw.connect": "Gerät verbinden",
   "hw.ready": "Drücke „Test starten“, um die Verifikation auf der verbundenen Maus auszuführen.",
   "hw.noDevice": "Keine Maus verbunden",

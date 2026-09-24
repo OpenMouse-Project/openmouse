@@ -78,6 +78,7 @@ export const zh: Record<I18nKey, string> = {
   "hw.start": "开始测试",
   "hw.end": "结束测试",
   "hw.download": "下载日志",
+  "hw.statusNote": "注意：这是你的鼠标实时报告的硬件数据。不会收集任何个人或敏感数据。",
   "hw.connect": "连接设备",
   "hw.ready": "按“开始测试”在已连接的鼠标上运行验证套件。",
   "hw.noDevice": "未连接鼠标",

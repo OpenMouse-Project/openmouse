@@ -78,6 +78,7 @@ export const es: Record<I18nKey, string> = {
   "hw.start": "Iniciar prueba",
   "hw.end": "Finalizar prueba",
   "hw.download": "Descargar log",
+  "hw.statusNote": "Nota: estos son los datos de hardware en vivo que reporta tu mouse. No se recopila ningún dato personal ni sensible.",
   "hw.connect": "Conectar dispositivo",
   "hw.ready": "Pulsa Iniciar prueba para ejecutar la verificación en el mouse conectado.",
   "hw.noDevice": "Ningún mouse conectado",

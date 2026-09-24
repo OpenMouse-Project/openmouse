@@ -81,6 +81,7 @@ const en = {
   "hw.start": "Start test",
   "hw.end": "End test",
   "hw.download": "Download log",
+  "hw.statusNote": "Note: This is the live hardware data that is being reported from your mouse. This doesn't collect any personal or sensitive data.",
   "hw.connect": "Connect device",
   "hw.ready": "Press Start test to run the verification suite on the connected mouse.",
   "hw.noDevice": "No mouse connected",

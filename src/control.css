@@ -3833,6 +3833,19 @@ body { height: 100vh; overflow: hidden; }
   overflow-y: auto;
   flex: 1;
 }
+/* Privacy note pinned to the bottom of the live device-status card: bold
+   italic, readable but quieter than the data rows above it. */
+.hardware-test-status-note {
+  flex: none;
+  padding: 0.8rem 0.9rem;
+  border-top: 1px solid var(--line-strong);
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
 .mouse-test-device-rows {
   display: flex;
   flex-direction: column;
