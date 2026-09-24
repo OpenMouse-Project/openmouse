@@ -165,6 +165,7 @@ export const ko: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "모션",
   "set.animations": "애니메이션",
   "set.animationsBody": "인터페이스 전환 효과와 애니메이션 상태 변화를 활성화합니다.",

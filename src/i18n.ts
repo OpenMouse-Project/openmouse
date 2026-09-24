@@ -168,6 +168,7 @@ const en = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "MOTION",
   "set.animations": "Animations",
   "set.animationsBody": "Enable interface transitions and animated state changes.",
@@ -1074,6 +1075,7 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
   ["ko", "set.korean"],
   ["ru", "set.russian"],
   ["vi", "set.vietnamese"],
+  ["ar", "set.arabic"],
 ];
 
 /** Non-English tables load on demand so the initial bundle ships English
@@ -1096,6 +1098,7 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   ko: () => import("./i18n-ko.ts").then((m) => m.ko),
   ru: () => import("./i18n-ru.ts").then((m) => m.ru),
   vi: () => import("./i18n-vi.ts").then((m) => m.vi),
+  ar: () => import("./i18n-ar.ts").then((m) => m.ar),
 };
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {

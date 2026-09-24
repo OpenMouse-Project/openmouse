@@ -103,6 +103,7 @@ export const vi: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "CHUYỂN ĐỘNG",
   "set.animations": "Hiệu ứng chuyển động",
   "set.animationsBody": "Bật hiệu ứng chuyển giao diện và thay đổi trạng thái có chuyển động.",

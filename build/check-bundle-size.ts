@@ -146,7 +146,14 @@ const BUDGET_BYTES: Record<string, number> = {
   // scripts/sync-supported-devices.mjs), plus the hw.* and
   // nav.hardwareTest strings in all ten locale tables. Measured aggregate
   // is 1,748.7 kB, leaving ~31 kB of headroom.
-  ".js": 1_780_000,
+  // Raised to 1,845 kB for the Arabic (ar) interface locale: i18n-ar.ts is a
+  // full native translation of all ~1,050 keys and ships as its own lazy
+  // chunk (i18n-ar-*.js, ~69 kB, loaded only when Arabic is selected) — the
+  // initial (English) bundle is untouched. This is the same lazy-chunk pattern
+  // as the pt/es/fr/de/zh/ja/ko/ru/vi locales above, and the aggregate counts
+  // it only because the check sums every emitted chunk. Measured aggregate is
+  // 1,817.7 kB, leaving ~27 kB of headroom.
+  ".js": 1_845_000,
 };
 
 const ASSETS = join("dist", "assets");

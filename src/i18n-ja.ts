@@ -165,6 +165,7 @@ export const ja: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "モーション",
   "set.animations": "アニメーション",
   "set.animationsBody": "インターフェースの遷移とアニメーション付き状態変化を有効にします。",

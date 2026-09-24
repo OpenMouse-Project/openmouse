@@ -165,6 +165,7 @@ export const fr: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "MOUVEMENT",
   "set.animations": "Animations",
   "set.animationsBody": "Active les transitions de l'interface et les changements d'état animés.",

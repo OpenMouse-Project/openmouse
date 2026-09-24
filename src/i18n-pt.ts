@@ -165,6 +165,7 @@ export const pt: Record<I18nKey, string> = {
   "set.korean": "한국어",
   "set.russian": "Русский",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "MOVIMENTO",
   "set.animations": "Animações",
   "set.animationsBody": "Ativa transições da interface e mudanças animadas de estado.",

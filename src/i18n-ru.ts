@@ -164,6 +164,7 @@ export const ru: Record<I18nKey, string> = {
   "set.japanese": "日本語",
   "set.korean": "한국어",
   "set.vietnamese": "Tiếng Việt",
+  "set.arabic" : "العربيّة",
   "set.motion": "АНИМАЦИЯ",
   "set.animations": "Анимации",
   "set.animationsBody": "Включить переходы интерфейса и анимацию смены состояний.",
