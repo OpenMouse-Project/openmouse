@@ -4098,24 +4098,29 @@ body { height: 100vh; overflow: hidden; }
   min-width: 0;
 }
 .hardware-test-art {
-  background: var(--surface-strong);
-  border-radius: 14px;
-  padding: 0.75rem;
-  box-sizing: border-box;
+  margin: 0;
 }
 .hardware-test-art-img {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 1 / 1;
   object-fit: contain;
 }
 .hardware-test-device-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   font-size: 1.05rem;
   font-weight: 750;
   letter-spacing: -0.01em;
   color: var(--text);
-  margin-top: -0.1rem;
+}
+.hardware-test-device-name-label {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
 }
 .hardware-test-verdict {
   display: flex;

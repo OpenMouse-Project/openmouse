@@ -498,18 +498,19 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         {/* ── Left: device status card ─────────────────────────────────── */}
         <aside className="hardware-test-device">
           <div className="mouse-test-device-card">
-            <h3 className="mouse-test-device-title">{t(locale, "hw.deviceCard")}</h3>
-
             {info.present ? (
               <>
+                <div className="hardware-test-device-name">
+                  <span className="hardware-test-device-name-label">{t(locale, "hw.deviceCard")}:</span>
+                  <span>
+                    {info.brand} {info.name}
+                  </span>
+                </div>
                 {snapshot.deviceArtwork ? (
                   <div className="hardware-test-art">
                     <img className="hardware-test-art-img" src={snapshot.deviceArtwork} alt="" />
                   </div>
                 ) : null}
-                <div className="hardware-test-device-name">
-                  {info.brand} {info.name}
-                </div>
                 <div className="mouse-test-device-rows">
                   {info.vendorId !== null && info.productId !== null && (
                     <div className="mouse-test-device-row">
