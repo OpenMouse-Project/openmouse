@@ -86,6 +86,7 @@ const en = {
   "hw.noDevice": "No mouse connected",
   "hw.noDeviceDetail": "Connect a mouse to run the hardware tests.",
   "hw.deviceCard": "DEVICE",
+  "hw.deviceStatus": "DEVICE STATUS",
   "hw.termTitle": "TEST TERMINAL",
   "hw.identity": "VID / PID",
   "hw.transport": "Transport",

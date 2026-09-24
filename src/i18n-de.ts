@@ -83,6 +83,7 @@ export const de: Record<I18nKey, string> = {
   "hw.noDevice": "Keine Maus verbunden",
   "hw.noDeviceDetail": "Verbinde eine Maus, um die Hardware-Tests auszuführen.",
   "hw.deviceCard": "GERÄT",
+  "hw.deviceStatus": "GERÄTESTATUS",
   "hw.termTitle": "TEST-TERMINAL",
   "hw.identity": "VID / PID",
   "hw.transport": "Transport",

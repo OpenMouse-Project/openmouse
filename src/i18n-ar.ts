@@ -82,6 +82,7 @@ export const ar: Record<I18nKey, string> = {
   "hw.noDevice": "لا يوجد ماوس متصل",
   "hw.noDeviceDetail": "وصّل ماوسًا لتشغيل اختبارات العتاد.",
   "hw.deviceCard": "الجهاز",
+  "hw.deviceStatus": "حالة الجهاز",
   "hw.termTitle": "طرفية الفحص",
   "hw.identity": "VID / PID",
   "hw.transport": "النقل",

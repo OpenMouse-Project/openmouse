@@ -83,6 +83,7 @@ export const es: Record<I18nKey, string> = {
   "hw.noDevice": "Ningún mouse conectado",
   "hw.noDeviceDetail": "Conecta un mouse para ejecutar las pruebas de hardware.",
   "hw.deviceCard": "DISPOSITIVO",
+  "hw.deviceStatus": "ESTADO DEL DISPOSITIVO",
   "hw.termTitle": "TERMINAL DE PRUEBA",
   "hw.identity": "VID / PID",
   "hw.transport": "Transporte",

@@ -83,6 +83,7 @@ export const fr: Record<I18nKey, string> = {
   "hw.noDevice": "Aucune souris connectée",
   "hw.noDeviceDetail": "Connectez une souris pour exécuter les tests matériels.",
   "hw.deviceCard": "APPAREIL",
+  "hw.deviceStatus": "ÉTAT DE L'APPAREIL",
   "hw.termTitle": "TERMINAL DE TEST",
   "hw.identity": "VID / PID",
   "hw.transport": "Transport",

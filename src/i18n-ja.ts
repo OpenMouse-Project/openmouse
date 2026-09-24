@@ -83,6 +83,7 @@ export const ja: Record<I18nKey, string> = {
   "hw.noDevice": "マウスが接続されていません",
   "hw.noDeviceDetail": "マウスを接続してハードウェアテストを実行してください。",
   "hw.deviceCard": "デバイス",
+  "hw.deviceStatus": "デバイスの状態",
   "hw.termTitle": "テストターミナル",
   "hw.identity": "VID / PID",
   "hw.transport": "接続方式",

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
+import { Mouse } from "lucide-react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
 import { computeResults, formatHz, rollingLiveHz } from "../ui/polling-stats";
@@ -494,166 +495,172 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
         <p className="mouse-test-subtitle">{t(locale, "hw.subtitle")}</p>
       </div>
 
-      <div className="hardware-test-layout">
-        {/* ── Left: device status card ─────────────────────────────────── */}
-        <aside className="hardware-test-device">
-          <div className="mouse-test-device-card">
-            {info.present ? (
-              <>
-                <div className="hardware-test-device-name">
-                  <span className="hardware-test-device-name-label">{t(locale, "hw.deviceCard")}:</span>
-                  <span>
-                    {info.brand} {info.name}
-                  </span>
-                </div>
-                {snapshot.deviceArtwork ? (
-                  <div className="hardware-test-art">
-                    <img className="hardware-test-art-img" src={snapshot.deviceArtwork} alt="" />
-                  </div>
-                ) : null}
-                <div className="mouse-test-device-rows">
-                  {info.vendorId !== null && info.productId !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.identity")}</span>
-                      <span className="mouse-test-device-val">
-                        {formatHexId(info.vendorId)} / {formatHexId(info.productId)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="mouse-test-device-row">
-                    <span className="mouse-test-device-key">{t(locale, "hw.transport")}</span>
-                    <span className="mouse-test-device-val">{info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID"}</span>
-                  </div>
-                  {info.connectionType && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.connection")}</span>
-                      <span className="mouse-test-device-val">{info.connectionType}</span>
-                    </div>
-                  )}
-                  {info.signalStrength !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.signal")}</span>
-                      <span className="mouse-test-device-val">{info.signalStrength}%</span>
-                    </div>
-                  )}
-                  {info.receiverOnline !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.receiver")}</span>
-                      <span className="mouse-test-device-val">
-                        {info.pairingInProgress ? "pairing…" : info.receiverOnline ? "online" : "offline"}
-                        {info.receiverRfId ? ` · RF ${info.receiverRfId}` : ""}
-                      </span>
-                    </div>
-                  )}
-                  {info.collectionsSummary && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.interfaces")}</span>
-                      <span className="mouse-test-device-val mouse-test-device-val-wrap">{info.collectionsSummary}</span>
-                    </div>
-                  )}
-                  {info.driverFamily && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.driver")}</span>
-                      <span className="mouse-test-device-val">{info.driverFamily}</span>
-                    </div>
-                  )}
-                  {info.pollingRateHz !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.reportedHz")}</span>
-                      <span className="mouse-test-device-val">{info.pollingRateHz} Hz</span>
-                    </div>
-                  )}
-                  {info.supportedPollingRates && info.supportedPollingRates.length > 0 && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.rates")}</span>
-                      <span className="mouse-test-device-val">{info.supportedPollingRates.join(" / ")} Hz</span>
-                    </div>
-                  )}
-                  {info.dpi !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.dpi")}</span>
-                      <span className="mouse-test-device-val">{info.dpi.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {info.dpiStages && info.dpiStages.length > 0 && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.dpiStages")}</span>
-                      <span className="mouse-test-device-val mouse-test-dpi-stages">
-                        {info.dpiStages.map((stage, index) => (
-                          <span key={index} className={`mouse-test-dpi-chip${index === info.activeDpiStage ? " active" : ""}`}>
-                            {stage.toLocaleString()}
-                          </span>
-                        ))}
-                      </span>
-                    </div>
-                  )}
-                  {info.liftOffDistance && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.lod")}</span>
-                      <span className="mouse-test-device-val">{info.liftOffDistance}</span>
-                    </div>
-                  )}
-                  {info.batteryPercent !== null && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.battery")}</span>
-                      <span className="mouse-test-device-val">
-                        {info.batteryPercent}% ({info.batteryState})
-                      </span>
-                    </div>
-                  )}
-                  {info.firmware && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "test.firmware")}</span>
-                      <span className="mouse-test-device-val">{info.firmware.join(", ")}</span>
-                    </div>
-                  )}
-                  {info.deviceMode && (
-                    <div className="mouse-test-device-row">
-                      <span className="mouse-test-device-key">{t(locale, "hw.mode")}</span>
-                      <span className="mouse-test-device-val">{info.deviceMode}</span>
-                    </div>
-                  )}
-                </div>
-                {verdictLabel && report ? (
-                  <div className={`hardware-test-verdict ${report.verdict}`}>
-                    <span className={`hardware-test-verdict-dot ${report.verdict}`} />
-                    {verdictLabel}
-                  </div>
-                ) : null}
-                {report?.supportedPage ? (
-                  <p className={`hardware-test-crosscheck${report.supportedPage.listed ? ` is-${report.supportedPage.status ?? "listed"}` : ""}`}>
-                    {report.supportedPage.detail}
-                  </p>
-                ) : null}
-              </>
+      {/* One instrument card: device identity/status + live test terminal. */}
+      <section className="hardware-test-console">
+        <header className="hardware-test-console-head">
+          <div className="hardware-test-console-identity">
+            {info.present && snapshot.deviceArtwork ? (
+              <div className="hardware-test-console-art">
+                <img className="hardware-test-console-art-img" src={snapshot.deviceArtwork} alt="" />
+              </div>
             ) : (
-              <div className="hardware-test-no-device">
-                <p className="hardware-test-no-device-title">{t(locale, "hw.noDevice")}</p>
-                <p className="hardware-test-no-device-detail">{t(locale, "hw.noDeviceDetail")}</p>
-                <button
-                  className="hardware-test-btn hardware-test-btn-connect"
-                  type="button"
-                  disabled={connecting || snapshot.connectDisabled}
-                  onClick={connectDevice}
-                >
-                  {connecting ? "…" : t(locale, "hw.connect")}
-                </button>
+              <div className="hardware-test-console-art hardware-test-console-art-empty" aria-hidden="true">
+                <Mouse size={28} strokeWidth={1.8} />
               </div>
             )}
+            <div className="hardware-test-console-copy">
+              <span className="hardware-test-console-overline">{t(locale, "hw.deviceCard")}:</span>
+              <h2 className="hardware-test-console-name">
+                {info.present ? `${info.brand} ${info.name}` : t(locale, "hw.noDevice")}
+              </h2>
+              <p className="hardware-test-console-meta">
+                {info.present
+                  ? [
+                      info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID",
+                      info.connectionType,
+                      info.pollingRateHz !== null ? `${info.pollingRateHz} Hz` : null,
+                    ].filter(Boolean).join(" · ")
+                  : t(locale, "hw.noDeviceDetail")}
+              </p>
+            </div>
           </div>
-        </aside>
 
-        {/* ── Right: live terminal ─────────────────────────────────────── */}
-        <section className="hardware-test-terminal-wrap">
+          <div className="hardware-test-console-status">
+            <span
+              className={`hardware-test-console-state${running ? " is-running" : report ? (report.verdict === "pass" ? " is-pass" : report.verdict === "fail" ? " is-fail" : " is-incomplete") : " is-idle"}`}
+            >
+              {running ? "● running" : report ? (report.verdict === "pass" ? "● done" : report.verdict === "fail" ? "● failed" : "● stopped") : "○ idle"}
+            </span>
+            {verdictLabel && report ? (
+              <span className={`hardware-test-verdict ${report.verdict}`}>
+                <span className={`hardware-test-verdict-dot ${report.verdict}`} />
+                {verdictLabel}
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        <div className={`hardware-test-console-body${info.present ? "" : " is-full"}`}>
+          {info.present ? (
+            <aside className="hardware-test-console-spec">
+              <h3 className="hardware-test-console-spec-title">{t(locale, "hw.deviceStatus")}</h3>
+              <div className="mouse-test-device-rows">
+                {info.vendorId !== null && info.productId !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.identity")}</span>
+                    <span className="mouse-test-device-val">
+                      {formatHexId(info.vendorId)} / {formatHexId(info.productId)}
+                    </span>
+                  </div>
+                )}
+                <div className="mouse-test-device-row">
+                  <span className="mouse-test-device-key">{t(locale, "hw.transport")}</span>
+                  <span className="mouse-test-device-val">{info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID"}</span>
+                </div>
+                {info.connectionType && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.connection")}</span>
+                    <span className="mouse-test-device-val">{info.connectionType}</span>
+                  </div>
+                )}
+                {info.signalStrength !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.signal")}</span>
+                    <span className="mouse-test-device-val">{info.signalStrength}%</span>
+                  </div>
+                )}
+                {info.receiverOnline !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.receiver")}</span>
+                    <span className="mouse-test-device-val">
+                      {info.pairingInProgress ? "pairing…" : info.receiverOnline ? "online" : "offline"}
+                      {info.receiverRfId ? ` · RF ${info.receiverRfId}` : ""}
+                    </span>
+                  </div>
+                )}
+                {info.collectionsSummary && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.interfaces")}</span>
+                    <span className="mouse-test-device-val mouse-test-device-val-wrap">{info.collectionsSummary}</span>
+                  </div>
+                )}
+                {info.driverFamily && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.driver")}</span>
+                    <span className="mouse-test-device-val">{info.driverFamily}</span>
+                  </div>
+                )}
+                {info.pollingRateHz !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.reportedHz")}</span>
+                    <span className="mouse-test-device-val">{info.pollingRateHz} Hz</span>
+                  </div>
+                )}
+                {info.supportedPollingRates && info.supportedPollingRates.length > 0 && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.rates")}</span>
+                    <span className="mouse-test-device-val">{info.supportedPollingRates.join(" / ")} Hz</span>
+                  </div>
+                )}
+                {info.dpi !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.dpi")}</span>
+                    <span className="mouse-test-device-val">{info.dpi.toLocaleString()}</span>
+                  </div>
+                )}
+                {info.dpiStages && info.dpiStages.length > 0 && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.dpiStages")}</span>
+                    <span className="mouse-test-device-val mouse-test-dpi-stages">
+                      {info.dpiStages.map((stage, index) => (
+                        <span key={index} className={`mouse-test-dpi-chip${index === info.activeDpiStage ? " active" : ""}`}>
+                          {stage.toLocaleString()}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
+                {info.liftOffDistance && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.lod")}</span>
+                    <span className="mouse-test-device-val">{info.liftOffDistance}</span>
+                  </div>
+                )}
+                {info.batteryPercent !== null && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.battery")}</span>
+                    <span className="mouse-test-device-val">
+                      {info.batteryPercent}% ({info.batteryState})
+                    </span>
+                  </div>
+                )}
+                {info.firmware && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "test.firmware")}</span>
+                    <span className="mouse-test-device-val">{info.firmware.join(", ")}</span>
+                  </div>
+                )}
+                {info.deviceMode && (
+                  <div className="mouse-test-device-row">
+                    <span className="mouse-test-device-key">{t(locale, "hw.mode")}</span>
+                    <span className="mouse-test-device-val">{info.deviceMode}</span>
+                  </div>
+                )}
+              </div>
+              {report?.supportedPage ? (
+                <p className={`hardware-test-crosscheck${report.supportedPage.listed ? ` is-${report.supportedPage.status ?? "listed"}` : ""}`}>
+                  {report.supportedPage.detail}
+                </p>
+              ) : null}
+            </aside>
+          ) : null}
+
           <div className="hardware-test-terminal" role="log" aria-live="polite" aria-label={t(locale, "hw.termTitle")}>
             <div className="hardware-test-terminal-head">
               <span className="hardware-test-terminal-dots" aria-hidden="true">
                 <i /><i /><i />
               </span>
               <span className="hardware-test-terminal-title">{t(locale, "hw.termTitle")}</span>
-              <span className={`hardware-test-terminal-state${running ? " running" : ""}`}>
-                {running ? "● running" : report ? (report.verdict === "pass" ? "● done" : report.verdict === "fail" ? "● failed" : "● stopped") : "○ idle"}
-              </span>
             </div>
 
             <div className="hardware-test-terminal-body" ref={termBodyRef}>
@@ -677,36 +684,36 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 <strong>{verdictLabel}</strong>
               </div>
             ) : null}
-
-            <div className="hardware-test-terminal-bar">
-              <button
-                className="hardware-test-btn hardware-test-btn-connect"
-                type="button"
-                disabled={connecting || running || snapshot.connectDisabled}
-                onClick={connectDevice}
-              >
-                {connecting ? "…" : t(locale, "hw.connect")}
-              </button>
-              <button className="hardware-test-btn hardware-test-btn-start" type="button" disabled={running} onClick={startTest}>
-                {t(locale, "hw.start")}
-              </button>
-              {running ? (
-                <button className="hardware-test-btn hardware-test-btn-end" type="button" onClick={endTest}>
-                  {t(locale, "hw.end")}
-                </button>
-              ) : null}
-              <button
-                className="hardware-test-btn hardware-test-btn-share"
-                type="button"
-                disabled={!report || sharing || running}
-                onClick={shareReport}
-              >
-                {sharing ? "…" : t(locale, "hw.share")}
-              </button>
-            </div>
           </div>
-        </section>
-      </div>
+        </div>
+
+        <footer className="hardware-test-console-foot">
+          <button
+            className="hardware-test-btn hardware-test-btn-connect"
+            type="button"
+            disabled={connecting || running || snapshot.connectDisabled}
+            onClick={connectDevice}
+          >
+            {connecting ? "…" : t(locale, "hw.connect")}
+          </button>
+          <button className="hardware-test-btn hardware-test-btn-start" type="button" disabled={running} onClick={startTest}>
+            {t(locale, "hw.start")}
+          </button>
+          {running ? (
+            <button className="hardware-test-btn hardware-test-btn-end" type="button" onClick={endTest}>
+              {t(locale, "hw.end")}
+            </button>
+          ) : null}
+          <button
+            className="hardware-test-btn hardware-test-btn-share"
+            type="button"
+            disabled={!report || sharing || running}
+            onClick={shareReport}
+          >
+            {sharing ? "…" : t(locale, "hw.share")}
+          </button>
+        </footer>
+      </section>
     </div>
   );
 }

@@ -83,6 +83,7 @@ export const ru: Record<I18nKey, string> = {
   "hw.noDevice": "Мышь не подключена",
   "hw.noDeviceDetail": "Подключите мышь, чтобы запустить тесты оборудования.",
   "hw.deviceCard": "УСТРОЙСТВО",
+  "hw.deviceStatus": "СОСТОЯНИЕ УСТРОЙСТВА",
   "hw.termTitle": "ТЕРМИНАЛ ТЕСТА",
   "hw.identity": "VID / PID",
   "hw.transport": "Транспорт",

@@ -978,6 +978,7 @@ export const vi: Record<I18nKey, string> = {
   "hw.noDevice": "Chưa kết nối chuột",
   "hw.noDeviceDetail": "Kết nối chuột để chạy kiểm tra phần cứng.",
   "hw.deviceCard": "THIẾT BỊ",
+  "hw.deviceStatus": "TÌNH TRẠNG THIẾT BỊ",
   "hw.termTitle": "TERMINAL KIỂM TRA",
   "hw.identity": "VID / PID",
   "hw.transport": "Kết nối",
