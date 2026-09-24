@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Check } from "lucide-react";
 import {
   capabilitiesForFormat,
   stageLodLevel,
@@ -280,14 +281,17 @@ function DpiStageEditor({
           const highlighted = mode === "generic" ? row.enabled : mode === "stage" ? isActive === true : isStarting;
           return (
             <div key={index} className={`dpi-editor-row${row.enabled ? "" : " is-off"}${highlighted ? " is-active" : ""}`}>
-              <input
-                type="checkbox"
-                className="dpi-editor-tick"
-                aria-label={tp(locale, "dpi.stageToggle", { n: index + 1 })}
-                checked={row.enabled}
-                disabled={locked || fixedStageCount || !stagesWritable}
-                onChange={() => setEnabled(index, !row.enabled)}
-              />
+              <label className="dpi-editor-check">
+                <input
+                  type="checkbox"
+                  className="dpi-editor-tick"
+                  aria-label={tp(locale, "dpi.stageToggle", { n: index + 1 })}
+                  checked={row.enabled}
+                  disabled={locked || fixedStageCount || !stagesWritable}
+                  onChange={() => setEnabled(index, !row.enabled)}
+                />
+                <span className="dpi-editor-box" aria-hidden="true"><Check size={12} strokeWidth={3.2} /></span>
+              </label>
               <button
                 type="button"
                 className="dpi-editor-index"
@@ -318,6 +322,7 @@ function DpiStageEditor({
                 step={slider.step}
                 value={slider.pos}
                 disabled={locked || (mode === "stage" && !stagesWritable)}
+                style={{ "--fill": `${((slider.pos - slider.min) / Math.max(1, slider.max - slider.min)) * 100}%` } as CSSProperties}
                 onChange={(event) => sliderCommit(index, Number(event.currentTarget.value))}
               />
             </div>

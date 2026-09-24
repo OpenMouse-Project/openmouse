@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Minus, Plus } from "lucide-react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { batteryFillWidth, batteryIconState, batteryLevel } from "../ui/battery-icon";
 import { t } from "../i18n";
@@ -21,7 +22,7 @@ export function SwitchButton({
   return (
     <button
       id={id}
-      className={`switch-button${unsupported ? "" : value ? " is-on" : ""}`}
+      className={`switch-button${unsupported ? " is-na" : value ? " is-on" : ""}`}
       type="button"
       role="switch"
       aria-checked={unsupported ? false : value}
@@ -29,7 +30,13 @@ export function SwitchButton({
       disabled={unsupported || disabled}
       onClick={() => onChange(value !== true)}
     >
-      {unsupported ? "N/A" : value ? "On" : "Off"}
+      {unsupported ? (
+        <span className="switch-na">N/A</span>
+      ) : (
+        <span className="switch-thumb" aria-hidden="true">
+          {value ? <Check size={10} strokeWidth={3.4} /> : null}
+        </span>
+      )}
     </button>
   );
 }
@@ -99,6 +106,254 @@ export function Segmented<T extends string | number>({
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+export interface OptionMenuChoice<T> {
+  value: T;
+  label: string;
+  hidden?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * Unified dropdown replacing every native `<select>` in the mouse-option
+ * cards. One visual language (trigger + popover listbox), full keyboard
+ * support, theme-token-only styling. The trigger keeps the caller's `id`
+ * so existing selectors and tests keep working.
+ */
+export function OptionMenu<T extends string | number>({
+  id,
+  options,
+  value,
+  onChange,
+  ariaLabel,
+  disabled,
+}: {
+  id?: string;
+  options: ReadonlyArray<OptionMenuChoice<T>>;
+  value: T | null | undefined;
+  onChange: (next: T) => void;
+  ariaLabel: string;
+  disabled?: boolean;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<T | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  const visible = options.filter((option) => !option.hidden);
+  const current = visible.find((option) => option.value === value) ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+    setActive(value ?? null);
+    const close = (event: MouseEvent): void => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open, value]);
+
+  const choose = (next: T): void => {
+    setOpen(false);
+    triggerRef.current?.focus();
+    if (next !== value) onChange(next);
+  };
+
+  const moveActive = (direction: 1 | -1): void => {
+    const enabled = visible.filter((option) => !option.disabled);
+    if (enabled.length === 0) return;
+    const index = enabled.findIndex((option) => option.value === active);
+    const next = enabled[(index + direction + enabled.length) % enabled.length];
+    if (!next) return;
+    setActive(next.value);
+    document.getElementById(`${menuId}-${String(next.value)}`)?.focus();
+  };
+
+  return (
+    <div ref={rootRef} className={`option-menu${open ? " is-open" : ""}`}>
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        className="option-menu-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!disabled) setOpen(!open);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (!disabled) setOpen(true);
+          }
+        }}
+      >
+        <span>{current?.label ?? "—"}</span>
+        <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
+      </button>
+      {open && !disabled ? (
+        <ul
+          id={menuId}
+          className="option-menu-list"
+          role="listbox"
+          aria-label={ariaLabel}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              moveActive(1);
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              moveActive(-1);
+            } else if (event.key === "Tab") {
+              setOpen(false);
+            }
+          }}
+        >
+          {visible.map((option) => (
+            <li
+              key={String(option.value)}
+              id={`${menuId}-${String(option.value)}`}
+              role="option"
+              tabIndex={option.disabled ? -1 : 0}
+              aria-selected={option.value === value}
+              aria-disabled={option.disabled}
+              className={option.value === value ? "is-selected" : ""}
+              onClick={() => {
+                if (!option.disabled) choose(option.value);
+              }}
+              onKeyDown={(event) => {
+                if ((event.key === "Enter" || event.key === " ") && !option.disabled) {
+                  event.preventDefault();
+                  choose(option.value);
+                }
+              }}
+            >
+              {option.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Unified stepper + slider replacing the old hand-rolled
+ * `.angle-tuning-control` clones (debounce, anti-mistouch, angle-tune,
+ * sensor rotation). Drag previews locally and commits on release;
+ * steppers commit immediately. Format the readout via `formatValue`
+ * (e.g. `12 ms`, `+5°`) — the same text doubles as the slider's
+ * screen-reader value, so it stays locale-neutral.
+ */
+export function StepperSlider({
+  id,
+  label,
+  badge,
+  toggle,
+  value,
+  min,
+  max,
+  step,
+  scale,
+  formatValue,
+  disabled,
+  pendingKey,
+  onCommit,
+}: {
+  id: string;
+  label: string;
+  /** Small pill next to the label, e.g. "Locked" for write-locked rows. */
+  badge?: string;
+  /**
+   * Optional control (e.g. an on/off SwitchRow) rendered at the top of the
+   * same zone, above the slider head.
+   */
+  toggle?: ReactNode;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  scale: readonly [string, string, string];
+  formatValue: (shown: number) => string;
+  disabled?: boolean;
+  pendingKey?: string;
+  onCommit: (next: number) => void;
+}): ReactNode {
+  const [dragging, setDragging] = useState<number | null>(null);
+  const shown = dragging ?? value;
+  const clamp = (next: number): number => Math.max(min, Math.min(max, next));
+  const commit = (next: number): void => {
+    if (!disabled) onCommit(clamp(next));
+  };
+  const span = Math.max(Number.EPSILON, max - min);
+
+  return (
+    <div className="stepper-slider" data-pending-key={pendingKey}>
+      {toggle ? <div className="stepper-slider-toggle">{toggle}</div> : null}
+      <div className="stepper-slider-head">
+        <span className="stepper-slider-title">
+          <span>{label}</span>
+          {badge ? <em className="stepper-slider-badge">{badge}</em> : null}
+        </span>
+        <output id={`${id}-value`} htmlFor={id}>{formatValue(shown)}</output>
+      </div>
+      <div className="stepper-slider-inputs">
+        <button
+          type="button"
+          aria-label={`${label}: decrease`}
+          disabled={disabled || shown <= min}
+          onClick={() => commit(shown - step)}
+        >
+          <Minus size={14} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+        <input
+          id={id}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={shown}
+          disabled={disabled}
+          aria-label={label}
+          aria-valuetext={formatValue(shown)}
+          style={{ "--fill": `${((shown - min) / span) * 100}%` }}
+          onInput={(event) => setDragging(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const next = Number(event.currentTarget.value);
+            setDragging(null);
+            commit(next);
+          }}
+          onBlur={() => setDragging(null)}
+        />
+        <button
+          type="button"
+          aria-label={`${label}: increase`}
+          disabled={disabled || shown >= max}
+          onClick={() => commit(shown + step)}
+        >
+          <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="stepper-slider-scale" aria-hidden="true">
+        <span>{scale[0]}</span><i>{scale[1]}</i><span>{scale[2]}</span>
+      </div>
     </div>
   );
 }

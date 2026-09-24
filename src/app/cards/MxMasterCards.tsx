@@ -7,7 +7,7 @@ import {
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
 import { t, tp } from "../../i18n";
-import { Segmented, SwitchRow } from "../ui";
+import { OptionMenu, Segmented, SwitchRow } from "../ui";
 
 function HapticsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status!;
@@ -167,29 +167,28 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
           const staged = snapshot.pending.keys.includes(`button-${button.controlId}`);
           const canRemap = button.reprogrammable && button.remappableTo.length > 0;
           return (
-            <label
+            <div
               key={button.controlId}
               className={`button-remap-row${staged ? " is-staged" : ""}`}
               data-pending-key={`button-${button.controlId}`}
             >
               <span>{button.name}</span>
               {canRemap ? (
-                <select
+                <OptionMenu
+                  id={`mx-button-${button.controlId}-select`}
+                  ariaLabel={`${button.name} ${t(locale, "mx.remapping")}`}
+                  options={button.remappableTo.map((target) => ({
+                    value: target,
+                    label: nameOf(target),
+                  }))}
                   value={snapshot.stagedButtonMappings[button.controlId] ?? button.mappedTo}
                   disabled={busy}
-                  onChange={(event) => control.applyButtonMapping(
-                    button.controlId,
-                    Number(event.currentTarget.value),
-                  )}
-                >
-                  {button.remappableTo.map((target) => (
-                    <option key={target} value={target}>{nameOf(target)}</option>
-                  ))}
-                </select>
+                  onChange={(next) => control.applyButtonMapping(button.controlId, next)}
+                />
               ) : (
                 <output>{button.taskName}</output>
               )}
-            </label>
+            </div>
           );
         })}
       </div>

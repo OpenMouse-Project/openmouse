@@ -3,6 +3,7 @@ import * as control from "../../../device/controller";
 import type { ControlSnapshot } from "../../../device/types";
 import { t, tp } from "../../../i18n";
 import { IconActivate, IconRunning } from "../../icons";
+import { OptionMenu } from "../../ui";
 import "./profile-card.css";
 
 function profileLabel(
@@ -131,22 +132,23 @@ export function TeevolutionProfileCard({ snapshot }: { snapshot: ControlSnapshot
               </div>
               <div className="assignment-grid">
                 {Object.entries(mappings).map(([button, assigned], index) => (
-                  <label key={button} className="assignment-card">
+                  <div key={button} className="assignment-card">
                     <span className="assignment-button-number">{index + 1}</span>
                     <span className="assignment-button-name">{button}</span>
                     <span className="assignment-select-wrap">
-                      <select
-                        id={`button-${button.toLowerCase()}-select`}
+                      <OptionMenu
+                        id={`teevolution-button-${button.toLowerCase()}-select`}
+                        ariaLabel={`${button} ${t(locale, "prof.assign")}`}
+                        options={[
+                          ...(!options.includes(assigned) ? [{ value: "", label: assigned, disabled: true }] : []),
+                          ...options.map((option) => ({ value: option, label: option })),
+                        ]}
                         value={options.includes(assigned) ? assigned : ""}
                         disabled={fixed.has(button) || busy}
-                        onChange={(event) => control.applyDeviceButtonMapping(button, event.currentTarget.value)}
-                      >
-                        {!options.includes(assigned) && <option value="">{assigned}</option>}
-                        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-                      </select>
-                      <i aria-hidden="true" />
+                        onChange={(next) => control.applyDeviceButtonMapping(button, next)}
+                      />
                     </span>
-                  </label>
+                  </div>
                 ))}
               </div>
               <small className="setting-note">{t(locale, "prof.profileStores")}</small>

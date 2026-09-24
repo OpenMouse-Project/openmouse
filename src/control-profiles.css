@@ -75,9 +75,7 @@
 .assignment-button-number { display:grid;width:1.8rem;height:1.8rem;place-items:center;border:1px solid var(--border);border-radius:6px;background:var(--surface-control);color:var(--ui-accent);font-family:var(--font-mono);font-size:.55rem }
 .assignment-button-name { overflow:hidden;color:var(--text-hover);font-size:.65rem;text-overflow:ellipsis;white-space:nowrap }
 .assignment-select-wrap { position:relative;min-width:0 }
-.assignment-select-wrap select { width:100%;box-sizing:border-box;padding:.42rem 1.8rem .42rem .55rem;border:1px solid var(--border);border-radius:6px;appearance:none;background:var(--surface-control);color:var(--text-input);color-scheme:dark;font-size:.64rem;cursor:pointer }
-.assignment-select-wrap select:hover:not(:disabled),.assignment-select-wrap select:focus-visible { border-color:var(--ui-accent);outline:0 }
-.assignment-select-wrap i { position:absolute;top:50%;right:.65rem;width:.32rem;height:.32rem;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);pointer-events:none;transform:translateY(-65%) rotate(45deg) }
+.assignment-select-wrap .option-menu-trigger { font-size:.64rem; }
 @media (max-width:900px) { .assignment-grid { grid-template-columns:1fr } }
 @media (max-width:560px) { .profile-button-heading { align-items:stretch;flex-direction:column }.assignment-card { grid-template-columns:2rem 1fr }.assignment-select-wrap { grid-column:1 / -1 } }
 .shortcut-dialog-backdrop { position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:1rem;background:rgb(0 0 0 / 68%);backdrop-filter:blur(4px) }
@@ -236,7 +234,15 @@
 .dpi-editor-bar-label { color:var(--text-soft);font:650 .62rem/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap }
 .dpi-editor-bar-count { color:var(--text-soft);font:600 .6rem/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.04em;white-space:nowrap }
 .dpi-editor-row { display:grid;grid-template-columns:1.4rem 1.7rem 5.2rem minmax(0,1fr);gap:.5rem;align-items:center }
-.dpi-editor-row > input[type="checkbox"].dpi-editor-tick { width:1.2rem;height:1.2rem;margin:0;justify-self:center;accent-color:var(--ui-accent);cursor:pointer }
+.dpi-editor-check { position:relative;display:grid;place-items:center;width:1.4rem;height:1.4rem;margin:0;cursor:pointer }
+.dpi-editor-check > input[type="checkbox"].dpi-editor-tick { position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer }
+.dpi-editor-box { display:grid;place-items:center;width:1.12rem;height:1.12rem;border:1.5px solid var(--edge);border-radius:6px;background:var(--surface-control);color:transparent;transition:border-color .15s ease,background .15s ease,color .15s ease }
+.dpi-editor-check:hover .dpi-editor-box { border-color:var(--ui-accent);background:var(--ui-accent-soft) }
+.dpi-editor-check > input:checked + .dpi-editor-box { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink) }
+.dpi-editor-check > input:focus-visible + .dpi-editor-box { outline:2px solid var(--ui-accent);outline-offset:2px }
+.dpi-editor-check:has(> input:disabled) { cursor:not-allowed;opacity:.45 }
+.dpi-editor-check:has(> input:disabled) .dpi-editor-box { border-color:var(--border);background:var(--surface-control) }
+.dpi-editor-check > input:disabled { cursor:not-allowed }
 .dpi-editor-row.is-off { opacity:.55 }
 .dpi-editor-row > button.dpi-editor-index { padding:.4rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--text-input);font:650 .72rem/1 var(--font-mono);font-variant-numeric:tabular-nums;text-align:center;cursor:pointer }
 .dpi-editor-row.is-active > button.dpi-editor-index { border-color:var(--ui-accent);background:color-mix(in srgb, var(--ui-accent) 16%, var(--surface-raised));color:var(--ui-accent) }
@@ -245,7 +251,10 @@
 .dpi-editor-row > input[type="number"].dpi-editor-value { width:100%;min-width:0;box-sizing:border-box;padding:.42rem .4rem;border:1px solid var(--border);border-radius:7px;background:var(--surface-input);color:var(--text-input);font:600 .74rem/1.3 var(--font-mono);font-variant-numeric:tabular-nums;text-align:center }
 .dpi-editor-row > input.dpi-editor-value:hover:not(:disabled) { border-color:var(--ghost) }
 .dpi-editor-row > input.dpi-editor-value:focus-visible { outline:2px solid var(--ui-accent);outline-offset:1px }
-.dpi-editor-row > input[type="range"].dpi-editor-slider { width:100%;min-width:0;height:1.2rem;margin:0;accent-color:var(--ui-accent);cursor:pointer }
+.dpi-editor-row.is-off > input.dpi-editor-slider::-webkit-slider-runnable-track { background:linear-gradient(90deg,var(--ghost) var(--fill,50%),color-mix(in srgb,var(--ghost) 25%,var(--surface-strong)) var(--fill,50%)) }
+.dpi-editor-row.is-off > input.dpi-editor-slider::-webkit-slider-thumb { background:var(--ghost) }
+.dpi-editor-row.is-off > input.dpi-editor-slider::-moz-range-progress { background:var(--ghost) }
+.dpi-editor-row.is-off > input.dpi-editor-slider::-moz-range-thumb { background:var(--ghost) }
 .dpi-editor-lod { width:7rem;justify-self:end }
 .slot-lod-list { display:grid;gap:.35rem }
 .slot-lod-row { display:flex;align-items:center;justify-content:space-between;gap:.5rem }

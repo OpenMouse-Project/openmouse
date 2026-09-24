@@ -19,6 +19,7 @@ export const PREVIEW_KEYS = [
   "crdrako",
   "m3k",
   "atk",
+  "atk-f1",
   "orbital",
   "razer",
   "razer-viper-v2",
@@ -61,6 +62,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "crdrako": return "crdrako";
     case "m3k": return "m3k";
     case "atk": return "atk";
+    case "atk-f1": return "atk-f1";
     case "orbital": return "orbital";
     case "razer": return "razer";
     case "razer-viper-v2": return "razer-viper-v2";

@@ -968,25 +968,142 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .lod-sliders input[type="range"] { grid-column: 1 / -1; width: 100%; margin: .1rem 0 0; accent-color: var(--ui-accent); }
 .lod-sliders input[type="range"]:disabled { opacity: .45; }
 
-.switch-button { min-width: 42px; padding: .2rem .45rem; border: 1px solid var(--edge); border-radius: 999px; background: var(--surface-strong); color: var(--text-soft); font-size: .6rem; }
-.switch-button.is-on { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-accent-ink); }
+.switch-button { position: relative; width: 2.5rem; height: 1.4rem; flex: 0 0 auto; padding: 0; border: 1px solid var(--edge); border-radius: 999px; background: var(--surface-strong); cursor: pointer; transition: background .18s ease, border-color .18s ease, box-shadow .15s ease, opacity .15s ease; }
+.switch-button:hover:not(:disabled) { border-color: var(--border-hover); box-shadow: 0 0 0 4px var(--ui-accent-soft); }
+.switch-button.is-on { background: var(--ui-accent); border-color: var(--ui-accent); }
+.switch-button.is-on:hover:not(:disabled) { filter: brightness(1.08); }
+.switch-button:disabled { opacity: .45; cursor: not-allowed; }
+.switch-thumb { position: absolute; top: 50%; left: .2rem; display: grid; width: .92rem; height: .92rem; translate: 0 -50%; place-items: center; border-radius: 50%; background: var(--muted); color: transparent; transition: left .18s ease, background .18s ease, color .18s ease; }
+.switch-button.is-on .switch-thumb { left: calc(100% - .92rem - .2rem); background: var(--ui-accent-ink); color: var(--ui-accent); }
+.switch-button.is-na { width: auto; min-width: 2.5rem; height: 1.4rem; padding: 0 .55rem; }
+.switch-na { color: var(--faint); font-size: .6rem; font-weight: 650; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 0; color: var(--dim); font-size: .75rem; }
 .field-label { display: block; color: var(--faint); font-size: .72rem; }
 .field-label.spaced { margin-top: .35rem; }
-.angle-tuning-readonly { display: flex; align-items: center; justify-content: space-between; }
-.angle-tuning-readonly output { color: var(--text-input); font-family: var(--font-mono); }
-.angle-tuning-control { margin-top: .55rem; padding-top: .55rem; border-top: 1px solid var(--line); }
-.angle-tuning-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--dim); font-size: .7rem; }
-.angle-tuning-head output { min-width: 2.8rem; color: var(--text-input); font: 650 .72rem var(--font-mono); text-align: right; }
-.angle-tuning-inputs { display: grid; grid-template-columns: 1.65rem minmax(7rem, 1fr) 1.65rem; align-items: center; gap: .5rem; margin-top: .35rem; }
-.angle-tuning-inputs button { width: 1.65rem; height: 1.65rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-strong); color: var(--text-input); font-size: .9rem; line-height: 1; cursor: pointer; }
-.angle-tuning-inputs button:hover:not(:disabled) { border-color: var(--ui-accent); color: var(--ui-accent); }
-.angle-tuning-inputs button:disabled { opacity: .35; }
-.angle-tuning-inputs input[type="range"] { width: 100%; margin: 0; accent-color: var(--ui-accent); cursor: pointer; }
-.angle-tuning-scale { display: flex; justify-content: space-between; margin: .12rem 2.15rem 0; color: var(--ghost); font: .48rem var(--font-mono); }
-.angle-tuning-scale i { font-style: normal; }
-.setting-separator { border-top: 1px solid var(--line-strong); margin-top: .55rem; }
 .teevolution-dpi-light-controls { margin-top: .55rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Unified mouse-option widgets (M3): OptionMenu dropdown + StepperSlider.
+   These replace the native <select> elements and the hand-rolled
+   .angle-tuning-control clones. Colors come from theme tokens only.
+   ═══════════════════════════════════════════════════════════════════════ */
+.option-menu { position: relative; }
+.option-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: .52rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-control);
+  color: var(--text-input);
+  font-size: .75rem;
+  cursor: pointer;
+}
+.option-menu-trigger svg { flex: 0 0 auto; color: var(--faint); transition: transform .16s ease; }
+.option-menu.is-open .option-menu-trigger svg { transform: rotate(180deg); }
+.option-menu-trigger:hover:not(:disabled) { border-color: var(--border-hover); background: var(--surface-hover-soft); color: var(--text-hover); }
+.option-menu-trigger:disabled { cursor: default; opacity: .45; }
+.option-menu-list {
+  position: absolute;
+  top: calc(100% + .3rem);
+  right: 0;
+  left: 0;
+  z-index: 40;
+  max-height: 13rem;
+  margin: 0;
+  padding: .3rem;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-menu);
+  box-shadow: 0 14px 34px rgb(0 0 0 / .5);
+  scrollbar-width: thin;
+}
+.option-menu-list [role="option"] {
+  padding: .45rem .6rem;
+  border-radius: 6px;
+  color: var(--dim);
+  font-size: .74rem;
+  cursor: pointer;
+}
+.option-menu-list [role="option"]:hover,
+.option-menu-list [role="option"]:focus-visible { background: var(--surface-hover); color: var(--text-hover); outline: none; }
+.option-menu-list [role="option"].is-selected { background: var(--ui-accent-soft); color: var(--text-hover); font-weight: 650; }
+.option-menu-list [role="option"][aria-disabled="true"] { opacity: .45; cursor: default; }
+
+.stepper-slider { margin-top: .55rem; padding-top: .55rem; border-top: 1px solid var(--line-strong); }
+.stepper-slider-toggle { margin-bottom: .3rem; }
+.stepper-slider-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--dim); font-size: .7rem; }
+.stepper-slider-head output { min-width: 2.8rem; color: var(--text-input); font: 650 .72rem var(--font-mono); text-align: right; }
+.stepper-slider-title { display: inline-flex; align-items: center; gap: .45rem; }
+.stepper-slider-badge { padding: .12rem .45rem; border: 1px solid var(--edge); border-radius: 999px; background: var(--surface-strong); color: var(--faint); font: 650 .58rem var(--font-sans); font-style: normal; }
+.stepper-slider-inputs { display: grid; grid-template-columns: 1.65rem minmax(7rem, 1fr) 1.65rem; align-items: center; gap: .5rem; margin-top: .35rem; }
+.stepper-slider-inputs button {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-strong);
+  color: var(--text-input);
+  cursor: pointer;
+}
+.stepper-slider-inputs button:hover:not(:disabled) { border-color: var(--ui-accent); background: var(--ui-accent-soft); color: var(--ui-accent); }
+.stepper-slider-inputs button:disabled { opacity: .35; }
+.stepper-slider-inputs input[type="range"] { width: 100%; margin: 0; }
+
+/* Shared M3 range treatment: 5px rounded track with accent fill, 14px
+   thumb with halo, ghost when off. Covers StepperSlider, the DPI editor
+   rows and the glass-rail sliders (lift-off scale, lighting speed). */
+.dpi-editor-row > input[type="range"].dpi-editor-slider,
+.stepper-slider-inputs input[type="range"],
+.glass-slider-rail input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+.dpi-editor-row > input[type="range"].dpi-editor-slider { width: 100%; min-width: 0; height: 1.4rem; margin: 0; }
+.dpi-editor-slider::-webkit-slider-runnable-track,
+.stepper-slider-inputs input[type="range"]::-webkit-slider-runnable-track,
+.glass-slider-rail input[type="range"]::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--ui-accent) var(--fill, 50%), color-mix(in srgb, var(--ui-accent) 22%, var(--surface-strong)) var(--fill, 50%)); }
+.dpi-editor-slider::-webkit-slider-thumb,
+.stepper-slider-inputs input[type="range"]::-webkit-slider-thumb,
+.glass-slider-rail input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: .9rem; height: .9rem; margin-top: calc((5px - .9rem) / 2); border: 0; border-radius: 50%; background: var(--ui-accent); transition: box-shadow .15s ease; }
+.dpi-editor-slider:hover::-webkit-slider-thumb,
+.stepper-slider-inputs input[type="range"]:hover::-webkit-slider-thumb,
+.glass-slider-rail input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 6px var(--ui-accent-soft); }
+.dpi-editor-slider:focus-visible,
+.stepper-slider-inputs input[type="range"]:focus-visible,
+.glass-slider-rail input[type="range"]:focus-visible { outline: none; }
+.dpi-editor-slider:focus-visible::-webkit-slider-thumb,
+.stepper-slider-inputs input[type="range"]:focus-visible::-webkit-slider-thumb,
+.glass-slider-rail input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 6px var(--ui-accent-soft), 0 0 0 8px color-mix(in srgb, var(--ui-accent) 30%, transparent); }
+.dpi-editor-slider::-moz-range-track,
+.stepper-slider-inputs input[type="range"]::-moz-range-track,
+.glass-slider-rail input[type="range"]::-moz-range-track { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--ui-accent) 22%, var(--surface-strong)); }
+.dpi-editor-slider::-moz-range-progress,
+.stepper-slider-inputs input[type="range"]::-moz-range-progress,
+.glass-slider-rail input[type="range"]::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--ui-accent); }
+.dpi-editor-slider::-moz-range-thumb,
+.stepper-slider-inputs input[type="range"]::-moz-range-thumb,
+.glass-slider-rail input[type="range"]::-moz-range-thumb { width: .9rem; height: .9rem; border: 0; border-radius: 50%; background: var(--ui-accent); }
+.dpi-editor-slider:hover::-moz-range-thumb,
+.stepper-slider-inputs input[type="range"]:hover::-moz-range-thumb,
+.glass-slider-rail input[type="range"]:hover::-moz-range-thumb { box-shadow: 0 0 0 6px var(--ui-accent-soft); }
+.dpi-editor-slider:disabled,
+.stepper-slider-inputs input[type="range"]:disabled,
+.glass-slider-rail input[type="range"]:disabled { opacity: .45; cursor: not-allowed; }
+.dpi-editor-slider:disabled::-webkit-slider-thumb,
+.stepper-slider-inputs input[type="range"]:disabled::-webkit-slider-thumb,
+.glass-slider-rail input[type="range"]:disabled::-webkit-slider-thumb { background: var(--ghost); }
+.dpi-editor-slider:disabled::-moz-range-thumb,
+.stepper-slider-inputs input[type="range"]:disabled::-moz-range-thumb,
+.glass-slider-rail input[type="range"]:disabled::-moz-range-thumb { background: var(--ghost); }
+.stepper-slider-scale { display: flex; justify-content: space-between; margin: .12rem 2.15rem 0; color: var(--ghost); font: .48rem var(--font-mono); }
+.stepper-slider-scale i { font-style: normal; }
 
 .egg-collapsible, .egg-experimental { overflow: hidden; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--card); }
 .egg-collapsible summary, .egg-experimental summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: var(--text-strong); font-weight: 650; list-style: none; }
@@ -999,6 +1116,9 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .egg-collapsible summary i { width: .42rem; height: .42rem; }
 .egg-experimental summary i { width: .45rem; height: .45rem; }
 .egg-collapsible[open] summary i, .egg-experimental[open] summary i { transform: rotate(225deg); }
+/* An open OptionMenu must escape the collapsible's rounded-corner clipping;
+   the inner card keeps its own background so nothing leaks visually. */
+.egg-collapsible:has(.option-menu.is-open), .egg-experimental:has(.option-menu.is-open) { overflow: visible; }
 .egg-collapsible-body { padding: .6rem; border-top: 1px solid var(--line); }
 .egg-experimental-body { padding: 0 .65rem .65rem; border-top: 1px solid var(--line); }
 .egg-collapsible-body > .setting-card { min-height: 0 !important; padding: .7rem !important; }
@@ -1771,7 +1891,7 @@ body { height: 100vh; overflow: hidden; }
 
 .button-remap-list { display: flex; flex-direction: column; gap: .3rem; }
 .button-remap-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .3rem .45rem; border: 1px solid transparent; border-radius: 6px; color: var(--faint); font-size: .72rem; }
-.button-remap-row select { max-width: 11rem; }
+.button-remap-row .option-menu { flex: 0 1 11rem; min-width: 0; }
 /* A control the firmware will not let anything point at reads as a fact about
    the mouse, not a disabled input the user should try to enable. */
 .button-remap-row output { color: var(--dim); font-size: .7rem; }
