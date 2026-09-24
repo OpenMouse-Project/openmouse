@@ -67,11 +67,17 @@ export function App(): ReactNode {
         ko: "ko",
         ru: "ru",
         vi: "vi",
+        ar: "ar",
         en: "en",
       };
       const nextLang = htmlLang[locale] ?? "en";
       if (document.documentElement.lang !== nextLang) {
         document.documentElement.lang = nextLang;
+      }
+      // Arabic reads right-to-left; every other locale is left-to-right.
+      const nextDir = locale === "ar" ? "rtl" : "ltr";
+      if (document.documentElement.dir !== nextDir) {
+        document.documentElement.dir = nextDir;
       }
     } catch {
       /* non-DOM environment (tests) */
