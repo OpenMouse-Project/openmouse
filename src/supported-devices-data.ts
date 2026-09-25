@@ -97,6 +97,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Attack Shark", model: "X3", status: "bridge" },
   { brand: "Attack Shark", model: "X11", status: "bridge" },
   { brand: "Attack Shark", model: "R5 Ultra", status: "supported", pids: [0x46, 0x47] },
+  { brand: "IPI", model: "Float 88", status: "supported", pids: [0x1014, 0x1015] },
   { brand: "Attack Shark", model: "X6", status: "bridge" },
   { brand: "Attack Shark", model: "R3", status: "likely", pids: [0x402d, 0x4026] },
   { brand: "Attack Shark", model: "R1", status: "bridge" },

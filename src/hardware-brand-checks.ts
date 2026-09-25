@@ -35,6 +35,7 @@ const WIRELESS_BATTERY_BRANDS = new Set([
   "moddoMOUSE",
   "WALLHACK",
   "Attack Shark",
+  "IPI",
 ]);
 
 /**
