@@ -181,6 +181,17 @@ test("flash read-back fails when a decoded field is out of range", () => {
   assert.equal(stages?.status, "fail");
 });
 
+test("a 42000 DPI top stage (PAW3950) is in range, not flagged as garbage", () => {
+  // Real Attack Shark R2 read-back: the top stage is the sensor's 42000 maximum.
+  const results = automaticChecks(
+    deviceInfoFromSnapshot(
+      snapshotFor({ status: mouseStatus({ dpi: 1600, dpiStages: [400, 800, 1600, 5600, 8000, 42_000] }), devices: [] }),
+    ),
+  );
+  assert.equal(results.find((result) => result.key === "dpiStages")?.status, "pass");
+  assert.equal(results.find((result) => result.key === "flashRead")?.status, "pass");
+});
+
 test("verdict is fail for any failure, incomplete when aborted", () => {
   const failing: HardwareTestResult[] = [
     { key: "connection", label: "Device connected", status: "pass", detail: null },
