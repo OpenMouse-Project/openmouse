@@ -42,6 +42,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   wlmouse: DIRECT_MODE,
   lamzu: DIRECT_MODE,
   "attack-shark": DIRECT_MODE,
+  bytech: DIRECT_MODE,
   crdrako: DIRECT_MODE,
   atk: DIRECT_MODE,
   "atk-bitmouse": DIRECT_MODE,
@@ -85,6 +86,7 @@ const BY_BRAND: Readonly<Record<string, string>> = {
   VGN: "vgn",
   Logitech: "logitech-hidpp",
   "Attack Shark": "attack-shark",
+  IPI: "bytech",
 };
 
 export function familyOf(status: MouseStatus): string {

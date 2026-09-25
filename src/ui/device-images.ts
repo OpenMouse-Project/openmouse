@@ -49,6 +49,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
     return "vxe-r1-series.png";
   }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
+  if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
   if (/\batk\s*zero\b/i.test(displayName)) return "atk-zero.png";
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
@@ -179,6 +180,7 @@ const DEVICE_IMAGE_BASE_URL = "https://img.openmouse.app/";
  */
 const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "attackshark-r2.png": "/devices/attackshark-r2.png",
+  "ipi-float-88.png": "/devices/ipi-float-88.png",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
