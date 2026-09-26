@@ -127,6 +127,11 @@ export function deviceInfoFromSnapshot(snapshot: ControlSnapshot): HardwareDevic
   const status = snapshot.status;
   const selected = snapshot.devices.find((device) => device.selected);
   const receiver = status?.atkReceiver;
+  // Settings fields count only when the driver read them from the mouse. A
+  // driver whose settings read failed (settingsReady: false) or that has no
+  // read-back (valuesVerified: false) still fills them with defaults, so drop
+  // them here and the read-back checks fail instead of passing on those.
+  const settings = (status?.ui?.valuesVerified ?? status?.ui?.settingsReady !== false) ? status : null;
   return {
     present: status !== null,
     brand: status?.brand ?? null,
@@ -136,15 +141,15 @@ export function deviceInfoFromSnapshot(snapshot: ControlSnapshot): HardwareDevic
     productName: selected?.name ?? null,
     transport: selected?.transport ?? null,
     connectionType: status?.connectionType ?? null,
-    pollingRateHz: status?.pollingRateHz ?? null,
+    pollingRateHz: settings?.pollingRateHz ?? null,
     supportedPollingRates: status?.supportedPollingRates ?? null,
-    dpi: status?.dpi ?? null,
-    dpiStages: status?.dpiStages ?? null,
-    activeDpiStage: status?.activeDpiStage ?? null,
+    dpi: settings?.dpi ?? null,
+    dpiStages: settings?.dpiStages ?? null,
+    activeDpiStage: settings?.activeDpiStage ?? null,
     batteryPercent: status?.batteryPercent ?? null,
     batteryState: status?.batteryState ?? null,
     firmware: status && status.firmware.length > 0 ? status.firmware : null,
-    liftOffDistance: status?.liftOffDistance ?? null,
+    liftOffDistance: settings?.liftOffDistance ?? null,
     driverFamily: status?.ui?.family ?? null,
     deviceMode: status?.deviceMode ?? null,
     collectionsSummary: null,
@@ -222,7 +227,7 @@ export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] 
     key: "dpi",
     label: "DPI read-back",
     status: dpiOk ? "pass" : "fail",
-    detail: dpiOk ? `${info.dpi!.toLocaleString()} DPI` : info.dpi === null ? "The sensor DPI was not reported." : "Reported DPI is out of range.",
+    detail: dpiOk ? `${info.dpi!.toLocaleString()} DPI` : info.dpi === null ? "The sensor DPI was not read from the device." : "Reported DPI is out of range.",
   });
 
   const rate = info.pollingRateHz;
@@ -242,7 +247,7 @@ export function automaticChecks(info: HardwareDeviceInfo): HardwareTestResult[] 
       key: "pollingRead",
       label: "Polling rate read-back",
       status: "fail",
-      detail: "The polling rate was not reported.",
+      detail: "The polling rate was not read from the device.",
     });
   }
 
