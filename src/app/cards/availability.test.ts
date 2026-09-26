@@ -330,6 +330,20 @@ test("the generic button card follows the K-snake key-map read", () => {
   assert.equal(silent.buttonMapping, false);
 });
 
+test("the generic button card follows the driver's mappings, not the advanced section", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "G-Wolves",
+      ui: { family: "vgn-f2" },
+      motionSync: true,
+      buttonMappings: { Left: "Left Click", Forward: "Forward" },
+      buttonOptions: ["Left Click", "Forward", "DPI Loop"],
+    },
+  }));
+  assert.equal(has.buttonMapping, true);
+  assert.equal(has.processing, false, "the rest of the advanced section stays closed");
+});
+
 test("the Incott card follows the fields the device reported, not a brand trait", () => {
   // Wireless: both controls are present.
   const wireless = cardAvailability(snapshot({

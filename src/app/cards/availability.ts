@@ -132,7 +132,10 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lighting: Boolean(status.lighting || status.lightingZones?.length),
     lightingAdvanced: host && Boolean(status.lighting || status.lightingZones?.length),
     onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
-    buttonMapping: host && Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
+    // Not gated on `host`: a driver publishes both fields only when it can
+    // write them, which is opt-in enough. VGN F2 and G-Wolves remap buttons
+    // but have no other advanced controls to open that section for.
+    buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",

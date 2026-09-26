@@ -515,7 +515,7 @@ const TEEVOLUTION: MouseStatus = {
 const VGN: MouseStatus = {
   brand: "VGN",
   name: "F2 Master Plus",
-  ui: { family: "vgn", hideUnsupportedPollingRates: true, forceShowBattery: true },
+  ui: { family: "vgn-f2", hideUnsupportedPollingRates: true, forceShowBattery: true },
   batteryPercent: 79,
   batteryState: "Discharging",
   dpi: 1600,
@@ -527,6 +527,15 @@ const VGN: MouseStatus = {
   motionSync: true,
   debounceMs: 4,
   sleepTimeout: 60,
+  buttonMappings: {
+    Left: "Left Click",
+    Right: "Right Click",
+    Middle: "Middle Click",
+    Back: "Backward",
+    Forward: "Forward",
+    DPI: "DPI Loop",
+  },
+  buttonOptions: ["Left Click", "Right Click", "Middle Click", "Backward", "Forward", "DPI Loop", "DPI+", "DPI-", "Disable"],
   firmware: ["1.2.0"],
 };
 
