@@ -50,6 +50,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // The M6 reads debounce and sleep from its 0x06 status report and publishes
   // its own option lists, so it takes the plain flags rather than DIRECT_MODE.
   "keychron-m6": { advancedSection: true, sleep: true, debounce: true },
+  // The Beast X 4K skips the compx transport the rest of WLMouse uses and
+  // publishes its own sleep and debounce lists, so it takes the plain flags.
+  "wlmouse-4k": { advancedSection: true, sleep: true, debounce: true },
   fantech: { advancedSection: true, sleep: true, directMode: true },
   // GearHub-V5 (Attack Shark R2, Lingbao M5 Pro): reads debounce, standby time
   // and the two "move correction" toggles out of its OPTIONPARAM0 block. Not a
