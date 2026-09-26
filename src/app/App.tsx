@@ -3,13 +3,12 @@ import * as control from "../device/controller";
 import { ensureLocale } from "../i18n";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { AppSidebar, type DesktopPage } from "./AppSidebar";
-import { ArtworkRequestDialog } from "./ArtworkRequestDialog";
 import { OverviewPage } from "./OverviewPage";
 import { CaptureDialog } from "./CaptureDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { GamesPage, useBridgeActive } from "./GamesPage";
+import { HardwareTestPage } from "./HardwareTestPage";
 import { InterfaceSettings } from "./InterfaceSettings";
-import { MouseTestPage } from "./MouseTestPage";
 import { NewsBanner } from "./NewsBanner";
 import { PendingBar } from "./PendingBar";
 import { ShareProfileDialog } from "./ShareProfileDialog";
@@ -29,8 +28,6 @@ export function App(): ReactNode {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [artworkReqOpen, setArtworkReqOpen] = useState(false);
-  const [artworkDeviceName, setArtworkDeviceName] = useState("");
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [page, setPage] = useState<DesktopPage>("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -44,13 +41,13 @@ export function App(): ReactNode {
 
   const resolvedPage: DesktopPage = showingSettings
     ? "settings"
-    : page === "test"
-      ? "test"
-      : showingGames
-        ? "games"
-        : status !== null && snapshot.deviceView === "device"
-        ? "dashboard"
-        : "home";
+    : page === "hardware-test"
+      ? "hardware-test"
+        : showingGames
+          ? "games"
+          : status !== null && snapshot.deviceView === "device"
+          ? "dashboard"
+          : "home";
 
   useEffect(() => {
     try {
@@ -64,11 +61,17 @@ export function App(): ReactNode {
         ko: "ko",
         ru: "ru",
         vi: "vi",
+        ar: "ar",
         en: "en",
       };
       const nextLang = htmlLang[locale] ?? "en";
       if (document.documentElement.lang !== nextLang) {
         document.documentElement.lang = nextLang;
+      }
+      // Arabic reads right-to-left; every other locale is left-to-right.
+      const nextDir = locale === "ar" ? "rtl" : "ltr";
+      if (document.documentElement.dir !== nextDir) {
+        document.documentElement.dir = nextDir;
       }
     } catch {
       /* non-DOM environment (tests) */
@@ -84,17 +87,12 @@ export function App(): ReactNode {
   }, [page, snapshot.workspaceTab, preferences.reducedMotion]);
 
   useEffect(() => {
-    setSidebarCollapsed(resolvedPage === "dashboard");
+    setSidebarCollapsed(resolvedPage === "dashboard" || resolvedPage === "hardware-test");
   }, [resolvedPage]);
 
   useEffect(() => {
     setSoundsEnabled(preferences.enabledSounds);
   }, [preferences.enabledSounds]);
-
-  function openArtworkRequest(): void {
-    if (snapshot.status?.name) setArtworkDeviceName(snapshot.status.name);
-    setArtworkReqOpen(true);
-  }
 
   function navigate(next: DesktopPage): void {
     if (next === "settings") {
@@ -106,9 +104,9 @@ export function App(): ReactNode {
     if (next === "dashboard") {
       void control.showDeviceDashboard();
       setPage("dashboard");
-    } else if (next === "test") {
+    } else if (next === "hardware-test") {
       control.showDeviceList();
-      setPage("test");
+      setPage("hardware-test");
     } else if (next === "games") {
       control.showDeviceList();
       setPage("games");
@@ -137,8 +135,8 @@ export function App(): ReactNode {
         <div className="full-desktop-content" ref={panel}>
           {showingSettings ? (
             <InterfaceSettings snapshot={snapshot} />
-          ) : page === "test" ? (
-            <MouseTestPage snapshot={snapshot} />
+          ) : page === "hardware-test" ? (
+            <HardwareTestPage snapshot={snapshot} />
           ) : showingGames ? (
             <GamesPage snapshot={snapshot} />
           ) : (
@@ -146,7 +144,6 @@ export function App(): ReactNode {
               snapshot={snapshot}
               onOpenCapture={() => setCaptureOpen(true)}
               onShareProfile={() => setShareProfileOpen(true)}
-              onRequestArtwork={openArtworkRequest}
             />
           )}
           <p className="app-live-region" role="status" aria-live="polite">
@@ -158,7 +155,6 @@ export function App(): ReactNode {
 
       <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
       <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} locale={locale} canAttachDiagnostics={status !== null} />
-      <ArtworkRequestDialog open={artworkReqOpen} onClose={() => setArtworkReqOpen(false)} locale={locale} deviceName={artworkDeviceName} />
       <WhatsNewDialog open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} locale={locale} />
       <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
       <AiOverlay locale={locale} />

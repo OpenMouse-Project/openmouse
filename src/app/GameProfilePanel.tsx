@@ -387,7 +387,6 @@ export function GameProfilePanel({
                 snapshot={{ ...snapshot, workspaceTab: activeTab }}
                 onOpenCapture={() => undefined}
                 onShareProfile={() => undefined}
-                onRequestArtwork={() => undefined}
                 gameProfile
               />
             ) : null}

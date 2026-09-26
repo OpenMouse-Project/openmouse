@@ -33,6 +33,12 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // few lines down covers every other Superlight generation.
   if (/\bpro\s*x\s*wireless\b/i.test(displayName)) return "logitech-pro-x-superlight-2c.png";
   if (/mx\s*master\s*4/i.test(displayName)) return "unknown-device.png";
+  // PRO X3 SUPERSTRIKE (0xc54f receiver) shares the Superstrike name with the
+  // X2 but is a different shell revision ("PRO X3" on the clicks, midnight
+  // black hero SKU), so it gets its own render. Must run before the X2
+  // fallback below; requires "superstrike" in the match so Attack Shark X3
+  // (no Superstrike in the name) never lands here.
+  if (/superstrike/i.test(displayName) && /x\s*3/i.test(displayName)) return "logitech-pro-x3-superstrike.png";
   if (/superstrike/i.test(displayName)) return "logitech-pro-x2-superstrike.png";
   if (/superlight/i.test(displayName)) return "logitech-pro-x-superlight-2c.png";
   if (/op1we/i.test(displayName)) return "endgame-gear-op1we.png";
@@ -53,6 +59,10 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
   if (/\battack\s*shark\s*r2\b/i.test(displayName)) return "attackshark-r2.png";
+  // X3 / X3 Pro share one shell. Brand-scoped so Pulsar X3 (matched by the
+  // generic /pulsar/i rule below) never borrows this render, and so X11/X1
+  // don't match.
+  if (/\battack\s*shark\s*x3\b/i.test(displayName)) return "attackshark-x3.png";
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";

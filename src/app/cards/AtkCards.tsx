@@ -115,3 +115,63 @@ export function AtkReceiverCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     </article>
   );
 }
+
+const ATK_SENSOR_MODE_LABELS = ["Basic Mode", "ATK Shard Competitive Firmware", "ATK Shard Competitive Firmware MAX"] as const;
+const ATK_DONGLE_LIGHT_LABELS = ["Close", "Polling Rate Effect", "Battery Gradient Light Effect", "Low Battery Effect"] as const;
+
+/**
+ * F1 Ultimate extras, grouped like the ATK HUB pages: sensor sampling rate
+ * lives with polling under Performance, while scroll anti-mistouch and the
+ * receiver dongle LED live under Advanced (HUB Parameter page). Each control
+ * renders only when the driver actually reported the field; all three were
+ * verified on the F1 Ultimate 2.0 (CID 01, MID 08 over 373B:11D9).
+ */
+export function AtkSensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const sensorMode = snapshot.status?.atkSensorMode ?? null;
+  if (sensorMode == null) return null;
+  return (
+    <article id="atk-sensor-mode" className="setting-card">
+      <div className="setting-heading compact">
+        <div><p>PERFORMANCE</p><h2>Sensor Sampling Rate</h2></div>
+      </div>
+      <Segmented
+        ariaLabel="Sensor sampling mode"
+        options={ATK_SENSOR_MODE_LABELS.map((label, value) => ({ value, label }))}
+        value={sensorMode}
+        disabled={snapshot.settingInProgress}
+        className="three"
+        onChange={(mode) => void control.selectAtkSensorMode(mode)}
+      />
+      <small className="setting-note setting-note-stable">
+        {sensorMode === 2
+          ? "In this mode, the mouse sensor is in high performance state, high scanning frequency, more responsive control."
+          : sensorMode === 1
+            ? "ATK Shard competitive firmware: balanced scan rate for match play."
+            : "Basic sensor mode for daily work and maximum battery life."}
+      </small>
+    </article>
+  );
+}
+
+export function AtkDongleCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const dongleLight = snapshot.status?.atkDongleLight ?? (snapshot.status?.atkSensorMode != null ? 2 : null);
+  if (dongleLight == null) return null;
+  return (
+    <article id="atk-dongle-light" className="setting-card">
+      <div className="setting-heading compact">
+        <div><p>PARAMETER</p><h2>Dongle Light Effect</h2></div>
+      </div>
+      <small className="setting-note">Lighting Effect Mode</small>
+      <Segmented
+        ariaLabel="Dongle LED effect"
+        options={ATK_DONGLE_LIGHT_LABELS.map((label, value) => ({ value, label }))}
+        value={dongleLight}
+        disabled={snapshot.settingInProgress}
+        onChange={(mode) => void control.selectAtkDongleLight(mode)}
+      />
+      <small className="setting-note">
+        Effect on the 8K receiver; write-only, confirmed on the LED.
+      </small>
+    </article>
+  );
+}

@@ -136,7 +136,30 @@ const BUDGET_BYTES: Record<string, number> = {
   // controls, DeviceCapabilities stage-write flags, and the RAZER preview
   // fixture stage table) then adds ~1.7 kB more. Measured aggregate is
   // 1,674.9 kB, leaving ~25 kB of headroom.
-  ".js": 1_700_000,
+  // Raised to 1,780 kB for the in-app Hardware Test certification suite:
+  // HardwareTestPage.tsx (verification runner with live polling-rate
+  // sampling, terminal, device card, and the share flow), the report model
+  // (automatic checks, verdict, Discord embed), hardware-brand-checks.ts
+  // (brand-depth checks), the supported-devices crosscheck, and the
+  // 238-row mirrored supported-devices table (src/supported-devices-data.ts,
+  // generated from the landing page's supported-mice.ts via
+  // scripts/sync-supported-devices.mjs), plus the hw.* and
+  // nav.hardwareTest strings in all ten locale tables. Measured aggregate
+  // is 1,748.7 kB, leaving ~31 kB of headroom.
+  // Raised to 1,845 kB for the Arabic (ar) interface locale: i18n-ar.ts is a
+  // full native translation of all ~1,050 keys and ships as its own lazy
+  // chunk (i18n-ar-*.js, ~69 kB, loaded only when Arabic is selected) — the
+  // initial (English) bundle is untouched. This is the same lazy-chunk pattern
+  // as the pt/es/fr/de/zh/ja/ko/ru/vi locales above, and the aggregate counts
+  // it only because the check sums every emitted chunk. Measured aggregate is
+  // 1,817.7 kB, leaving ~27 kB of headroom.
+  // The in-app Mouse Test page (MouseTestPage.tsx + MouseTestMouse.tsx, the
+  // test.* keys, and its chart/button-tester CSS) and the strict artwork-
+  // submission flow (ArtworkRequestDialog.tsx, /api/artwork + images.js, the
+  // artreq.* dictionary) were both removed; artwork requests now open the
+  // documented GitHub issue form instead. The budget stays — like the earlier
+  // crowd-sourced removal, the aggregate only shrank.
+  ".js": 1_845_000,
 };
 
 const ASSETS = join("dist", "assets");
