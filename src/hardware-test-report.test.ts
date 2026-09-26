@@ -181,6 +181,19 @@ test("flash read-back fails when a decoded field is out of range", () => {
   assert.equal(stages?.status, "fail");
 });
 
+test("read-back checks fail on driver fallback values, pass once the driver verified them", () => {
+  // Ticket #0126: the WE driver's reads failed and it filled in 800 DPI / 1000 Hz.
+  const fallback = { batteryPercent: null, dpi: 800, pollingRateHz: 1000, liftOffDistance: null };
+  const statusOf = (key: string, ui: Record<string, unknown>) =>
+    automaticChecks(deviceInfoFromSnapshot(snapshotFor({ status: mouseStatus({ ...fallback, ui }) })))
+      .find((result) => result.key === key)?.status;
+  for (const key of ["dpi", "pollingRead", "flashRead"]) {
+    assert.equal(statusOf(key, { family: "egg-we", settingsReady: false }), "fail", key);
+    assert.equal(statusOf(key, { settingsReady: true, valuesVerified: false }), "fail", key);
+    assert.equal(statusOf(key, { settingsReady: false, valuesVerified: true }), "pass", key);
+  }
+});
+
 test("verdict is fail for any failure, incomplete when aborted", () => {
   const failing: HardwareTestResult[] = [
     { key: "connection", label: "Device connected", status: "pass", detail: null },
