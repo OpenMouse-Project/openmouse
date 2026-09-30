@@ -136,7 +136,8 @@ import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hi
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
 import { KeychronNapeHidClient } from "@openmouse/protocol/drivers/keychron/nape-hid";
-import { KeychronM6HidClient } from "@openmouse/protocol/drivers/keychron/m6-hid";
+import { Keychron8kHidClient } from "@openmouse/protocol/drivers/keychron/mouse-8k-hid";
+import { Keychron1kHidClient } from "@openmouse/protocol/drivers/keychron/mouse-1k-hid";
 import { Keychron4kHidClient } from "@openmouse/protocol/drivers/keychron/mouse-4k-hid";
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
@@ -243,7 +244,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, KeychronM6HidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kHidClient, Keychron1kHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -263,7 +264,8 @@ const finalmouseClient = (): FinalmouseHidClient | null => activeAs(FinalmouseHi
 const orbitalClient = (): OrbitalHidClient | null => activeAs(OrbitalHidClient);
 const vgnClient = (): VgnF2HidClient | null => activeAs(VgnF2HidClient);
 const keychronNapeClient = (): KeychronNapeHidClient | null => activeAs(KeychronNapeHidClient);
-const keychronM6Client = (): KeychronM6HidClient | null => activeAs(KeychronM6HidClient);
+const keychron8kClient = (): Keychron8kHidClient | null => activeAs(Keychron8kHidClient);
+const keychron1kClient = (): Keychron1kHidClient | null => activeAs(Keychron1kHidClient);
 const keychron4kClient = (): Keychron4kHidClient | null => activeAs(Keychron4kHidClient);
 const wlmouse4kClient = (): WLMouseBeastX4kHidClient | null => activeAs(WLMouseBeastX4kHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(WallhackMouseHidClient);
@@ -3856,7 +3858,7 @@ export function applyPulsarValue(setting: "debounce" | "sleep", value: number): 
     : (activeSettingsClient() && "setDebounceTime" in (activeSettingsClient() ?? {}))
       ? activeSettingsClient()
       : pulsarClient() ?? dmClient() ?? orbitalClient() ?? razerClient()
-        ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychronM6Client() ?? keychron4kClient() ?? wallhackMouseClient()
+        ?? viperClient() ?? teevolutionClient() ?? vgnClient() ?? keychronNapeClient() ?? keychron8kClient() ?? keychron1kClient() ?? keychron4kClient() ?? wallhackMouseClient()
         ?? incottClient() ?? wlmouse4kClient();
   if (!client || (setting === "sleep" && !("setSleepTimeout" in client)) || (setting === "debounce" && !("setDebounceTime" in client))) return;
   const asleep = value !== WLMOUSE_SLEEP_NEVER;
