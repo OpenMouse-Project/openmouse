@@ -476,6 +476,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
+  const singleDpiAvailable = status?.ui?.hideSingleDpi !== true;
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 
@@ -496,7 +497,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                 ) : null}
               </h2>
             </div>
-            {stageCapable ? (
+            {stageCapable && singleDpiAvailable ? (
               <div
                 className="dpi-view-toggle"
                 role="group"
@@ -558,7 +559,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
         <DpiStageEditor
           snapshot={snapshot}
-          editorView={stageCapable ? editorView : undefined}
+          editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}
         />
 
         <div className="setting-action">
