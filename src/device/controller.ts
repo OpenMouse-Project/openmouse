@@ -755,6 +755,14 @@ function setEditorToM2NexProfile(): void {
   ksnakeMacrosError = null;
 }
 
+function syncActiveM2NexProfileButton(button: string, action: string): void {
+  if (!isM2NexStatus() || !m2nexProfiles?.[activeM2NexProfile]) return;
+  m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
+    ? { ...profile, buttonMappings: { ...profile.buttonMappings, [button]: action } }
+    : profile);
+  persistM2NexProfiles();
+}
+
 function cloneKsnakeMacros(profiles: readonly KsnakeMacroProfile[]): KsnakeMacroProfile[] {
   return Array.from({ length: 32 }, (_, slot) => ({
     steps: (profiles[slot]?.steps ?? []).map((step) => ({ ...step })),
@@ -4782,6 +4790,11 @@ export function applyDeviceButtonMapping(button: string, action: string): void {
         setButtonMapping(button: string, action: string): Promise<unknown>;
       };
       await client.setButtonMapping(button, action);
+      // S1's firmware acknowledges SET_KEYS but returns an all-0xff map on
+      // the next GET_KEYS. Keep the selected local profile in sync with the
+      // confirmed write so the profile overlay does not put the old value
+      // back into the editor after the status refresh.
+      syncActiveM2NexProfileButton(button, action);
     },
   });
 }
