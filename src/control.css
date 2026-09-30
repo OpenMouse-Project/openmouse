@@ -1920,6 +1920,17 @@ body { height: 100vh; overflow: hidden; }
   border-color: color-mix(in srgb, var(--ui-accent) 82%, #ffffff);
   background: color-mix(in srgb, var(--ui-accent) 82%, #ffffff);
 }
+.m2nex-profile-import-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .button-map-footer { display:flex;justify-content:flex-end;margin-top:.7rem;padding-top:.65rem;border-top:1px solid var(--border-rule) }
 .button-map-reset { padding:.42rem .65rem;border:1px solid var(--border);border-radius:6px;background:var(--surface-control);color:var(--text-soft);font-size:.62rem;font-weight:600;cursor:pointer }
 .button-map-reset:hover:not(:disabled) { border-color:var(--border-hover);color:var(--text-hover);background:var(--surface-hover-soft) }

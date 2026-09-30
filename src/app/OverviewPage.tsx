@@ -243,7 +243,7 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
     <section
       id="m2nex-profile-overview"
       className="m2nex-profile-overview"
-      aria-label={t(locale, "m2nex.controls")}
+      aria-label={`${status.name} ${t(locale, "m2nex.controls")}`}
     >
       <div className="m2nex-profile-overview-title">
         <span>{t(locale, "m2nex.overline")}</span>
@@ -298,7 +298,7 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
       </div>
       <input
         ref={profileImportRef}
-        className="visually-hidden"
+        className="m2nex-profile-import-input"
         type="file"
         accept="application/json,.json"
         onChange={(event) => {
