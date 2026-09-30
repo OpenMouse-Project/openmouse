@@ -1556,6 +1556,7 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const recordedStepsRef = useRef<KsnakeMacroStep[]>([]);
   const recordingOriginalStepsRef = useRef<KsnakeMacroStep[] | null>(null);
   const recordingClockRef = useRef<number | null>(null);
+  const recorderFocusRef = useRef<HTMLElement | null>(null);
   const staged = snapshot.pending.keys.includes("ksnake-macros");
   const disabled = snapshot.settingInProgress || snapshot.pending.busy;
   const controlsDisabled = disabled || isRecording;
@@ -1640,6 +1641,12 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
 
   useEffect(() => {
     if (!isRecording) return undefined;
+
+    // The Record button keeps focus after it is clicked. Keyboard events then
+    // target that button, and the recorder-control guard (correctly) ignores
+    // them as UI input. Move focus to a neutral capture surface so the first
+    // physical key pressed after starting a recording is captured.
+    recorderFocusRef.current?.focus();
 
     const isRecorderControl = (target: EventTarget | null): boolean => (
       target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
@@ -1769,7 +1776,13 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
           })}
         </select>
       </label>
-      <section className={`ksnake-macro-recorder${isRecording ? " is-recording" : ""}`} aria-live="polite">
+      <section
+        ref={recorderFocusRef}
+        className={`ksnake-macro-recorder${isRecording ? " is-recording" : ""}`}
+        aria-live="polite"
+        aria-label="Macro input capture"
+        tabIndex={-1}
+      >
         <div className="ksnake-macro-recorder-status">
           <span className="ksnake-macro-recorder-dot" aria-hidden="true" />
           <div>
