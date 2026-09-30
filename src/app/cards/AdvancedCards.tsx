@@ -1542,8 +1542,7 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
   const isM2Nex = status?.brand === "Noir Gear" && status.name === "M2-NEX";
-  const isNoirS1 = status?.brand === "Noir Gear" && status.name === "NOIR S1";
-  const macroCapable = !isNoirS1 && (status?.ui?.family === "ksnake" || isM2Nex);
+  const macroCapable = status?.ui?.family === "ksnake" || isM2Nex;
   // Keep the card usable while an older hot-reloaded controller snapshot is
   // still missing the newly added field. Treat that state as "not loaded" so
   // the local editor is prepared instead of silently hiding the card.
@@ -1953,10 +1952,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   const status = snapshot.status;
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
-  const isNoirS1 = status.brand === "Noir Gear" && status.name === "NOIR S1";
-  const options = status.buttonOptions.filter((option) => (
-    !isNoirS1 || !/^Macro \d+$/.test(option)
-  ));
+  const options = status.buttonOptions;
   const isNoirProfile = status.brand === "Noir Gear"
     && (status.name === "M2-NEX" || status.name === "NOIR S1")
     && snapshot.m2nexProfiles !== null;

@@ -95,7 +95,6 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
   const { traits, capabilities } = snapshot;
   const ready = !snapshot.settingsPending;
   const host = traits.advancedSection;
-  const isNoirS1 = status.brand === "Noir Gear" && status.name === "NOIR S1";
   const isNoirKsnake = status.brand === "Noir Gear"
     && (status.name === "M2-NEX" || status.name === "NOIR S1");
 
@@ -145,10 +144,7 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // K-snake/M2-NEX exposes the macro write/commit path. The editor starts
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
-    // The S1 vendor configurator does not expose an onboard macro editor.
-    // Do not advertise the generic K-snake macro transport for it until the
-    // firmware capability is positively confirmed.
-    ksnakeMacros: !isNoirS1 && (ui?.family === "ksnake" || isNoirKsnake),
+    ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",

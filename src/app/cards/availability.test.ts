@@ -418,7 +418,7 @@ test("NOIR S1 exposes its standard controls and hides unsupported extras", () =>
   assert.equal(has.polling, true);
   assert.equal(has.buttonMapping, true);
   assert.equal(has.ksnakeScroll, true);
-  assert.equal(has.ksnakeMacros, false);
+  assert.equal(has.ksnakeMacros, true);
   assert.equal(has.lighting, true);
   assert.equal(has.lightingAdvanced, false);
   assert.equal(has.sleep, false);
