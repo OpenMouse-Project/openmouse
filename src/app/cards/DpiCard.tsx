@@ -70,7 +70,15 @@ function DpiStageEditor({
     if (mode === "stage" && status?.dpiStages) {
       const stages = status.dpiStages.slice(0, rowCap);
       const last = stages[stages.length - 1] ?? status.dpi ?? 800;
-      const rows = stages.map((value) => ({ enabled: true, value: String(value), lod: DEFAULT_LOD }));
+      const activeStageCount = Math.min(
+        Math.max(status.dpiStageCount ?? stages.length, 0),
+        stages.length,
+      );
+      const rows = stages.map((value, index) => ({
+        enabled: index < activeStageCount,
+        value: String(value),
+        lod: DEFAULT_LOD,
+      }));
       while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD });
       return rows;
     }
@@ -105,7 +113,7 @@ function DpiStageEditor({
   const sourceSig = mode === "logitech"
     ? (snapshot.dpiSlotPlan?.stages.map((stage) => stage.x).join(",") ?? "-")
     : mode === "stage"
-      ? (status?.dpiStages?.join(",") ?? "-")
+      ? `${status?.dpiStageCount ?? status?.dpiStages?.length ?? 0}:${status?.dpiStages?.join(",") ?? "-"}`
       : String(status?.dpi ?? 0);
   const lastSigRef = useRef(sourceSig);
   useEffect(() => {
@@ -154,7 +162,8 @@ function DpiStageEditor({
     if (mode === "stage") {
       const enabled = next.filter((row) => row.enabled);
       const current = status?.dpiStages ?? [];
-      if (stageEditor?.countEditable === true && enabled.length !== current.length) {
+      const currentCount = status?.dpiStageCount ?? current.length;
+      if (stageEditor?.countEditable === true && enabled.length !== currentCount) {
         control.applyDpiStageCount(enabled.length);
       }
       enabled.forEach((row, position) => {
@@ -183,7 +192,7 @@ function DpiStageEditor({
   };
 
   const setEnabled = (index: number, enabled: boolean): void => {
-    const next = rows.map((row, i) => (i === index ? { ...row, enabled: !row.enabled } : row));
+    let next = rows.map((row, i) => (i === index ? { ...row, enabled: !row.enabled } : row));
     if (mode === "generic") {
       if (!enabled || next[index].enabled === rows[index].enabled) return;
       const snap = closestDpiOption(options, parseRow(next[index].value) ?? status?.dpi ?? 0);
@@ -194,6 +203,16 @@ function DpiStageEditor({
       control.applyDpiValue(snap);
       touchedRef.current = Date.now();
       return;
+    }
+    // K-snake stores a stage count, not an arbitrary bitmask. Keep the local
+    // editor contiguous so disabling stage 3 cannot silently move stage 6's
+    // value into stage 5 on the next write.
+    if (mode === "stage" && stageEditor?.countEditable === true) {
+      const currentCount = rows.filter((row) => row.enabled).length;
+      const nextCount = next[index]?.enabled
+        ? Math.max(currentCount, index + 1)
+        : Math.max(1, Math.min(currentCount, index));
+      next = next.map((row, i) => ({ ...row, enabled: i < nextCount }));
     }
     const count = next.filter((row) => row.enabled).length;
     if (count < 1 || count > countCap) return;

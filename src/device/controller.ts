@@ -2952,7 +2952,9 @@ export function applyDpiStageCount(count: number): void {
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
-  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
+  const currentCount = latestDeviceStatus?.dpiStageCount
+    ?? latestDeviceStatus?.dpiStages?.length
+    ?? count;
   if (count < currentCount) {
     for (const change of pendingChanges()) {
       const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
@@ -2968,14 +2970,12 @@ export function applyDpiStageCount(count: number): void {
     progress: `Setting ${count} DPI stages…`,
     preview: (status) => {
       const current = status.dpiStages?.slice() ?? [];
-      if (count <= current.length) status.dpiStages = current.slice(0, count);
-      else {
-        const padded = current.slice();
-        while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
-        status.dpiStages = padded;
-      }
+      const padded = current.slice();
+      while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
+      status.dpiStages = padded;
+      status.dpiStageCount = count;
       if (status.dpiStageColors) {
-        const colors = status.dpiStageColors.slice(0, count);
+        const colors = status.dpiStageColors.slice();
         while (colors.length < count) colors.push(colors.at(-1) ?? "#000000");
         status.dpiStageColors = colors;
       }

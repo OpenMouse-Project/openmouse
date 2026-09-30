@@ -242,6 +242,8 @@
 .dpi-editor-check > input:focus-visible + .dpi-editor-box { outline:2px solid var(--ui-accent);outline-offset:2px }
 .dpi-editor-check:has(> input:disabled) { cursor:not-allowed;opacity:.45 }
 .dpi-editor-check:has(> input:disabled) .dpi-editor-box { border-color:var(--border);background:var(--surface-control) }
+.dpi-editor-check:has(> input:disabled:checked) { opacity:.82 }
+.dpi-editor-check:has(> input:disabled:checked) .dpi-editor-box { border-color:color-mix(in srgb,var(--ui-accent) 70%,var(--border));background:color-mix(in srgb,var(--ui-accent) 28%,var(--surface-control));color:var(--ui-accent) }
 .dpi-editor-check > input:disabled { cursor:not-allowed }
 .dpi-editor-row.is-off { opacity:.55 }
 .dpi-editor-row > button.dpi-editor-index { padding:.4rem 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-raised);color:var(--text-input);font:650 .72rem/1 var(--font-mono);font-variant-numeric:tabular-nums;text-align:center;cursor:pointer }
