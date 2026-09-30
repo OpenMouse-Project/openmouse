@@ -1940,12 +1940,14 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
-  const isM2Nex = status.brand === "Noir Gear"
-    && status.name === "M2-NEX"
+  const isNoirProfile = status.brand === "Noir Gear"
+    && (status.name === "M2-NEX" || status.name === "NOIR S1")
     && snapshot.m2nexProfiles !== null;
-  const selectedM2NexProfile = isM2Nex
+  const selectedM2NexProfile = isNoirProfile
     ? snapshot.m2nexProfiles?.[snapshot.activeM2NexProfile]
     : null;
+  const isM2Nex = status.brand === "Noir Gear" && status.name === "M2-NEX";
+  const canResetKsnake = isNoirProfile;
   const mappings = selectedM2NexProfile?.buttonMappings ?? status.buttonMappings;
   // fixedButtons lands with mouse-protocol#68; read defensively so this
   // builds against the published protocol until then.
@@ -1989,6 +1991,18 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
           );
         })}
       </div>
+      {canResetKsnake ? (
+        <div className="button-map-footer">
+          <button
+            type="button"
+            className="button-map-reset"
+            disabled={snapshot.settingInProgress || snapshot.pending.busy}
+            onClick={control.resetKsnakeButtonMappings}
+          >
+            Reset to default
+          </button>
+        </div>
+      ) : null}
       {!selectedM2NexProfile ? (
         <p className="field-note">{t(locale, "map.defaultNote")}</p>
       ) : null}

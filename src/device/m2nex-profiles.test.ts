@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   M2NEX_PROFILE_STORAGE_KEY,
+  NOIR_S1_PROFILE_COUNT,
   defaultM2NexProfiles,
   loadM2NexProfiles,
+  parseM2NexProfileImport,
   saveM2NexProfiles,
   type M2NexProfileSeed,
 } from "./m2nex-profiles.ts";
@@ -69,4 +71,12 @@ test("invalid stored profiles fall back to current mouse settings", () => {
   const loaded = loadM2NexProfiles(store, seed());
   assert.deepEqual(loaded.map((profile) => profile.name), ["Profile 1", "Profile 2", "Profile 3"]);
   assert.deepEqual(loaded[0]?.dpiStages, [800, 1600, 3200]);
+});
+
+test("S1 keeps six local slots and accepts the vendor profile envelope", () => {
+  const profiles = defaultM2NexProfiles(seed(), NOIR_S1_PROFILE_COUNT);
+  const imported = parseM2NexProfileImport({ deviceModel: "NOIR S1", profileData: profiles }, NOIR_S1_PROFILE_COUNT);
+  assert.equal(profiles.length, 6);
+  assert.equal(imported?.length, NOIR_S1_PROFILE_COUNT);
+  assert.equal(imported?.[5]?.name, "Profile 6");
 });

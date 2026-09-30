@@ -204,6 +204,7 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 export function hasLiftOff(snapshot: ControlSnapshot): boolean {
   const status = snapshot.status;
   if (!status || snapshot.profile.slotsAvailable) return false;
+  if (status.ui?.hideLodControl === true) return false;
   return Boolean(status.asymmetricLiftOff)
     || Boolean(status.liftOffScale)
     || status.liftOffDistance != null

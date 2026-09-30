@@ -95,9 +95,10 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
   const { traits, capabilities } = snapshot;
   const ready = !snapshot.settingsPending;
   const host = traits.advancedSection;
-  const isM2Nex = status.brand === "Noir Gear" && status.name === "M2-NEX";
+  const isNoirKsnake = status.brand === "Noir Gear"
+    && (status.name === "M2-NEX" || status.name === "NOIR S1");
 
-  const sensor = !(!status.gamingSurfaceMode
+  const sensor = ui?.hideLodControl !== true && !(!status.gamingSurfaceMode
     && Array.isArray(status.supportedLiftOffDistances)
     && status.supportedLiftOffDistances.length === 0);
 
@@ -137,14 +138,13 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lightforce: Boolean(status.lightforceSwitchMode),
     superstrike: traits.logitech && status.analogButtonTuning?.buttons.length === 2,
     lighting: Boolean(status.lighting || status.lightingZones?.length),
-    lightingAdvanced: host && !isM2Nex && Boolean(status.lighting || status.lightingZones?.length),
+    lightingAdvanced: host && !isNoirKsnake && Boolean(status.lighting || status.lightingZones?.length),
     onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
     buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
     // K-snake/M2-NEX exposes the macro write/commit path. The editor starts
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
-    ksnakeMacros: ui?.family === "ksnake"
-      || (status.brand === "Noir Gear" && status.name === "M2-NEX"),
+    ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",

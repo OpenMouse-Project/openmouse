@@ -94,8 +94,21 @@ const M2_NEX_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPositi
   "scroll down": { x: 0.62, y: 0.29 },
 };
 
+const NOIR_S1_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPosition>> = {
+  left: { x: 0.39, y: 0.24 },
+  right: { x: 0.61, y: 0.24 },
+  middle: { x: 0.5, y: 0.31 },
+  forward: { x: 0.27, y: 0.47 },
+  backward: { x: 0.27, y: 0.59 },
+  dpi: { x: 0.5, y: 0.42 },
+};
+
 function m2NexButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
   return M2_NEX_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
+}
+
+function noirS1ButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
+  return NOIR_S1_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
 }
 
 // Device artwork requests go straight to the documented GitHub issue form
@@ -219,7 +232,10 @@ function DeviceShowcase({ snapshot }: {
 function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  if (status?.brand !== "Noir Gear" || status.name !== "M2-NEX" || snapshot.m2nexProfiles === null) return null;
+  const isNoirProfile = status?.brand === "Noir Gear"
+    && (status.name === "M2-NEX" || status.name === "NOIR S1");
+  const profileImportRef = useRef<HTMLInputElement>(null);
+  if (!isNoirProfile || snapshot.m2nexProfiles === null) return null;
   const profile = snapshot.m2nexProfiles[snapshot.activeM2NexProfile];
   if (!profile) return null;
   const applyDisabled = snapshot.settingInProgress || snapshot.pending.count > 0;
@@ -251,6 +267,20 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
       </span>
       <div className="m2nex-profile-overview-actions">
         <button
+          type="button"
+          disabled={snapshot.settingInProgress || snapshot.pending.busy}
+          onClick={control.createM2NexProfile}
+        >
+          New
+        </button>
+        <button
+          type="button"
+          disabled={snapshot.settingInProgress || snapshot.pending.busy}
+          onClick={() => profileImportRef.current?.click()}
+        >
+          Import
+        </button>
+        <button
           className="m2nex-profile-overview-apply"
           type="button"
           disabled={applyDisabled}
@@ -266,6 +296,18 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
           {t(locale, "m2nex.save")}
         </button>
       </div>
+      <input
+        ref={profileImportRef}
+        className="visually-hidden"
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          if (!file) return;
+          void file.text().then((text) => control.importM2NexProfiles(text));
+        }}
+      />
     </section>
   );
 }
@@ -275,9 +317,10 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const isNoirS1 = status.brand === "Noir Gear" && status.name === "NOIR S1";
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
     && status.brand === "Noir Gear"
-    && status.name === "M2-NEX"
+    && (status.name === "M2-NEX" || isNoirS1)
     && status.buttonMappings != null;
 
   return (
@@ -296,7 +339,9 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
             />
             <div className="button-map-markers" aria-hidden="true">
               {Object.keys(status.buttonMappings ?? {}).map((button, index) => {
-                const position = m2NexButtonMarkerPosition(button);
+                const position = isNoirS1
+                  ? noirS1ButtonMarkerPosition(button)
+                  : m2NexButtonMarkerPosition(button);
                 if (!position) return null;
                 return (
                   <span
@@ -767,7 +812,8 @@ export function OverviewPage({
   const locale = preferences.locale;
 
   const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
-    hideLighting: status?.brand === "Noir Gear" && status.name === "M2-NEX",
+    hideLighting: status?.brand === "Noir Gear"
+      && (status.name === "M2-NEX" || status.name === "NOIR S1"),
   });
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
   const workspaceSnapshot = workspaceTab === snapshot.workspaceTab
