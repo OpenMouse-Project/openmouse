@@ -392,13 +392,14 @@ test("M2-NEX keeps lighting out of Advanced", () => {
 test("NOIR S1 exposes its standard controls and hides unsupported extras", () => {
   const has = cardAvailability(snapshot({
     status: {
-      brand: "Noir Gear",
+      // The published 0.22 K-snake client identifies this model by name but
+      // still reports its protocol family as the brand.
+      brand: "K-snake",
       name: "NOIR S1",
       ui: {
         family: "ksnake",
         showAdvancedSection: true,
         hideSleepCard: true,
-        hideLodControl: true,
       },
       buttonMappings: {
         Left: "Left click",
@@ -422,7 +423,7 @@ test("NOIR S1 exposes its standard controls and hides unsupported extras", () =>
   assert.equal(has.lighting, true);
   assert.equal(has.lightingAdvanced, false);
   assert.equal(has.sleep, false);
-  assert.equal(has.sensor, false);
+  assert.equal(has.sensor, true, "surface capability is independent of lift-off control visibility");
 });
 
 test("the generic button card follows the driver\'s mappings, not the advanced section", () => {

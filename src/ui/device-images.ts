@@ -122,6 +122,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bsword\s*x\b/i.test(displayName)) return "wlmouse-sword-x.png";
   if (/\bdragonfly\s*f2\b/i.test(displayName)) return "vgn-dragonfly-f2.png";
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
+  if (/\bnoir\s*s1\b/i.test(displayName)) return "noir-s1.png";
   if (/k[\s-]*snake/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
   // Catches any A7 variant whose product id is not pinned above. V3 first, so

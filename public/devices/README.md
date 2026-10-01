@@ -166,6 +166,11 @@ previews, but it is deliberately not committed here. Before publishing the
 asset, Noir Gear must confirm redistribution rights or OpenMouse should use a
 maintainer-created silhouette instead.
 
+`noir-s1.png` is reserved for the NOIR S1 name-fallback mapping. The code PR
+does not include a vendor configurator render; request artwork separately via
+the Device artwork request template and confirm redistribution rights before
+the asset is uploaded.
+
 `delux-m800-mini.png` — the name-fallback mapping in `src/ui/device-images.ts`
 is in place (keyed on reported names like "Delux M800 Mini", "Delux M800 Pro",
 "Delux M800 Mini (Wireless)"). The render was supplied from Delux's official

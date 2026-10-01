@@ -1035,7 +1035,7 @@ export const zh: Record<I18nKey, string> = {
   "macro.steps": "{n} steps",
   "macro.empty": "empty",
   "macro.notice": "Saving updates the onboard macro table on the mouse.",
-  "macro.noticeM2nex": "M2-NEX slots start blank in OpenMouse. Saving rewrites the onboard macro table.",
+  "macro.noticeWriteOnly": "Macro slots start blank in OpenMouse. Saving rewrites the onboard macro table.",
   "macro.recorderHint": "Record input or add an action manually.",
   "macro.events": "{n} events",
   "macro.timingRecorded": "Recorded timing",

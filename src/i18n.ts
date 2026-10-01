@@ -1041,7 +1041,7 @@ const en = {
   "macro.steps": "{n} steps",
   "macro.empty": "empty",
   "macro.notice": "Saving updates the onboard macro table on the mouse.",
-  "macro.noticeM2nex": "M2-NEX slots start blank in OpenMouse. Saving rewrites the onboard macro table.",
+  "macro.noticeWriteOnly": "Macro slots start blank in OpenMouse. Saving rewrites the onboard macro table.",
   "macro.recording": "Recording input",
   "macro.addActions": "Add actions",
   "macro.recorderHint": "Record input or add an action manually.",

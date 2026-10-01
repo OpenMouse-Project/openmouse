@@ -21,6 +21,7 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
 import { isPulsarProProtocol } from "../../device/traits";
+import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
@@ -1541,8 +1542,8 @@ function cloneKsnakeMacroProfile(profile: KsnakeMacroProfile | undefined): Ksnak
 export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  const isM2Nex = status?.brand === "Noir Gear" && status.name === "M2-NEX";
-  const macroCapable = status?.ui?.family === "ksnake" || isM2Nex;
+  const isNoirKsnake = isNoirKsnakeStatus(status);
+  const macroCapable = status?.ui?.family === "ksnake" || isNoirKsnake;
   // Keep the card usable while an older hot-reloaded controller snapshot is
   // still missing the newly added field. Treat that state as "not loaded" so
   // the local editor is prepared instead of silently hiding the card.
@@ -1763,7 +1764,7 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         </div>
       </div>
       <p className="ksnake-macro-notice">
-        {isM2Nex ? t(locale, "macro.noticeM2nex") : t(locale, "macro.notice")}
+        {isNoirKsnake ? t(locale, "macro.noticeWriteOnly") : t(locale, "macro.notice")}
       </p>
       <label className="ksnake-macro-slot-picker">
         <span>{t(locale, "macro.slotLabel")}</span>
@@ -1953,15 +1954,15 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
-  const isNoirProfile = status.brand === "Noir Gear"
-    && (status.name === "M2-NEX" || status.name === "NOIR S1")
+  const isNoirProfile = isNoirKsnakeStatus(status)
     && snapshot.m2nexProfiles !== null;
   const selectedM2NexProfile = isNoirProfile
     ? snapshot.m2nexProfiles?.[snapshot.activeM2NexProfile]
     : null;
-  const isM2Nex = status.brand === "Noir Gear" && status.name === "M2-NEX";
   const canResetKsnake = isNoirProfile;
   const mappings = selectedM2NexProfile?.buttonMappings ?? status.buttonMappings;
+  const pendingButtons = new Set(snapshot.pending.keys);
+  const resettingButtons = pendingButtons.has("ksnake-button-reset");
   // fixedButtons lands with mouse-protocol#68; read defensively so this
   // builds against the published protocol until then.
   const fixed = new Set((status as unknown as { fixedButtons?: readonly string[] }).fixedButtons ?? []);
@@ -1970,9 +1971,11 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
       <div className="setting-heading compact"><div><p>BUTTONS</p><h2>{t(locale, "map.remap")}</h2></div></div>
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
-          const assigned = mappings[button] ?? deviceAssigned;
+          const assigned = resettingButtons || pendingButtons.has(`button-${button}`)
+            ? status.buttonMappings?.[button] ?? mappings[button] ?? deviceAssigned
+            : mappings[button] ?? deviceAssigned;
           const selectId = `button-${button.toLowerCase()}-select`;
-          const isFixed = fixed.has(button) || (isM2Nex && button === "Left");
+          const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left");
           return (
             <label key={button} className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
               <span className="button-map-control">

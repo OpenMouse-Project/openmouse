@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   M2NEX_PROFILE_STORAGE_KEY,
   NOIR_S1_PROFILE_COUNT,
+  NOIR_S1_PROFILE_STORAGE_KEY,
   defaultM2NexProfiles,
   loadM2NexProfiles,
   parseM2NexProfileImport,
@@ -79,4 +80,20 @@ test("S1 keeps six local slots and accepts the vendor profile envelope", () => {
   assert.equal(profiles.length, 6);
   assert.equal(imported?.length, NOIR_S1_PROFILE_COUNT);
   assert.equal(imported?.[5]?.name, "Profile 6");
+});
+
+test("S1 profiles use a separate six-slot browser-storage entry", () => {
+  const store = storage();
+  const profiles = defaultM2NexProfiles(seed(), NOIR_S1_PROFILE_COUNT);
+  profiles[5]!.name = "Productivity";
+
+  saveM2NexProfiles(store, profiles, { storageKey: NOIR_S1_PROFILE_STORAGE_KEY });
+  const loaded = loadM2NexProfiles(store, seed(), {
+    count: NOIR_S1_PROFILE_COUNT,
+    storageKey: NOIR_S1_PROFILE_STORAGE_KEY,
+  });
+
+  assert.equal(loaded.length, 6);
+  assert.equal(loaded[5]?.name, "Productivity");
+  assert.equal(store.getItem(M2NEX_PROFILE_STORAGE_KEY), null);
 });

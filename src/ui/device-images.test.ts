@@ -250,6 +250,11 @@ test("Noir Gear M2-NEX resolves to its maintainer-hosted artwork", () => {
   assert.equal(deviceImage(null, "Noir Gear M2-NEX"), CDN + "noir-m2-nex.png");
 });
 
+test("Noir S1 resolves to the reserved maintainer-hosted artwork filename", () => {
+  assert.equal(deviceImage(null, "NOIR S1"), CDN + "noir-s1.png");
+  assert.equal(deviceImage(null, "Noir Gear / NOIR S1"), CDN + "noir-s1.png");
+});
+
 test("Attack Shark X11 does not inherit K-snake artwork", () => {
   assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "unknown-device.png");

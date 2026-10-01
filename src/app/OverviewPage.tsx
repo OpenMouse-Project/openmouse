@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
+import { isNoirKsnakeStatus, isNoirS1Status, noirBrandLabel } from "../device/noir.ts";
 import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
@@ -137,7 +138,7 @@ function DeviceShowcase({ snapshot }: {
   return (
     <div className="device-showcase">
       <h1 className="device-showcase-name">{status.name}</h1>
-      <p className="device-showcase-brand">{status.brand}</p>
+      <p className="device-showcase-brand">{noirBrandLabel(status)}</p>
       <div className="device-diagram">
         <div
           className="device-diagram-canvas"
@@ -232,10 +233,9 @@ function DeviceShowcase({ snapshot }: {
 function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  const isNoirProfile = status?.brand === "Noir Gear"
-    && (status.name === "M2-NEX" || status.name === "NOIR S1");
+  const isNoirProfile = isNoirKsnakeStatus(status);
   const profileImportRef = useRef<HTMLInputElement>(null);
-  if (!isNoirProfile || snapshot.m2nexProfiles === null) return null;
+  if (!status || !isNoirProfile || snapshot.m2nexProfiles === null) return null;
   const profile = snapshot.m2nexProfiles[snapshot.activeM2NexProfile];
   if (!profile) return null;
   const applyDisabled = snapshot.settingInProgress || snapshot.pending.count > 0;
@@ -317,10 +317,9 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
-  const isNoirS1 = status.brand === "Noir Gear" && status.name === "NOIR S1";
+  const isNoirS1 = isNoirS1Status(status);
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
-    && status.brand === "Noir Gear"
-    && (status.name === "M2-NEX" || isNoirS1)
+    && isNoirKsnakeStatus(status)
     && status.buttonMappings != null;
 
   return (
@@ -369,7 +368,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
       </div>
       <div className="showcase-sidebar-info">
         <h2 className="showcase-sidebar-name">{status.name}</h2>
-        <p className="showcase-sidebar-brand">{status.brand}</p>
+        <p className="showcase-sidebar-brand">{noirBrandLabel(status)}</p>
       </div>
       <div className="showcase-sidebar-status">
         <span className="device-showcase-dot" aria-hidden="true" />
@@ -719,7 +718,8 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               const pollText = liveStatus?.pollingRateHz ? `${liveStatus.pollingRateHz} Hz` : "–";
               const batteryText = liveStatus?.batteryPercent != null ? `${liveStatus.batteryPercent}%` : "–%";
               const imageSrc = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
-              const imageClass = deviceImageFilename(device.name) === "noir-m2-nex.png"
+              const imageFilename = deviceImageFilename(device.name);
+              const imageClass = imageFilename === "noir-m2-nex.png" || imageFilename === "noir-s1.png"
                 ? " device-tile-image-is-portrait"
                 : "";
               return (
@@ -812,8 +812,7 @@ export function OverviewPage({
   const locale = preferences.locale;
 
   const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
-    hideLighting: status?.brand === "Noir Gear"
-      && (status.name === "M2-NEX" || status.name === "NOIR S1"),
+    hideLighting: isNoirKsnakeStatus(status),
   });
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
   const workspaceSnapshot = workspaceTab === snapshot.workspaceTab

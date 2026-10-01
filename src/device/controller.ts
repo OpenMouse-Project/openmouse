@@ -112,6 +112,7 @@ import {
   NOIR_S1_PROFILE_STORAGE_KEY,
   type M2NexProfile,
 } from "./m2nex-profiles";
+import { isNoirKsnakeStatus as isNoirKsnakeIdentity, isNoirS1Status as isNoirS1Identity } from "./noir.ts";
 import {
   LOGITECH_HAPTIC_EFFECTS,
   LOGITECH_HAPTIC_PRESETS,
@@ -288,6 +289,15 @@ const pulsarClient = (): PulsarClient | null =>
 let onboardProfiles: OnboardProfile[] | null = null;
 let buttons: LogitechReprogrammableControl[] | null = null;
 const KSNAKE_MACROS_KEY = "ksnake-macros";
+const KSNAKE_DEFAULT_BUTTON_MAPPINGS: Readonly<Record<string, string>> = {
+  Left: "Left click",
+  Right: "Right click",
+  Middle: "Middle click",
+  Forward: "Forward",
+  Backward: "Backward",
+  "Scroll up": "Scroll up",
+  "Scroll down": "Scroll down",
+};
 let ksnakeMacros: KsnakeMacroProfile[] | null = null;
 let stagedKsnakeMacros: KsnakeMacroProfile[] | null = null;
 let ksnakeMacrosLoading = false;
@@ -682,11 +692,11 @@ function ksnakeMacroClient(): KsnakeMacroClient | null {
 }
 
 function isM2NexStatus(status: MouseStatus | null | undefined = latestDeviceStatus): boolean {
-  return status?.brand === "Noir Gear" && (status.name === "M2-NEX" || status.name === "NOIR S1");
+  return isNoirKsnakeIdentity(status);
 }
 
 function isNoirS1Status(status: MouseStatus | null | undefined = latestDeviceStatus): boolean {
-  return status?.brand === "Noir Gear" && status.name === "NOIR S1";
+  return isNoirS1Identity(status);
 }
 
 function noirProfileStoreOptions(status: MouseStatus | null | undefined = latestDeviceStatus): {
@@ -700,6 +710,14 @@ function noirProfileStoreOptions(status: MouseStatus | null | undefined = latest
 
 function persistM2NexProfiles(): void {
   if (m2nexProfiles !== null) saveM2NexProfiles(localStorage, m2nexProfiles, noirProfileStoreOptions());
+}
+
+function syncActiveM2NexProfileButtonDefaults(): void {
+  if (!isM2NexStatus() || !m2nexProfiles?.[activeM2NexProfile]) return;
+  m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
+    ? { ...profile, buttonMappings: { ...profile.buttonMappings, ...KSNAKE_DEFAULT_BUTTON_MAPPINGS } }
+    : profile);
+  persistM2NexProfiles();
 }
 
 function profileMacroTable(): KsnakeMacroProfile[] | null {
@@ -839,7 +857,7 @@ export function importM2NexProfiles(text: string): void {
 /** Edit the selected profile without touching the mouse yet. */
 export function updateM2NexProfileButton(button: string, action: string): void {
   if (!isM2NexStatus() || !m2nexProfiles?.[activeM2NexProfile]) return;
-  if (button === "Left" && !isNoirS1Status()) return;
+  if (button === "Left") return;
   const current = m2nexProfiles[activeM2NexProfile];
   m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
     ? { ...profile, buttonMappings: { ...profile.buttonMappings, [button]: action } }
@@ -913,7 +931,7 @@ export async function applyM2NexProfile(index = activeM2NexProfile): Promise<voi
     const currentMappings = before.buttonMappings ?? {};
     const options = before.buttonOptions ?? [];
     for (const [button, action] of Object.entries(profile.buttonMappings)) {
-      if ((!isNoirS1Status() && button === "Left") || action.startsWith("Custom (") || action === "Unknown") continue;
+      if (button === "Left" || action.startsWith("Custom (") || action === "Unknown") continue;
       if (!options.includes(action) || currentMappings[button] === action) continue;
       pendingStatusText = `Applying ${profile.name}: ${button}…`;
       readStatus = pendingStatusText;
@@ -1053,7 +1071,9 @@ function stageChange(change: PendingChange): void {
     }
     for (const field of fields) gameProfileDraft.touched.add(field);
   }
-  if (matchesDeviceStatus(change)) {
+  // Reset repairs the profile cache too, so it must run even when the current
+  // hardware snapshot already appears to match the factory mapping.
+  if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
     dropPendingChange(change.key);
     setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
     return;
@@ -2952,9 +2972,7 @@ export function applyDpiStageCount(count: number): void {
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
-  const currentCount = latestDeviceStatus?.dpiStageCount
-    ?? latestDeviceStatus?.dpiStages?.length
-    ?? count;
+  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
   if (count < currentCount) {
     for (const change of pendingChanges()) {
       const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
@@ -2970,14 +2988,16 @@ export function applyDpiStageCount(count: number): void {
     progress: `Setting ${count} DPI stages…`,
     preview: (status) => {
       const current = status.dpiStages?.slice() ?? [];
-      const padded = current.slice();
-      while (padded.length < count) padded.push(padded.at(-1) ?? status.dpi);
-      status.dpiStages = padded;
-      status.dpiStageCount = count;
+      status.dpiStages = count <= current.length
+        ? current.slice(0, count)
+        : [...current, ...Array.from({ length: count - current.length }, () => current.at(-1) ?? status.dpi)];
       if (status.dpiStageColors) {
-        const colors = status.dpiStageColors.slice();
-        while (colors.length < count) colors.push(colors.at(-1) ?? "#000000");
-        status.dpiStageColors = colors;
+        status.dpiStageColors = count <= status.dpiStageColors.length
+          ? status.dpiStageColors.slice(0, count)
+          : [...status.dpiStageColors, ...Array.from(
+            { length: count - status.dpiStageColors.length },
+            () => status.dpiStageColors?.at(-1) ?? "#000000",
+          )];
       }
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
@@ -4785,22 +4805,18 @@ export function resetKsnakeButtonMappings(): void {
     progress: "Restoring default button mapping…",
     preview: (status) => {
       if (!status.buttonMappings) return;
-      const defaults: Record<string, string> = {
-        Left: "Left click",
-        Right: "Right click",
-        Middle: "Middle click",
-        Forward: "Forward",
-        Backward: "Backward",
-        "Scroll up": "Scroll up",
-        "Scroll down": "Scroll down",
-        DPI: "DPI loop",
-      };
       status.buttonMappings = Object.fromEntries(
-        Object.keys(status.buttonMappings).map((button) => [button, defaults[button] ?? status.buttonMappings?.[button] ?? "Unknown"]),
+        Object.keys(status.buttonMappings).map((button) => [
+          button,
+          KSNAKE_DEFAULT_BUTTON_MAPPINGS[button] ?? status.buttonMappings?.[button] ?? "Unknown",
+        ]),
       );
     },
     apply: async () => {
       await client.resetButtonMappings!();
+      // Firmware write acknowledgement is usable, but its map read-back is
+      // not trustworthy; keep the selected local profile aligned with reset.
+      syncActiveM2NexProfileButtonDefaults();
     },
   });
 }

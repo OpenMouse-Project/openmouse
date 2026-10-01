@@ -1,5 +1,6 @@
 import { selectableValues } from "../../device/options.ts";
 import { isPulsarProProtocol } from "../../device/traits.ts";
+import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import type { ControlSnapshot } from "../../device/types";
 
 export interface CardAvailability {
@@ -95,10 +96,9 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
   const { traits, capabilities } = snapshot;
   const ready = !snapshot.settingsPending;
   const host = traits.advancedSection;
-  const isNoirKsnake = status.brand === "Noir Gear"
-    && (status.name === "M2-NEX" || status.name === "NOIR S1");
+  const isNoirKsnake = isNoirKsnakeStatus(status);
 
-  const sensor = ui?.hideLodControl !== true && !(!status.gamingSurfaceMode
+  const sensor = !(!status.gamingSurfaceMode
     && Array.isArray(status.supportedLiftOffDistances)
     && status.supportedLiftOffDistances.length === 0);
 

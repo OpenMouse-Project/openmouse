@@ -6,6 +6,7 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
+import { isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLORS } from "../../device/noir.ts";
 import { closestDpiOption, dpiPresetValues } from "../../dpi-presets";
 import { t, tp } from "../../i18n";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
@@ -48,7 +49,9 @@ function DpiStageEditor({
 
   const naturalMode: "logitech" | "stage" | "generic" = isLogitech ? "logitech" : isStage ? "stage" : "generic";
   const mode: "logitech" | "stage" | "generic" = editorView === "single" ? "generic" : naturalMode;
-  const stageColors = mode === "stage" ? status?.dpiStageColors ?? null : null;
+  const stageColors = mode === "stage"
+    ? status?.dpiStageColors ?? (isNoirKsnakeStatus(status) ? NOIR_DPI_STAGE_COLORS : null)
+    : null;
   const showStageColors = mode === "stage"
     && (stageColors?.length ?? 0) >= (status?.dpiStages?.length ?? 0);
   const limits = snapshot.profile.slotLimits;
@@ -70,15 +73,7 @@ function DpiStageEditor({
     if (mode === "stage" && status?.dpiStages) {
       const stages = status.dpiStages.slice(0, rowCap);
       const last = stages[stages.length - 1] ?? status.dpi ?? 800;
-      const activeStageCount = Math.min(
-        Math.max(status.dpiStageCount ?? stages.length, 0),
-        stages.length,
-      );
-      const rows = stages.map((value, index) => ({
-        enabled: index < activeStageCount,
-        value: String(value),
-        lod: DEFAULT_LOD,
-      }));
+      const rows = stages.map((value) => ({ enabled: true, value: String(value), lod: DEFAULT_LOD }));
       while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD });
       return rows;
     }
@@ -113,7 +108,7 @@ function DpiStageEditor({
   const sourceSig = mode === "logitech"
     ? (snapshot.dpiSlotPlan?.stages.map((stage) => stage.x).join(",") ?? "-")
     : mode === "stage"
-      ? `${status?.dpiStageCount ?? status?.dpiStages?.length ?? 0}:${status?.dpiStages?.join(",") ?? "-"}`
+      ? (status?.dpiStages?.join(",") ?? "-")
       : String(status?.dpi ?? 0);
   const lastSigRef = useRef(sourceSig);
   useEffect(() => {
@@ -162,7 +157,7 @@ function DpiStageEditor({
     if (mode === "stage") {
       const enabled = next.filter((row) => row.enabled);
       const current = status?.dpiStages ?? [];
-      const currentCount = status?.dpiStageCount ?? current.length;
+      const currentCount = current.length;
       if (stageEditor?.countEditable === true && enabled.length !== currentCount) {
         control.applyDpiStageCount(enabled.length);
       }
@@ -476,7 +471,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
-  const singleDpiAvailable = status?.ui?.hideSingleDpi !== true;
+  const singleDpiAvailable = !isNoirS1Status(status);
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 
