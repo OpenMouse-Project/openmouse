@@ -6,6 +6,7 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
+import { isNoirE1Status, isNoirKsnakeStatus, NOIR_DPI_STAGE_COLORS } from "../../device/noir.ts";
 import { closestDpiOption, dpiPresetValues } from "../../dpi-presets";
 import { t, tp } from "../../i18n";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
@@ -48,7 +49,11 @@ function DpiStageEditor({
 
   const naturalMode: "logitech" | "stage" | "generic" = isLogitech ? "logitech" : isStage ? "stage" : "generic";
   const mode: "logitech" | "stage" | "generic" = editorView === "single" ? "generic" : naturalMode;
-  const showM2NexStageColors = mode === "stage" && status?.brand === "Noir Gear" && status.name === "M2-NEX";
+  const stageColors = mode === "stage"
+    ? status?.dpiStageColors ?? (isNoirKsnakeStatus(status) ? NOIR_DPI_STAGE_COLORS : null)
+    : null;
+  const showM2NexStageColors = mode === "stage"
+    && (stageColors?.length ?? 0) >= (status?.dpiStages?.length ?? 0);
   const limits = snapshot.profile.slotLimits;
   // The single-DPI (generic) view writes the live DPI, not the profile, so it
   // must not be gated behind the profile's slot-write lock.
@@ -286,10 +291,12 @@ function DpiStageEditor({
             : false;
           const highlighted = mode === "generic" ? row.enabled : mode === "stage" ? isActive === true : isStarting;
           const stageColorClass = showM2NexStageColors ? ` m2nex-stage-${index + 1}` : "";
+          const stageColor = showM2NexStageColors ? stageColors?.[index] : undefined;
           return (
             <div
               key={index}
               className={`dpi-editor-row${row.enabled ? "" : " is-off"}${highlighted ? " is-active" : ""}${stageColorClass}`}
+              style={stageColor ? { "--dpi-stage-color": stageColor } as CSSProperties : undefined}
             >
               <label className="dpi-editor-check">
                 <input
@@ -453,6 +460,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
+  const singleDpiAvailable = !isNoirE1Status(status);
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 
@@ -473,7 +481,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                 ) : null}
               </h2>
             </div>
-            {stageCapable ? (
+            {stageCapable && singleDpiAvailable ? (
               <div
                 className="dpi-view-toggle"
                 role="group"
@@ -535,7 +543,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
         <DpiStageEditor
           snapshot={snapshot}
-          editorView={stageCapable ? editorView : undefined}
+          editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}
         />
 
         <div className="setting-action">

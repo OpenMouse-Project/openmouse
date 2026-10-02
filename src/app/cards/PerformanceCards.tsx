@@ -6,6 +6,7 @@ import {
   reportRatesFor,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
+import { isNoirE1Status } from "../../device/noir.ts";
 import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
@@ -204,6 +205,7 @@ export function SensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
 export function hasLiftOff(snapshot: ControlSnapshot): boolean {
   const status = snapshot.status;
   if (!status || snapshot.profile.slotsAvailable) return false;
+  if (isNoirE1Status(status)) return false;
   return Boolean(status.asymmetricLiftOff)
     || Boolean(status.liftOffScale)
     || status.liftOffDistance != null

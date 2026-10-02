@@ -107,8 +107,11 @@ import {
   cloneM2NexProfile,
   loadM2NexProfiles,
   saveM2NexProfiles,
+  NOIR_E1_PROFILE_COUNT,
+  NOIR_E1_PROFILE_STORAGE_KEY,
   type M2NexProfile,
 } from "./m2nex-profiles";
+import { isNoirE1Status, isNoirKsnakeStatus } from "./noir.ts";
 import {
   LOGITECH_HAPTIC_EFFECTS,
   LOGITECH_HAPTIC_PRESETS,
@@ -668,6 +671,7 @@ type M2NexProfileClient = KsnakeMacroClient & {
   setDpiStageValue(stage: number, dpi: number): Promise<unknown>;
   setActiveDpiStage(stage: number): Promise<unknown>;
   setPollingRate(rate: number): Promise<unknown>;
+  setScrollDirection?(direction: NonNullable<MouseStatus["scrollDirection"]>): Promise<unknown>;
 };
 
 function ksnakeMacroClient(): KsnakeMacroClient | null {
@@ -677,12 +681,24 @@ function ksnakeMacroClient(): KsnakeMacroClient | null {
     : null;
 }
 
-function isM2NexStatus(status: MouseStatus | null | undefined = latestDeviceStatus): boolean {
-  return status?.brand === "Noir Gear" && status.name === "M2-NEX";
+function isNoirProfileDevice(status: MouseStatus | null | undefined = latestDeviceStatus): boolean {
+  return isNoirKsnakeStatus(status);
+}
+
+function noirProfileStoreOptions(status: MouseStatus | null | undefined = latestDeviceStatus): {
+  count?: number;
+  storageKey?: string;
+} | undefined {
+  if (isNoirE1Status(status)) {
+    return { count: NOIR_E1_PROFILE_COUNT, storageKey: NOIR_E1_PROFILE_STORAGE_KEY };
+  }
+  return undefined;
 }
 
 function persistM2NexProfiles(): void {
-  if (m2nexProfiles !== null) saveM2NexProfiles(localStorage, m2nexProfiles);
+  if (m2nexProfiles !== null) {
+    saveM2NexProfiles(localStorage, m2nexProfiles, noirProfileStoreOptions());
+  }
 }
 
 function profileMacroTable(): KsnakeMacroProfile[] | null {
@@ -692,7 +708,7 @@ function profileMacroTable(): KsnakeMacroProfile[] | null {
 }
 
 function seedM2NexProfiles(status: MouseStatus): void {
-  if (!isM2NexStatus(status)) {
+  if (!isNoirProfileDevice(status)) {
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -704,8 +720,9 @@ function seedM2NexProfiles(status: MouseStatus): void {
     activeDpiStage: status.activeDpiStage,
     pollingRateHz: status.pollingRateHz,
     buttonMappings: status.buttonMappings,
+    scrollDirection: status.scrollDirection,
     macros: null,
-  });
+  }, noirProfileStoreOptions(status));
   activeM2NexProfile = Math.min(activeM2NexProfile, m2nexProfiles.length - 1);
   m2nexProfileDirty = false;
 }
@@ -744,7 +761,7 @@ export function loadKsnakeMacros(): void {
   }
   ksnakeMacrosLoading = false;
   ksnakeMacrosError = null;
-  if (isM2NexStatus() && m2nexProfiles?.[activeM2NexProfile]) setEditorToM2NexProfile();
+  if (isNoirProfileDevice() && m2nexProfiles?.[activeM2NexProfile]) setEditorToM2NexProfile();
   else ksnakeMacros = cloneKsnakeMacros([]);
   stagedKsnakeMacros = null;
   emit();
@@ -752,7 +769,7 @@ export function loadKsnakeMacros(): void {
 
 /** Select one of the local M2-NEX profile slots. The device is unchanged until Apply profile. */
 export function selectM2NexProfile(index: number): void {
-  if (!isM2NexStatus() || !m2nexProfiles?.[index]) return;
+  if (!isNoirProfileDevice() || !m2nexProfiles?.[index]) return;
   if (hasPendingChanges()) {
     setReadStatus(st("m2nex.switchBlocked"));
     return;
@@ -765,7 +782,7 @@ export function selectM2NexProfile(index: number): void {
 
 /** Edit the selected profile without touching the mouse yet. */
 export function updateM2NexProfileButton(button: string, action: string): void {
-  if (!isM2NexStatus() || !m2nexProfiles?.[activeM2NexProfile]) return;
+  if (!isNoirProfileDevice() || !m2nexProfiles?.[activeM2NexProfile]) return;
   if (button === "Left") return;
   const current = m2nexProfiles[activeM2NexProfile];
   m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
@@ -779,7 +796,7 @@ export function updateM2NexProfileButton(button: string, action: string): void {
 
 /** Save the currently displayed device settings into the selected local slot. */
 export function saveCurrentM2NexProfile(): void {
-  if (!isM2NexStatus() || !latestDeviceStatus || !m2nexProfiles?.[activeM2NexProfile]) return;
+  if (!isNoirProfileDevice() || !latestDeviceStatus || !m2nexProfiles?.[activeM2NexProfile]) return;
   const status = withPendingChanges(latestDeviceStatus);
   const current = m2nexProfiles[activeM2NexProfile];
   const macros = profileMacroTable();
@@ -790,6 +807,7 @@ export function saveCurrentM2NexProfile(): void {
         activeDpiStage: status.activeDpiStage ?? 0,
         pollingRateHz: status.pollingRateHz,
         buttonMappings: { ...(status.buttonMappings ?? {}) },
+        ...(status.scrollDirection ? { scrollDirection: status.scrollDirection } : {}),
         macros: macros ?? profile.macros,
       }
     : profile);
@@ -802,7 +820,7 @@ export function saveCurrentM2NexProfile(): void {
 
 /** Apply a complete local M2-NEX profile through the same verified setters as the individual controls. */
 export async function applyM2NexProfile(index = activeM2NexProfile): Promise<void> {
-  if (!isM2NexStatus() || !latestDeviceStatus || !m2nexProfiles?.[index]) return;
+  if (!isNoirProfileDevice() || !latestDeviceStatus || !m2nexProfiles?.[index]) return;
   if (hasPendingChanges()) {
     setReadStatus(st("m2nex.applyBlocked"));
     return;
@@ -866,6 +884,13 @@ export async function applyM2NexProfile(index = activeM2NexProfile): Promise<voi
       emit();
       await rawClient.setPollingRate(profile.pollingRateHz);
     }
+    if (profile.scrollDirection && before.scrollDirection !== profile.scrollDirection
+      && typeof rawClient.setScrollDirection === "function") {
+      pendingStatusText = `Applying ${profile.name}: scroll direction…`;
+      readStatus = pendingStatusText;
+      emit();
+      await rawClient.setScrollDirection(profile.scrollDirection);
+    }
 
     const status = await statusAfterWrite(active as SupportedClient);
     applyStatus(status);
@@ -908,7 +933,7 @@ export function applyKsnakeMacro(slot: number, profile: KsnakeMacroProfile): voi
       if (active === client) {
         ksnakeMacros = cloneKsnakeMacros(next);
         stagedKsnakeMacros = null;
-        if (isM2NexStatus() && m2nexProfiles?.[activeM2NexProfile]) {
+        if (isNoirProfileDevice() && m2nexProfiles?.[activeM2NexProfile]) {
           m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
             ? { ...profile, macros: cloneKsnakeMacros(next) }
             : profile);
@@ -2451,8 +2476,8 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     // tuning are editable on the first status snapshot.
     capabilities = readCapabilities();
     applyStatus(status);
-    if (isM2NexStatus(status) && m2nexProfiles === null) seedM2NexProfiles(status);
-    if (!isM2NexStatus(status)) {
+    if (isNoirProfileDevice(status) && m2nexProfiles === null) seedM2NexProfiles(status);
+    if (!isNoirProfileDevice(status)) {
       m2nexProfiles = null;
       activeM2NexProfile = 0;
       m2nexProfileDirty = false;

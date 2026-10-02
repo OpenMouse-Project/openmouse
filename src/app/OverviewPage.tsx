@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
+import { isNoirE1Status, isNoirKsnakeStatus, noirBrandLabel } from "../device/noir.ts";
 import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
@@ -94,8 +95,20 @@ const M2_NEX_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPositi
   "scroll down": { x: 0.62, y: 0.29 },
 };
 
+const NOIR_E1_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPosition>> = {
+  left: { x: 0.28, y: 0.2 },
+  right: { x: 0.72, y: 0.2 },
+  middle: { x: 0.5, y: 0.18 },
+  forward: { x: 0.08, y: 0.32 },
+  backward: { x: 0.08, y: 0.5 },
+};
+
 function m2NexButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
   return M2_NEX_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
+}
+
+function noirE1ButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
+  return NOIR_E1_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
 }
 
 // Device artwork requests go straight to the documented GitHub issue form
@@ -219,7 +232,7 @@ function DeviceShowcase({ snapshot }: {
 function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  if (status?.brand !== "Noir Gear" || status.name !== "M2-NEX" || snapshot.m2nexProfiles === null) return null;
+  if (!status || !isNoirKsnakeStatus(status) || snapshot.m2nexProfiles === null) return null;
   const profile = snapshot.m2nexProfiles[snapshot.activeM2NexProfile];
   if (!profile) return null;
   const applyDisabled = snapshot.settingInProgress || snapshot.pending.count > 0;
@@ -227,16 +240,16 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
     <section
       id="m2nex-profile-overview"
       className="m2nex-profile-overview"
-      aria-label={t(locale, "m2nex.controls")}
+      aria-label={`${status.name} ${t(locale, "m2nex.controls")}`}
     >
       <div className="m2nex-profile-overview-title">
         <span>{t(locale, "m2nex.overline")}</span>
-        <strong>{t(locale, "m2nex.label")}</strong>
+        <strong>{status.name}</strong>
       </div>
       <label className="m2nex-profile-overview-picker" htmlFor="m2nex-profile-overview-select">
         <select
           id="m2nex-profile-overview-select"
-          aria-label={t(locale, "m2nex.select")}
+          aria-label={`${status.name} profile`}
           value={snapshot.activeM2NexProfile}
           disabled={snapshot.settingInProgress || snapshot.pending.busy}
           onChange={(event) => control.selectM2NexProfile(Number(event.currentTarget.value))}
@@ -275,9 +288,9 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const isNoirE1 = isNoirE1Status(status);
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
-    && status.brand === "Noir Gear"
-    && status.name === "M2-NEX"
+    && isNoirKsnakeStatus(status)
     && status.buttonMappings != null;
 
   return (
@@ -295,20 +308,30 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
               }}
             />
             <div className="button-map-markers" aria-hidden="true">
-              {Object.keys(status.buttonMappings ?? {}).map((button, index) => {
-                const position = m2NexButtonMarkerPosition(button);
-                if (!position) return null;
-                return (
-                  <span
-                    key={button}
-                    className="button-map-marker"
-                    style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                );
-              })}
+              {Object.keys(status.buttonMappings ?? {})
+                .filter((button) => !isNoirE1 || button.trim().toLowerCase() !== "dpi")
+                .map((button, index) => {
+                  const position = isNoirE1 ? noirE1ButtonMarkerPosition(button) : m2NexButtonMarkerPosition(button);
+                  if (!position) return null;
+                  return (
+                    <span
+                      key={button}
+                      className="button-map-marker"
+                      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  );
+                })}
             </div>
+            {isNoirE1 ? (
+              <div className="button-map-underside-callout" aria-hidden="true">
+                <span className="button-map-underside-badge">
+                  <span className="button-map-underside-number">06</span>
+                  <span>DPI <small>UNDERSIDE</small></span>
+                </span>
+              </div>
+            ) : null}
           </div>
         ) : (
           <img
@@ -324,7 +347,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
       </div>
       <div className="showcase-sidebar-info">
         <h2 className="showcase-sidebar-name">{status.name}</h2>
-        <p className="showcase-sidebar-brand">{status.brand}</p>
+        <p className="showcase-sidebar-brand">{noirBrandLabel(status)}</p>
       </div>
       <div className="showcase-sidebar-status">
         <span className="device-showcase-dot" aria-hidden="true" />
@@ -674,7 +697,8 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               const pollText = liveStatus?.pollingRateHz ? `${liveStatus.pollingRateHz} Hz` : "–";
               const batteryText = liveStatus?.batteryPercent != null ? `${liveStatus.batteryPercent}%` : "–%";
               const imageSrc = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
-              const imageClass = deviceImageFilename(device.name) === "noir-m2-nex.png"
+              const imageFilename = deviceImageFilename(device.name);
+              const imageClass = imageFilename === "noir-m2-nex.png" || imageFilename === "noir-e1.png"
                 ? " device-tile-image-is-portrait"
                 : "";
               return (
@@ -767,7 +791,7 @@ export function OverviewPage({
   const locale = preferences.locale;
 
   const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
-    hideLighting: status?.brand === "Noir Gear" && status.name === "M2-NEX",
+    hideLighting: isNoirKsnakeStatus(status),
   });
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
   const workspaceSnapshot = workspaceTab === snapshot.workspaceTab
