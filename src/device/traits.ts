@@ -91,6 +91,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // no signal, sleep or debounce card exists, and the processing card is
   // deliberately hidden, so no advanced-section flags are needed.
   hyperx: {},
+  "cooler master": { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
