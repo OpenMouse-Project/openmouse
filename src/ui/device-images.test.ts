@@ -253,6 +253,7 @@ test("K-snake X11 resolves by name regardless of transport", () => {
 test("Noir Gear M2-NEX resolves to its maintainer-hosted artwork", () => {
   assert.equal(deviceImage(null, "M2-NEX"), CDN + "noir-m2-nex.png");
   assert.equal(deviceImage(null, "Noir Gear M2-NEX"), CDN + "noir-m2-nex.png");
+  assert.equal(deviceImage(null, "NOIR E1"), CDN + "noir-e1.png");
 });
 
 test("Noir S1 resolves to the reserved maintainer-hosted artwork filename", () => {

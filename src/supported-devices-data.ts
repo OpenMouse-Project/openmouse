@@ -562,6 +562,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "MSI", model: "Clutch GM41 Lightweight Wireless (Stalker 2 Edition)", status: "pending" },
   { brand: "MSI", model: "GM340", status: "pending" },
   { brand: "MSI", model: "Versa 300", status: "pending" },
+  { brand: "Noir Gear", model: "NOIR E1", status: "pending", pids: [0x2255] },
   { brand: "Noir Gear", model: "S1 Series", status: "pending" },
   { brand: "NOS", model: "M750", status: "pending" },
   { brand: "NOS", model: "M800", status: "pending" },

@@ -7,6 +7,9 @@ export const M2NEX_PROFILE_STORAGE_KEY = "openmouse.m2-nex.profiles.v1";
 /** S1's official configurator exposes six local profile slots. */
 export const NOIR_S1_PROFILE_COUNT = 6;
 export const NOIR_S1_PROFILE_STORAGE_KEY = "openmouse.noir-s1.profiles.v1";
+/** E1 keeps its six configurator slots separate from M2-NEX local data. */
+export const NOIR_E1_PROFILE_COUNT = 6;
+export const NOIR_E1_PROFILE_STORAGE_KEY = "openmouse.noir-e1.profiles.v1";
 
 export interface M2NexProfile {
   id: number;
@@ -24,6 +27,11 @@ export interface M2NexProfile {
 interface StoredM2NexProfiles {
   version: 1;
   profiles: M2NexProfile[];
+}
+
+export interface M2NexProfileStoreOptions {
+  count?: number;
+  storageKey?: string;
 }
 
 export type M2NexProfileSeed = Pick<
@@ -67,12 +75,10 @@ function seedProfile(id: number, seed: M2NexProfileSeed): M2NexProfile {
   };
 }
 
-export interface M2NexProfileStoreOptions {
-  count?: number;
-  storageKey?: string;
-}
-
-export function defaultM2NexProfiles(seed: M2NexProfileSeed, count = M2NEX_PROFILE_COUNT): M2NexProfile[] {
+export function defaultM2NexProfiles(
+  seed: M2NexProfileSeed,
+  count = M2NEX_PROFILE_COUNT,
+): M2NexProfile[] {
   return Array.from({ length: count }, (_, id) => seedProfile(id, seed));
 }
 

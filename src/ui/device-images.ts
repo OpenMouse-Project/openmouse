@@ -173,6 +173,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // retail shell. Keep its artwork match name-based so USB and 2.4 GHz
   // receiver connections resolve to the same product image.
   if (/m2\s*[-_]?\s*nex/i.test(displayName)) return "noir-m2-nex.png";
+  if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
   if (/fantech/i.test(displayName)) return "unknown-device.png";
   return "unknown-device.png";
 }

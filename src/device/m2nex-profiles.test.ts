@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  NOIR_E1_PROFILE_COUNT,
+  NOIR_E1_PROFILE_STORAGE_KEY,
   M2NEX_PROFILE_STORAGE_KEY,
   NOIR_S1_PROFILE_COUNT,
   NOIR_S1_PROFILE_STORAGE_KEY,
@@ -96,4 +98,23 @@ test("S1 profiles use a separate six-slot browser-storage entry", () => {
   assert.equal(loaded.length, 6);
   assert.equal(loaded[5]?.name, "Productivity");
   assert.equal(store.getItem(M2NEX_PROFILE_STORAGE_KEY), null);
+});
+test("E1 has six isolated local profile slots without changing M2-NEX storage", () => {
+  const store = storage();
+  const profiles = defaultM2NexProfiles(seed(), NOIR_E1_PROFILE_COUNT);
+  profiles[0]!.name = "E1 gaming";
+  saveM2NexProfiles(store, profiles, {
+    count: NOIR_E1_PROFILE_COUNT,
+    storageKey: NOIR_E1_PROFILE_STORAGE_KEY,
+  });
+
+  const loaded = loadM2NexProfiles(store, seed(), {
+    count: NOIR_E1_PROFILE_COUNT,
+    storageKey: NOIR_E1_PROFILE_STORAGE_KEY,
+  });
+  const m2nex = loadM2NexProfiles(store, seed());
+  assert.equal(loaded.length, 6);
+  assert.equal(loaded[0]?.name, "E1 gaming");
+  assert.equal(m2nex.length, 3);
+  assert.notEqual(NOIR_E1_PROFILE_STORAGE_KEY, M2NEX_PROFILE_STORAGE_KEY);
 });

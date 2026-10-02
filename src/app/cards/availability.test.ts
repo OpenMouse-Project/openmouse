@@ -454,6 +454,34 @@ test("the generic button card follows the driver\'s mappings, not the advanced s
   assert.equal(has.processing, false, "the rest of the advanced section stays closed");
 });
 
+test("NOIR E1 gets the same core configurator controls even without a family hint", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      name: "NOIR E1",
+      ui: { showAdvancedSection: true },
+      buttonMappings: {
+        Left: "Left click",
+        Right: "Right click",
+        Middle: "Middle click",
+        Forward: "Forward",
+        Backward: "Backward",
+        DPI: "DPI loop",
+      },
+      buttonOptions: ["Left click", "Right click", "Scroll up", "DPI loop"],
+      dpiStages: [800, 1200, 1600, 3200, 5000, 12000],
+      scrollDirection: "Forward",
+      lighting: {} as never,
+    },
+  }));
+  assert.equal(has.dpi, true);
+  assert.equal(has.polling, true);
+  assert.equal(has.buttonMapping, true);
+  assert.equal(has.ksnakeScroll, true);
+  assert.equal(has.ksnakeMacros, true);
+  assert.equal(has.lightingAdvanced, false);
+});
+
 test("the G-Wolves XVI generation opens sleep, debounce and processing, but not signal", () => {
   const cards = cardAvailability(snapshot({
     status: {
