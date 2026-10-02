@@ -21,6 +21,7 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
 import { isPulsarProProtocol } from "../../device/traits";
+import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
@@ -1541,8 +1542,8 @@ function cloneKsnakeMacroProfile(profile: KsnakeMacroProfile | undefined): Ksnak
 export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  const isM2Nex = status?.brand === "Noir Gear" && status.name === "M2-NEX";
-  const macroCapable = status?.ui?.family === "ksnake" || isM2Nex;
+  const isNoirKsnake = isNoirKsnakeStatus(status);
+  const macroCapable = status?.ui?.family === "ksnake" || isNoirKsnake;
   // Keep the card usable while an older hot-reloaded controller snapshot is
   // still missing the newly added field. Treat that state as "not loaded" so
   // the local editor is prepared instead of silently hiding the card.
@@ -1756,7 +1757,7 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         </div>
       </div>
       <p className="ksnake-macro-notice">
-        {isM2Nex ? t(locale, "macro.noticeM2nex") : t(locale, "macro.notice")}
+        {isNoirKsnake ? t(locale, "macro.noticeM2nex") : t(locale, "macro.notice")}
       </p>
       <label className="ksnake-macro-slot-picker">
         <span>{t(locale, "macro.slotLabel")}</span>
@@ -1940,9 +1941,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
-  const isM2Nex = status.brand === "Noir Gear"
-    && status.name === "M2-NEX"
-    && snapshot.m2nexProfiles !== null;
+  const isM2Nex = isNoirKsnakeStatus(status) && snapshot.m2nexProfiles !== null;
   const selectedM2NexProfile = isM2Nex
     ? snapshot.m2nexProfiles?.[snapshot.activeM2NexProfile]
     : null;
