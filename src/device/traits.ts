@@ -92,6 +92,7 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // deliberately hidden, so no advanced-section flags are needed.
   hyperx: {},
   "cooler master": { advancedSection: true, debounce: true },
+  "coolermaster-mm711": { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
@@ -102,6 +103,7 @@ const BY_BRAND: Readonly<Record<string, string>> = {
   Logitech: "logitech-hidpp",
   "Attack Shark": "attack-shark",
   IPI: "bytech",
+  "Cooler Master": "cooler master",
 };
 
 export function familyOf(status: MouseStatus): string {
