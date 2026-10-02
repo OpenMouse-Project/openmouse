@@ -96,6 +96,11 @@ test("Dareu A950 PRO Mg resolves by name", () => {
   assert.equal(deviceImage(null, "Dareu A950 PRO Mg"), CDN + "dareu-a950-pro-mg.png");
 });
 
+test("Cooler Master MM711 resolves by name", () => {
+  assert.equal(deviceImage(null, "Cooler Master MM711"), CDN + "coolermaster-mm711.png");
+  assert.equal(deviceImage(null, "MM711"), CDN + "coolermaster-mm711.png");
+});
+
 test("Delux M800 Mini and M800 family resolve by name", () => {
   assert.equal(deviceImage(null, "Delux M800 Mini"), "/devices/delux-m800-mini.png");
   assert.equal(deviceImage(null, "Delux M800 Mini (Wireless)"), "/devices/delux-m800-mini.png");
