@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../device/controller";
-import { isNoirKsnakeStatus, isNoirS1Status, noirBrandLabel } from "../device/noir.ts";
+import { isNoirE1Status, isNoirKsnakeStatus, isNoirS1Status, noirBrandLabel } from "../device/noir.ts";
 import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { Diagnostics, LogitechDetails } from "./Diagnostics";
@@ -104,12 +104,24 @@ const NOIR_S1_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPosit
   dpi: { x: 0.5, y: 0.42 },
 };
 
+const NOIR_E1_BUTTON_MARKER_POSITIONS: Readonly<Record<string, ButtonMarkerPosition>> = {
+  left: { x: 0.28, y: 0.2 },
+  right: { x: 0.72, y: 0.2 },
+  middle: { x: 0.5, y: 0.18 },
+  forward: { x: 0.08, y: 0.32 },
+  backward: { x: 0.08, y: 0.5 },
+};
+
 function m2NexButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
   return M2_NEX_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
 }
 
 function noirS1ButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
   return NOIR_S1_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
+}
+
+function noirE1ButtonMarkerPosition(button: string): ButtonMarkerPosition | null {
+  return NOIR_E1_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
 }
 
 // Device artwork requests go straight to the documented GitHub issue form
@@ -247,12 +259,12 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
     >
       <div className="m2nex-profile-overview-title">
         <span>{t(locale, "m2nex.overline")}</span>
-        <strong>{t(locale, "m2nex.label")}</strong>
+        <strong>{status.name}</strong>
       </div>
       <label className="m2nex-profile-overview-picker" htmlFor="m2nex-profile-overview-select">
         <select
           id="m2nex-profile-overview-select"
-          aria-label={t(locale, "m2nex.select")}
+          aria-label={`${status.name} profile`}
           value={snapshot.activeM2NexProfile}
           disabled={snapshot.settingInProgress || snapshot.pending.busy}
           onChange={(event) => control.selectM2NexProfile(Number(event.currentTarget.value))}
@@ -318,6 +330,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
   const isNoirS1 = isNoirS1Status(status);
+  const isNoirE1 = isNoirE1Status(status);
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
     && isNoirKsnakeStatus(status)
     && status.buttonMappings != null;
@@ -337,22 +350,34 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
               }}
             />
             <div className="button-map-markers" aria-hidden="true">
-              {Object.keys(status.buttonMappings ?? {}).map((button, index) => {
-                const position = isNoirS1
-                  ? noirS1ButtonMarkerPosition(button)
-                  : m2NexButtonMarkerPosition(button);
-                if (!position) return null;
-                return (
-                  <span
-                    key={button}
-                    className="button-map-marker"
-                    style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                );
-              })}
+              {Object.keys(status.buttonMappings ?? {})
+                .filter((button) => !isNoirE1 || button.trim().toLowerCase() !== "dpi")
+                .map((button, index) => {
+                  const position = isNoirS1
+                    ? noirS1ButtonMarkerPosition(button)
+                    : isNoirE1
+                      ? noirE1ButtonMarkerPosition(button)
+                      : m2NexButtonMarkerPosition(button);
+                  if (!position) return null;
+                  return (
+                    <span
+                      key={button}
+                      className="button-map-marker"
+                      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  );
+                })}
             </div>
+            {isNoirE1 ? (
+              <div className="button-map-underside-callout" aria-hidden="true">
+                <span className="button-map-underside-badge">
+                  <span className="button-map-underside-number">06</span>
+                  <span>DPI <small>UNDERSIDE</small></span>
+                </span>
+              </div>
+            ) : null}
           </div>
         ) : (
           <img
@@ -719,7 +744,7 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               const batteryText = liveStatus?.batteryPercent != null ? `${liveStatus.batteryPercent}%` : "–%";
               const imageSrc = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
               const imageFilename = deviceImageFilename(device.name);
-              const imageClass = imageFilename === "noir-m2-nex.png" || imageFilename === "noir-s1.png"
+              const imageClass = imageFilename === "noir-m2-nex.png" || imageFilename === "noir-s1.png" || imageFilename === "noir-e1.png"
                 ? " device-tile-image-is-portrait"
                 : "";
               return (

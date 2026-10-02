@@ -85,12 +85,13 @@ export function crosscheckSupportedDevices(
 
   if (byPid.length > 0) {
     matchedBy = "pid";
-    // Prefer rows whose brand matches the connected device; otherwise take the
-    // most upstream status among the PID rows (a PID shared across models, as
-    // with Incott, reports the best-known status).
+    // Prefer an exact model name before brand/status. Shared PIDs can map to
+    // multiple Noir Gear models, so name avoids inheriting a sibling's status.
     const ranked = byPid.sort(
       (left, right) =>
-        Number(brandMatches(right)) - Number(brandMatches(left))
+        Number(normalize(right.model) === normalize(device.name ?? ""))
+        - Number(normalize(left.model) === normalize(device.name ?? ""))
+        || Number(brandMatches(right)) - Number(brandMatches(left))
         || STATUS_ORDER[left.status] - STATUS_ORDER[right.status],
     );
     match = ranked[0] ?? null;

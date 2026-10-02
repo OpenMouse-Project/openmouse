@@ -6,7 +6,7 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
-import { isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLORS } from "../../device/noir.ts";
+import { isNoirE1Status, isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLORS } from "../../device/noir.ts";
 import { closestDpiOption, dpiPresetValues } from "../../dpi-presets";
 import { t, tp } from "../../i18n";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
@@ -471,7 +471,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
-  const singleDpiAvailable = !isNoirS1Status(status);
+  const singleDpiAvailable = !isNoirS1Status(status) && !isNoirE1Status(status);
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 

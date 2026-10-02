@@ -75,6 +75,17 @@ test("M2-NEX resolves to the Noir Gear supported row despite the shared OEM PID"
   assert.match(result.detail, /already listed as Supported/);
 });
 
+test("NOIR E1 resolves to its own pending row despite sharing the M2-NEX PID", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: 0x2255 }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "pending");
+  assert.equal(result.pageModel, "NOIR E1");
+});
+
 test("brand+model name match on a likely row with a passing run qualifies for Supported", () => {
   const result = crosscheckSupportedDevices(
     device({ brand: "ATK", name: "F1 Ultimate" }),
