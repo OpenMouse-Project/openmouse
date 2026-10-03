@@ -264,3 +264,8 @@ package:
   render from Dareu's driver panel
   (`https://driver.dareu.com/allinone/products/1117/TM271F.png?v=1.3.24`). It
   is vendor product art; request licensing review before publishing it in R2.
+
+- `coolermaster-mm711.png` — Cooler Master MM711 wired gaming mouse (`0x2516:0x0101`).
+  **Needs a maintainer upload** to the `openmouse-devices` R2 bucket; the mapping in
+  `src/ui/device-images.ts` is in place and falls back cleanly to the placeholder until then.
+
