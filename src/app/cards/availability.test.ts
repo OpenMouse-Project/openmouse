@@ -192,6 +192,20 @@ test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
   assert.equal(has.signal, false);
 });
 
+test("Keychron Launcher 8k mice get sleep and debounce, 1k mice only debounce", () => {
+  const family = (f: string) => cardAvailability(snapshot({
+    status: { brand: "Keychron", ui: { family: f }, debounceMs: 4 },
+  }));
+  const k8 = family("keychron-8k");
+  assert.equal(k8.advancedHost, true);
+  assert.equal(k8.sleep, true);
+  assert.equal(k8.debounce, true);
+  const k1 = family("keychron-1k");
+  assert.equal(k1.advancedHost, true);
+  assert.equal(k1.sleep, false);
+  assert.equal(k1.debounce, true);
+});
+
 test("a driver may opt into the advanced section and still suppress its cards", () => {
   const has = cardAvailability(snapshot({
     status: {
