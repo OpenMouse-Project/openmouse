@@ -321,6 +321,7 @@ export const ar: Record<I18nKey, string> = {
   "dpi.editorFixedNote": "صف واحد لكل مرحلة DPI، {total} ثابتة. عدّل القيمة أو المنزلق لتغييرها. انقر رقمًا لجعله المرحلة النشطة.",
   "dpi.stagesReadOnly": "تأتي مراحل DPI هذه من الماوس للقراءة فقط، ولا يمكن تعديلها هنا. غيّرها في برنامج الشركة المصنّعة.",
   "dpi.editorGenericNote": "صف واحد لكل DPI مسبق. حدّد صفًا (أو انقر رقمه) لجعله DPI الحالي؛ تبقى الصفوف غير المحددة كاختيارات لاحقًا.",
+  "dpi.singleOverwritesNote": "Save writes this DPI to all {total} stages and overwrites their values. Your old stages are kept in this browser. Switch back to Stages to restore them.",
   "dpi.xAxis": "المحور X",
   "dpi.yAxis": "المحور Y",
   "dpi.viewStages": "مراحل",
