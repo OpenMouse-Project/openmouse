@@ -107,6 +107,11 @@ test("Delux M800 Mini and M800 family resolve by name", () => {
   assert.equal(deviceImage(null, "Delux M800 Pro"), "/devices/delux-m800-mini.png");
 });
 
+test("ROG Harpe Ace Aim Lab Edition resolves by name on every connection", () => {
+  assert.equal(deviceImage(null, "ROG Harpe Ace Aim Lab Edition"), "/devices/asus-rog-harpe-ace-aim-lab.png");
+  assert.equal(deviceImage(null, "ROG Omni receiver"), CDN + "unknown-device.png");
+});
+
 test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", () => {
   // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
   // device-images.ts / public/devices/README.md) until a maintainer uploads
