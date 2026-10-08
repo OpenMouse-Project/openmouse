@@ -224,7 +224,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Glorious", model: "Model O", status: "supported", pids: [0x2011, 0x2022] },
   { brand: "Glorious", model: "Model D Wireless", status: "supported", pids: [0x2012, 0x2023] },
   { brand: "Glorious", model: "Model D", status: "supported", pids: [0x2012] },
-  { brand: "Glorious", model: "Model O2 Pro 4K/8K", status: "likely", pids: [0x201b, 0x2035] },
+  { brand: "Glorious", model: "Model O2 Pro 4K/8K", status: "pr", pids: [0x201b, 0x2035] },
   { brand: "Glorious", model: "Model O Pro", status: "supported", pids: [0x2015, 0x2027] },
   { brand: "Glorious", model: "Model D2 Pro Wireless 8K", status: "likely", pids: [0x201c, 0x2036] },
   { brand: "Glorious", model: "Model O3 Wireless", status: "likely", pids: [0xa312, 0xa300] },

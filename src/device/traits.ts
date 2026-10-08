@@ -79,6 +79,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // it publishes its own sleep and debounce option lists.
   "mchose-v3": { advancedSection: true, sleep: true, debounce: true },
   dareu: { advancedSection: true, sleep: true },
+  // The Model O2 Pro 4K/8K writes a debounce block and a motion sync flag; it
+  // has no sleep command wired in, so no sleep flag.
+  "glorious-core2": { advancedSection: true, debounce: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
   // plain flags rather than DIRECT_MODE (its advancedSection already comes
