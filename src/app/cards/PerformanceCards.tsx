@@ -7,11 +7,14 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
+import { pollingRateText } from "../../ui/polling-rate";
 import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
 import type { InterfaceLocale } from "../../interface-preferences";
 import { RateSlider, Segmented, SwitchButton } from "../ui";
+import { fullChargeHoursAt } from "../../battery-history";
+import { BounceCheckDialog } from "../BounceCheckDialog";
 
 const LOD_LEVELS: readonly LiftOffLevel[] = ["Low", "Medium", "High"];
 
@@ -64,7 +67,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           <small id="polling-note" className="setting-note">{note}</small>
         </div>
         {!perProfile ? (
-          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+          <output id="polling-value">{pollingRateText(status.pollingRateHz)} Hz</output>
         ) : null}
       </div>
 
@@ -80,6 +83,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
                 ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless)}
               label={shared ? t(locale, "perf.allConnections") : link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless")}
               disabled={locked || snapshot.settingInProgress}
+              hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
             />
           ))}
@@ -92,6 +96,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           valueHz={status.pollingRateHz}
           disabled={(snapshot.settingsPending && !nativeX11) || status.ui?.pollingReadOnly === true}
           bubble={false}
+          hoursAt={(hz) => fullChargeHoursAt(status.name, hz)}
           onChange={control.applyPollingRate}
         />
       )}
@@ -327,7 +332,24 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   );
 }
 
-function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+function BounceCheck({ locale, value, canApply }: { locale: InterfaceLocale; value: number; canApply: boolean }): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="icon-button bounce-check-button" onClick={() => setOpen(true)}>Check for bounce</button>
+      <BounceCheckDialog open={open} locale={locale} bunnyHopMs={value} canApply={canApply} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+// While a flash runs the profile is briefly unreadable; keep showing the last good one.
+let lastBunnyHop: ControlSnapshot | null = null;
+
+export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: ControlSnapshot; standalone?: boolean }): ReactNode {
+  if (live.profile.bunnyHopSupported && live.profile.entry) lastBunnyHop = live;
+  const snapshot = live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
+    ? lastBunnyHop
+    : live;
   const entry = snapshot.profile.entry;
   if (!snapshot.profile.bunnyHopSupported || !entry) return null;
   const locale = snapshot.preferences.locale;
@@ -339,9 +361,9 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const value = snapshot.stagedBunnyHopMs ?? entry.bunnyHoppingMs ?? 0;
   const enabled = value !== 0;
 
-  return (
+  const row = (
     <div id="bunny-hop-row">
-      <div className="setting-heading">
+      <div className={standalone ? "setting-heading superstrike-tuning-heading" : "setting-heading"}>
         <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{t(locale, "dpi.perProfile")}</span></h2></div>
       </div>
       <div className="bunny-hop-controls">
@@ -374,8 +396,14 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           ? t(locale, "perf.bunnyReadonly")
           : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs })}
       </small>
+      {standalone ? <BounceCheck locale={locale} value={value} canApply={!locked && !snapshot.settingInProgress} /> : null}
     </div>
   );
+  return standalone ? (
+    <div id="bunny-hop-card">
+      <article className="setting-card superstrike-tuning-card">{row}</article>
+    </div>
+  ) : row;
 }
 
 export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {

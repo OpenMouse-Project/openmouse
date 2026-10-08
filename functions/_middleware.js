@@ -15,6 +15,12 @@
 //   strikes:<ip>            → count, refreshed TTL
 //   window:<ip>:<method>:<minute> → request count for the current minute
 //
+// Env:
+//   RATE_LIMIT_MODE=waf     → skip the KV rate-limit counter entirely and rely
+//                             on a WAF rate limiting rule at the edge instead.
+//                             Unset keeps the KV limiter, so this is safe to
+//                             deploy before the WAF rule exists.
+//
 // Twisting this file into a DoS doesn't work: middleware runs before functions
 // and returns before any origin work is done. Rate counters self-expire, and a
 // cleared strike bucket can't clear a permanent ban.
@@ -105,6 +111,30 @@ const tooLarge = () => new Response("413 Payload Too Large", {
 // blocking legit requests.
 const EXPLOIT_RE = /(%00|%0a|%0d|%2e%2e|\.\.\/|\.\.%2f|<script|javascript:|__proto__|constructor\[|union\s+select|;\s*--|waitfor\s+delay|\beval\()/i;
 
+// Static subresources (JS, CSS, images, fonts, media, the service worker and
+// manifests) are served straight from Pages' edge and never touch an origin
+// function. Running the per-request ban lookup and rate-limit counter over them
+// is pure overhead: a single SPA page load fires dozens, and each one used to
+// cost a KV read plus a write. They carry no exploit surface (no query parsing,
+// no origin work), so the guard skips them wholesale.
+//
+// Everything that can do damage — document navigations, fetch/XHR calls
+// (Sec-Fetch-Dest: empty), and any non-GET request — is still guarded. When
+// Sec-Fetch-Dest is absent (curl, bots) the path extension decides; API routes
+// and documents never carry an asset extension, so the fallback fails closed.
+const ASSET_DESTS = new Set([
+  "script", "style", "image", "font", "audio", "video", "track", "manifest", "worker",
+]);
+const ASSET_EXT_RE = /\.(?:js|mjs|css|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|ogg|wav|wasm|webmanifest)$/i;
+
+function isStaticSubresource(request, url) {
+  const method = request.method.toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return false;
+  const dest = request.headers.get("Sec-Fetch-Dest");
+  if (dest) return ASSET_DESTS.has(dest.toLowerCase());
+  return ASSET_EXT_RE.test(url.pathname);
+}
+
 const STRIKES_TO_BAN = 25;
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const GET_LIMIT_PER_MINUTE = 240;
@@ -152,6 +182,10 @@ async function handle({ request, env, next }) {
   const ip = clientIp(request);
   const url = new URL(request.url);
 
+  // Subresources are the bulk of traffic and the bulk of the KV bill; skip them
+  // before any storage work.
+  if (isStaticSubresource(request, url)) return next();
+
   // An admin who is themselves caught by a ban (shared/NAT IP) still has to
   // reach the unban endpoint, so that one path is exempt — and only when the
   // request carries the correct ADMIN_TOKEN, which the endpoint re-checks.
@@ -161,6 +195,11 @@ async function handle({ request, env, next }) {
   }
 
   const method = request.method.toUpperCase();
+
+  // When a WAF rate limiting rule is enforcing limits at the edge
+  // (RATE_LIMIT_MODE=waf), the KV counter is redundant and costs a write per
+  // guarded request. Anything else keeps the KV limiter.
+  const kvRateLimit = env.RATE_LIMIT_MODE !== "waf";
 
   if (EXPLOIT_RE.test(url.href)) {
     await strike(kv, ip);
@@ -180,7 +219,7 @@ async function handle({ request, env, next }) {
     return tooLarge();
   }
 
-  if (await enforceRateLimit(kv, request, ip)) {
+  if (kvRateLimit && await enforceRateLimit(kv, request, ip)) {
     await strike(kv, ip);
     return tooMany();
   }

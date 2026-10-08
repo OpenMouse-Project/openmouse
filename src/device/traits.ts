@@ -94,6 +94,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   hyperx: {},
   "cooler master": { advancedSection: true, debounce: true },
   "coolermaster-mm711": { advancedSection: true, debounce: true },
+  // The NJ07/NJ08 family keeps the sleep timer in its config block and has no
+  // debounce setting in the vendor panel, so only the sleep card.
+  ajazz: { advancedSection: true, sleep: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

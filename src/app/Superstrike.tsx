@@ -2,7 +2,23 @@ import { useEffect, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { t, tp } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
-import type { AnalogTuning, ControlSnapshot } from "../device/types";
+import type { AnalogTuning, AnalogTuningState, ControlSnapshot } from "../device/types";
+import {
+  deleteHitsPreset,
+  loadHitsPresets,
+  BUILT_IN_HITS_PRESETS,
+  PRO_HITS_PRESETS,
+  presetFits,
+  presetMatches,
+  saveHitsPreset,
+  type HitsButtonValues,
+  type HitsLimits,
+  type HitsPreset,
+} from "../hits-presets";
+import { BunnyHop } from "./cards/PerformanceCards";
+import { DeleteHitsPresetDialog } from "./DeleteHitsPresetDialog";
+import { HitsTestDialog } from "./HitsTestDialog";
+import { SaveHitsPresetDialog } from "./SaveHitsPresetDialog";
 
 function SuperstrikeSteps({
   id,
@@ -72,6 +88,158 @@ function PressMeter({ actuation }: { actuation: [number, number] }): ReactNode {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Saved setups for both buttons, in this browser, and a short code to share one.
+function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuningState; limits: HitsLimits; locale: InterfaceLocale; canAdjust: boolean }): ReactNode {
+  const [presets, setPresets] = useState<HitsPreset[]>(() => loadHitsPresets(localStorage));
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const values = (tuning: AnalogTuning): HitsButtonValues => ({
+    actuation: tuning.actuation,
+    rapidTrigger: tuning.rapidTrigger,
+    haptics: tuning.haptics,
+    rapidTriggerEnabled: tuning.rapidTriggerEnabled !== false,
+  });
+  const current = (): Pick<HitsPreset, "left" | "right"> => state.mode === "both"
+    ? { left: values(state.both), right: values(state.both) }
+    : { left: values(state.left), right: values(state.right) };
+
+  // The dropdown follows what is on the mouse, so it still names the preset after a refresh
+  // and drops back to "Presets…" once the values are changed by hand.
+  const now = current();
+  const matches = (preset: Pick<HitsPreset, "left" | "right">): boolean => presetMatches(preset, now);
+  const matchedUser = presets.find(matches);
+  const matchedBuiltIn = [...BUILT_IN_HITS_PRESETS, ...PRO_HITS_PRESETS].find(matches);
+  const selected = matchedUser ? matchedUser.name : matchedBuiltIn ? `builtin:${matchedBuiltIn.name}` : "";
+
+  const load = (preset: Pick<HitsPreset, "left" | "right">, label: string): boolean => {
+    if (!presetFits(preset, limits)) {
+      setNote("That preset has values this mouse cannot do.");
+      return false;
+    }
+    control.loadAnalogPreset({ ...preset.left }, { ...preset.right });
+    setNote(`Loaded ${label}.`);
+    return true;
+  };
+
+  const save = (preset: HitsPreset): void => {
+    const next = saveHitsPreset(localStorage, preset);
+    if (!next) {
+      setNote("Could not save that preset.");
+      return;
+    }
+    setPresets(next);
+  };
+
+  return (
+    <div className="superstrike-presets">
+      <select
+        aria-label="HITS presets"
+        value={selected}
+        onChange={(event) => {
+          const name = event.currentTarget.value;
+          const builtIn = [...BUILT_IN_HITS_PRESETS, ...PRO_HITS_PRESETS].find((entry) => `builtin:${entry.name}` === name);
+          const preset = builtIn ?? presets.find((entry) => entry.name === name);
+          if (preset) load(preset, `"${preset.name}"`);
+        }}
+      >
+        <option value="">Presets…</option>
+        <optgroup label="Built-in">
+          {BUILT_IN_HITS_PRESETS.filter((preset) => presetFits(preset, limits)).map((preset) => (
+            <option key={preset.name} value={`builtin:${preset.name}`}>{preset.name}</option>
+          ))}
+        </optgroup>
+        <optgroup label="Pro players (G HUB)">
+          {PRO_HITS_PRESETS.filter((preset) => presetFits(preset, limits)).map((preset) => (
+            <option key={preset.name} value={`builtin:${preset.name}`}>{preset.name}</option>
+          ))}
+        </optgroup>
+        {presets.length > 0 ? (
+          <optgroup label="Yours">
+            {presets.map((preset) => <option key={preset.name} value={preset.name}>{preset.name}</option>)}
+          </optgroup>
+        ) : null}
+      </select>
+      <button
+        type="button"
+        className="icon-button"
+        onClick={() => {
+          const defaults = BUILT_IN_HITS_PRESETS.find((preset) => preset.name === "Default")!;
+          load(defaults, "Default (reset)");
+        }}
+      >
+        Reset
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        onClick={() => setSaving(true)}
+      >
+        Save
+      </button>
+      <SaveHitsPresetDialog
+        open={saving}
+        locale={locale}
+        values={current()}
+        existingNames={presets.map((preset) => preset.name)}
+        onClose={() => setSaving(false)}
+        onSave={(name) => {
+          save({ name, ...current() });
+          setNote(`Saved "${name}".`);
+          setSaving(false);
+        }}
+      />
+      <button
+        type="button"
+        className="icon-button"
+        disabled={!presets.some((preset) => preset.name === selected)}
+        onClick={() => setDeleting(selected)}
+      >
+        Delete
+      </button>
+      <DeleteHitsPresetDialog
+        name={deleting}
+        locale={locale}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting === null) return;
+          setPresets(deleteHitsPreset(localStorage, deleting));
+          setNote(`Deleted "${deleting}".`);
+          setDeleting(null);
+        }}
+      />
+      <button type="button" className="icon-button" onClick={() => setTesting(true)}>
+        Test
+      </button>
+      {state.mode === "independent" ? (
+        <>
+          <button type="button" className="icon-button" onClick={() => { const { left } = current(); load({ left, right: left }, "left copied to right"); }}>
+            Left to right
+          </button>
+          <button type="button" className="icon-button" onClick={() => { const { right } = current(); load({ left: right, right }, "right copied to left"); }}>
+            Right to left
+          </button>
+          <button type="button" className="icon-button" onClick={() => { const { left, right } = current(); load({ left: right, right: left }, "left and right swapped"); }}>
+            Swap
+          </button>
+        </>
+      ) : null}
+      <HitsTestDialog
+        open={testing}
+        locale={locale}
+        actuation={state.mode === "both" ? [state.both.actuation, state.both.actuation] : [state.left.actuation, state.right.actuation]}
+        maxActuation={limits.maxActuation}
+        canAdjust={canAdjust}
+        onAdjust={(side, value) => control.setAnalogTuningValue(state.mode === "both" ? "both" : side === 0 ? "left" : "right", "actuation", value)}
+        onClose={() => setTesting(false)}
+      />
+      {note ? <small className="superstrike-presets-note" role="status">{note}</small> : null}
     </div>
   );
 }
@@ -174,17 +342,18 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
   if (!tuning || tuning.buttons.length !== 2) return null;
   const locale = snapshot.preferences.locale;
   const state = snapshot.analogTuning;
+  // With instant flash on, a step is written the moment it is picked, so there
+  // is nothing to apply. A game-profile draft stages instead of flashing.
+  const showApply = !snapshot.preferences.instantFlash || snapshot.gameProfileDraft;
 
   return (
-    <section
-      id="logitech-analog-button-settings"
-      className="device-data"
-      role="tabpanel"
-      aria-labelledby="workspace-tab-buttons"
-      aria-label="HITS tuning settings"
-    >
+    // A card in the Buttons tab's card list, so the mouse panel sits beside it.
+    // The id scopes this card's styles.
+    <>
+    <div id="logitech-analog-button-settings">
       <article className="setting-card superstrike-tuning-card">
         <div className="setting-heading superstrike-tuning-heading"><div><h2>HITS Tuning</h2></div></div>
+        <HitsPresets state={state} limits={tuning} locale={locale} canAdjust={!showApply} />
         <PressMeter actuation={[state.left.actuation, state.right.actuation]} />
         <div className="superstrike-tabs" role="tablist" aria-label="HITS tuning mode">
           {(["both", "independent"] as const).map((mode) => (
@@ -208,14 +377,16 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
                   {side === "left" ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton")}
                 </legend>
                 <TuningControls group={side} tuning={state[side]} limits={tuning} locale={locale} />
-                <button
-                  id={`apply-logitech-${side}-button`}
-                  className="superstrike-apply-button"
-                  type="button"
-                  onClick={() => control.applyLogitechAnalogButton(side === "left" ? 0 : 1)}
-                >
-                  {side === "left" ? t(locale, "super.applyLeft") : t(locale, "super.applyRight")}
-                </button>
+                {showApply ? (
+                  <button
+                    id={`apply-logitech-${side}-button`}
+                    className="superstrike-apply-button"
+                    type="button"
+                    onClick={() => control.applyLogitechAnalogButton(side === "left" ? 0 : 1)}
+                  >
+                    {side === "left" ? t(locale, "super.applyLeft") : t(locale, "super.applyRight")}
+                  </button>
+                ) : null}
               </fieldset>
             ))}
           </div>
@@ -223,17 +394,22 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
             <legend><span className="superstrike-button-dot" />{t(locale, "super.bothPrimary")}</legend>
             <p>{t(locale, "super.bothBody")}</p>
             <TuningControls group="both" tuning={state.both} limits={tuning} locale={locale} />
-            <button
-              id="apply-logitech-both-buttons"
-              className="superstrike-apply-button"
-              type="button"
-              onClick={control.applyLogitechAnalogButtons}
-            >
-              {t(locale, "super.applyBoth")}
-            </button>
+            {showApply ? (
+              <button
+                id="apply-logitech-both-buttons"
+                className="superstrike-apply-button"
+                type="button"
+                onClick={control.applyLogitechAnalogButtons}
+              >
+                {t(locale, "super.applyBoth")}
+              </button>
+            ) : null}
           </fieldset>
         </div>
       </article>
-    </section>
+    </div>
+    {/* Bunny Hop is a per-profile debounce, not a HITS setting, so it is its own card. */}
+    <BunnyHop snapshot={snapshot} standalone />
+    </>
   );
 }
