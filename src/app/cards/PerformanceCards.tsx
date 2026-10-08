@@ -7,6 +7,7 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
+import { pollingRateText } from "../../ui/polling-rate";
 import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
@@ -66,7 +67,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           <small id="polling-note" className="setting-note">{note}</small>
         </div>
         {!perProfile ? (
-          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+          <output id="polling-value">{pollingRateText(status.pollingRateHz)} Hz</output>
         ) : null}
       </div>
 

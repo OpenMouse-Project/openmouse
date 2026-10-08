@@ -43,6 +43,34 @@ const PULSAR: MouseStatus = {
   firmware: ["1.04.11"],
 };
 
+const PULSAR_XS1_8K: MouseStatus = {
+  ...PULSAR,
+  name: "Pulsar 8K Dongle",
+  ui: {
+    family: "pulsar",
+    hideUnsupportedPollingRates: true,
+    pollingReadOnly: true,
+    pollingNote: "The XS-1 polling readout is not hardware-verified. Polling changes are unavailable; check the rate in Pulsar's software.",
+    hideSleepCard: true,
+    hideSignalCard: true,
+    forceShowBattery: true,
+  },
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  dongleLedEnabled: undefined,
+  connectionDetail: "XS-1 feature-report interface",
+};
+
+const PULSAR_XS1_UNKNOWN: MouseStatus = {
+  ...PULSAR_XS1_8K,
+  pollingRateHz: 0,
+  ui: {
+    ...PULSAR_XS1_8K.ui,
+    pollingNote: "The XS-1 interface did not return a recognized polling rate. Polling changes are unavailable; check the rate in Pulsar's software.",
+  },
+};
+
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
   name: "Pulsar X2 V2 Pro",
@@ -882,6 +910,8 @@ const RAWM_V4_GT: MouseStatus = {
 export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   pulsar: { label: "Pulsar X2 V2", status: PULSAR },
   "pulsar-pro": { label: "Pulsar X2 V2 Pro", status: PULSAR_PRO },
+  "pulsar-xs1-8k": { label: "Pulsar XS-1 8K dongle", status: PULSAR_XS1_8K },
+  "pulsar-xs1-unknown": { label: "Pulsar XS-1 unknown polling", status: PULSAR_XS1_UNKNOWN },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },

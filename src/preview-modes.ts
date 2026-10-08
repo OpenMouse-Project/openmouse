@@ -10,6 +10,8 @@ export const PREVIEW_KEYS = [
   "superstrike",
   "pulsar",
   "pulsar-pro",
+  "pulsar-xs1-8k",
+  "pulsar-xs1-unknown",
   "egg-op1",
   "egg-we",
   "egg-xm2we",
@@ -56,6 +58,8 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "superstrike": return "superstrike";
     case "pulsar": return "pulsar";
     case "pulsar-pro": return "pulsar-pro";
+    case "pulsar-xs1-8k": return "pulsar-xs1-8k";
+    case "pulsar-xs1-unknown": return "pulsar-xs1-unknown";
     case "egg-op1": return "egg-op1";
     case "egg-we": return "egg-we";
     case "egg-xm2we": return "egg-xm2we";

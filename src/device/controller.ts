@@ -1,5 +1,6 @@
 import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../battery-history";
 import { applyBridgeNativeSettings } from "../bridge";
+import { pollingRateText } from "../ui/polling-rate";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -2348,10 +2349,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
       ? st("ctl.connected")
       : st("ctl.batteryPct", { n: deviceStatus.batteryPercent });
     readStatus = status.ui?.valuesVerified
-      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${pollingRateText(deviceStatus.pollingRateHz)} Hz`].join(" · ")
       : summary;
   } else if (!hasPendingChanges()) {
-    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: deviceStatus.pollingRateHz.toLocaleString() });
+    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: pollingRateText(deviceStatus.pollingRateHz) });
   }
 
   if (!customDpiEditing) customDpiText = `${status.dpi.toLocaleString()} DPI`;

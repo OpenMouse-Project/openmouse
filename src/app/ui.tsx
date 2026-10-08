@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Minus, Plus } from "lucide-react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { batteryFillWidth, batteryIconState, batteryLevel } from "../ui/battery-icon";
+import { selectedPollingStep } from "../ui/polling-rate";
 import { t } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
 
@@ -387,22 +388,14 @@ export function RateSlider({
   bubble?: boolean;
 }): ReactNode {
   if (options.length === 0) return <div id={id} className="rate-slider" hidden={hidden} />;
-  const selected = valueHz !== null && options.includes(valueHz)
-    ? options.indexOf(valueHz)
-    : options.reduce(
-      (best, rate, step) =>
-        Math.abs(rate - (valueHz ?? options[0] ?? 0)) < Math.abs((options[best] ?? 0) - (valueHz ?? options[0] ?? 0))
-          ? step
-          : best,
-      0,
-    );
+  const selected = selectedPollingStep(options, valueHz);
 
   return (
     <div id={id} className="rate-slider" hidden={hidden}>
       {label ? (
         <div className="rate-slider-head">
           <span>{label}</span>
-          <output>{options[selected]?.toLocaleString() ?? "—"} Hz</output>
+          <output>{selected === null ? "—" : options[selected]?.toLocaleString() ?? "—"} Hz</output>
         </div>
       ) : null}
       <div className="rate-slider-buttons" role="group" aria-label={label ?? t(locale, "perf.reportRate")}>
@@ -423,7 +416,7 @@ export function RateSlider({
           );
         })}
       </div>
-      {hoursAt?.(options[selected] ?? 0) != null ? (
+      {selected !== null && hoursAt?.(options[selected] ?? 0) != null ? (
         <small className="rate-slider-hours">
           About {Math.round(hoursAt?.(options[selected] ?? 0) as number)} h per full charge at {options[selected]?.toLocaleString()} Hz
         </small>
