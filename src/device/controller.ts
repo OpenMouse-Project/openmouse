@@ -2452,6 +2452,30 @@ function rememberActiveDevice(device: HIDDevice): void {
   }
 }
 
+const SINGLE_DPI_BACKUP_STORAGE_KEY = "openmouse.single-dpi-backup";
+
+function singleDpiBackups(): Record<string, number[]> {
+  try {
+    return JSON.parse(localStorage.getItem(SINGLE_DPI_BACKUP_STORAGE_KEY) ?? "{}") as Record<string, number[]>;
+  } catch {
+    return {};
+  }
+}
+
+/** The stage table the active mouse had before the Single DPI view gave every stage one value. */
+export function dpiStagesBeforeSingle(): number[] | null {
+  return activeDevice ? singleDpiBackups()[deviceStorageKey(activeDevice)] ?? null : null;
+}
+
+export function rememberDpiStagesBeforeSingle(stages: readonly number[]): void {
+  if (!activeDevice) return;
+  try {
+    const backups = { ...singleDpiBackups(), [deviceStorageKey(activeDevice)]: [...stages] };
+    localStorage.setItem(SINGLE_DPI_BACKUP_STORAGE_KEY, JSON.stringify(backups));
+  } catch {
+  }
+}
+
 async function waitForControllerIdle(): Promise<void> {
   while (settingInProgress || refreshInProgress || activationInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));

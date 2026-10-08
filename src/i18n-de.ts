@@ -323,6 +323,7 @@ export const de: Record<I18nKey, string> = {
   "dpi.editorFixedNote": "One row per DPI stage, {total} fixed. Edit the value or slider to change it. Click a number to make it the active stage.",
   "dpi.stagesReadOnly": "These DPI stages come from the mouse read-only, and cannot be edited here. Change them in the vendor software.",
   "dpi.editorGenericNote": "One row per preset DPI. Tick a row (or click its number) to make it the current DPI; unticked rows are kept as picks for later.",
+  "dpi.singleOverwritesNote": "Save writes this DPI to all {total} stages and overwrites their values. Your old stages are kept in this browser. Switch back to Stages to restore them.",
   "dpi.xAxis": "X-Achse",
   "dpi.yAxis": "Y-Achse",
   "dpi.viewStages": "Stufen",
