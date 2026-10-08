@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, saveBatterySample } from "./battery-history.ts";
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, fullChargeHoursAt, ratedBattery, ratedFullChargeHours, recordBatterySample, saveBatterySample } from "./battery-history.ts";
 
 class MemoryStorage implements Storage {
   #values = new Map<string, string>();
@@ -54,4 +54,39 @@ test("cached battery samples load once from storage on cold start", () => {
   const samples = cachedBatterySamples(storage, "ColdMouse", 60_000);
   assert.equal(samples.length, 1);
   assert.equal(samples[0]?.percent, 75);
+});
+
+test("rated battery life is known for the Superstrike mice, whatever the spacing of the name", () => {
+  assert.equal(ratedBattery("PRO X3 SUPERSTRIKE")?.hours, 135);
+  assert.equal(ratedBattery("PRO X 2 Superstrike")?.hours, 90);
+  assert.equal(ratedBattery("PRO X2 SUPERSTRIKE")?.hours, 90);
+  assert.equal(ratedBattery("Some other mouse"), null);
+});
+
+test("the PRO X 3's full-charge hours follow the polling rate by its power draw", () => {
+  const x3 = ratedBattery("PRO X3 SUPERSTRIKE")!;
+  // 135 h at 1000 Hz (4 + 4 mW) is 1080 mWh; 8000 Hz draws 12 + 20 = 32 mW.
+  assert.equal(ratedFullChargeHours(x3, 1000), 135);
+  assert.equal(ratedFullChargeHours(x3, 8000), 33.75);
+  assert.equal(ratedFullChargeHours(x3, 125), 216, "125 Hz draws 4 + 1 = 5 mW");
+  assert.equal(ratedFullChargeHours(x3, 3000), 135, "an unlisted rate falls back to the rated hours");
+  assert.equal(ratedFullChargeHours(x3, null), 135);
+  // The PRO X 2 has no power table, so the rate changes nothing.
+  assert.equal(ratedFullChargeHours(ratedBattery("PRO X2 SUPERSTRIKE")!, 8000), 90);
+});
+
+test("the rated-life estimate scales with the charge and the rate, in the usual format", () => {
+  const x3 = ratedBattery("PRO X3 SUPERSTRIKE")!;
+  assert.equal(estimateFromRatedLife(100, x3, 1000), "~5.6 days");
+  assert.equal(estimateFromRatedLife(51, x3, 1000), "~2.9 days");
+  assert.equal(estimateFromRatedLife(51, x3, 8000), "~17 hr", "51% of 33.75 h");
+  assert.equal(estimateFromRatedLife(10, ratedBattery("PRO X2 SUPERSTRIKE")!, 1000), "~9.0 hr");
+  assert.equal(estimateFromRatedLife(0, x3, 1000), null, "an empty battery has no time left to show");
+});
+
+test("full-charge hours follow the polling rate on a model with a power table, and are unknown otherwise", () => {
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 1000), 135);
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 8000), 33.75);
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 3000), null);
+  assert.equal(fullChargeHoursAt("Some other mouse", 1000), null);
 });

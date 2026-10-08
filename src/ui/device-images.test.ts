@@ -256,6 +256,14 @@ test("Noir Gear M2-NEX resolves to its maintainer-hosted artwork", () => {
   assert.equal(deviceImage(null, "NOIR E1"), CDN + "noir-e1.png");
 });
 
+test("Noir Gear M1-NEX resolves to its reserved maintainer-hosted artwork", () => {
+  assert.equal(deviceImage(null, "M1-NEX"), CDN + "noir-m1-nex.png");
+  assert.equal(deviceImage(null, "Noir Gear M1-NEX"), CDN + "noir-m1-nex.png");
+  // Neighboring Noir Gear models must not match the M1-NEX render.
+  assert.equal(deviceImage(null, "Noir M1"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "Noir M1 Lite"), CDN + "unknown-device.png");
+});
+
 test("Noir S1 resolves to the reserved maintainer-hosted artwork filename", () => {
   assert.equal(deviceImage(null, "NOIR S1"), CDN + "noir-s1.png");
   assert.equal(deviceImage(null, "Noir Gear / NOIR S1"), CDN + "noir-s1.png");

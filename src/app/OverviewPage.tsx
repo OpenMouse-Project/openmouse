@@ -23,6 +23,7 @@ import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { MagneticButtons } from "./MagneticButtons";
 import { Superstrike } from "./Superstrike";
+import { ButtonMap, buttonMapAvailable } from "./ButtonMap";
 import { DpiCard } from "./cards/DpiCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
@@ -137,6 +138,7 @@ function DeviceShowcase({ snapshot }: {
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const batteryEstimate = control.batteryEstimateParts(status, locale);
   const [imageFailed, setImageFailed] = useState(false);
   const [artSize, setArtSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -208,6 +210,11 @@ function DeviceShowcase({ snapshot }: {
             <span className="device-showcase-status-item">
               <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
               <span className="device-showcase-status-value">{status.batteryPercent}%</span>
+              {batteryEstimate ? (
+                <span className="device-showcase-status-muted" title={`${batteryEstimate.time} ${batteryEstimate.label}`}>
+                  {batteryEstimate.time}
+                </span>
+              ) : null}
             </span>
           </>
         ) : null}
@@ -336,6 +343,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
     && isNoirKsnakeStatus(status)
     && status.buttonMappings != null;
+  const batteryEstimate = control.batteryEstimateParts(status, locale);
 
   return (
     <div className="showcase-sidebar">
@@ -410,6 +418,9 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
             {" · "}
             <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
             {status.batteryPercent}%
+            {batteryEstimate ? (
+              <span title={`${batteryEstimate.time} ${batteryEstimate.label}`}>{" · "}{batteryEstimate.time}</span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -605,6 +616,7 @@ export function Workspace({
   const showTeevolutionProfiles = show(snapshot.traits.teevolution && has.onboardProfiles, ["profiles"]);
   const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
+  const showButtonMap = show(buttonMapAvailable(snapshot), ["buttons"]);
   const showMagnetic = show(has.magnetic, ["buttons"]);
   const showLogitechDetails = device && show(has.logitechDetails, ["advanced"]);
   const showMxMaster = on(tab, ["advanced"])
@@ -641,24 +653,33 @@ export function Workspace({
       {showTeevolutionProfiles ? <TeevolutionProfileCard snapshot={snapshot} /> : null}
       {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
-      {performance.length > 0 ? (
+      {performance.length > 0 || showSuperstrike || showButtonMap ? (
         <section
           id="performance-settings"
           className={[
             "performance-layout device-data",
             slotsAvailable || stagesAvailable ? "has-dpi-slots" : "",
+            // The button map has its own mouse, so the side panel's would be a second one.
+            showButtonMap ? "has-no-sidebar" : "",
           ].filter(Boolean).join(" ")}
           data-workspace-host
           role="tabpanel"
           aria-label="Mouse settings"
         >
-          {device ? (
+          {device && !showButtonMap ? (
             <aside className="performance-sidebar">
               <DeviceShowcaseSidebar snapshot={snapshot} />
             </aside>
           ) : null}
-          <div className="performance-controls">
-            {performance}
+          <div className="performance-main">
+            {/* The HITS card keeps its own card chrome, first, beside the mouse panel. */}
+            {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
+            {showButtonMap ? <ButtonMap snapshot={snapshot} /> : null}
+            {performance.length > 0 ? (
+              <div className="performance-controls">
+                {performance}
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -694,7 +715,6 @@ export function Workspace({
           <MxMasterCards snapshot={snapshot} />
         </section>
       ) : null}
-      {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
       {showMagnetic ? <MagneticButtons snapshot={snapshot} /> : null}
 
       {advanced.length > 0 ? (

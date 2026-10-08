@@ -1390,6 +1390,32 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
   width: 100%;
   margin-top: 0;
 }
+.performance-main {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+/* Button map on the left, HITS card on the right; everything else spans the row.
+   The HITS card has a legacy order for another layout, so it is reset here. */
+.performance-main > #logitech-button-map { order: -2; }
+.performance-main > #logitech-analog-button-settings { order: -1; }
+.performance-main > * { grid-column: 1 / -1; }
+/* The HITS card's wrapper carries a top margin from its old layout; cards here line up. */
+.performance-main > #logitech-analog-button-settings { margin-top: 0; }
+.performance-main > #bunny-hop-card { order: -1; }
+@media (min-width: 1200px) {
+  .performance-main:has(> #logitech-button-map):has(> #logitech-analog-button-settings) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* The map is taller than the right column; its extra height goes below Bunny Hop, not between the cards. */
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+  .performance-main > #logitech-button-map { grid-column: 1; grid-row: 1 / span 2; }
+  .performance-main > #logitech-analog-button-settings { grid-column: 2; }
+  .performance-main > #bunny-hop-card { grid-column: 2; }
+}
+.performance-layout.has-no-sidebar { grid-template-columns: minmax(0, 1fr); }
 .performance-sidebar {
   position: sticky;
   top: .75rem;
@@ -4293,8 +4319,10 @@ body { height: 100vh; overflow: hidden; }
   letter-spacing: 0.05em;
   color: var(--faint);
 }
-.profile-key-fields textarea {
+.profile-key-fields textarea,
+.profile-key-fields input[type="text"] {
   width: 100%;
+  box-sizing: border-box;
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -4305,7 +4333,10 @@ body { height: 100vh; overflow: hidden; }
   line-height: 1.5;
   resize: vertical;
 }
-.profile-key-fields textarea:focus { outline: none; border-color: var(--accent); }
+.profile-key-fields textarea:focus,
+.profile-key-fields input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.import-hits-actions { display: flex; gap: 0.5rem; }
+.delete-hits-confirm { border-color: color-mix(in srgb, var(--destructive) 55%, var(--border)); color: var(--destructive); }
 
 /* OpenMouse AI chat overlay + launcher button. */
 .ai-launcher {
@@ -5098,3 +5129,31 @@ body { height: 100vh; overflow: hidden; }
 [dir="rtl"] .app-sidebar-collapse-toggle:hover { transform: translateY(-50%) translateX(-2px); }
 [dir="rtl"] .egg-collapsible summary i,
 [dir="rtl"] .egg-experimental summary i { transform: rotate(-45deg); }
+
+/* HITS speed test */
+.hits-test-dialog { width: min(52rem, 94vw); }
+.hits-test-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: stretch; }
+.hits-test-side { display: grid; gap: .8rem; align-content: start; min-width: 0; }
+.hits-test-actuation { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+.hits-test-actuation > div { display: inline-flex; align-items: center; gap: .5rem; }
+.hits-test-actuation button { width: 1.8rem; height: 1.8rem; border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: var(--text); }
+.hits-test-actuation button:disabled { opacity: .4; cursor: not-allowed; }
+.hits-test-rounds { display: grid; gap: .25rem; margin: 0; padding-left: 1.1rem; color: var(--text-soft); font-size: .7rem; }
+.hits-test-area { min-height: 16rem; padding: 1rem; border: 2px solid var(--ui-accent); border-radius: 12px; background: var(--surface-raised); color: var(--text-strong); font-size: 1.3rem; font-weight: 750; text-align: center; user-select: none; cursor: pointer; }
+.hits-test-area.is-wait { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 22%, var(--surface-raised)); }
+.hits-test-area.is-go { border-color: var(--ui-accent); background: var(--ui-accent); color: var(--ui-accent-ink); }
+.hits-test-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .6rem 1.2rem; align-items: center; width: 100%; text-align: left; font-size: .72rem; font-weight: 500; color: var(--text-soft); }
+.hits-test-result > small:last-child { grid-column: 1 / -1; text-align: center; }
+.hits-test-result-numbers { display: grid; gap: .15rem; }
+.hits-test-result-numbers strong { color: var(--text-strong); font-size: 2rem; line-height: 1.1; }
+.hits-test-result-numbers b { color: var(--text-strong); font-size: 1.15rem; }
+.hits-test-result-numbers em { color: var(--warning); font-size: .68rem; font-style: normal; }
+.hits-test-ladder { display: grid; gap: .2rem; }
+.hits-test-ladder > span { display: grid; grid-template-columns: 1.4rem 4.2rem; gap: .5rem; padding: .1rem .35rem; border-radius: 5px; font-family: var(--font-mono); font-size: .62rem; }
+.hits-test-ladder i { font-style: normal; font-weight: 700; color: var(--text-strong); }
+.hits-test-ladder u { text-decoration: none; text-align: right; }
+.hits-test-ladder > span[data-mark] { background: var(--ui-accent-soft); color: var(--text-strong); }
+.hits-test-ladder > span[data-mark="hits"] i { color: var(--ui-accent); }
+.hits-test-ladder > span[data-mark="conventional"] i { color: var(--warning); }
+@media (max-width: 720px) { .hits-test-body { grid-template-columns: minmax(0, 1fr); } }
+.rate-slider-hours { display: block; margin-top: .35rem; color: var(--faint); font-size: .62rem; }

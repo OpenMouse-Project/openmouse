@@ -301,3 +301,9 @@
 .preview-launcher-link small { color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.55rem }
 .preview-launcher-link.is-active { border-color:var(--ui-accent);color:var(--ui-accent) }
 .preview-launcher-link.is-active small { color:var(--ui-accent) }
+#bunny-hop-card #bunny-hop-row { margin: 0; padding: 0; border: 0; }
+#bunny-hop-card .bounce-check-button { margin-top: .6rem; padding: .4rem .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: .66rem; font-weight: 650; }
+#bunny-hop-card .bounce-check-button:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+.bounce-check-area { min-height: 8rem; padding: 1rem; border: 2px dashed var(--ui-accent); border-radius: 12px; background: var(--surface-raised); color: var(--text-strong); font-size: 1rem; font-weight: 700; user-select: none; cursor: pointer; }
+.bounce-check-area:active { background: var(--ui-accent-soft); }
+.bounce-check-results { display: grid; gap: .2rem; margin: 0; padding-left: 1.1rem; color: var(--text-soft); font-size: .7rem; }

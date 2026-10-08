@@ -1,5 +1,6 @@
-import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../battery-history";
 import { applyBridgeNativeSettings } from "../bridge";
+import { pollingRateText } from "../ui/polling-rate";
 import {
   clientSupportScore,
   createSupportedClient,
@@ -149,6 +150,7 @@ import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
 import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid";
 import { CorsairHidClient } from "@openmouse/protocol/drivers/corsair/hid";
+import { CorsairBragiHidClient } from "@openmouse/protocol/drivers/corsair/bragi-hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
@@ -192,6 +194,7 @@ import { BytechHidClient } from "@openmouse/protocol/drivers/bytech/hid";
 import { FaterHidClient } from "@openmouse/protocol/drivers/fater/hid";
 import { RapooHidClient } from "@openmouse/protocol/drivers/rapoo/hid";
 import { CoolerMasterHidClient } from "@openmouse/protocol/drivers/coolermaster/hid";
+import { AjazzHidClient } from "@openmouse/protocol/drivers/ajazz/hid";
 import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m690-pro-hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
@@ -268,7 +271,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -1999,12 +2002,35 @@ export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en
   if (status.batteryState === "Full") return withVoltage(t(locale, "bat.full"));
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
+  const state = batteryStateText(locale, status.batteryState);
+  const estimate = batteryEstimateText(status, locale);
+  return withVoltage(estimate ? `${state} · ${estimate}` : state);
+}
+
+/**
+ * How long the battery should last or take to fill, from this device's own
+ * history once there is enough of it. Until then a mouse with a known rated
+ * life shows how long the charge would last at that rate.
+ */
+export function batteryEstimateParts(
+  status: MouseStatus,
+  locale: InterfaceLocale = "en",
+): { time: string; label: string } | null {
+  if (status.batteryPercent === null || status.batteryState === "Full") return null;
+  const mode = batteryMode(status.batteryState);
+  if (!mode) return null;
   const now = Date.now();
   const samples = cachedBatterySamples(localStorage, status.name, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
-  const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
-  const state = batteryStateText(locale, status.batteryState);
-  return withVoltage(estimate ? `${state} · ${estimate} ${label}` : state);
+  if (estimate) return { time: estimate, label: mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining") };
+  const ratedLife = mode === "discharging" ? ratedBattery(status.name) : null;
+  const rated = ratedLife ? estimateFromRatedLife(status.batteryPercent, ratedLife, status.pollingRateHz) : null;
+  return rated ? { time: rated, label: t(locale, "bat.remainingRated") } : null;
+}
+
+export function batteryEstimateText(status: MouseStatus, locale: InterfaceLocale = "en"): string | null {
+  const parts = batteryEstimateParts(status, locale);
+  return parts ? `${parts.time} ${parts.label}` : null;
 }
 
 function diagnosticErrorMessage(error: unknown, fallback: string): string {
@@ -2324,10 +2350,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
       ? st("ctl.connected")
       : st("ctl.batteryPct", { n: deviceStatus.batteryPercent });
     readStatus = status.ui?.valuesVerified
-      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${pollingRateText(deviceStatus.pollingRateHz)} Hz`].join(" · ")
       : summary;
   } else if (!hasPendingChanges()) {
-    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: deviceStatus.pollingRateHz.toLocaleString() });
+    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: pollingRateText(deviceStatus.pollingRateHz) });
   }
 
   if (!customDpiEditing) customDpiText = `${status.dpi.toLocaleString()} DPI`;
@@ -3161,6 +3187,34 @@ export function setAnalogTuningValue(
 ): void {
   analogTuning = { ...analogTuning, [group]: { ...analogTuning[group], [setting]: value } };
   emit();
+  // A HITS step is only on-screen state until it is staged. With instant flash
+  // on, stage it now, as every other setting does; otherwise it waits for Apply.
+  if (!interfacePreferences.instantFlash) return;
+  if (group === "both") applyLogitechAnalogButtons();
+  else applyLogitechAnalogButton(group === "left" ? 0 : 1);
+}
+
+/**
+ * Loads a preset into the HITS card. Equal buttons show on the Both tab, unequal
+ * ones on Independent. With instant flash on it is written straight away (both
+ * buttons staged together, so one profile write); otherwise it waits for Apply.
+ */
+export function loadAnalogPreset(left: AnalogTuning, right: AnalogTuning): void {
+  const same = left.actuation === right.actuation
+    && left.rapidTrigger === right.rapidTrigger
+    && left.haptics === right.haptics
+    && left.rapidTriggerEnabled === right.rapidTriggerEnabled;
+  analogTuning = same
+    ? { ...analogTuning, mode: "both", left: { ...left }, right: { ...right }, both: { ...left } }
+    : { ...analogTuning, mode: "independent", left: { ...left }, right: { ...right } };
+  emit();
+  if (!interfacePreferences.instantFlash) return;
+  if (same) {
+    applyLogitechAnalogButtons();
+  } else {
+    applyLogitechAnalogButton(0);
+    applyLogitechAnalogButton(1);
+  }
 }
 
 /**

@@ -43,6 +43,34 @@ const PULSAR: MouseStatus = {
   firmware: ["1.04.11"],
 };
 
+const PULSAR_XS1_8K: MouseStatus = {
+  ...PULSAR,
+  name: "Pulsar 8K Dongle",
+  ui: {
+    family: "pulsar",
+    hideUnsupportedPollingRates: true,
+    pollingReadOnly: true,
+    pollingNote: "The XS-1 polling readout is not hardware-verified. Polling changes are unavailable; check the rate in Pulsar's software.",
+    hideSleepCard: true,
+    hideSignalCard: true,
+    forceShowBattery: true,
+  },
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  dongleLedEnabled: undefined,
+  connectionDetail: "XS-1 feature-report interface",
+};
+
+const PULSAR_XS1_UNKNOWN: MouseStatus = {
+  ...PULSAR_XS1_8K,
+  pollingRateHz: 0,
+  ui: {
+    ...PULSAR_XS1_8K.ui,
+    pollingNote: "The XS-1 interface did not return a recognized polling rate. Polling changes are unavailable; check the rate in Pulsar's software.",
+  },
+};
+
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
   name: "Pulsar X2 V2 Pro",
@@ -470,6 +498,40 @@ const RAZER_VIPER_MINI: MouseStatus = {
   firmware: ["Mouse 1.01"],
 };
 
+const RAZER_DIAMONDBACK_LIGHTING: MouseLighting = {
+  ...RAZER_VIPER_MINI_LIGHTING,
+  zone: "Mouse",
+  modes: ["Off", "Spectrum", "Wave", "Static", "Reactive", "Breathing random", "Breathing single", "Breathing dual"],
+  mode: null,
+  brightness: 100,
+  brightnessLevels: [25, 50, 75, 100],
+};
+
+const RAZER_DIAMONDBACK: MouseStatus = {
+  ...RAZER_VIPER_MINI,
+  name: "Diamondback Chroma",
+  dpi: 1800,
+  dpiY: 1800,
+  pollingRateHz: 500,
+  lighting: RAZER_DIAMONDBACK_LIGHTING,
+  lightingZones: [RAZER_DIAMONDBACK_LIGHTING, ...Array.from({ length: 21 }, (_, index): MouseLighting => ({
+    zone: `LED ${index}`,
+    group: "Custom frame",
+    hardwareZoneId: index,
+    modes: ["Off", "Static"],
+    mode: null,
+    color: "#00ff00",
+    color2: null,
+    colorModes: ["Static"],
+    dualColorModes: [],
+    reactiveModes: [],
+    speeds: [],
+    speed: null,
+    writeOnly: true,
+  }))],
+  firmware: ["Mouse 1.0"],
+};
+
 const RAZER_COBRA: MouseStatus = {
   ...RAZER_VIPER_MINI,
   name: "Cobra",
@@ -848,6 +910,8 @@ const RAWM_V4_GT: MouseStatus = {
 export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   pulsar: { label: "Pulsar X2 V2", status: PULSAR },
   "pulsar-pro": { label: "Pulsar X2 V2 Pro", status: PULSAR_PRO },
+  "pulsar-xs1-8k": { label: "Pulsar XS-1 8K dongle", status: PULSAR_XS1_8K },
+  "pulsar-xs1-unknown": { label: "Pulsar XS-1 unknown polling", status: PULSAR_XS1_UNKNOWN },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
@@ -862,6 +926,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
   "razer-viper-v2": { label: "Razer Viper V2 Pro", status: RAZER_VIPER_V2 },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
+  "razer-diamondback": { label: "Razer Diamondback Chroma", status: RAZER_DIAMONDBACK },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
   "terra-pro": { label: "Teevolution Terra Pro", status: TEEVOLUTION },
