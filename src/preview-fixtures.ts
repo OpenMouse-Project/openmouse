@@ -470,6 +470,40 @@ const RAZER_VIPER_MINI: MouseStatus = {
   firmware: ["Mouse 1.01"],
 };
 
+const RAZER_DIAMONDBACK_LIGHTING: MouseLighting = {
+  ...RAZER_VIPER_MINI_LIGHTING,
+  zone: "Mouse",
+  modes: ["Off", "Spectrum", "Wave", "Static", "Reactive", "Breathing random", "Breathing single", "Breathing dual"],
+  mode: null,
+  brightness: 100,
+  brightnessLevels: [25, 50, 75, 100],
+};
+
+const RAZER_DIAMONDBACK: MouseStatus = {
+  ...RAZER_VIPER_MINI,
+  name: "Diamondback Chroma",
+  dpi: 1800,
+  dpiY: 1800,
+  pollingRateHz: 500,
+  lighting: RAZER_DIAMONDBACK_LIGHTING,
+  lightingZones: [RAZER_DIAMONDBACK_LIGHTING, ...Array.from({ length: 21 }, (_, index): MouseLighting => ({
+    zone: `LED ${index}`,
+    group: "Custom frame",
+    hardwareZoneId: index,
+    modes: ["Off", "Static"],
+    mode: null,
+    color: "#00ff00",
+    color2: null,
+    colorModes: ["Static"],
+    dualColorModes: [],
+    reactiveModes: [],
+    speeds: [],
+    speed: null,
+    writeOnly: true,
+  }))],
+  firmware: ["Mouse 1.0"],
+};
+
 const RAZER_COBRA: MouseStatus = {
   ...RAZER_VIPER_MINI,
   name: "Cobra",
@@ -862,6 +896,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
   "razer-viper-v2": { label: "Razer Viper V2 Pro", status: RAZER_VIPER_V2 },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
+  "razer-diamondback": { label: "Razer Diamondback Chroma", status: RAZER_DIAMONDBACK },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
   "terra-pro": { label: "Teevolution Terra Pro", status: TEEVOLUTION },

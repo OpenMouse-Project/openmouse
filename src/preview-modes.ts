@@ -24,6 +24,7 @@ export const PREVIEW_KEYS = [
   "razer",
   "razer-viper-v2",
   "razer-viper-mini",
+  "razer-diamondback",
   "razer-cobra",
   "razer-viper-v4",
   "vgn",
@@ -69,6 +70,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "razer": return "razer";
     case "razer-viper-v2": return "razer-viper-v2";
     case "razer-viper-mini": return "razer-viper-mini";
+    case "razer-diamondback": return "razer-diamondback";
     case "razer-cobra": return "razer-cobra";
     case "razer-viper-v4": return "razer-viper-v4";
     case "terra-pro": return "terra-pro";
