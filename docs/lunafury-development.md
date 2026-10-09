@@ -41,3 +41,17 @@ The protocol repository contains the packet evidence and hardware checklist
 in [`docs/lunafury-testing.md`](https://github.com/sekiranunn/mouse-protocol/blob/codex/lunafury-onboard-controls/docs/lunafury-testing.md).
 This public branch uses generic artwork and excludes the private test-site
 files and vendor images.
+
+## DPI and bank-operation regressions
+
+Games snapshots now save a stage selection independently of its displayed
+DPI. Older scalar snapshots address the selected target stage; actual edits
+back up both tables so restoration can undo them. The controller integration
+tests use its real draft, staging, Apply and restore paths with a synthetic
+HID device, including pending user edits and stage-count changes.
+
+The paired protocol branch refreshes the active DPI stage and both tables
+during LunaFury live reads. Its older bank-scoped setters and status reads
+now share the queue used by bank switches and the newer setters. Other
+brands retain their existing execution paths. These regression checks are
+automated; they do not add a new hardware-verification result.

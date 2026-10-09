@@ -1,6 +1,7 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { diffLunaFurySettings, isLunaFuryProfileField, pickLunaFurySettings, sanitizeLunaFurySettings } from "./lunafury-profile.ts";
 import { pickLunaFuryMappings } from "./lunafury-buttons.ts";
+import { preserveLunaFuryDpiTables, withoutDerivedLunaFuryDpi } from "./lunafury-game-dpi.ts";
 
 /**
  * The device settings a per-game profile can carry. A game profile is stored
@@ -116,10 +117,10 @@ export function snapshotDiff(before: MouseStatus, after: MouseStatus): GameProfi
       if (Object.keys(mappings).length) diff.buttonMappings = mappings;
     } else if (!same(before[field], after[field])) diff[field] = structuredClone(after[field]);
   }
-  return diff as GameProfileSnapshot;
+  return withoutDerivedLunaFuryDpi(after, diff as GameProfileSnapshot);
 }
 
-/** `status`'s current values for exactly the fields `snapshot` sets. */
+/** Prior values for the profile's writes; LunaFury scalar/count edits also back up their table storage. */
 export function pickSnapshot(status: MouseStatus, snapshot: GameProfileSnapshot): GameProfileSnapshot {
   const picked: Record<string, unknown> = {};
   for (const field of Object.keys(snapshot)) {
@@ -137,6 +138,7 @@ export function pickSnapshot(status: MouseStatus, snapshot: GameProfileSnapshot)
     const value = status[field];
     if (value !== undefined) picked[field] = structuredClone(value);
   }
+  preserveLunaFuryDpiTables(status, snapshot, picked as GameProfileSnapshot);
   return picked as GameProfileSnapshot;
 }
 
@@ -211,5 +213,5 @@ export function draftProfileSnapshot(before: MouseStatus, preview: MouseStatus, 
       Object.assign(snapshot, { [field]: structuredClone(preview[field]) });
     }
   }
-  return snapshot;
+  return withoutDerivedLunaFuryDpi(preview, snapshot);
 }

@@ -15,6 +15,7 @@ import { closestDpiOption } from "../dpi-presets";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { canEditLunaFuryMapping, pickLunaFuryMappings } from "./lunafury-buttons.ts";
+import { stageLunaFuryGameDpi } from "./lunafury-game-dpi.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
   clearPendingChanges,
@@ -1492,7 +1493,11 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   // the snapshot: a plain DPI change on a stage-aware mouse also rewrites the
   // active entry of dpiStages, so both fields can be present.
   const stageEditor = status.ui?.dpiStageEditor;
-  if (stageEditor && status.dpiStages?.length) {
+  // LunaFury also accepts older snapshots carrying a selected stage's scalars.
+  const lunaDpi = stageLunaFuryGameDpi(status, s, {
+    count: applyDpiStageCount, axes: applyLunaFuryDpiStageAxes, active: applyActiveDpiStage,
+  });
+  if (!lunaDpi && stageEditor && status.dpiStages?.length) {
     if (s.dpiStages?.length) {
       if (stageEditor.countEditable === true && s.dpiStages.length !== status.dpiStages.length) {
         applyDpiStageCount(s.dpiStages.length);
@@ -1509,7 +1514,7 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     }
     s.dpiStageColors?.forEach((color, stage) => applyDpiStageColor(stage, color));
     if (s.activeDpiStage != null) applyActiveDpiStage(s.activeDpiStage);
-  } else if (s.dpi != null) {
+  } else if (!lunaDpi && s.dpi != null) {
     if (s.dpiY != null && s.dpiY !== s.dpi && status.supportsSeparateDpiAxes) applyLogitechAxisDpi(s.dpi, s.dpiY);
     else applyDpiValue(s.dpi);
   }
