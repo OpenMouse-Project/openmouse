@@ -102,7 +102,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Delux", model: "M800 Mini", status: "supported", pids: [0xfa60, 0xfa55] },
   { brand: "Dareu", model: "A950 PRO Mg", status: "supported", pids: [0x1114, 0x1117] },
   { brand: "Attack Shark", model: "X3", status: "bridge" },
-  { brand: "Attack Shark", model: "X11", status: "bridge" },
+  { brand: "Attack Shark", model: "X11", status: "bridge", pids: [0xfa60, 0xfa55] },
   { brand: "Attack Shark", model: "R5 Ultra", status: "supported", pids: [0x46, 0x47] },
   { brand: "IPI", model: "Float 88", status: "supported", pids: [0x1014, 0x1015] },
   { brand: "Attack Shark", model: "X6", status: "bridge" },

@@ -63,6 +63,32 @@ test("pid matches prefer the row whose brand matches the device", () => {
   assert.equal(result.pageModel, "G23 V2 (SE / Pro)");
 });
 
+test("Attack Shark X11 resolves to its own bridge row despite sharing PIDs with the Delux M800 Mini", () => {
+  // mouse-protocol #161: 0x1d57:0xfa60 is shared by the X11 (model id 0x55)
+  // and the Delux M800 Mini. The brand match must win over the supported
+  // Delux row so the report does not claim the X11 is already Supported.
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Attack Shark", name: "Attack Shark X11", vendorId: 0x1d57, productId: 0xfa60 }),
+    "fail",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "bridge");
+  assert.equal(result.label, "Needs Bridge");
+  assert.equal(result.pageModel, "X11");
+});
+
+test("Delux M800 Mini still resolves to its supported row on the shared PIDs", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Delux", name: "M800 Mini", vendorId: 0x1d57, productId: 0xfa60 }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "M800 Mini");
+});
+
 test("M2-NEX resolves to the Noir Gear supported row despite the shared OEM PID", () => {
   const result = crosscheckSupportedDevices(
     device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: 0x2255 }),
