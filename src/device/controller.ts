@@ -2619,31 +2619,18 @@ async function probeReceiverFirmware(client: SupportedClient, connectionType: st
 }
 
 /**
- * TEMPORARY local copy of LogitechHidppClient.readReceiverFirmware
- * (mouse-protocol/src/drivers/logitech/hidpp.ts): HID++ 1.0 register 0xF1
- * on device 0xFF (the receiver). Remove once the app moves past
- * @openmouse/protocol 0.30.0, whose dist predates that method — until then
- * calling it here would be a runtime TypeError. Read-only.
- */
-/**
- * Tries the 0xF1 register read on the active interface first, then on every
- * other authorized HID interface from the same vendor (a Lightspeed dongle
- * exposes several; the receiver answers 1.0 register reads on its own
- * collection, not on the interface currently carrying the mouse). Read-only.
- */
-/**
- * G Hub reads receiver firmware with per-MCU/index arguments ("unable to
- * retrieve from 0xf1, MCU: %i Index: %i"), so zero params are only the
- * first guess: sweep small (mcu, index) combos at device 0xFF and keep the
- * first non-error value. Every attempt logs its error code either way.
+ * Temporary receiver register probe while the installed protocol package
+ * lacks readReceiverFirmware. It tries the active HID interface, then other
+ * authorized Logitech interfaces, and sweeps MCU 1/2 with index 0/1.
+ * Register 0xF1 is read-only, but its bytes do not encode the 14.x package
+ * version on the tested PRO LIGHTSPEED receiver.
  */
 async function sweepReceiverRegister(
   device: HIDDevice,
   verbose: boolean,
 ): Promise<Array<{ mcu: number; version: string | null; raw: number[] }>> {
-  // One readout per MCU: MCU1/MPR7 and MCU2/CC14 report independently
-  // (verified live: mcu=1 -> 01 07 02, mcu=2 -> 02 00 11). First ok wins
-  // per MCU so a silent index never shadows an answering one.
+  // Both replies were unchanged after G HUB updated 14.3.19 to 14.4.20:
+  // MCU1 -> 01 07 02, MCU2 -> 02 00 11. Keep the raw bytes for diagnostics.
   const mcus: Array<{ mcu: number; version: string | null; raw: number[] }> = [];
   for (const mcu of [1, 2]) {
     for (const index of [0, 1]) {
@@ -2706,8 +2693,8 @@ type RegisterRead = { ok: true; version: string | null; raw: number[] } | { ok: 
 async function readReceiverRegisterF1(
   device: HIDDevice,
   verbose: boolean,
-  deviceIndex = 0xff,
-  params: readonly [number, number, number] = [0, 0, 0],
+  deviceIndex: number,
+  params: readonly [number, number, number],
 ): Promise<RegisterRead> {
   const tag = device.vendorId.toString(16) + ':' + device.productId.toString(16) +
     ' dev=' + deviceIndex.toString(16) + ' params=[' + params.join(',') + ']';
@@ -2750,9 +2737,10 @@ async function readReceiverRegisterF1(
   }
   if (reply.kind !== 'value') return { ok: false as const, code: null };
   const payload = [...reply.data.subarray(3, 7)];
+  if (payload[0] !== params[0]) return { ok: false as const, code: null };
   return {
     ok: true as const,
-    version: payload.length >= 3 ? `${payload[0]}.${payload[1]}.${payload[2]}` : null,
+    version: null,
     raw: payload,
   };
 }

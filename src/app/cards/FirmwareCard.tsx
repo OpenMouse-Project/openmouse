@@ -91,8 +91,8 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const mouseVisible = mouseDfu !== null && !isDfuDismissed(deviceKey, mouseDfu.latestVersion) ? mouseDfu : null;
 
   const receiver = snapshot.receiverFirmware;
-  // Primary readout is the MCU2/CC14 line (the package-versioned STM32
-  // firmware in dfu terms); MCU1/MPR7 has its own 7.x line.
+  // Prefer MCU2 for diagnostics, but register 0xF1 has no verified 14.x
+  // package-version decode. Do not compare it to the manifest until it does.
   const primaryMcu = receiver?.mcus.find((entry) => entry.mcu === 2) ?? receiver?.mcus[0] ?? null;
   const receiverRef = receiver === null || primaryMcu === null || primaryMcu.version === null ? null : {
     brand: status.brand,
@@ -117,6 +117,8 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
     pill = t(locale, "fw.checking");
   } else if (available.length > 0) {
     pill = t(locale, "fw.available");
+  } else if (receiver !== null && (primaryMcu === null || primaryMcu.version === null)) {
+    pill = t(locale, "fw.unknown");
   } else if (mouseVisible || receiverVisible) {
     pill = t(locale, "fw.upToDate");
   } else {
