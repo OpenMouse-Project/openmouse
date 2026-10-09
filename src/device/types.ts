@@ -182,6 +182,21 @@ export interface ControlSnapshot {
   settingInProgress: boolean;
   atkR1SePlusPairingAvailable: boolean;
 
+  /**
+   * Receiver's own firmware (HID++ 1.0 register 0xF1), read once per
+   * wireless Logitech connection on the same interface (device 0xFF).
+   * Null when wired, non-Logitech, or unreadable — the mouse card is
+   * unaffected either way.
+   */
+  /**
+   * Per-MCU firmware readouts from the receiver (HID++ 1.0 register 0xF1,
+   * one (mcu, index) combo each). MCU numbering follows the dfu package
+   * target entities (MCU1/MPR7, MCU2/CC14). Versions are dotted-decimal
+   * triplets of the raw reply bytes; their mapping to package versions is
+   * established empirically (see firmware-updates.ts).
+   */
+  receiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null;
+
   preferences: InterfacePreferences;
   sidebarHidden: boolean;
   interfaceSettingsOpen: boolean;

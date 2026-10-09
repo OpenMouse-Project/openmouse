@@ -1,0 +1,135 @@
+[
+  {
+    "name": "c53a_dfu",
+    "uuid": "a73c09b7-6a29-4202-a6cc-0d46224b1b86"
+  },
+  {
+    "name": "c541_dfu",
+    "uuid": "14bfd359-bdb5-4057-ae55-6ca9c019459c"
+  },
+  {
+    "name": "c545_dfu",
+    "uuid": "6ee2a69c-d269-4ce9-8186-edf5eb20de95"
+  },
+  {
+    "name": "c547_dfu",
+    "uuid": "e377c9fd-eb7e-4107-8686-f068d0a5ce29"
+  },
+  {
+    "name": "g29_dfu",
+    "uuid": "5a2d5ba1-0769-43b7-b7c7-ece9250bf1e9"
+  },
+  {
+    "name": "g303_wireless_dfu",
+    "uuid": "21157c4c-b84c-45a2-8ca2-2cce788341f2"
+  },
+  {
+    "name": "g403_hero_dfu",
+    "uuid": "f5d80366-b655-48a3-b267-c4e424bb4b20"
+  },
+  {
+    "name": "g502_hero_dfu",
+    "uuid": "44667d90-b89d-4f1c-a727-253af3aa3f24"
+  },
+  {
+    "name": "g515_ls_tkl_keyboard_dfu",
+    "uuid": "688cc664-cf2a-4951-b430-49f659b4cc8c"
+  },
+  {
+    "name": "g515_tkl_keyboard_dfu",
+    "uuid": "3191d8ee-370a-4370-956c-61ae56aabf1f"
+  },
+  {
+    "name": "g604_dfu",
+    "uuid": "779f8c4f-3cbf-4fb6-a372-1a78cc91f8cc"
+  },
+  {
+    "name": "g703_hero_dfu",
+    "uuid": "d552b8fd-6fb6-47a6-96dd-f6cd2ecb032a"
+  },
+  {
+    "name": "g713_dfu",
+    "uuid": "c1ae4ea6-970b-46c0-803f-c83280724664"
+  },
+  {
+    "name": "g715_dfu",
+    "uuid": "43217f0a-c3a0-4eb3-91a7-dd89d835824d"
+  },
+  {
+    "name": "g903_dfu",
+    "uuid": "19601a29-b5ad-40c0-8dc0-b991e6f5ec2d"
+  },
+  {
+    "name": "g903_hero_dfu",
+    "uuid": "6f0ee387-2e11-434c-8e1a-ca9e70cb6193"
+  },
+  {
+    "name": "g915_dfu",
+    "uuid": "823350f9-57ab-41af-a2b0-63dcf6f2c30e"
+  },
+  {
+    "name": "g915_tkl_dfu",
+    "uuid": "b2ac40a0-9af8-4b52-ad80-717e779fa5b4"
+  },
+  {
+    "name": "g920_dfu",
+    "uuid": "0475f97e-7cf2-48ef-8da4-6d09a3268647"
+  },
+  {
+    "name": "g923_pc_xb_dfu",
+    "uuid": "ba7e25ac-5b59-42ca-adeb-d285d250fd6c"
+  },
+  {
+    "name": "pro_mouse_hero_dfu",
+    "uuid": "bfae30bd-4886-4e40-918e-a4019871342b"
+  },
+  {
+    "name": "pro_racing_pedals_dfu",
+    "uuid": "8ef7540d-0917-49d7-8a96-7a65d8921495"
+  },
+  {
+    "name": "pro_racing_wheel_dfu",
+    "uuid": "3886750b-e9e6-4203-afd9-5914ca3aba10"
+  },
+  {
+    "name": "pro_wireless_mouse_dfu",
+    "uuid": "e9494b25-e178-4f78-9a9f-1e21061dd506"
+  },
+  {
+    "name": "pro_x_60_keyboard_dfu",
+    "uuid": "597f2aa1-d182-4e93-93b2-bbaf659c7516"
+  },
+  {
+    "name": "pro_x_wireless_mouse_dfu",
+    "uuid": "eec833c8-f775-437a-8eb9-eb6599a4cade"
+  },
+  {
+    "name": "racing_adapter_dfu",
+    "uuid": "244b822d-574d-490f-b040-b9582d51d473"
+  },
+  {
+    "name": "rs50_drive_dfu",
+    "uuid": "355c92cc-d60d-475d-aced-2ac8206a75ba"
+  },
+  {
+    "name": "rs50_racing_wheel_dfu",
+    "uuid": "7cad9462-20fd-40f5-b470-ccda52467ae6"
+  },
+  {
+    "name": "yeti_original_nano_dfu",
+    "uuid": "b32a3ac2-43a9-4e98-84cf-b078abf665f6"
+  },
+  {
+    "name": "yetix_dfu",
+    "uuid": "9e65ea94-57a5-4404-9f24-feec53d20e40"
+  },
+  {
+    "name": "yetix_wow_dfu",
+    "uuid": "629958f5-5f15-4bee-83c6-b09c8ec7de61"
+  },
+  {
+    "name": "93bbe5f7-0169-4a81-a97b-01578380d739",
+    "uuid": "1bbfd83a-56c6-4359-957d-112539052a19",
+    "note": "PRO receivers (MPR07/STM32); UUID-named depot"
+  }
+]
