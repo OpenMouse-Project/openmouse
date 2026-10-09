@@ -892,6 +892,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 #polling-card .title-row h2, #host-lod-row .title-row h2 { font-size: 1.15rem; }
 .setting-note { display: block; margin-top: 1rem; color: var(--text-soft); font-size: .72rem; line-height: 1.5; }
 .setting-note-stable { min-height: 3em; }
+.setting-note-warning { color: var(--warning); }
 .setting-action { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; color: var(--text-soft); font-size: .7rem; font-weight: 500; }
 .setting-action #dpi-pending { color: var(--text-strong); font-weight: 650; }
 .setting-action button { padding: .4rem .65rem; border: 1px solid var(--text); border-radius: 6px; background: var(--text); color: var(--ink); font-size: .65rem; font-weight: 700; }

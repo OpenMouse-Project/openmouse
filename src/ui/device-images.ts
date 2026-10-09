@@ -68,6 +68,8 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // don't match.
   if (/\battack\s*shark\s*x3\b/i.test(displayName)) return "attackshark-x3.png";
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
+  // Name, not PID: over the ROG Omni receiver the device is 0x1ACE.
+  if (/\bharpe\s*ace\s*aim\s*lab\b/i.test(displayName)) return "asus-rog-harpe-ace-aim-lab.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";
   if (/\bm-001\b/i.test(displayName)) return "wallhack-m-001.png";
@@ -205,6 +207,7 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "attackshark-r2.png": "/devices/attackshark-r2.png",
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
+  "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {

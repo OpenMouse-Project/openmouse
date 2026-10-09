@@ -162,6 +162,7 @@ import { Keychron8kNordicHidClient } from "@openmouse/protocol/drivers/keychron/
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { GloriousCore2HidClient } from "@openmouse/protocol/drivers/glorious/core2-hid";
 import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
 import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
 import { MchoseA5ProMaxHidClient } from "@openmouse/protocol/drivers/mchose/a5-gen1-hid";
@@ -270,7 +271,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -2450,6 +2451,30 @@ function storedActiveDeviceKey(): string | null {
 function rememberActiveDevice(device: HIDDevice): void {
   try {
     localStorage.setItem(ACTIVE_DEVICE_STORAGE_KEY, deviceStorageKey(device));
+  } catch {
+  }
+}
+
+const SINGLE_DPI_BACKUP_STORAGE_KEY = "openmouse.single-dpi-backup";
+
+function singleDpiBackups(): Record<string, number[]> {
+  try {
+    return JSON.parse(localStorage.getItem(SINGLE_DPI_BACKUP_STORAGE_KEY) ?? "{}") as Record<string, number[]>;
+  } catch {
+    return {};
+  }
+}
+
+/** The stage table the active mouse had before the Single DPI view gave every stage one value. */
+export function dpiStagesBeforeSingle(): number[] | null {
+  return activeDevice ? singleDpiBackups()[deviceStorageKey(activeDevice)] ?? null : null;
+}
+
+export function rememberDpiStagesBeforeSingle(stages: readonly number[]): void {
+  if (!activeDevice) return;
+  try {
+    const backups = { ...singleDpiBackups(), [deviceStorageKey(activeDevice)]: [...stages] };
+    localStorage.setItem(SINGLE_DPI_BACKUP_STORAGE_KEY, JSON.stringify(backups));
   } catch {
   }
 }
