@@ -1,5 +1,6 @@
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { PREVIEW_KEYS, type FixturePreviewMode } from "./preview-modes.ts";
+import { LUNAFURY_BUTTON_ACTIONS } from "@openmouse/protocol/lamzu";
 
 export { PREVIEW_KEYS };
 
@@ -853,6 +854,23 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
+  lunafury: { label: "LunaFury LUNA33 (synthetic)", status: {
+    ...LAMZU, brand: "LunaFury", name: "LunaFury LUNA33",
+    ui: { family: "lunafury", hideUnsupportedPollingRates: true, forceShowBattery: true,
+      dpiStageEditor: { maxStages: 6, countEditable: true, minDpi: 50, maxDpi: 30000, stepDpi: 50 } },
+    dpi: 800, dpiY: 1600, dpiStages: [400, 800, 1600, 3200, 6400, 30000],
+    dpiStagesY: [800, 1600, 3200, 3200, 6400, 30000], activeDpiStage: 1,
+    activeProfile: 2, profileCount: 3, pollingRateHz: 8000,
+    sleepTimeout: 0,
+    buttonMappings: { Left: "Left Click", Right: "Right Click", Middle: "Middle Click", Back: "Keyboard:1:6", Forward: "Macro:16:1" },
+    buttonOptions: [...LUNAFURY_BUTTON_ACTIONS], fixedButtons: ["Left", "Forward"],
+    supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+    angleTuning: -12, angleSnapping: false, hyperMode: true, performanceMode: true, rippleControl: false,
+    lunafury: { bottomButtonMode: 2, receiverLightMode: 2, buttonPollingRateHz: 4000, supportedButtonPollingRates: [1000, 2000, 4000, 8000],
+      separateDpiAxes: true, lightningMode: 1, leftDebounceMs: 3, rightDebounceMs: 7,
+      middleDebounceMs: 10, wheelGuard: { enabled: true, windowMs: 100 } },
+    firmware: ["Synthetic preview — not a hardware capture"],
+  } },
   "attack-shark": { label: "Attack Shark R5 Ultra", status: ATTACKSHARK },
   crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
   m3k: { label: "Zaunkoenig M3K", status: M3K },

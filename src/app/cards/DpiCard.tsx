@@ -10,11 +10,13 @@ import { isNoirE1Status, isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLO
 import { closestDpiOption, dpiPresetValues } from "../../dpi-presets";
 import { t, tp } from "../../i18n";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
+import { LunaFuryDpiEditor } from "./LunaFuryDpiEditor";
+import { lunaFuryDpiEdits } from "../../device/lunafury-dpi.ts";
 
 const MAX_EDITOR_ROWS = 4;
 const DEFAULT_LOD = 2;
 
-type StageRow = { enabled: boolean; value: string; lod: number };
+type StageRow = { enabled: boolean; value: string; lod: number; y?: number };
 
 /**
  * One DPI editor for every device flavor. It always shows up to four rows,
@@ -73,8 +75,8 @@ function DpiStageEditor({
     if (mode === "stage" && status?.dpiStages) {
       const stages = status.dpiStages.slice(0, rowCap);
       const last = stages[stages.length - 1] ?? status.dpi ?? 800;
-      const rows = stages.map((value) => ({ enabled: true, value: String(value), lod: DEFAULT_LOD }));
-      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD });
+      const rows: StageRow[] = stages.map((value, index) => ({ enabled: true, value: String(value), lod: DEFAULT_LOD, y: status.dpiStagesY?.[index] }));
+      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD, y: status.dpiStagesY?.at(-1) });
       return rows;
     }
     const presets = dpiPresetValues(options);
@@ -111,6 +113,26 @@ function DpiStageEditor({
       ? (status?.dpiStages?.join(",") ?? "-")
       : String(status?.dpi ?? 0);
   const lastSigRef = useRef(sourceSig);
+  const profileSource = `${status?.brand}:${status?.activeProfile}`;
+  const lastProfileRef = useRef(profileSource);
+  const ySource = status?.dpiStagesY?.join(",") ?? "-";
+  useEffect(() => {
+    if (status?.brand !== "LunaFury") return;
+    if (lastProfileRef.current !== profileSource) {
+      lastProfileRef.current = profileSource;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      touchedRef.current = 0;
+      setRows(initRows());
+      return;
+    }
+    // A Y-row edit comes from a separate control. Refresh the stored Y pairs
+    // without discarding the shared editor's disabled-but-kept rows.
+    setRows((current) => {
+      let stage = 0;
+      return current.map((row) => row.enabled ? { ...row, y: status.dpiStagesY?.[stage++] } : row);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileSource, ySource]);
   useEffect(() => {
     if (sourceSig === lastSigRef.current) return;
     lastSigRef.current = sourceSig;
@@ -160,6 +182,13 @@ function DpiStageEditor({
       const currentCount = current.length;
       if (stageEditor?.countEditable === true && enabled.length !== currentCount) {
         control.applyDpiStageCount(enabled.length);
+      }
+      if (status?.brand === "LunaFury" && status.dpiStagesY) {
+        const edits = lunaFuryDpiEdits(next.map((row) => ({ enabled: row.enabled,
+          x: closestDpiOption(options, parseRow(row.value) ?? 50) ?? 50, y: row.y })),
+        current, status.dpiStagesY, status.lunafury?.separateDpiAxes !== false);
+        edits.forEach(({ stage, x, y }) => control.applyLunaFuryDpiStageAxes(stage, x, y));
+        return;
       }
       enabled.forEach((row, position) => {
         const value = parseRow(row.value);
@@ -455,6 +484,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const staged = snapshot.pending.keys.includes("dpi")
     || snapshot.pending.keys.includes("dpi-stage-count")
     || snapshot.pending.keys.includes("dpi-active-stage")
+    || snapshot.pending.keys.includes("lunafury-dpi-axes")
     || snapshot.pending.keys.includes("logitech-dpi-slots")
     || snapshot.pending.keys.some((key) => key.startsWith("dpi-stage-"))
     || snapshot.pending.keys.includes("lift-off-distance");
@@ -471,14 +501,14 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
-  const singleDpiAvailable = !isNoirS1Status(status) && !isNoirE1Status(status);
+  const singleDpiAvailable = status.brand !== "LunaFury" && !isNoirS1Status(status) && !isNoirE1Status(status);
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 
   return (
     <article
-      className={`setting-card dpi-card${staged ? " is-staged" : ""}${showLiftOff ? " has-lift-off" : ""}`}
-      data-pending-key="dpi dpi-stage-count dpi-active-stage logitech-dpi-slots lift-off-distance"
+      className={`setting-card dpi-card${status.brand === "LunaFury" ? " lunafury-dpi-card" : ""}${staged ? " is-staged" : ""}${showLiftOff ? " has-lift-off" : ""}`}
+      data-pending-key="dpi dpi-stage-count dpi-active-stage logitech-dpi-slots lift-off-distance lunafury-dpi-axes"
     >
       <div className="dpi-card-main">
         <div className="setting-heading">
@@ -517,7 +547,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               </div>
             ) : null}
           </div>
-          <div className="dpi-header-actions">
+          <div className="dpi-header-actions" hidden={status.brand === "LunaFury"}>
             <input
               id="dpi-output"
               type="text"
@@ -552,10 +582,10 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
           </div>
         </div>
 
-        <DpiStageEditor
+        {status.brand === "LunaFury" ? <LunaFuryDpiEditor key={status.activeProfile} snapshot={snapshot} /> : <DpiStageEditor
           snapshot={snapshot}
           editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}
-        />
+        />}
 
         <div className="setting-action">
           <span id="dpi-pending">

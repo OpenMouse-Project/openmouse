@@ -11,6 +11,19 @@ const settings: LunaFurySettings = {
   wheelGuard: { enabled: false, windowMs: 0 },
 };
 
+test("receiver-global lighting is excluded from Games and profile imports", () => {
+  assert.deepEqual(sanitizeLunaFurySettings({ ...settings, receiverLightMode: 6 }), settings);
+  const saved = pickSnapshot({ lunafury: { ...settings, receiverLightMode: 2 }, sleepTimeout: 0 } as MouseStatus,
+    { lunafury: { receiverLightMode: 6 } as LunaFurySettings, sleepTimeout: 300 });
+  assert.deepEqual(saved, { sleepTimeout: 0 });
+});
+
+test("bottom-button behavior is device-only and excluded from Games and imports", () => {
+  assert.deepEqual(sanitizeLunaFurySettings({ ...settings, bottomButtonMode: 1 }), settings);
+  assert.deepEqual(pickSnapshot({ lunafury: { ...settings, bottomButtonMode: 2 } } as MouseStatus,
+    { lunafury: { bottomButtonMode: 1 } as LunaFurySettings }), {});
+});
+
 test("profile validation accepts endpoints and the disabled zero wheel window", () => {
   assert.deepEqual(sanitizeLunaFurySettings(settings), settings);
   assert.deepEqual(sanitizeLunaFurySettings({ lightningMode: 2, leftDebounceMs: 15, middleDebounceMs: 30,
@@ -28,6 +41,31 @@ test("invalid imported values never become protocol writes", () => {
   for (const windowMs of [1, 19, 21, 201, 220, -20, NaN, Infinity]) {
     assert.deepEqual(sanitizeLunaFurySettings({ wheelGuard: { enabled: false, windowMs } }), {});
   }
+});
+
+test("button polling and axis mode are validated without saving capability metadata", () => {
+  assert.deepEqual(sanitizeLunaFurySettings({ buttonPollingRateHz: 8000, separateDpiAxes: false,
+    supportedButtonPollingRates: [1000, 8000] }), { buttonPollingRateHz: 8000, separateDpiAxes: false });
+  for (const value of [0, 125, 1000.5, "1000", NaN]) {
+    assert.deepEqual(sanitizeLunaFurySettings({ buttonPollingRateHz: value, separateDpiAxes: 1 }), {});
+  }
+});
+
+test("Games use only supported button rates and restore the original axis mode", () => {
+  const calls: unknown[] = [];
+  const actions: LunaFuryProfileActions = {
+    lightning: () => {}, button: () => {}, wheel: () => {},
+    buttonRate: (value) => { calls.push(["rate", value]); },
+    separateAxes: (value) => { calls.push(["axes", value]); },
+  };
+  const current: LunaFurySettings = { buttonPollingRateHz: 1000, supportedButtonPollingRates: [1000], separateDpiAxes: true };
+  stageLunaFuryProfile({ buttonPollingRateHz: 8000, separateDpiAxes: false }, current, actions);
+  assert.deepEqual(calls, [["axes", false]], "the LUNA33 wired link must not stage an 8K button rate");
+  calls.length = 0;
+  stageLunaFuryProfile({ buttonPollingRateHz: 4000 }, { ...current, supportedButtonPollingRates: [1000, 2000, 4000, 8000] }, actions);
+  assert.deepEqual(calls, [["rate", 4000]]);
+  const saved = pickSnapshot({ lunafury: current } as MouseStatus, { lunafury: { separateDpiAxes: false } });
+  assert.deepEqual(saved, { lunafury: { separateDpiAxes: true } });
 });
 
 test("profile staging calls only supported controls and ignores unknown commands", () => {

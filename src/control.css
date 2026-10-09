@@ -69,6 +69,13 @@
   background: var(--ink);
   font-family: var(--font-sans);
   font-synthesis: none;
+  /* Fixed vendor stage identifiers; no color-editing controls or HID writes. */
+  --luna-stage-1: #9e11f5;
+  --luna-stage-2: #07c160;
+  --luna-stage-3: #2b61fe;
+  --luna-stage-4: #24d5e2;
+  --luna-stage-5: #fdc34c;
+  --luna-stage-6: #ff00ff;
   /* Per-stage DPI ramp used by the M2-NEX editor (has-m2nex-stage-colors). */
   --stage-color-1: #ff5a5a;
   --stage-color-2: #4ade80;
@@ -5084,6 +5091,148 @@ body { height: 100vh; overflow: hidden; }
   .hardware-test-status {
     height: clamp(340px, 50vh, 520px);
   }
+}
+
+/* LunaFury Buttons: remapping and a continuous adjustment panel. Only the
+   outer grid changes columns; its setting sections always stay stacked. */
+.luna-buttons-layout {
+  grid-template-columns: 240px minmax(0, 1fr);
+  container: luna-buttons / inline-size;
+}
+.control-shell .luna-button-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.luna-button-extras {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-panel);
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--text-strong) 18%, transparent);
+}
+.control-shell .luna-button-grid > .setting-card {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-panel);
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--text-strong) 18%, transparent);
+}
+.control-shell .luna-button-extras > .setting-card {
+  min-width: 0;
+  margin: 0;
+  padding: 1.25rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.control-shell .luna-button-extras > .setting-card + .setting-card {
+  border-top: 1px solid var(--line-strong);
+}
+.control-shell .luna-button-extras > .setting-card:first-child { border-start-start-radius: 16px; border-start-end-radius: 16px; }
+.control-shell .luna-button-extras > .setting-card:last-child { border-end-start-radius: 16px; border-end-end-radius: 16px; }
+.luna-button-extras > .setting-card + .setting-card .setting-heading p { display: none; }
+.control-shell .luna-button-grid [data-pending-key].is-staged {
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+}
+#button-mapping-settings.luna-button-mapping { max-width: none; container: luna-remap / inline-size; }
+.control-shell .luna-button-grid .setting-heading h2 { color: var(--text-hover); }
+.luna-button-extras #lunafury-wheel-guard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.luna-button-extras #lunafury-wheel-guard .setting-heading { margin: 0; }
+.luna-button-extras #lunafury-wheel-guard .switch-row > span { display: none; }
+.luna-button-extras #lunafury-wheel-guard .stepper-slider { grid-column: 1 / -1; }
+.luna-button-extras #lunafury-bottom-button .option-menu-list {
+  top: auto;
+  bottom: calc(100% + .25rem);
+}
+.control-shell .luna-power-card .setting-heading h2 { color: var(--text-hover); }
+.luna-button-mapping .button-map-list { gap: .5rem; }
+.luna-map-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  padding: .6rem .7rem;
+  border-radius: 12px;
+  background: var(--surface-control);
+}
+.luna-map-item:hover { background: var(--surface-hover-soft); }
+.luna-map-item:focus-within { box-shadow: inset 0 0 0 1px var(--ui-accent); }
+.luna-map-item .button-map-row {
+  grid-template-columns: minmax(6rem, 7.5rem) minmax(0, 1fr);
+  gap: .5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: .875rem;
+}
+.luna-map-item .button-map-connector { display: none; }
+.luna-map-item .button-map-select-wrap select { min-height: 2.5rem; font-size: .875rem; }
+.luna-map-item .luna-key-binding { margin: 0; font-size: .8125rem; }
+.luna-map-item .luna-key-binding summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 2.5rem;
+  padding: .3rem .55rem;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--surface-panel-strong);
+  list-style: none;
+}
+.luna-map-item .luna-key-binding summary::after {
+  width: .35rem;
+  height: .35rem;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  content: "";
+  transform: rotate(45deg) translateY(-2px);
+}
+.luna-map-item .luna-key-binding summary:hover { color: var(--text-hover); }
+.luna-map-item .luna-key-binding summary:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.luna-map-item:has(.luna-key-binding[open]) { grid-template-columns: minmax(0, 1fr); }
+.luna-map-item .luna-key-binding[open] { grid-column: 1 / -1; }
+.luna-map-item .luna-key-binding[open] summary { width: fit-content; margin-inline-start: auto; }
+.luna-map-item .luna-key-binding[open] summary::after { transform: rotate(225deg) translateY(-2px); }
+.luna-button-mapping .field-note { margin: 1rem 0 0; font-size: .75rem; line-height: 1.6; color: var(--text-soft); }
+@container luna-buttons (min-width: 1120px) {
+  .control-shell .luna-button-grid { grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 1fr); }
+}
+@media (max-width: 980px) {
+  .luna-buttons-layout { grid-template-columns: minmax(0, 1fr); }
+  .luna-buttons-layout .showcase-sidebar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: .25rem 1rem;
+    text-align: start;
+    justify-items: start;
+  }
+  .luna-buttons-layout .showcase-sidebar-visual { grid-row: 1 / 3; width: 80px; }
+  .luna-buttons-layout .showcase-sidebar-image { max-width: 80px; max-height: 151px; }
+  .luna-buttons-layout .showcase-sidebar-info { align-self: end; }
+  .luna-buttons-layout .showcase-sidebar-status { align-self: start; }
+}
+@container luna-remap (max-width: 400px) {
+  .luna-map-item { grid-template-columns: minmax(0, 1fr); }
+  .luna-map-item .luna-key-binding summary { width: fit-content; margin-inline-start: auto; }
 }
 
 /* Right-to-left (Arabic). The stylesheet uses CSS logical properties for

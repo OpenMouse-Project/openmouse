@@ -32,6 +32,18 @@ test("nested values are compared by content", () => {
   assert.deepEqual(snapshotDiff(before, status({ dpiStages: [400, 1600] })), { dpiStages: [400, 1600] });
 });
 
+test("LunaFury game profiles capture and restore Y stages independently", () => {
+  const before = status({ brand: "LunaFury", dpiStages: [400, 800], dpiStagesY: [800, 1600],
+    lunafury: { separateDpiAxes: false, buttonPollingRateHz: 1000, supportedButtonPollingRates: [1000, 2000, 4000, 8000] } });
+  const after = { ...before, dpiStagesY: [1200, 1600], lunafury: { ...before.lunafury, separateDpiAxes: true } };
+  const saved = snapshotDiff(before, after);
+  assert.deepEqual(saved, { dpiStagesY: [1200, 1600], lunafury: { separateDpiAxes: true } });
+  assert.deepEqual(pickSnapshot(before, saved), { dpiStagesY: [800, 1600], lunafury: { separateDpiAxes: false } });
+  assert.deepEqual(editableProfileFields(before, after), ["dpiStagesY", "lunafury.separateDpiAxes"]);
+  after.dpiStagesY[0] = 2400;
+  assert.deepEqual(saved.dpiStagesY, [1200, 1600]);
+});
+
 test("picking the prior values covers exactly the fields the profile sets", () => {
   const live = status({ dpi: 800, gamingSurfaceMode: "Auto" });
   assert.deepEqual(pickSnapshot(live, { dpi: 1600, gamingSurfaceMode: "On" }), { dpi: 800, gamingSurfaceMode: "Auto" });
@@ -113,4 +125,21 @@ test("switching Games profiles restores previous controls and retains every orig
   }, "settings omitted by the next game go back to their originals");
   assert.deepEqual(firstPrior, { lunafury: { lightningMode: 0, leftDebounceMs: 3 } });
   assert.deepEqual(mergeSnapshots({ dpi: 800 }, { pollingRateHz: 2000, dpi: 1600 }), { dpi: 1600, pollingRateHz: 2000 });
+});
+test("LunaFury Games saves and restores only touched writable buttons", () => {
+  const before = status({ brand: "LunaFury", buttonMappings: { Left: "Left Click", Right: "Right Click", Middle: "Middle Click",
+    Back: "Keyboard:16:6", Forward: "Macro:16:1" }, fixedButtons: ["Left", "Forward"] });
+  const after = { ...before, buttonMappings: { ...before.buttonMappings, Right: "DPI Cycle" } };
+  const saved = snapshotDiff(before, after);
+  assert.deepEqual(saved, { buttonMappings: { Right: "DPI Cycle" } });
+  assert.deepEqual(pickSnapshot(before, saved), { buttonMappings: { Right: "Right Click" } });
+  assert.deepEqual(editableProfileFields(before, after), ["buttonMappings.Right"]);
+  assert.deepEqual(matchingProfileFields(after, saved), ["buttonMappings.Right"]);
+  assert.deepEqual(draftProfileSnapshot(before, before, ["buttonMappings.Back"]),
+    { buttonMappings: { Back: "Keyboard:16:6" } });
+  assert.deepEqual(draftProfileSnapshot(before, before, ["buttonMappings.Left", "buttonMappings.Forward"]), {});
+  assert.deepEqual(mergeSnapshots({ buttonMappings: { Back: "Back" } }, saved),
+    { buttonMappings: { Back: "Back", Right: "DPI Cycle" } });
+  assert.deepEqual(snapshotDiff(before, { ...before, buttonMappings: { ...before.buttonMappings,
+    Left: "Disabled", Forward: "DPI Up", Middle: "Keyboard:0:0" } }), {});
 });

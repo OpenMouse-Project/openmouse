@@ -23,6 +23,8 @@ import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ks
 import { isPulsarProProtocol } from "../../device/traits";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import { lunafurySettingLabel, lunafuryTrackingVisible } from "../../device/lunafury-labels.ts";
+import { lunaFuryMappingLabel } from "../../device/lunafury-buttons.ts";
+import { LunaFuryKeyboardBinding } from "./LunaFuryKeyboardBinding.tsx";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS } from "../../device/options";
@@ -258,7 +260,7 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const asleep = status.sleepTimeout !== null && status.sleepTimeout !== undefined;
 
   return (
-    <article id="sleep-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
+    <article id="sleep-settings" className={`setting-card${status.brand === "LunaFury" ? " luna-power-card" : ""}${staged ? " is-staged" : ""}`}>
       <div className="setting-heading compact">
         <div><p>POWER</p><h2>{t(locale, "adv.autoSleep")}</h2></div>
         {canDisable ? (
@@ -1383,6 +1385,7 @@ export function OnboardProfileCard({ snapshot }: { snapshot: ControlSnapshot }):
             label: status.profileNames?.[value - 1] ?? tp(locale, "adv.profileOpt", { n: value }),
           }))}
           value={status.activeProfile}
+          disabled={snapshot.settingInProgress || snapshot.settingsPending}
           onChange={(next) => control.applyProfileSelection(next)}
         />
       </div>
@@ -1964,6 +1967,9 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
+  const luna = status.brand === "LunaFury";
+  const lunaBusy = luna && (snapshot.settingInProgress || snapshot.pending.busy || snapshot.pending.keys.includes("onboard-profile"));
+  const display = (value: string, physical = false) => luna ? lunaFuryMappingLabel(locale, value, physical) : value;
   const isNoirProfile = isNoirKsnakeStatus(status)
     && snapshot.m2nexProfiles !== null;
   const selectedM2NexProfile = isNoirProfile
@@ -1977,7 +1983,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   // builds against the published protocol until then.
   const fixed = new Set((status as unknown as { fixedButtons?: readonly string[] }).fixedButtons ?? []);
   return (
-    <article id="button-mapping-settings" className="setting-card">
+    <article id="button-mapping-settings" className={`setting-card${luna ? " luna-button-mapping" : ""}`}>
       <div className="setting-heading compact"><div><p>BUTTONS</p><h2>{t(locale, "map.remap")}</h2></div></div>
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
@@ -1987,17 +1993,18 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
           const selectId = `button-${button.toLowerCase()}-select`;
           const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left");
           return (
-            <label key={button} className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
+            <div key={button} className={luna ? "luna-map-item" : undefined}>
+            <label className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
               <span className="button-map-control">
                 <span className="button-map-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                <span className="button-map-name">{button}</span>
+                <span className="button-map-name">{display(button, true)}</span>
               </span>
-              <span className="button-map-connector" aria-hidden="true">to</span>
+              <span className="button-map-connector" aria-hidden="true">{luna ? "" : "to"}</span>
               <span className="button-map-select-wrap">
                 <select
                   id={selectId}
                   value={options.includes(assigned) ? assigned : ""}
-                  disabled={isFixed}
+                  disabled={isFixed || lunaBusy}
                   onChange={(event) => {
                     // M2-NEX edits its selected local profile slot; every other
                     // driver writes straight through to the device.
@@ -2009,11 +2016,14 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
                   }}
                 >
                   {/* A macro or an assignment this build cannot name still shows. */}
-                  {!options.includes(assigned) && <option value="">{assigned}</option>}
-                  {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                  {!options.includes(assigned) && <option value="">{display(assigned)}</option>}
+                  {options.map((option) => <option key={option} value={option}>{display(option)}</option>)}
                 </select>
               </span>
             </label>
+            {luna && !isFixed && <LunaFuryKeyboardBinding button={button} assigned={assigned}
+              profile={status.activeProfile} disabled={lunaBusy} locale={locale} />}
+            </div>
           );
         })}
       </div>
@@ -2030,7 +2040,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
         </div>
       ) : null}
       {!selectedM2NexProfile ? (
-        <p className="field-note">{t(locale, "map.defaultNote")}</p>
+        <p className="field-note">{t(locale, luna ? "luna.mappingNote" : "map.defaultNote")}</p>
       ) : null}
     </article>
   );

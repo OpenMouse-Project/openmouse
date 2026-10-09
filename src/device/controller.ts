@@ -14,6 +14,7 @@ import {
 import { closestDpiOption } from "../dpi-presets";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
+import { canEditLunaFuryMapping, pickLunaFuryMappings } from "./lunafury-buttons.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
   clearPendingChanges,
@@ -1093,6 +1094,11 @@ function stageChange(change: PendingChange): void {
     setReadStatus(st("ctl.waitFlash"));
     return;
   }
+  if (latestDeviceStatus?.brand === "LunaFury" && change.key !== "onboard-profile" && isPendingChange("onboard-profile")) {
+    setReadStatus(st("luna.profileSwitchPending"));
+    emit();
+    return;
+  }
   if (gameProfileDraft) {
     const fields = gameProfileFieldsOf(change);
     if (!fields) {
@@ -1491,9 +1497,15 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
       if (stageEditor.countEditable === true && s.dpiStages.length !== status.dpiStages.length) {
         applyDpiStageCount(s.dpiStages.length);
       }
-      s.dpiStages.forEach((value, stage) => applyDpiStageValue(stage, value));
+      s.dpiStages.forEach((value, stage) => {
+        if (status.brand === "LunaFury" && s.dpiStagesY?.[stage] != null) applyLunaFuryDpiStageAxes(stage, value, s.dpiStagesY[stage]);
+        else applyDpiStageValue(stage, value);
+      });
+    } else if (status.brand === "LunaFury" && s.dpiStagesY?.length) {
+      s.dpiStagesY.forEach((value, stage) => applyLunaFuryDpiStageAxes(stage, status.dpiStages![stage], value));
     } else if (s.dpi != null) {
-      applyDpiValue(s.dpi);
+      if (status.brand === "LunaFury" && s.dpiY != null) applyLunaFuryDpiStageAxes(status.activeDpiStage ?? 0, s.dpi, s.dpiY);
+      else applyDpiValue(s.dpi);
     }
     s.dpiStageColors?.forEach((color, stage) => applyDpiStageColor(stage, color));
     if (s.activeDpiStage != null) applyActiveDpiStage(s.activeDpiStage);
@@ -1526,6 +1538,8 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     lightning: applyLunaFuryLightningMode,
     button: applyLunaFuryButtonDebounce,
     wheel: applyLunaFuryWheelGuard,
+    buttonRate: applyLunaFuryButtonPollingRate,
+    separateAxes: applyLunaFurySeparateDpiAxes,
   });
   if (typeof s.wheelAcceleration === "boolean") applyProSetting("wheelAcceleration", s.wheelAcceleration);
 
@@ -1560,7 +1574,8 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   s.eggButtonMappings?.forEach((mapping, button) =>
     applyEggButtonMapping(button as EggButtonIndex, mapping as EggButtonMapping));
 
-  for (const [button, action] of Object.entries(s.buttonMappings ?? {})) applyDeviceButtonMapping(button, action);
+  const mappings = status.brand === "LunaFury" ? pickLunaFuryMappings(status, s.buttonMappings) : s.buttonMappings ?? {};
+  for (const [button, action] of Object.entries(mappings)) applyDeviceButtonMapping(button, action);
   for (const [control, mapping] of Object.entries(s.razerButtonMappings ?? {})) {
     applyRazerButtonMapping(control as RazerButtonControl, mapping as RazerButtonMapping);
   }
@@ -2969,6 +2984,13 @@ export function cancelCustomDpi(dpi?: number): void {
 
 export function applyDpiValue(dpi: number): boolean {
   if (!hasActiveClient() || !dpiOptions.includes(dpi)) return false;
+  const staged = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  if (staged?.brand === "LunaFury" && staged.dpiStagesY && staged.activeDpiStage != null) {
+    const stage = staged.activeDpiStage;
+    const y = staged.lunafury?.separateDpiAxes !== false ? staged.dpiStagesY[stage] ?? dpi : dpi;
+    applyLunaFuryDpiStageAxes(stage, dpi, y);
+    return true;
+  }
   stageChange({
     key: "dpi",
     label: `DPI ${dpi.toLocaleString()}`,
@@ -2982,6 +3004,7 @@ export function applyDpiValue(dpi: number): boolean {
         status.dpiStages = status.dpiStages.map((value, index) => (
           index === status.activeDpiStage ? dpi : value
         ));
+        if (status.dpiStagesY) status.dpiStagesY = status.dpiStagesY.map((value, index) => index === status.activeDpiStage ? dpi : value);
       }
     },
     apply: async () => {
@@ -3016,6 +3039,11 @@ export function applyDpiStageCount(count: number): void {
       status.dpiStages = count <= current.length
         ? current.slice(0, count)
         : [...current, ...Array.from({ length: count - current.length }, () => current.at(-1) ?? status.dpi)];
+      if (status.dpiStagesY) {
+        const ys = status.dpiStagesY.slice();
+        status.dpiStagesY = count <= ys.length ? ys.slice(0, count)
+          : [...ys, ...Array.from({ length: count - ys.length }, () => ys.at(-1) ?? status.dpiY ?? status.dpi)];
+      }
       if (status.dpiStageColors) {
         status.dpiStageColors = count <= status.dpiStageColors.length
           ? status.dpiStageColors.slice(0, count)
@@ -3027,6 +3055,7 @@ export function applyDpiStageCount(count: number): void {
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
         status.dpi = status.dpiStages[count - 1] ?? status.dpi;
+        if (status.dpiStagesY) status.dpiY = status.dpiStagesY[count - 1];
       }
     },
     apply: async () => {
@@ -3068,6 +3097,7 @@ export function applyActiveDpiStage(stage: number): void {
     preview: (status) => {
       status.activeDpiStage = stage;
       status.dpi = status.dpiStages?.[stage] ?? status.dpi;
+      if (status.dpiStagesY) status.dpiY = status.dpiStagesY[stage];
     },
     apply: async () => {
       await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
@@ -3084,6 +3114,11 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
   if (!dpiOptions.includes(dpi)) {
     setReadStatus(st("ctl.dpiNotSupported", { dpi: rawDpi.toLocaleString() }));
     emit();
+    return;
+  }
+  if (stagedStatus?.brand === "LunaFury" && stagedStatus.dpiStagesY) {
+    const y = stagedStatus.lunafury?.separateDpiAxes !== false ? stagedStatus.dpiStagesY[stage] ?? dpi : dpi;
+    applyLunaFuryDpiStageAxes(stage, dpi, y);
     return;
   }
   stageChange({
@@ -4957,6 +4992,8 @@ export function applyPowerMode(mode: string): void {
  * above, which reassigns a Logitech control by id.
  */
 export function applyDeviceButtonMapping(button: string, action: string): void {
+  if (latestDeviceStatus?.brand === "LunaFury"
+    && !canEditLunaFuryMapping(withPendingChanges(latestDeviceStatus), button, action)) return;
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
@@ -5026,6 +5063,14 @@ export function resetKsnakeButtonMappings(): void {
  * rather than previewing a value that is about to be replaced wholesale.
  */
 export function applyProfileSelection(profile: number): void {
+  if (latestDeviceStatus?.brand === "LunaFury") {
+    if (!Number.isInteger(profile) || profile < 1 || profile > (latestDeviceStatus.profileCount ?? 0)) return;
+    if (blockedByGameProfileDraft()) return;
+    if (hasPendingChanges()) {
+      if (!window.confirm(st("luna.discardBeforeSwitch"))) return;
+      clearPendingChanges();
+    }
+  }
   stageChange({
     key: "onboard-profile",
     label: st("adv.profileOpt", { n: profile }),
@@ -5130,6 +5175,60 @@ export function applyIncottFireKey(times: number, intervalMs: number): void {
   });
 }
 
+export function applyLunaFuryButtonPollingRate(hertz: 1000 | 2000 | 4000 | 8000): void {
+  const settings = latestDeviceStatus?.lunafury;
+  if (settings?.buttonPollingRateHz == null || !settings.supportedButtonPollingRates?.includes(hertz)) return;
+  stageChange({
+    key: "lunafury-button-rate",
+    label: `${st("luna.buttonPollingRate")} · ${hertz} Hz`,
+    command: `Set button polling rate to ${hertz} Hz`,
+    progress: `Setting button polling rate to ${hertz} Hz…`,
+    preview: (status) => { if (status.lunafury) status.lunafury.buttonPollingRateHz = hertz; },
+    apply: () => callClientMethod("setLunaFuryButtonPollingRate", "button polling rate", hertz),
+  });
+}
+
+export function applyLunaFurySeparateDpiAxes(enabled: boolean): void {
+  if (latestDeviceStatus?.lunafury?.separateDpiAxes == null) return;
+  stageChange({
+    key: "lunafury-dpi-axes",
+    priority: enabled ? -5 : 5,
+    label: `${st("luna.separateAxes")} · ${st(enabled ? "common.on" : "common.off")}`,
+    command: `Set separate DPI axes to ${enabled}`,
+    progress: "Setting DPI axis mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.separateDpiAxes = enabled; },
+    apply: () => callClientMethod("setLunaFurySeparateDpiAxes", "DPI axis mode", enabled),
+  });
+}
+
+export function applyLunaFuryDpiStageAxes(stage: number, x: number, y: number): void {
+  const status = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  if (status?.brand !== "LunaFury" || !status.dpiStagesY || !status.dpiStages ||
+    !Number.isInteger(stage) || stage < 0 || stage >= status.dpiStages.length ||
+    !dpiOptions.includes(x) || !dpiOptions.includes(y)) return;
+  stageChange({
+    key: `dpi-stage-${stage}`,
+    label: `Stage ${stage + 1} · X ${x} / Y ${y} DPI`,
+    command: `Set DPI stage ${stage + 1} to X ${x} / Y ${y}`,
+    progress: `Setting DPI stage ${stage + 1}…`,
+    preview: (target) => {
+      const xs = target.dpiStages?.slice() ?? [];
+      const ys = target.dpiStagesY?.slice() ?? [];
+      while (xs.length <= stage) xs.push(xs.at(-1) ?? target.dpi);
+      while (ys.length <= stage) ys.push(ys.at(-1) ?? target.dpiY ?? target.dpi);
+      xs[stage] = x; ys[stage] = y;
+      target.dpiStages = xs; target.dpiStagesY = ys;
+      if (target.activeDpiStage === stage) { target.dpi = x; target.dpiY = y; }
+    },
+    apply: async () => {
+      const client = requireClientMethod("setLunaFuryDpiStageAxes", "DPI stage axes") as unknown as {
+        setLunaFuryDpiStageAxes(stage: number, x: number, y: number): Promise<unknown>;
+      };
+      await client.setLunaFuryDpiStageAxes(stage, x, y);
+    },
+  });
+}
+
 export function applyLunaFuryLightningMode(mode: 0 | 1 | 2): void {
   if (latestDeviceStatus?.lunafury?.lightningMode == null) return;
   stageChange({
@@ -5158,6 +5257,34 @@ export function applyLunaFuryButtonDebounce(button: "left" | "right" | "middle",
       };
       await client.setLunaFuryButtonDebounce(button, milliseconds);
     },
+  });
+}
+
+export function applyLunaFuryBottomButtonMode(mode: 1 | 2): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.bottomButtonMode == null || (mode !== 1 && mode !== 2)) return;
+  const label = st(mode === 1 ? "luna.bottomPower" : "luna.bottomPowerDpi");
+  stageChange({
+    key: "lunafury-bottom-button",
+    label: `${st("luna.bottomButton")} · ${label}`,
+    command: `Set bottom-button mode to ${mode}`,
+    progress: "Setting bottom-button mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.bottomButtonMode = mode; },
+    apply: () => callClientMethod("setLunaFuryBottomButtonMode", "bottom-button behavior", mode),
+  });
+}
+
+export function applyLunaFuryReceiverLightMode(mode: 0 | 2 | 6 | 11): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.receiverLightMode == null || ![0, 2, 6, 11].includes(mode)) return;
+  const label = st(mode === 2 ? "luna.lightMixed" : mode === 6 ? "luna.lightBattery" : mode === 11 ? "luna.lightDpi" : "common.off");
+  stageChange({
+    key: "lunafury-receiver-light",
+    label: `${st("luna.receiverLight")} · ${label}`,
+    command: `Set receiver light mode to ${mode}`,
+    progress: "Setting receiver light mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.receiverLightMode = mode; },
+    apply: () => callClientMethod("setLunaFuryReceiverLightMode", "receiver lighting", mode),
   });
 }
 
@@ -5439,6 +5566,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
+  if (name === "lunafury") capabilities = { ...capabilities, sleepOptions: [0, ...Array.from({ length: 30 }, (_, i) => (i + 1) * 60)] };
   applyStatus(fixture.status);
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;

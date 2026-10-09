@@ -74,6 +74,13 @@ test("LunaFury-specific cards are not offered to another CompX brand", () => {
   assert.equal(has.lunafuryWheelGuard, false);
 });
 
+test("the bottom-button card requires a successful LunaFury read", () => {
+  assert.equal(cardAvailability(snapshot({ status: { brand: "LunaFury", lunafury: { bottomButtonMode: 1 } } })).lunafuryBottomButton, true);
+  assert.equal(cardAvailability(snapshot({ status: { brand: "LunaFury", lunafury: {} } })).lunafuryBottomButton, false);
+  assert.equal(cardAvailability(snapshot({ status: { brand: "Attack Shark", lunafury: { bottomButtonMode: 2 } } })).lunafuryBottomButton, false);
+  assert.equal(cardAvailability(snapshot({ status: null })).lunafuryBottomButton, false);
+});
+
 test("the button card appears only when the mouse reports controls", () => {
   // The driver answers with an empty list on a mouse without 0x1B04, so this
   // must key on the controls themselves rather than on the brand.
