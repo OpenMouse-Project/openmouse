@@ -5157,3 +5157,47 @@ body { height: 100vh; overflow: hidden; }
 .hits-test-ladder > span[data-mark="conventional"] i { color: var(--warning); }
 @media (max-width: 720px) { .hits-test-body { grid-template-columns: minmax(0, 1fr); } }
 .rate-slider-hours { display: block; margin-top: .35rem; color: var(--faint); font-size: .62rem; }
+
+/* Firmware section (Overview tab): one device block per connected device,
+   expandable changelog + version history. Tokens only, no hardcoded colors.
+   The bottom margin clears the floating AI launcher (3rem tall at 1.5rem
+   from the viewport bottom) so the section's own actions never slide under
+   it at max scroll. */
+#firmware-update-settings { padding-bottom: 5.5rem; }
+/* Whole-section collapse: one flex row (chevron, title, actions) with a
+   custom disclosure marker so the native one can't strand itself on its own
+   line. Buttons inside stop their clicks from reaching the summary. */
+.fw-collapse > summary { list-style: none; cursor: pointer; }
+.fw-collapse > summary::-webkit-details-marker { display: none; }
+.fw-collapse > summary::marker { content: ""; }
+.fw-summary-row { display: flex; align-items: center; gap: .6rem; }
+.fw-summary-row::before { content: "\25b8"; color: var(--text-strong); font-size: .8rem; }
+.fw-collapse[open] > summary .fw-summary-row::before { content: "\25be"; }
+.fw-summary-row .fw-title { margin: 0; }
+.fw-summary-row .fw-head-actions { margin-left: auto; }
+.fw-collapse > summary:hover .fw-summary-row::before { color: var(--ui-accent); }
+.fw-device + .fw-device { border-top: 1px solid var(--line-strong); margin-top: .9rem; padding-top: .9rem; }
+#firmware-update-settings .setting-card { padding-bottom: 2.25rem; }
+.fw-device summary.fw-transition { margin: .1rem 0 .3rem; font-family: var(--font-mono); font-size: .72rem; color: var(--text-strong); cursor: pointer; }
+.fw-details { margin-top: .45rem; }
+.fw-details summary { cursor: pointer; color: var(--text-soft); font-size: .72rem; font-weight: 600; }
+.fw-details summary::marker { color: var(--text-strong); font-size: .85rem; }
+.fw-details summary:hover { color: var(--text-strong); }
+.fw-details summary:hover::marker { color: var(--ui-accent); }
+.fw-details p { margin: .35rem 0 0; color: var(--text-soft); font-size: .74rem; line-height: 1.5; }
+.fw-history { margin: .35rem 0 0; padding-left: 1.1rem; color: var(--text-soft); font-size: .72rem; }
+.fw-history li + li { margin-top: .15rem; }
+.fw-meta { margin-top: .8rem; color: var(--faint); font-size: .68rem; }
+/* Firmware section title reads as a quiet eyebrow; actions live in the
+   header cluster (never bottom-right, where the AI launcher floats). */
+.fw-title { text-transform: uppercase; }
+.fw-head-actions { display: inline-flex; align-items: center; gap: .5rem; }
+.fw-head-actions button { padding: .38rem .65rem; border: 1px solid var(--text); border-radius: 6px; background: var(--text); color: var(--ink); font-size: .65rem; font-weight: 700; }
+.fw-head-actions button:disabled { cursor: default; opacity: .45; }
+/* Green "update available" badge: reuses the setting-heading output
+   chrome, retinted with the theme-aware success token. */
+.setting-heading output.fw-badge-available {
+  border-color: color-mix(in srgb, var(--success) 55%, transparent);
+  color: var(--success);
+}
+

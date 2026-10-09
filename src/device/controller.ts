@@ -340,6 +340,7 @@ let settingInProgress = false;
 let gameProfileDraft: { stash: PendingChange[]; touched: Set<string> } | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
@@ -503,6 +504,7 @@ function buildSnapshot(): ControlSnapshot {
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
     atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
+    receiverFirmware: latestReceiverFirmware,
     preferences: interfacePreferences,
     sidebarHidden,
     interfaceSettingsOpen,
@@ -2555,6 +2557,181 @@ function clearActiveClients(): void {
   active = null;
 }
 
+/**
+ * Reads the receiver's own firmware after a wireless Logitech connect.
+ * Same HID interface, device index 0xFF — no extra permissions, no extra
+ * handle. Read-only and best-effort: wired links, Bluetooth, and receivers
+ * that stay silent resolve to null and never disturb the mouse status.
+ */
+async function probeReceiverFirmware(client: SupportedClient, connectionType: string | undefined): Promise<void> {
+  latestReceiverFirmware = null;
+  if (!(client instanceof LogitechHidppClient)) {
+    console.log('[firmware] receiver probe skipped: not a Logitech client');
+    return;
+  }
+  if (connectionType !== "Wireless") {
+    console.log('[firmware] receiver probe skipped: connection is ' + String(connectionType));
+    return;
+  }
+  const hid = client.device;
+  // Backgrounded: receiver index probing can take several timeouts to rule
+  // out. The card re-renders via emit() when it lands; a superseded device
+  // never commits.
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  void readReceiverFromSiblings(hid).then((found) => {
+    if (activeDevice !== hid) return;
+    try {
+      latestReceiverFirmware = found;
+      emit();
+    } catch {
+      // Identity changed mid-probe; drop it silently.
+    }
+    startAutomaticRefresh();
+  }).catch(() => undefined);
+}
+
+/**
+ * TEMPORARY local copy of LogitechHidppClient.readReceiverFirmware
+ * (mouse-protocol/src/drivers/logitech/hidpp.ts): HID++ 1.0 register 0xF1
+ * on device 0xFF (the receiver). Remove once the app moves past
+ * @openmouse/protocol 0.30.0, whose dist predates that method — until then
+ * calling it here would be a runtime TypeError. Read-only.
+ */
+/**
+ * Tries the 0xF1 register read on the active interface first, then on every
+ * other authorized HID interface from the same vendor (a Lightspeed dongle
+ * exposes several; the receiver answers 1.0 register reads on its own
+ * collection, not on the interface currently carrying the mouse). Read-only.
+ */
+/**
+ * G Hub reads receiver firmware with per-MCU/index arguments ("unable to
+ * retrieve from 0xf1, MCU: %i Index: %i"), so zero params are only the
+ * first guess: sweep small (mcu, index) combos at device 0xFF and keep the
+ * first non-error value. Every attempt logs its error code either way.
+ */
+async function sweepReceiverRegister(
+  device: HIDDevice,
+  verbose: boolean,
+): Promise<Array<{ mcu: number; version: string | null; raw: number[] }>> {
+  // One readout per MCU: MCU1/MPR7 and MCU2/CC14 report independently
+  // (verified live: mcu=1 -> 01 07 02, mcu=2 -> 02 00 11). First ok wins
+  // per MCU so a silent index never shadows an answering one.
+  const mcus: Array<{ mcu: number; version: string | null; raw: number[] }> = [];
+  for (const mcu of [1, 2]) {
+    for (const index of [0, 1]) {
+      const attempt = await readReceiverRegisterF1(device, verbose, 0xff, [mcu, index, 0]);
+      if (attempt.ok) {
+        console.log('[firmware] receiver probe: HIT mcu=' + mcu + ' index=' + index +
+          ' raw=' + attempt.raw.map((b) => b.toString(16).padStart(2, '0')).join(' '));
+        mcus.push({ mcu, version: attempt.version, raw: attempt.raw });
+        break;
+      }
+    }
+  }
+  return mcus;
+}
+
+async function readReceiverFromSiblings(
+  active: HIDDevice,
+): Promise<{ interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null> {
+  const targets = [active];
+  const seen = new Set<HIDDevice>([active]);
+  try {
+    for (const candidate of await navigator.hid?.getDevices() ?? []) {
+      if (candidate === active || candidate.vendorId !== active.vendorId || seen.has(candidate)) continue;
+      seen.add(candidate);
+      targets.push(candidate);
+    }
+  } catch {
+    // Enumeration unavailable; active interface alone still answers.
+  }
+  for (const target of targets) {
+    const tag = target.vendorId.toString(16) + ':' + target.productId.toString(16);
+    if (target !== active) console.log('[firmware] receiver probe: trying sibling interface ' + tag);
+    let openedHere = false;
+    try {
+      if (!target.opened) {
+        await target.open();
+        openedHere = true;
+      }
+    } catch {
+      continue;
+    }
+    try {
+      const mcus = await sweepReceiverRegister(target, target === active);
+      if (mcus.length > 0) {
+        return {
+          interfaceId: target.vendorId.toString(16).padStart(4, '0') + '_' + target.productId.toString(16).padStart(4, '0'),
+          mcus,
+        };
+      }
+    } finally {
+      if (openedHere) await target.close().catch(() => undefined);
+    }
+  }
+  return null;
+}
+
+
+type RegisterRead = { ok: true; version: string | null; raw: number[] } | { ok: false; code: number | null };
+
+async function readReceiverRegisterF1(
+  device: HIDDevice,
+  verbose: boolean,
+  deviceIndex = 0xff,
+  params: readonly [number, number, number] = [0, 0, 0],
+): Promise<RegisterRead> {
+  const tag = device.vendorId.toString(16) + ':' + device.productId.toString(16) +
+    ' dev=' + deviceIndex.toString(16) + ' params=[' + params.join(',') + ']';
+  if (verbose) console.log('[firmware] receiver probe: sending 0xF1 ' + tag);
+  type Outcome = { kind: 'value'; data: Uint8Array } | { kind: 'error'; code: number | null } | { kind: 'timeout' };
+  const reply: Outcome = await new Promise((resolve) => {
+    const cleanup = (): void => {
+      window.clearTimeout(timer);
+      device.removeEventListener('inputreport', onReport);
+    };
+    const timer = window.setTimeout(() => {
+      cleanup();
+      resolve({ kind: 'timeout' });
+    }, 2500);
+    const onReport = (event: HIDInputReportEvent): void => {
+      if (event.reportId !== 0x10) return;
+      const data = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
+      console.log('[firmware] rx reg (' + data.length + 'b) ' + [...data].map((b) => b.toString(16).padStart(2, '0')).join(' '));
+      if (data[0] === deviceIndex && data[1] === 0x81 && data[2] === 0xf1) {
+        cleanup();
+        resolve({ kind: 'value', data });
+      } else if (data[0] === deviceIndex && data[1] === 0x8f && data[2] === 0x81 && data[3] === 0xf1) {
+        cleanup();
+        resolve({ kind: 'error', code: data[4] ?? null });
+      }
+    };
+    device.addEventListener('inputreport', onReport);
+    void device.sendReport(0x10, new Uint8Array([deviceIndex, 0x81, 0xf1, params[0], params[1], params[2]])).catch(() => {
+      cleanup();
+      resolve({ kind: 'timeout' });
+    });
+  });
+  if (reply.kind === 'timeout') {
+    console.log('[firmware] receiver probe: no reply (timeout or send failed)');
+    return { ok: false as const, code: null };
+  }
+  if (reply.kind === 'error') {
+    console.log('[firmware] receiver probe: register error ' + String(reply.code));
+    return { ok: false as const, code: reply.code };
+  }
+  if (reply.kind !== 'value') return { ok: false as const, code: null };
+  const payload = [...reply.data.subarray(3, 7)];
+  return {
+    ok: true as const,
+    version: payload.length >= 3 ? `${payload[0]}.${payload[1]}.${payload[2]}` : null,
+    raw: payload,
+  };
+}
+
 async function activateClientNow(client: SupportedClient): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
@@ -2610,6 +2787,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
       m2nexProfileDirty = false;
     }
     await readButtons();
+    await probeReceiverFirmware(client, status.connectionType);
     await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
     if (dm) {
       await dm.startNotifications(() => {
@@ -2659,6 +2837,7 @@ function showDisconnectedState(): void {
   }
   clearActiveClients();
   activeDevice = null;
+  latestReceiverFirmware = null;
   onboardProfiles = null;
   editedNapeLayer = null;
   ksnakeMacros = null;

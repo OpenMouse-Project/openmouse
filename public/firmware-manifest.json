@@ -1,0 +1,617 @@
+{
+  "_comment": "AUTO-GENERATED — do not edit by hand. Regenerate with: node scripts/generate-firmware-manifest.mjs. Sources: Logitech update CDN depots listed in scripts/firmware-depots.seed.json (plain HTTPS, no auth). Versions/hashes/blockers are re-derived from each depot's dfu.json every run.",
+  "manifestVersion": 3,
+  "updatedAt": "2026-10-09T22:28:59.672Z",
+  "source": "scripts/generate-firmware-manifest.mjs over updates.ghub.logitechg.com",
+  "devices": [
+    {
+      "id": "c53a_dfu@40.3.14:046d_c53a",
+      "depot": "c53a_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/a73c09b7-6a29-4202-a6cc-0d46224b1b86/c53a_dfu.depot",
+      "interfaceIds": [
+        "046d_c53a",
+        "hid_046d_aaca_ffb00001"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "40.3.14",
+      "required": true,
+      "binaryHash": "6F4539B87E209C387351F0AC917486C3C69C13F4D978DFA9418863BDB6D3BEFB",
+      "releaseNotes": "Performance improvements Bug fixes",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "c541_dfu@1.2.28:046d_c541",
+      "depot": "c541_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/14bfd359-bdb5-4057-ae55-6ca9c019459c/c541_dfu.depot",
+      "interfaceIds": [
+        "046d_c541",
+        "046d_aae9"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "1.2.28",
+      "required": true,
+      "binaryHash": "04D58F688100855BBE4A216D5715717C6170EA737626C5ED18495A50650C1AD3",
+      "releaseNotes": "Performance improvements Bug fixes",
+      "startBlockers": [],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "c545_dfu@2.1.6:046d_c545",
+      "depot": "c545_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/6ee2a69c-d269-4ce9-8186-edf5eb20de95/c545_dfu.depot",
+      "interfaceIds": [
+        "046d_c545",
+        "046d_ab01"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "2.1.6",
+      "required": true,
+      "binaryHash": "538E4D03E86243CD8C295ECBD37E98AD643AE95758AFC4E043A5A32E16880F82",
+      "releaseNotes": "Performance improvements Bug fixes",
+      "startBlockers": [],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "c547_dfu@4.2.9:046d_c547",
+      "depot": "c547_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/e377c9fd-eb7e-4107-8686-f068d0a5ce29/c547_dfu.depot",
+      "interfaceIds": [
+        "046d_c547",
+        "046d_ab06"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "4.2.9",
+      "required": true,
+      "binaryHash": "9C5014288D8D905F875772B584161BA0B0FF87DB3151BEC74788DAA8325032EC",
+      "releaseNotes": "Performance improvements Bug fixes",
+      "startBlockers": [],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "g29_dfu@164.01.11:046d_c24f",
+      "depot": "g29_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/5a2d5ba1-0769-43b7-b7c7-ece9250bf1e9/g29_dfu.depot",
+      "interfaceIds": [
+        "046d_c24f",
+        "046d_aab8"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "164.01.11",
+      "required": true,
+      "binaryHash": "ADC11995500F58D24806A3B82C1853F4009D358AEBCDC17E34016FEA3E8C8B2F",
+      "releaseNotes": "Updated authentication mechanism, improving the stability of PS5 mode authentication.",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "g303_wireless_dfu@29.01.16:046d_ab11",
+      "depot": "g303_wireless_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/21157c4c-b84c-45a2-8ca2-2cce788341f2/g303_wireless_dfu.depot",
+      "interfaceIds": [
+        "046d_ab11",
+        "046d_409e",
+        "046d_c097"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "29.01.16",
+      "binaryHash": "DD0A20D7CA532E6C8E37A9E8A6864F780A01CE4D9BA2CCD33426A92BA45A7D2F",
+      "releaseNotes": "Performance improvements",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g403_hero_dfu@145.01.07:046d_c08f",
+      "depot": "g403_hero_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/f5d80366-b655-48a3-b267-c4e424bb4b20/g403_hero_dfu.depot",
+      "interfaceIds": [
+        "046d_c08f",
+        "046d_aaf2"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "145.01.07",
+      "binaryHash": "E13044631ECE48C7A7F1E006BC2B505B16C93C5772870ED7950DC2B416697BE9",
+      "releaseNotes": "Improved click debouncing algorithm",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g502_hero_dfu@127.03.10:046d_c08b",
+      "depot": "g502_hero_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/44667d90-b89d-4f1c-a727-253af3aa3f24/g502_hero_dfu.depot",
+      "interfaceIds": [
+        "046d_c08b",
+        "046d_aae6"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "127.03.10",
+      "binaryHash": "85FCFC43BA988E361AF5CCFB31C0B1F8238080CE699ADEC9D12F9CE4E381D268",
+      "releaseNotes": "Improved click debouncing algorithm",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g604_dfu@21.1.14:046d_4085",
+      "depot": "g604_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/779f8c4f-3cbf-4fb6-a372-1a78cc91f8cc/g604_dfu.depot",
+      "interfaceIds": [
+        "046d_4085",
+        "046d_b024"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "21.1.14",
+      "required": true,
+      "binaryHash": "A5086B003590285981CA318F16D8A69D46C9E1876B0CB7B41AD8A960D4531F1B",
+      "releaseNotes": "Enables scroll wheel assignment capability",
+      "startBlockers": [
+        "BLOCKER_DISCONNECT_BT",
+        "BLOCKER_LOW_BATTERY"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g703_hero_dfu@22.02.15:046d_c090",
+      "depot": "g703_hero_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/d552b8fd-6fb6-47a6-96dd-f6cd2ecb032a/g703_hero_dfu.depot",
+      "interfaceIds": [
+        "046d_c090",
+        "046d_4086",
+        "046d_aaf6"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "22.02.15",
+      "binaryHash": "16ACEFE9A081632D5F9A1DC69FA777EB145EA31BF085091E5AE8CA7668FC8D05",
+      "releaseNotes": "Fix for G703 LIGHTSPEED waking up the computer from sleep after finishing charging via POWERPLAY Adds inactivity lighting timer configuration",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g713_dfu@158.1.14:046d_ab16",
+      "depot": "g713_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/c1ae4ea6-970b-46c0-803f-c83280724664/g713_dfu.depot",
+      "interfaceIds": [
+        "046d_ab16",
+        "046d_c348"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "158.1.14",
+      "binaryHash": "6A1CF7D0727970E636AD32D83C4C4756F03773D7DB885B493BAD8AD5B43798F0",
+      "releaseNotes": "Lighting effect improvements Bug fixes",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g715_dfu@17.3.17:046d_c347",
+      "depot": "g715_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/43217f0a-c3a0-4eb3-91a7-dd89d835824d/g715_dfu.depot",
+      "interfaceIds": [
+        "046d_c347",
+        "046d_b368",
+        "046d_ab15",
+        "046d_40a2"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "17.3.17",
+      "binaryHash": "91D2A97E376734F278CCEF0BB6444478698FEBA21D9B7A06270ECE894184213B",
+      "releaseNotes": "Updated wireless performance",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB",
+        "BLOCKER_DISCONNECT_BT"
+      ],
+      "startWarnings": [
+        "WARNING_UPDATE_RECEIVER_AND_DEVICE"
+      ]
+    },
+    {
+      "id": "g903_dfu@07.02.13:046d_c086",
+      "depot": "g903_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/19601a29-b5ad-40c0-8dc0-b991e6f5ec2d/g903_dfu.depot",
+      "interfaceIds": [
+        "046d_c086",
+        "046d_4067",
+        "046d_aad8"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "07.02.13",
+      "binaryHash": "EBF4F429DEF47613ED5E03EABF77B232A527830580D0B45ACDEF00B3058609E6",
+      "releaseNotes": "Improved click debouncing algorithm",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g903_hero_dfu@23.1.13:046d_c091",
+      "depot": "g903_hero_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/6f0ee387-2e11-434c-8e1a-ca9e70cb6193/g903_hero_dfu.depot",
+      "interfaceIds": [
+        "046d_c091",
+        "046d_4087",
+        "046d_aaf7"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "23.1.13",
+      "binaryHash": "FF6C654CBF493BBA724DC61F2D4AA65338BF0FAF0B2E2AC34384BBD1A243DD1C",
+      "releaseNotes": "Fix for G903 LIGHTSPEED waking up the computer from sleep after finishing charging via POWERPLAY Adds inactivity lighting timer configuration",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "g915_dfu@9.4.42:046d_407c",
+      "depot": "g915_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/823350f9-57ab-41af-a2b0-63dcf6f2c30e/g915_dfu.depot",
+      "interfaceIds": [
+        "046d_407c",
+        "046d_c33e",
+        "046d_b354",
+        "046d_aae3"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "9.4.42",
+      "required": true,
+      "binaryHash": "697054140D192BA6A9E784D848573B6C59B465CF7D7F11C8508E509910B4F483",
+      "releaseNotes": "Updated wireless performance",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB",
+        "BLOCKER_DISCONNECT_BT"
+      ],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "g915_tkl_dfu@14.2.22:046d_408e",
+      "depot": "g915_tkl_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/b2ac40a0-9af8-4b52-ad80-717e779fa5b4/g915_tkl_dfu.depot",
+      "interfaceIds": [
+        "046d_408e",
+        "046d_c343",
+        "046d_b35f",
+        "046d_aafb"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "14.2.22",
+      "required": true,
+      "binaryHash": "C81D72A6A96D26AC199117B75A7F2AA183AC95D45CD2D87D16FF18FE677DB9D8",
+      "releaseNotes": "Updated wireless performance",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB",
+        "BLOCKER_DISCONNECT_BT"
+      ],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "g920_dfu@96.04.50:046d_c262",
+      "depot": "g920_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/0475f97e-7cf2-48ef-8da4-6d09a3268647/g920_dfu.depot",
+      "interfaceIds": [
+        "046d_c262",
+        "046d_aab9"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "96.04.50",
+      "binaryHash": "4DAF71EAA5800CE1571074DB630D8410910A2EEC4E72BA02B8F7CA2EB032BCBC",
+      "releaseNotes": "Improvements to Xbox FFB specification.",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "g923_pc_xb_dfu@139.02.50:046d_c26e",
+      "depot": "g923_pc_xb_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/ba7e25ac-5b59-42ca-adeb-d285d250fd6c/g923_pc_xb_dfu.depot",
+      "interfaceIds": [
+        "046d_c26e",
+        "046d_aaf1"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "139.02.50",
+      "binaryHash": "4B8FE71CE218C1A65005E5A6124E9C074028E3739E71B290A67B738DDF0BF183",
+      "releaseNotes": "Improvements to Xbox FFB specification.",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "logitech-pro-lightspeed-receiver",
+      "interfaceIds": [
+        "046d_c54d",
+        "046d_ab24"
+      ],
+      "latestVersion": "14.4.20",
+      "required": true,
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ],
+      "releaseNotes": "Resolves cursor tracking issues in the system BIOS and fixes abnormal behavior when playing Valorant with Anti-Cheat Expert (ACE) enabled."
+    },
+    {
+      "id": "logitech-pro-x-superlight-2c-bl2",
+      "brand": "Logitech",
+      "nameMatch": [
+        "SUPERLIGHT 2c",
+        "SUPERLIGHT 2C",
+        "Superlight 2c"
+      ],
+      "firmwareName": "BL2",
+      "latestVersion": "50.00",
+      "required": false,
+      "releaseNotes": "Bootloader entity, as-reported on 2026-10-09."
+    },
+    {
+      "id": "logitech-pro-x-superlight-2c-mpm",
+      "brand": "Logitech",
+      "nameMatch": [
+        "SUPERLIGHT 2c",
+        "SUPERLIGHT 2C",
+        "Superlight 2c"
+      ],
+      "firmwareName": "MPM",
+      "latestVersion": "38.00",
+      "required": false,
+      "downloadUrl": "https://www.logitechg.com/software/ghub",
+      "releaseNotes": "Entity MPM 38.00 == package 38.0.5, confirmed current in G HUB on 2026-10-09."
+    },
+    {
+      "id": "pro_mouse_hero_dfu@128.02.07:046d_c08c",
+      "depot": "pro_mouse_hero_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/bfae30bd-4886-4e40-918e-a4019871342b/pro_mouse_hero_dfu.depot",
+      "interfaceIds": [
+        "046d_c08c",
+        "046d_aae7"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "128.02.07",
+      "binaryHash": "D36DA725EEE8FFDF0ADEA0C40626D1AAB873F010B42FC3944965116BAC638BC3",
+      "releaseNotes": "Improved click debouncing algorithm",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "pro_racing_pedals_dfu@6.2.31:046d_c26a",
+      "depot": "pro_racing_pedals_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/8ef7540d-0917-49d7-8a96-7a65d8921495/pro_racing_pedals_dfu.depot",
+      "interfaceIds": [
+        "046d_c26a",
+        "046d_aaec",
+        "046d_c268_mpo06",
+        "046d_c268_bot89",
+        "046d_c272_mpo06",
+        "046d_c272_bot89",
+        "046d_c276_mpo06",
+        "046d_c276_bot89"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "6.2.31",
+      "required": true,
+      "binaryHash": "2BF584018DB6088CE83F9EDA5D65C6AC3099BB737C178F22B36EC20CA26B8BA8",
+      "releaseNotes": "Bug fixes and firmware support for future enhancements.",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "pro_racing_wheel_dfu@13.3.55:046d_c268",
+      "depot": "pro_racing_wheel_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/3886750b-e9e6-4203-afd9-5914ca3aba10/pro_racing_wheel_dfu.depot",
+      "interfaceIds": [
+        "046d_c268",
+        "046d_c272",
+        "046d_c272_qradapter",
+        "046d_aaff"
+      ],
+      "firmwareKey": "dfu_drive_platform_5",
+      "latestVersion": "13.3.55",
+      "binaryHash": "13F9E2F552123F95A7B572C4262B383A147134A3F3CB9EF69E539BCF504783F6",
+      "releaseNotes": "IMPORTANT: The device may restart in the middle of the process. Make sure you select the platform on device boot when this happens or set the device to automatically connect to the PC This firmware update contains fixes and additions for: Fixed issue with RS H-Shifter 7th gear not being recognized in Xbox games. Fixed intermittent issues with Pro Wheel Base in Dirt Rally 2.0, causing game crash...",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "pro_racing_wheel_dfu@133.9.114:046d_c268",
+      "depot": "pro_racing_wheel_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/3886750b-e9e6-4203-afd9-5914ca3aba10/pro_racing_wheel_dfu.depot",
+      "interfaceIds": [
+        "046d_c268",
+        "046d_c272",
+        "046d_c272_qradapter",
+        "046d_aaff"
+      ],
+      "firmwareKey": "dfu_main_platform_5",
+      "latestVersion": "133.9.114",
+      "binaryHash": "C7588B5B3A0ECF61A5525FADEEEDA96AE03798A75A0FA1FAAB8C0092B5D28572",
+      "releaseNotes": "IMPORTANT: The device may restart in the middle of the process. Make sure you select the platform on device boot when this happens or set the device to automatically connect to the PC This firmware update contains fixes and additions for: Fixed issue with RS H-Shifter 7th gear not being recognized in Xbox games. Fixed intermittent issues with Pro Wheel Base in Dirt Rally 2.0, causing game crash...",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "pro_wireless_mouse_dfu@15.2.26:046d_c088",
+      "depot": "pro_wireless_mouse_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/e9494b25-e178-4f78-9a9f-1e21061dd506/pro_wireless_mouse_dfu.depot",
+      "interfaceIds": [
+        "046d_c088",
+        "046d_4079",
+        "046d_aadf"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "15.2.26",
+      "binaryHash": "5F7C7861D147806D219524A7DAAD119B744686294A90CD8CE7566A033E500BFE",
+      "releaseNotes": "Improved click debouncing algorithm",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": []
+    },
+    {
+      "id": "pro_x_60_keyboard_dfu@22.1.15:046d_c351",
+      "depot": "pro_x_60_keyboard_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/597f2aa1-d182-4e93-93b2-bbaf659c7516/pro_x_60_keyboard_dfu.depot",
+      "interfaceIds": [
+        "046d_c351",
+        "046d_b37b",
+        "046d_ab29",
+        "046d_40af"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "22.1.15",
+      "required": true,
+      "binaryHash": "3D7389437DEA35CC2EDBFC028EE87AACB291A7299FF7826F370EFCD7AF3CB76F",
+      "releaseNotes": "Custom Assignment Default ON Bug fixes",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB",
+        "BLOCKER_DISCONNECT_BT"
+      ],
+      "startWarnings": [
+        "WARNING_UPDATE_RECEIVER_AND_DEVICE"
+      ]
+    },
+    {
+      "id": "pro_x_wireless_mouse_dfu@25.1.18:046d_c094",
+      "depot": "pro_x_wireless_mouse_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/eec833c8-f775-437a-8eb9-eb6599a4cade/pro_x_wireless_mouse_dfu.depot",
+      "interfaceIds": [
+        "046d_c094",
+        "046d_4093",
+        "046d_ab00"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "25.1.18",
+      "required": true,
+      "binaryHash": "AB96CDD237CF1A0D954B98DF303B7E22A4B504468EA68CF45D76F15E59E17C0E",
+      "releaseNotes": "Performance improvements Bug fixes",
+      "startBlockers": [
+        "BLOCKER_CONNECT_USB"
+      ],
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ]
+    },
+    {
+      "id": "racing_adapter_dfu@11.04.20:046d_c273",
+      "depot": "racing_adapter_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/244b822d-574d-490f-b040-b9582d51d473/racing_adapter_dfu.depot",
+      "interfaceIds": [
+        "046d_c273",
+        "046d_ab23",
+        "046d_c268_mpo11",
+        "046d_c268_bl180",
+        "046d_c272_mpo11",
+        "046d_c272_bl180",
+        "046d_c276_mpo11",
+        "046d_c276_bl180"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "11.04.20",
+      "binaryHash": "5CA34737D1980001C28A161B859970F329CC0BD702ED584A8DA5BDF2151D7EFC",
+      "releaseNotes": "Please refer to the official documentation for details on the updates. Adds support for future peripherals.",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "rs50_drive_dfu@2.1.42:046d_c276_0004",
+      "depot": "rs50_drive_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/355c92cc-d60d-475d-aced-2ac8206a75ba/rs50_drive_dfu.depot",
+      "interfaceIds": [
+        "046d_c276_0004"
+      ],
+      "firmwareKey": "dfu_drive",
+      "latestVersion": "2.1.42",
+      "required": true,
+      "binaryHash": "C197E4B296A545612784CED65ED1E5BF27E6DE9488D0CD9E9B7947553978F866",
+      "releaseNotes": "IMPORTANT: The device may restart in the middle of the process. Make sure you select the platform on device boot when this happens or set the device to automatically connect to the PC Drive FW version SC02.1.42",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "rs50_racing_wheel_dfu@165.4.39:046d_c276",
+      "depot": "rs50_racing_wheel_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/7cad9462-20fd-40f5-b470-ccda52467ae6/rs50_racing_wheel_dfu.depot",
+      "interfaceIds": [
+        "046d_c276",
+        "046d_c276_qradapter",
+        "046d_ab2b"
+      ],
+      "firmwareKey": "dfu_main",
+      "latestVersion": "165.4.39",
+      "required": true,
+      "binaryHash": "62C152D68BA0873B7330401050A2DD96E099CFB6E648759F4329D59E382D3D9D",
+      "releaseNotes": "IMPORTANT: The device may restart in the middle of the process. Make sure you select the platform on device boot when this happens or set the device to automatically connect to the PC This firmware update contains fixes and additions for: Improved response for rotary dials on attached steering wheels. RS H-SHIFTER: 7th gear now recognized correctly on Xbox. Power Management: Faster device resum...",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "yeti_original_nano_dfu@4.10:046d_0ab1",
+      "depot": "yeti_original_nano_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/b32a3ac2-43a9-4e98-84cf-b078abf665f6/yeti_original_nano_dfu.depot",
+      "interfaceIds": [
+        "046d_0ab1",
+        "hid_046d_0ab1_ffff0001",
+        "usb_b58e_0ab2_00",
+        "hid_b58e_0005_ffff0001",
+        "usb_b58e_0006_00"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "4.10",
+      "required": true,
+      "binaryHash": "74F0121ABF82B2660594823C9B43332ABCF4F63BE376D889C114ABC42347886F",
+      "releaseNotes": "A required firmware update for Yeti Nano enables G HUB functionality, including Blue VO!CE Minor bug fixes Performance enhancements",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "yetix_dfu@11.3.1103:046d_0aaf",
+      "depot": "yetix_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/9e65ea94-57a5-4404-9f24-feec53d20e40/yetix_dfu.depot",
+      "interfaceIds": [
+        "046d_0aaf",
+        "hid_046d_0aaf_ffff0001",
+        "hid_046d_0aae_ffff0001",
+        "usb_b58e_0008_00"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "11.3.1103",
+      "required": true,
+      "binaryHash": "A0A3747CF1B8FDF284D7D4EFD51E8F2D93514A1B770201B66C8FE2475636E65D",
+      "releaseNotes": "A required firmware update for Yeti X enables G HUB functionality, including Blue VO!CE Minor bug fixes Performance enhancements",
+      "startBlockers": [],
+      "startWarnings": []
+    },
+    {
+      "id": "yetix_wow_dfu@11.5.1105:046d_0ac6",
+      "depot": "yetix_wow_dfu",
+      "depotUrl": "https://updates.ghub.logitechg.com/depots/629958f5-5f15-4bee-83c6-b09c8ec7de61/yetix_wow_dfu.depot",
+      "interfaceIds": [
+        "046d_0ac6",
+        "hid_046d_0ac6_ffff0001",
+        "hid_046d_0aae_ffff0001",
+        "usb_b58e_0008_00"
+      ],
+      "firmwareKey": "dfu_binary",
+      "latestVersion": "11.5.1105",
+      "required": true,
+      "binaryHash": "A0A3747CF1B8FDF284D7D4EFD51E8F2D93514A1B770201B66C8FE2475636E65D",
+      "releaseNotes": "Updated USB device name to \"Yeti X WoW Edition\"",
+      "startBlockers": [],
+      "startWarnings": []
+    }
+  ]
+}

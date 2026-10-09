@@ -1,0 +1,45 @@
+{
+  "_comment": "Hand-maintained entries merged into public/firmware-manifest.json by scripts/generate-firmware-manifest.mjs (extra wins on id clash). Use for devices whose firmware Logitech only ships outside versioned depots, or values confirmed against vendor software. Prefer generated entries whenever a depot exists. Versions here are in device-reported (entity) numbering, e.g. HID++ MPM 38.00, which G HUB displays as package 38.0.5 \u2014 see releaseNotes.",
+  "devices": [
+    {
+      "id": "logitech-pro-x-superlight-2c-mpm",
+      "brand": "Logitech",
+      "nameMatch": [
+        "SUPERLIGHT 2c",
+        "SUPERLIGHT 2C",
+        "Superlight 2c"
+      ],
+      "firmwareName": "MPM",
+      "latestVersion": "38.00",
+      "required": false,
+      "downloadUrl": "https://www.logitechg.com/software/ghub",
+      "releaseNotes": "Entity MPM 38.00 == package 38.0.5, confirmed current in G HUB on 2026-10-09."
+    },
+    {
+      "id": "logitech-pro-x-superlight-2c-bl2",
+      "brand": "Logitech",
+      "nameMatch": [
+        "SUPERLIGHT 2c",
+        "SUPERLIGHT 2C",
+        "Superlight 2c"
+      ],
+      "firmwareName": "BL2",
+      "latestVersion": "50.00",
+      "required": false,
+      "releaseNotes": "Bootloader entity, as-reported on 2026-10-09."
+    },
+    {
+      "id": "logitech-pro-lightspeed-receiver",
+      "interfaceIds": [
+        "046d_c54d",
+        "046d_ab24"
+      ],
+      "latestVersion": "14.4.20",
+      "required": true,
+      "startWarnings": [
+        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
+      ],
+      "releaseNotes": "Resolves cursor tracking issues in the system BIOS and fixes abnormal behavior when playing Valorant with Anti-Cheat Expert (ACE) enabled."
+    }
+  ]
+}

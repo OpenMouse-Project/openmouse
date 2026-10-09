@@ -25,6 +25,7 @@ import { MagneticButtons } from "./MagneticButtons";
 import { Superstrike } from "./Superstrike";
 import { ButtonMap, buttonMapAvailable } from "./ButtonMap";
 import { DpiCard } from "./cards/DpiCard";
+import { FirmwareCard } from "./cards/FirmwareCard";
 import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
 import { LunaFuryButtonsCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
@@ -516,6 +517,9 @@ function OverviewContent({ snapshot }: {
     <>
       <M2NexProfileOverview snapshot={snapshot} />
       <DeviceShowcase snapshot={snapshot} />
+      <section id="firmware-update-settings" className="device-data" aria-label="Firmware update">
+        <FirmwareCard snapshot={snapshot} />
+      </section>
       {powerOverview && (has.teevolutionDpiLighting || has.sleep) ? (
         <section id="power-overview-settings" className="settings-grid device-data" aria-label="Power settings">
           {has.teevolutionDpiLighting ? <DpiLightingCard snapshot={snapshot} /> : null}
