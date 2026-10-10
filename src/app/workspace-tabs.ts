@@ -9,7 +9,7 @@ export function availableWorkspaceTabs(
   if (!connected) return WORKSPACE_TAB_ORDER;
   const hasButtons = has.eggButtons || has.razerButtons || has.mxMasterButtons || has.atkButtons
     || has.buttonMapping || has.debounce || has.lightforce || has.eggSpdt || has.superstrike || has.magnetic
-    || has.ksnakeScroll || has.lunafuryButtons || has.lunafuryWheelGuard;
+    || has.ksnakeScroll || has.lunafuryButtons || has.lunafuryWheelGuard || has.tmrDs;
   const hasProfiles = has.profiles || has.keychronNapeLayers || has.atkProfile
     || has.onboardProfiles || has.pulsarPro;
   return WORKSPACE_TAB_ORDER.filter((tab) => {
