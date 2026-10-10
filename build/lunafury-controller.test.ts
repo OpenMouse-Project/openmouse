@@ -34,7 +34,8 @@ before(async () => {
           return { status: latestDeviceStatus, preview: withPendingChanges(latestDeviceStatus),
             pending: pendingChanges().map(change => change.key), error: lastDiagnosticError };
         }
-        export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot } from "./game-profile-snapshot.ts";
+        export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot,
+          mergeSnapshots as testMergeSnapshots } from "./game-profile-snapshot.ts";
       `;
     } }],
     build: { write: false, minify: false, lib: { entry: controllerPath, formats: ["es"] },
@@ -188,3 +189,46 @@ test("controller restores the axis mode and dormant Y table after a combined X e
   assert.equal(banks[0].axes, false); assert.deepEqual(banks[0].table, original);
   assert.equal(controller.testState().error, null);
 });
+
+for (const reverse of [false, true]) {
+  test(`controller switches ${reverse ? "table to legacy" : "legacy to table"} Games snapshots and restores the originals`, async () => {
+    const { device, banks } = fixture();
+    const before = await controller.testConnect(device);
+    const original = [...banks[0].table];
+    const legacy = { dpi: 1600, dpiY: 3200, activeDpiStage: 2 };
+    const table = { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] };
+    const first = reverse ? table : legacy, second = reverse ? legacy : table;
+    const prior = controller.testPickSnapshot(before, first);
+    await controller.flashGameProfileSnapshot(first);
+    const afterFirst = controller.testState().status;
+    const allPrior = controller.testMergeSnapshots(controller.testPickSnapshot(afterFirst, second), prior, afterFirst);
+    const toWrite = controller.testMergeSnapshots(prior, second, afterFirst);
+    await controller.flashGameProfileSnapshot(toWrite);
+    assert.deepEqual(controller.testState().status.dpiStages, reverse ? before.dpiStages : table.dpiStages);
+    assert.deepEqual(controller.testState().status.dpiStagesY, reverse ? before.dpiStagesY : table.dpiStagesY);
+    await controller.flashGameProfileSnapshot(allPrior);
+    assert.deepEqual(banks[0].table, original); assert.equal(banks[0].active, 2);
+    assert.equal(controller.testState().error, null);
+  });
+}
+
+for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  test(`controller Games expansion on ${pid.toString(16)} restores hidden slots before re-enabling them`, async () => {
+    const { device, banks } = fixture(pid);
+    const before = await controller.testConnect(device);
+    const original = [...banks[0].table];
+    const target = { dpiStages: [400, 800, 1600, 2000], dpiStagesY: [800, 1600, 3200, 4000] };
+    const prior = controller.testPickSnapshot(before, target);
+    await controller.flashGameProfileSnapshot(target);
+    assert.equal(banks[0].count, 4); assert.equal(banks[0].table[6], 2000);
+    await controller.flashGameProfileSnapshot(prior);
+    assert.equal(banks[0].count, 3); assert.equal(banks[0].active, 2);
+    assert.deepEqual(banks[0].table, original, "restore must include disabled slots and TYPE33 trailing bytes");
+    controller.applyDpiStageCount(4);
+    await controller.flashPendingChanges();
+    assert.equal(controller.testState().status.dpiStages[3], 3200);
+    assert.equal(controller.testState().status.dpiStagesY[3], 6400);
+    assert.deepEqual(banks[0].table, original);
+    assert.equal(controller.testState().error, null);
+  });
+}

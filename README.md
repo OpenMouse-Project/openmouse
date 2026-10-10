@@ -9,9 +9,10 @@ This branch is deployed as the public development control panel.
 
 ## Development
 
-For this LunaFury feature branch, first follow the
-[paired protocol setup](docs/lunafury-development.md). Its new protocol APIs
-are not yet available in the pinned npm release.
+The LunaFury controls on this branch require the
+[paired protocol setup](docs/lunafury-development.md). The pinned npm release
+does not contain the new APIs. That guide also covers the release order and
+the remaining checks before the application PR can be merged.
 
 ```bash
 npm install

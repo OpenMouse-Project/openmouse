@@ -82,10 +82,10 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
     const target = profileTarget(profile);
     // Capture only fields not already held: when one game's profile gives way
     // to another's, the originals from before the first one still win.
-    const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {});
+    const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {}, status);
     // Fields the previous profile changed but this one doesn't go back to
     // their originals, so the new game starts from the user's own settings.
-    const toWrite = mergeSnapshots(priorSettings.current ?? {}, target);
+    const toWrite = mergeSnapshots(priorSettings.current ?? {}, target, status);
 
     writing.current = true;
     void control.flashGameProfileSnapshot(toWrite).then((result) => {

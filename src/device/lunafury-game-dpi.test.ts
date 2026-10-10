@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
-import { draftProfileSnapshot, mergeSnapshots, pickSnapshot, snapshotDiff } from "./game-profile-snapshot.ts";
+import { draftProfileSnapshot, mergeSnapshots, pickSnapshot, sanitizeSnapshot, snapshotDiff } from "./game-profile-snapshot.ts";
 import { lunaFuryGameDpiPlan, stageLunaFuryGameDpi } from "./lunafury-game-dpi.ts";
 
 function status(): MouseStatus {
@@ -75,4 +75,34 @@ test("combined axis-mode and X-table changes restore dormant Y values under axis
   assert.deepEqual(prior, { dpiStages: before.dpiStages, dpiStagesY: before.dpiStagesY, lunafury: { separateDpiAxes: false } });
   const after = { ...before, dpiStages: target.dpiStages, lunafury: target.lunafury };
   assert.deepEqual(lunaFuryGameDpiPlan(after, prior), { stages: [{ stage: 1, x: 800, y: 1600 }] });
+});
+
+test("LunaFury merges normalize base scalars but keep override scalars above restored tables", () => {
+  const before = status();
+  const base = { dpi: 800, dpiY: 1600, activeDpiStage: 1 };
+  const target = { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] };
+  const saved = structuredClone(base);
+  assert.deepEqual(lunaFuryGameDpiPlan(before, mergeSnapshots(base, target, before)), {
+    stages: [{ stage: 1, x: 1200, y: 2400 }], activeStage: 1,
+  });
+  assert.deepEqual(lunaFuryGameDpiPlan(before, mergeSnapshots(target, { dpi: 2000, dpiY: 4000, activeDpiStage: 0 }, before)), {
+    stages: [{ stage: 0, x: 2000, y: 4000 }, { stage: 1, x: 1200, y: 2400 }], activeStage: 0,
+  });
+  assert.deepEqual(base, saved);
+  assert.deepEqual(mergeSnapshots(base, target, { ...before, brand: "Logitech" }), { ...base, ...target });
+});
+
+test("LunaFury restoration metadata stays out of sanitized imports and saved drafts", () => {
+  const before = status();
+  before.lunafury!.dpiStorage = { profile: 1, count: 3,
+    stages: [400, 800, 1600, 3200, 6400, 30000].map((x, index) => ({ x, y: [800, 1600, 3200, 6400, 6400, 30000][index] })) };
+  const target = { dpiStages: [400, 800, 1600, 2000] };
+  const picked = pickSnapshot(before, target);
+  assert.deepEqual(picked.lunaFuryDpiStorage, before.lunafury!.dpiStorage);
+  assert.notEqual(picked.lunaFuryDpiStorage, before.lunafury!.dpiStorage);
+  assert.equal(sanitizeSnapshot(picked).lunaFuryDpiStorage, undefined);
+  assert.deepEqual(sanitizeSnapshot({ lunafury: { dpiStorage: before.lunafury!.dpiStorage } }), {});
+  const after = structuredClone(before);
+  after.lunafury!.dpiStorage!.stages[3].x = 2000;
+  assert.deepEqual(draftProfileSnapshot(before, after, []), {});
 });

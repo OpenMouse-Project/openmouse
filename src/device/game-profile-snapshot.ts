@@ -1,7 +1,8 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import type { LunaFuryDpiStorage } from "@openmouse/protocol/lamzu";
 import { diffLunaFurySettings, isLunaFuryProfileField, pickLunaFurySettings, sanitizeLunaFurySettings } from "./lunafury-profile.ts";
 import { pickLunaFuryMappings } from "./lunafury-buttons.ts";
-import { preserveLunaFuryDpiTables, withoutDerivedLunaFuryDpi } from "./lunafury-game-dpi.ts";
+import { canonicalLunaFuryDpiSnapshot, preserveLunaFuryDpiTables, withoutDerivedLunaFuryDpi } from "./lunafury-game-dpi.ts";
 
 /**
  * The device settings a per-game profile can carry. A game profile is stored
@@ -85,7 +86,10 @@ export const GAME_PROFILE_FIELDS = [
 ] as const satisfies readonly (keyof MouseStatus)[];
 
 export type GameProfileField = (typeof GAME_PROFILE_FIELDS)[number];
-export type GameProfileSnapshot = Partial<Pick<MouseStatus, GameProfileField>>;
+export type GameProfileSnapshot = Partial<Pick<MouseStatus, GameProfileField>> & {
+  /** In-memory restoration only; sanitized imports and saved drafts exclude it. */
+  lunaFuryDpiStorage?: LunaFuryDpiStorage;
+};
 
 const FIELD_SET: ReadonlySet<string> = new Set(GAME_PROFILE_FIELDS);
 
@@ -143,7 +147,10 @@ export function pickSnapshot(status: MouseStatus, snapshot: GameProfileSnapshot)
 }
 
 /** Merge per-control namespaces when games switch, not entire device settings. */
-export function mergeSnapshots(base: GameProfileSnapshot, override: GameProfileSnapshot): GameProfileSnapshot {
+export function mergeSnapshots(base: GameProfileSnapshot, override: GameProfileSnapshot, status?: MouseStatus): GameProfileSnapshot {
+  // Normalize the lower-priority legacy values before merging a newer table.
+  // Override scalars still apply after the base table when switching the other way.
+  if (status) base = canonicalLunaFuryDpiSnapshot(status, base);
   const merged = { ...base, ...override };
   if (base.lunafury || override.lunafury) merged.lunafury = { ...base.lunafury, ...override.lunafury };
   if (base.buttonMappings || override.buttonMappings) merged.buttonMappings = { ...base.buttonMappings, ...override.buttonMappings };

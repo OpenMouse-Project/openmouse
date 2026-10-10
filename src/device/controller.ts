@@ -16,6 +16,7 @@ import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { canEditLunaFuryMapping, pickLunaFuryMappings } from "./lunafury-buttons.ts";
 import { stageLunaFuryGameDpi } from "./lunafury-game-dpi.ts";
+import type { LunaFuryDpiStorage } from "@openmouse/protocol/lamzu";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
   clearPendingChanges,
@@ -1495,6 +1496,7 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   const stageEditor = status.ui?.dpiStageEditor;
   // LunaFury also accepts older snapshots carrying a selected stage's scalars.
   const lunaDpi = stageLunaFuryGameDpi(status, s, {
+    storage: stageLunaFuryDpiStorage,
     count: applyDpiStageCount, axes: applyLunaFuryDpiStageAxes, active: applyActiveDpiStage,
   });
   if (!lunaDpi && stageEditor && status.dpiStages?.length) {
@@ -1609,6 +1611,24 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
       speed: zone.speed ?? undefined,
       brightness: zone.brightness ?? undefined,
     }, zoneIndex);
+  });
+}
+
+/** Internal Games backup; never available as a saved/imported control. */
+function stageLunaFuryDpiStorage(storage: LunaFuryDpiStorage): void {
+  const saved = structuredClone(storage);
+  stageChange({
+    key: "lunafury-dpi-storage", priority: -20,
+    label: "Restore stored DPI slots", command: "Restore complete onboard DPI storage",
+    progress: "Restoring DPI storage…",
+    preview: (status) => {
+      status.dpiStages = saved.stages.slice(0, saved.count).map(stage => stage.x);
+      status.dpiStagesY = saved.stages.slice(0, saved.count).map(stage => stage.y);
+      status.activeDpiStage = Math.min(status.activeDpiStage ?? 0, saved.count - 1);
+      status.dpi = status.dpiStages[status.activeDpiStage]; status.dpiY = status.dpiStagesY[status.activeDpiStage];
+      status.lunafury = { ...status.lunafury, dpiStorage: structuredClone(saved) };
+    },
+    apply: () => callClientMethod("setLunaFuryDpiStorage", "stored DPI slots", saved),
   });
 }
 
