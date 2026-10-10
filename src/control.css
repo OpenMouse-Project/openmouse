@@ -991,6 +991,14 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .stat-row output { color: var(--text-input); font: 650 .72rem var(--font-mono); text-align: end; }
 /* Info-only cards must not stretch to the tallest grid sibling. */
 #finalmouse-perfect-polling { align-self: start; }
+#signal-settings { align-self: start; }
+/* TMR-DS sides are two repeated control stacks: separate them with the
+   shared visible divider instead of letting them blur together. */
+.tmr-side + .tmr-side { margin-top: .8rem; border-top: 1px solid var(--line-strong); padding-top: .8rem; }
+/* Profile roster: one line per profile, switch + rename grouped at the end. */
+.profile-row-actions { display: flex; align-items: center; gap: .5rem; }
+.profile-rename { display: flex; gap: .5rem; margin-top: .4rem; }
+.profile-rename input { flex: 1; min-width: 0; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-size: .78rem; }
 .angle-tuning-inputs { display: grid; grid-template-columns: 1.65rem minmax(7rem, 1fr) 1.65rem; align-items: center; gap: .5rem; margin-top: .35rem; }
 .angle-tuning-inputs button { width: 1.65rem; height: 1.65rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-strong); color: var(--text-input); font-size: .9rem; line-height: 1; cursor: pointer; }
 .angle-tuning-inputs button:hover:not(:disabled) { border-color: var(--ui-accent); color: var(--ui-accent); }
