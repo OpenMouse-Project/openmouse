@@ -20,6 +20,7 @@ import {
 } from "@openmouse/protocol/razer";
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
+import type { WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import { isPulsarProProtocol } from "../../device/traits";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import {
@@ -2221,6 +2222,278 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         <summary>{t(locale, "macro.helpToggle")}</summary>
         <p>{t(locale, "macro.helpBody")}</p>
       </details>
+    </article>
+  );
+}
+
+/**
+ * WALLHACK M-001 onboard macros: 4 slots of up to 30 steps, read from the
+ * device and saved per slot. Manual step editor (no live recorder yet):
+ * each step waits `delayMs` after the previous step, then emits its event.
+ */
+const WALLHACK_MACRO_STEP_TYPES = [
+  "keyDown",
+  "keyUp",
+  "buttonDown",
+  "buttonUp",
+  "wheel",
+  "wheelReset",
+  "move",
+] as const;
+type WallhackMacroStepType = (typeof WALLHACK_MACRO_STEP_TYPES)[number];
+
+function wallhackMacroStepLabel(step: WallhackMacroStep): string {
+  const { event } = step;
+  switch (event.type) {
+    case "keyDown": return `Key down ${event.hidUsage}`;
+    case "keyUp": return `Key up ${event.hidUsage}`;
+    case "buttonDown": return `${event.button} down`;
+    case "buttonUp": return `${event.button} up`;
+    case "wheel": return `Wheel ${event.direction}`;
+    case "wheelReset": return "Wheel reset";
+    case "move": return `Move ${event.axis} ${event.delta}`;
+  }
+}
+
+function wallhackDefaultEvent(type: WallhackMacroStepType): WallhackMacroStep["event"] {
+  switch (type) {
+    case "keyDown": return { type: "keyDown", hidUsage: 4 };
+    case "keyUp": return { type: "keyUp", hidUsage: 4 };
+    case "buttonDown": return { type: "buttonDown", button: "left" };
+    case "buttonUp": return { type: "buttonUp", button: "left" };
+    case "wheel": return { type: "wheel", direction: "up" };
+    case "wheelReset": return { type: "wheelReset" };
+    case "move": return { type: "move", axis: "x", delta: 10 };
+  }
+}
+
+export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
+  const capable = status?.ui?.family === "wallhack-mouse";
+  const profiles = snapshot.wallhackMacros;
+  const [slot, setSlot] = useState(0);
+  const [draft, setDraft] = useState<WallhackMacroStep[] | null>(null);
+  const staged = snapshot.pending.keys.includes(`wallhack-macro-${slot + 1}`);
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+
+  useEffect(() => {
+    if (capable && profiles === null && !snapshot.wallhackMacrosLoading && snapshot.wallhackMacrosError === null) {
+      control.loadWallhackMacros();
+    }
+  }, [capable, profiles, snapshot.wallhackMacrosLoading, snapshot.wallhackMacrosError]);
+
+  useEffect(() => {
+    setDraft(profiles?.[slot]?.map((step) => ({ ...step, event: { ...step.event } })) ?? []);
+  }, [profiles, slot]);
+
+  if (!status || !capable) return null;
+
+  if (snapshot.wallhackMacrosLoading) {
+    return (
+      <article id="wallhack-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><p>{t(locale, "macro.overline")}</p><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{t(locale, "macro.whLoading")}</p>
+      </article>
+    );
+  }
+
+  if (snapshot.wallhackMacrosError !== null) {
+    return (
+      <article id="wallhack-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><p>{t(locale, "macro.overline")}</p><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{snapshot.wallhackMacrosError}</p>
+        <div className="setting-action"><button type="button" onClick={() => control.loadWallhackMacros()}>{t(locale, "set.retry")}</button></div>
+      </article>
+    );
+  }
+
+  if (!profiles || !draft) return null;
+
+  const updateStep = (index: number, next: WallhackMacroStep): void => {
+    setDraft((current) => current ? current.map((step, i) => (i === index ? next : step)) : current);
+  };
+  const changeStepType = (index: number, type: WallhackMacroStepType): void => {
+    setDraft((current) => {
+      if (!current) return current;
+      const step = current[index];
+      if (!step) return current;
+      return current.map((entry, i) => (i === index ? { delayMs: step.delayMs, event: wallhackDefaultEvent(type) } : entry));
+    });
+  };
+  const addStep = (): void => {
+    setDraft((current) => current && current.length < 30
+      ? [...current, { delayMs: 0, event: { type: "keyDown", hidUsage: 4 } }]
+      : current);
+  };
+  const removeStep = (index: number): void => {
+    setDraft((current) => current ? current.filter((_, i) => i !== index) : current);
+  };
+
+  return (
+    <article id="wallhack-macro-settings" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key={`wallhack-macro-${slot + 1}`}>
+      <div className="setting-heading compact">
+        <div>
+          <p>{t(locale, "macro.overline")}</p>
+          <h2>{t(locale, "macro.build")}</h2>
+          <p className="ksnake-macro-lead">{t(locale, "macro.whLead")}</p>
+        </div>
+      </div>
+      <label className="ksnake-macro-slot-picker">
+        <span>{t(locale, "macro.slotLabel")}</span>
+        <select value={slot} disabled={disabled} onChange={(event) => setSlot(Number(event.currentTarget.value))}>
+          {profiles.map((profile, index) => {
+            const stepCount = index === slot ? draft.length : profile?.length ?? 0;
+            return <option key={index} value={index}>{t(locale, "macro.option")} {index + 1}{stepCount ? ` · ${tp(locale, "macro.steps", { n: stepCount })}` : ` · ${t(locale, "macro.empty")}`}</option>;
+          })}
+        </select>
+      </label>
+      {draft.length === 0 ? (
+        <p className="field-note">{t(locale, "macro.noActions")}</p>
+      ) : (
+        <div className="macro-steps">
+          {draft.map((step, index) => (
+            <div className="macro-step" key={`${slot}-${index}`}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>{t(locale, "macro.whStepType")}
+                <select
+                  value={step.event.type}
+                  disabled={disabled}
+                  onChange={(event) => changeStepType(index, event.currentTarget.value as WallhackMacroStepType)}
+                >
+                  {WALLHACK_MACRO_STEP_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+              {(step.event.type === "keyDown" || step.event.type === "keyUp") ? (
+                <label>{t(locale, "macro.whKey")}
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    value={step.event.hidUsage}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const current = step.event;
+                      if (current.type !== "keyDown" && current.type !== "keyUp") return;
+                      updateStep(index, {
+                        delayMs: step.delayMs,
+                        event: { type: current.type, hidUsage: Math.min(255, Math.max(0, Number(event.currentTarget.value) || 0)) },
+                      });
+                    }}
+                  />
+                </label>
+              ) : null}
+              {(step.event.type === "buttonDown" || step.event.type === "buttonUp") ? (
+                <label>{t(locale, "macro.whButton")}
+                  <select
+                    value={step.event.button}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const current = step.event;
+                      if (current.type !== "buttonDown" && current.type !== "buttonUp") return;
+                      updateStep(index, {
+                        delayMs: step.delayMs,
+                        event: { type: current.type, button: event.currentTarget.value },
+                      });
+                    }}
+                  >
+                    {["left", "right", "middle", "back", "forward"].map((button) => (
+                      <option key={button} value={button}>{button}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {step.event.type === "wheel" ? (
+                <label>{t(locale, "macro.whDirection")}
+                  <select
+                    value={step.event.direction}
+                    disabled={disabled}
+                    onChange={(event) => updateStep(index, {
+                      delayMs: step.delayMs,
+                      event: { type: "wheel", direction: event.currentTarget.value as "up" | "down" },
+                    })}
+                  >
+                    <option value="up">{t(locale, "macro.whUp")}</option>
+                    <option value="down">{t(locale, "macro.whDown")}</option>
+                  </select>
+                </label>
+              ) : null}
+              {step.event.type === "move" ? (
+                <>
+                  <label>{t(locale, "macro.whAxis")}
+                    <select
+                      value={step.event.axis}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const current = step.event;
+                        if (current.type !== "move") return;
+                        updateStep(index, {
+                          delayMs: step.delayMs,
+                          event: { type: "move", axis: event.currentTarget.value as "x" | "y", delta: current.delta },
+                        });
+                      }}
+                    >
+                      <option value="x">x</option>
+                      <option value="y">y</option>
+                    </select>
+                  </label>
+                  <label>{t(locale, "macro.whDelta")}
+                    <input
+                      type="number"
+                      min={-255}
+                      max={255}
+                      value={step.event.delta}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const current = step.event;
+                        if (current.type !== "move") return;
+                        const delta = Math.min(255, Math.max(-255, Number(event.currentTarget.value) || 0));
+                        updateStep(index, { delayMs: step.delayMs, event: { type: "move", axis: current.axis, delta: delta === 0 ? 1 : delta } });
+                      }}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <label>{t(locale, "macro.colDelay")}
+                <input
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={step.delayMs}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: Math.min(65535, Math.max(0, Number(event.currentTarget.value) || 0)),
+                    event: step.event,
+                  })}
+                />
+              </label>
+              <small className="ksnake-macro-preview" title={wallhackMacroStepLabel(step)}>{wallhackMacroStepLabel(step)}</small>
+              <button type="button" className="ksnake-macro-delete" disabled={disabled} onClick={() => removeStep(index)} aria-label={tp(locale, "macro.removeStep", { n: index + 1 })} title={t(locale, "macro.removeStepTitle")}>
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="field-note">{t(locale, "macro.whMaxSteps")}</p>
+      <div className="setting-action ksnake-macro-actions">
+        <button type="button" onClick={addStep} disabled={disabled || draft.length >= 30}>
+          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.whAdd")}
+        </button>
+        <button className="ksnake-macro-save" type="button" onClick={() => control.applyWallhackMacroSlot(slot, draft)} disabled={disabled}>
+          <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.save")}
+        </button>
+        <button
+          className="ksnake-macro-clear"
+          type="button"
+          onClick={() => { control.clearWallhackMacroSlot(slot); setDraft([]); }}
+          disabled={disabled}
+        >
+          {t(locale, "macro.clearSlot")}
+        </button>
+      </div>
     </article>
   );
 }

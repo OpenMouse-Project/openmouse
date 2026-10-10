@@ -46,6 +46,9 @@ export interface CardAvailability {
   onboardProfiles: boolean;
   buttonMapping: boolean;
   ksnakeMacros: boolean;
+  wallhackScanning: boolean;
+  wallhackCurves: boolean;
+  wallhackMacros: boolean;
   powerMode: boolean;
   profiles: boolean;
   keychronNapeLayers: boolean;
@@ -95,6 +98,9 @@ const NOTHING: CardAvailability = {
   onboardProfiles: false,
   buttonMapping: false,
   ksnakeMacros: false,
+  wallhackScanning: false,
+  wallhackCurves: false,
+  wallhackMacros: false,
   powerMode: false,
   profiles: false,
   keychronNapeLayers: false,
@@ -159,6 +165,11 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
     ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
+    // WALLHACK M-001 extras. Curves and macros need mouse firmware 57+; the
+    // cards surface the device error when an older board refuses the read.
+    wallhackScanning: ui?.family === "wallhack-mouse" && status.sensorScanningMode != null,
+    wallhackCurves: ui?.family === "wallhack-mouse" && status.dynamicSensitivityEnabled != null,
+    wallhackMacros: ui?.family === "wallhack-mouse",
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",

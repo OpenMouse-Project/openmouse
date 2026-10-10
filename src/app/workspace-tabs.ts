@@ -15,7 +15,7 @@ export function availableWorkspaceTabs(
   return WORKSPACE_TAB_ORDER.filter((tab) => {
     if (tab === "lighting") return !options.hideLighting && (has.lighting || has.teevolutionDpiLighting);
     if (tab === "buttons") return hasButtons;
-    if (tab === "macro") return has.ksnakeMacros;
+    if (tab === "macro") return has.ksnakeMacros || has.wallhackMacros;
     if (tab === "profiles") return hasProfiles;
     return true;
   });

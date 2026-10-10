@@ -108,6 +108,7 @@ import { hasCapturedFactoryProfiles } from "./logitech-factory";
 import type { MagneticButtonStatus, MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { isMagneticButtonClient, type MagneticButtonClient } from "@openmouse/protocol/drivers/magnetic";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
+import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import {
   cloneM2NexProfile,
   loadM2NexProfiles,
@@ -318,6 +319,12 @@ let ksnakeMacros: KsnakeMacroProfile[] | null = null;
 let stagedKsnakeMacros: KsnakeMacroProfile[] | null = null;
 let ksnakeMacrosLoading = false;
 let ksnakeMacrosError: string | null = null;
+let wallhackMacros: (WallhackMacroStep[] | null)[] | null = null;
+let wallhackMacrosLoading = false;
+let wallhackMacrosError: string | null = null;
+let wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null = null;
+let wallhackCurvesLoading = false;
+let wallhackCurvesError: string | null = null;
 let m2nexProfiles: M2NexProfile[] | null = null;
 let activeM2NexProfile = 0;
 let m2nexProfileDirty = false;
@@ -530,6 +537,16 @@ function buildSnapshot(): ControlSnapshot {
     ksnakeMacros: stagedKsnakeMacros ?? ksnakeMacros,
     ksnakeMacrosLoading,
     ksnakeMacrosError,
+    wallhackMacros: wallhackMacros?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null,
+    wallhackMacrosLoading,
+    wallhackMacrosError,
+    wallhackCurves: wallhackCurves
+      ? Object.fromEntries(
+        Object.entries(wallhackCurves).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
+      ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>
+      : null,
+    wallhackCurvesLoading,
+    wallhackCurvesError,
     m2nexProfiles: m2nexProfiles?.map(cloneM2NexProfile) ?? null,
     activeM2NexProfile,
     m2nexProfileDirty,
@@ -1051,6 +1068,209 @@ export function applyKsnakeMacro(slot: number, profile: KsnakeMacroProfile): voi
             : profile);
           persistM2NexProfiles();
         }
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 sensor scanning mode (HIGH/ACCEL). */
+export function applySensorScanningMode(mode: "HIGH" | "ACCEL"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-scanning",
+    label: `Sensor scanning ${mode}`,
+    command: `Set sensor scanning to ${mode}`,
+    progress: `Setting sensor scanning to ${mode}…`,
+    preview: (status) => { status.sensorScanningMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setSensorScanningMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 DPI-acceleration on/off switch. */
+export function applyDynamicSensitivityEnabled(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} DPI acceleration`,
+    progress: `${enabled ? "Enabling" : "Disabling"} DPI acceleration…`,
+    preview: (status) => { status.dynamicSensitivityEnabled = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityEnabled(enabled);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 active acceleration curve. */
+export function applyDynamicSensitivityMode(mode: "classic" | "natural" | "jump" | "custom"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration curve ${mode}`,
+    command: `Set DPI acceleration curve to ${mode}`,
+    progress: `Setting DPI acceleration curve to ${mode}…`,
+    preview: (status) => { status.dynamicSensitivityMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 motion-speed reporting toggle. */
+export function applyDynamicSensitivitySpeedReporting(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens-reporting",
+    label: `Motion-speed reporting ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} motion-speed reporting`,
+    progress: `${enabled ? "Enabling" : "Disabling"} motion-speed reporting…`,
+    preview: (status) => { status.dynamicSensitivitySpeedReporting = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivitySpeedReporting(enabled);
+    },
+  });
+}
+
+/** Stage a replacement WALLHACK M-001 custom curve (exactly 5 points). */
+export function applyCustomCurve(points: WallhackCurvePoint[]): void {
+  if (!wallhackMouseClient()) return;
+  const snapshot = points.map((point) => ({ ...point }));
+  stageChange({
+    key: "wallhack-curve",
+    label: "Custom DPI acceleration curve",
+    command: "Write custom DPI acceleration curve",
+    progress: "Writing custom DPI acceleration curve…",
+    preview: (status) => {
+      if (status.dynamicSensitivityCurves) {
+        status.dynamicSensitivityCurves = { ...status.dynamicSensitivityCurves, custom: snapshot.map((p) => ({ ...p })) };
+      }
+    },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      const confirmed = await client.setCustomCurve(snapshot);
+      if (wallhackCurves) {
+        wallhackCurves = { ...wallhackCurves, custom: confirmed.map((p) => ({ ...p })) };
+        emit();
+      }
+    },
+  });
+}
+
+/** Read the four WALLHACK M-001 curve tables into the snapshot. */
+export function loadWallhackCurves(): void {
+  if (wallhackCurvesLoading || wallhackCurves !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackCurvesError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackCurvesLoading = true;
+  wallhackCurvesError = null;
+  emit();
+  void (async () => {
+    try {
+      const curves = await client.getDynamicSensitivityCurves();
+      if (wallhackMouseClient() !== client) return;
+      wallhackCurves = curves;
+      wallhackCurvesError = null;
+    } catch (error) {
+      wallhackCurvesError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackCurvesLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Read the four WALLHACK M-001 macro slots into the snapshot. */
+export function loadWallhackMacros(): void {
+  if (wallhackMacrosLoading || wallhackMacros !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackMacrosError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackMacrosLoading = true;
+  wallhackMacrosError = null;
+  emit();
+  void (async () => {
+    try {
+      const macros = await client.getMacros();
+      if (wallhackMouseClient() !== client) return;
+      wallhackMacros = macros.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null);
+      wallhackMacrosError = null;
+    } catch (error) {
+      wallhackMacrosError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackMacrosLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Stage one WALLHACK M-001 macro slot write (0-3). */
+export function applyWallhackMacroSlot(slot: number, steps: WallhackMacroStep[]): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  const snapshot = steps.map((step) => ({ ...step, event: { ...step.event } }));
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Macro ${slot + 1}`,
+    command: `Save WALLHACK macro ${slot + 1}`,
+    progress: `Saving WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      const confirmed = await live.setMacroSlot(slot, snapshot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? confirmed.map((step) => ({ ...step, event: { ...step.event } })) : entry,
+        );
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage clearing one WALLHACK M-001 macro slot (0-3). */
+export function clearWallhackMacroSlot(slot: number): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Clear macro ${slot + 1}`,
+    command: `Clear WALLHACK macro ${slot + 1}`,
+    progress: `Clearing WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.clearMacroSlot(slot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? null : entry,
+        );
         emit();
       }
     },
@@ -2777,6 +2997,12 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     stagedKsnakeMacros = null;
     ksnakeMacrosLoading = false;
     ksnakeMacrosError = null;
+    wallhackMacros = null;
+    wallhackMacrosLoading = false;
+    wallhackMacrosError = null;
+    wallhackCurves = null;
+    wallhackCurvesLoading = false;
+    wallhackCurvesError = null;
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -2873,6 +3099,12 @@ function showDisconnectedState(): void {
   stagedKsnakeMacros = null;
   ksnakeMacrosLoading = false;
   ksnakeMacrosError = null;
+  wallhackMacros = null;
+  wallhackMacrosLoading = false;
+  wallhackMacrosError = null;
+  wallhackCurves = null;
+  wallhackCurvesLoading = false;
+  wallhackCurvesError = null;
   m2nexProfiles = null;
   activeM2NexProfile = 0;
   m2nexProfileDirty = false;

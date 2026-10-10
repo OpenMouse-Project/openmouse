@@ -2,6 +2,7 @@ import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
+import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../interface-preferences";
 import type { PreviewMode } from "../preview-modes";
@@ -231,6 +232,19 @@ export interface ControlSnapshot {
   ksnakeMacros: KsnakeMacroProfile[] | null;
   ksnakeMacrosLoading: boolean;
   ksnakeMacrosError: string | null;
+  /**
+   * WALLHACK M-001 onboard macro slots (4, up to 30 steps each), read from
+   * the device. Empty slots are null. Macros are saved per slot, so unlike
+   * ksnake there is no staged draft: the card edits a local copy and writes
+   * it through applyWallhackMacroSlot.
+   */
+  wallhackMacros: (WallhackMacroStep[] | null)[] | null;
+  wallhackMacrosLoading: boolean;
+  wallhackMacrosError: string | null;
+  /** WALLHACK M-001 DPI-acceleration curve tables, read on demand. */
+  wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null;
+  wallhackCurvesLoading: boolean;
+  wallhackCurvesError: string | null;
   /** Local profile slots matching the M2-NEX vendor configurator. */
   m2nexProfiles: M2NexProfile[] | null;
   activeM2NexProfile: number;

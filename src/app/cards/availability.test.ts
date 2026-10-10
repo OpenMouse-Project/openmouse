@@ -436,6 +436,38 @@ test("M2-NEX exposes the macro capability even when its UI family is absent", ()
   assert.equal(has.ksnakeMacros, true);
 });
 
+test("WALLHACK M-001 exposes scanning, curves and macros from its status", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "WALLHACK",
+      name: "WALLHACK M-001",
+      ui: { family: "wallhack-mouse", showAdvancedSection: true },
+      sensorScanningMode: "HIGH",
+      dynamicSensitivityEnabled: false,
+      dynamicSensitivityMode: "classic",
+      buttonMappings: { Left: "Left Click" },
+      buttonOptions: ["Left Click", "Disabled"],
+    },
+  }));
+  assert.equal(has.wallhackScanning, true);
+  assert.equal(has.wallhackCurves, true);
+  assert.equal(has.wallhackMacros, true);
+  assert.equal(has.buttonMapping, true);
+});
+
+test("WALLHACK scanning and curves hide when the mouse did not answer", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "WALLHACK",
+      name: "WALLHACK M-001",
+      ui: { family: "wallhack-mouse", showAdvancedSection: true },
+    },
+  }));
+  assert.equal(has.wallhackScanning, false);
+  assert.equal(has.wallhackCurves, false);
+  assert.equal(has.wallhackMacros, true);
+});
+
 test("M2-NEX keeps lighting out of Advanced", () => {
   const has = cardAvailability(snapshot({
     status: {
