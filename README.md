@@ -13,7 +13,13 @@ OpenMouse is a browser-based control panel for supported gaming mice.
 Connect a mouse, view its information, and change supported settings such as DPI
 and polling rate without installing a different app for every brand.
 
-This branch is deployed as the public development control panel.
+<a href="https://control.openmouse.app/"><img src="https://img.shields.io/badge/Open_the_control_panel-6750A4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Open the control panel"/></a>
+
+Works in Chrome, Edge and other Chromium browsers (WebHID). Learn more at
+[openmouse.app](https://openmouse.app/).
+
+This branch is deployed as the public development control panel at
+[control.openmouse.app](https://control.openmouse.app/).
 
 ## Development
 
@@ -59,6 +65,13 @@ sudo udevadm control --reload-rules
 Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
+
+## Community
+
+Questions, device requests, bug reports, or just want to follow along? Come
+hang out on Discord.
+
+<a href="https://discord.gg/yxC9jzMdw6"><img src="https://img.shields.io/badge/Join_our_Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord"/></a>
 
 ## Contributing
 
