@@ -992,6 +992,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 /* Info-only cards must not stretch to the tallest grid sibling. */
 #finalmouse-perfect-polling { align-self: start; }
 #signal-settings { align-self: start; }
+#finalmouse-settings { align-self: start; }
 /* TMR-DS sides are two repeated control stacks: separate them with the
    shared visible divider instead of letting them blur together. */
 .tmr-side + .tmr-side { margin-top: .8rem; border-top: 1px solid var(--line-strong); padding-top: .8rem; }
