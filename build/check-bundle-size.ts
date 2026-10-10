@@ -190,7 +190,12 @@ const BUDGET_BYTES: Record<string, number> = {
   // Raised to 2.2 MB for the Superstrike Buttons tab (button map, HITS presets,
   // speed test, setup codes, bounce check) merged with protocol 0.28.0: the
   // measured aggregate is 2,150.4 kB, 350 bytes over the old 2.15 MB budget.
-  ".js": 2_200_000,
+  // Raised to 2,350 kB for protocol 0.31.0 and the work that landed on 0.29-0.31:
+  // the Starlight X (Finalmouse) panel, the Wallhack M-001 scanning, DPI curve
+  // and macro cards, and the ATK per-model capability cards. The measured
+  // aggregate is 2,288.4 kB, 88 kB over the old 2.2 MB budget, leaving ~60 kB
+  // of headroom.
+  ".js": 2_350_000,
 };
 
 const ASSETS = join("dist", "assets");
