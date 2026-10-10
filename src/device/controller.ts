@@ -5480,6 +5480,96 @@ export function applyFinalmouseRtSensitivity(side: "left" | "right", um: number)
   });
 }
 
+/** Starlight X click mode for both switches together. */
+export function applyFinalmouseClickModeBoth(mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: "Change Finalmouse click mode for both switches",
+    progress: "Changing Finalmouse click mode…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = mode;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = mode;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        mode, mode, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X release point for both switches together. */
+export function applyFinalmouseReleaseBoth(rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks release ${names[rel] ?? rel}`,
+    command: "Change Finalmouse release point for both switches",
+    progress: "Changing Finalmouse release point…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = rel;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = rel;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, rel, rel);
+    },
+  });
+}
+
+/** Starlight X TMR actuation for both switches together, in millimetres. */
+export function applyFinalmouseTmrActuationBoth(mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks actuation ${mm.toFixed(2)} mm`,
+    command: "Change Finalmouse actuation for both switches",
+    progress: "Changing Finalmouse actuation…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mm * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mm * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mm, mm, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity for both switches together, in µm. */
+export function applyFinalmouseRtSensitivityBoth(um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks rapid trigger ${um} µm`,
+    command: "Change Finalmouse rapid trigger for both switches",
+    progress: "Changing Finalmouse rapid trigger…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = um;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = um;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, um, um);
+    },
+  });
+}
 /** Starlight X active profile by 0-based index. */
 export function applyFinalmouseProfileActive(index: number): void {
   if (!finalmouseClient()) return;
