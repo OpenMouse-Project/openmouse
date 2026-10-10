@@ -1614,7 +1614,7 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   });
 }
 
-/** Internal Games backup; never available as a saved/imported control. */
+/** Final Games DPI storage, composed from its backup and target; never saved/imported. */
 function stageLunaFuryDpiStorage(storage: LunaFuryDpiStorage): void {
   const saved = structuredClone(storage);
   stageChange({

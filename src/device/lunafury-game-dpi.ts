@@ -3,7 +3,6 @@ import type { LunaFuryDpiStorage } from "@openmouse/protocol/lamzu";
 import type { GameProfileSnapshot } from "./game-profile-snapshot.ts";
 
 export interface LunaFuryGameDpiPlan {
-  storage?: LunaFuryDpiStorage;
   count?: number;
   stages: Array<{ stage: number; x: number; y: number }>;
   activeStage?: number;
@@ -13,7 +12,6 @@ export interface LunaFuryGameDpiPlan {
 export function lunaFuryGameDpiPlan(status: MouseStatus, snapshot: GameProfileSnapshot): LunaFuryGameDpiPlan | null {
   if (status.brand !== "LunaFury" || !status.ui?.dpiStageEditor || !status.dpiStages?.length || !status.dpiStagesY?.length) return null;
   const storage = snapshot.lunaFuryDpiStorage;
-  const restore = storage && JSON.stringify(storage) !== JSON.stringify(status.lunafury?.dpiStorage);
   const baselineX = storage ? storage.stages.slice(0, storage.count).map(stage => stage.x) : status.dpiStages;
   const baselineY = storage ? storage.stages.slice(0, storage.count).map(stage => stage.y) : status.dpiStagesY;
   const baselineActive = storage ? Math.min(status.activeDpiStage ?? 0, storage.count - 1) : status.activeDpiStage ?? 0;
@@ -28,7 +26,6 @@ export function lunaFuryGameDpiPlan(status: MouseStatus, snapshot: GameProfileSn
     else if (snapshot.dpi != null && separate === false && snapshot.dpi !== baselineX[target]) ys[target] = snapshot.dpi;
   }
   return {
-    ...(restore ? { storage } : {}),
     ...(xs.length !== baselineX.length && status.ui.dpiStageEditor.countEditable === true ? { count: xs.length } : {}),
     stages: xs.flatMap((x, stage) => x === baselineX[stage] && ys[stage] === baselineY[stage]
       ? [] : [{ stage, x, y: ys[stage] }]),
@@ -50,16 +47,24 @@ export function canonicalLunaFuryDpiSnapshot(status: MouseStatus, snapshot: Game
 }
 
 export function stageLunaFuryGameDpi(status: MouseStatus, snapshot: GameProfileSnapshot, actions: {
-  storage?(storage: LunaFuryDpiStorage): void;
+  storage(storage: LunaFuryDpiStorage): void;
   count(count: number): void;
   axes(stage: number, x: number, y: number): void;
   active(stage: number): void;
 }): boolean {
   const plan = lunaFuryGameDpiPlan(status, snapshot);
   if (!plan) return false;
-  if (plan.storage) actions.storage?.(plan.storage);
-  if (plan.count != null) actions.count(plan.count);
-  for (const { stage, x, y } of plan.stages) actions.axes(stage, x, y);
+  if (snapshot.lunaFuryDpiStorage) {
+    // Compose the final table before staging. Restoring first would make the
+    // ordinary count/slot setters deduplicate and order against stale hardware.
+    const target = structuredClone(snapshot.lunaFuryDpiStorage);
+    if (plan.count != null) target.count = plan.count;
+    for (const { stage, x, y } of plan.stages) target.stages[stage] = { x, y };
+    if (JSON.stringify(target) !== JSON.stringify(status.lunafury?.dpiStorage)) actions.storage(target);
+  } else {
+    if (plan.count != null) actions.count(plan.count);
+    for (const { stage, x, y } of plan.stages) actions.axes(stage, x, y);
+  }
   if (plan.activeStage != null) actions.active(plan.activeStage);
   return true;
 }

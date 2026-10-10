@@ -54,6 +54,7 @@ test("stage-count restore includes both axes and the old active stage", () => {
   assert.deepEqual(pickSnapshot(before, saved), { dpiStages: before.dpiStages, dpiStagesY: before.dpiStagesY, activeDpiStage: 1 });
   const calls: unknown[] = [];
   assert.equal(stageLunaFuryGameDpi(before, { dpiStages: [400, 800, 1600, 2000], activeDpiStage: 3 }, {
+    storage: (storage) => calls.push(["storage", storage]),
     count: (count) => calls.push(["count", count]), axes: (...args) => calls.push(["axes", ...args]), active: (stage) => calls.push(["active", stage]),
   }), true);
   assert.deepEqual(calls, [["count", 4], ["axes", 3, 2000, 2000], ["active", 3]]);
@@ -105,4 +106,47 @@ test("LunaFury restoration metadata stays out of sanitized imports and saved dra
   const after = structuredClone(before);
   after.lunafury!.dpiStorage!.stages[3].x = 2000;
   assert.deepEqual(draftProfileSnapshot(before, after, []), {});
+});
+
+test("complete Games backups and targets stage one final table with dormant slots intact", () => {
+  const before = status();
+  const backup = { profile: 1, count: 3,
+    stages: [400, 800, 1600, 3200, 6400, 0].map((x, index) => ({ x, y: [800, 1600, 3200, 6400, 6400, 65535][index] })) };
+  const original = structuredClone(backup);
+  const calls: unknown[] = [];
+  assert.equal(stageLunaFuryGameDpi(before, { lunaFuryDpiStorage: backup,
+    dpiStages: [400, 800, 1600, 2400], dpiStagesY: [800, 1600, 3200, 4800], activeDpiStage: 3 }, {
+    storage: (storage) => calls.push(["storage", storage]), count: (count) => calls.push(["count", count]),
+    axes: (...args) => calls.push(["axes", ...args]), active: (stage) => calls.push(["active", stage]),
+  }), true);
+  assert.deepEqual(calls, [["storage", { ...original, count: 4,
+    stages: [...original.stages.slice(0, 3), { x: 2400, y: 4800 }, ...original.stages.slice(4)] }], ["active", 3]]);
+  assert.deepEqual(backup, original);
+  assert.notEqual((calls[0] as any[])[1].stages[4], backup.stages[4]);
+});
+
+test("a composed Games table already on the mouse stages selection only", () => {
+  const before = status();
+  const backup = { profile: 1, count: 3, stages: [400, 800, 1600, 3200, 6400, 30000].map(x => ({ x, y: x * 2 })) };
+  before.dpiStages = [400, 1200, 1600]; before.dpiStagesY = [800, 2400, 3200];
+  before.lunafury!.dpiStorage = structuredClone(backup);
+  before.lunafury!.dpiStorage.stages[1] = { x: 1200, y: 2400 };
+  const calls: unknown[] = [];
+  stageLunaFuryGameDpi(before, { lunaFuryDpiStorage: backup, dpiStages: before.dpiStages,
+    dpiStagesY: before.dpiStagesY, activeDpiStage: 2 }, {
+    storage: (storage) => calls.push(["storage", storage]), count: (count) => calls.push(["count", count]),
+    axes: (...args) => calls.push(["axes", ...args]), active: (stage) => calls.push(["active", stage]),
+  });
+  assert.deepEqual(calls, [["active", 2]]);
+});
+
+test("complete-storage targets still apply legacy scalars at the selected target stage", () => {
+  const before = status();
+  const backup = { profile: 1, count: 3, stages: [400, 800, 1600, 3200, 6400, 30000].map(x => ({ x, y: x })) };
+  const calls: unknown[] = [];
+  stageLunaFuryGameDpi(before, { lunaFuryDpiStorage: backup, dpi: 2400, dpiY: 4800, activeDpiStage: 2 }, {
+    storage: (storage) => calls.push(["storage", storage]), count: (count) => calls.push(["count", count]),
+    axes: (...args) => calls.push(["axes", ...args]), active: (stage) => calls.push(["active", stage]),
+  });
+  assert.deepEqual(calls, [["storage", { ...backup, stages: backup.stages.map((stage, index) => index === 2 ? { x: 2400, y: 4800 } : stage) }], ["active", 2]]);
 });

@@ -69,9 +69,9 @@ files and vendor images.
 
 ## Automated validation
 
-The paired application build and all 334 application tests pass, including
-15 controller integration tests. Bundle checks pass at 205,473 / 210,000
-bytes for CSS and 2,119,670 / 2,150,000 bytes for JavaScript. These results
+The paired application build and all 349 application tests pass, including
+27 controller integration tests. Bundle checks pass at 205,473 / 210,000
+bytes for CSS and 2,119,772 / 2,150,000 bytes for JavaScript. These results
 use the local protocol tarball; they do not establish that a registry-only
 install builds.
 
@@ -90,12 +90,16 @@ target is merged. New tables therefore override prior restore values;
 legacy targets still override restore tables in the opposite direction.
 
 DPI edits and count changes back up the complete five- or six-slot X/Y
-storage separately from the enabled count. Restore puts dormant slots back
-before applying table edits and selection. Re-enabling a hidden slot then
-reads its original value, including Y values stored while the axes are
-linked. This backup is held in memory and excluded from saved Games
-snapshots and imports. The protocol rejects a backup for another bank and
-verifies every stored slot on readback.
+storage separately from the enabled count. When switching games, the app
+composes the final enabled count and X/Y slots from that backup and the new
+target, then stages one complete-table write followed by stage selection.
+It does not restore the old count first and queue individual slot edits
+against the previous game's status. A final table already on the mouse
+requires no table write. Exiting restores the original complete storage,
+so re-enabling a hidden slot reads its original value, including Y values
+stored while the axes are linked. The backup stays in memory and is excluded
+from saved Games snapshots and imports. The protocol rejects another bank
+and verifies every stored slot on readback.
 
 The controller tests use the real draft, staging, Apply and restore paths
 with synthetic HID devices. They cover both cross-format switch directions,
@@ -104,6 +108,22 @@ pending user edits, shrinking counts and combined axis-mode/DPI edits.
 The two cross-format cases and four expansion cases failed before the
 2026-10-10 fixes and pass with them. The Bridge hook itself is not mounted
 by this harness; the tests call the same merge functions and controller path.
+
+Three further switch counterexamples are included in the controller suite:
+both games use the same edited DPI table but a different selection; both
+require four stages but different fourth-slot values; and the first uses
+the model's maximum count while the second needs four stages. The last is
+six-to-four on LUNA33 and five-to-four on TYPE33. All three run on each of
+the four PIDs, producing 12 cases that failed before final-table composition
+and pass with it. They check both axes, count, selection, dormant slots,
+TYPE33 trailing bytes and restoration of the accumulated originals. Three
+unit tests cover composition, unchanged final tables and legacy scalars.
+
+The protocol source did not change for these switch fixes. Its build and
+151 focused tests were rerun; the 2,252-test result above is the earlier
+broader run. These results do not verify the existing Games failure-return
+contract: `flashGameProfileSnapshot` can still return `written` after a
+device write fails. That separate error-propagation behavior is unchanged.
 
 The paired protocol branch refreshes the active DPI stage and both tables
 during LunaFury live reads. Its older bank-scoped setters and status reads

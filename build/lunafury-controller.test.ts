@@ -232,3 +232,79 @@ for (const pid of [0x32, 0x33, 0x54, 0x84]) {
     assert.equal(controller.testState().error, null);
   });
 }
+
+for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  test(`controller game switch on ${pid.toString(16)} keeps DPI shared by both games`, async () => {
+    const { device, banks, sent } = fixture(pid);
+    const before = await controller.testConnect(device);
+    const original = [...banks[0].table];
+    const first = { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] };
+    const second = { ...first, activeDpiStage: 2 };
+    const prior = controller.testPickSnapshot(before, first);
+    await controller.flashGameProfileSnapshot(first);
+    const afterFirst = controller.testState().status;
+    const allPrior = controller.testMergeSnapshots(controller.testPickSnapshot(afterFirst, second), prior, afterFirst);
+    const toWrite = controller.testMergeSnapshots(prior, second, afterFirst);
+    const start = sent.length;
+    assert.equal(await controller.flashGameProfileSnapshot(toWrite), "written");
+    assert.deepEqual(controller.testState().status.dpiStages, second.dpiStages);
+    assert.deepEqual(controller.testState().status.dpiStagesY, second.dpiStagesY);
+    assert.equal(banks[0].active, 3);
+    assert.equal(sent.slice(start).some(packet => packet[4] === 1 && packet[5] === 1), false,
+      "a shared final table needs no restore-then-rewrite");
+    assert.equal(controller.testState().error, null);
+    await controller.flashGameProfileSnapshot(allPrior);
+    assert.deepEqual(banks[0].table, original); assert.equal(banks[0].count, 3); assert.equal(banks[0].active, 2);
+    assert.equal(controller.testState().error, null);
+  });
+
+  test(`controller game switch on ${pid.toString(16)} retains four stages while editing the fourth`, async () => {
+    const { device, banks, sent } = fixture(pid);
+    const before = await controller.testConnect(device);
+    const original = [...banks[0].table];
+    const first = { dpiStages: [400, 800, 1600, 2000], dpiStagesY: [800, 1600, 3200, 4000] };
+    const second = { dpiStages: [400, 800, 1600, 2400], dpiStagesY: [800, 1600, 3200, 4800], activeDpiStage: 3 };
+    const prior = controller.testPickSnapshot(before, first);
+    await controller.flashGameProfileSnapshot(first);
+    const afterFirst = controller.testState().status;
+    const allPrior = controller.testMergeSnapshots(controller.testPickSnapshot(afterFirst, second), prior, afterFirst);
+    const start = sent.length;
+    await controller.flashGameProfileSnapshot(controller.testMergeSnapshots(prior, second, afterFirst));
+    assert.equal(controller.testState().error, null);
+    assert.equal(banks[0].count, 4); assert.equal(banks[0].active, 4);
+    assert.deepEqual(controller.testState().status.dpiStages, second.dpiStages);
+    assert.deepEqual(controller.testState().status.dpiStagesY, second.dpiStagesY);
+    assert.deepEqual(banks[0].table, [400, 800, 800, 1600, 1600, 3200, 2400, 4800, ...original.slice(8)]);
+    assert.deepEqual(sent.slice(start).filter(packet => packet[4] === 1 && packet[5] === 1).map(packet => packet[7]), [4],
+      "write the final count/table without an intermediate three-stage restore");
+    await controller.flashGameProfileSnapshot(allPrior);
+    assert.deepEqual(banks[0].table, original); assert.equal(banks[0].count, 3); assert.equal(banks[0].active, 2);
+    assert.equal(controller.testState().error, null);
+  });
+
+  test(`controller game switch on ${pid.toString(16)} reduces max stages to four without writing disabled slots`, async () => {
+    const { device, banks, sent } = fixture(pid);
+    const before = await controller.testConnect(device);
+    const original = [...banks[0].table];
+    const max = before.ui.dpiStageEditor.maxStages;
+    const first = { dpiStages: [400, 800, 1600, 2000, 4000, 8000].slice(0, max),
+      dpiStagesY: [800, 1600, 3200, 4000, 8000, 16000].slice(0, max) };
+    const second = { dpiStages: [400, 800, 1600, 2400], dpiStagesY: [800, 1600, 3200, 4800], activeDpiStage: 3 };
+    const prior = controller.testPickSnapshot(before, first);
+    await controller.flashGameProfileSnapshot(first);
+    assert.equal(banks[0].count, max);
+    const afterFirst = controller.testState().status;
+    const allPrior = controller.testMergeSnapshots(controller.testPickSnapshot(afterFirst, second), prior, afterFirst);
+    const start = sent.length;
+    await controller.flashGameProfileSnapshot(controller.testMergeSnapshots(prior, second, afterFirst));
+    assert.equal(controller.testState().error, null);
+    assert.equal(banks[0].count, 4); assert.equal(banks[0].active, 4);
+    assert.deepEqual(controller.testState().status.dpiStages, second.dpiStages);
+    assert.deepEqual(controller.testState().status.dpiStagesY, second.dpiStagesY);
+    assert.deepEqual(banks[0].table, [400, 800, 800, 1600, 1600, 3200, 2400, 4800, ...original.slice(8)]);
+    assert.deepEqual(sent.slice(start).filter(packet => packet[4] === 1 && packet[5] === 1).map(packet => packet[7]), [4]);
+    await controller.flashGameProfileSnapshot(allPrior);
+    assert.deepEqual(banks[0].table, original); assert.equal(banks[0].count, 3); assert.equal(banks[0].active, 2);
+    assert.equal(controller.testState().error, null);
+  });
+}
