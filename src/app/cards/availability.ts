@@ -1,5 +1,6 @@
 import { selectableValues } from "../../device/options.ts";
 import { isPulsarProProtocol } from "../../device/traits.ts";
+import { isSlxStatus, slxProfiles, slxTmr } from "../../device/finalmouse-slx.ts";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import type { ControlSnapshot } from "../../device/types";
 
@@ -22,6 +23,9 @@ export interface CardAvailability {
   ninjutsoClick: boolean;
   teevolutionDpiLighting: boolean;
   finalmouse: boolean;
+  tmrDs: boolean;
+  perfectPolling: boolean;
+  finalmouseProfiles: boolean;
   incott: boolean;
   lunafuryButtons: boolean;
   lunafuryWheelGuard: boolean;
@@ -42,6 +46,9 @@ export interface CardAvailability {
   onboardProfiles: boolean;
   buttonMapping: boolean;
   ksnakeMacros: boolean;
+  wallhackScanning: boolean;
+  wallhackCurves: boolean;
+  wallhackMacros: boolean;
   powerMode: boolean;
   profiles: boolean;
   keychronNapeLayers: boolean;
@@ -68,6 +75,9 @@ const NOTHING: CardAvailability = {
   ninjutsoClick: false,
   teevolutionDpiLighting: false,
   finalmouse: false,
+  tmrDs: false,
+  perfectPolling: false,
+  finalmouseProfiles: false,
   incott: false,
   lunafuryButtons: false,
   lunafuryWheelGuard: false,
@@ -88,6 +98,9 @@ const NOTHING: CardAvailability = {
   onboardProfiles: false,
   buttonMapping: false,
   ksnakeMacros: false,
+  wallhackScanning: false,
+  wallhackCurves: false,
+  wallhackMacros: false,
   powerMode: false,
   profiles: false,
   keychronNapeLayers: false,
@@ -152,6 +165,11 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
     ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
+    // WALLHACK M-001 extras. Curves and macros need mouse firmware 57+; the
+    // cards surface the device error when an older board refuses the read.
+    wallhackScanning: ui?.family === "wallhack-mouse" && status.sensorScanningMode != null,
+    wallhackCurves: ui?.family === "wallhack-mouse" && status.dynamicSensitivityEnabled != null,
+    wallhackMacros: ui?.family === "wallhack-mouse",
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
@@ -175,6 +193,12 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     teevolutionDpiLighting: host && (ui?.dpiLighting != null
       || (traits.teevolution && capabilities?.teevolutionProfile != null)),
     finalmouse: host && traits.finalmouse,
+    // Starlight X-only pages from xpanel: TMR-DS needs a reported click
+    // mode, PerfectPolling is a fixed capability readout, and profiles need
+    // a reported roster. All stay hidden on Ultralight X.
+    tmrDs: host && traits.finalmouse && isSlxStatus(status) && slxTmr(status) !== null,
+    perfectPolling: host && traits.finalmouse && isSlxStatus(status),
+    finalmouseProfiles: host && traits.finalmouse && slxProfiles(status) !== null,
     // Gated on the fields themselves rather than a brand trait: the receiver
     // LED is absent over the cable, so the card follows what the device
     // actually reported.

@@ -108,6 +108,7 @@ import { hasCapturedFactoryProfiles } from "./logitech-factory";
 import type { MagneticButtonStatus, MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { isMagneticButtonClient, type MagneticButtonClient } from "@openmouse/protocol/drivers/magnetic";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
+import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import {
   cloneM2NexProfile,
   loadM2NexProfiles,
@@ -199,6 +200,7 @@ import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
+import type { SlxStatus } from "./finalmouse-slx.ts";
 import type {
   AnalogTuning,
   AnalogTuningState,
@@ -317,6 +319,12 @@ let ksnakeMacros: KsnakeMacroProfile[] | null = null;
 let stagedKsnakeMacros: KsnakeMacroProfile[] | null = null;
 let ksnakeMacrosLoading = false;
 let ksnakeMacrosError: string | null = null;
+let wallhackMacros: (WallhackMacroStep[] | null)[] | null = null;
+let wallhackMacrosLoading = false;
+let wallhackMacrosError: string | null = null;
+let wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null = null;
+let wallhackCurvesLoading = false;
+let wallhackCurvesError: string | null = null;
 let m2nexProfiles: M2NexProfile[] | null = null;
 let activeM2NexProfile = 0;
 let m2nexProfileDirty = false;
@@ -529,6 +537,16 @@ function buildSnapshot(): ControlSnapshot {
     ksnakeMacros: stagedKsnakeMacros ?? ksnakeMacros,
     ksnakeMacrosLoading,
     ksnakeMacrosError,
+    wallhackMacros: wallhackMacros?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null,
+    wallhackMacrosLoading,
+    wallhackMacrosError,
+    wallhackCurves: wallhackCurves
+      ? Object.fromEntries(
+        Object.entries(wallhackCurves).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
+      ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>
+      : null,
+    wallhackCurvesLoading,
+    wallhackCurvesError,
     m2nexProfiles: m2nexProfiles?.map(cloneM2NexProfile) ?? null,
     activeM2NexProfile,
     m2nexProfileDirty,
@@ -1050,6 +1068,209 @@ export function applyKsnakeMacro(slot: number, profile: KsnakeMacroProfile): voi
             : profile);
           persistM2NexProfiles();
         }
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 sensor scanning mode (HIGH/ACCEL). */
+export function applySensorScanningMode(mode: "HIGH" | "ACCEL"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-scanning",
+    label: `Sensor scanning ${mode}`,
+    command: `Set sensor scanning to ${mode}`,
+    progress: `Setting sensor scanning to ${mode}…`,
+    preview: (status) => { status.sensorScanningMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setSensorScanningMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 DPI-acceleration on/off switch. */
+export function applyDynamicSensitivityEnabled(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} DPI acceleration`,
+    progress: `${enabled ? "Enabling" : "Disabling"} DPI acceleration…`,
+    preview: (status) => { status.dynamicSensitivityEnabled = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityEnabled(enabled);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 active acceleration curve. */
+export function applyDynamicSensitivityMode(mode: "classic" | "natural" | "jump" | "custom"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration curve ${mode}`,
+    command: `Set DPI acceleration curve to ${mode}`,
+    progress: `Setting DPI acceleration curve to ${mode}…`,
+    preview: (status) => { status.dynamicSensitivityMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 motion-speed reporting toggle. */
+export function applyDynamicSensitivitySpeedReporting(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens-reporting",
+    label: `Motion-speed reporting ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} motion-speed reporting`,
+    progress: `${enabled ? "Enabling" : "Disabling"} motion-speed reporting…`,
+    preview: (status) => { status.dynamicSensitivitySpeedReporting = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivitySpeedReporting(enabled);
+    },
+  });
+}
+
+/** Stage a replacement WALLHACK M-001 custom curve (exactly 5 points). */
+export function applyCustomCurve(points: WallhackCurvePoint[]): void {
+  if (!wallhackMouseClient()) return;
+  const snapshot = points.map((point) => ({ ...point }));
+  stageChange({
+    key: "wallhack-curve",
+    label: "Custom DPI acceleration curve",
+    command: "Write custom DPI acceleration curve",
+    progress: "Writing custom DPI acceleration curve…",
+    preview: (status) => {
+      if (status.dynamicSensitivityCurves) {
+        status.dynamicSensitivityCurves = { ...status.dynamicSensitivityCurves, custom: snapshot.map((p) => ({ ...p })) };
+      }
+    },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      const confirmed = await client.setCustomCurve(snapshot);
+      if (wallhackCurves) {
+        wallhackCurves = { ...wallhackCurves, custom: confirmed.map((p) => ({ ...p })) };
+        emit();
+      }
+    },
+  });
+}
+
+/** Read the four WALLHACK M-001 curve tables into the snapshot. */
+export function loadWallhackCurves(): void {
+  if (wallhackCurvesLoading || wallhackCurves !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackCurvesError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackCurvesLoading = true;
+  wallhackCurvesError = null;
+  emit();
+  void (async () => {
+    try {
+      const curves = await client.getDynamicSensitivityCurves();
+      if (wallhackMouseClient() !== client) return;
+      wallhackCurves = curves;
+      wallhackCurvesError = null;
+    } catch (error) {
+      wallhackCurvesError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackCurvesLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Read the four WALLHACK M-001 macro slots into the snapshot. */
+export function loadWallhackMacros(): void {
+  if (wallhackMacrosLoading || wallhackMacros !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackMacrosError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackMacrosLoading = true;
+  wallhackMacrosError = null;
+  emit();
+  void (async () => {
+    try {
+      const macros = await client.getMacros();
+      if (wallhackMouseClient() !== client) return;
+      wallhackMacros = macros.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null);
+      wallhackMacrosError = null;
+    } catch (error) {
+      wallhackMacrosError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackMacrosLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Stage one WALLHACK M-001 macro slot write (0-3). */
+export function applyWallhackMacroSlot(slot: number, steps: WallhackMacroStep[]): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  const snapshot = steps.map((step) => ({ ...step, event: { ...step.event } }));
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Macro ${slot + 1}`,
+    command: `Save WALLHACK macro ${slot + 1}`,
+    progress: `Saving WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      const confirmed = await live.setMacroSlot(slot, snapshot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? confirmed.map((step) => ({ ...step, event: { ...step.event } })) : entry,
+        );
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage clearing one WALLHACK M-001 macro slot (0-3). */
+export function clearWallhackMacroSlot(slot: number): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Clear macro ${slot + 1}`,
+    command: `Clear WALLHACK macro ${slot + 1}`,
+    progress: `Clearing WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.clearMacroSlot(slot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? null : entry,
+        );
         emit();
       }
     },
@@ -2776,6 +2997,12 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     stagedKsnakeMacros = null;
     ksnakeMacrosLoading = false;
     ksnakeMacrosError = null;
+    wallhackMacros = null;
+    wallhackMacrosLoading = false;
+    wallhackMacrosError = null;
+    wallhackCurves = null;
+    wallhackCurvesLoading = false;
+    wallhackCurvesError = null;
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -2872,6 +3099,12 @@ function showDisconnectedState(): void {
   stagedKsnakeMacros = null;
   ksnakeMacrosLoading = false;
   ksnakeMacrosError = null;
+  wallhackMacros = null;
+  wallhackMacrosLoading = false;
+  wallhackMacrosError = null;
+  wallhackCurves = null;
+  wallhackCurvesLoading = false;
+  wallhackCurvesError = null;
   m2nexProfiles = null;
   activeM2NexProfile = 0;
   m2nexProfileDirty = false;
@@ -5351,6 +5584,284 @@ export function applyFinalmouseSetting(
   });
 }
 
+type SlxWriteClient = {
+  setClickMode(modeL: number, modeR: number, relL?: number, relR?: number): Promise<unknown>;
+  setTmrActuation(actuationMmL: number, actuationMmR: number, rtUmL?: number, rtUmR?: number): Promise<unknown>;
+  setActiveProfile(index: number): Promise<unknown>;
+  setProfileName(index: number, name: string): Promise<unknown>;
+  setProfileEnabled(index: number, enabled: boolean): Promise<unknown>;
+};
+
+function slxStatus(): SlxStatus | null {
+  if (!finalmouseClient() || !latestDeviceStatus) return null;
+  return latestDeviceStatus as SlxStatus;
+}
+
+function requireSlxWrite(method: "setClickMode" | "setTmrActuation" | "setActiveProfile" | "setProfileName" | "setProfileEnabled", label: string): SlxWriteClient {
+  return requireClientMethod(method, label) as unknown as SlxWriteClient;
+}
+
+/**
+ * Starlight X click mode per switch (0 mechanical, 1 TMR analog). The
+ * command always carries both switches, so the untouched half is filled
+ * from the current status.
+ */
+export function applyFinalmouseClickMode(side: "left" | "right", mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = side === "left" ? mode : (status.finalmouseClickModeL ?? 0);
+  const modeR = side === "right" ? mode : (status.finalmouseClickModeR ?? 0);
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} click ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: `Change Finalmouse ${side} click mode`,
+    progress: `Changing Finalmouse ${side} click mode…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = modeL;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = modeR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        modeL, modeR, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/**
+ * Starlight X release point per switch (0 normal, 1 early, 2 late). Like
+ * the mode, it rides with both switches in one command.
+ */
+export function applyFinalmouseRelease(side: "left" | "right", rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const relL = side === "left" ? rel : (status.finalmouseClickReleaseL ?? 0);
+  const relR = side === "right" ? rel : (status.finalmouseClickReleaseR ?? 0);
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} release ${names[rel] ?? rel}`,
+    command: `Change Finalmouse ${side} release point`,
+    progress: `Changing Finalmouse ${side} release point…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = relL;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = relR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, relL, relR);
+    },
+  });
+}
+
+/**
+ * Starlight X TMR actuation per switch in millimetres (0.01-0.40). The
+ * rapid-trigger pair rides along only when both sides are known.
+ */
+export function applyFinalmouseTmrActuation(side: "left" | "right", mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const mmL = side === "left" ? mm : currentL;
+  const mmR = side === "right" ? mm : currentR;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} actuation ${mm.toFixed(2)} mm`,
+    command: `Change Finalmouse ${side} actuation`,
+    progress: `Changing Finalmouse ${side} actuation…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mmL * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mmR * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mmL, mmR, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity per switch in µm (150-250). */
+export function applyFinalmouseRtSensitivity(side: "left" | "right", um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const umL = side === "left" ? um : (status.finalmouseTmrHystL ?? 220);
+  const umR = side === "right" ? um : (status.finalmouseTmrHystR ?? 220);
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} rapid trigger ${um} µm`,
+    command: `Change Finalmouse ${side} rapid trigger`,
+    progress: `Changing Finalmouse ${side} rapid trigger…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = umL;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = umR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, umL, umR);
+    },
+  });
+}
+
+/** Starlight X click mode for both switches together. */
+export function applyFinalmouseClickModeBoth(mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: "Change Finalmouse click mode for both switches",
+    progress: "Changing Finalmouse click mode…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = mode;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = mode;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        mode, mode, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X release point for both switches together. */
+export function applyFinalmouseReleaseBoth(rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks release ${names[rel] ?? rel}`,
+    command: "Change Finalmouse release point for both switches",
+    progress: "Changing Finalmouse release point…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = rel;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = rel;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, rel, rel);
+    },
+  });
+}
+
+/** Starlight X TMR actuation for both switches together, in millimetres. */
+export function applyFinalmouseTmrActuationBoth(mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks actuation ${mm.toFixed(2)} mm`,
+    command: "Change Finalmouse actuation for both switches",
+    progress: "Changing Finalmouse actuation…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mm * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mm * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mm, mm, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity for both switches together, in µm. */
+export function applyFinalmouseRtSensitivityBoth(um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks rapid trigger ${um} µm`,
+    command: "Change Finalmouse rapid trigger for both switches",
+    progress: "Changing Finalmouse rapid trigger…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = um;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = um;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, um, um);
+    },
+  });
+}
+/** Starlight X active profile by 0-based index. */
+export function applyFinalmouseProfileActive(index: number): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1}`,
+    command: "Change Finalmouse active profile",
+    progress: "Changing Finalmouse active profile…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+    },
+    apply: async () => {
+      await requireSlxWrite("setActiveProfile", "active profile").setActiveProfile(index);
+    },
+  });
+}
+
+/** Starlight X profile enable flag. */
+export function applyFinalmouseProfileEnabled(index: number, enabled: boolean): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} ${enabled ? "enabled" : "disabled"}`,
+    command: `Change Finalmouse profile ${index + 1} state`,
+    progress: `Changing Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const slx = next as unknown as SlxStatus;
+      const count = slx.finalmouseProfileCount ?? 5;
+      const base = slx.finalmouseProfileEnabledMask ?? (1 << count) - 1;
+      const mask = enabled ? base | (1 << index) : base & ~(1 << index);
+      (next as unknown as Record<string, unknown>).finalmouseProfileEnabledMask = mask;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileEnabled", "profile state").setProfileEnabled(index, enabled);
+    },
+  });
+}
+
+/** Starlight X profile rename (31 chars max). */
+export function applyFinalmouseProfileName(index: number, name: string): void {
+  const status = slxStatus();
+  if (!status) return;
+  const trimmed = name.trim().slice(0, 31);
+  if (!trimmed) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} renamed`,
+    command: `Rename Finalmouse profile ${index + 1}`,
+    progress: `Renaming Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const names = { ...((next as unknown as SlxStatus).finalmouseProfileNames ?? {}) };
+      names[index] = trimmed;
+      (next as unknown as Record<string, unknown>).finalmouseProfileNames = names;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileName", "profile name").setProfileName(index, trimmed);
+    },
+  });
+}
+
 /**
  * Incott's 2.4 GHz receiver LED (0 connect & polling rate, 1 battery status,
  * 2 battery warning). Wireless only — the driver omits the field entirely
@@ -5523,6 +6034,97 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
     },
   };
   return client as unknown as SupportedClient;
+}
+
+/**
+ * In-memory Finalmouse stand-in for driver previews. It speaks the same
+ * method surface as FinalmouseHidClient (so `instanceof` gates and every
+ * `applyFinalmouse*` staging path work) but keeps all state in a cloned
+ * status — nothing reaches hardware, matching the preview banner.
+ */
+function finalmousePreviewClient(initial: MouseStatus): FinalmouseHidClient {
+  const status = structuredClone(initial) as SlxStatus & MouseStatus;
+  const slx = (status as SlxStatus).finalmouseIsSlx === true;
+  const count = (): number => (status as SlxStatus).finalmouseProfileCount ?? 5;
+  const client = Object.assign(Object.create(FinalmouseHidClient.prototype) as FinalmouseHidClient, {
+    device: {} as HIDDevice,
+    open: async () => undefined,
+    close: async () => undefined,
+    displayName: () => status.name,
+    readStatus: async () => structuredClone(status),
+    setDpi: async (dpi: number) => { status.dpi = dpi; return dpi; },
+    setPollingRate: async (rate: number) => { status.pollingRateHz = rate; return rate; },
+    setMotionSync: async (enabled: boolean) => { status.motionSync = enabled; return enabled; },
+    setLiftOffDistance: async (value: NonNullable<MouseStatus["liftOffDistance"]>) => {
+      status.liftOffDistance = value;
+      return value;
+    },
+    setLiftOffScale: async (code: number) => {
+      const mm = code / 10;
+      (status as SlxStatus).finalmousePawLodMm = mm;
+      (status as SlxStatus).finalmousePawLodCustom = true;
+      if (status.liftOffScale) status.liftOffScale = { ...status.liftOffScale, value: code, millimetres: mm };
+      return code;
+    },
+    setDongleLedMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseDongleLedMode = mode;
+      return mode;
+    },
+    setTournamentScrollMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollMode = mode;
+      return mode;
+    },
+    setTournamentScrollTimeout: async (milliseconds: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollTimeoutMs = milliseconds;
+      return milliseconds;
+    },
+    setClickMode: async (modeL: number, modeR: number, relL?: number, relR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseClickModeL = modeL;
+      slxStatus.finalmouseClickModeR = modeR;
+      if (relL !== undefined && relR !== undefined) {
+        slxStatus.finalmouseClickReleaseL = relL;
+        slxStatus.finalmouseClickReleaseR = relR;
+      }
+    },
+    setTmrActuation: async (mmL: number, mmR: number, umL?: number, umR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseTmrThrL = Math.round(mmL * 100);
+      slxStatus.finalmouseTmrThrR = Math.round(mmR * 100);
+      if (umL !== undefined && umR !== undefined) {
+        slxStatus.finalmouseTmrHystL = umL;
+        slxStatus.finalmouseTmrHystR = umR;
+      }
+    },
+    setPawLodMm: async (mm: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmousePawLodMm = mm;
+      slxStatus.finalmousePawLodCustom = mm !== 1 && mm !== 2;
+      return mm;
+    },
+    setActiveProfile: async (index: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+      return index;
+    },
+    setProfileName: async (index: number, name: string) => {
+      const slxStatus = status as unknown as SlxStatus;
+      slxStatus.finalmouseProfileNames = { ...slxStatus.finalmouseProfileNames, [index]: name };
+      return name;
+    },
+    setProfileEnabled: async (index: number, enabled: boolean) => {
+      const slxStatus = status as unknown as SlxStatus;
+      const base = slxStatus.finalmouseProfileEnabledMask ?? (1 << count()) - 1;
+      slxStatus.finalmouseProfileEnabledMask = enabled ? base | (1 << index) : base & ~(1 << index);
+      return enabled;
+    },
+  });
+  // pollIntervalMs/isSlx are getter-only on the driver prototype, so they
+  // need own properties instead of assigned ones.
+  Object.defineProperties(client, {
+    pollIntervalMs: { value: 0 },
+    isSlx: { value: slx },
+  });
+  return client;
 }
 
 function previewClient(): LogitechHidppClient {
@@ -5699,7 +6301,8 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   if (name === "g703") showG703PreviewProfiles();
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
-  if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
+  if (name === "finalmouse" || name === "finalmouse-slx") active = finalmousePreviewClient(fixture.status);
+  else if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
   applyStatus(fixture.status);
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;

@@ -20,8 +20,21 @@ import {
 } from "@openmouse/protocol/razer";
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
+import type { WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import { isPulsarProProtocol } from "../../device/traits";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
+import {
+  SLX_CLICK_ANALOG,
+  SLX_CLICK_MECHANICAL,
+  SLX_RELEASE_EARLY,
+  SLX_RELEASE_LATE,
+  SLX_RELEASE_NORMAL,
+  SLX_TMR,
+  isSlxStatus,
+  slxProfiles,
+  slxTmr,
+  tmrStepsToMm,
+} from "../../device/finalmouse-slx.ts";
 import { lunafurySettingLabel, lunafuryTrackingVisible } from "../../device/lunafury-labels.ts";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
@@ -932,6 +945,265 @@ export function FinalmouseCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
           onChange={(next) => control.applyFinalmouseSetting("tournamentTimeout", next)}
         />
       </div>
+    </article>
+  );
+}
+
+function tmrSidesDiffer(tmr: NonNullable<ReturnType<typeof slxTmr>>): boolean {
+  return tmr.modeL !== tmr.modeR
+    || JSON.stringify([tmr.relL, tmr.thrL, tmr.hystL])
+      !== JSON.stringify([tmr.relR, tmr.thrR, tmr.hystR]);
+}
+
+function TmrSideControl({ snapshot, side, both }: {
+  snapshot: ControlSnapshot;
+  side: "left" | "right";
+  both?: boolean;
+}): ReactNode {
+  const status = snapshot.status;
+  const tmr = slxTmr(status);
+  if (!status || !tmr) return null;
+  const locale = snapshot.preferences.locale;
+  const src = both ? "left" : side;
+  const mode = src === "left" ? tmr.modeL : tmr.modeR;
+  const rel = src === "left" ? tmr.relL : tmr.relR;
+  const thr = src === "left" ? tmr.thrL : tmr.thrR;
+  const hyst = src === "left" ? tmr.hystL : tmr.hystR;
+  const uncalibrated = both ? tmr.thrL === 0 || tmr.thrR === 0 : thr === 0;
+  const analog = mode === SLX_CLICK_ANALOG;
+  const sideLabel = both
+    ? t(locale, "super.both")
+    : side === "left" ? t(locale, "tmr.leftClick") : t(locale, "tmr.rightClick");
+  const suffix = both ? "both" : side;
+  const applyMode = both ? control.applyFinalmouseClickModeBoth : (value: number) => control.applyFinalmouseClickMode(side, value);
+  const applyRelease = both ? control.applyFinalmouseReleaseBoth : (value: number) => control.applyFinalmouseRelease(side, value);
+  const applyActuation = both ? control.applyFinalmouseTmrActuationBoth : (value: number) => control.applyFinalmouseTmrActuation(side, value);
+  const applyRt = both ? control.applyFinalmouseRtSensitivityBoth : (value: number) => control.applyFinalmouseRtSensitivity(side, value);
+  return (
+    <div className="tmr-side" data-side={both ? "both" : side} role="group" aria-label={sideLabel}>
+      <div className="field-label">
+        <span>{sideLabel}</span>
+        <OptionMenu
+          id={`finalmouse-click-mode-${suffix}`}
+          ariaLabel={sideLabel}
+          options={[
+            { value: SLX_CLICK_MECHANICAL, label: t(locale, "tmr.mechanical") },
+            { value: SLX_CLICK_ANALOG, label: t(locale, "tmr.analog") },
+          ]}
+          value={mode}
+          onChange={(next) => applyMode(next)}
+        />
+      </div>
+      <div className="field-label spaced">
+        <span>{t(locale, "tmr.release")}</span>
+        <OptionMenu
+          id={`finalmouse-release-${suffix}`}
+          ariaLabel={`${sideLabel} ${t(locale, "tmr.release")}`}
+          options={[
+            { value: SLX_RELEASE_NORMAL, label: t(locale, "tmr.releaseNormal") },
+            { value: SLX_RELEASE_EARLY, label: t(locale, "tmr.releaseEarly") },
+            { value: SLX_RELEASE_LATE, label: t(locale, "tmr.releaseLate") },
+          ]}
+          value={rel ?? SLX_RELEASE_NORMAL}
+          onChange={(next) => applyRelease(next)}
+        />
+      </div>
+      {thr !== null ? (
+        <StepperSlider
+          id={`finalmouse-actuation-${suffix}`}
+          label={t(locale, "tmr.actuation")}
+          value={thr}
+          min={SLX_TMR.actuationMinSteps}
+          max={SLX_TMR.actuationMaxSteps}
+          step={1}
+          scale={["0.01 mm", "0.20 mm", "0.40 mm"]}
+          formatValue={(shown) => `${tmrStepsToMm(shown).toFixed(2)} mm`}
+          disabled={snapshot.settingInProgress}
+          pendingKey="finalmouse-tmr"
+          onCommit={(next) => applyActuation(tmrStepsToMm(next))}
+        />
+      ) : null}
+      {hyst !== null ? (
+        <StepperSlider
+          id={`finalmouse-rt-${suffix}`}
+          label={t(locale, "tmr.rtSensitivity")}
+          value={hyst}
+          min={SLX_TMR.rtMinUm}
+          max={SLX_TMR.rtMaxUm}
+          step={SLX_TMR.rtStepUm}
+          scale={[`${SLX_TMR.rtMinUm} µm`, `${SLX_TMR.rtRecommendedUm} µm`, `${SLX_TMR.rtMaxUm} µm`]}
+          formatValue={(shown) => `${shown} µm`}
+          disabled={snapshot.settingInProgress}
+          pendingKey="finalmouse-tmr"
+          onCommit={(next) => applyRt(next)}
+        />
+      ) : null}
+      <div className="stat-row">
+        <span>{t(locale, "tmr.smartRt")}</span>
+        <output id={`finalmouse-srt-${suffix}`}>{analog ? t(locale, "tmr.enabled") : t(locale, "tmr.disabled")}</output>
+      </div>
+      {uncalibrated ? (
+        <small className="setting-note">{t(locale, "tmr.uncalibrated")}</small>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Starlight X TMR-DS actuation (xpanel `/tmr-ds`). Gated to SLX hardware:
+ * Ultralight X has no analog switches, so this card never renders there.
+ */
+export function TmrDsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const [mode, setMode] = useState<"auto" | "both" | "independent">("auto");
+  const tmr = status ? slxTmr(status) : null;
+  if (!status || !isSlxStatus(status) || tmr === null) return null;
+  const locale = snapshot.preferences.locale;
+  const independent = mode === "independent" || (mode === "auto" && tmrSidesDiffer(tmr));
+  const staged = snapshot.pending.keys.some((key) => key === "finalmouse-click-mode" || key === "finalmouse-tmr");
+  return (
+    <article
+      id="finalmouse-tmr-settings"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="finalmouse-click-mode finalmouse-tmr"
+    >
+      <div className="setting-heading compact"><div><p>FINALMOUSE</p><h2>{t(locale, "tmr.title")}</h2></div></div>
+      <Segmented
+        className="two"
+        ariaLabel={t(locale, "tmr.title")}
+        options={[
+          { value: "both", label: t(locale, "super.both") },
+          { value: "independent", label: t(locale, "super.independent") },
+        ]}
+        value={independent ? "independent" : "both"}
+        disabled={snapshot.settingInProgress}
+        onChange={(next) => setMode(next)}
+      />
+      {independent ? (
+        <>
+          <TmrSideControl snapshot={snapshot} side="left" />
+          <TmrSideControl snapshot={snapshot} side="right" />
+        </>
+      ) : (
+        <TmrSideControl snapshot={snapshot} side="left" both />
+      )}
+      <small className="setting-note">{t(locale, "tmr.srtNote")}</small>
+      <small className="setting-note">{t(locale, "tmr.rec")}</small>
+    </article>
+  );
+}
+
+/**
+ * Starlight X PerfectPolling (xpanel `/perfect-polling`). Display-only in
+ * xpanel too: a fixed 250 µs end-to-end pipeline with nothing to tune.
+ */
+export function PerfectPollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || !isSlxStatus(status)) return null;
+  const locale = snapshot.preferences.locale;
+  return (
+    <article id="finalmouse-perfect-polling" className="setting-card">
+      <div className="setting-heading compact">
+        <div><p>FINALMOUSE</p><h2>{t(locale, "pp.title")}</h2></div>
+        <output id="perfect-polling-output">{t(locale, "pp.enabled")}</output>
+      </div>
+      <div className="stat-row">
+        <span>{t(locale, "pp.latency")}</span>
+        <output id="perfect-polling-latency">250 µs (.25 ms)</output>
+      </div>
+      <small className="setting-note">{t(locale, "pp.body")}</small>
+    </article>
+  );
+}
+
+/**
+ * Starlight X onboard profiles (xpanel `/profiles`): up to five named
+ * profiles with an active selector and per-profile enable flags.
+ */
+export function FinalmouseProfilesCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const roster = slxProfiles(status);
+  if (!status || roster === null) return null;
+  const locale = snapshot.preferences.locale;
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const staged = snapshot.pending.keys.some((key) => key === "finalmouse-profile");
+  const options = Array.from({ length: roster.count }, (_, index) => ({
+    value: index,
+    label: roster.names[index] ?? tp(locale, "fprof.profileName", { n: index + 1 }),
+  }));
+  return (
+    <article
+      id="finalmouse-profiles"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="finalmouse-profile"
+    >
+      <div className="setting-heading compact"><div><p>FINALMOUSE</p><h2>{t(locale, "fprof.title")}</h2></div></div>
+      <div className="field-label">
+        <span>{t(locale, "fprof.active")}</span>
+        <OptionMenu
+          id="finalmouse-profile-active"
+          ariaLabel={t(locale, "fprof.active")}
+          options={options}
+          value={roster.active}
+          onChange={(next) => control.applyFinalmouseProfileActive(next)}
+        />
+      </div>
+      {options.map((option) => {
+        const index = option.value;
+        const bit = roster.enabledMask === null ? true : (roster.enabledMask & (1 << index)) !== 0;
+        const toggleLabel = bit ? t(locale, "fprof.disable") : t(locale, "fprof.enable");
+        return (
+          <div key={index}>
+            <div className="stat-row">
+              <span>{option.label}</span>
+              <span className="profile-row-actions">
+                {roster.enabledMask !== null ? (
+                  <SwitchButton
+                    id={`finalmouse-profile-enable-${index}`}
+                    value={bit}
+                    label={`${toggleLabel}: ${option.label}`}
+                    onChange={(next) => control.applyFinalmouseProfileEnabled(index, next)}
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={`${t(locale, "fprof.rename")}: ${option.label}`}
+                  onClick={() => {
+                    setDraftName(option.label);
+                    setRenaming(index);
+                  }}
+                >
+                  {t(locale, "fprof.renameApply")}
+                </button>
+              </span>
+            </div>
+            {renaming === index ? (
+              <span className="profile-rename">
+                <input
+                  id={`finalmouse-profile-name-${index}`}
+                  type="text"
+                  maxLength={31}
+                  aria-label={t(locale, "fprof.rename")}
+                  placeholder={t(locale, "fprof.renamePlaceholder")}
+                  value={draftName}
+                  onChange={(event) => setDraftName(event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  disabled={snapshot.settingInProgress || draftName.trim() === ""}
+                  onClick={() => {
+                    control.applyFinalmouseProfileName(index, draftName);
+                    setRenaming(null);
+                  }}
+                >
+                  {t(locale, "fprof.renameApply")}
+                </button>
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
     </article>
   );
 }
@@ -1950,6 +2222,278 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         <summary>{t(locale, "macro.helpToggle")}</summary>
         <p>{t(locale, "macro.helpBody")}</p>
       </details>
+    </article>
+  );
+}
+
+/**
+ * WALLHACK M-001 onboard macros: 4 slots of up to 30 steps, read from the
+ * device and saved per slot. Manual step editor (no live recorder yet):
+ * each step waits `delayMs` after the previous step, then emits its event.
+ */
+const WALLHACK_MACRO_STEP_TYPES = [
+  "keyDown",
+  "keyUp",
+  "buttonDown",
+  "buttonUp",
+  "wheel",
+  "wheelReset",
+  "move",
+] as const;
+type WallhackMacroStepType = (typeof WALLHACK_MACRO_STEP_TYPES)[number];
+
+function wallhackMacroStepLabel(step: WallhackMacroStep): string {
+  const { event } = step;
+  switch (event.type) {
+    case "keyDown": return `Key down ${event.hidUsage}`;
+    case "keyUp": return `Key up ${event.hidUsage}`;
+    case "buttonDown": return `${event.button} down`;
+    case "buttonUp": return `${event.button} up`;
+    case "wheel": return `Wheel ${event.direction}`;
+    case "wheelReset": return "Wheel reset";
+    case "move": return `Move ${event.axis} ${event.delta}`;
+  }
+}
+
+function wallhackDefaultEvent(type: WallhackMacroStepType): WallhackMacroStep["event"] {
+  switch (type) {
+    case "keyDown": return { type: "keyDown", hidUsage: 4 };
+    case "keyUp": return { type: "keyUp", hidUsage: 4 };
+    case "buttonDown": return { type: "buttonDown", button: "left" };
+    case "buttonUp": return { type: "buttonUp", button: "left" };
+    case "wheel": return { type: "wheel", direction: "up" };
+    case "wheelReset": return { type: "wheelReset" };
+    case "move": return { type: "move", axis: "x", delta: 10 };
+  }
+}
+
+export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
+  const capable = status?.ui?.family === "wallhack-mouse";
+  const profiles = snapshot.wallhackMacros;
+  const [slot, setSlot] = useState(0);
+  const [draft, setDraft] = useState<WallhackMacroStep[] | null>(null);
+  const staged = snapshot.pending.keys.includes(`wallhack-macro-${slot + 1}`);
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+
+  useEffect(() => {
+    if (capable && profiles === null && !snapshot.wallhackMacrosLoading && snapshot.wallhackMacrosError === null) {
+      control.loadWallhackMacros();
+    }
+  }, [capable, profiles, snapshot.wallhackMacrosLoading, snapshot.wallhackMacrosError]);
+
+  useEffect(() => {
+    setDraft(profiles?.[slot]?.map((step) => ({ ...step, event: { ...step.event } })) ?? []);
+  }, [profiles, slot]);
+
+  if (!status || !capable) return null;
+
+  if (snapshot.wallhackMacrosLoading) {
+    return (
+      <article id="wallhack-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><p>{t(locale, "macro.overline")}</p><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{t(locale, "macro.whLoading")}</p>
+      </article>
+    );
+  }
+
+  if (snapshot.wallhackMacrosError !== null) {
+    return (
+      <article id="wallhack-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><p>{t(locale, "macro.overline")}</p><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{snapshot.wallhackMacrosError}</p>
+        <div className="setting-action"><button type="button" onClick={() => control.loadWallhackMacros()}>{t(locale, "set.retry")}</button></div>
+      </article>
+    );
+  }
+
+  if (!profiles || !draft) return null;
+
+  const updateStep = (index: number, next: WallhackMacroStep): void => {
+    setDraft((current) => current ? current.map((step, i) => (i === index ? next : step)) : current);
+  };
+  const changeStepType = (index: number, type: WallhackMacroStepType): void => {
+    setDraft((current) => {
+      if (!current) return current;
+      const step = current[index];
+      if (!step) return current;
+      return current.map((entry, i) => (i === index ? { delayMs: step.delayMs, event: wallhackDefaultEvent(type) } : entry));
+    });
+  };
+  const addStep = (): void => {
+    setDraft((current) => current && current.length < 30
+      ? [...current, { delayMs: 0, event: { type: "keyDown", hidUsage: 4 } }]
+      : current);
+  };
+  const removeStep = (index: number): void => {
+    setDraft((current) => current ? current.filter((_, i) => i !== index) : current);
+  };
+
+  return (
+    <article id="wallhack-macro-settings" className={`setting-card${staged ? " is-staged" : ""}`} data-pending-key={`wallhack-macro-${slot + 1}`}>
+      <div className="setting-heading compact">
+        <div>
+          <p>{t(locale, "macro.overline")}</p>
+          <h2>{t(locale, "macro.build")}</h2>
+          <p className="ksnake-macro-lead">{t(locale, "macro.whLead")}</p>
+        </div>
+      </div>
+      <label className="ksnake-macro-slot-picker">
+        <span>{t(locale, "macro.slotLabel")}</span>
+        <select value={slot} disabled={disabled} onChange={(event) => setSlot(Number(event.currentTarget.value))}>
+          {profiles.map((profile, index) => {
+            const stepCount = index === slot ? draft.length : profile?.length ?? 0;
+            return <option key={index} value={index}>{t(locale, "macro.option")} {index + 1}{stepCount ? ` · ${tp(locale, "macro.steps", { n: stepCount })}` : ` · ${t(locale, "macro.empty")}`}</option>;
+          })}
+        </select>
+      </label>
+      {draft.length === 0 ? (
+        <p className="field-note">{t(locale, "macro.noActions")}</p>
+      ) : (
+        <div className="macro-steps">
+          {draft.map((step, index) => (
+            <div className="macro-step" key={`${slot}-${index}`}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>{t(locale, "macro.whStepType")}
+                <select
+                  value={step.event.type}
+                  disabled={disabled}
+                  onChange={(event) => changeStepType(index, event.currentTarget.value as WallhackMacroStepType)}
+                >
+                  {WALLHACK_MACRO_STEP_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+              {(step.event.type === "keyDown" || step.event.type === "keyUp") ? (
+                <label>{t(locale, "macro.whKey")}
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    value={step.event.hidUsage}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const current = step.event;
+                      if (current.type !== "keyDown" && current.type !== "keyUp") return;
+                      updateStep(index, {
+                        delayMs: step.delayMs,
+                        event: { type: current.type, hidUsage: Math.min(255, Math.max(0, Number(event.currentTarget.value) || 0)) },
+                      });
+                    }}
+                  />
+                </label>
+              ) : null}
+              {(step.event.type === "buttonDown" || step.event.type === "buttonUp") ? (
+                <label>{t(locale, "macro.whButton")}
+                  <select
+                    value={step.event.button}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const current = step.event;
+                      if (current.type !== "buttonDown" && current.type !== "buttonUp") return;
+                      updateStep(index, {
+                        delayMs: step.delayMs,
+                        event: { type: current.type, button: event.currentTarget.value },
+                      });
+                    }}
+                  >
+                    {["left", "right", "middle", "back", "forward"].map((button) => (
+                      <option key={button} value={button}>{button}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {step.event.type === "wheel" ? (
+                <label>{t(locale, "macro.whDirection")}
+                  <select
+                    value={step.event.direction}
+                    disabled={disabled}
+                    onChange={(event) => updateStep(index, {
+                      delayMs: step.delayMs,
+                      event: { type: "wheel", direction: event.currentTarget.value as "up" | "down" },
+                    })}
+                  >
+                    <option value="up">{t(locale, "macro.whUp")}</option>
+                    <option value="down">{t(locale, "macro.whDown")}</option>
+                  </select>
+                </label>
+              ) : null}
+              {step.event.type === "move" ? (
+                <>
+                  <label>{t(locale, "macro.whAxis")}
+                    <select
+                      value={step.event.axis}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const current = step.event;
+                        if (current.type !== "move") return;
+                        updateStep(index, {
+                          delayMs: step.delayMs,
+                          event: { type: "move", axis: event.currentTarget.value as "x" | "y", delta: current.delta },
+                        });
+                      }}
+                    >
+                      <option value="x">x</option>
+                      <option value="y">y</option>
+                    </select>
+                  </label>
+                  <label>{t(locale, "macro.whDelta")}
+                    <input
+                      type="number"
+                      min={-255}
+                      max={255}
+                      value={step.event.delta}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const current = step.event;
+                        if (current.type !== "move") return;
+                        const delta = Math.min(255, Math.max(-255, Number(event.currentTarget.value) || 0));
+                        updateStep(index, { delayMs: step.delayMs, event: { type: "move", axis: current.axis, delta: delta === 0 ? 1 : delta } });
+                      }}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <label>{t(locale, "macro.colDelay")}
+                <input
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={step.delayMs}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: Math.min(65535, Math.max(0, Number(event.currentTarget.value) || 0)),
+                    event: step.event,
+                  })}
+                />
+              </label>
+              <small className="ksnake-macro-preview" title={wallhackMacroStepLabel(step)}>{wallhackMacroStepLabel(step)}</small>
+              <button type="button" className="ksnake-macro-delete" disabled={disabled} onClick={() => removeStep(index)} aria-label={tp(locale, "macro.removeStep", { n: index + 1 })} title={t(locale, "macro.removeStepTitle")}>
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="field-note">{t(locale, "macro.whMaxSteps")}</p>
+      <div className="setting-action ksnake-macro-actions">
+        <button type="button" onClick={addStep} disabled={disabled || draft.length >= 30}>
+          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.whAdd")}
+        </button>
+        <button className="ksnake-macro-save" type="button" onClick={() => control.applyWallhackMacroSlot(slot, draft)} disabled={disabled}>
+          <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.save")}
+        </button>
+        <button
+          className="ksnake-macro-clear"
+          type="button"
+          onClick={() => { control.clearWallhackMacroSlot(slot); setDraft([]); }}
+          disabled={disabled}
+        >
+          {t(locale, "macro.clearSlot")}
+        </button>
+      </div>
     </article>
   );
 }

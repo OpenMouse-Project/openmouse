@@ -435,3 +435,155 @@ export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
     </article>
   );
 }
+
+const WALLHACK_CURVE_MODES = ["classic", "natural", "jump", "custom"] as const;
+
+export function SensorScanningCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || status.sensorScanningMode == null) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.includes("wallhack-scanning");
+  return (
+    <article
+      id="wallhack-scanning-card"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="wallhack-scanning"
+    >
+      <div className="setting-heading"><div><h2>{t(locale, "perf.scanningMode")}</h2></div></div>
+      <Segmented
+        ariaLabel={t(locale, "perf.scanningMode")}
+        options={[
+          { value: "HIGH", label: "HIGH" },
+          { value: "ACCEL", label: "ACCEL" },
+        ]}
+        value={status.sensorScanningMode}
+        disabled={snapshot.settingsPending}
+        onChange={control.applySensorScanningMode}
+      />
+      <small className="setting-note">
+        {t(locale, "perf.scanningNote")}
+      </small>
+    </article>
+  );
+}
+
+export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || status.dynamicSensitivityEnabled == null) return null;
+  const locale = snapshot.preferences.locale;
+  const enabled = status.dynamicSensitivityEnabled === true;
+  const mode = status.dynamicSensitivityMode ?? "classic";
+  const curves = snapshot.wallhackCurves;
+  const staged = snapshot.pending.keys.some((key) => key === "wallhack-dynsens" || key === "wallhack-curve");
+  const busy = snapshot.settingsPending || snapshot.wallhackCurvesLoading;
+  const [draft, setDraft] = useState<Array<{ speed: number; gain: number }> | null>(null);
+
+  useEffect(() => {
+    if (status.ui?.family === "wallhack-mouse"
+      && curves === null
+      && !snapshot.wallhackCurvesLoading
+      && snapshot.wallhackCurvesError === null) {
+      control.loadWallhackCurves();
+    }
+  }, [curves, snapshot.wallhackCurvesLoading, snapshot.wallhackCurvesError, status.ui?.family]);
+
+  useEffect(() => {
+    setDraft(null);
+  }, [curves === null]);
+
+  const customPoints = draft ?? curves?.custom ?? null;
+  const updateDraftPoint = (index: number, field: "speed" | "gain", value: number): void => {
+    const base = (curves?.custom ?? []).map((point) => ({ ...point }));
+    while (base.length < 5) base.push({ speed: 0, gain: 1 });
+    base[index] = { ...base[index]!, [field]: value };
+    setDraft(base);
+  };
+
+  return (
+    <article
+      id="wallhack-dynsens-card"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="wallhack-dynsens"
+    >
+      <div className="setting-heading"><div><h2>{t(locale, "perf.dynSens")}</h2></div></div>
+      <SwitchButton
+        id="wallhack-dynsens-enabled"
+        value={enabled}
+        label={t(locale, "perf.dynSens")}
+        disabled={snapshot.settingsPending}
+        onChange={control.applyDynamicSensitivityEnabled}
+      />
+      <Segmented
+        ariaLabel={t(locale, "perf.dynSensCurve")}
+        options={WALLHACK_CURVE_MODES.map((value) => ({
+          value,
+          label: t(locale, value === "classic" ? "perf.classic" : value === "natural" ? "perf.natural" : value === "jump" ? "perf.jump" : "perf.custom"),
+        }))}
+        value={mode}
+        disabled={snapshot.settingsPending || !enabled}
+        onChange={control.applyDynamicSensitivityMode}
+      />
+      <small className="setting-note">
+        {t(locale, "perf.dynSensNote")}
+      </small>
+      {snapshot.wallhackCurvesLoading ? <p className="field-note">{t(locale, "perf.dynSensLoading")}</p> : null}
+      {snapshot.wallhackCurvesError !== null ? (
+        <p className="field-note">{snapshot.wallhackCurvesError}</p>
+      ) : null}
+      {mode === "custom" && customPoints ? (
+        <div className="macro-steps">
+          {customPoints.map((point, index) => (
+            <div className="macro-step" key={index}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>
+                {t(locale, "perf.dynSensSpeed")}
+                <input
+                  type="number"
+                  min={0}
+                  max={280}
+                  step={1}
+                  value={point.speed}
+                  disabled={busy || !enabled}
+                  aria-label={`${t(locale, "perf.dynSensSpeed")} ${index + 1}`}
+                  onChange={(event) => updateDraftPoint(index, "speed", Number(event.currentTarget.value))}
+                />
+              </label>
+              <label>
+                {t(locale, "perf.dynSensGain")}
+                <input
+                  type="number"
+                  min={0.1}
+                  max={6}
+                  step={0.01}
+                  value={point.gain}
+                  disabled={busy || !enabled}
+                  aria-label={`${t(locale, "perf.dynSensGain")} ${index + 1}`}
+                  onChange={(event) => updateDraftPoint(index, "gain", Number(event.currentTarget.value))}
+                />
+              </label>
+            </div>
+          ))}
+          <div className="setting-action">
+            <button
+              type="button"
+              disabled={busy || !enabled || draft === null}
+              onClick={() => { if (draft) control.applyCustomCurve(draft); }}
+            >
+              {t(locale, "perf.dynSensSave")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <div className="macro-steps">
+        <SwitchButton
+          id="wallhack-dynsens-reporting"
+          value={status.dynamicSensitivitySpeedReporting === true}
+          label={t(locale, "perf.dynSensReporting")}
+          disabled={snapshot.settingsPending}
+          onChange={control.applyDynamicSensitivitySpeedReporting}
+        />
+        <small className="setting-note">{t(locale, "perf.dynSensReportingNote")}</small>
+      </div>
+    </article>
+  );
+}

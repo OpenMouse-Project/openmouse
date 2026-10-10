@@ -1,7 +1,7 @@
 {
   "_comment": "AUTO-GENERATED — do not edit by hand. Regenerate with: node scripts/generate-firmware-manifest.mjs. Sources: Logitech update CDN depots listed in scripts/firmware-depots.seed.json (plain HTTPS, no auth). Versions/hashes/blockers are re-derived from each depot's dfu.json every run.",
   "manifestVersion": 3,
-  "updatedAt": "2026-10-10T00:08:03.128Z",
+  "updatedAt": "2026-10-10T19:45:56.998Z",
   "source": "scripts/generate-firmware-manifest.mjs over updates.ghub.logitechg.com",
   "devices": [
     {
@@ -73,6 +73,51 @@
       "startWarnings": [
         "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
       ]
+    },
+    {
+      "brand": "Finalmouse",
+      "nameMatch": [
+        "Starlight X"
+      ],
+      "interfaceIds": [
+        "361d_0300",
+        "361d_0301"
+      ],
+      "required": false,
+      "id": "finalmouse-starlight-x-dongle-rf",
+      "firmwareName": "Dongle RF",
+      "latestVersion": "8.0.3",
+      "releaseNotes": "Dongle RF 8.0.3 == xpanel 2.6.2 DONGLE_RF_LATEST. Check-only; see mouse entry."
+    },
+    {
+      "brand": "Finalmouse",
+      "nameMatch": [
+        "Starlight X"
+      ],
+      "interfaceIds": [
+        "361d_0300",
+        "361d_0301"
+      ],
+      "required": false,
+      "id": "finalmouse-starlight-x-dongle-usb",
+      "firmwareName": "Dongle USB",
+      "latestVersion": "8.0.3",
+      "releaseNotes": "Dongle USB 8.0.3 == xpanel 2.6.2 DONGLE_USB_LATEST. Check-only; see mouse entry."
+    },
+    {
+      "brand": "Finalmouse",
+      "nameMatch": [
+        "Starlight X"
+      ],
+      "interfaceIds": [
+        "361d_0300",
+        "361d_0301"
+      ],
+      "required": false,
+      "id": "finalmouse-starlight-x-mouse",
+      "firmwareName": "Mouse",
+      "latestVersion": "8.0.3",
+      "releaseNotes": "Mouse 8.0.3 == xpanel 2.6.2 latest constants (8.0.4 beta only). Check-only: no verified download URL and no in-app flashing path, so the card offers Later instead of Download."
     },
     {
       "id": "g29_dfu@164.01.11:046d_c24f",

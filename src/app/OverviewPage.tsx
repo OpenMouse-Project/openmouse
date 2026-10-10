@@ -26,7 +26,7 @@ import { Superstrike } from "./Superstrike";
 import { ButtonMap, buttonMapAvailable } from "./ButtonMap";
 import { DpiCard } from "./cards/DpiCard";
 import { FirmwareCard } from "./cards/FirmwareCard";
-import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
+import { DynamicSensitivityCard, LightforceCard, PollingCard, SensorCard, SensorScanningCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
 import { LunaFuryButtonsCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
@@ -39,14 +39,17 @@ import {
   EggPollingCard,
   EggSpdtCard,
   FinalmouseCard,
+  FinalmouseProfilesCard,
   IncottCard,
   LowPowerCard,
   NinjutsoClickCard,
   NinjutsoSensorCard,
+  PerfectPollingCard,
   ProcessingCard,
   RazerButtonCard,
   ButtonMappingCard,
   KsnakeMacroCard,
+  WallhackMacroCard,
   PowerModeCard,
   OnboardProfileCard,
   PulsarProCard,
@@ -55,6 +58,7 @@ import {
   SleepCard,
   KsnakeScrollCard,
   DpiLightingCard,
+  TmrDsCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
@@ -560,8 +564,11 @@ export function Workspace({
     show(has.dpi, ["performance"]) ? <DpiCard key="dpi" snapshot={snapshot} /> : null,
     show(has.polling, ["performance"]) ? <PollingCard key="polling" snapshot={snapshot} /> : null,
     show(has.sensor, ["performance"]) ? <SensorCard key="sensor" snapshot={snapshot} /> : null,
+    show(has.wallhackScanning, ["performance"]) ? <SensorScanningCard key="wallhack-scanning" snapshot={snapshot} /> : null,
+    show(has.wallhackCurves, ["performance"]) ? <DynamicSensitivityCard key="wallhack-curves" snapshot={snapshot} /> : null,
     show(has.atkF1Sensor, ["performance"]) ? <AtkSensorCard key="atk-sensor" snapshot={snapshot} /> : null,
     show(has.lightforce, ["buttons"]) ? <LightforceCard key="lightforce" snapshot={snapshot} /> : null,
+    show(has.tmrDs, ["buttons"]) ? <TmrDsCard key="finalmouse-tmr" snapshot={snapshot} /> : null,
     show(has.ninjutsoSensor, ["performance"])
       ? <NinjutsoSensorCard key="ninjutso-sensor" snapshot={snapshot} /> : null,
     show(has.ninjutsoClick, ["performance"])
@@ -587,6 +594,7 @@ export function Workspace({
 
   const macro = [
     show(has.ksnakeMacros, ["macro"]) ? <KsnakeMacroCard key="ksnake-macros" snapshot={snapshot} /> : null,
+    show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [
@@ -595,7 +603,9 @@ export function Workspace({
     show(has.lightingAdvanced, ["advanced"])
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
     show(has.lowPower, ["advanced"]) ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
+    show(has.perfectPolling, ["advanced"]) ? <PerfectPollingCard key="finalmouse-pp" snapshot={snapshot} /> : null,
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
+    show(has.finalmouseProfiles, ["advanced"]) ? <FinalmouseProfilesCard key="finalmouse-profiles" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
     show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
     show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,
