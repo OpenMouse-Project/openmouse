@@ -5714,6 +5714,97 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
   return client as unknown as SupportedClient;
 }
 
+/**
+ * In-memory Finalmouse stand-in for driver previews. It speaks the same
+ * method surface as FinalmouseHidClient (so `instanceof` gates and every
+ * `applyFinalmouse*` staging path work) but keeps all state in a cloned
+ * status — nothing reaches hardware, matching the preview banner.
+ */
+function finalmousePreviewClient(initial: MouseStatus): FinalmouseHidClient {
+  const status = structuredClone(initial) as SlxStatus & MouseStatus;
+  const slx = (status as SlxStatus).finalmouseIsSlx === true;
+  const count = (): number => (status as SlxStatus).finalmouseProfileCount ?? 5;
+  const client = Object.assign(Object.create(FinalmouseHidClient.prototype) as FinalmouseHidClient, {
+    device: {} as HIDDevice,
+    open: async () => undefined,
+    close: async () => undefined,
+    displayName: () => status.name,
+    readStatus: async () => structuredClone(status),
+    setDpi: async (dpi: number) => { status.dpi = dpi; return dpi; },
+    setPollingRate: async (rate: number) => { status.pollingRateHz = rate; return rate; },
+    setMotionSync: async (enabled: boolean) => { status.motionSync = enabled; return enabled; },
+    setLiftOffDistance: async (value: NonNullable<MouseStatus["liftOffDistance"]>) => {
+      status.liftOffDistance = value;
+      return value;
+    },
+    setLiftOffScale: async (code: number) => {
+      const mm = code / 10;
+      (status as SlxStatus).finalmousePawLodMm = mm;
+      (status as SlxStatus).finalmousePawLodCustom = true;
+      if (status.liftOffScale) status.liftOffScale = { ...status.liftOffScale, value: code, millimetres: mm };
+      return code;
+    },
+    setDongleLedMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseDongleLedMode = mode;
+      return mode;
+    },
+    setTournamentScrollMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollMode = mode;
+      return mode;
+    },
+    setTournamentScrollTimeout: async (milliseconds: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollTimeoutMs = milliseconds;
+      return milliseconds;
+    },
+    setClickMode: async (modeL: number, modeR: number, relL?: number, relR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseClickModeL = modeL;
+      slxStatus.finalmouseClickModeR = modeR;
+      if (relL !== undefined && relR !== undefined) {
+        slxStatus.finalmouseClickReleaseL = relL;
+        slxStatus.finalmouseClickReleaseR = relR;
+      }
+    },
+    setTmrActuation: async (mmL: number, mmR: number, umL?: number, umR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseTmrThrL = Math.round(mmL * 100);
+      slxStatus.finalmouseTmrThrR = Math.round(mmR * 100);
+      if (umL !== undefined && umR !== undefined) {
+        slxStatus.finalmouseTmrHystL = umL;
+        slxStatus.finalmouseTmrHystR = umR;
+      }
+    },
+    setPawLodMm: async (mm: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmousePawLodMm = mm;
+      slxStatus.finalmousePawLodCustom = mm !== 1 && mm !== 2;
+      return mm;
+    },
+    setActiveProfile: async (index: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+      return index;
+    },
+    setProfileName: async (index: number, name: string) => {
+      const slxStatus = status as unknown as SlxStatus;
+      slxStatus.finalmouseProfileNames = { ...slxStatus.finalmouseProfileNames, [index]: name };
+      return name;
+    },
+    setProfileEnabled: async (index: number, enabled: boolean) => {
+      const slxStatus = status as unknown as SlxStatus;
+      const base = slxStatus.finalmouseProfileEnabledMask ?? (1 << count()) - 1;
+      slxStatus.finalmouseProfileEnabledMask = enabled ? base | (1 << index) : base & ~(1 << index);
+      return enabled;
+    },
+  });
+  // pollIntervalMs/isSlx are getter-only on the driver prototype, so they
+  // need own properties instead of assigned ones.
+  Object.defineProperties(client, {
+    pollIntervalMs: { value: 0 },
+    isSlx: { value: slx },
+  });
+  return client;
+}
+
 function previewClient(): LogitechHidppClient {
   const refuse = async (): Promise<never> => {
     throw new Error(st("ctl.previewNoMouse"));
@@ -5888,7 +5979,8 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   if (name === "g703") showG703PreviewProfiles();
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
-  if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
+  if (name === "finalmouse" || name === "finalmouse-slx") active = finalmousePreviewClient(fixture.status);
+  else if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
   applyStatus(fixture.status);
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;
