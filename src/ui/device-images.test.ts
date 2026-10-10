@@ -236,6 +236,12 @@ test("Finalmouse Starlight-12 / ULX resolves by name", () => {
   assert.equal(deviceImage(null, "Finalmouse ULX"), CDN + "finalmouse-ulx.png");
 });
 
+test("Finalmouse Starlight X keeps the placeholder until its render lands", () => {
+  assert.equal(deviceImage(null, "Finalmouse Starlight X"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "SLX"), CDN + "unknown-device.png");
+  assert.equal(isUnknownDevice(null, "Finalmouse Starlight X"), true);
+});
+
 test("test-needed and unsupported models are not given new artwork", () => {
   assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "unknown-device.png");

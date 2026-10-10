@@ -161,6 +161,10 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
+  // Starlight X is a different shell from the ULX/Starlight-12: keep it on
+  // the placeholder (with the artwork-request flow) until its render lands,
+  // instead of showing the wrong mouse.
+  if (/\bstarlight\s*x\b|\bslx\b/i.test(displayName)) return "unknown-device.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";
