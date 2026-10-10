@@ -1,7 +1,7 @@
 {
   "_comment": "AUTO-GENERATED — do not edit by hand. Regenerate with: node scripts/generate-firmware-manifest.mjs. Sources: Logitech update CDN depots listed in scripts/firmware-depots.seed.json (plain HTTPS, no auth). Versions/hashes/blockers are re-derived from each depot's dfu.json every run.",
   "manifestVersion": 3,
-  "updatedAt": "2026-10-09T22:28:59.672Z",
+  "updatedAt": "2026-10-10T00:08:03.128Z",
   "source": "scripts/generate-firmware-manifest.mjs over updates.ghub.logitechg.com",
   "devices": [
     {
@@ -329,19 +329,6 @@
       "releaseNotes": "Improvements to Xbox FFB specification.",
       "startBlockers": [],
       "startWarnings": []
-    },
-    {
-      "id": "logitech-pro-lightspeed-receiver",
-      "interfaceIds": [
-        "046d_c54d",
-        "046d_ab24"
-      ],
-      "latestVersion": "14.4.20",
-      "required": true,
-      "startWarnings": [
-        "CRITICAL_UPDATE_RECEIVER_AND_DEVICE_PAIRING"
-      ],
-      "releaseNotes": "Resolves cursor tracking issues in the system BIOS and fixes abnormal behavior when playing Valorant with Anti-Cheat Expert (ACE) enabled."
     },
     {
       "id": "logitech-pro-x-superlight-2c-bl2",

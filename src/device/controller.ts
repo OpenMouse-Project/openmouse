@@ -2642,8 +2642,11 @@ async function sweepReceiverRegister(
   verbose: boolean,
 ): Promise<Array<{ mcu: number; version: string | null; raw: number[] }>> {
   // One readout per MCU: MCU1/MPR7 and MCU2/CC14 report independently
-  // (verified live: mcu=1 -> 01 07 02, mcu=2 -> 02 00 11). First ok wins
-  // per MCU so a silent index never shadows an answering one.
+  // (verified live: mcu=1 -> 01 07 02, mcu=2 -> 02 00 11). These bytes are
+  // per-MCU BOOTLOADER identifiers, not app versions: a full G HUB flash
+  // (14.3.19 -> 14.4.20) left them byte-identical, so they must never drive
+  // a version verdict. First ok wins per MCU so a silent index never
+  // shadows an answering one.
   const mcus: Array<{ mcu: number; version: string | null; raw: number[] }> = [];
   for (const mcu of [1, 2]) {
     for (const index of [0, 1]) {

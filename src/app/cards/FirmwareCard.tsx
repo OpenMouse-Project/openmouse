@@ -91,8 +91,10 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const mouseVisible = mouseDfu !== null && !isDfuDismissed(deviceKey, mouseDfu.latestVersion) ? mouseDfu : null;
 
   const receiver = snapshot.receiverFirmware;
-  // Primary readout is the MCU2/CC14 line (the package-versioned STM32
-  // firmware in dfu terms); MCU1/MPR7 has its own 7.x line.
+  // Primary readout is the MCU2/CC14 line. Both MCU readouts are
+  // bootloader identifiers (proven static across a real 14.3.19 -> 14.4.20
+  // flash), so they identify hardware only — version verdicts need an app
+  // firmware source that WebHID cannot reach yet.
   const primaryMcu = receiver?.mcus.find((entry) => entry.mcu === 2) ?? receiver?.mcus[0] ?? null;
   const receiverRef = receiver === null || primaryMcu === null || primaryMcu.version === null ? null : {
     brand: status.brand,
