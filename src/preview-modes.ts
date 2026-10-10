@@ -31,6 +31,7 @@ export const PREVIEW_KEYS = [
   "razer-viper-v4",
   "vgn",
   "finalmouse",
+  "finalmouse-slx",
   "ninjutso",
   "nape-pro",
   "mx-master-3s",
@@ -80,6 +81,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "terra-pro": return "terra-pro";
     case "vgn": return "vgn";
     case "finalmouse": return "finalmouse";
+    case "finalmouse-slx": return "finalmouse-slx";
     case "ninjutso": return "ninjutso";
     case "keychron":
     case "keychron-nape":

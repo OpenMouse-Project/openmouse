@@ -199,6 +199,7 @@ import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
+import type { SlxStatus } from "./finalmouse-slx.ts";
 import type {
   AnalogTuning,
   AnalogTuningState,
@@ -5348,6 +5349,194 @@ export function applyFinalmouseSetting(
     progress: `Changing Finalmouse ${label}…`,
     preview: (status) => { (status as unknown as Record<string, unknown>)[field] = value; },
     apply: () => callClientMethod(method, label, value),
+  });
+}
+
+type SlxWriteClient = {
+  setClickMode(modeL: number, modeR: number, relL?: number, relR?: number): Promise<unknown>;
+  setTmrActuation(actuationMmL: number, actuationMmR: number, rtUmL?: number, rtUmR?: number): Promise<unknown>;
+  setActiveProfile(index: number): Promise<unknown>;
+  setProfileName(index: number, name: string): Promise<unknown>;
+  setProfileEnabled(index: number, enabled: boolean): Promise<unknown>;
+};
+
+function slxStatus(): SlxStatus | null {
+  if (!finalmouseClient() || !latestDeviceStatus) return null;
+  return latestDeviceStatus as SlxStatus;
+}
+
+function requireSlxWrite(method: "setClickMode" | "setTmrActuation" | "setActiveProfile" | "setProfileName" | "setProfileEnabled", label: string): SlxWriteClient {
+  return requireClientMethod(method, label) as unknown as SlxWriteClient;
+}
+
+/**
+ * Starlight X click mode per switch (0 mechanical, 1 TMR analog). The
+ * command always carries both switches, so the untouched half is filled
+ * from the current status.
+ */
+export function applyFinalmouseClickMode(side: "left" | "right", mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = side === "left" ? mode : (status.finalmouseClickModeL ?? 0);
+  const modeR = side === "right" ? mode : (status.finalmouseClickModeR ?? 0);
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} click ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: `Change Finalmouse ${side} click mode`,
+    progress: `Changing Finalmouse ${side} click mode…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = modeL;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = modeR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        modeL, modeR, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/**
+ * Starlight X release point per switch (0 normal, 1 early, 2 late). Like
+ * the mode, it rides with both switches in one command.
+ */
+export function applyFinalmouseRelease(side: "left" | "right", rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const relL = side === "left" ? rel : (status.finalmouseClickReleaseL ?? 0);
+  const relR = side === "right" ? rel : (status.finalmouseClickReleaseR ?? 0);
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} release ${names[rel] ?? rel}`,
+    command: `Change Finalmouse ${side} release point`,
+    progress: `Changing Finalmouse ${side} release point…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = relL;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = relR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, relL, relR);
+    },
+  });
+}
+
+/**
+ * Starlight X TMR actuation per switch in millimetres (0.01-0.40). The
+ * rapid-trigger pair rides along only when both sides are known.
+ */
+export function applyFinalmouseTmrActuation(side: "left" | "right", mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const mmL = side === "left" ? mm : currentL;
+  const mmR = side === "right" ? mm : currentR;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} actuation ${mm.toFixed(2)} mm`,
+    command: `Change Finalmouse ${side} actuation`,
+    progress: `Changing Finalmouse ${side} actuation…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mmL * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mmR * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mmL, mmR, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity per switch in µm (150-250). */
+export function applyFinalmouseRtSensitivity(side: "left" | "right", um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const umL = side === "left" ? um : (status.finalmouseTmrHystL ?? 220);
+  const umR = side === "right" ? um : (status.finalmouseTmrHystR ?? 220);
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} rapid trigger ${um} µm`,
+    command: `Change Finalmouse ${side} rapid trigger`,
+    progress: `Changing Finalmouse ${side} rapid trigger…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = umL;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = umR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, umL, umR);
+    },
+  });
+}
+
+/** Starlight X active profile by 0-based index. */
+export function applyFinalmouseProfileActive(index: number): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1}`,
+    command: "Change Finalmouse active profile",
+    progress: "Changing Finalmouse active profile…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+    },
+    apply: async () => {
+      await requireSlxWrite("setActiveProfile", "active profile").setActiveProfile(index);
+    },
+  });
+}
+
+/** Starlight X profile enable flag. */
+export function applyFinalmouseProfileEnabled(index: number, enabled: boolean): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} ${enabled ? "enabled" : "disabled"}`,
+    command: `Change Finalmouse profile ${index + 1} state`,
+    progress: `Changing Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const slx = next as unknown as SlxStatus;
+      const count = slx.finalmouseProfileCount ?? 5;
+      const base = slx.finalmouseProfileEnabledMask ?? (1 << count) - 1;
+      const mask = enabled ? base | (1 << index) : base & ~(1 << index);
+      (next as unknown as Record<string, unknown>).finalmouseProfileEnabledMask = mask;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileEnabled", "profile state").setProfileEnabled(index, enabled);
+    },
+  });
+}
+
+/** Starlight X profile rename (31 chars max). */
+export function applyFinalmouseProfileName(index: number, name: string): void {
+  const status = slxStatus();
+  if (!status) return;
+  const trimmed = name.trim().slice(0, 31);
+  if (!trimmed) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} renamed`,
+    command: `Rename Finalmouse profile ${index + 1}`,
+    progress: `Renaming Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const names = { ...((next as unknown as SlxStatus).finalmouseProfileNames ?? {}) };
+      names[index] = trimmed;
+      (next as unknown as Record<string, unknown>).finalmouseProfileNames = names;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileName", "profile name").setProfileName(index, trimmed);
+    },
   });
 }
 

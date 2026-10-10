@@ -22,6 +22,18 @@ import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
 import { isPulsarProProtocol } from "../../device/traits";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
+import {
+  SLX_CLICK_ANALOG,
+  SLX_CLICK_MECHANICAL,
+  SLX_RELEASE_EARLY,
+  SLX_RELEASE_LATE,
+  SLX_RELEASE_NORMAL,
+  SLX_TMR,
+  isSlxStatus,
+  slxProfiles,
+  slxTmr,
+  tmrStepsToMm,
+} from "../../device/finalmouse-slx.ts";
 import { lunafurySettingLabel, lunafuryTrackingVisible } from "../../device/lunafury-labels.ts";
 import * as control from "../../device/controller";
 import { PULSAR_SLEEP_OPTIONS } from "../../device/controller";
@@ -932,6 +944,227 @@ export function FinalmouseCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
           onChange={(next) => control.applyFinalmouseSetting("tournamentTimeout", next)}
         />
       </div>
+    </article>
+  );
+}
+
+function TmrSideControl({ snapshot, side }: {
+  snapshot: ControlSnapshot;
+  side: "left" | "right";
+}): ReactNode {
+  const status = snapshot.status;
+  const tmr = slxTmr(status);
+  if (!status || !tmr) return null;
+  const locale = snapshot.preferences.locale;
+  const mode = side === "left" ? tmr.modeL : tmr.modeR;
+  const rel = side === "left" ? tmr.relL : tmr.relR;
+  const thr = side === "left" ? tmr.thrL : tmr.thrR;
+  const hyst = side === "left" ? tmr.hystL : tmr.hystR;
+  const uncalibrated = thr === 0;
+  const analog = mode === SLX_CLICK_ANALOG;
+  const sideLabel = side === "left" ? t(locale, "tmr.leftClick") : t(locale, "tmr.rightClick");
+  return (
+    <div className="tmr-side" data-side={side}>
+      <div className="field-label">
+        <span>{sideLabel}</span>
+        <OptionMenu
+          id={`finalmouse-click-mode-${side}`}
+          ariaLabel={sideLabel}
+          options={[
+            { value: SLX_CLICK_MECHANICAL, label: t(locale, "tmr.mechanical") },
+            { value: SLX_CLICK_ANALOG, label: t(locale, "tmr.analog") },
+          ]}
+          value={mode}
+          onChange={(next) => control.applyFinalmouseClickMode(side, next)}
+        />
+      </div>
+      <div className="field-label spaced">
+        <span>{t(locale, "tmr.release")}</span>
+        <OptionMenu
+          id={`finalmouse-release-${side}`}
+          ariaLabel={`${sideLabel} ${t(locale, "tmr.release")}`}
+          options={[
+            { value: SLX_RELEASE_NORMAL, label: t(locale, "tmr.releaseNormal") },
+            { value: SLX_RELEASE_EARLY, label: t(locale, "tmr.releaseEarly") },
+            { value: SLX_RELEASE_LATE, label: t(locale, "tmr.releaseLate") },
+          ]}
+          value={rel ?? SLX_RELEASE_NORMAL}
+          onChange={(next) => control.applyFinalmouseRelease(side, next)}
+        />
+      </div>
+      {thr !== null ? (
+        <StepperSlider
+          id={`finalmouse-actuation-${side}`}
+          label={t(locale, "tmr.actuation")}
+          value={thr}
+          min={SLX_TMR.actuationMinSteps}
+          max={SLX_TMR.actuationMaxSteps}
+          step={1}
+          scale={["0.01 mm", "0.20 mm", "0.40 mm"]}
+          formatValue={(shown) => `${tmrStepsToMm(shown).toFixed(2)} mm`}
+          disabled={snapshot.settingInProgress}
+          pendingKey="finalmouse-tmr"
+          onCommit={(next) => control.applyFinalmouseTmrActuation(side, tmrStepsToMm(next))}
+        />
+      ) : null}
+      {hyst !== null ? (
+        <StepperSlider
+          id={`finalmouse-rt-${side}`}
+          label={t(locale, "tmr.rtSensitivity")}
+          value={hyst}
+          min={SLX_TMR.rtMinUm}
+          max={SLX_TMR.rtMaxUm}
+          step={SLX_TMR.rtStepUm}
+          scale={[`${SLX_TMR.rtMinUm} µm`, `${SLX_TMR.rtRecommendedUm} µm`, `${SLX_TMR.rtMaxUm} µm`]}
+          formatValue={(shown) => `${shown} µm`}
+          disabled={snapshot.settingInProgress}
+          pendingKey="finalmouse-tmr"
+          onCommit={(next) => control.applyFinalmouseRtSensitivity(side, next)}
+        />
+      ) : null}
+      <div className="field-label spaced">
+        <span>{t(locale, "tmr.smartRt")}</span>
+        <output id={`finalmouse-srt-${side}`}>{analog ? t(locale, "tmr.enabled") : t(locale, "tmr.disabled")}</output>
+      </div>
+      {uncalibrated ? (
+        <small className="setting-note">{t(locale, "tmr.uncalibrated")}</small>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Starlight X TMR-DS actuation (xpanel `/tmr-ds`). Gated to SLX hardware:
+ * Ultralight X has no analog switches, so this card never renders there.
+ */
+export function TmrDsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || !isSlxStatus(status) || slxTmr(status) === null) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.some((key) => key === "finalmouse-click-mode" || key === "finalmouse-tmr");
+  return (
+    <article
+      id="finalmouse-tmr-settings"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="finalmouse-click-mode finalmouse-tmr"
+    >
+      <div className="setting-heading compact"><div><p>FINALMOUSE</p><h2>{t(locale, "tmr.title")}</h2></div></div>
+      <TmrSideControl snapshot={snapshot} side="left" />
+      <TmrSideControl snapshot={snapshot} side="right" />
+      <small className="setting-note">{t(locale, "tmr.rec")}</small>
+    </article>
+  );
+}
+
+/**
+ * Starlight X PerfectPolling (xpanel `/perfect-polling`). Display-only in
+ * xpanel too: a fixed 250 µs end-to-end pipeline with nothing to tune.
+ */
+export function PerfectPollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || !isSlxStatus(status)) return null;
+  const locale = snapshot.preferences.locale;
+  return (
+    <article id="finalmouse-perfect-polling" className="setting-card">
+      <div className="setting-heading compact">
+        <div><p>FINALMOUSE</p><h2>{t(locale, "pp.title")}</h2></div>
+        <output id="perfect-polling-output">{t(locale, "pp.enabled")}</output>
+      </div>
+      <div className="field-label">
+        <span>{t(locale, "pp.latency")}</span>
+        <output id="perfect-polling-latency">250 µs (.25 ms)</output>
+      </div>
+      <small className="setting-note">{t(locale, "pp.body")}</small>
+    </article>
+  );
+}
+
+/**
+ * Starlight X onboard profiles (xpanel `/profiles`): up to five named
+ * profiles with an active selector and per-profile enable flags.
+ */
+export function FinalmouseProfilesCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const roster = slxProfiles(status);
+  if (!status || roster === null) return null;
+  const locale = snapshot.preferences.locale;
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const staged = snapshot.pending.keys.some((key) => key === "finalmouse-profile");
+  const options = Array.from({ length: roster.count }, (_, index) => ({
+    value: index,
+    label: roster.names[index] ?? tp(locale, "fprof.profileName", { n: index + 1 }),
+  }));
+  return (
+    <article
+      id="finalmouse-profiles"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="finalmouse-profile"
+    >
+      <div className="setting-heading compact"><div><p>FINALMOUSE</p><h2>{t(locale, "fprof.title")}</h2></div></div>
+      <div className="field-label">
+        <span>{t(locale, "fprof.active")}</span>
+        <OptionMenu
+          id="finalmouse-profile-active"
+          ariaLabel={t(locale, "fprof.active")}
+          options={options}
+          value={roster.active}
+          onChange={(next) => control.applyFinalmouseProfileActive(next)}
+        />
+      </div>
+      {options.map((option) => {
+        const index = option.value;
+        const bit = roster.enabledMask === null ? true : (roster.enabledMask & (1 << index)) !== 0;
+        return (
+          <div className="field-label spaced" key={index}>
+            <span>{option.label}</span>
+            <span className="profile-row-actions">
+              {roster.enabledMask !== null ? (
+                <SwitchRow
+                  id={`finalmouse-profile-enable-${index}`}
+                  label={bit ? t(locale, "fprof.disable") : t(locale, "fprof.enable")}
+                  value={bit}
+                  onChange={(next) => control.applyFinalmouseProfileEnabled(index, next)}
+                />
+              ) : null}
+              {renaming === index ? (
+                <span className="profile-rename">
+                  <input
+                    id={`finalmouse-profile-name-${index}`}
+                    type="text"
+                    maxLength={31}
+                    aria-label={t(locale, "fprof.rename")}
+                    placeholder={t(locale, "fprof.renamePlaceholder")}
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.currentTarget.value)}
+                  />
+                  <button
+                    type="button"
+                    disabled={snapshot.settingInProgress || draftName.trim() === ""}
+                    onClick={() => {
+                      control.applyFinalmouseProfileName(index, draftName);
+                      setRenaming(null);
+                    }}
+                  >
+                    {t(locale, "fprof.renameApply")}
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`${t(locale, "fprof.rename")}: ${option.label}`}
+                  onClick={() => {
+                    setDraftName(option.label);
+                    setRenaming(index);
+                  }}
+                >
+                  {t(locale, "fprof.rename")}
+                </button>
+              )}
+            </span>
+          </div>
+        );
+      })}
     </article>
   );
 }

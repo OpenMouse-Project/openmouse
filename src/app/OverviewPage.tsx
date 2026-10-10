@@ -39,10 +39,12 @@ import {
   EggPollingCard,
   EggSpdtCard,
   FinalmouseCard,
+  FinalmouseProfilesCard,
   IncottCard,
   LowPowerCard,
   NinjutsoClickCard,
   NinjutsoSensorCard,
+  PerfectPollingCard,
   ProcessingCard,
   RazerButtonCard,
   ButtonMappingCard,
@@ -55,6 +57,7 @@ import {
   SleepCard,
   KsnakeScrollCard,
   DpiLightingCard,
+  TmrDsCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
@@ -596,6 +599,9 @@ export function Workspace({
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
     show(has.lowPower, ["advanced"]) ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
+    show(has.tmrDs, ["advanced"]) ? <TmrDsCard key="finalmouse-tmr" snapshot={snapshot} /> : null,
+    show(has.perfectPolling, ["advanced"]) ? <PerfectPollingCard key="finalmouse-pp" snapshot={snapshot} /> : null,
+    show(has.finalmouseProfiles, ["advanced"]) ? <FinalmouseProfilesCard key="finalmouse-profiles" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
     show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
     show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,

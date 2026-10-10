@@ -1,5 +1,6 @@
 import { selectableValues } from "../../device/options.ts";
 import { isPulsarProProtocol } from "../../device/traits.ts";
+import { isSlxStatus, slxProfiles, slxTmr } from "../../device/finalmouse-slx.ts";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
 import type { ControlSnapshot } from "../../device/types";
 
@@ -22,6 +23,9 @@ export interface CardAvailability {
   ninjutsoClick: boolean;
   teevolutionDpiLighting: boolean;
   finalmouse: boolean;
+  tmrDs: boolean;
+  perfectPolling: boolean;
+  finalmouseProfiles: boolean;
   incott: boolean;
   lunafuryButtons: boolean;
   lunafuryWheelGuard: boolean;
@@ -68,6 +72,9 @@ const NOTHING: CardAvailability = {
   ninjutsoClick: false,
   teevolutionDpiLighting: false,
   finalmouse: false,
+  tmrDs: false,
+  perfectPolling: false,
+  finalmouseProfiles: false,
   incott: false,
   lunafuryButtons: false,
   lunafuryWheelGuard: false,
@@ -175,6 +182,12 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     teevolutionDpiLighting: host && (ui?.dpiLighting != null
       || (traits.teevolution && capabilities?.teevolutionProfile != null)),
     finalmouse: host && traits.finalmouse,
+    // Starlight X-only pages from xpanel: TMR-DS needs a reported click
+    // mode, PerfectPolling is a fixed capability readout, and profiles need
+    // a reported roster. All stay hidden on Ultralight X.
+    tmrDs: host && traits.finalmouse && isSlxStatus(status) && slxTmr(status) !== null,
+    perfectPolling: host && traits.finalmouse && isSlxStatus(status),
+    finalmouseProfiles: host && traits.finalmouse && slxProfiles(status) !== null,
     // Gated on the fields themselves rather than a brand trait: the receiver
     // LED is absent over the cable, so the card follows what the device
     // actually reported.
