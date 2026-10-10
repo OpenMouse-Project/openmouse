@@ -1022,7 +1022,7 @@ function TmrSideControl({ snapshot, side }: {
           onCommit={(next) => control.applyFinalmouseRtSensitivity(side, next)}
         />
       ) : null}
-      <div className="field-label spaced">
+      <div className="stat-row">
         <span>{t(locale, "tmr.smartRt")}</span>
         <output id={`finalmouse-srt-${side}`}>{analog ? t(locale, "tmr.enabled") : t(locale, "tmr.disabled")}</output>
       </div>
@@ -1051,6 +1051,7 @@ export function TmrDsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
       <div className="setting-heading compact"><div><p>FINALMOUSE</p><h2>{t(locale, "tmr.title")}</h2></div></div>
       <TmrSideControl snapshot={snapshot} side="left" />
       <TmrSideControl snapshot={snapshot} side="right" />
+      <small className="setting-note">{t(locale, "tmr.srtNote")}</small>
       <small className="setting-note">{t(locale, "tmr.rec")}</small>
     </article>
   );
@@ -1070,7 +1071,7 @@ export function PerfectPollingCard({ snapshot }: { snapshot: ControlSnapshot }):
         <div><p>FINALMOUSE</p><h2>{t(locale, "pp.title")}</h2></div>
         <output id="perfect-polling-output">{t(locale, "pp.enabled")}</output>
       </div>
-      <div className="field-label">
+      <div className="stat-row">
         <span>{t(locale, "pp.latency")}</span>
         <output id="perfect-polling-latency">250 µs (.25 ms)</output>
       </div>

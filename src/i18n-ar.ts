@@ -512,6 +512,7 @@ export const ar: Record<I18nKey, string> = {
   "tmr.enabled": "مفعّل",
   "tmr.disabled": "معطّل",
   "tmr.rec": "الموصى به: 220 µm",
+  "tmr.srtNote": "يتبع وضع النقر — التماثلي يفعّل الزناد السريع، والميكانيكي ينقر بشكل عادي.",
   "tmr.uncalibrated": "هذا الجانب غير معاير — الوضع التماثلي غير متاح هنا.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "مفعّل",

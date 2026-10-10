@@ -985,6 +985,12 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .angle-tuning-control { margin-top: .55rem; padding-top: .55rem; border-top: 1px solid var(--line); }
 .angle-tuning-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--dim); font-size: .7rem; }
 .angle-tuning-head output { min-width: 2.8rem; color: var(--text-input); font: 650 .72rem var(--font-mono); text-align: end; }
+/* Read-only label/value row for status facts (TMR release state, fixed
+   pipeline latency). Same tokens as the neighboring row styles. */
+.stat-row { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--dim); font-size: .7rem; }
+.stat-row output { color: var(--text-input); font: 650 .72rem var(--font-mono); text-align: end; }
+/* Info-only cards must not stretch to the tallest grid sibling. */
+#finalmouse-perfect-polling { align-self: start; }
 .angle-tuning-inputs { display: grid; grid-template-columns: 1.65rem minmax(7rem, 1fr) 1.65rem; align-items: center; gap: .5rem; margin-top: .35rem; }
 .angle-tuning-inputs button { width: 1.65rem; height: 1.65rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-strong); color: var(--text-input); font-size: .9rem; line-height: 1; cursor: pointer; }
 .angle-tuning-inputs button:hover:not(:disabled) { border-color: var(--ui-accent); color: var(--ui-accent); }

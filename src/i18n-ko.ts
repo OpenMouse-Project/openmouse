@@ -513,6 +513,7 @@ export const ko: Record<I18nKey, string> = {
   "tmr.enabled": "켬",
   "tmr.disabled": "끔",
   "tmr.rec": "권장: 220 µm",
+  "tmr.srtNote": "클릭 모드를 따릅니다. 아날로그에서 래피드 트리거가 켜지고 기계식은 일반 클릭입니다.",
   "tmr.uncalibrated": "이 쪽은 보정되지 않아 아날로그 모드를 사용할 수 없습니다.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "켬",

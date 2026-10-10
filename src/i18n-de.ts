@@ -513,6 +513,7 @@ export const de: Record<I18nKey, string> = {
   "tmr.enabled": "Aktiviert",
   "tmr.disabled": "Deaktiviert",
   "tmr.rec": "Empfohlen: 220 µm",
+  "tmr.srtNote": "Folgt dem Klickmodus — Analog aktiviert Rapid Trigger, mechanisch klickt normal.",
   "tmr.uncalibrated": "Diese Seite ist nicht kalibriert — der Analogmodus ist hier nicht verfügbar.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "Aktiviert",

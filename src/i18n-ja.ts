@@ -513,6 +513,7 @@ export const ja: Record<I18nKey, string> = {
   "tmr.enabled": "有効",
   "tmr.disabled": "無効",
   "tmr.rec": "推奨：220 µm",
+  "tmr.srtNote": "クリックモードに連動します。アナログでラピッドトリガーが有効、メカニカルは通常クリックです。",
   "tmr.uncalibrated": "この側は未調整のため、アナログモードは使用できません。",
   "pp.title": "PerfectPolling",
   "pp.enabled": "有効",

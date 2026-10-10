@@ -513,6 +513,7 @@ export const zh: Record<I18nKey, string> = {
   "tmr.enabled": "已启用",
   "tmr.disabled": "已禁用",
   "tmr.rec": "建议：220 µm",
+  "tmr.srtNote": "跟随点击模式——模拟模式启用快速触发，机械模式为普通点击。",
   "tmr.uncalibrated": "该侧未校准——此处无法使用模拟模式。",
   "pp.title": "PerfectPolling",
   "pp.enabled": "已启用",
