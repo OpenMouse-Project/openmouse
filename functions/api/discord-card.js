@@ -25,10 +25,11 @@ export async function onRequest({ request, waitUntil }) {
   if (cached) return method === "HEAD" ? new Response(null, cached) : cached;
 
   const counts = await fetchDiscordCounts();
+  const ok = !counts.error;
   // A failed lookup is cached briefly so a Discord outage can't pin the
   // fallback card for the full window.
-  const maxAge = counts ? CACHE_SECONDS : 60;
-  const response = new Response(renderDiscordCard(counts), {
+  const maxAge = ok ? CACHE_SECONDS : 60;
+  const response = new Response(renderDiscordCard(ok ? counts : null), {
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
       "Cache-Control": `public, max-age=${maxAge}`,
@@ -36,6 +37,9 @@ export async function onRequest({ request, waitUntil }) {
       // needs its own inline <style>; no scripts or external loads.
       "Cross-Origin-Resource-Policy": "cross-origin",
       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+      // Which lookup produced the counts, or why none did; for diagnosing the
+      // fallback card without access to the Worker logs.
+      "X-Discord-Counts": ok ? counts.source : `failed: ${counts.error}`.slice(0, 200),
     },
   });
 

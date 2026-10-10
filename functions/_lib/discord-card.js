@@ -10,24 +10,62 @@ export const DISCORD_INVITE_CODE = "yxC9jzMdw6";
 
 const INVITE_API = `https://discord.com/api/v10/invites/${DISCORD_INVITE_CODE}?with_counts=true`;
 
+// Discord often rate-limits or blocks requests from Cloudflare's shared
+// Worker IPs. shields.io's dynamic-JSON badge fetches the same invite payload
+// from its own servers, so it serves as a relay when the direct lookup fails.
+const shieldsRelay = (field) =>
+  `https://img.shields.io/badge/dynamic/json.json?url=${encodeURIComponent(INVITE_API)}&query=${encodeURIComponent(`$.${field}`)}&label=x`;
+
+const REQUEST_HEADERS = { Accept: "application/json", "User-Agent": "OpenMouse README card (+https://openmouse.app)" };
+
+const toCount = (value) => {
+  const number = typeof value === "string" && /^[\d,]+$/.test(value.trim()) ? Number(value.replace(/,/g, "")) : value;
+  return Number.isFinite(number) ? number : null;
+};
+
+async function fetchDirect(fetchImpl) {
+  const response = await fetchImpl(INVITE_API, { headers: REQUEST_HEADERS });
+  if (!response.ok) return { error: `discord ${response.status}` };
+  const data = await response.json();
+  const members = toCount(data?.approximate_member_count);
+  const online = toCount(data?.approximate_presence_count);
+  if (members === null || online === null) return { error: "discord payload" };
+  return { members, online };
+}
+
+async function fetchShieldsField(fetchImpl, field) {
+  const response = await fetchImpl(shieldsRelay(field), { headers: REQUEST_HEADERS });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return toCount(data?.message ?? data?.value);
+}
+
+async function fetchViaShields(fetchImpl) {
+  const [members, online] = await Promise.all([
+    fetchShieldsField(fetchImpl, "approximate_member_count"),
+    fetchShieldsField(fetchImpl, "approximate_presence_count"),
+  ]);
+  if (members === null || online === null) return { error: "shields" };
+  return { members, online };
+}
+
 /**
- * Fetches the approximate member and online counts for the invite's server.
- * Returns null on any failure (network, non-2xx, unexpected payload).
+ * Fetches the approximate member and online counts for the invite's server,
+ * directly from Discord and then through the shields.io relay.
+ * Returns `{ members, online, source }`, or `{ error }` when both fail.
  */
 export async function fetchDiscordCounts(fetchImpl = fetch) {
-  try {
-    const response = await fetchImpl(INVITE_API, {
-      headers: { Accept: "application/json", "User-Agent": "OpenMouse README card" },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    const members = data?.approximate_member_count;
-    const online = data?.approximate_presence_count;
-    if (!Number.isFinite(members) || !Number.isFinite(online)) return null;
-    return { members, online };
-  } catch {
-    return null;
+  const errors = [];
+  for (const [source, attempt] of [["discord", fetchDirect], ["shields", fetchViaShields]]) {
+    try {
+      const result = await attempt(fetchImpl);
+      if (!result.error) return { members: result.members, online: result.online, source };
+      errors.push(result.error);
+    } catch (error) {
+      errors.push(`${source} ${error instanceof Error ? error.message : "error"}`);
+    }
   }
+  return { error: errors.join("; ") };
 }
 
 const formatCount = (value) => Math.max(0, Math.round(value)).toLocaleString("en-US");
@@ -35,8 +73,9 @@ const formatCount = (value) => Math.max(0, Math.round(value)).toLocaleString("en
 const SANS = `"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
 const MONO = `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
 
-/** Builds the card SVG. `counts` is `{ members, online }` or null for the static tagline. */
+/** Builds the card SVG. `counts` is `{ members, online }`; anything else renders the static tagline. */
 export function renderDiscordCard(counts) {
+  if (!Number.isFinite(counts?.members) || !Number.isFinite(counts?.online)) counts = null;
   const subline = counts
     ? `<text class="sub" x="112" y="87"><tspan class="dot-online">●</tspan> ${formatCount(counts.online)} online<tspan class="dot-members" dx="12">●</tspan> ${formatCount(counts.members)} members</text>`
     : `<text class="sub" x="112" y="87">Help, device requests &amp; dev updates</text>`;
