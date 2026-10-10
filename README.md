@@ -3,29 +3,9 @@
 <a href="https://trendshift.io/repositories/103495?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-103495" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/103495/daily?language=TypeScript" alt="OpenMouse-Project%2Fopenmouse | Trendshift" width="250" height="55"/></a>
 
 <p>
-  <a href="https://control.openmouse.app/"><img src="https://img.shields.io/badge/Try_it_live-control.openmouse.app-6750A4?style=for-the-badge" alt="Try it live"/></a>
-</p>
-
-<p>
-  <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml"><img src="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/codeql.yml"><img src="https://github.com/OpenMouse-Project/openmouse/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"/></a>
+  <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/OpenMouse-Project/openmouse/ci.yml?branch=main&label=CI" alt="CI"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/OpenMouse-Project/openmouse" alt="License"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/releases"><img src="https://img.shields.io/github/package-json/v/OpenMouse-Project/openmouse?label=version" alt="Version"/></a>
-  <a href="https://discord.gg/yxC9jzMdw6"><img src="https://img.shields.io/discord/1531814042421952644?label=discord&logo=discord&logoColor=white" alt="Discord"/></a>
-</p>
-
-<p>
-  <a href="https://github.com/OpenMouse-Project/openmouse/stargazers"><img src="https://img.shields.io/github/stars/OpenMouse-Project/openmouse?style=social" alt="Stars"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/network/members"><img src="https://img.shields.io/github/forks/OpenMouse-Project/openmouse?style=social" alt="Forks"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/watchers"><img src="https://img.shields.io/github/watchers/OpenMouse-Project/openmouse?style=social" alt="Watchers"/></a>
-</p>
-
-<p>
-  <a href="https://github.com/OpenMouse-Project/openmouse/commits/main"><img src="https://img.shields.io/github/last-commit/OpenMouse-Project/openmouse" alt="Last commit"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/graphs/commit-activity"><img src="https://img.shields.io/github/commit-activity/m/OpenMouse-Project/openmouse" alt="Commit activity"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/issues"><img src="https://img.shields.io/github/issues/OpenMouse-Project/openmouse" alt="Open issues"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/pulls"><img src="https://img.shields.io/github/issues-pr/OpenMouse-Project/openmouse" alt="Open pull requests"/></a>
-  <a href="https://github.com/OpenMouse-Project/openmouse/graphs/contributors"><img src="https://img.shields.io/github/contributors/OpenMouse-Project/openmouse" alt="Contributors"/></a>
+  <a href="https://github.com/OpenMouse-Project/openmouse/stargazers"><img src="https://img.shields.io/github/stars/OpenMouse-Project/openmouse" alt="Stars"/></a>
 </p>
 
 OpenMouse is a browser-based control panel for supported gaming mice.
@@ -137,10 +117,6 @@ library registry automatically.
 
 Hardware-specific validation checklists live in the protocol repository's
 `docs/` directory.
-
-## Contributors
-
-<a href="https://github.com/OpenMouse-Project/openmouse/graphs/contributors"><img src="https://contrib.rocks/image?repo=OpenMouse-Project/openmouse" alt="Contributors"/></a>
 
 ## Star history
 
