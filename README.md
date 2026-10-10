@@ -13,9 +13,9 @@ OpenMouse is a browser-based control panel for supported gaming mice.
 Connect a mouse, view its information, and change supported settings such as DPI
 and polling rate without installing a different app for every brand.
 
-<a href="https://control.openmouse.app/"><img src="https://img.shields.io/badge/Open_the_control_panel-6750A4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Open the control panel"/></a>
+<a href="https://control.openmouse.app/"><img src=".github/assets/control-panel-card.svg" width="520" alt="Open the OpenMouse control panel"/></a>
 
-Works in Chrome, Edge and other Chromium browsers (WebHID). Learn more at
+Works in Chromium-based browsers that support WebHID. Learn more at
 [openmouse.app](https://openmouse.app/).
 
 This branch is deployed as the public development control panel at
@@ -71,7 +71,7 @@ to only the `0xff02:0x0002` collection's node is insufficient.
 Questions, device requests, bug reports, or just want to follow along? Come
 hang out on Discord.
 
-<a href="https://discord.gg/yxC9jzMdw6"><img src="https://discord.com/api/guilds/1531814042421952644/widget.png?style=banner2" alt="Join the OpenMouse Discord"/></a>
+<a href="https://discord.gg/yxC9jzMdw6"><img src=".github/assets/discord-card.svg" width="520" alt="Join OpenMouse on Discord"/></a>
 
 ## Contributing
 
