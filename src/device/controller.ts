@@ -1230,23 +1230,34 @@ export function isGameProfileDraftActive(): boolean {
   return gameProfileDraft !== null;
 }
 
+export type FlashResult = "written" | "unchanged" | "busy" | "failed";
+
 /**
  * Writes `snapshot` to the mouse now (a game starting or stopping). Only the
  * snapshot is flashed: the user's own unflashed edits are set aside for the
  * write and staged again afterwards. "busy" means nothing was attempted (a
  * draft is open or another write is running) and the caller should retry;
- * "unchanged" means the mouse already had every value.
+ * "unchanged" means the mouse already had every value. "failed" means the
+ * attempt did not complete; earlier batches may already have landed.
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
-): Promise<"written" | "unchanged" | "busy"> {
+): Promise<FlashResult> {
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashPendingChanges();
-  applyGameProfileSnapshot(snapshot);
-  const staged = hasPendingChanges();
-  if (staged) await flashPendingChanges();
-  restorePendingChanges(stash);
-  return staged ? "written" : "unchanged";
+  try {
+    applyGameProfileSnapshot(snapshot);
+    return hasPendingChanges() ? await flashPendingChanges() : "unchanged";
+  } catch (error) {
+    recordDiagnosticError(error, st("ctl.unableFlash"));
+    const failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
+    setReadStatus(failure);
+    pushToast("error", st("ctl.flashFailed"), failure);
+    return "failed";
+  } finally {
+    // Failed game writes must not replace the user's unrelated staged edits.
+    restorePendingChanges(stash);
+  }
 }
 
 /** Writes that bypass staging must not reach the mouse while a game profile is being edited. */
@@ -1892,14 +1903,14 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
   await wait(milliseconds);
 }
 
-export async function flashPendingChanges(): Promise<void> {
-  if (gameProfileDraft) return;
+export async function flashPendingChanges(): Promise<FlashResult> {
+  if (gameProfileDraft) return "busy";
   const batches = pendingChangeBatches();
-  if (batches.length === 0) return;
+  if (batches.length === 0) return "unchanged";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
-    return;
+    return "busy";
   }
   settingInProgress = true;
   pendingBusy = true;
@@ -1936,21 +1947,28 @@ export async function flashPendingChanges(): Promise<void> {
     recordDiagnosticError(error, st("ctl.unableFlash"));
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
-  await flashPause(FLASH_SETTLE_MS);
-  const client = activeSettingsClient();
-  const status = client ? await statusAfterWrite(client).catch(() => null) : null;
-  if (status) applyStatus(status);
-  endDeviceWrite();
-  pendingBusy = false;
+  try {
+    await flashPause(FLASH_SETTLE_MS);
+    applyStatus(await statusAfterWrite(requireSettingsClient()));
+  } catch (error) {
+    if (!failure) {
+      recordDiagnosticError(error, st("ctl.unableFlash"));
+      failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
+    }
+  } finally {
+    endDeviceWrite();
+    pendingBusy = false;
+  }
   if (flashQueued) {
     flashQueued = false;
-    if (hasPendingChanges()) return flashPendingChanges();
+    // A queued retry must not turn this failed attempt into reported success.
+    if (!failure && hasPendingChanges()) return flashPendingChanges();
   }
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
     pushToast("error", st("ctl.flashFailed"), failure);
-    return;
+    return "failed";
   }
   pendingStatusText = null;
   const flashed = written === 1
@@ -1958,6 +1976,7 @@ export async function flashPendingChanges(): Promise<void> {
     : st("ctl.flashedMany", { n: written });
   setReadStatus(flashed);
   pushToast("success", flashed);
+  return "written";
 }
 
 function endDeviceWrite(): void {

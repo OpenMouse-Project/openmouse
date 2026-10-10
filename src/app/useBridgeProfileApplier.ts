@@ -60,16 +60,22 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
     const profile = bridge?.activeProfile ?? null;
 
     if (!profile || !status || profile.device.name !== status.name) {
-      // Nothing (recognized) is active for this mouse right now. If we were
-      // the one who applied a profile, put back what was there before it.
+      // Nothing (recognized) is active for this mouse right now. Put back
+      // what was there before any successful or partial profile application.
       const prior = priorSettings.current;
-      if (appliedSignature.current === null || !prior) return;
+      // A failed first application can still have changed earlier batches,
+      // even though it never earned an applied signature.
+      if (!status || !prior) return;
       writing.current = true;
       void control.flashGameProfileSnapshot(prior).then((result) => {
         if (result === "busy") return;
         appliedSignature.current = null;
+        if (result === "failed") return;
         priorSettings.current = null;
         if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
+      }).catch(() => {
+        // Keep the backup if an unexpected rejection followed a partial write.
+        appliedSignature.current = null;
       }).finally(() => {
         writing.current = false;
       });
@@ -90,11 +96,15 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
     writing.current = true;
     void control.flashGameProfileSnapshot(toWrite).then((result) => {
       if (result === "busy") return;
+      // Back up attempted fields too: an unsuccessful write is not atomic.
       priorSettings.current = prior;
-      appliedSignature.current = sig;
+      appliedSignature.current = result === "failed" ? null : sig;
       if (result === "written") {
         control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
       }
+    }).catch(() => {
+      priorSettings.current = prior;
+      appliedSignature.current = null;
     }).finally(() => {
       writing.current = false;
     });

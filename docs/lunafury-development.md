@@ -69,9 +69,9 @@ files and vendor images.
 
 ## Automated validation
 
-The paired application build and all 349 application tests pass, including
-27 controller integration tests. Bundle checks pass at 205,473 / 210,000
-bytes for CSS and 2,119,772 / 2,150,000 bytes for JavaScript. These results
+The paired application build and all 367 application tests pass, including
+45 controller/Bridge integration tests. Bundle checks pass at 205,473 / 210,000
+bytes for CSS and 2,120,074 / 2,150,000 bytes for JavaScript. These results
 use the local protocol tarball; they do not establish that a registry-only
 install builds.
 
@@ -106,8 +106,8 @@ with synthetic HID devices. They cover both cross-format switch directions,
 expansion followed by restore and re-enabling on all four runtime PIDs,
 pending user edits, shrinking counts and combined axis-mode/DPI edits.
 The two cross-format cases and four expansion cases failed before the
-2026-10-10 fixes and pass with them. The Bridge hook itself is not mounted
-by this harness; the tests call the same merge functions and controller path.
+2026-10-10 fixes and pass with them. Those cases call the same merge
+functions and controller path used by the Bridge hook.
 
 Three further switch counterexamples are included in the controller suite:
 both games use the same edited DPI table but a different selection; both
@@ -119,11 +119,37 @@ and pass with it. They check both axes, count, selection, dormant slots,
 TYPE33 trailing bytes and restoration of the accumulated originals. Three
 unit tests cover composition, unchanged final tables and legacy scalars.
 
-The protocol source did not change for these switch fixes. Its build and
-151 focused tests were rerun; the 2,252-test result above is the earlier
-broader run. These results do not verify the existing Games failure-return
-contract: `flashGameProfileSnapshot` can still return `written` after a
-device write fails. That separate error-propagation behavior is unchanged.
+The protocol source did not change for these switch fixes or the failure
+handling below. Its build and 151 focused tests were rerun on 2026-10-11;
+the 2,252-test result above is the earlier broader run.
+
+### Games failure and retry regressions (2026-10-11)
+
+`flashPendingChanges` and `flashGameProfileSnapshot` return `failed` when a
+write is rejected or the final status read fails. A queued flash does not
+hide a failed batch by immediately retrying it. Games always restores the
+user's unrelated staged edits, including when snapshot staging throws.
+`written` means the attempt completed; `unchanged` and `busy` keep their
+existing meaning. Failure does not imply that every earlier write was undone.
+
+The Bridge hook records an applied signature only after `written` or
+`unchanged`. A failed application invalidates any previous signature and
+keeps the accumulated originals, including fields from a partially applied
+first game. A failed restore keeps that backup. The next Bridge status poll
+can retry the same game or the restore; success notifications and backup
+cleanup happen only after confirmation.
+
+Eighteen new integration cases cover ignored complete-table writes and
+restore retries on all four PIDs, a queued flash, final-status read failures,
+staging exceptions, partial application/restoration, old-signature
+invalidation and busy-to-ready retry. Fourteen fault cases failed against
+the previous implementation before the fix. The six Bridge cases execute
+the actual hook subscription callback with persistent synthetic refs and a
+synthetic status subscription, using the real controller and protocol
+driver. They do not mount a DOM/Preact renderer or start a native Bridge
+process. Failed cases assert no success notification and then verify the
+synthetic device's values after retry and restore; they do not treat an
+expected `written` on failure as a passing contract.
 
 The paired protocol branch refreshes the active DPI stage and both tables
 during LunaFury live reads. Its older bank-scoped setters and status reads
