@@ -71,7 +71,7 @@ to only the `0xff02:0x0002` collection's node is insufficient.
 Questions, device requests, bug reports, or just want to follow along? Come
 hang out on Discord.
 
-<a href="https://discord.gg/yxC9jzMdw6"><img src="https://control.openmouse.app/api/discord-card" width="520" alt="Join OpenMouse on Discord"/></a>
+<a href="https://discord.gg/yxC9jzMdw6"><img src=".github/assets/discord-card.svg" width="520" alt="Join OpenMouse on Discord"/></a>
 
 ## Contributing
 
