@@ -181,3 +181,36 @@ test("receiver entries match by interfaceId without brand or names", () => {
   const current = getDfuInfo({ ...ref, firmware: ["Receiver 14.4.20"] }, m);
   assert.equal(current?.dfuAvailable, false);
 });
+
+test("starlight X entity entries compare per element without a download", () => {
+  const m = {
+    manifestVersion: 3,
+    updatedAt: "2026-10-10T00:00:00.000Z",
+    source: "test",
+    devices: [
+      {
+        id: "finalmouse-starlight-x-mouse",
+        brand: "Finalmouse",
+        nameMatch: ["Starlight X"],
+        interfaceIds: ["361d_0300", "361d_0301"],
+        firmwareName: "Mouse",
+        latestVersion: "8.0.3",
+        required: false,
+      },
+    ],
+  } as unknown as import("./firmware-updates.ts").FirmwareManifest;
+  const ref = {
+    brand: "Finalmouse",
+    name: "Finalmouse Starlight X",
+    modelId: null,
+    firmware: ["Mouse 8.0.2", "Dongle RF 8.0.3", "Dongle USB 8.0.3"],
+    interfaceId: "361d_0300",
+  };
+  const behind = getDfuInfo(ref, m);
+  assert.equal(behind?.dfuAvailable, true);
+  assert.equal(behind?.entityName, "Mouse");
+  assert.equal(behind?.currentVersion, "8.0.2");
+  assert.equal(behind?.downloadUrl, undefined);
+  const current = getDfuInfo({ ...ref, firmware: ["Mouse 8.0.3", "Dongle RF 8.0.3", "Dongle USB 8.0.3"] }, m);
+  assert.equal(current?.dfuAvailable, false);
+});
