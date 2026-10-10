@@ -512,6 +512,7 @@ export const ru: Record<I18nKey, string> = {
   "tmr.enabled": "Включено",
   "tmr.disabled": "Выключено",
   "tmr.rec": "Рекомендуется: 220 мкм",
+  "tmr.srtNote": "Зависит от режима клика: аналоговый включает rapid trigger, механический кликает как обычно.",
   "tmr.uncalibrated": "Эта сторона не откалибрована — аналоговый режим здесь недоступен.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "Включено",

@@ -461,6 +461,7 @@ export const vi: Record<I18nKey, string> = {
   "tmr.enabled": "Đã bật",
   "tmr.disabled": "Đã tắt",
   "tmr.rec": "Khuyến nghị: 220 µm",
+  "tmr.srtNote": "Theo chế độ nhấp — analog bật rapid trigger, cơ học nhấp như thường.",
   "tmr.uncalibrated": "Phía này chưa được hiệu chuẩn — chế độ analog không khả dụng ở đây.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "Đã bật",

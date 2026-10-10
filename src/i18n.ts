@@ -517,6 +517,7 @@ const en = {
   "tmr.enabled": "Enabled",
   "tmr.disabled": "Disabled",
   "tmr.rec": "Recommended: 220 µm",
+  "tmr.srtNote": "Follows the click mode — analog enables rapid trigger, mechanical clicks normally.",
   "tmr.uncalibrated": "This side is not calibrated — analog mode is unavailable here.",
   "pp.title": "PerfectPolling",
   "pp.enabled": "Enabled",
