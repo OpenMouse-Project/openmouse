@@ -4,6 +4,7 @@ import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import { createKeyboardClient, createSupportedClient, listLogicalDevices } from "../device-clients.ts";
 import { HID_FILTERS } from "./hid-filters.ts";
 
+/** A KOCHI68 fixture carrying a single collection at the given usage. */
 function device(usagePage = 0xffa0, usage = 1): HIDDevice {
   return { vendorId: 0x1ca2, productId: 0x0901, productName: "KOCHI68 Keyboard", opened: false,
     collections: [{ usagePage, usage, inputReports: [], outputReports: [], featureReports: [], children: [] }],

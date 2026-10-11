@@ -11,11 +11,16 @@ export class KochiKeyboardClient implements KeyboardClient {
   readonly device: HIDDevice;
   private readonly client: KochiHidClient;
 
+  /** Build the adapter over the shared HB68 HID client. */
   constructor(device: HIDDevice) { this.device = device; this.client = new KochiHidClient(device); }
+  /** True when the device exposes the HB68 command collection. */
   static isSupported(device: HIDDevice): boolean { return KochiHidClient.isSupported(device); }
+  /** Open the HID session; commands require it. */
   open(): Promise<void> { return this.client.open(); }
+  /** Close the HID session and reject any pending exchange. */
   close(): Promise<void> { return this.client.close(); }
 
+  /** Read the board identity shown in the keyboard header. */
   async readIdentity(): Promise<KeyboardIdentityView> {
     const status = await this.client.readStatus();
     return {
@@ -24,6 +29,7 @@ export class KochiKeyboardClient implements KeyboardClient {
     };
   }
 
+  /** Run a workspace command; only refresh and system mode are supported. */
   async command(command: KeyboardCommand): Promise<Partial<KeyboardWorkspace>> {
     if (command.kind === "refresh") return { systemMode: await this.client.readSystemMode() };
     if (command.kind !== "system") throw new Error("HB68 support currently covers Windows/Mac mode only.");

@@ -54,6 +54,7 @@ export function createSupportedClient(device: HIDDevice): SupportedClient | null
 
 export type { KeyboardClient };
 
+/** True when the client drives a keyboard rather than a mouse. */
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient;
 }

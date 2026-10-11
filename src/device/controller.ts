@@ -3398,6 +3398,7 @@ async function loadKeyboardTrigger(client: KeyboardClient): Promise<void> {
   }
 }
 
+/** Queue a device activation so only one keyboard/mouse switch runs at a time. */
 function activateClient(target: SupportedClient | KeyboardClient): Promise<void> {
   const run = activationQueue.then(async () => {
     activationInProgress = true;
@@ -3542,6 +3543,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   });
 }
 
+/** Ask the browser for a device, then pick the best keyboard or mouse client. */
 async function requestSupportedClient(): Promise<SupportedClient | KeyboardClient | null> {
   if (!navigator.hid) throw new Error(st("ctl.noWebHid"));
   const devices = await navigator.hid.requestDevice({ filters: HID_FILTERS });

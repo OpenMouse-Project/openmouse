@@ -124,6 +124,7 @@ function assertApplied(
 export class WuqueKeyboardClient {
   readonly family = "wuque";
   readonly brand = "Wuque Studio";
+  /** Display name taken from the HID product string. */
   get name(): string { return this.device.productName || "Wuque keyboard"; }
   readonly device: HIDDevice;
   private readonly client: WuqueHidClient;
