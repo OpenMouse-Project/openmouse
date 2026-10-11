@@ -3690,35 +3690,34 @@ async function reconnectAuthorizedDevice(): Promise<void> {
 
       const devices = await navigator.hid?.getDevices() ?? [];
       const preferredKey = storedActiveDeviceKey();
-      const clients = listLogicalDevices(devices)
-        .map((device) => ({
-          client: createSupportedClient(device),
-          preferred: deviceStorageKey(device) === preferredKey,
-          score: clientSupportScore(device),
-        }))
-        .filter((entry): entry is { client: SupportedClient; preferred: boolean; score: number } => entry.client !== null)
-        .sort((left, right) => Number(right.preferred) - Number(left.preferred) || right.score - left.score)
+      // Keyboards are not `SupportedClient`s, so rank them alongside mice here:
+      // a saved keyboard preference must win even when a supported mouse is also
+      // authorized, and multiple keyboards must respect the saved preference
+      // too. Mice keep the first slot when nothing is preferred, which was the
+      // behavior before keyboards joined the reconnect path.
+      const candidates = listLogicalDevices(devices)
+        .map((device) => {
+          const client = createSupportedClient(device) ?? createKeyboardClient(device);
+          return client === null ? null : {
+            client,
+            preferred: deviceStorageKey(device) === preferredKey,
+            keyboard: isKeyboardClient(client),
+            score: clientSupportScore(device),
+          };
+        })
+        .filter((entry): entry is { client: SupportedClient | KeyboardClient; preferred: boolean; keyboard: boolean; score: number } => entry !== null)
+        .sort((left, right) => Number(right.preferred) - Number(left.preferred)
+          || Number(left.keyboard) - Number(right.keyboard)
+          || right.score - left.score)
         .map((entry) => entry.client);
       await refreshSidebar(devices);
-      if (clients.length === 0) {
-        const keyboard = listLogicalDevices(devices)
-          .map(createKeyboardClient)
-          .find((candidate): candidate is KeyboardClient => candidate !== null);
-        if (keyboard) {
-          deviceStatusText = st("ctl.reconnecting");
-          readStatus = st("kb.reading");
-          emit();
-          await activateClient(keyboard);
-          return;
-        }
-        continue;
-      }
+      if (candidates.length === 0) continue;
 
-      for (const client of clients) {
+      for (const client of candidates) {
         if (hasActiveClient()) return;
         try {
           deviceStatusText = st("ctl.reconnecting");
-          readStatus = st("ctl.readingPrev");
+          readStatus = isKeyboardClient(client) ? st("kb.reading") : st("ctl.readingPrev");
           emit();
           await activateClient(client);
           return;
