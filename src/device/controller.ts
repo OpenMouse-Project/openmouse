@@ -2666,6 +2666,7 @@ function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
   return "mouse";
 }
 
+/** One sidebar card per physical device, marking the active one. */
 function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
   const groups = logicalDeviceGroups(devices);
   const entries: SidebarDevice[] = [];
@@ -2797,6 +2798,7 @@ async function authorizedDeviceGroups(): Promise<HIDDevice[][] | null> {
   }
 }
 
+/** Activate the authorized device group the user picked in the device list. */
 export async function selectAuthorizedDevice(index: number): Promise<void> {
   await waitForControllerIdle();
   const groups = await authorizedDeviceGroups();
@@ -3516,6 +3518,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
   });
 }
 
+/** Drop a removed device and switch to a replacement when one is still authorized. */
 function handleHidDisconnect(event: HIDConnectionEvent): void {
   deviceStatuses.delete(event.device);
   // Multi-collection drivers (cmd + notify) treat either handle as the active mouse.
@@ -3638,6 +3641,7 @@ async function requestSupportedClient(): Promise<SupportedClient | KeyboardClien
   throw new Error(unsupportedMessage);
 }
 
+/** Prompt the browser for a device, then activate the best keyboard or mouse. */
 export async function connect(): Promise<void> {
   setConnectionButtons(true, "Connecting…");
   deviceStatusText = st("ctl.requesting");
@@ -3675,6 +3679,7 @@ export async function connect(): Promise<void> {
   }
 }
 
+/** Restore the active device after a reload, honouring the saved preference. */
 async function reconnectAuthorizedDevice(): Promise<void> {
   if (hasActiveClient() || reconnectInFlight) return;
   reconnectInFlight = true;

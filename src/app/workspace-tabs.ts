@@ -1,6 +1,7 @@
 import { WORKSPACE_TAB_ORDER, type WorkspaceTab } from "../device/types.ts";
 import type { CardAvailability } from "./cards/availability.ts";
 
+/** Tabs a connected mouse may show, narrowed by what its cards support. */
 export function availableWorkspaceTabs(
   connected: boolean,
   has: CardAvailability,
@@ -21,6 +22,7 @@ export function availableWorkspaceTabs(
   });
 }
 
+/** Fall back to the overview when the requested tab is not available. */
 export function availableWorkspaceTab(
   current: WorkspaceTab,
   tabs: readonly WorkspaceTab[],

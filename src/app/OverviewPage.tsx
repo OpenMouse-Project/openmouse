@@ -864,6 +864,7 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
+/** The device overview: status, workspace tabs and the active device's cards. */
 export function OverviewPage({
   snapshot,
   onOpenCapture,
