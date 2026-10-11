@@ -78,6 +78,42 @@ before(async () => {
             throw new Error("Injected post-write status failure.");
           };
         }
+        export function testFailStatusReads() {
+          const read = active.readStatus.bind(active);
+          let failing = true, attempts = 0;
+          active.readStatus = async () => {
+            attempts++;
+            if (failing) throw new Error("Injected persistent status failure.");
+            return read();
+          };
+          return { allow: () => { failing = false; }, attempts: () => attempts };
+        }
+        export function testDeferNextStatusRead() {
+          const client = active, read = client.readStatus.bind(client);
+          let release, started = false;
+          const gate = new Promise(resolve => { release = resolve; });
+          client.readStatus = async () => {
+            client.readStatus = read; started = true;
+            await gate;
+            return read();
+          };
+          return { release: () => release(), started: () => started };
+        }
+        export async function testConnectGeneric(device) {
+          const template = await testConnect(device);
+          const stored = { ...template, brand: "Generic", name: "Generic test mouse",
+            dpi: 800, dpiY: 800, dpiStages: undefined, dpiStagesY: undefined,
+            activeDpiStage: undefined, lunafury: undefined, ui: undefined };
+          const writes = [];
+          let reads = 0;
+          active = { device, getDpiOptions: () => [400, 800, 1200, 1600],
+            readStatus: async () => { reads++; return structuredClone(stored); },
+            setDpi: async (dpi) => { writes.push(dpi); stored.dpi = stored.dpiY = dpi; },
+            setPollingRate: async (rate) => { stored.pollingRateHz = rate; } };
+          applyStatus(await active.readStatus());
+          return { stored, writes, reads: () => reads };
+        }
+        export { refreshStatus as testRefreshStatus };
         export { hookWriting as testBridgeWriting };
         export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot,
           mergeSnapshots as testMergeSnapshots } from "./game-profile-snapshot.ts";
@@ -263,7 +299,10 @@ for (const games of [false, true]) {
     assert.match(controller.testState().error, /Injected post-write status failure/);
     assert.equal(controller.getSnapshot().settingInProgress, false);
     assert.equal(controller.testToastLog.some((toast: { kind: string }) => toast.kind === "success"), false);
-    assert.equal(await controller.flashGameProfileSnapshot(target), "written");
+    const start = mouse.sent.length;
+    assert.equal(await controller.flashGameProfileSnapshot(target), "unchanged",
+      "fresh read confirms the first write landed, so retry needs no duplicate write");
+    assert.equal(mouse.sent.slice(start).some(packet => packet[5] < 0x80), false);
     assert.deepEqual(controller.testState().status.dpiStages, target.dpiStages);
     assert.deepEqual(controller.testState().status.dpiStagesY, target.dpiStagesY);
   });
@@ -397,6 +436,198 @@ test("Bridge retries a busy game application after the draft closes", async () =
   assert.equal(bridgeSuccessNotices().length, 1);
   await bridgePoll(null);
   assert.deepEqual(mouse.banks[0], original);
+});
+
+for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  test(`Bridge on ${pid.toString(16)} restores after apply lands but final read fails`, async () => {
+    const mouse = fixture(pid);
+    const before = await controller.testConnect(mouse.device);
+    const original = structuredClone(mouse.banks[0]);
+    controller.testRejectNextStatusRead();
+    await bridgePoll(game("A", { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] }, before.name));
+    assert.equal(mouse.banks[0].table[2], 1200);
+    assert.equal(controller.testState().status.dpiStages[1], 800, "cache predates the unconfirmed write");
+    assert.deepEqual(bridgeSuccessNotices(), []);
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks[0], original, "do not clear backup using the stale original-looking cache");
+    const sent = mouse.sent.length;
+    await controller.testRefreshStatus();
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks[0], original);
+    assert.equal(mouse.sent.slice(sent).some(packet => packet[5] < 0x80), false);
+    assert.equal(bridgeSuccessNotices().length, 1);
+  });
+
+  test(`Bridge on ${pid.toString(16)} reapplies after restore lands but final read fails`, async () => {
+    const mouse = fixture(pid);
+    const before = await controller.testConnect(mouse.device);
+    const original = structuredClone(mouse.banks[0]);
+    const target = game("A", { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] }, before.name);
+    await bridgePoll(target);
+    controller.testToastLog.length = 0;
+    controller.testRejectNextStatusRead();
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks[0], original);
+    assert.equal(controller.testState().status.dpiStages[1], 1200, "cache still looks like game A");
+    assert.deepEqual(bridgeSuccessNotices(), []);
+    await bridgePoll(target);
+    assert.equal(mouse.banks[0].table[2], 1200, "do not record A's signature using the stale game-looking cache");
+    assert.equal(mouse.banks[0].table[3], 2400);
+    const sent = mouse.sent.length;
+    await controller.testRefreshStatus();
+    await bridgePoll(target);
+    assert.equal(mouse.banks[0].table[2], 1200);
+    assert.equal(mouse.sent.slice(sent).some(packet => packet[5] < 0x80), false);
+    assert.equal(bridgeSuccessNotices().length, 1);
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks[0], original);
+  });
+}
+
+for (const failedRestore of [false, true]) {
+  test(`Bridge preserves retry state while refresh keeps failing after ${failedRestore ? "restore" : "apply"}`, async () => {
+    const mouse = fixture();
+    const before = await controller.testConnect(mouse.device);
+    const original = structuredClone(mouse.banks[0]);
+    const target = game("A", { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] }, before.name);
+    if (failedRestore) await bridgePoll(target);
+    const fault = controller.testFailStatusReads();
+    controller.testToastLog.length = 0;
+    await bridgePoll(failedRestore ? null : target);
+    const afterUnconfirmedWrite = structuredClone(mouse.banks[0]);
+    const sent = mouse.sent.length;
+    for (let poll = 0; poll < 3; poll++) {
+      await controller.testRefreshStatus();
+      await bridgePoll(failedRestore ? target : null);
+      assert.deepEqual(mouse.banks[0], afterUnconfirmedWrite);
+      assert.deepEqual(bridgeSuccessNotices(), []);
+      assert.equal(mouse.sent.length, sent, "no speculative write without a successful status refresh");
+    }
+    assert.equal(fault.attempts(), 7, "one final read plus three background and three foreground retries");
+    fault.allow();
+    await bridgePoll(failedRestore ? target : null);
+    if (failedRestore) {
+      assert.equal(mouse.banks[0].table[2], 1200);
+      assert.equal(mouse.banks[0].table[3], 2400);
+      await bridgePoll(null);
+    }
+    assert.deepEqual(mouse.banks[0], original, "retained originals remain restorable after recovery");
+  });
+}
+
+test("controller does not report an empty manual Apply unchanged until status is confirmed", async () => {
+  const mouse = fixture();
+  await controller.testConnect(mouse.device);
+  const fault = controller.testFailStatusReads();
+  controller.applyLunaFuryDpiStageAxes(1, 1200, 2400);
+  assert.equal(await controller.flashPendingChanges(), "failed");
+  assert.deepEqual(controller.testState().pending, []);
+  assert.equal(await controller.flashPendingChanges(), "failed");
+  fault.allow();
+  const sent = mouse.sent.length;
+  assert.equal(await controller.flashPendingChanges(), "unchanged");
+  assert.equal(controller.testState().status.dpiStages[1], 1200);
+  assert.equal(mouse.sent.slice(sent).some(packet => packet[5] < 0x80), false);
+});
+
+test("a same-JSON background read confirms an untrusted cache without another read or write", async () => {
+  const mouse = fixture();
+  await controller.testConnect(mouse.device);
+  const original = structuredClone(mouse.banks[0]);
+  ignoreWrites(mouse);
+  const fault = controller.testFailStatusReads();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpiStages: [400, 1200, 1600] }), "failed");
+  fault.allow();
+  await controller.testRefreshStatus();
+  assert.deepEqual(mouse.banks[0], original);
+  const attempts = fault.attempts(), sent = mouse.sent.length;
+  assert.equal(await controller.flashGameProfileSnapshot({ dpiStages: [400, 800, 1600] }), "unchanged");
+  assert.equal(fault.attempts(), attempts, "a successful background read restores trust even when JSON did not change");
+  assert.equal(mouse.sent.length, sent);
+});
+
+test("Bridge captures newly touched fields from the refreshed status after an unconfirmed write", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGeneric(mouse.device);
+  const name = generic.stored.name;
+  controller.testRejectNextStatusRead();
+  await bridgePoll(game("A", { dpi: 1200 }, name));
+  assert.equal(generic.stored.dpi, 1200);
+  assert.equal(controller.testState().status.dpi, 800);
+  generic.stored.pollingRateHz = 2000; // A did not touch this externally changed field.
+  assert.equal(controller.testState().status.pollingRateHz, 1000);
+  await bridgePoll(game("B", { dpi: 1200, pollingRateHz: 1000 }, name));
+  assert.equal(generic.stored.pollingRateHz, 1000);
+  await bridgePoll(null);
+  assert.equal(generic.stored.dpi, 800, "A's accumulated original still wins for DPI");
+  assert.equal(generic.stored.pollingRateHz, 2000, "B captures its newly touched field after refresh, not from stale cache");
+});
+
+test("generic scalar-DPI Games writes obey status trust and avoid redundant confirmed writes", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGeneric(mouse.device);
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "written");
+  assert.deepEqual(generic.writes, [1200]);
+  const reads = generic.reads();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "unchanged");
+  assert.equal(generic.reads(), reads);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 800 }), "failed");
+  assert.equal(generic.stored.dpi, 800);
+  const fault = controller.testFailStatusReads();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "failed");
+  assert.deepEqual(generic.writes, [1200, 800]);
+  fault.allow();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "written");
+  assert.deepEqual(generic.writes, [1200, 800, 1200]);
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 800 }), "written");
+});
+
+test("manual staging does not drop an edit matching only the untrusted old cache", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGeneric(mouse.device);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "failed");
+  assert.equal(controller.testState().status.dpi, 800);
+  assert.equal(generic.stored.dpi, 1200);
+  controller.applyDpiValue(800);
+  assert.deepEqual(controller.testState().pending, ["dpi"]);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  assert.equal(generic.stored.dpi, 800);
+});
+
+test("failed foreground refresh preserves pending edits, then confirmed recovery rebases their preview", async () => {
+  const mouse = fixture();
+  await controller.testConnect(mouse.device);
+  controller.applyLunaFuryDpiStageAxes(0, 600, 1200);
+  const fault = controller.testFailStatusReads();
+  const target = { dpiStages: [400, 1200, 1600], dpiStagesY: [800, 2400, 3200] };
+  assert.equal(await controller.flashGameProfileSnapshot(target), "failed");
+  assert.equal(await controller.flashGameProfileSnapshot(target), "failed");
+  assert.deepEqual(controller.testState().pending, ["dpi-stage-0"]);
+  assert.deepEqual(controller.testState().preview.dpiStages, [600, 800, 1600]);
+  fault.allow();
+  assert.equal(await controller.flashGameProfileSnapshot(target), "unchanged");
+  assert.deepEqual(controller.testState().pending, ["dpi-stage-0"]);
+  assert.deepEqual(controller.testState().preview.dpiStages, [600, 1200, 1600]);
+});
+
+test("an in-flight foreground recovery blocks another Games attempt until the read completes", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGeneric(mouse.device);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "failed");
+  const gate = controller.testDeferNextStatusRead();
+  const first = controller.flashGameProfileSnapshot({ dpi: 1200 });
+  assert.equal(gate.started(), true);
+  try {
+    assert.equal(await controller.flashGameProfileSnapshot({ dpi: 800 }), "busy");
+    assert.deepEqual(generic.writes, [1200]);
+  } finally {
+    gate.release();
+  }
+  assert.equal(await first, "unchanged");
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 800 }), "written");
 });
 
 test("controller restores legacy target-stage edits and preserves unrelated pending user changes", async () => {

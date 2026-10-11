@@ -345,6 +345,9 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 let latestDeviceStatus: MouseStatus | null = null;
+// Keep the last snapshot visible after a read failure, but do not use it to
+// confirm no-op writes or capture Games originals after an unconfirmed write.
+let deviceStatusNeedsRefresh = false;
 let lastDiagnosticCommand: string | null = null;
 let lastDiagnosticError: string | null = null;
 let reconnectInFlight = false;
@@ -1147,7 +1150,7 @@ function queueInstantFlash(): void {
 let matchesBaseline: { status: MouseStatus; json: string } | null = null;
 
 function matchesDeviceStatus(change: PendingChange): boolean {
-  if (!latestDeviceStatus) return false;
+  if (!latestDeviceStatus || deviceStatusNeedsRefresh) return false;
   if (!change.preview) return false;
   if (matchesBaseline?.status !== latestDeviceStatus) {
     matchesBaseline = { status: latestDeviceStatus, json: JSON.stringify(latestDeviceStatus) };
@@ -1232,17 +1235,44 @@ export function isGameProfileDraftActive(): boolean {
 
 export type FlashResult = "written" | "unchanged" | "busy" | "failed";
 
+/** Refresh an unconfirmed post-write cache before Games planning or deduplication. */
+export async function prepareGameProfileStatus(): Promise<MouseStatus | "busy" | "failed"> {
+  if (gameProfileDraft || settingInProgress || activationInProgress || !latestDeviceStatus) return "busy";
+  if (!deviceStatusNeedsRefresh) return latestDeviceStatus;
+  if (refreshInProgress) return "busy";
+  const client = activeSettingsClient();
+  if (!client) return "busy";
+  refreshInProgress = true;
+  try {
+    const status = await statusAfterWrite(client);
+    if (client !== activeSettingsClient() || client.device !== activeDevice) return "busy";
+    applyStatus(status);
+    return latestDeviceStatus!;
+  } catch (error) {
+    recordDiagnosticError(error, st("ctl.unableRefresh"));
+    const failure = diagnosticErrorMessage(error, st("ctl.unableRefresh"));
+    setReadStatus(failure);
+    pushToast("error", st("ctl.flashFailed"), failure);
+    return "failed";
+  } finally {
+    refreshInProgress = false;
+  }
+}
+
 /**
  * Writes `snapshot` to the mouse now (a game starting or stopping). Only the
  * snapshot is flashed: the user's own unflashed edits are set aside for the
  * write and staged again afterwards. "busy" means nothing was attempted (a
  * draft is open or another write is running) and the caller should retry;
- * "unchanged" means the mouse already had every value. "failed" means the
+ * "unchanged" means a confirmed status already had every value. "failed" means the
  * attempt did not complete; earlier batches may already have landed.
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
 ): Promise<FlashResult> {
+  const status = await prepareGameProfileStatus();
+  if (typeof status === "string") return status;
+  // Another writer or a draft may start while the refresh yields.
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashPendingChanges();
   try {
@@ -1906,11 +1936,15 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 export async function flashPendingChanges(): Promise<FlashResult> {
   if (gameProfileDraft) return "busy";
   const batches = pendingChangeBatches();
-  if (batches.length === 0) return "unchanged";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
     return "busy";
+  }
+  if (batches.length === 0) {
+    if (!deviceStatusNeedsRefresh) return "unchanged";
+    const status = await prepareGameProfileStatus();
+    return typeof status === "string" ? status : "unchanged";
   }
   settingInProgress = true;
   pendingBusy = true;
@@ -1951,6 +1985,9 @@ export async function flashPendingChanges(): Promise<FlashResult> {
     await flashPause(FLASH_SETTLE_MS);
     applyStatus(await statusAfterWrite(requireSettingsClient()));
   } catch (error) {
+    deviceStatusNeedsRefresh = true;
+    lastRenderedStatusKey = null;
+    matchesBaseline = null;
     if (!failure) {
       recordDiagnosticError(error, st("ctl.unableFlash"));
       failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
@@ -2336,8 +2373,11 @@ function setPageTitle(prefix?: string): void {
   document.title = prefix ? `${prefix} - ${DEFAULT_TITLE}` : DEFAULT_TITLE;
 }
 
-function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
-  batch(() => applyStatusInner(deviceStatus, statusKey));
+function applyStatus(deviceStatus: MouseStatus, statusKey?: string, confirmed = true): void {
+  batch(() => {
+    if (confirmed) deviceStatusNeedsRefresh = false;
+    applyStatusInner(deviceStatus, statusKey);
+  });
 }
 
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
@@ -2596,6 +2636,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   if (active && active !== client) await active.close().catch(() => undefined);
   clearPendingChanges();
   latestDeviceStatus = null;
+  deviceStatusNeedsRefresh = false;
   clearActiveClients();
   if (switchingDevice) {
     onboardProfiles = null;
@@ -2705,6 +2746,7 @@ function showDisconnectedState(): void {
   capabilities = null;
   clearPendingChanges();
   latestDeviceStatus = null;
+  deviceStatusNeedsRefresh = false;
   buttons = null;
   clearNapeKeymaps();
   setPageTitle();
@@ -4034,7 +4076,7 @@ export async function switchNapeLayer(layer: number): Promise<void> {
     const status = latestDeviceStatus;
     if (!status) return;
     editedNapeLayer = layer;
-    applyStatus({ ...status, napeLayer: layer });
+    applyStatus({ ...status, napeLayer: layer }, undefined, false);
     installPreviewNapeKeymap(layer);
     setReadStatus(st("ctl.previewSwitched", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(layer)) }));
     return;
@@ -5371,7 +5413,7 @@ async function refreshStatus(): Promise<void> {
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     const key = JSON.stringify(status);
-    if (key !== lastRenderedStatusKey) applyStatus(status, key);
+    if (deviceStatusNeedsRefresh || key !== lastRenderedStatusKey) applyStatus(status, key);
   } catch (error) {
     lastRenderedStatusKey = null;
     deviceStatusText = st("ctl.waitingRefresh");

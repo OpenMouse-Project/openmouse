@@ -59,42 +59,47 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
     const status = deviceStatusRef.current;
     const profile = bridge?.activeProfile ?? null;
 
-    if (!profile || !status || profile.device.name !== status.name) {
-      // Nothing (recognized) is active for this mouse right now. Put back
-      // what was there before any successful or partial profile application.
-      const prior = priorSettings.current;
-      // A failed first application can still have changed earlier batches,
-      // even though it never earned an applied signature.
-      if (!status || !prior) return;
-      writing.current = true;
-      void control.flashGameProfileSnapshot(prior).then((result) => {
+    if (!status || (!profile && !priorSettings.current)) return;
+
+    writing.current = true;
+    let attemptedPrior: GameProfileSnapshot | null = null;
+    void (async () => {
+      // A failed final read leaves a display snapshot, not a reliable baseline.
+      // Refresh before both no-op detection and capturing newly touched fields.
+      const confirmed = await control.prepareGameProfileStatus();
+      if (typeof confirmed === "string") {
+        if (confirmed === "failed") appliedSignature.current = null;
+        return;
+      }
+      if (!profile || profile.device.name !== confirmed.name) {
+        // Nothing (recognized) is active for this mouse right now. Put back
+        // what was there before any successful or partial profile application.
+        const prior = priorSettings.current;
+        // A failed first application can still have changed earlier batches,
+        // even though it never earned an applied signature.
+        if (!prior) return;
+        const result = await control.flashGameProfileSnapshot(prior);
         if (result === "busy") return;
         appliedSignature.current = null;
         if (result === "failed") return;
         priorSettings.current = null;
         if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
-      }).catch(() => {
-        // Keep the backup if an unexpected rejection followed a partial write.
-        appliedSignature.current = null;
-      }).finally(() => {
-        writing.current = false;
-      });
-      return;
-    }
+        return;
+      }
 
-    const sig = signature(profile);
-    if (sig === appliedSignature.current) return;
+      const sig = signature(profile);
+      if (sig === appliedSignature.current) return;
 
-    const target = profileTarget(profile);
-    // Capture only fields not already held: when one game's profile gives way
-    // to another's, the originals from before the first one still win.
-    const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {}, status);
-    // Fields the previous profile changed but this one doesn't go back to
-    // their originals, so the new game starts from the user's own settings.
-    const toWrite = mergeSnapshots(priorSettings.current ?? {}, target, status);
+      const target = profileTarget(profile);
+      // Capture only fields not already held: when one game's profile gives way
+      // to another's, the originals from before the first one still win.
+      const prior = mergeSnapshots(pickSnapshot(confirmed, target), priorSettings.current ?? {}, confirmed);
+      // Fields the previous profile changed but this one doesn't go back to
+      // their originals, so the new game starts from the user's own settings.
+      const toWrite = mergeSnapshots(priorSettings.current ?? {}, target, confirmed);
 
-    writing.current = true;
-    void control.flashGameProfileSnapshot(toWrite).then((result) => {
+      attemptedPrior = prior;
+      const result = await control.flashGameProfileSnapshot(toWrite);
       if (result === "busy") return;
       // Back up attempted fields too: an unsuccessful write is not atomic.
       priorSettings.current = prior;
@@ -102,8 +107,9 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
       if (result === "written") {
         control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
       }
-    }).catch(() => {
-      priorSettings.current = prior;
+    })().catch(() => {
+      // Keep originals even if an unexpected rejection followed a partial write.
+      if (attemptedPrior) priorSettings.current = attemptedPrior;
       appliedSignature.current = null;
     }).finally(() => {
       writing.current = false;

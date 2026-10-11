@@ -69,9 +69,9 @@ files and vendor images.
 
 ## Automated validation
 
-The paired application build and all 367 application tests pass, including
-45 controller/Bridge integration tests. Bundle checks pass at 205,473 / 210,000
-bytes for CSS and 2,120,074 / 2,150,000 bytes for JavaScript. These results
+The paired application build and all 384 application tests pass, including
+62 controller/Bridge integration tests. Bundle checks pass at 205,473 / 210,000
+bytes for CSS and 2,120,700 / 2,150,000 bytes for JavaScript. These results
 use the local protocol tarball; they do not establish that a registry-only
 install builds.
 
@@ -156,3 +156,37 @@ during LunaFury live reads. Its older bank-scoped setters and status reads
 now share the queue used by bank switches and the newer setters. Other
 brands retain their existing execution paths. These tests use simulated
 devices and do not add a hardware-verification result.
+
+### Unconfirmed status-cache regressions (2026-10-11)
+
+A failed final read now marks the displayed snapshot untrusted. Games must
+obtain a successful status read before planning writes, capturing newly
+touched originals or confirming `unchanged`. An empty manual Apply follows
+the same rule. Manual staging cannot discard an edit just because it matches
+that old snapshot. A successful background read restores trust even when
+its JSON is unchanged; a local-only layer preview does not.
+
+If the foreground refresh also fails, Games returns `failed` without
+attempting another write. Bridge keeps its original-settings backup and
+does not record an applied signature or notify success. Once reads recover,
+the next poll can apply or restore from the confirmed status. If the previous
+write already landed, the fresh read can confirm `unchanged` without sending
+a duplicate write. An in-flight recovery returns `busy` to another Games
+attempt rather than allowing it to plan against the stale cache.
+
+Seventeen integration cases were added. Both counterexamples run on all
+four runtime PIDs: apply lands but final read fails, followed by exit before
+background refresh; restore lands but final read fails, followed by reopening
+the same game. Two cases inject sustained foreground and background read
+failures, then check recovery and restoration of the retained originals.
+The remaining cases cover empty Apply, same-JSON recovery, newly touched
+fields, generic scalar-DPI control, manual deduplication, pending user edits
+and overlapping recovery. Sixteen cases failed against `b2fab92` before this
+fix; the same-JSON background recovery was an already-passing control case.
+
+All 62 controller/Bridge cases and all 384 application tests pass. The 17
+Bridge cases across both failure-handling rounds run the real subscription
+callback with synthetic refs and status events, not a DOM renderer or native
+Bridge process. Protocol source, packets and dependencies are unchanged;
+its build, 151 focused tests, package dry-run and runtime audit were rerun.
+No new hardware result is claimed.
