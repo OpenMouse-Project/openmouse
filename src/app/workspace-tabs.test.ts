@@ -11,6 +11,7 @@ test("HB68 exposes only system mode; existing keyboard tabs remain available", (
   assert.ok(availableKeyboardWorkspaceTabs().includes("lighting"));
 });
 
+/** A CardAvailability fixture where every unset field reads as false. */
 function availability(enabled: Partial<CardAvailability>): CardAvailability {
   return new Proxy(enabled, { get: (target, property) => Reflect.get(target, property) ?? false }) as CardAvailability;
 }

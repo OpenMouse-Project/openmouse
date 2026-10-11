@@ -67,6 +67,7 @@ import { deviceImage, deviceImageFilename, isUnknownDevice, showcaseDeviceImageU
 import { BatteryIcon } from "./ui";
 import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
 
+/** True when the workspace tab is present in the list. */
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
 }
@@ -759,6 +760,7 @@ export function Workspace({
   );
 }
 
+/** The authorized-device list shown when no device is active. */
 function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const devices = snapshot.devices;
   const locale = snapshot.preferences.locale;

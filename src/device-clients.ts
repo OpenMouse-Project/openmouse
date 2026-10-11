@@ -48,6 +48,7 @@ function bridgeRazerClient(device: HIDDevice): SupportedClient | null {
 }
 
 
+/** The mouse client for a device, including Bridge-exposed Razer boards. */
 export function createSupportedClient(device: HIDDevice): SupportedClient | null {
   return registryCreateSupportedClient(device) ?? bridgeRazerClient(device);
 }

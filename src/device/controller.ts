@@ -2659,6 +2659,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   emit();
 }
 
+/** Whether a client appears as a keyboard or a mouse in the sidebar. */
 function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
   if (client instanceof KeychronNapeHidClient
     || client instanceof WootingHidClient
@@ -3239,6 +3240,7 @@ async function readReceiverRegisterF1(
   };
 }
 
+/** Activate a mouse client and remember it as the preferred device. */
 async function activateClientNow(client: SupportedClient): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
@@ -3465,6 +3467,7 @@ function showDisconnectedState(): void {
   setConnectionButtons(false, "Add device");
 }
 
+/** Refresh the sidebar when an already-active device reconnects. */
 function handleHidConnect(event: HIDConnectionEvent): void {
   if (activeDevice === event.device) {
     void refreshSidebar();
