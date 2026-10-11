@@ -107,6 +107,33 @@ const EGG_OP1: MouseStatus = {
   firmware: ["1.02.00"],
 };
 
+const EGG_OT: MouseStatus = {
+  brand: "Endgame Gear",
+  name: "OP1 RGB",
+  ui: {
+    family: "egg-ot",
+    hideSleepCard: true,
+    defaultDisplayName: "Endgame Gear OP1 RGB",
+  },
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 800,
+  dpiY: 800,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: 0,
+  profileCount: 5,
+  profileNames: ["Gaming"],
+  liftOffDistance: "Medium",
+  connectionType: "Wired",
+  motionSync: false,
+  angleSnapping: true,
+  rippleControl: false,
+  slamclickFilter: true,
+  firmware: [],
+};
+
 const EGG_WE: MouseStatus = {
   brand: "Endgame Gear",
   name: "OP1we",
@@ -967,6 +994,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "pulsar-xs1-8k": { label: "Pulsar XS-1 8K dongle", status: PULSAR_XS1_8K },
   "pulsar-xs1-unknown": { label: "Pulsar XS-1 unknown polling", status: PULSAR_XS1_UNKNOWN },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
+  "egg-ot": { label: "Endgame Gear OP1 RGB", status: EGG_OT },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },

@@ -88,3 +88,15 @@ test("finalmouse ULX fixture stays free of SLX cards but gains signal", () => {
   assert.equal(has.perfectPolling, false);
   assert.equal(has.finalmouseProfiles, false);
 });
+
+test("egg-ot fixture matches the OP1 RGB driver shape", () => {
+  const { status } = PREVIEW_FIXTURES["egg-ot"];
+  assert.equal(status.brand, "Endgame Gear");
+  assert.equal(status.name, "OP1 RGB");
+  assert.equal(familyOf(status), "egg-ot");
+  assert.equal(status.pollingRateHz, 1000);
+  assert.deepEqual(status.supportedPollingRates, [125, 250, 500, 1000]);
+  assert.equal(status.dpi, 800);
+  assert.equal(status.profileCount, 5);
+  assert.equal(snapshotFor("egg-ot").traits.eggFamily, true);
+});

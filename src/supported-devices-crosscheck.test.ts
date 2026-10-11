@@ -89,27 +89,26 @@ test("Delux M800 Mini still resolves to its supported row on the shared PIDs", (
   assert.equal(result.pageModel, "M800 Mini");
 });
 
-test("M2-NEX resolves to the Noir Gear supported row despite the shared OEM PID", () => {
+test("M2-NEX resolves by product name since its row pins no PIDs", () => {
   const result = crosscheckSupportedDevices(
-    device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: 0x2255 }),
+    device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: null }),
     "pass",
   );
   assert.equal(result.listed, true);
-  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.matchedBy, "name");
   assert.equal(result.status, "supported");
   assert.equal(result.pageModel, "M2-NEX");
   assert.match(result.detail, /already listed as Supported/);
 });
 
-test("NOIR E1 resolves to its own pending row despite sharing the M2-NEX PID", () => {
+test("NOIR E1 has no row since upstream removed it", () => {
   const result = crosscheckSupportedDevices(
-    device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: 0x2255 }),
+    device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: null }),
     "pass",
   );
-  assert.equal(result.listed, true);
-  assert.equal(result.matchedBy, "pid");
-  assert.equal(result.status, "pending");
-  assert.equal(result.pageModel, "NOIR E1");
+  assert.equal(result.listed, false);
+  assert.equal(result.matchedBy, null);
+  assert.match(result.detail, /not listed on the supported-devices page/);
 });
 
 test("brand+model name match on a likely row with a passing run qualifies for Supported", () => {

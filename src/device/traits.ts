@@ -35,6 +35,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   "logitech-hidpp": { logitech: true },
   "egg-op1": { advancedSection: true, eggControls: true, eggFamily: true },
   "egg-we": { eggFamily: true },
+  // OT platform (XM1r/OP1/OP1 RGB): profile/CPI/polling/LOD/macros/LED live
+  // in ot* status fields until dedicated cards land, so only the family flag.
+  "egg-ot": { eggFamily: true },
   "finalmouse-ulx": { advancedSection: true, finalmouse: true, signal: true },
   "finalmouse-slx": { advancedSection: true, finalmouse: true, signal: true },
   pulsar: SHARED_ADVANCED,

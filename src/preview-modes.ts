@@ -13,6 +13,7 @@ export const PREVIEW_KEYS = [
   "pulsar-xs1-8k",
   "pulsar-xs1-unknown",
   "egg-op1",
+  "egg-ot",
   "egg-we",
   "egg-xm2we",
   "wlmouse",
@@ -62,6 +63,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "pulsar-xs1-8k": return "pulsar-xs1-8k";
     case "pulsar-xs1-unknown": return "pulsar-xs1-unknown";
     case "egg-op1": return "egg-op1";
+    case "egg-ot": return "egg-ot";
     case "egg-we": return "egg-we";
     case "egg-xm2we": return "egg-xm2we";
     case "wlmouse": return "wlmouse";
