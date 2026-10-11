@@ -13,7 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/keyboard-protocol": "git+https://github.com/eichiiiwastaken/keyboard-protocol.git#11a8617ce621346c395ee4cb8aa128748438bc81",
+    "@openmouse/keyboard-protocol": "1.1.0",
     "@openmouse/protocol": "0.33.0",
     "lucide-react": "^1.43.0",
     "preact": "^10.29.8"
