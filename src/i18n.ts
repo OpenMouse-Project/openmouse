@@ -1145,6 +1145,7 @@ const en = {
   "m2nex.appliedDetail": "The mouse is now using this profile.",
   "m2nex.applyFailed": "Profile apply failed",
   "m2nex.applyError": "Unable to apply the M2-NEX profile.",
+  "kb.kochiModeNote": "Choose Windows mode for Windows or Linux, or Mac mode for macOS. Changes are confirmed by reading the keyboard back.",
   "kb.brand": "Wuque Studio",
   "kb.available": "Available",
   "kb.keyboardLabel": "KEYBOARD",

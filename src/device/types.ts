@@ -233,6 +233,7 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
+  family?: "wuque" | "kochi";
   name: string;
   vendorId: number;
   productId: number;

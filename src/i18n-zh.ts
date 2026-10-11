@@ -1142,6 +1142,7 @@ export const zh: Record<I18nKey, string> = {
   "m2nex.applied": "{name} applied",
   "m2nex.appliedDetail": "The mouse is now using this profile.",
   "m2nex.applyFailed": "Profile apply failed",
+  "kb.kochiModeNote": "Windows 或 Linux 请选择 Windows 模式，macOS 请选择 Mac 模式。更改后会重新读取键盘设置进行确认。",
   "kb.brand": "Wuque Studio",
   "kb.available": "可用",
   "kb.keyboardLabel": "键盘",

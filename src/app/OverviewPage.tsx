@@ -1,4 +1,3 @@
-import { WORKSPACE_TAB_ORDER } from "../device/types";
 import {
   ArrowLeft,
   BarChart3,
@@ -66,7 +65,7 @@ import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage, deviceImageFilename, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
-import { availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
+import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
 
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
@@ -879,7 +878,7 @@ export function OverviewPage({
   const { preferences } = snapshot;
   const locale = preferences.locale;
 
-  const tabs = snapshot.keyboard ? WORKSPACE_TAB_ORDER : availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
+  const tabs = snapshot.keyboard ? availableKeyboardWorkspaceTabs(snapshot.keyboard.family) : availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
     hideLighting: isNoirKsnakeStatus(status),
   });
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);

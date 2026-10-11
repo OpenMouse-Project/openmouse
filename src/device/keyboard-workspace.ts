@@ -3,6 +3,8 @@ import type { WuqueMacroRead, WuqueHidClient } from '@openmouse/keyboard-protoco
 import type { WuqueAxisReading, WuqueHigherKey, WuqueHigherKeyWrite, WuqueKeyLayoutStyle, WuqueKeyLayoutDefault, WuqueLightingBase, WuqueLightingLed, WuqueLightingPaletteColor, WuqueMacroEvent, WuqueRgb } from '@openmouse/keyboard-protocol/wuque';
 
 export interface KeyboardWorkspace {
+  /** HB68 mode; independent of the Wuque global-settings structure. */
+  systemMode?: "win" | "mac";
   global: WuqueGlobalState | null;
   lighting: WuqueLightingState | null;
   custom: readonly WuqueLightingLed[];

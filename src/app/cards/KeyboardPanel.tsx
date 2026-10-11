@@ -1,3 +1,4 @@
+import { KochiKeyboardPanel } from "./KochiKeyboardPanel";
 import { KeyboardWorkspaceCards } from "./KeyboardWorkspaceCards";
 import type { ReactNode } from "react";
 import * as control from "../../device/controller";
@@ -22,6 +23,7 @@ function millimetres(value: number): string {
 export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const keyboard = snapshot.keyboard;
   if (!keyboard) return null;
+  if (keyboard.family === "kochi") return <KochiKeyboardPanel snapshot={snapshot} />;
   const locale = snapshot.preferences.locale;
   const { identity, polling, trigger } = keyboard;
   const busy = trigger.busy;

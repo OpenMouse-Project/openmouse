@@ -1148,6 +1148,7 @@ export const vi: Record<I18nKey, string> = {
   "m2nex.applied": "{name} applied",
   "m2nex.appliedDetail": "The mouse is now using this profile.",
   "m2nex.applyFailed": "Profile apply failed",
+  "kb.kochiModeNote": "Chọn chế độ Windows cho Windows hoặc Linux, hoặc chế độ Mac cho macOS. Thay đổi được xác nhận bằng cách đọc lại cài đặt bàn phím.",
   "kb.brand": "Wuque Studio",
   "kb.available": "Khả dụng",
   "kb.keyboardLabel": "BÀN PHÍM",

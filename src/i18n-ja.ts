@@ -1142,6 +1142,7 @@ export const ja: Record<I18nKey, string> = {
   "m2nex.applied": "{name} applied",
   "m2nex.appliedDetail": "The mouse is now using this profile.",
   "m2nex.applyFailed": "Profile apply failed",
+  "kb.kochiModeNote": "WindowsやLinuxではWindowsモード、macOSではMacモードを選択します。変更後にキーボードの設定を再読み込みして確認します。",
   "kb.brand": "Wuque Studio",
   "kb.available": "利用可能",
   "kb.keyboardLabel": "キーボード",

@@ -27,3 +27,8 @@ export function availableWorkspaceTab(
 ): WorkspaceTab {
   return tabs.includes(current) ? current : "overview";
 }
+
+/** The HB68 currently implements only the overview system-mode control. */
+export function availableKeyboardWorkspaceTabs(family?: string): readonly WorkspaceTab[] {
+  return family === "kochi" ? ["overview"] : WORKSPACE_TAB_ORDER;
+}

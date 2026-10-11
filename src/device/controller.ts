@@ -6,6 +6,8 @@ import { pollingRateText } from "../ui/polling-rate";
 import {
   clientSupportScore,
   createKeyboardClient,
+  isKeyboardClient,
+  type KeyboardClient,
   createSupportedClient,
   deviceBrand,
   describeHidDevice,
@@ -15,7 +17,6 @@ import {
   type PulsarClient,
   type SupportedClient,
 } from "../device-clients";
-import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
 import { closestDpiOption } from "../dpi-presets";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
@@ -189,7 +190,6 @@ import {
   type KeychronNapeLayerKeymap,
 } from "@openmouse/protocol/keychron";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
-import { wuqueProductName } from "@openmouse/keyboard-protocol/wuque";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { WLMouseBeastX4kHidClient } from "@openmouse/protocol/drivers/wlmouse/beast-x-4k-hid";
@@ -265,7 +265,7 @@ const isAnyPreview = previewMode !== null;
 let active: SupportedClient | null = null;
 
 /** The active keyboard, when the selected device is one. Mutually exclusive with `active`. */
-let activeKeyboard: WuqueKeyboardClient | null = null;
+let activeKeyboard: KeyboardClient | null = null;
 let keyboardIdentity: KeyboardIdentityView | null = null;
 let keyboardPolling: KeyboardPollingView | null = null;
 let keyboardMatrix: readonly (readonly number[])[] = [];
@@ -518,6 +518,7 @@ function deviceArtwork(status: MouseStatus | null): string | null {
 function buildKeyboardView(): KeyboardView | null {
   if (!activeKeyboard || !keyboardIdentity) return null;
   return {
+    family: activeKeyboard.family,
     name: keyboardIdentity.name,
     vendorId: activeKeyboard.device.vendorId,
     productId: activeKeyboard.device.productId,
@@ -2685,8 +2686,8 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
         index,
         name: connected && keyboardIdentity
           ? keyboardIdentity.name
-          : (device.productName ?? wuqueProductName(device.productId)),
-        detail: `${st("kb.brand")} · ${connected ? st("ctl.connected") : st("kb.available")}`,
+          : (device.productName || keyboard.name),
+        detail: `${keyboard.brand} · ${connected ? st("ctl.connected") : st("kb.available")}`,
         selected,
         vendorId: device.vendorId,
         productId: device.productId,
@@ -2808,7 +2809,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
     .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
     .sort((left, right) => right.score - left.score);
   if (candidates.length === 0) {
-    const keyboard = group.map(createKeyboardClient).find((client): client is WuqueKeyboardClient => client !== null);
+    const keyboard = group.map(createKeyboardClient).find((client): client is KeyboardClient => client !== null);
     if (!keyboard) return;
     deviceStatusText = st("ctl.switching");
     readStatus = st("kb.reading");
@@ -2928,7 +2929,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     const update = await client.command(command);
     if (activeKeyboard !== client) return;
     keyboardWorkspace = { ...keyboardWorkspace, ...update };
-    if (command.kind === "slot") {
+    if (command.kind === "slot" && client.readPolling && client.readTrigger) {
       keyboardPolling = await client.readPolling();
       const trigger = await client.readTrigger();
       if (activeKeyboard !== client) return;
@@ -2938,7 +2939,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
       keyboardSelectedKeys = [];
       keyboardWorkspace = { ...keyboardWorkspace, layer: null, macro: null, higher: null, adc: null };
     }
-    if (command.kind === "keycode" && command.layer === 0) {
+    if (command.kind === "keycode" && command.layer === 0 && client.readTrigger) {
       const trigger = await client.readTrigger();
       if (activeKeyboard !== client) return;
       keyboardMatrix = trigger.matrix;
@@ -2956,7 +2957,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
 /** Write the polling rate and confirm it by re-reading the board. */
 export async function applyKeyboardPolling(hz: number): Promise<void> {
   const client = activeKeyboard;
-  if (!client || keyboardBusy) return;
+  if (!client?.setPollingRate || keyboardBusy) return;
   keyboardBusy = true;
   keyboardStatusText = st("kb.applying");
   emit();
@@ -2982,7 +2983,7 @@ export async function applyKeyboardPolling(hz: number): Promise<void> {
  */
 export async function applyKeyboardTrigger(patch: KeyboardTriggerPatch): Promise<void> {
   const client = activeKeyboard;
-  if (!client || keyboardBusy) return;
+  if (!client?.writeTrigger || keyboardBusy) return;
   const targets = keyboardSelectedKeys.length > 0
     ? keyboardSelectedKeys
     : keyboardSelected ? [keyboardSelected] : [];
@@ -3325,7 +3326,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
 }
 
 /** Activate a keyboard: identity, polling and trigger only — no mouse status. */
-async function activateKeyboardClientNow(client: WuqueKeyboardClient): Promise<void> {
+async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
@@ -3345,7 +3346,7 @@ async function activateKeyboardClientNow(client: WuqueKeyboardClient): Promise<v
   try {
     await client.open();
     keyboardIdentity = await client.readIdentity();
-    keyboardPolling = await client.readPolling();
+    keyboardPolling = client.readPolling ? await client.readPolling() : null;
   } catch (error) {
     await client.close().catch(() => undefined);
     keyboardBusy = false;
@@ -3368,12 +3369,12 @@ async function activateKeyboardClientNow(client: WuqueKeyboardClient): Promise<v
 }
 
 /** Read every live key's trigger in the background so the panel opens fast. */
-async function loadKeyboardTrigger(client: WuqueKeyboardClient): Promise<void> {
+async function loadKeyboardTrigger(client: KeyboardClient): Promise<void> {
   keyboardBusy = true;
-  keyboardStatusText = st("kb.readingTrigger");
+  keyboardStatusText = st(client.readTrigger ? "kb.readingTrigger" : "kb.reading");
   emit();
   try {
-    const trigger = await client.readTrigger();
+    const trigger = client.readTrigger ? await client.readTrigger() : { matrix: [], keys: [] };
     if (activeKeyboard !== client) return;
     keyboardMatrix = trigger.matrix;
     keyboardKeys = trigger.keys;
@@ -3397,11 +3398,11 @@ async function loadKeyboardTrigger(client: WuqueKeyboardClient): Promise<void> {
   }
 }
 
-function activateClient(target: SupportedClient | WuqueKeyboardClient): Promise<void> {
+function activateClient(target: SupportedClient | KeyboardClient): Promise<void> {
   const run = activationQueue.then(async () => {
     activationInProgress = true;
     try {
-      if (target instanceof WuqueKeyboardClient) await activateKeyboardClientNow(target);
+      if (isKeyboardClient(target)) await activateKeyboardClientNow(target);
       else await activateClientNow(target);
     } finally {
       activationInProgress = false;
@@ -3541,7 +3542,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   });
 }
 
-async function requestSupportedClient(): Promise<SupportedClient | WuqueKeyboardClient | null> {
+async function requestSupportedClient(): Promise<SupportedClient | KeyboardClient | null> {
   if (!navigator.hid) throw new Error(st("ctl.noWebHid"));
   const devices = await navigator.hid.requestDevice({ filters: HID_FILTERS });
   if (devices.length === 0) return null;
@@ -3563,7 +3564,7 @@ async function requestSupportedClient(): Promise<SupportedClient | WuqueKeyboard
 
   const keyboard = devices
     .map(createKeyboardClient)
-    .find((client): client is WuqueKeyboardClient => client !== null);
+    .find((client): client is KeyboardClient => client !== null);
   if (keyboard) return keyboard;
 
   if (devices.some((device) => device.vendorId === BASILISK_V3_PRO_BLUETOOTH.vendorId
@@ -3650,8 +3651,8 @@ export async function connect(): Promise<void> {
     }
     deviceStatusText = st("ctl.opening");
     readStatus = st("ctl.reading", {
-      name: client instanceof WuqueKeyboardClient
-        ? (client.device.productName ?? wuqueProductName(client.device.productId))
+      name: isKeyboardClient(client)
+        ? (client.device.productName || client.name)
         : statusNameForClient(client),
     });
     emit();
@@ -3702,7 +3703,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (clients.length === 0) {
         const keyboard = listLogicalDevices(devices)
           .map(createKeyboardClient)
-          .find((candidate): candidate is WuqueKeyboardClient => candidate !== null);
+          .find((candidate): candidate is KeyboardClient => candidate !== null);
         if (keyboard) {
           deviceStatusText = st("ctl.reconnecting");
           readStatus = st("kb.reading");

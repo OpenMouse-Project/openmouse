@@ -122,6 +122,9 @@ function assertApplied(
  * polling, per-key performance, layout, lighting, and onboard configuration.
  */
 export class WuqueKeyboardClient {
+  readonly family = "wuque";
+  readonly brand = "Wuque Studio";
+  get name(): string { return this.device.productName || "Wuque keyboard"; }
   readonly device: HIDDevice;
   private readonly client: WuqueHidClient;
 
