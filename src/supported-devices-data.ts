@@ -227,7 +227,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Corsair", model: "Scimitar RGB Elite", status: "driver" },
   { brand: "Corsair", model: "Ironclaw RGB", status: "driver" },
   { brand: "Corsair", model: "Ironclaw RGB Wireless", status: "pr", pids: [0x1b4c, 0x1b66, 0x1bdc] },
-  { brand: "Glorious", model: "Model O 2 PRO", status: "pr", pids: [0x2019, 0x2033] },
+  { brand: "Glorious", model: "Model O 2 PRO", status: "supported", pids: [0x2019, 0x2033] },
   { brand: "Glorious", model: "Model O", status: "supported", pids: [0x2011, 0x2022] },
   { brand: "Glorious", model: "Model D Wireless", status: "supported", pids: [0x2012, 0x2023] },
   { brand: "Glorious", model: "Model D", status: "supported", pids: [0x2012] },
