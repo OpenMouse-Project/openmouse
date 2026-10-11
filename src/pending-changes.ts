@@ -17,6 +17,10 @@ export interface PendingChange {
   progress: string;
   // Lower priorities flash first when one setting must establish storage used by another.
   priority?: number;
+  // State-dependent ordering is resolved from confirmed hardware status at
+  // Apply time, never frozen from the UI snapshot used when staging.
+  // As with priority, a group's first member determines its batch ordering.
+  resolvePriority?(status: MouseStatus): number;
   // Mirrors the staged value onto a status snapshot so the UI can render it.
   // Omitted when the setting is not part of MouseStatus (a Logitech onboard
   // profile value, say); such a change renders itself and cannot be compared
@@ -56,8 +60,9 @@ export function pendingChanges(): PendingChange[] {
  * Changes sharing a group collapse into one batch; an ungrouped change is a
  * batch of its own. The last entry of a batch is the one that performs the
  * write, so a batch is applied by calling `apply` on `batch.at(-1)`.
+ * A confirmed status is required when a batch has a dynamic priority.
  */
-export function pendingChangeBatches(): PendingChange[][] {
+export function pendingChangeBatches(status?: MouseStatus): PendingChange[][] {
   const batches: PendingChange[][] = [];
   const byGroup = new Map<string, PendingChange[]>();
   for (const change of changes.values()) {
@@ -76,7 +81,15 @@ export function pendingChangeBatches(): PendingChange[][] {
     byGroup.set(change.group, batch);
     batches.push(batch);
   }
-  return batches.sort((left, right) => (left[0]?.priority ?? 0) - (right[0]?.priority ?? 0));
+  return batches.map(batch => {
+    const first = batch[0];
+    if (first?.resolvePriority && !status) {
+      throw new Error("Confirmed device status is required to order these pending changes.");
+    }
+    const priority = first?.resolvePriority && status
+      ? first.resolvePriority(status) : first?.priority ?? 0;
+    return { batch, priority };
+  }).sort((left, right) => left.priority - right.priority).map(entry => entry.batch);
 }
 
 export function pendingChangeCount(): number {

@@ -113,7 +113,30 @@ before(async () => {
           applyStatus(await active.readStatus());
           return { stored, writes, reads: () => reads };
         }
+        export async function testConnectGenericStages(device) {
+          const generic = await testConnectGeneric(device), stored = generic.stored;
+          stored.dpiStages = [400, 800, 1600, 3200, 6400, 8000];
+          stored.activeDpiStage = 1;
+          stored.ui = { dpiStageEditor: { maxStages: 6, countEditable: true } };
+          dpiOptions = [400, 800, 1200, 1600, 2400, 3200, 4800, 6400, 8000];
+          active.setDpiStageCount = async count => {
+            generic.writes.push({ count });
+            stored.dpiStages = count <= stored.dpiStages.length
+              ? stored.dpiStages.slice(0, count)
+              : [...stored.dpiStages, ...Array(count - stored.dpiStages.length).fill(3200)];
+            stored.activeDpiStage = Math.min(stored.activeDpiStage, count - 1);
+            stored.dpi = stored.dpiStages[stored.activeDpiStage];
+          };
+          active.setDpiStageValue = async (stage, dpi) => {
+            if (stage >= stored.dpiStages.length) throw new Error("Generic stage is not enabled.");
+            generic.writes.push({ stage, dpi });
+            stored.dpiStages[stage] = dpi;
+          };
+          applyStatus(await active.readStatus());
+          return generic;
+        }
         export { refreshStatus as testRefreshStatus };
+        export function testClientOnly() { activeDevice = null; }
         export { hookWriting as testBridgeWriting };
         export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot,
           mergeSnapshots as testMergeSnapshots } from "./game-profile-snapshot.ts";
@@ -628,6 +651,234 @@ test("an in-flight foreground recovery blocks another Games attempt until the re
   }
   assert.equal(await first, "unchanged");
   assert.equal(await controller.flashGameProfileSnapshot({ dpi: 800 }), "written");
+});
+
+function dpiTableWrites(mouse: ReturnType<typeof fixture>, start = 0) {
+  return mouse.sent.slice(start).filter(packet => packet[4] === 1 && packet[5] === 1);
+}
+
+async function unconfirmedCount(mouse: ReturnType<typeof fixture>, from: number, to: number) {
+  mouse.banks[0].count = from;
+  await controller.testConnect(mouse.device);
+  controller.applyDpiStageCount(to);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashPendingChanges(), "failed");
+  assert.equal(mouse.banks[0].count, to);
+  assert.equal(controller.testState().status.dpiStages.length, from);
+}
+
+for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  const max = pid === 0x32 || pid === 0x33 ? 6 : 5;
+  for (const background of [false, true]) {
+    test(`manual count recovery on ${pid.toString(16)} expands before slot edits ${background ? "after background refresh" : "before refresh"}`, async () => {
+      const mouse = fixture(pid);
+      await unconfirmedCount(mouse, max, 3);
+      const original = [...mouse.banks[0].table];
+      controller.applyDpiStageCount(4);
+      controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+      if (background) await controller.testRefreshStatus();
+      const start = mouse.sent.length;
+      assert.equal(await controller.flashPendingChanges(), "written");
+      assert.equal(mouse.banks[0].count, 4);
+      assert.deepEqual(mouse.banks[0].table, [...original.slice(0, 6), 2400, 4800, ...original.slice(8)]);
+      assert.deepEqual(dpiTableWrites(mouse, start).map(packet => packet[7]), [4, 4]);
+      assert.equal((dpiTableWrites(mouse, start)[0][20] << 8) | dpiTableWrites(mouse, start)[0][21], original[6],
+        "the first write expands storage before the fourth-slot value changes");
+      assert.deepEqual(controller.testState().pending, []);
+      assert.equal(await controller.flashPendingChanges(), "unchanged");
+    });
+  }
+
+  test(`manual count recovery on ${pid.toString(16)} edits before a recovered reduction`, async () => {
+    const mouse = fixture(pid);
+    await unconfirmedCount(mouse, 3, max);
+    controller.applyDpiStageCount(4);
+    controller.applyLunaFuryDpiStageAxes(1, 2400, 4800);
+    const start = mouse.sent.length;
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.deepEqual(dpiTableWrites(mouse, start).map(packet => packet[7]), [max, 4]);
+    assert.equal(mouse.banks[0].count, 4);
+    assert.deepEqual(mouse.banks[0].table.slice(2, 4), [2400, 4800]);
+  });
+
+  test(`manual count recovery on ${pid.toString(16)} preserves nonempty staging while reads keep failing`, async () => {
+    const mouse = fixture(pid);
+    await unconfirmedCount(mouse, max, 3);
+    controller.applyDpiStageCount(4);
+    controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+    const fault = controller.testFailStatusReads();
+    const start = mouse.sent.length;
+    controller.testToastLog.length = 0;
+    for (let retry = 0; retry < 3; retry++) {
+      assert.equal(await controller.flashPendingChanges(), "failed");
+      assert.deepEqual(controller.testState().pending, ["dpi-stage-count", "dpi-stage-3"]);
+      assert.equal(mouse.banks[0].count, 3);
+      assert.equal(dpiTableWrites(mouse, start).length, 0);
+      assert.equal(controller.getSnapshot().settingInProgress, false);
+      assert.equal(controller.testToastLog.some((toast: { kind: string }) => toast.kind === "success"), false);
+    }
+    assert.equal(fault.attempts(), 3);
+    fault.allow();
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.equal(mouse.banks[0].count, 4);
+    assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+  });
+
+  test(`manual count recovery on ${pid.toString(16)} retries a failed slot write after expansion landed`, async () => {
+    const mouse = fixture(pid);
+    await unconfirmedCount(mouse, max, 3);
+    controller.applyDpiStageCount(4);
+    controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+    const send = mouse.device.sendFeatureReport;
+    let tables = 0, rejectSlot = true;
+    mouse.device.sendFeatureReport = async (id, report) => {
+      const original = structuredClone(mouse.banks[0]);
+      await send(id, report);
+      if (report[4] === 1 && report[5] === 1 && ++tables === 2 && rejectSlot) {
+        Object.assign(mouse.banks[0], original);
+      }
+    };
+    assert.equal(await controller.flashPendingChanges(), "failed");
+    assert.equal(mouse.banks[0].count, 4, "expansion landed before the rejected slot edit");
+    assert.deepEqual(controller.testState().pending, ["dpi-stage-3"]);
+    rejectSlot = false;
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+    assert.deepEqual(controller.testState().pending, []);
+  });
+
+  test(`manual restaging on ${pid.toString(16)} drops edits and selection outside the final count`, async () => {
+    const mouse = fixture(pid);
+    await controller.testConnect(mouse.device);
+    controller.applyDpiStageCount(max);
+    controller.applyLunaFuryDpiStageAxes(max - 1, 2400, 4800);
+    controller.applyActiveDpiStage(max - 1);
+    controller.applyDpiStageCount(4);
+    assert.deepEqual(controller.testState().pending, ["dpi-stage-count"]);
+    controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+    controller.applyActiveDpiStage(3);
+    // Re-selecting the same count must not discard a valid stage selection.
+    controller.applyDpiStageCount(4);
+    assert.equal(controller.testState().pending.includes("dpi-active-stage"), true);
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.equal(mouse.banks[0].count, 4);
+    assert.equal(mouse.banks[0].active, 4);
+    assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+  });
+
+  test(`manual priorities on ${pid.toString(16)} survive a Games stash while hardware count changes`, async () => {
+    const mouse = fixture(pid);
+    mouse.banks[0].count = max;
+    await controller.testConnect(mouse.device);
+    controller.applyDpiStageCount(4);
+    controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+    assert.equal(await controller.flashGameProfileSnapshot({
+      dpiStages: [400, 800, 1600], dpiStagesY: [800, 1600, 3200],
+    }), "written");
+    assert.equal(mouse.banks[0].count, 3);
+    assert.deepEqual(controller.testState().pending, ["dpi-stage-count", "dpi-stage-3"]);
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.equal(mouse.banks[0].count, 4);
+    assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+  });
+}
+
+test("manual preflight retains its queue after an in-flight background read and foreground recovery both fail", async () => {
+  const mouse = fixture();
+  await unconfirmedCount(mouse, 6, 3);
+  controller.applyDpiStageCount(4);
+  controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+  const fault = controller.testFailStatusReads();
+  const gate = controller.testDeferNextStatusRead();
+  const start = mouse.sent.length;
+  const background = controller.testRefreshStatus();
+  const apply = controller.flashPendingChanges();
+  try {
+    assert.equal(await controller.flashPendingChanges(), "busy");
+  } finally {
+    gate.release();
+  }
+  await background;
+  assert.equal(await apply, "failed");
+  assert.equal(fault.attempts(), 2, "no post-write read or queued auto-retry when preflight failed");
+  assert.equal(dpiTableWrites(mouse, start).length, 0);
+  assert.deepEqual(controller.testState().pending, ["dpi-stage-count", "dpi-stage-3"]);
+  assert.equal(controller.getSnapshot().settingInProgress, false);
+  fault.allow();
+  assert.equal(await controller.flashPendingChanges(), "written");
+  assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+});
+
+test("nonempty manual Apply waits for an in-flight background read before resolving priorities", async () => {
+  const mouse = fixture();
+  await unconfirmedCount(mouse, 6, 3);
+  controller.applyDpiStageCount(4);
+  controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+  const gate = controller.testDeferNextStatusRead();
+  const background = controller.testRefreshStatus();
+  const apply = controller.flashPendingChanges();
+  assert.equal(gate.started(), true);
+  assert.equal(controller.getSnapshot().settingInProgress, true);
+  try {
+    assert.equal(await controller.flashPendingChanges(), "busy");
+    controller.applyLunaFuryDpiStageAxes(3, 3200, 6400);
+  } finally {
+    gate.release();
+  }
+  await background;
+  assert.equal(await apply, "written");
+  assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800], "the write guard protects the staged plan while waiting");
+});
+
+test("nonempty manual Apply locks foreground recovery and leaves Games/user staging intact", async () => {
+  const mouse = fixture();
+  await unconfirmedCount(mouse, 6, 3);
+  controller.applyDpiStageCount(4);
+  controller.applyLunaFuryDpiStageAxes(3, 2400, 4800);
+  const gate = controller.testDeferNextStatusRead();
+  const apply = controller.flashPendingChanges();
+  try {
+    assert.equal(gate.started(), true);
+    assert.equal(controller.getSnapshot().settingInProgress, true);
+    assert.equal(await controller.flashGameProfileSnapshot({ dpiStages: [400, 800, 1600] }), "busy");
+    assert.equal(controller.beginGameProfileDraft({}), false);
+    controller.applyDpiStageCount(2);
+    assert.deepEqual(controller.testState().pending, ["dpi-stage-count", "dpi-stage-3"]);
+  } finally {
+    gate.release();
+    await apply;
+  }
+  assert.equal(await apply, "written");
+  assert.equal(mouse.banks[0].count, 4);
+  assert.deepEqual(mouse.banks[0].table.slice(6, 8), [2400, 4800]);
+});
+
+test("generic staged-DPI manual Apply also replans expansion against recovered status", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGenericStages(mouse.device);
+  controller.applyDpiStageCount(3);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashPendingChanges(), "failed");
+  controller.applyDpiStageCount(4);
+  controller.applyDpiStageValue(3, 2400);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  assert.deepEqual(generic.writes, [{ count: 3 }, { count: 4 }, { stage: 3, dpi: 2400 }]);
+  assert.deepEqual(generic.stored.dpiStages, [400, 800, 1600, 2400]);
+});
+
+test("client-only stand-ins still support manual Apply and recovery without a physical HID selection", async () => {
+  const mouse = fixture();
+  const generic = await controller.testConnectGeneric(mouse.device);
+  controller.testClientOnly();
+  controller.applyDpiValue(1200);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  controller.applyDpiValue(800);
+  controller.testRejectNextStatusRead();
+  assert.equal(await controller.flashPendingChanges(), "failed");
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }), "written");
+  controller.applyDpiValue(400);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  assert.equal(generic.stored.dpi, 400);
 });
 
 test("controller restores legacy target-stage edits and preserves unrelated pending user changes", async () => {

@@ -69,9 +69,9 @@ files and vendor images.
 
 ## Automated validation
 
-The paired application build and all 384 application tests pass, including
-62 controller/Bridge integration tests. Bundle checks pass at 205,473 / 210,000
-bytes for CSS and 2,120,700 / 2,150,000 bytes for JavaScript. These results
+The paired application build and all 420 application tests pass, including
+95 controller/Bridge integration tests. Bundle checks pass at 205,473 / 210,000
+bytes for CSS and 2,121,349 / 2,150,000 bytes for JavaScript. These results
 use the local protocol tarball; they do not establish that a registry-only
 install builds.
 
@@ -184,9 +184,47 @@ fields, generic scalar-DPI control, manual deduplication, pending user edits
 and overlapping recovery. Sixteen cases failed against `b2fab92` before this
 fix; the same-JSON background recovery was an already-passing control case.
 
-All 62 controller/Bridge cases and all 384 application tests pass. The 17
+At the end of that round, all 62 controller/Bridge cases and all 384
+application tests passed. The 17
 Bridge cases across both failure-handling rounds run the real subscription
 callback with synthetic refs and status events, not a DOM renderer or native
 Bridge process. Protocol source, packets and dependencies are unchanged;
 its build, 151 focused tests, package dry-run and runtime audit were rerun.
 No new hardware result is claimed.
+
+### Manual Apply recovery and ordering (2026-10-12)
+
+Nonempty manual Apply now recovers an untrusted snapshot before resolving
+its pending batches. It waits for an in-flight background read while holding
+the write guard. If recovery fails, it returns `failed`, sends no setting
+writes and retains the pending queue. It does not send a redundant final
+read or run a queued auto-retry after a failed preflight.
+
+DPI count ordering is resolved from the confirmed enabled count on every
+Apply, rather than stored as a priority when the user stages the edit.
+Expansion therefore precedes dependent slot edits; reduction follows them.
+This also applies when a background read has already restored trust, when
+Games has stashed and restored manual edits, and when a partially completed
+batch is retried. Existing grouped last-writer behavior and equal-priority
+staging order are preserved. Changing the requested count drops slot edits
+and selections outside that final count, but retains valid selections.
+Count restaging cannot remove pending edits while Apply is locked.
+
+Thirty-three integration cases and three pending-order unit tests were
+added. On each of the four runtime PIDs, they cover unconfirmed reduction
+followed by expansion and fourth-slot X/Y edits, with and without intervening
+background recovery; the reverse count direction; sustained read failures;
+partial-write retry; consecutive count edits; and manual staging carried
+through a Games switch. Other cases cover overlapping background/foreground
+failure, locked recovery, generic stage-DPI clients and client-only stand-ins.
+The 32 fault/order integration cases and all three unit cases failed against
+`1b75133` before the fix. The separate owner-supplied six-to-three-to-four
+reproduction now returns `written`, clears the queue and leaves four stages;
+a second Apply returns `unchanged`.
+
+The build and all 420 app tests pass, including 95 controller/Bridge cases.
+The existing 17 hook callback cases remain unchanged. Bundle checks and
+application audit pass. Protocol source, packets and dependencies did not
+change; its build, 151 focused tests, package dry-run and runtime audit were
+rerun. These are synthetic tests with the local protocol package, not new
+hardware, native-Bridge, full-protocol-CI or registry-only results.

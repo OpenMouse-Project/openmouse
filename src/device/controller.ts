@@ -1242,10 +1242,11 @@ export async function prepareGameProfileStatus(): Promise<MouseStatus | "busy" |
   if (refreshInProgress) return "busy";
   const client = activeSettingsClient();
   if (!client) return "busy";
+  const device = activeDevice;
   refreshInProgress = true;
   try {
     const status = await statusAfterWrite(client);
-    if (client !== activeSettingsClient() || client.device !== activeDevice) return "busy";
+    if (client !== activeSettingsClient() || device !== activeDevice) return "busy";
     applyStatus(status);
     return latestDeviceStatus!;
   } catch (error) {
@@ -1934,22 +1935,23 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
 }
 
 export async function flashPendingChanges(): Promise<FlashResult> {
-  if (gameProfileDraft) return "busy";
-  const batches = pendingChangeBatches();
+  if (gameProfileDraft || activationInProgress) return "busy";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
     return "busy";
   }
-  if (batches.length === 0) {
-    if (!deviceStatusNeedsRefresh) return "unchanged";
-    const status = await prepareGameProfileStatus();
-    return typeof status === "string" ? status : "unchanged";
-  }
+  if (!hasPendingChanges() && !deviceStatusNeedsRefresh) return "unchanged";
+  const client = activeSettingsClient();
+  if (!client || !latestDeviceStatus) return "busy";
+  const device = activeDevice;
+  // Lock staging before waiting/reading and bind this attempt to its client.
+  // Batch ordering must use the recovered status, not a pre-await plan.
   settingInProgress = true;
-  pendingBusy = true;
+  pendingBusy = hasPendingChanges();
   emit();
   let written = 0;
+  let writeAttempted = false;
   let failure: string | null = null;
   if (refreshInProgress) {
     pendingStatusText = st("ctl.waitRefresh");
@@ -1964,6 +1966,17 @@ export async function flashPendingChanges(): Promise<FlashResult> {
     }
   }
   try {
+    if (!failure) {
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      if (deviceStatusNeedsRefresh) {
+        const status = await statusAfterWrite(client);
+        if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+        applyStatus(status);
+      }
+    }
+    // Resolve on every Apply, including when a background read already
+    // recovered trust but the user's pending operations predate that read.
+    const batches = failure ? [] : pendingChangeBatches(latestDeviceStatus!);
     for (const batch of batches) {
       if (failure) break;
       const writer = batch[batch.length - 1];
@@ -1972,7 +1985,9 @@ export async function flashPendingChanges(): Promise<FlashResult> {
       readStatus = writer.progress;
       emit();
       await flashPause();
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
       for (const change of batch) recordDiagnosticCommand(change.command);
+      writeAttempted = true;
       await writer.apply();
       for (const change of batch) dropPendingChange(change.key);
       written += batch.length;
@@ -1982,8 +1997,15 @@ export async function flashPendingChanges(): Promise<FlashResult> {
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
   try {
-    await flashPause(FLASH_SETTLE_MS);
-    applyStatus(await statusAfterWrite(requireSettingsClient()));
+    // A failed preflight must leave staging intact and perform no speculative
+    // writes or second status read. Actual writes still require final readback.
+    if (writeAttempted) {
+      await flashPause(FLASH_SETTLE_MS);
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      const status = await statusAfterWrite(client);
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      applyStatus(status);
+    }
   } catch (error) {
     deviceStatusNeedsRefresh = true;
     lastRenderedStatusKey = null;
@@ -1993,8 +2015,8 @@ export async function flashPendingChanges(): Promise<FlashResult> {
       failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
     }
   } finally {
-    endDeviceWrite();
     pendingBusy = false;
+    endDeviceWrite();
   }
   if (flashQueued) {
     flashQueued = false;
@@ -2008,6 +2030,7 @@ export async function flashPendingChanges(): Promise<FlashResult> {
     return "failed";
   }
   pendingStatusText = null;
+  if (written === 0) return "unchanged";
   const flashed = written === 1
     ? st("ctl.flashedOne")
     : st("ctl.flashedMany", { n: written });
@@ -3101,22 +3124,28 @@ export function applyDpiValue(dpi: number): boolean {
 }
 
 export function applyDpiStageCount(count: number): void {
-  if (!hasActiveClient()) return;
+  if (!hasActiveClient() || settingInProgress) return;
   const editor = latestDeviceStatus?.ui?.dpiStageEditor;
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
-  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
-  if (count < currentCount) {
-    for (const change of pendingChanges()) {
-      const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
-      if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+  // The user's final count bounds all staged slots, even when both the
+  // previous and new requested counts exceed the current hardware count.
+  for (const change of pendingChanges()) {
+    const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
+    if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+    if (change.key === "dpi-active-stage" && latestDeviceStatus) {
+      const target = structuredClone(latestDeviceStatus);
+      change.preview?.(target);
+      if ((target.activeDpiStage ?? 0) >= count) dropPendingChange(change.key);
     }
-    dropPendingChange("dpi-active-stage");
   }
   stageChange({
     key: "dpi-stage-count",
-    priority: count > currentCount ? -1 : count < currentCount ? 1 : 0,
+    resolvePriority: (status) => {
+      const currentCount = status.dpiStages?.length ?? count;
+      return count > currentCount ? -1 : count < currentCount ? 1 : 0;
+    },
     label: `${count} DPI stage${count === 1 ? "" : "s"}`,
     command: `Set DPI stage count to ${count}`,
     progress: `Setting ${count} DPI stages…`,
