@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: update-mouse-protocol
-  cancel-in-progress: true
+  group: update-protocol-dependencies
+  cancel-in-progress: false
 
 jobs:
   update:

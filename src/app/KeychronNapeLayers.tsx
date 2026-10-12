@@ -193,9 +193,18 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
   const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!body.current || !inner.current) return;
-    body.current.style.maxHeight = snapshot.profilesExpanded ? `${inner.current.scrollHeight}px` : "0px";
-  });
+    const bodyEl = body.current;
+    const innerEl = inner.current;
+    if (!bodyEl || !innerEl) return;
+    const sync = (): void => {
+      bodyEl.style.maxHeight = snapshot.profilesExpanded ? `${innerEl.scrollHeight}px` : "0px";
+    };
+    sync();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(innerEl);
+    return () => observer.disconnect();
+  }, [snapshot.profilesExpanded]);
 
   if (status == null || count == null || count < 1) return null;
   const locale = snapshot.preferences.locale;

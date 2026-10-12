@@ -2,8 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { CardAvailability } from "./cards/availability.ts";
-import { availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs.ts";
+import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs.ts";
 
+test("HB68 exposes only system mode; existing keyboard tabs remain available", () => {
+  assert.deepEqual(availableKeyboardWorkspaceTabs("kochi"), ["overview"]);
+  assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("kochi")), "overview");
+  assert.ok(availableKeyboardWorkspaceTabs("wuque").includes("performance"));
+  assert.ok(availableKeyboardWorkspaceTabs().includes("lighting"));
+});
+
+/** A CardAvailability fixture where every unset field reads as false. */
 function availability(enabled: Partial<CardAvailability>): CardAvailability {
   return new Proxy(enabled, { get: (target, property) => Reflect.get(target, property) ?? false }) as CardAvailability;
 }
@@ -14,6 +22,12 @@ test("LunaFury response and wheel guard retain the Buttons tab without global de
       "overview", "performance", "buttons", "advanced",
     ]);
   }
+});
+
+test("Finalmouse TMR-DS retains the Buttons tab without other button controls", () => {
+  assert.deepEqual(availableWorkspaceTabs(true, availability({ tmrDs: true })), [
+    "overview", "performance", "buttons", "advanced",
+  ]);
 });
 
 test("a connected mouse exposes only tabs backed by available controls", () => {
@@ -49,6 +63,11 @@ test("the disconnected state keeps every navigation tab", () => {
 
 test("the macro tab follows the onboard macro capability", () => {
   const tabs = availableWorkspaceTabs(true, availability({ ksnakeMacros: true }));
+  assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
+});
+
+test("the macro tab also follows the WALLHACK macro capability", () => {
+  const tabs = availableWorkspaceTabs(true, availability({ wallhackMacros: true }));
   assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
 });
 

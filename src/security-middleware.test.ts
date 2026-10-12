@@ -4,10 +4,14 @@ import { onRequest } from "../functions/_middleware.js";
 
 class FakeKV {
   store = new Map<string, string>();
+  gets = 0;
+  puts = 0;
   async get(key: string): Promise<string | null> {
+    this.gets += 1;
     return this.store.get(key) ?? null;
   }
   async put(key: string, value: string): Promise<void> {
+    this.puts += 1;
     this.store.set(key, value);
   }
 }
@@ -158,11 +162,11 @@ test("the guard rate-limits aggressive GET traffic with a strike", async () => {
   let lastStatus = 200;
   try {
     for (let i = 0; i < 240; i++) {
-      await guarded(new Request("https://openmouse.app/assets/app.js"), kv);
+      await guarded(new Request("https://openmouse.app/api/presence"), kv);
     }
     // The cap allows 240 GETs per minute; the 241st crosses it.
     lastStatus = (
-      await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+      await guarded(new Request("https://openmouse.app/api/presence"), kv)
     ).status;
   } finally {
     Date.now = now;
@@ -180,12 +184,12 @@ test("the GET rate limit resets on a new minute", async () => {
   try {
     for (let i = 0; i < 241; i++) {
       lastStatus = (
-        await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+        await guarded(new Request("https://openmouse.app/api/presence"), kv)
       ).status;
     }
     clock += 60_000; // next minute -> a fresh window bucket
     lastStatus = (
-      await guarded(new Request("https://openmouse.app/assets/app.js"), kv)
+      await guarded(new Request("https://openmouse.app/api/presence"), kv)
     ).status;
   } finally {
     Date.now = now;
@@ -205,4 +209,86 @@ test("repeated abuse permanently bans the IP", async () => {
   }
   assert.equal(lastStatus, 403);
   assert.equal(await kv.get("ban:unknown"), "security");
+});
+
+test("static subresources bypass the guard with zero KV traffic", async () => {
+  const kv = new FakeKV();
+  await kv.put("ban:1.2.3.4", "security"); // even a banned IP
+  kv.gets = 0;
+  kv.puts = 0;
+
+  // Browser asset fetch — Sec-Fetch-Dest decides.
+  const script = await guarded(
+    new Request("https://openmouse.app/assets/app.js", {
+      headers: { "CF-Connecting-IP": "1.2.3.4", "Sec-Fetch-Dest": "script" },
+    }),
+    kv,
+  );
+  assert.equal(script.status, 200);
+
+  // Non-browser client with no Sec-Fetch-Dest — the path extension decides.
+  const image = await guarded(
+    new Request("https://openmouse.app/logo.png", {
+      headers: { "CF-Connecting-IP": "1.2.3.4" },
+    }),
+    kv,
+  );
+  assert.equal(image.status, 200);
+
+  assert.equal(kv.gets, 0);
+  assert.equal(kv.puts, 0);
+});
+
+test("fetch/XHR calls are still guarded even at an asset-looking path", async () => {
+  const kv = new FakeKV();
+  await kv.put("ban:1.2.3.4", "security");
+  kv.gets = 0;
+  kv.puts = 0;
+
+  const response = await guarded(
+    new Request("https://openmouse.app/assets/app.js", {
+      headers: { "CF-Connecting-IP": "1.2.3.4", "Sec-Fetch-Dest": "empty" },
+    }),
+    kv,
+  );
+  assert.equal(response.status, 403);
+  assert.ok(kv.gets > 0);
+});
+
+test("RATE_LIMIT_MODE=waf skips the KV rate-limit counter", async () => {
+  const kv = new FakeKV();
+  const now = Date.now;
+  const frozen = Math.floor(now() / 60_000) * 60_000 + 1_000;
+  Date.now = () => frozen;
+  let lastStatus = 200;
+  try {
+    // Far past the 240/min KV cap — with the edge rule in charge, none of these
+    // should trip the limiter or touch a `window:` key.
+    for (let i = 0; i < 300; i++) {
+      lastStatus = (
+        await guarded(
+          new Request("https://openmouse.app/api/presence"),
+          kv,
+          { RATE_LIMIT_MODE: "waf" },
+        )
+      ).status;
+    }
+  } finally {
+    Date.now = now;
+  }
+  assert.equal(lastStatus, 200);
+  assert.equal([...kv.store.keys()].some((key) => key.startsWith("window:")), false);
+});
+
+test("RATE_LIMIT_MODE=waf still enforces permanent bans", async () => {
+  const kv = new FakeKV();
+  await kv.put("ban:1.2.3.4", "security");
+  const response = await guarded(
+    new Request("https://openmouse.app/api/presence", {
+      headers: { "CF-Connecting-IP": "1.2.3.4" },
+    }),
+    kv,
+    { RATE_LIMIT_MODE: "waf" },
+  );
+  assert.equal(response.status, 403);
 });

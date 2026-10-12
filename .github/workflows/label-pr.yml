@@ -1,0 +1,93 @@
+name: Label pull requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: label-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      # Read metadata through the API; never check out or execute PR code.
+      - name: Ensure labels exist and categorize the current title
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            const repo = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const areas = {
+              ui: 'Interface and styling',
+              devices: 'Device integration and HID support',
+              translations: 'Localized interface strings',
+              artwork: 'Device images',
+              documentation: 'Documentation',
+              dependencies: 'Dependency manifests and lockfiles',
+              ci: 'Automation and build configuration',
+            };
+            const types = {
+              fix: 'bug', feat: 'enhancement', docs: 'documentation',
+              refactor: 'refactor', perf: 'performance', test: 'tests',
+              build: 'build', ci: 'ci', chore: 'maintenance',
+              style: 'style', revert: 'revert',
+            };
+            const definitions = [
+              ...Object.entries(areas).map(([area, description]) => ({
+                name: `area: ${area}`, color: '1d76db', description,
+              })),
+              ...Object.values(types).map(type => ({
+                name: `type: ${type}`, color: '5319e7',
+                description: `PR title category: ${type}`,
+              })),
+              { name: 'type: breaking', color: 'd93f0b', description: 'PR title declares a breaking change with !' },
+            ];
+            const existing = new Set((await github.paginate(
+              github.rest.issues.listLabelsForRepo, { ...repo, per_page: 100 }
+            )).map(label => label.name));
+            for (const definition of definitions) {
+              if (existing.has(definition.name)) continue;
+              try {
+                await github.rest.issues.createLabel({ ...repo, ...definition });
+              } catch (error) {
+                // Another PR's workflow may have created the same label.
+                if (error.status !== 422 || !error.response?.data?.errors?.some(
+                  item => item.code === 'already_exists'
+                )) throw error;
+              }
+            }
+            // Fetch the latest title so queued events do not restore stale categories.
+            const { data: pr } = await github.rest.pulls.get({
+              ...repo, pull_number: issue_number,
+            });
+            const match = pr.title.trim().match(
+              /^(fix|feat|docs|refactor|perf|test|build|ci|chore|style|revert)(?:\([^)\r\n]+\))?(!)?:\s+\S/i
+            );
+            const desired = new Set();
+            if (match) {
+              desired.add(`type: ${types[match[1].toLowerCase()]}`);
+              if (match[2]) desired.add('type: breaking');
+            }
+            const managed = new Set([
+              ...Object.values(types).map(type => `type: ${type}`), 'type: breaking',
+            ]);
+            for (const label of pr.labels) {
+              if (managed.has(label.name) && !desired.has(label.name)) {
+                await github.rest.issues.removeLabel({ ...repo, issue_number, name: label.name });
+              }
+            }
+            if (desired.size) {
+              await github.rest.issues.addLabels({ ...repo, issue_number, labels: [...desired] });
+            }
+
+      - name: Categorize changed files
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+        with:
+          sync-labels: true

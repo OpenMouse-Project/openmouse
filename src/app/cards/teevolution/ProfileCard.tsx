@@ -24,9 +24,18 @@ export function TeevolutionProfileCard({ snapshot }: { snapshot: ControlSnapshot
   const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!body.current || !inner.current) return;
-    body.current.style.maxHeight = expanded ? `${inner.current.scrollHeight}px` : "0px";
-  });
+    const bodyEl = body.current;
+    const innerEl = inner.current;
+    if (!bodyEl || !innerEl) return;
+    const sync = (): void => {
+      bodyEl.style.maxHeight = expanded ? `${innerEl.scrollHeight}px` : "0px";
+    };
+    sync();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(innerEl);
+    return () => observer.disconnect();
+  }, [expanded]);
 
   const status = snapshot.status;
   if (!status || !status.profileCount || status.activeProfile == null) return null;

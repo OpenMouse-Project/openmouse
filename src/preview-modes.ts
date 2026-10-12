@@ -10,7 +10,10 @@ export const PREVIEW_KEYS = [
   "superstrike",
   "pulsar",
   "pulsar-pro",
+  "pulsar-xs1-8k",
+  "pulsar-xs1-unknown",
   "egg-op1",
+  "egg-ot",
   "egg-we",
   "egg-xm2we",
   "wlmouse",
@@ -25,10 +28,12 @@ export const PREVIEW_KEYS = [
   "razer",
   "razer-viper-v2",
   "razer-viper-mini",
+  "razer-diamondback",
   "razer-cobra",
   "razer-viper-v4",
   "vgn",
   "finalmouse",
+  "finalmouse-slx",
   "ninjutso",
   "nape-pro",
   "mx-master-3s",
@@ -56,7 +61,10 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "superstrike": return "superstrike";
     case "pulsar": return "pulsar";
     case "pulsar-pro": return "pulsar-pro";
+    case "pulsar-xs1-8k": return "pulsar-xs1-8k";
+    case "pulsar-xs1-unknown": return "pulsar-xs1-unknown";
     case "egg-op1": return "egg-op1";
+    case "egg-ot": return "egg-ot";
     case "egg-we": return "egg-we";
     case "egg-xm2we": return "egg-xm2we";
     case "wlmouse": return "wlmouse";
@@ -71,11 +79,13 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "razer": return "razer";
     case "razer-viper-v2": return "razer-viper-v2";
     case "razer-viper-mini": return "razer-viper-mini";
+    case "razer-diamondback": return "razer-diamondback";
     case "razer-cobra": return "razer-cobra";
     case "razer-viper-v4": return "razer-viper-v4";
     case "terra-pro": return "terra-pro";
     case "vgn": return "vgn";
     case "finalmouse": return "finalmouse";
+    case "finalmouse-slx": return "finalmouse-slx";
     case "ninjutso": return "ninjutso";
     case "keychron":
     case "keychron-nape":

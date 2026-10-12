@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Minus, Plus } from "lucide-react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { batteryFillWidth, batteryIconState, batteryLevel } from "../ui/battery-icon";
+import { selectedPollingStep } from "../ui/polling-rate";
 import { t } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
 
@@ -26,7 +27,7 @@ export function SwitchButton({
       type="button"
       role="switch"
       aria-checked={unsupported ? false : value}
-      aria-label={label ? (unsupported ? `${label}, unavailable on this mouse` : label) : undefined}
+      aria-label={label ? (unsupported ? `${label}, unavailable on this device` : label) : undefined}
       disabled={unsupported || disabled}
       onClick={() => onChange(value !== true)}
     >
@@ -294,14 +295,48 @@ export function StepperSlider({
   formatValue: (shown: number) => string;
   disabled?: boolean;
   pendingKey?: string;
-  onCommit: (next: number) => void;
+  onCommit: (next: number) => void | Promise<void>;
 }): ReactNode {
   const [dragging, setDragging] = useState<number | null>(null);
+  const input = useRef<HTMLInputElement | null>(null);
+  const pending = useRef(false);
+  const revision = useRef(0);
   const shown = dragging ?? value;
   const clamp = (next: number): number => Math.max(min, Math.min(max, next));
   const commit = (next: number): void => {
-    if (!disabled) onCommit(clamp(next));
+    if (disabled || pending.current) return;
+    const committed = clamp(next);
+    const current = ++revision.current;
+    pending.current = true;
+    setDragging(committed);
+    const settle = (): void => {
+      if (revision.current !== current) return;
+      pending.current = false;
+      setDragging(null);
+    };
+    try {
+      // Hold the preview until asynchronous device write/read-back finishes.
+      // A failed write then falls back to the last confirmed prop value.
+      Promise.resolve(onCommit(committed)).then(settle, settle);
+    } catch (error) {
+      settle();
+      throw error;
+    }
   };
+  const latestCommit = useRef(commit);
+  latestCommit.current = commit;
+  useEffect(() => {
+    const element = input.current;
+    if (!element) return;
+    // React/Preact compat maps JSX onChange to input events. The native
+    // change event commits a range only at release (or a keyboard edit).
+    const change = (): void => latestCommit.current(Number(element.value));
+    element.addEventListener("change", change);
+    return () => {
+      element.removeEventListener("change", change);
+      revision.current++;
+    };
+  }, []);
   const span = Math.max(Number.EPSILON, max - min);
 
   return (
@@ -325,6 +360,7 @@ export function StepperSlider({
         </button>
         <input
           id={id}
+          ref={input}
           type="range"
           min={min}
           max={max}
@@ -335,12 +371,8 @@ export function StepperSlider({
           aria-valuetext={formatValue(shown)}
           style={{ "--fill": `${((shown - min) / span) * 100}%` }}
           onInput={(event) => setDragging(Number(event.currentTarget.value))}
-          onChange={(event) => {
-            const next = Number(event.currentTarget.value);
-            setDragging(null);
-            commit(next);
-          }}
-          onBlur={() => setDragging(null)}
+          onPointerCancel={() => { if (!pending.current) setDragging(null); }}
+          onBlur={() => { if (!pending.current) setDragging(null); }}
         />
         <button
           type="button"
@@ -371,6 +403,7 @@ export function RateSlider({
   hidden,
   onChange,
   locale = "en",
+  hoursAt,
 }: {
   id?: string;
   options: number[];
@@ -380,26 +413,20 @@ export function RateSlider({
   hidden?: boolean;
   onChange: (hz: number) => void;
   locale?: InterfaceLocale;
+  /** Full-charge hours at a rate, when known; shown in each button's tooltip and under the buttons. */
+  hoursAt?: (hz: number) => number | null;
   /** Kept for callers that used to hide the readout; buttons always show it. */
   bubble?: boolean;
 }): ReactNode {
   if (options.length === 0) return <div id={id} className="rate-slider" hidden={hidden} />;
-  const selected = valueHz !== null && options.includes(valueHz)
-    ? options.indexOf(valueHz)
-    : options.reduce(
-      (best, rate, step) =>
-        Math.abs(rate - (valueHz ?? options[0] ?? 0)) < Math.abs((options[best] ?? 0) - (valueHz ?? options[0] ?? 0))
-          ? step
-          : best,
-      0,
-    );
+  const selected = selectedPollingStep(options, valueHz);
 
   return (
     <div id={id} className="rate-slider" hidden={hidden}>
       {label ? (
         <div className="rate-slider-head">
           <span>{label}</span>
-          <output>{options[selected]?.toLocaleString() ?? "—"} Hz</output>
+          <output>{selected === null ? "—" : options[selected]?.toLocaleString() ?? "—"} Hz</output>
         </div>
       ) : null}
       <div className="rate-slider-buttons" role="group" aria-label={label ?? t(locale, "perf.reportRate")}>
@@ -412,7 +439,7 @@ export function RateSlider({
               className={on ? "is-on" : ""}
               aria-pressed={on}
               disabled={disabled}
-              title={`${rate.toLocaleString()} Hz`}
+              title={hoursAt?.(rate) != null ? `${rate.toLocaleString()} Hz - about ${Math.round(hoursAt(rate) as number)} h per charge` : `${rate.toLocaleString()} Hz`}
               onClick={() => onChange(rate)}
             >
               {shortRate(rate)}
@@ -420,6 +447,11 @@ export function RateSlider({
           );
         })}
       </div>
+      {selected !== null && hoursAt?.(options[selected] ?? 0) != null ? (
+        <small className="rate-slider-hours">
+          About {Math.round(hoursAt?.(options[selected] ?? 0) as number)} h per full charge at {options[selected]?.toLocaleString()} Hz
+        </small>
+      ) : null}
     </div>
   );
 }

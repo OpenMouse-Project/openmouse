@@ -12,8 +12,8 @@ the provenance/licensing record for every image that's been uploaded.
 Only a maintainer can upload to the bucket, so don't open a PR with a binary
 image file — it has nowhere to go. Instead:
 
-1. Open a [Device artwork request](../../.github/ISSUE_TEMPLATE/device-artwork.yml)
-   issue with a direct link to a source image (a transparent PNG/WebP is
+1. Open a [Device artwork request](https://github.com/OpenMouse-Project/openmouse/discussions/categories/artwork-request)
+   discussion with a direct link to a source image (a transparent PNG/WebP is
    ideal; a photo on a plain background is fine too) and what you know about
    its licensing.
 2. Optionally, open a PR alongside it that adds the device's

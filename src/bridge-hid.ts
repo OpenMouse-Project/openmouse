@@ -232,7 +232,15 @@ class BridgeHidDevice implements HIDDevice {
   /** Called by the client when Bridge forwards a report for this device. */
   deliver(reportId: number, data: number[]): void {
     const event = new BridgeInputReportEvent(this, reportId, new DataView(Uint8Array.from(data).buffer));
-    for (const listener of this.#listeners) listener(event);
+    for (const listener of [...this.#listeners]) {
+      try {
+        listener(event);
+      } catch (error) {
+        // One throwing listener must not stop the rest from seeing the report
+        // or escape into the socket's message handler.
+        bridgeLog("warn", "input report listener failed", { detail: errorMessage(error) });
+      }
+    }
   }
 
   /** Bridge went away: the handle is dead, whatever the page still holds. */
@@ -516,6 +524,31 @@ function setBridgeHidActive(active: boolean): void {
 
 export function isBridgeHidActive(): boolean {
   return bridgeHidActive;
+}
+
+/**
+ * Explains an empty `requestDevice()` result while Bridge is the active
+ * `navigator.hid`. Unlike the browser's picker — which rejects when the user
+ * cancels — the Bridge shim has no picker to cancel: it just lists what the
+ * native side reports. An empty list therefore always means "nothing matched",
+ * never "the user changed their mind", so the caller must surface it instead
+ * of silently treating it as a cancellation (which previously looked like the
+ * Add button doing nothing but playing its click sound).
+ *
+ * `knownDevices` is what `getDevices()` currently reports (every device from
+ * a vendor OpenMouse has drivers for, before filter matching). When it is
+ * non-empty, the details name the VID/PID to check against Supported devices.
+ */
+export function bridgeEmptyResultMessage(knownDevices: readonly HIDDevice[]): string {
+  if (knownDevices.length === 0) {
+    return "Bridge found no mice from supported vendors. Check that the mouse or receiver is plugged in, "
+      + "then try Add mouse again. If it still finds nothing, note the mouse model when checking Supported devices.";
+  }
+  const details = knownDevices.map((device) => describeHidDevice(device)).join(" · ");
+  return `Bridge sees ${knownDevices.length === 1 ? "a device" : `${knownDevices.length} devices`} (${details}), `
+    + "but none matches a supported control interface. A device listed here by name can still be unsupported "
+    + "when its control protocol is not implemented yet — check Supported devices for its status, "
+    + "and include the VID/PID above when reporting it.";
 }
 
 /** Returns an unsubscribe function. Immediately calls `listener` with the current state. */

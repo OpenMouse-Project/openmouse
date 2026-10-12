@@ -86,6 +86,13 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
   const cancelRef = useRef(false);
   const stageIdRef = useRef(0);
 
+  // Navigating away mid-run must stop the suite: it writes and restores device
+  // settings, so it cannot keep driving hardware from an unmounted page.
+  useEffect(() => () => {
+    cancelRef.current = true;
+    runningRef.current = false;
+  }, []);
+
   const addStage = useCallback((stage: { kind: StageKind; label: string; state?: StageState; hint?: string }): number => {
     const id = stageIdRef.current++;
     setStages((prev) => [...prev, { id, state: "running", ...stage }]);

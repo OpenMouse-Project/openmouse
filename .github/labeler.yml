@@ -1,0 +1,21 @@
+"area: ui":
+  - changed-files:
+      - any-glob-to-any-file: ['src/app/**', 'src/**/*.css', 'index.html']
+"area: devices":
+  - changed-files:
+      - any-glob-to-any-file: ['src/device/**', 'src/*hid*', 'src/*device*', 'src/logitech-*']
+"area: translations":
+  - changed-files:
+      - any-glob-to-any-file: ['src/i18n*.ts']
+"area: artwork":
+  - changed-files:
+      - any-glob-to-any-file: ['public/devices/**/*.{png,jpg,jpeg,webp,svg,avif}']
+"area: documentation":
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**']
+"area: dependencies":
+  - changed-files:
+      - any-glob-to-any-file: ['package.json', 'package-lock.json']
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', 'build/**', 'vite.config.*', 'tsconfig*.json']

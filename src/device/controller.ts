@@ -1,7 +1,14 @@
-import { cachedBatterySamples, estimateBatteryTime, recordBatterySample, type BatteryMode } from "../battery-history";
+import { emptyKeyboardWorkspace } from "./keyboard-workspace.ts";
+import type { KeyboardCommand } from "./keyboard-workspace.ts";
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../battery-history";
+import { bridgeEmptyResultMessage, isBridgeHidActive } from "../bridge-hid";
 import { applyBridgeNativeSettings } from "../bridge";
+import { pollingRateText } from "../ui/polling-rate";
 import {
   clientSupportScore,
+  createKeyboardClient,
+  isKeyboardClient,
+  type KeyboardClient,
   createSupportedClient,
   deviceBrand,
   describeHidDevice,
@@ -110,6 +117,7 @@ import { hasCapturedFactoryProfiles } from "./logitech-factory";
 import type { MagneticButtonStatus, MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { isMagneticButtonClient, type MagneticButtonClient } from "@openmouse/protocol/drivers/magnetic";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
+import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import {
   cloneM2NexProfile,
   loadM2NexProfiles,
@@ -152,6 +160,7 @@ import { ModdoHidClient } from "@openmouse/protocol/drivers/moddo/hid";
 import { NinjutsoHidClient } from "@openmouse/protocol/drivers/ninjutso/hid";
 import { ZaunkoenigHidClient } from "@openmouse/protocol/drivers/zaunkoenig/hid";
 import { CorsairHidClient } from "@openmouse/protocol/drivers/corsair/hid";
+import { CorsairBragiHidClient } from "@openmouse/protocol/drivers/corsair/bragi-hid";
 import { TeevolutionHidClient } from "@openmouse/protocol/drivers/teevolution/hid";
 import { teevolutionProfileForCid } from "@openmouse/protocol/teevolution";
 import { VgnF2HidClient } from "@openmouse/protocol/drivers/vgn/hid";
@@ -163,6 +172,7 @@ import { Keychron8kNordicHidClient } from "@openmouse/protocol/drivers/keychron/
 import type { GloriousLighting } from "@openmouse/protocol/glorious";
 import { GloriousHidClient } from "@openmouse/protocol/drivers/glorious/hid";
 import { GloriousClassicHidClient } from "@openmouse/protocol/drivers/glorious/classic-hid";
+import { GloriousCore2HidClient } from "@openmouse/protocol/drivers/glorious/core2-hid";
 import { MchoseHidClient } from "@openmouse/protocol/drivers/mchose/hid";
 import { MchoseDockHidClient } from "@openmouse/protocol/drivers/mchose/dock-hid";
 import { MchoseA5ProMaxHidClient } from "@openmouse/protocol/drivers/mchose/a5-gen1-hid";
@@ -194,15 +204,23 @@ import { BytechHidClient } from "@openmouse/protocol/drivers/bytech/hid";
 import { FaterHidClient } from "@openmouse/protocol/drivers/fater/hid";
 import { RapooHidClient } from "@openmouse/protocol/drivers/rapoo/hid";
 import { CoolerMasterHidClient } from "@openmouse/protocol/drivers/coolermaster/hid";
+import { AjazzHidClient } from "@openmouse/protocol/drivers/ajazz/hid";
 import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m690-pro-hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
+import type { SlxStatus } from "./finalmouse-slx.ts";
 import type {
   AnalogTuning,
   AnalogTuningState,
   MagneticCalibrationView,
   ControlSnapshot,
+  KeyboardIdentityView,
+  KeyboardKeyRef,
+  KeyboardPollingView,
+  KeyboardTriggerKey,
+  KeyboardTriggerPatch,
+  KeyboardView,
   ProfileView,
   DeviceCapabilities,
   DiagnosticsView,
@@ -249,6 +267,18 @@ const previewMode = previewModeEnabled
 const isAnyPreview = previewMode !== null;
 
 let active: SupportedClient | null = null;
+
+/** The active keyboard, when the selected device is one. Mutually exclusive with `active`. */
+let activeKeyboard: KeyboardClient | null = null;
+let keyboardIdentity: KeyboardIdentityView | null = null;
+let keyboardPolling: KeyboardPollingView | null = null;
+let keyboardMatrix: readonly (readonly number[])[] = [];
+let keyboardKeys: readonly KeyboardTriggerKey[] = [];
+let keyboardSelected: KeyboardKeyRef | null = null;
+let keyboardSelectedKeys: readonly KeyboardKeyRef[] = [];
+let keyboardWorkspace = emptyKeyboardWorkspace();
+let keyboardBusy = false;
+let keyboardStatusText: string | null = null;
 let x11PollingRateHz = (() => {
   const saved = Number(window.localStorage.getItem(X11_POLLING_STORAGE_KEY));
   return X11_POLLING_RATES_HZ.includes(saved) ? saved : 1000;
@@ -270,7 +300,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient] as const;
+const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -316,6 +346,12 @@ let ksnakeMacros: KsnakeMacroProfile[] | null = null;
 let stagedKsnakeMacros: KsnakeMacroProfile[] | null = null;
 let ksnakeMacrosLoading = false;
 let ksnakeMacrosError: string | null = null;
+let wallhackMacros: (WallhackMacroStep[] | null)[] | null = null;
+let wallhackMacrosLoading = false;
+let wallhackMacrosError: string | null = null;
+let wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null = null;
+let wallhackCurvesLoading = false;
+let wallhackCurvesError: string | null = null;
 let m2nexProfiles: M2NexProfile[] | null = null;
 let activeM2NexProfile = 0;
 let m2nexProfileDirty = false;
@@ -340,6 +376,7 @@ let settingInProgress = false;
 let gameProfileDraft: { stash: PendingChange[]; touched: Set<string> } | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
+let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
@@ -484,6 +521,28 @@ function deviceArtwork(status: MouseStatus | null): string | null {
   return artworkValue;
 }
 
+/** Keyboard view for the snapshot; null unless a keyboard is active and identified. */
+function buildKeyboardView(): KeyboardView | null {
+  if (!activeKeyboard || !keyboardIdentity) return null;
+  return {
+    family: activeKeyboard.family,
+    name: keyboardIdentity.name,
+    vendorId: activeKeyboard.device.vendorId,
+    productId: activeKeyboard.device.productId,
+    identity: keyboardIdentity,
+    workspace: keyboardWorkspace,
+    polling: keyboardPolling ?? { currentHz: null, supportedHz: [] },
+    trigger: {
+      matrix: keyboardMatrix,
+      keys: keyboardKeys,
+      selected: keyboardSelected,
+      selectedKeys: keyboardSelectedKeys,
+      busy: keyboardBusy,
+      statusText: keyboardStatusText,
+    },
+  };
+}
+
 function buildSnapshot(): ControlSnapshot {
   const deviceStatus = latestDeviceStatus;
   const changes = pendingChanges();
@@ -491,6 +550,7 @@ function buildSnapshot(): ControlSnapshot {
   return {
     deviceStatus,
     status,
+    keyboard: buildKeyboardView(),
     traits: traitsFor(status),
     profile: buildProfileView(),
     capabilities,
@@ -506,6 +566,7 @@ function buildSnapshot(): ControlSnapshot {
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
     atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
+    receiverFirmware: latestReceiverFirmware,
     preferences: interfacePreferences,
     sidebarHidden,
     interfaceSettingsOpen,
@@ -529,6 +590,16 @@ function buildSnapshot(): ControlSnapshot {
     ksnakeMacros: stagedKsnakeMacros ?? ksnakeMacros,
     ksnakeMacrosLoading,
     ksnakeMacrosError,
+    wallhackMacros: wallhackMacros?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null,
+    wallhackMacrosLoading,
+    wallhackMacrosError,
+    wallhackCurves: wallhackCurves
+      ? Object.fromEntries(
+        Object.entries(wallhackCurves).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
+      ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>
+      : null,
+    wallhackCurvesLoading,
+    wallhackCurvesError,
     m2nexProfiles: m2nexProfiles?.map(cloneM2NexProfile) ?? null,
     activeM2NexProfile,
     m2nexProfileDirty,
@@ -874,7 +945,13 @@ export function importM2NexProfiles(text: string): void {
     emit();
     return;
   }
-  const profiles = parseM2NexProfileImport(raw, m2nexProfiles.length);
+  let profiles: M2NexProfile[] | null;
+  try {
+    profiles = parseM2NexProfileImport(raw, m2nexProfiles.length);
+  } catch {
+    // A crafted or corrupt file must report, not throw out of this handler.
+    profiles = null;
+  }
   if (!profiles) {
     setReadStatus(`Import requires exactly ${m2nexProfiles.length} valid profile slots.`);
     emit();
@@ -1050,6 +1127,209 @@ export function applyKsnakeMacro(slot: number, profile: KsnakeMacroProfile): voi
             : profile);
           persistM2NexProfiles();
         }
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 sensor scanning mode (HIGH/ACCEL). */
+export function applySensorScanningMode(mode: "HIGH" | "ACCEL"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-scanning",
+    label: `Sensor scanning ${mode}`,
+    command: `Set sensor scanning to ${mode}`,
+    progress: `Setting sensor scanning to ${mode}…`,
+    preview: (status) => { status.sensorScanningMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setSensorScanningMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 DPI-acceleration on/off switch. */
+export function applyDynamicSensitivityEnabled(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} DPI acceleration`,
+    progress: `${enabled ? "Enabling" : "Disabling"} DPI acceleration…`,
+    preview: (status) => { status.dynamicSensitivityEnabled = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityEnabled(enabled);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 active acceleration curve. */
+export function applyDynamicSensitivityMode(mode: "classic" | "natural" | "jump" | "custom"): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens",
+    label: `DPI acceleration curve ${mode}`,
+    command: `Set DPI acceleration curve to ${mode}`,
+    progress: `Setting DPI acceleration curve to ${mode}…`,
+    preview: (status) => { status.dynamicSensitivityMode = mode; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivityMode(mode);
+    },
+  });
+}
+
+/** Stage the WALLHACK M-001 motion-speed reporting toggle. */
+export function applyDynamicSensitivitySpeedReporting(enabled: boolean): void {
+  if (!wallhackMouseClient()) return;
+  stageChange({
+    key: "wallhack-dynsens-reporting",
+    label: `Motion-speed reporting ${enabled ? "on" : "off"}`,
+    command: `${enabled ? "Enable" : "Disable"} motion-speed reporting`,
+    progress: `${enabled ? "Enabling" : "Disabling"} motion-speed reporting…`,
+    preview: (status) => { status.dynamicSensitivitySpeedReporting = enabled; },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.setDynamicSensitivitySpeedReporting(enabled);
+    },
+  });
+}
+
+/** Stage a replacement WALLHACK M-001 custom curve (exactly 5 points). */
+export function applyCustomCurve(points: WallhackCurvePoint[]): void {
+  if (!wallhackMouseClient()) return;
+  const snapshot = points.map((point) => ({ ...point }));
+  stageChange({
+    key: "wallhack-curve",
+    label: "Custom DPI acceleration curve",
+    command: "Write custom DPI acceleration curve",
+    progress: "Writing custom DPI acceleration curve…",
+    preview: (status) => {
+      if (status.dynamicSensitivityCurves) {
+        status.dynamicSensitivityCurves = { ...status.dynamicSensitivityCurves, custom: snapshot.map((p) => ({ ...p })) };
+      }
+    },
+    apply: async () => {
+      const client = wallhackMouseClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      const confirmed = await client.setCustomCurve(snapshot);
+      if (wallhackCurves) {
+        wallhackCurves = { ...wallhackCurves, custom: confirmed.map((p) => ({ ...p })) };
+        emit();
+      }
+    },
+  });
+}
+
+/** Read the four WALLHACK M-001 curve tables into the snapshot. */
+export function loadWallhackCurves(): void {
+  if (wallhackCurvesLoading || wallhackCurves !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackCurvesError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackCurvesLoading = true;
+  wallhackCurvesError = null;
+  emit();
+  void (async () => {
+    try {
+      const curves = await client.getDynamicSensitivityCurves();
+      if (wallhackMouseClient() !== client) return;
+      wallhackCurves = curves;
+      wallhackCurvesError = null;
+    } catch (error) {
+      wallhackCurvesError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackCurvesLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Read the four WALLHACK M-001 macro slots into the snapshot. */
+export function loadWallhackMacros(): void {
+  if (wallhackMacrosLoading || wallhackMacros !== null) return;
+  const client = wallhackMouseClient();
+  if (!client) {
+    wallhackMacrosError = st("macro.notReady");
+    emit();
+    return;
+  }
+  wallhackMacrosLoading = true;
+  wallhackMacrosError = null;
+  emit();
+  void (async () => {
+    try {
+      const macros = await client.getMacros();
+      if (wallhackMouseClient() !== client) return;
+      wallhackMacros = macros.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null);
+      wallhackMacrosError = null;
+    } catch (error) {
+      wallhackMacrosError = error instanceof Error ? error.message : String(error);
+    } finally {
+      wallhackMacrosLoading = false;
+      emit();
+    }
+  })();
+}
+
+/** Stage one WALLHACK M-001 macro slot write (0-3). */
+export function applyWallhackMacroSlot(slot: number, steps: WallhackMacroStep[]): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  const snapshot = steps.map((step) => ({ ...step, event: { ...step.event } }));
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Macro ${slot + 1}`,
+    command: `Save WALLHACK macro ${slot + 1}`,
+    progress: `Saving WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      const confirmed = await live.setMacroSlot(slot, snapshot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? confirmed.map((step) => ({ ...step, event: { ...step.event } })) : entry,
+        );
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage clearing one WALLHACK M-001 macro slot (0-3). */
+export function clearWallhackMacroSlot(slot: number): void {
+  const client = wallhackMouseClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  stageChange({
+    key: `wallhack-macro-${slot + 1}`,
+    label: `Clear macro ${slot + 1}`,
+    command: `Clear WALLHACK macro ${slot + 1}`,
+    progress: `Clearing WALLHACK macro ${slot + 1}…`,
+    apply: async () => {
+      const live = wallhackMouseClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.clearMacroSlot(slot);
+      if (wallhackMouseClient() === live) {
+        wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
+          index === slot ? null : entry,
+        );
         emit();
       }
     },
@@ -1749,13 +2029,13 @@ export function applyButtonMapping(controlId: number, targetControlId: number): 
 async function writeStagedButtonMappings(): Promise<void> {
   const client = logitechClient();
   if (!client) return;
-  try {
-    for (const [controlId, targetControlId] of stagedButtonMappings) {
-      buttons = await client.setButtonMapping(controlId, targetControlId);
-    }
-  } finally {
-    stagedButtonMappings.clear();
+  for (const [controlId, targetControlId] of stagedButtonMappings) {
+    buttons = await client.setButtonMapping(controlId, targetControlId);
   }
+  // Clear only after every mapping was sent. A throw part-way leaves the map
+  // intact so a retry re-sends the batch instead of letting flashPendingChanges
+  // drop the staged changes as if they had been written.
+  stagedButtonMappings.clear();
 }
 
 /**
@@ -2117,12 +2397,35 @@ export function batteryDetail(status: MouseStatus, locale: InterfaceLocale = "en
   if (status.batteryState === "Full") return withVoltage(t(locale, "bat.full"));
   const mode = batteryMode(status.batteryState);
   if (!mode) return withVoltage(batteryStateText(locale, status.batteryState));
+  const state = batteryStateText(locale, status.batteryState);
+  const estimate = batteryEstimateText(status, locale);
+  return withVoltage(estimate ? `${state} · ${estimate}` : state);
+}
+
+/**
+ * How long the battery should last or take to fill, from this device's own
+ * history once there is enough of it. Until then a mouse with a known rated
+ * life shows how long the charge would last at that rate.
+ */
+export function batteryEstimateParts(
+  status: MouseStatus,
+  locale: InterfaceLocale = "en",
+): { time: string; label: string } | null {
+  if (status.batteryPercent === null || status.batteryState === "Full") return null;
+  const mode = batteryMode(status.batteryState);
+  if (!mode) return null;
   const now = Date.now();
   const samples = cachedBatterySamples(localStorage, status.name, now);
   const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
-  const label = mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining");
-  const state = batteryStateText(locale, status.batteryState);
-  return withVoltage(estimate ? `${state} · ${estimate} ${label}` : state);
+  if (estimate) return { time: estimate, label: mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining") };
+  const ratedLife = mode === "discharging" ? ratedBattery(status.name) : null;
+  const rated = ratedLife ? estimateFromRatedLife(status.batteryPercent, ratedLife, status.pollingRateHz) : null;
+  return rated ? { time: rated, label: t(locale, "bat.remainingRated") } : null;
+}
+
+export function batteryEstimateText(status: MouseStatus, locale: InterfaceLocale = "en"): string | null {
+  const parts = batteryEstimateParts(status, locale);
+  return parts ? `${parts.time} ${parts.label}` : null;
 }
 
 function diagnosticErrorMessage(error: unknown, fallback: string): string {
@@ -2445,10 +2748,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
       ? st("ctl.connected")
       : st("ctl.batteryPct", { n: deviceStatus.batteryPercent });
     readStatus = status.ui?.valuesVerified
-      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${deviceStatus.pollingRateHz.toLocaleString()} Hz`].join(" · ")
+      ? [summary, `${deviceStatus.dpi.toLocaleString()} DPI`, `${pollingRateText(deviceStatus.pollingRateHz)} Hz`].join(" · ")
       : summary;
   } else if (!hasPendingChanges()) {
-    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: deviceStatus.pollingRateHz.toLocaleString() });
+    readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: pollingRateText(deviceStatus.pollingRateHz) });
   }
 
   if (!customDpiEditing) customDpiText = `${status.dpi.toLocaleString()} DPI`;
@@ -2479,6 +2782,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   emit();
 }
 
+/** Whether a client appears as a keyboard or a mouse in the sidebar. */
 function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
   if (client instanceof KeychronNapeHidClient
     || client instanceof WootingHidClient
@@ -2486,6 +2790,7 @@ function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
   return "mouse";
 }
 
+/** One sidebar card per physical device, marking the active one. */
 function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
   const groups = logicalDeviceGroups(devices);
   const entries: SidebarDevice[] = [];
@@ -2493,8 +2798,29 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const group = groups[index];
     const activeMember = group.find((member) => member === activeDevice);
     const device = activeMember ?? pickLogicalDevice(group);
+    const transport = (device as HIDDevice & { openMouseTransport?: string }).openMouseTransport === "bridge"
+      ? "bridge"
+      : "webhid";
+    const selected = group.some((member) => member === activeDevice);
     const client = createSupportedClient(device);
-    if (!client) continue;
+    if (!client) {
+      const keyboard = createKeyboardClient(device);
+      if (!keyboard) continue;
+      const connected = selected && activeKeyboard?.device === device && keyboardIdentity !== null;
+      entries.push({
+        index,
+        name: connected && keyboardIdentity
+          ? keyboardIdentity.name
+          : (device.productName || keyboard.name),
+        detail: `${keyboard.brand} · ${connected ? st("ctl.connected") : st("kb.available")}`,
+        selected,
+        vendorId: device.vendorId,
+        productId: device.productId,
+        kind: "keyboard",
+        transport,
+      });
+      continue;
+    }
     const status = deviceStatuses.get(device);
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
@@ -2506,14 +2832,11 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const detail = status
       ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
       : `${deviceBrand(client)} · Available`;
-    const transport = (device as HIDDevice & { openMouseTransport?: string }).openMouseTransport === "bridge"
-      ? "bridge"
-      : "webhid";
     entries.push({
       index,
       name,
       detail,
-      selected: group.some((member) => member === activeDevice),
+      selected,
       vendorId: device.vendorId,
       productId: device.productId,
       kind: sidebarEntryForm(client),
@@ -2524,7 +2847,18 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
 }
 
 async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
-  const all = devices ?? await navigator.hid?.getDevices() ?? [];
+  let all: HIDDevice[];
+  if (devices) {
+    all = devices;
+  } else {
+    try {
+      all = await navigator.hid?.getDevices() ?? [];
+    } catch {
+      // A wedged transport can reject enumeration. Keep the last known list
+      // rather than surfacing an unhandled rejection from a fire-and-forget call.
+      return;
+    }
+  }
   sidebarDevices = sidebarEntries(all);
   emit();
 }
@@ -2548,6 +2882,30 @@ function rememberActiveDevice(device: HIDDevice): void {
   }
 }
 
+const SINGLE_DPI_BACKUP_STORAGE_KEY = "openmouse.single-dpi-backup";
+
+function singleDpiBackups(): Record<string, number[]> {
+  try {
+    return JSON.parse(localStorage.getItem(SINGLE_DPI_BACKUP_STORAGE_KEY) ?? "{}") as Record<string, number[]>;
+  } catch {
+    return {};
+  }
+}
+
+/** The stage table the active mouse had before the Single DPI view gave every stage one value. */
+export function dpiStagesBeforeSingle(): number[] | null {
+  return activeDevice ? singleDpiBackups()[deviceStorageKey(activeDevice)] ?? null : null;
+}
+
+export function rememberDpiStagesBeforeSingle(stages: readonly number[]): void {
+  if (!activeDevice) return;
+  try {
+    const backups = { ...singleDpiBackups(), [deviceStorageKey(activeDevice)]: [...stages] };
+    localStorage.setItem(SINGLE_DPI_BACKUP_STORAGE_KEY, JSON.stringify(backups));
+  } catch {
+  }
+}
+
 async function waitForControllerIdle(): Promise<void> {
   while (settingInProgress || refreshInProgress || activationInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
@@ -2564,18 +2922,35 @@ async function authorizedDeviceGroups(): Promise<HIDDevice[][] | null> {
   }
 }
 
+/** Activate the authorized device group the user picked in the device list. */
 export async function selectAuthorizedDevice(index: number): Promise<void> {
   await waitForControllerIdle();
   const groups = await authorizedDeviceGroups();
   if (!groups) return;
   const group = groups[index];
   if (!group) return;
-  if (group.some((device) => device === activeDevice) && latestDeviceStatus !== null) return;
+  if (group.some((device) => device === activeDevice) && (latestDeviceStatus !== null || activeKeyboard !== null)) return;
   const candidates = group
     .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
     .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
     .sort((left, right) => right.score - left.score);
-  if (candidates.length === 0) return;
+  if (candidates.length === 0) {
+    const keyboard = group.map(createKeyboardClient).find((client): client is KeyboardClient => client !== null);
+    if (!keyboard) return;
+    deviceStatusText = st("ctl.switching");
+    readStatus = st("kb.reading");
+    emit();
+    try {
+      await activateClient(keyboard);
+    } catch (error) {
+      await keyboard.close().catch(() => undefined);
+      deviceStatusText = st("ctl.connFailed");
+      readStatus = error instanceof Error ? error.message : st("kb.readFailed");
+      toastForError(st("kb.connFailed"), error);
+      await refreshSidebar();
+    }
+    return;
+  }
   deviceStatusText = st("ctl.switching");
   readStatus = st("ctl.reading", { name: statusNameForClient(candidates[0].client) });
   emit();
@@ -2608,14 +2983,14 @@ export async function openDeviceOverview(index: number): Promise<void> {
     await connect();
     return;
   }
-  if (group.some((device) => device === activeDevice) && latestDeviceStatus !== null) {
+  if (group.some((device) => device === activeDevice) && (latestDeviceStatus !== null || activeKeyboard !== null)) {
     deviceListView = "device";
     activeWorkspaceTab = "overview";
     emit();
     return;
   }
   await selectAuthorizedDevice(index);
-  if (latestDeviceStatus !== null) {
+  if (latestDeviceStatus !== null || activeKeyboard !== null) {
     deviceListView = "device";
     activeWorkspaceTab = "overview";
     emit();
@@ -2628,10 +3003,143 @@ export function showDeviceList(): void {
   emit();
 }
 
+/** Select one key for the trigger editor. */
+/** Toggle a key in the performance selection without replacing other keys. */
+export function toggleKeyboardKey(row: number, col: number): void {
+  if (keyboardBusy || !keyboardKeys.some(key => key.row === row && key.col === col && key.keycodeName !== null)) return;
+  const alreadySelected = keyboardSelectedKeys.some(key => key.row === row && key.col === col);
+  if (alreadySelected) {
+    keyboardSelectedKeys = keyboardSelectedKeys.filter(key => key.row !== row || key.col !== col);
+    if (keyboardSelected?.row === row && keyboardSelected.col === col) {
+      keyboardSelected = keyboardSelectedKeys.at(-1) ?? null;
+    }
+  } else {
+    keyboardSelected = { row, col };
+    keyboardSelectedKeys = [...keyboardSelectedKeys, keyboardSelected];
+  }
+  emit();
+}
+
+export function selectKeyboardKey(row: number, col: number): void {
+  if (keyboardBusy || !keyboardKeys.some(k => k.row === row && k.col === col)) return;
+  keyboardSelected = { row, col };
+  keyboardSelectedKeys = [{ row, col }];
+  emit();
+}
+
+/** Select every key the board reported, for a bulk trigger write. */
+export function selectAllKeyboardKeys(): void {
+  if (keyboardBusy) return;
+  const refs = keyboardKeys.filter(key => key.keycodeName !== null).map((key) => ({ row: key.row, col: key.col }));
+  if (refs.length === 0) return;
+  keyboardSelectedKeys = refs;
+  keyboardSelected = refs[0];
+  emit();
+}
+
+export function clearKeyboardSelection(): void {
+  if (keyboardBusy) return;
+  keyboardSelected = null;
+  keyboardSelectedKeys = [];
+  emit();
+}
+
+/** Serialize keyboard reads and writes and reject results after a device switch. */
+export async function applyKeyboardCommand(command: KeyboardCommand): Promise<void> {
+  const client = activeKeyboard;
+  if (!client || keyboardBusy) return;
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.applying");
+  emit();
+  try {
+    const update = await client.command(command);
+    if (activeKeyboard !== client) return;
+    keyboardWorkspace = { ...keyboardWorkspace, ...update };
+    if (command.kind === "slot" && client.readPolling && client.readTrigger) {
+      keyboardPolling = await client.readPolling();
+      const trigger = await client.readTrigger();
+      if (activeKeyboard !== client) return;
+      keyboardMatrix = trigger.matrix;
+      keyboardKeys = trigger.keys;
+      keyboardSelected = null;
+      keyboardSelectedKeys = [];
+      keyboardWorkspace = { ...keyboardWorkspace, layer: null, macro: null, higher: null, adc: null };
+    }
+    if (command.kind === "keycode" && command.layer === 0 && client.readTrigger) {
+      const trigger = await client.readTrigger();
+      if (activeKeyboard !== client) return;
+      keyboardMatrix = trigger.matrix;
+      keyboardKeys = trigger.keys;
+    }
+    keyboardStatusText = command.kind === "caps" || command.kind === "direct" ? st("kb.sent") : st("kb.updated");
+  } catch (error) {
+    if (activeKeyboard !== client) return;
+    keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+  } finally {
+    if (activeKeyboard === client) { keyboardBusy = false; emit(); }
+  }
+}
+
+/** Write the polling rate and confirm it by re-reading the board. */
+export async function applyKeyboardPolling(hz: number): Promise<void> {
+  const client = activeKeyboard;
+  if (!client?.setPollingRate || keyboardBusy) return;
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.applying");
+  emit();
+  try {
+    const polling = await client.setPollingRate(hz);
+    if (activeKeyboard !== client) return;
+    keyboardPolling = polling;
+    keyboardStatusText = null;
+    pushToast("success", st("kb.pollingApplied"), st("kb.pollingDetail", { hz: hz.toLocaleString() }));
+  } catch (error) {
+    if (activeKeyboard !== client) return;
+    keyboardStatusText = error instanceof Error ? error.message : st("kb.pollingFailed");
+    toastForError(st("kb.pollingFailed"), error);
+  } finally {
+    if (activeKeyboard === client) { keyboardBusy = false; emit(); }
+  }
+}
+
+/**
+ * Apply a partial trigger edit to every selected key. Each key is written
+ * read-modify-write and confirmed by re-reading, so unrelated fields keep
+ * their live values and only board-confirmed values reach the snapshot.
+ */
+export async function applyKeyboardTrigger(patch: KeyboardTriggerPatch): Promise<void> {
+  const client = activeKeyboard;
+  if (!client?.writeTrigger || keyboardBusy) return;
+  const targets = keyboardSelectedKeys.length > 0
+    ? keyboardSelectedKeys
+    : keyboardSelected ? [keyboardSelected] : [];
+  if (targets.length === 0) return;
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.applying");
+  emit();
+  try {
+    for (const target of targets) {
+      const settings = await client.writeTrigger(target.row, target.col, patch);
+      if (activeKeyboard !== client) return;
+      keyboardKeys = keyboardKeys.map(key => key.row === target.row && key.col === target.col
+        ? { ...key, ...settings, performance: { ...key.performance, normalPressMm: settings.travelMm, rtPressMm: settings.rapidTriggerPressMm, rtReleaseMm: settings.rapidTriggerReleaseMm, pressDeadStrokeMm: settings.deadBandPressMm, releaseDeadStrokeMm: settings.deadBandReleaseMm } }
+        : key);
+    }
+    keyboardStatusText = null;
+    pushToast("success", st("kb.triggerApplied"), st("kb.triggerAppliedDetail", { n: targets.length }));
+  } catch (error) {
+    if (activeKeyboard !== client) return;
+    keyboardStatusText = error instanceof Error ? error.message : st("kb.triggerFailed");
+    toastForError(st("kb.triggerFailed"), error);
+  } finally {
+    if (activeKeyboard === client) { keyboardBusy = false; emit(); }
+  }
+}
+
 /** Open the connected device's dashboard from the sidebar. */
 export async function showDeviceDashboard(): Promise<void> {
   await waitForControllerIdle();
-  if (latestDeviceStatus === null) {
+  if (latestDeviceStatus === null && activeKeyboard === null) {
     deviceListView = "list";
     emit();
     return;
@@ -2651,6 +3159,211 @@ function clearActiveClients(): void {
   active = null;
 }
 
+/** Close and reset the keyboard view so no stale trigger data survives a switch. */
+function clearActiveKeyboard(): void {
+  const keyboard = activeKeyboard;
+  activeKeyboard = null;
+  if (keyboard) void keyboard.close().catch(() => undefined);
+  keyboardIdentity = null;
+  keyboardWorkspace = emptyKeyboardWorkspace();
+  keyboardPolling = null;
+  keyboardMatrix = [];
+  keyboardKeys = [];
+  keyboardSelected = null;
+  keyboardSelectedKeys = [];
+  keyboardBusy = false;
+  keyboardStatusText = null;
+}
+
+/**
+ * Reads the receiver's own firmware after a wireless Logitech connect.
+ * Same HID interface, device index 0xFF — no extra permissions, no extra
+ * handle. Read-only and best-effort: wired links, Bluetooth, and receivers
+ * that stay silent resolve to null and never disturb the mouse status.
+ */
+async function probeReceiverFirmware(client: SupportedClient, connectionType: string | undefined): Promise<void> {
+  latestReceiverFirmware = null;
+  if (!(client instanceof LogitechHidppClient)) {
+    if (import.meta.env?.DEV === true) console.log('[firmware] receiver probe skipped: not a Logitech client');
+    return;
+  }
+  if (connectionType !== "Wireless") {
+    if (import.meta.env?.DEV === true) console.log('[firmware] receiver probe skipped: connection is ' + String(connectionType));
+    return;
+  }
+  const hid = client.device;
+  // Backgrounded: receiver index probing can take several timeouts to rule
+  // out. The card re-renders via emit() when it lands; a superseded device
+  // never commits.
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  void readReceiverFromSiblings(hid)
+    .then((found) => {
+      if (activeDevice !== hid) return;
+      try {
+        latestReceiverFirmware = found;
+        emit();
+      } catch {
+        // Identity changed mid-probe; drop it silently.
+      }
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      // Resume polling for the still-active device even when the probe
+      // rejected, or a failed probe would leave the status poll stopped.
+      if (activeDevice === hid) startAutomaticRefresh();
+    });
+}
+
+/**
+ * TEMPORARY local copy of LogitechHidppClient.readReceiverFirmware
+ * (mouse-protocol/src/drivers/logitech/hidpp.ts): HID++ 1.0 register 0xF1
+ * on device 0xFF (the receiver). Remove once the app moves past
+ * @openmouse/protocol 0.30.0, whose dist predates that method — until then
+ * calling it here would be a runtime TypeError. Read-only.
+ */
+/**
+ * Tries the 0xF1 register read on the active interface first, then on every
+ * other authorized HID interface from the same vendor (a Lightspeed dongle
+ * exposes several; the receiver answers 1.0 register reads on its own
+ * collection, not on the interface currently carrying the mouse). Read-only.
+ */
+/**
+ * G Hub reads receiver firmware with per-MCU/index arguments ("unable to
+ * retrieve from 0xf1, MCU: %i Index: %i"), so zero params are only the
+ * first guess: sweep small (mcu, index) combos at device 0xFF and keep the
+ * first non-error value. Every attempt logs its error code either way.
+ */
+async function sweepReceiverRegister(
+  device: HIDDevice,
+  verbose: boolean,
+): Promise<Array<{ mcu: number; version: string | null; raw: number[] }>> {
+  // One readout per MCU: MCU1/MPR7 and MCU2/CC14 report independently
+  // (verified live: mcu=1 -> 01 07 02, mcu=2 -> 02 00 11). These bytes are
+  // per-MCU BOOTLOADER identifiers, not app versions: a full G HUB flash
+  // (14.3.19 -> 14.4.20) left them byte-identical, so they must never drive
+  // a version verdict. First ok wins per MCU so a silent index never
+  // shadows an answering one.
+  const mcus: Array<{ mcu: number; version: string | null; raw: number[] }> = [];
+  for (const mcu of [1, 2]) {
+    for (const index of [0, 1]) {
+      const attempt = await readReceiverRegisterF1(device, verbose, 0xff, [mcu, index, 0]);
+      if (attempt.ok) {
+        if (import.meta.env?.DEV === true) {
+          console.log('[firmware] receiver probe: HIT mcu=' + mcu + ' index=' + index +
+            ' raw=' + attempt.raw.map((b) => b.toString(16).padStart(2, '0')).join(' '));
+        }
+        mcus.push({ mcu, version: attempt.version, raw: attempt.raw });
+        break;
+      }
+    }
+  }
+  return mcus;
+}
+
+async function readReceiverFromSiblings(
+  active: HIDDevice,
+): Promise<{ interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null> {
+  const targets = [active];
+  const seen = new Set<HIDDevice>([active]);
+  try {
+    for (const candidate of await navigator.hid?.getDevices() ?? []) {
+      if (candidate === active || candidate.vendorId !== active.vendorId || seen.has(candidate)) continue;
+      seen.add(candidate);
+      targets.push(candidate);
+    }
+  } catch {
+    // Enumeration unavailable; active interface alone still answers.
+  }
+  for (const target of targets) {
+    const tag = target.vendorId.toString(16) + ':' + target.productId.toString(16);
+    if (target !== active && import.meta.env?.DEV === true) console.log('[firmware] receiver probe: trying sibling interface ' + tag);
+    let openedHere = false;
+    try {
+      if (!target.opened) {
+        await target.open();
+        openedHere = true;
+      }
+    } catch {
+      continue;
+    }
+    try {
+      const mcus = await sweepReceiverRegister(target, target === active);
+      if (mcus.length > 0) {
+        return {
+          interfaceId: target.vendorId.toString(16).padStart(4, '0') + '_' + target.productId.toString(16).padStart(4, '0'),
+          mcus,
+        };
+      }
+    } finally {
+      if (openedHere) await target.close().catch(() => undefined);
+    }
+  }
+  return null;
+}
+
+
+type RegisterRead = { ok: true; version: string | null; raw: number[] } | { ok: false; code: number | null };
+
+async function readReceiverRegisterF1(
+  device: HIDDevice,
+  verbose: boolean,
+  deviceIndex = 0xff,
+  params: readonly [number, number, number] = [0, 0, 0],
+): Promise<RegisterRead> {
+  const tag = device.vendorId.toString(16) + ':' + device.productId.toString(16) +
+    ' dev=' + deviceIndex.toString(16) + ' params=[' + params.join(',') + ']';
+  if (verbose && import.meta.env?.DEV === true) console.log('[firmware] receiver probe: sending 0xF1 ' + tag);
+  type Outcome = { kind: 'value'; data: Uint8Array } | { kind: 'error'; code: number | null } | { kind: 'timeout' };
+  const reply: Outcome = await new Promise((resolve) => {
+    const cleanup = (): void => {
+      window.clearTimeout(timer);
+      device.removeEventListener('inputreport', onReport);
+    };
+    const timer = window.setTimeout(() => {
+      cleanup();
+      resolve({ kind: 'timeout' });
+    }, 2500);
+    const onReport = (event: HIDInputReportEvent): void => {
+      if (event.reportId !== 0x10) return;
+      const data = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
+      if (import.meta.env?.DEV === true) {
+        console.log('[firmware] rx reg (' + data.length + 'b) ' + [...data].map((b) => b.toString(16).padStart(2, '0')).join(' '));
+      }
+      if (data[0] === deviceIndex && data[1] === 0x81 && data[2] === 0xf1) {
+        cleanup();
+        resolve({ kind: 'value', data });
+      } else if (data[0] === deviceIndex && data[1] === 0x8f && data[2] === 0x81 && data[3] === 0xf1) {
+        cleanup();
+        resolve({ kind: 'error', code: data[4] ?? null });
+      }
+    };
+    device.addEventListener('inputreport', onReport);
+    void device.sendReport(0x10, new Uint8Array([deviceIndex, 0x81, 0xf1, params[0], params[1], params[2]])).catch(() => {
+      cleanup();
+      resolve({ kind: 'timeout' });
+    });
+  });
+  if (reply.kind === 'timeout') {
+    if (import.meta.env?.DEV === true) console.log('[firmware] receiver probe: no reply (timeout or send failed)');
+    return { ok: false as const, code: null };
+  }
+  if (reply.kind === 'error') {
+    if (import.meta.env?.DEV === true) console.log('[firmware] receiver probe: register error ' + String(reply.code));
+    return { ok: false as const, code: reply.code };
+  }
+  if (reply.kind !== 'value') return { ok: false as const, code: null };
+  const payload = [...reply.data.subarray(3, 7)];
+  return {
+    ok: true as const,
+    version: payload.length >= 3 ? `${payload[0]}.${payload[1]}.${payload[2]}` : null,
+    raw: payload,
+  };
+}
+
+/** Activate a mouse client and remember it as the preferred device. */
 async function activateClientNow(client: SupportedClient): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
@@ -2661,6 +3374,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   latestDeviceStatus = null;
   deviceStatusNeedsRefresh = false;
   clearActiveClients();
+  clearActiveKeyboard();
   if (switchingDevice) {
     onboardProfiles = null;
     editedNapeLayer = null;
@@ -2668,6 +3382,12 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     stagedKsnakeMacros = null;
     ksnakeMacrosLoading = false;
     ksnakeMacrosError = null;
+    wallhackMacros = null;
+    wallhackMacrosLoading = false;
+    wallhackMacrosError = null;
+    wallhackCurves = null;
+    wallhackCurvesLoading = false;
+    wallhackCurvesError = null;
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -2680,53 +3400,139 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   active = client;
   activeWorkspaceTab = "overview";
 
-  if (isEggWeClient(client)) await eggWePrepare(client);
-  if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
+  try {
+    if (isEggWeClient(client)) await eggWePrepare(client);
+    if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
 
-  if (pulsarClient() !== null) {
-    await showPulsarExplorer(client as PulsarClient);
-  } else {
-    const status = await client.readStatus();
-    dpiOptions = await client.getDpiOptions();
-    const dm = dmClient();
-    const keychron = keychronNapeClient();
-    if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
-    else if (keychron) {
-      lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+    if (pulsarClient() !== null) {
+      await showPulsarExplorer(client as PulsarClient);
+    } else {
+      const status = await client.readStatus();
+      dpiOptions = await client.getDpiOptions();
+      const dm = dmClient();
+      const keychron = keychronNapeClient();
+      if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
+      else if (keychron) {
+        lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+      }
+      deviceStatuses.set(client.device, status);
+      // Optional setters/getters are runtime capabilities of the selected
+      // client. Populate them before rendering so controls such as RAWM angle
+      // tuning are editable on the first status snapshot.
+      capabilities = readCapabilities();
+      applyStatus(status);
+      if (isNoirProfileDevice(status) && m2nexProfiles === null) seedM2NexProfiles(status);
+      if (!isNoirProfileDevice(status)) {
+        m2nexProfiles = null;
+        activeM2NexProfile = 0;
+        m2nexProfileDirty = false;
+      }
+      await readButtons();
+      await probeReceiverFirmware(client, status.connectionType);
+      await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
+      if (dm) {
+        await dm.startNotifications(() => {
+          void refreshStatus();
+        }).catch(() => false);
+      }
     }
-    deviceStatuses.set(client.device, status);
-    // Optional setters/getters are runtime capabilities of the selected
-    // client. Populate them before rendering so controls such as RAWM angle
-    // tuning are editable on the first status snapshot.
-    capabilities = readCapabilities();
-    applyStatus(status);
-    if (isNoirProfileDevice(status) && m2nexProfiles === null) seedM2NexProfiles(status);
-    if (!isNoirProfileDevice(status)) {
-      m2nexProfiles = null;
-      activeM2NexProfile = 0;
-      m2nexProfileDirty = false;
+
+    await refreshSidebar();
+    rememberActiveDevice(client.device);
+    startAutomaticRefresh();
+    setConnectionButtons(false, "Add device");
+    pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
+  } catch (error) {
+    // A failed activation must not leave the closed client as the active one:
+    // that hides the empty state and blocks reconnectAuthorizedDevice.
+    if (active === client) {
+      showDisconnectedState();
+      emit();
     }
-    await readButtons();
-    await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
-    if (dm) {
-      await dm.startNotifications(() => {
-        void refreshStatus();
-      }).catch(() => false);
-    }
+    throw error;
   }
-
-  await refreshSidebar();
-  rememberActiveDevice(client.device);
-  startAutomaticRefresh();
-  setConnectionButtons(false, "Add device");
-  pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
 }
 
-function activateClient(client: SupportedClient): Promise<void> {
+/** Activate a keyboard: identity, polling and trigger only — no mouse status. */
+async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> {
+  while (refreshInProgress) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+  }
+  const previous = active;
+  active = null;
+  if (previous) await previous.close().catch(() => undefined);
+  showDisconnectedState();
+  activeDevice = client.device;
+  activeKeyboard = client;
+  recordDiagnosticCommand("Read keyboard status");
+  activeWorkspaceTab = "overview";
+  deviceStatusText = st("ctl.connected");
+  readStatus = st("kb.reading");
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.reading");
+  emit();
+  try {
+    await client.open();
+    keyboardIdentity = await client.readIdentity();
+    keyboardPolling = client.readPolling ? await client.readPolling() : null;
+  } catch (error) {
+    await client.close().catch(() => undefined);
+    keyboardBusy = false;
+    keyboardStatusText = null;
+    activeKeyboard = null;
+    activeDevice = null;
+    deviceStatusText = st("ctl.connFailed");
+    readStatus = error instanceof Error ? error.message : st("kb.readFailed");
+    emit();
+    throw error;
+  }
+  keyboardBusy = false;
+  keyboardStatusText = null;
+  readStatus = keyboardIdentity.name;
+  await refreshSidebar();
+  rememberActiveDevice(client.device);
+  setConnectionButtons(false, "Add device");
+  pushToast("success", st("kb.connectedTo", { name: keyboardIdentity.name }));
+  void loadKeyboardTrigger(client);
+}
+
+/** Read every live key's trigger in the background so the panel opens fast. */
+async function loadKeyboardTrigger(client: KeyboardClient): Promise<void> {
+  keyboardBusy = true;
+  keyboardStatusText = st(client.readTrigger ? "kb.readingTrigger" : "kb.reading");
+  emit();
+  try {
+    const trigger = client.readTrigger ? await client.readTrigger() : { matrix: [], keys: [] };
+    if (activeKeyboard !== client) return;
+    keyboardMatrix = trigger.matrix;
+    keyboardKeys = trigger.keys;
+    if (keyboardSelected === null && trigger.keys.length > 0) {
+      const first = trigger.keys[0];
+      keyboardSelected = { row: first.row, col: first.col };
+      keyboardSelectedKeys = [{ row: first.row, col: first.col }];
+    }
+    const workspace = await client.command({ kind: "refresh" });
+    if (activeKeyboard !== client) return;
+    keyboardWorkspace = { ...keyboardWorkspace, ...workspace };
+    keyboardStatusText = null;
+  } catch (error) {
+    if (activeKeyboard !== client) return;
+    keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+  } finally {
+    if (activeKeyboard === client) {
+      keyboardBusy = false;
+      emit();
+    }
+  }
+}
+
+/** Queue a device activation so only one keyboard/mouse switch runs at a time. */
+function activateClient(target: SupportedClient | KeyboardClient): Promise<void> {
   const run = activationQueue.then(async () => {
     activationInProgress = true;
     try {
-      await activateClientNow(client);
+      if (isKeyboardClient(target)) await activateKeyboardClientNow(target);
+      else await activateClientNow(target);
     } finally {
       activationInProgress = false;
     }
@@ -2755,13 +3561,21 @@ function showDisconnectedState(): void {
     refreshTimer = null;
   }
   clearActiveClients();
+  clearActiveKeyboard();
   activeDevice = null;
+  latestReceiverFirmware = null;
   onboardProfiles = null;
   editedNapeLayer = null;
   ksnakeMacros = null;
   stagedKsnakeMacros = null;
   ksnakeMacrosLoading = false;
   ksnakeMacrosError = null;
+  wallhackMacros = null;
+  wallhackMacrosLoading = false;
+  wallhackMacrosError = null;
+  wallhackCurves = null;
+  wallhackCurvesLoading = false;
+  wallhackCurvesError = null;
   m2nexProfiles = null;
   activeM2NexProfile = 0;
   m2nexProfileDirty = false;
@@ -2778,6 +3592,7 @@ function showDisconnectedState(): void {
   setConnectionButtons(false, "Add device");
 }
 
+/** Refresh the sidebar when an already-active device reconnects. */
 function handleHidConnect(event: HIDConnectionEvent): void {
   if (activeDevice === event.device) {
     void refreshSidebar();
@@ -2831,6 +3646,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
   });
 }
 
+/** Drop a removed device and switch to a replacement when one is still authorized. */
 function handleHidDisconnect(event: HIDConnectionEvent): void {
   deviceStatuses.delete(event.device);
   // Multi-collection drivers (cmd + notify) treat either handle as the active mouse.
@@ -2858,10 +3674,23 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   });
 }
 
-async function requestSupportedClient(): Promise<SupportedClient | null> {
+/** Ask the browser for a device, then pick the best keyboard or mouse client. */
+async function requestSupportedClient(): Promise<SupportedClient | KeyboardClient | null> {
   if (!navigator.hid) throw new Error(st("ctl.noWebHid"));
   const devices = await navigator.hid.requestDevice({ filters: HID_FILTERS });
-  if (devices.length === 0) return null;
+  if (devices.length === 0) {
+    // Native WebHID rejects when the picker is dismissed, so an empty list
+    // only arrives from the Bridge shim — which has no picker to cancel, only
+    // a native enumeration that matched nothing. Returning null here used to
+    // end the attempt silently (status text flashing back with just a click
+    // sound), hiding e.g. an unsupported-but-present receiver. Throw instead
+    // so the attempt ends in the persistent error + toast below.
+    if (isBridgeHidActive()) {
+      const known = await navigator.hid.getDevices();
+      throw new Error(bridgeEmptyResultMessage(known));
+    }
+    return null;
+  }
 
   if (devices.some((device) => eggWeIsSupported(device))) {
     const weClient = eggWeFromAuthorized(await eggWeAuthorizedPool(devices));
@@ -2877,6 +3706,11 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     if (isEggWeClient(best.client)) await eggWePrepare(best.client);
     return best.client;
   }
+
+  const keyboard = devices
+    .map(createKeyboardClient)
+    .find((client): client is KeyboardClient => client !== null);
+  if (keyboard) return keyboard;
 
   if (devices.some((device) => device.vendorId === BASILISK_V3_PRO_BLUETOOTH.vendorId
     && device.productId === BASILISK_V3_PRO_BLUETOOTH.productId)) {
@@ -2947,6 +3781,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   throw new Error(unsupportedMessage);
 }
 
+/** Prompt the browser for a device, then activate the best keyboard or mouse. */
 export async function connect(): Promise<void> {
   setConnectionButtons(true, "Connecting…");
   deviceStatusText = st("ctl.requesting");
@@ -2961,7 +3796,11 @@ export async function connect(): Promise<void> {
       return;
     }
     deviceStatusText = st("ctl.opening");
-    readStatus = st("ctl.reading", { name: statusNameForClient(client) });
+    readStatus = st("ctl.reading", {
+      name: isKeyboardClient(client)
+        ? (client.device.productName || client.name)
+        : statusNameForClient(client),
+    });
     emit();
     await activateClient(client);
   } catch (error) {
@@ -2980,6 +3819,7 @@ export async function connect(): Promise<void> {
   }
 }
 
+/** Restore the active device after a reload, honouring the saved preference. */
 async function reconnectAuthorizedDevice(): Promise<void> {
   if (hasActiveClient() || reconnectInFlight) return;
   reconnectInFlight = true;
@@ -2997,23 +3837,34 @@ async function reconnectAuthorizedDevice(): Promise<void> {
 
       const devices = await navigator.hid?.getDevices() ?? [];
       const preferredKey = storedActiveDeviceKey();
-      const clients = listLogicalDevices(devices)
-        .map((device) => ({
-          client: createSupportedClient(device),
-          preferred: deviceStorageKey(device) === preferredKey,
-          score: clientSupportScore(device),
-        }))
-        .filter((entry): entry is { client: SupportedClient; preferred: boolean; score: number } => entry.client !== null)
-        .sort((left, right) => Number(right.preferred) - Number(left.preferred) || right.score - left.score)
+      // Keyboards are not `SupportedClient`s, so rank them alongside mice here:
+      // a saved keyboard preference must win even when a supported mouse is also
+      // authorized, and multiple keyboards must respect the saved preference
+      // too. Mice keep the first slot when nothing is preferred, which was the
+      // behavior before keyboards joined the reconnect path.
+      const candidates = listLogicalDevices(devices)
+        .map((device) => {
+          const client = createSupportedClient(device) ?? createKeyboardClient(device);
+          return client === null ? null : {
+            client,
+            preferred: deviceStorageKey(device) === preferredKey,
+            keyboard: isKeyboardClient(client),
+            score: clientSupportScore(device),
+          };
+        })
+        .filter((entry): entry is { client: SupportedClient | KeyboardClient; preferred: boolean; keyboard: boolean; score: number } => entry !== null)
+        .sort((left, right) => Number(right.preferred) - Number(left.preferred)
+          || Number(left.keyboard) - Number(right.keyboard)
+          || right.score - left.score)
         .map((entry) => entry.client);
       await refreshSidebar(devices);
-      if (clients.length === 0) continue;
+      if (candidates.length === 0) continue;
 
-      for (const client of clients) {
+      for (const client of candidates) {
         if (hasActiveClient()) return;
         try {
           deviceStatusText = st("ctl.reconnecting");
-          readStatus = st("ctl.readingPrev");
+          readStatus = isKeyboardClient(client) ? st("kb.reading") : st("ctl.readingPrev");
           emit();
           await activateClient(client);
           return;
@@ -3310,6 +4161,34 @@ export function setAnalogTuningValue(
 ): void {
   analogTuning = { ...analogTuning, [group]: { ...analogTuning[group], [setting]: value } };
   emit();
+  // A HITS step is only on-screen state until it is staged. With instant flash
+  // on, stage it now, as every other setting does; otherwise it waits for Apply.
+  if (!interfacePreferences.instantFlash) return;
+  if (group === "both") applyLogitechAnalogButtons();
+  else applyLogitechAnalogButton(group === "left" ? 0 : 1);
+}
+
+/**
+ * Loads a preset into the HITS card. Equal buttons show on the Both tab, unequal
+ * ones on Independent. With instant flash on it is written straight away (both
+ * buttons staged together, so one profile write); otherwise it waits for Apply.
+ */
+export function loadAnalogPreset(left: AnalogTuning, right: AnalogTuning): void {
+  const same = left.actuation === right.actuation
+    && left.rapidTrigger === right.rapidTrigger
+    && left.haptics === right.haptics
+    && left.rapidTriggerEnabled === right.rapidTriggerEnabled;
+  analogTuning = same
+    ? { ...analogTuning, mode: "both", left: { ...left }, right: { ...right }, both: { ...left } }
+    : { ...analogTuning, mode: "independent", left: { ...left }, right: { ...right } };
+  emit();
+  if (!interfacePreferences.instantFlash) return;
+  if (same) {
+    applyLogitechAnalogButtons();
+  } else {
+    applyLogitechAnalogButton(0);
+    applyLogitechAnalogButton(1);
+  }
 }
 
 /**
@@ -4018,30 +4897,30 @@ function applyNapeAssignmentValue(
 
 async function writeStagedNapeAssignments(): Promise<void> {
   const edits = [...stagedNapeAssignments.values()];
-  try {
-    if (isAnyPreview) {
-      for (const edit of edits) patchNapeKeymap(edit.layer, edit.control, edit.keycode);
-      return;
-    }
-    const client = keychronNapeClient();
-    if (!client) return;
-    for (const edit of edits) {
-      if (edit.control.kind === "orientation") {
-        await client.setLayerOrientation(edit.layer, edit.keycode);
-      } else if (edit.control.kind === "key") {
-        await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
-      } else {
-        await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
-      }
-      patchNapeKeymap(edit.layer, edit.control, edit.keycode);
-    }
-    const layer = editedNapeLayer ?? napeKeymap?.layer;
-    if (layer != null) {
-      rememberNapeKeymap(await client.readLayerKeymap(layer));
-    }
-  } finally {
+  if (isAnyPreview) {
+    for (const edit of edits) patchNapeKeymap(edit.layer, edit.control, edit.keycode);
     stagedNapeAssignments.clear();
+    return;
   }
+  const client = keychronNapeClient();
+  if (!client) return;
+  for (const edit of edits) {
+    if (edit.control.kind === "orientation") {
+      await client.setLayerOrientation(edit.layer, edit.keycode);
+    } else if (edit.control.kind === "key") {
+      await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
+    } else {
+      await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
+    }
+    patchNapeKeymap(edit.layer, edit.control, edit.keycode);
+  }
+  const layer = editedNapeLayer ?? napeKeymap?.layer;
+  if (layer != null) {
+    rememberNapeKeymap(await client.readLayerKeymap(layer));
+  }
+  // Clear only after every assignment landed; a throw leaves the map for a
+  // retry (see writeStagedButtonMappings).
+  stagedNapeAssignments.clear();
 }
 
 function syncEditedNapeLayer(status: MouseStatus): void {
@@ -5250,6 +6129,284 @@ export function applyFinalmouseSetting(
   });
 }
 
+type SlxWriteClient = {
+  setClickMode(modeL: number, modeR: number, relL?: number, relR?: number): Promise<unknown>;
+  setTmrActuation(actuationMmL: number, actuationMmR: number, rtUmL?: number, rtUmR?: number): Promise<unknown>;
+  setActiveProfile(index: number): Promise<unknown>;
+  setProfileName(index: number, name: string): Promise<unknown>;
+  setProfileEnabled(index: number, enabled: boolean): Promise<unknown>;
+};
+
+function slxStatus(): SlxStatus | null {
+  if (!finalmouseClient() || !latestDeviceStatus) return null;
+  return latestDeviceStatus as SlxStatus;
+}
+
+function requireSlxWrite(method: "setClickMode" | "setTmrActuation" | "setActiveProfile" | "setProfileName" | "setProfileEnabled", label: string): SlxWriteClient {
+  return requireClientMethod(method, label) as unknown as SlxWriteClient;
+}
+
+/**
+ * Starlight X click mode per switch (0 mechanical, 1 TMR analog). The
+ * command always carries both switches, so the untouched half is filled
+ * from the current status.
+ */
+export function applyFinalmouseClickMode(side: "left" | "right", mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = side === "left" ? mode : (status.finalmouseClickModeL ?? 0);
+  const modeR = side === "right" ? mode : (status.finalmouseClickModeR ?? 0);
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} click ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: `Change Finalmouse ${side} click mode`,
+    progress: `Changing Finalmouse ${side} click mode…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = modeL;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = modeR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        modeL, modeR, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/**
+ * Starlight X release point per switch (0 normal, 1 early, 2 late). Like
+ * the mode, it rides with both switches in one command.
+ */
+export function applyFinalmouseRelease(side: "left" | "right", rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const relL = side === "left" ? rel : (status.finalmouseClickReleaseL ?? 0);
+  const relR = side === "right" ? rel : (status.finalmouseClickReleaseR ?? 0);
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse ${side} release ${names[rel] ?? rel}`,
+    command: `Change Finalmouse ${side} release point`,
+    progress: `Changing Finalmouse ${side} release point…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = relL;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = relR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, relL, relR);
+    },
+  });
+}
+
+/**
+ * Starlight X TMR actuation per switch in millimetres (0.01-0.40). The
+ * rapid-trigger pair rides along only when both sides are known.
+ */
+export function applyFinalmouseTmrActuation(side: "left" | "right", mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const mmL = side === "left" ? mm : currentL;
+  const mmR = side === "right" ? mm : currentR;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} actuation ${mm.toFixed(2)} mm`,
+    command: `Change Finalmouse ${side} actuation`,
+    progress: `Changing Finalmouse ${side} actuation…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mmL * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mmR * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mmL, mmR, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity per switch in µm (150-250). */
+export function applyFinalmouseRtSensitivity(side: "left" | "right", um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  const umL = side === "left" ? um : (status.finalmouseTmrHystL ?? 220);
+  const umR = side === "right" ? um : (status.finalmouseTmrHystR ?? 220);
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse ${side} rapid trigger ${um} µm`,
+    command: `Change Finalmouse ${side} rapid trigger`,
+    progress: `Changing Finalmouse ${side} rapid trigger…`,
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = umL;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = umR;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, umL, umR);
+    },
+  });
+}
+
+/** Starlight X click mode for both switches together. */
+export function applyFinalmouseClickModeBoth(mode: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const relL = status.finalmouseClickReleaseL ?? undefined;
+  const relR = status.finalmouseClickReleaseR ?? undefined;
+  const bothKnown = relL !== undefined && relR !== undefined;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks ${mode === 1 ? "TMR analog" : "mechanical"}`,
+    command: "Change Finalmouse click mode for both switches",
+    progress: "Changing Finalmouse click mode…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickModeL = mode;
+      (next as unknown as Record<string, unknown>).finalmouseClickModeR = mode;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "click mode").setClickMode(
+        mode, mode, bothKnown ? relL : undefined, bothKnown ? relR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X release point for both switches together. */
+export function applyFinalmouseReleaseBoth(rel: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const modeL = status.finalmouseClickModeL ?? 0;
+  const modeR = status.finalmouseClickModeR ?? 0;
+  const names = ["normal", "early", "late"] as const;
+  stageChange({
+    key: "finalmouse-click-mode",
+    label: `Finalmouse both clicks release ${names[rel] ?? rel}`,
+    command: "Change Finalmouse release point for both switches",
+    progress: "Changing Finalmouse release point…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseL = rel;
+      (next as unknown as Record<string, unknown>).finalmouseClickReleaseR = rel;
+    },
+    apply: async () => {
+      await requireSlxWrite("setClickMode", "release point").setClickMode(modeL, modeR, rel, rel);
+    },
+  });
+}
+
+/** Starlight X TMR actuation for both switches together, in millimetres. */
+export function applyFinalmouseTmrActuationBoth(mm: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const umL = status.finalmouseTmrHystL ?? undefined;
+  const umR = status.finalmouseTmrHystR ?? undefined;
+  const bothKnown = umL !== undefined && umR !== undefined;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks actuation ${mm.toFixed(2)} mm`,
+    command: "Change Finalmouse actuation for both switches",
+    progress: "Changing Finalmouse actuation…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrL = Math.round(mm * 100);
+      (next as unknown as Record<string, unknown>).finalmouseTmrThrR = Math.round(mm * 100);
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "actuation").setTmrActuation(
+        mm, mm, bothKnown ? umL : undefined, bothKnown ? umR : undefined,
+      );
+    },
+  });
+}
+
+/** Starlight X rapid-trigger sensitivity for both switches together, in µm. */
+export function applyFinalmouseRtSensitivityBoth(um: number): void {
+  const status = slxStatus();
+  if (!status) return;
+  const currentL = status.finalmouseTmrThrL != null ? status.finalmouseTmrThrL / 100 : 0.2;
+  const currentR = status.finalmouseTmrThrR != null ? status.finalmouseTmrThrR / 100 : 0.2;
+  stageChange({
+    key: "finalmouse-tmr",
+    label: `Finalmouse both clicks rapid trigger ${um} µm`,
+    command: "Change Finalmouse rapid trigger for both switches",
+    progress: "Changing Finalmouse rapid trigger…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystL = um;
+      (next as unknown as Record<string, unknown>).finalmouseTmrHystR = um;
+    },
+    apply: async () => {
+      await requireSlxWrite("setTmrActuation", "rapid trigger").setTmrActuation(currentL, currentR, um, um);
+    },
+  });
+}
+/** Starlight X active profile by 0-based index. */
+export function applyFinalmouseProfileActive(index: number): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1}`,
+    command: "Change Finalmouse active profile",
+    progress: "Changing Finalmouse active profile…",
+    preview: (next) => {
+      (next as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+    },
+    apply: async () => {
+      await requireSlxWrite("setActiveProfile", "active profile").setActiveProfile(index);
+    },
+  });
+}
+
+/** Starlight X profile enable flag. */
+export function applyFinalmouseProfileEnabled(index: number, enabled: boolean): void {
+  if (!finalmouseClient()) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} ${enabled ? "enabled" : "disabled"}`,
+    command: `Change Finalmouse profile ${index + 1} state`,
+    progress: `Changing Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const slx = next as unknown as SlxStatus;
+      const count = slx.finalmouseProfileCount ?? 5;
+      const base = slx.finalmouseProfileEnabledMask ?? (1 << count) - 1;
+      const mask = enabled ? base | (1 << index) : base & ~(1 << index);
+      (next as unknown as Record<string, unknown>).finalmouseProfileEnabledMask = mask;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileEnabled", "profile state").setProfileEnabled(index, enabled);
+    },
+  });
+}
+
+/** Starlight X profile rename (31 chars max). */
+export function applyFinalmouseProfileName(index: number, name: string): void {
+  const status = slxStatus();
+  if (!status) return;
+  const trimmed = name.trim().slice(0, 31);
+  if (!trimmed) return;
+  stageChange({
+    key: "finalmouse-profile",
+    label: `Finalmouse profile ${index + 1} renamed`,
+    command: `Rename Finalmouse profile ${index + 1}`,
+    progress: `Renaming Finalmouse profile ${index + 1}…`,
+    preview: (next) => {
+      const names = { ...((next as unknown as SlxStatus).finalmouseProfileNames ?? {}) };
+      names[index] = trimmed;
+      (next as unknown as Record<string, unknown>).finalmouseProfileNames = names;
+    },
+    apply: async () => {
+      await requireSlxWrite("setProfileName", "profile name").setProfileName(index, trimmed);
+    },
+  });
+}
+
 /**
  * Incott's 2.4 GHz receiver LED (0 connect & polling rate, 1 battery status,
  * 2 battery warning). Wireless only — the driver omits the field entirely
@@ -5506,6 +6663,97 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
   return client as unknown as SupportedClient;
 }
 
+/**
+ * In-memory Finalmouse stand-in for driver previews. It speaks the same
+ * method surface as FinalmouseHidClient (so `instanceof` gates and every
+ * `applyFinalmouse*` staging path work) but keeps all state in a cloned
+ * status — nothing reaches hardware, matching the preview banner.
+ */
+function finalmousePreviewClient(initial: MouseStatus): FinalmouseHidClient {
+  const status = structuredClone(initial) as SlxStatus & MouseStatus;
+  const slx = (status as SlxStatus).finalmouseIsSlx === true;
+  const count = (): number => (status as SlxStatus).finalmouseProfileCount ?? 5;
+  const client = Object.assign(Object.create(FinalmouseHidClient.prototype) as FinalmouseHidClient, {
+    device: {} as HIDDevice,
+    open: async () => undefined,
+    close: async () => undefined,
+    displayName: () => status.name,
+    readStatus: async () => structuredClone(status),
+    setDpi: async (dpi: number) => { status.dpi = dpi; return dpi; },
+    setPollingRate: async (rate: number) => { status.pollingRateHz = rate; return rate; },
+    setMotionSync: async (enabled: boolean) => { status.motionSync = enabled; return enabled; },
+    setLiftOffDistance: async (value: NonNullable<MouseStatus["liftOffDistance"]>) => {
+      status.liftOffDistance = value;
+      return value;
+    },
+    setLiftOffScale: async (code: number) => {
+      const mm = code / 10;
+      (status as SlxStatus).finalmousePawLodMm = mm;
+      (status as SlxStatus).finalmousePawLodCustom = true;
+      if (status.liftOffScale) status.liftOffScale = { ...status.liftOffScale, value: code, millimetres: mm };
+      return code;
+    },
+    setDongleLedMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseDongleLedMode = mode;
+      return mode;
+    },
+    setTournamentScrollMode: async (mode: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollMode = mode;
+      return mode;
+    },
+    setTournamentScrollTimeout: async (milliseconds: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseTournamentScrollTimeoutMs = milliseconds;
+      return milliseconds;
+    },
+    setClickMode: async (modeL: number, modeR: number, relL?: number, relR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseClickModeL = modeL;
+      slxStatus.finalmouseClickModeR = modeR;
+      if (relL !== undefined && relR !== undefined) {
+        slxStatus.finalmouseClickReleaseL = relL;
+        slxStatus.finalmouseClickReleaseR = relR;
+      }
+    },
+    setTmrActuation: async (mmL: number, mmR: number, umL?: number, umR?: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmouseTmrThrL = Math.round(mmL * 100);
+      slxStatus.finalmouseTmrThrR = Math.round(mmR * 100);
+      if (umL !== undefined && umR !== undefined) {
+        slxStatus.finalmouseTmrHystL = umL;
+        slxStatus.finalmouseTmrHystR = umR;
+      }
+    },
+    setPawLodMm: async (mm: number) => {
+      const slxStatus = status as unknown as Record<string, unknown>;
+      slxStatus.finalmousePawLodMm = mm;
+      slxStatus.finalmousePawLodCustom = mm !== 1 && mm !== 2;
+      return mm;
+    },
+    setActiveProfile: async (index: number) => {
+      (status as unknown as Record<string, unknown>).finalmouseProfileActive = index;
+      return index;
+    },
+    setProfileName: async (index: number, name: string) => {
+      const slxStatus = status as unknown as SlxStatus;
+      slxStatus.finalmouseProfileNames = { ...slxStatus.finalmouseProfileNames, [index]: name };
+      return name;
+    },
+    setProfileEnabled: async (index: number, enabled: boolean) => {
+      const slxStatus = status as unknown as SlxStatus;
+      const base = slxStatus.finalmouseProfileEnabledMask ?? (1 << count()) - 1;
+      slxStatus.finalmouseProfileEnabledMask = enabled ? base | (1 << index) : base & ~(1 << index);
+      return enabled;
+    },
+  });
+  // pollIntervalMs/isSlx are getter-only on the driver prototype, so they
+  // need own properties instead of assigned ones.
+  Object.defineProperties(client, {
+    pollIntervalMs: { value: 0 },
+    isSlx: { value: slx },
+  });
+  return client;
+}
+
 function previewClient(): LogitechHidppClient {
   const refuse = async (): Promise<never> => {
     throw new Error(st("ctl.previewNoMouse"));
@@ -5680,7 +6928,8 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   if (name === "g703") showG703PreviewProfiles();
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
-  if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
+  if (name === "finalmouse" || name === "finalmouse-slx") active = finalmousePreviewClient(fixture.status);
+  else if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
   if (name === "lunafury") capabilities = { ...capabilities, sleepOptions: [0, ...Array.from({ length: 30 }, (_, i) => (i + 1) * 60)] };
   applyStatus(fixture.status);
   if (name === "nape-pro") {

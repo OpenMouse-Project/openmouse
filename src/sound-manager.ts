@@ -33,6 +33,12 @@ function fetchClickAudio(): Promise<ArrayBuffer> {
       .then((response) => {
         if (!response.ok) throw new Error(`click sound fetch failed: ${response.status}`);
         return response.arrayBuffer();
+      })
+      .catch((error) => {
+        // Do not cache a rejected fetch: a later attempt (a fresh gesture)
+        // must be able to recover instead of reusing the same failure forever.
+        clickAudioRequest = null;
+        throw error;
       });
   }
   return clickAudioRequest;
@@ -114,7 +120,7 @@ function unlock(): void {
     pendingToast = null;
     void playToast(kind);
   }
-  void prepareClick().then(playClick);
+  void prepareClick().then(playClick).catch(() => undefined);
 }
 
 export function setSoundsEnabled(nextEnabled: boolean): void {
@@ -128,7 +134,7 @@ export function setSoundsEnabled(nextEnabled: boolean): void {
     return;
   }
 
-  void fetchClickAudio();
+  void fetchClickAudio().catch(() => undefined);
   void prepareClick();
   if (!gestureListenerInstalled) {
     window.addEventListener("pointerdown", unlock, { passive: true, capture: true });

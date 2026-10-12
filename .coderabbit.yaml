@@ -1,0 +1,14 @@
+# CodeRabbit configuration for this repository.
+#
+# Auto-review pull requests regardless of their base/target branch.
+#
+# By default CodeRabbit only reviews PRs whose base is the repository's default
+# branch. The explicit ".*" pattern below widens that to every branch, which
+# also covers stacked PRs. The default branch is always included regardless.
+language: en-US
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    base_branches:
+      - ".*"

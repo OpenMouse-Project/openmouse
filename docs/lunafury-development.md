@@ -1,7 +1,7 @@
 # LunaFury setup and release
 
 These controls require APIs from the paired protocol branch.
-The app's pinned `@openmouse/protocol` `0.27.0` lacks them.
+The app's pinned `@openmouse/protocol` `0.40.1` lacks them.
 
 ## Local setup
 
@@ -28,7 +28,7 @@ rebuild and repack after protocol changes. Manifest and lockfile remain unchange
 
 ## Release order
 
-1. Sync both branches with upstream, resolve conflicts and complete protocol CI.
+1. Complete protocol CI against the current upstream base.
 2. Merge and publish the protocol, then confirm the package contains the required APIs.
 3. Pin that exact stable npm version in the app and update its lockfile.
 4. Run registry-only `npm ci`, `npm run check`, `npm run size` and audit.
@@ -38,9 +38,10 @@ Do not commit a local tarball override or Git/file dependency.
 
 ## Validation scope
 
-The paired app passes its build, 420 tests and bundle checks with the local
-protocol package. The protocol passes its build and 151 focused tests.
-These results do not replace full protocol CI or registry-only app validation.
+The paired app passes its build, 511 tests, bundle checks and audit with the local
+protocol package. The protocol passes its build, all 2,470 tests and package checks;
+158 Lamzu driver/codec tests also pass with real timers. Local checks do not
+replace upstream CI or registry-only app validation.
 
 The owner verified LUNA33 firmware `0.0.26.0` over cable and 8K:
 button polling, profiles, DPI, mappings, sleep, receiver lighting and reconnect.

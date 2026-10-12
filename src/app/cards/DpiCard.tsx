@@ -18,6 +18,21 @@ const DEFAULT_LOD = 2;
 
 type StageRow = { enabled: boolean; value: string; lod: number; y?: number };
 
+function isUniform(stages: readonly number[] | undefined): boolean {
+  return stages !== undefined && stages.length > 1 && stages.every((value) => value === stages[0]);
+}
+
+/** Single on a fixed-count stage mouse puts one DPI in every stage, so the DPI button has nothing to cycle. */
+function singleFillsStageTable(snapshot: ControlSnapshot): boolean {
+  const status = snapshot.status;
+  const logitechSlots = snapshot.profile.slotsAvailable && snapshot.dpiSlotPlan !== null;
+  return !logitechSlots
+    && (status?.dpiStages?.length ?? 0) > 0
+    && status?.ui?.dpiStageEditor !== undefined
+    && status.ui.dpiStageEditor.countEditable !== true
+    && snapshot.capabilities?.dpiStagesWritable === true;
+}
+
 /**
  * One DPI editor for every device flavor. It always shows up to four rows,
  * each with a tickbox (include the stage in the DPI cycle), a typed value, and
@@ -100,6 +115,32 @@ function DpiStageEditor({
   }, []);
 
   const fixedStageCount = mode === "stage" && stageEditor?.countEditable !== true;
+  const fillsStageTable = singleFillsStageTable(snapshot);
+  const singleFillsStages = mode === "generic" && fillsStageTable;
+
+  const stagesDifferFrom = (dpi: number): boolean => (status?.dpiStages ?? []).some((value) => value !== dpi);
+
+  const applySingleDpi = (dpi: number): void => {
+    if (!singleFillsStages) {
+      control.applyDpiValue(dpi);
+      return;
+    }
+    // Keep the last real table so the Stages view can put it back.
+    const deviceStages = snapshot.deviceStatus?.dpiStages;
+    if (deviceStages && !isUniform(deviceStages)) control.rememberDpiStagesBeforeSingle(deviceStages);
+    (status?.dpiStages ?? []).forEach((value, stage) => {
+      if (value !== dpi) control.applyDpiStageValue(stage, dpi);
+    });
+  };
+
+  const restoreStagesBeforeSingle = (): void => {
+    const backup = control.dpiStagesBeforeSingle();
+    const stages = status?.dpiStages;
+    if (!backup || !stages || backup.length !== stages.length || !isUniform(stages)) return;
+    backup.forEach((dpi, stage) => {
+      if (stages[stage] !== dpi) control.applyDpiStageValue(stage, dpi);
+    });
+  };
   // A table the driver cannot write is inert: no value edits, no active-stage
   // switch. Kept distinct from `locked` (settings-pending) because the note
   // and the disabled reasons are different.
@@ -148,6 +189,8 @@ function DpiStageEditor({
     if (mode === lastModeRef.current) return;
     lastModeRef.current = mode;
     setRows(initRows());
+    if (singleFillsStages && status?.dpi && stagesDifferFrom(status.dpi)) applySingleDpi(status.dpi);
+    if (mode === "stage" && fillsStageTable) restoreStagesBeforeSingle();
     // initRows is recreated each render on purpose so it always reads fresh snapshot data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -200,8 +243,8 @@ function DpiStageEditor({
     const active = next.find((row) => row.enabled);
     if (!active) return;
     const snap = closestDpiOption(options, parseRow(active.value) ?? status?.dpi ?? 0);
-    if (snap !== null && snap !== status?.dpi) {
-      control.applyDpiValue(snap);
+    if (snap !== null && (singleFillsStages ? stagesDifferFrom(snap) : snap !== status?.dpi)) {
+      applySingleDpi(snap);
       const next2 = next.map((row) => (row.enabled ? { ...row, value: String(snap) } : row));
       setRows(next2);
       rowsRef.current = next2;
@@ -224,7 +267,7 @@ function DpiStageEditor({
       const selected = next.map((row, i) => (i === index ? { ...row, enabled: true } : { ...row, enabled: false }));
       setRows(selected);
       rowsRef.current = selected;
-      control.applyDpiValue(snap);
+      applySingleDpi(snap);
       touchedRef.current = Date.now();
       return;
     }
@@ -309,7 +352,9 @@ function DpiStageEditor({
           ? tp(locale, "dpi.editorFixedNote", { total: status?.dpiStages?.length ?? 0 })
           : mode === "stage"
             ? t(locale, "dpi.editorCountNote")
-            : t(locale, "dpi.editorGenericNote");
+            : singleFillsStages
+              ? tp(locale, "dpi.singleOverwritesNote", { total: status?.dpiStages?.length ?? 0 })
+              : t(locale, "dpi.editorGenericNote");
 
   const enabledCount = rows.filter((row) => row.enabled).length;
 
@@ -387,14 +432,13 @@ function DpiStageEditor({
           );
         })}
       </div>
-      <small className="setting-note">{note}</small>
+      <small className={`setting-note${singleFillsStages ? " setting-note-warning" : ""}`}>{note}</small>
     </div>
   );
 }
 
 export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
-  if (!status) return null;
   const locale = snapshot.preferences.locale;
   const stages = snapshot.dpiSlotPlan?.stages ?? [];
   const locked = snapshot.profile.slotsLocked;
@@ -414,6 +458,9 @@ export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): R
       document.removeEventListener("keydown", key);
     };
   }, [openMenu]);
+
+  // Hooks above must run every render; safe to bail once they have.
+  if (!status) return null;
 
   return (
     <div id="host-lod-row">
@@ -476,7 +523,10 @@ export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): R
 }
 
 export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const [editorView, setEditorView] = useState<"stage" | "single">("stage");
+  // A table with one value in every stage is what Single saved, so reopen in that view.
+  const [editorView, setEditorView] = useState<"stage" | "single">(() => (
+    singleFillsStageTable(snapshot) && isUniform(snapshot.deviceStatus?.dpiStages) ? "single" : "stage"
+  ));
   const status = snapshot.status;
   const deviceStatus = snapshot.deviceStatus;
   const locale = snapshot.preferences.locale;

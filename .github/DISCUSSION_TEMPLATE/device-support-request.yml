@@ -1,0 +1,96 @@
+title: "[Device] "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Request support for a device that's not working in OpenMouse yet.
+        Fill in what you can — a maintainer will follow up. Please open one
+        discussion per model.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Device type
+      options:
+        - Mouse
+        - Keyboard
+        - Headset / headphones
+        - Game controller
+        - Keypad / macro pad
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      description: Exact model name, e.g. "Logitech G Pro X Superlight 2"
+      placeholder: "Brand + model"
+    validations:
+      required: true
+
+  - type: input
+    id: ids
+    attributes:
+      label: vendorId:productId
+      description: >-
+        Lowercase hex, e.g. "046d:c09a". Find it with `lsusb` on Linux,
+        or in the browser picker / Advanced diagnostics. Leave blank if
+        unknown — a maintainer can help look it up.
+      placeholder: "0000:0000"
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection type
+      description: How is the device connected when you tested it?
+      options:
+        - Wired (USB)
+        - 2.4 GHz wireless receiver
+        - Bluetooth
+        - Multiple (tell us below)
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: What happens today?
+      options:
+        - Not detected (doesn't appear in the browser picker)
+        - Detected but shows as unsupported / no controls
+        - Partially works (some settings missing — tell us which below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >-
+        Paste the `lsusb` line for the device and, if it connects at all,
+        the downloadable diagnostics from the device's Advanced panel.
+        Wrap it in a ``` block.
+      render: text
+
+  - type: dropdown
+    id: testing
+    attributes:
+      label: Can you help test?
+      description: >-
+        Driver work needs someone with the hardware in hand to try builds
+        and capture USB traffic.
+      options:
+        - Yes, I have the device and can test
+        - Yes, and I can capture USB traffic (Wireshark / usbpcap)
+        - No, filing on behalf of someone else
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Links to the vendor product page, reviews with teardown photos, similar supported models, etc.

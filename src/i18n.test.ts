@@ -41,13 +41,14 @@ test("Chinese DPI views and editor notes use clear localized wording", async () 
   assert.equal(t("zh", "dpi.viewSingle"), "当前 DPI");
   assert.equal(t("zh", "dpi.viewSlots"), "全部档位");
   for (const key of ["dpi.stageToggle", "dpi.editorCountNote", "dpi.editorFixedNote",
-    "dpi.stagesReadOnly", "dpi.editorGenericNote"] as const) {
+    "dpi.stagesReadOnly", "dpi.editorGenericNote", "dpi.singleOverwritesNote"] as const) {
     const text = t("zh", key);
     assert.match(text, /[\u4e00-\u9fff]/);
     assert.doesNotMatch(text, /One row|Include this|These DPI stages/);
   }
   assert.equal(tp("zh", "dpi.stageDpi", { n: 2 }), "第 2 档 DPI");
   assert.match(tp("zh", "dpi.editorFixedNote", { total: 6 }), /6 个固定 DPI 档位/);
+  assert.match(tp("zh", "dpi.singleOverwritesNote", { total: 6 }), /全部 6 个档位.*全部档位/);
 });
 test("LunaFury official-style DPI controls have localized count and apply guidance", async () => {
   await ensureLocale("zh");

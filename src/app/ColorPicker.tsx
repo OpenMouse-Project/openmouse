@@ -67,6 +67,10 @@ export function ColorPicker({
   const root = useRef<HTMLDivElement>(null);
   const svCanvas = useRef<HTMLCanvasElement>(null);
   const hueCanvas = useRef<HTMLCanvasElement>(null);
+  // Read by the ResizeObserver so its effect does not have to re-subscribe on
+  // every hue change during a drag.
+  const hueRef = useRef(hsv.hue);
+  hueRef.current = hsv.hue;
 
   useEffect(() => {
     if (dragging.current) return;
@@ -84,13 +88,13 @@ export function ColorPicker({
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       if (element.getBoundingClientRect().width > 0) {
-        drawSv(svCanvas.current, hsv.hue);
+        drawSv(svCanvas.current, hueRef.current);
         drawHue(hueCanvas.current);
       }
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [hsv.hue]);
+  }, []);
 
   const hex = hsvToHex(hsv);
 

@@ -42,7 +42,13 @@ jobs:
             console.error("Protocol dependency must be an exact stable npm version.");
             process.exit(1);
           }
+          const keyboardProtocolVersion = dependencies["@openmouse/keyboard-protocol"];
+          if (!/^\d+\.\d+\.\d+$/.test(keyboardProtocolVersion)) {
+            console.error("Keyboard protocol dependency must be an exact stable npm version.");
+            process.exit(1);
+          }
           const approved = {
+            "@openmouse/keyboard-protocol": keyboardProtocolVersion,
             "@openmouse/protocol": protocolVersion,
             "lucide-react": "^1.43.0",
             "preact": "^10.29.8",

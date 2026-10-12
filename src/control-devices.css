@@ -34,8 +34,8 @@
 #logitech-device-details .setting-card { min-height: 0; }
 #logitech-detail-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .55rem; }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) { flex: 0 0 auto; margin-top: .65rem; }
-:is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, var(--surface-menu)), var(--surface-panel-strong) 62%); }
-:is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-tuning-heading { margin-bottom: .2rem; }
+:is(#logitech-analog-button-settings, #magnetic-button-settings, #logitech-button-map, #bunny-hop-card) .superstrike-tuning-card { min-height: 0; padding: 1rem; border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 5%, var(--surface-menu)), var(--surface-panel-strong) 62%); }
+:is(#logitech-analog-button-settings, #magnetic-button-settings, #logitech-button-map, #bunny-hop-card) .superstrike-tuning-heading { margin-bottom: .2rem; }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-tuning-description { max-width: 540px; margin: .1rem 0 0; color: var(--text-soft); line-height: 1.45; }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-tabs { display: inline-flex; gap: .2rem; margin-top: .7rem; padding: .2rem; border: 1px solid var(--border); border-radius: 7px; background: var(--well); }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-tabs button { padding: .32rem .52rem; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: .58rem; font-weight: 700; }
@@ -94,6 +94,12 @@
   #egg-button-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+#logitech-analog-button-settings .superstrike-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr)); align-items: stretch; gap: .5rem; margin: .2rem 0 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--well); }
+#logitech-analog-button-settings .superstrike-presets select { grid-column: 1 / -1; width: 100%; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--input); color: var(--text); font: 650 .72rem var(--font-mono); }
+#logitech-analog-button-settings .superstrike-presets .icon-button { display: flex; align-items: center; justify-content: center; min-height: 2.1rem; padding: .45rem .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: .68rem; font-weight: 650; white-space: nowrap; }
+#logitech-analog-button-settings .superstrike-presets .icon-button:hover:not(:disabled) { border-color: var(--ui-accent); color: var(--ui-accent); }
+#logitech-analog-button-settings .superstrike-presets .icon-button:disabled { opacity: .45; cursor: not-allowed; }
+#logitech-analog-button-settings .superstrike-presets-note { grid-column: 1 / -1; color: var(--faint); font-size: .64rem; }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-press-meters { display: grid; gap: .35rem; margin: .2rem 0 .8rem; }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-press-meter { display: grid; grid-template-columns: 2.6rem 1fr; align-items: center; gap: .6rem; font: 650 .62rem var(--font-mono); color: var(--text-soft); }
 :is(#logitech-analog-button-settings, #magnetic-button-settings) .superstrike-press-meter > div { display: grid; grid-template-columns: repeat(10, 1fr); gap: .2rem; }
@@ -112,3 +118,76 @@
 #magnetic-button-settings .magnetic-calibration-progress p { margin: 0 0 .5rem; color: var(--text-soft); font-size: .62rem; white-space: pre-line; }
 #magnetic-button-settings .magnetic-calibration-progress[data-phase="done"] p { color: var(--ui-accent); }
 #magnetic-button-settings .magnetic-calibration-progress[data-phase="failed"] p { color: var(--warning); }
+#logitech-button-map .button-map-body { display: grid; grid-template-columns: 14rem minmax(0, 1fr); gap: .8rem; align-items: start; margin-top:  0; }
+#logitech-button-map .button-map-commands { display: grid; gap: .35rem; align-content: start; }
+#logitech-button-map .button-map-list { display: grid; gap: .35rem; flex: 1; min-height: 0; overflow-y: auto; align-content: start; padding-right: .25rem; }
+#logitech-button-map .button-map-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+#logitech-button-map .button-map-status { display: flex; align-items: center; gap: .55rem; color: var(--faint); font: 600 .66rem var(--font-mono); }
+#logitech-button-map .button-map-status strong { color: var(--text-soft); font-weight: 650; }
+#logitech-button-map .button-map-status span { display: inline-flex; align-items: center; gap: .3rem; }
+#logitech-button-map .button-map-status span + span::before { content: none; }
+#logitech-button-map .button-map-list { overscroll-behavior: contain; }
+#logitech-button-map .button-map-list::-webkit-scrollbar { width: 8px; }
+#logitech-button-map .button-map-list::-webkit-scrollbar-track { background: transparent; }
+#logitech-button-map .button-map-list::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+#logitech-button-map .button-map-list::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--border-hover); background-clip: padding-box; }
+#logitech-button-map .button-map-list::-webkit-scrollbar-thumb:hover { background: var(--ghost); background-clip: padding-box; }
+@supports not selector(::-webkit-scrollbar) {
+  #logitech-button-map .button-map-list { scrollbar-width: thin; scrollbar-color: var(--border-hover) transparent; }
+}
+#logitech-button-map .button-map-search { width: 100%; box-sizing: border-box; padding: .4rem .55rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text); font: 650 .66rem var(--font-mono); }
+#logitech-button-map .button-map-help { color: var(--faint); font-size: .62rem; line-height: 1.4; }
+#logitech-button-map .button-map-section { display: grid; gap: .15rem; margin-top: .4rem; }
+#logitech-button-map .button-map-section h3 { margin: 0 0 .15rem; color: var(--faint); font: 650 .56rem var(--font-mono); letter-spacing: .09em; text-transform: uppercase; }
+#logitech-button-map .button-map-command { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; width: 100%; padding: .34rem .5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); color: var(--text-soft); font: 600 .66rem var(--font-ui, inherit); text-align: left; cursor: pointer; }
+#logitech-button-map .button-map-command small { color: var(--faint); font: 600 .56rem var(--font-mono); white-space: nowrap; }
+#logitech-button-map .button-map-command:hover:not(:disabled) { border-color: var(--ghost); color: var(--text); }
+#logitech-button-map .button-map-command[aria-pressed="true"] { border-color: var(--ui-accent); color: var(--ui-accent); }
+#logitech-button-map .button-map-command:disabled { opacity: .45; cursor: not-allowed; }
+#logitech-button-map .button-map-stage { display: grid; gap: .5rem; justify-items: center; min-width: 0; }
+#logitech-button-map .button-map-canvas { --map-h: clamp(14rem, 46vh, 30rem); position: relative; width: 100%; max-width: 44rem; height: var(--map-h); }
+#logitech-button-map .button-map-art { position: absolute; top: 0; left: 50%; height: 100%; width: calc(var(--map-h) * var(--aspect)); transform: translateX(-50%); object-fit: contain; pointer-events: none; }
+#logitech-button-map .button-map-spot { --dotx: calc(50% + (var(--sx) - 0.5) * var(--map-h) * var(--aspect)); --label-w: 9rem; position: absolute; inset: 0; pointer-events: none; }
+#logitech-button-map .button-map-dot { position: absolute; left: var(--dotx); top: calc(var(--sy) * 100%); width: .95rem; height: .95rem; transform: translate(-50%, -50%); border: 2px solid var(--text); border-radius: 50%; background: var(--surface-raised); cursor: pointer; pointer-events: auto; padding: 0; }
+#logitech-button-map .button-map-spot.is-selected .button-map-dot { background: var(--ui-accent); border-color: var(--ui-accent); }
+#logitech-button-map .button-map-label { position: absolute; display: grid; gap: 0; width: var(--label-w); padding: .08rem .3rem; border: 0; background: none; color: var(--text); font-size: .68rem; line-height: 1.25; cursor: pointer; pointer-events: auto; }
+#logitech-button-map .button-map-label strong { font-weight: 650; }
+#logitech-button-map .button-map-label span { color: var(--faint); font: 600 .6rem var(--font-mono); overflow-wrap: anywhere; }
+#logitech-button-map .button-map-spot.is-selected .button-map-label span { color: var(--ui-accent); }
+#logitech-button-map .button-map-spot.is-locked .button-map-label span::after { content: " · locked"; }
+#logitech-button-map .button-map-line { position: absolute; background: var(--line-strong); }
+#logitech-button-map .button-map-spot.is-left .button-map-label { left: 0; top: calc(var(--sy) * 100%); transform: translateY(-50%); text-align: right; }
+#logitech-button-map .button-map-spot.is-left .button-map-line { left: var(--label-w); top: calc(var(--sy) * 100%); height: 1px; width: calc(var(--dotx) - var(--label-w)); }
+#logitech-button-map .button-map-spot.is-right .button-map-label { right: 0; top: calc(var(--sy) * 100%); transform: translateY(-50%); text-align: left; }
+#logitech-button-map .button-map-spot.is-right .button-map-line { left: var(--dotx); top: calc(var(--sy) * 100%); height: 1px; width: calc(100% - var(--dotx) - var(--label-w)); }
+#logitech-button-map .button-map-spot.is-top .button-map-label { left: var(--dotx); top: 0; transform: translateX(-50%); text-align: center; }
+#logitech-button-map .button-map-spot.is-top .button-map-line { left: var(--dotx); top: 2.9rem; width: 1px; height: calc(var(--sy) * 100% - 2.9rem); }
+#logitech-button-map .button-map-layers { display: inline-flex; gap: .2rem; padding: .2rem; border: 1px solid var(--border); border-radius: 8px; }
+#logitech-button-map .button-map-layers button { padding: .3rem .8rem; border: 0; border-radius: 6px; background: none; color: var(--text-soft); font: 650 .62rem var(--font-mono); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+#logitech-button-map .button-map-layers button[aria-selected="true"] { background: var(--surface-raised); color: var(--text); }
+/* The wrapper is the query container, so the card itself can be restyled when it gets narrow. */
+#logitech-button-map { container-type: inline-size; }
+#logitech-button-map .button-map-card { display: flex; flex-direction: column; height: calc(100vh - 6.5rem); min-height: 28rem; }
+#logitech-button-map .button-map-body { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: center; }
+#logitech-button-map .button-map-commands { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+@container (max-width: 40rem) {
+  #logitech-button-map .button-map-body { grid-template-columns: minmax(0, 1fr); }
+  #logitech-button-map .button-map-stage { order: -1; }
+  #logitech-button-map .button-map-card { height: auto; }
+  #logitech-button-map .button-map-body { grid-template-rows: none; }
+  #logitech-button-map .button-map-list { flex: none; max-height: 14rem; }
+}
+
+/* The search box stays at the top of the command list while it scrolls. */
+#logitech-button-map .button-map-record { padding: .45rem .55rem; border: 1px dashed color-mix(in srgb, var(--ui-accent) 62%, var(--border)); border-radius: 7px; background: transparent; color: var(--ui-accent); font: 700 .62rem var(--font-mono); text-align: left; }
+#logitech-button-map .button-map-record:hover:not(:disabled) { background: var(--ui-accent-soft); }
+#logitech-button-map .button-map-record[aria-pressed="true"] { border-style: solid; background: var(--ui-accent); color: var(--ui-accent-ink); }
+#logitech-button-map .button-map-record:disabled { opacity: .4; cursor: not-allowed; }
+#logitech-button-map .button-map-reset { display: flex; gap: .35rem; padding: 0; border: 0; background: none; box-shadow: none; }
+#logitech-button-map .button-map-reset button { flex: 1 1 0; padding: .4rem .5rem; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--text-soft); font: 650 .62rem var(--font-mono); }
+#logitech-button-map .button-map-reset button:hover:not(:disabled) { border-color: var(--ghost); color: var(--text-hover); }
+#logitech-button-map .button-map-reset button:disabled { opacity: .4; cursor: not-allowed; }
+#logitech-button-map .button-map-share { padding: .4rem .8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: .66rem; font-weight: 650; white-space: nowrap; }
+#logitech-button-map .button-map-share:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+#logitech-button-map .button-map-host { height: auto; min-height: 0; gap: .8rem; display: grid; align-content: start; }
+#logitech-button-map .button-map-hints { display: grid; gap: .15rem; margin: 0 0 .5rem; padding: 0; list-style: none; color: var(--warning); font-size: .64rem; text-align: center; }

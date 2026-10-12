@@ -50,8 +50,9 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(buildId),
   },
   build: {
-    // Keep the aggregate bundle budget unchanged as device support grows.
+    // Keep the JavaScript budget unchanged as device support grows.
     minify: "terser",
+    terserOptions: { compress: { passes: 2 } },
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),

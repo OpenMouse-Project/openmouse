@@ -44,6 +44,34 @@ const PULSAR: MouseStatus = {
   firmware: ["1.04.11"],
 };
 
+const PULSAR_XS1_8K: MouseStatus = {
+  ...PULSAR,
+  name: "Pulsar 8K Dongle",
+  ui: {
+    family: "pulsar",
+    hideUnsupportedPollingRates: true,
+    pollingReadOnly: true,
+    pollingNote: "The XS-1 polling readout is not hardware-verified. Polling changes are unavailable; check the rate in Pulsar's software.",
+    hideSleepCard: true,
+    hideSignalCard: true,
+    forceShowBattery: true,
+  },
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  dongleLedEnabled: undefined,
+  connectionDetail: "XS-1 feature-report interface",
+};
+
+const PULSAR_XS1_UNKNOWN: MouseStatus = {
+  ...PULSAR_XS1_8K,
+  pollingRateHz: 0,
+  ui: {
+    ...PULSAR_XS1_8K.ui,
+    pollingNote: "The XS-1 interface did not return a recognized polling rate. Polling changes are unavailable; check the rate in Pulsar's software.",
+  },
+};
+
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
   name: "Pulsar X2 V2 Pro",
@@ -78,6 +106,33 @@ const EGG_OP1: MouseStatus = {
   eggMulticlickFilters: [0, 0],
   eggButtonMappings: ["Left", "Right", "Middle", "Back", "Forward"],
   firmware: ["1.02.00"],
+};
+
+const EGG_OT: MouseStatus = {
+  brand: "Endgame Gear",
+  name: "OP1 RGB",
+  ui: {
+    family: "egg-ot",
+    hideSleepCard: true,
+    defaultDisplayName: "Endgame Gear OP1 RGB",
+  },
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 800,
+  dpiY: 800,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: 0,
+  profileCount: 5,
+  profileNames: ["Gaming"],
+  liftOffDistance: "Medium",
+  connectionType: "Wired",
+  motionSync: false,
+  angleSnapping: true,
+  rippleControl: false,
+  slamclickFilter: true,
+  firmware: [],
 };
 
 const EGG_WE: MouseStatus = {
@@ -471,6 +526,40 @@ const RAZER_VIPER_MINI: MouseStatus = {
   firmware: ["Mouse 1.01"],
 };
 
+const RAZER_DIAMONDBACK_LIGHTING: MouseLighting = {
+  ...RAZER_VIPER_MINI_LIGHTING,
+  zone: "Mouse",
+  modes: ["Off", "Spectrum", "Wave", "Static", "Reactive", "Breathing random", "Breathing single", "Breathing dual"],
+  mode: null,
+  brightness: 100,
+  brightnessLevels: [25, 50, 75, 100],
+};
+
+const RAZER_DIAMONDBACK: MouseStatus = {
+  ...RAZER_VIPER_MINI,
+  name: "Diamondback Chroma",
+  dpi: 1800,
+  dpiY: 1800,
+  pollingRateHz: 500,
+  lighting: RAZER_DIAMONDBACK_LIGHTING,
+  lightingZones: [RAZER_DIAMONDBACK_LIGHTING, ...Array.from({ length: 21 }, (_, index): MouseLighting => ({
+    zone: `LED ${index}`,
+    group: "Custom frame",
+    hardwareZoneId: index,
+    modes: ["Off", "Static"],
+    mode: null,
+    color: "#00ff00",
+    color2: null,
+    colorModes: ["Static"],
+    dualColorModes: [],
+    reactiveModes: [],
+    speeds: [],
+    speed: null,
+    writeOnly: true,
+  }))],
+  firmware: ["Mouse 1.0"],
+};
+
 const RAZER_COBRA: MouseStatus = {
   ...RAZER_VIPER_MINI,
   name: "Cobra",
@@ -600,8 +689,62 @@ const FINALMOUSE: MouseStatus = {
   finalmouseDongleLedMode: 1,
   finalmouseTournamentScrollMode: 3,
   finalmouseTournamentScrollTimeoutMs: 500,
+  signalStrength: 3,
   firmware: ["Mouse 1.0.7", "Dongle RF 1.0.4", "Dongle USB 1.0.3"],
 };
+
+const FINALMOUSE_SLX = {
+  brand: "Finalmouse",
+  name: "Finalmouse Starlight X",
+  ui: {
+    family: "finalmouse-slx",
+    defaultDisplayName: "Finalmouse Starlight X",
+    hideUnsupportedPollingRates: true,
+    forceShowBattery: true,
+  },
+  batteryPercent: 82,
+  batteryVoltageMv: 3950,
+  batteryState: "Discharging",
+  dpi: 800,
+  pollingRateHz: 8000,
+  supportedPollingRates: [500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  connectionType: "Wireless",
+  connectionDetail: "2.4 GHz receiver · -42 dBm",
+  motionSync: true,
+  signalStrength: 3,
+  liftOffDistance: "Medium",
+  supportedLiftOffDistances: ["Medium", "High"],
+  liftOffScale: {
+    value: 12,
+    min: 7,
+    max: 17,
+    millimetres: 1.2,
+    minMillimetres: 0.7,
+    maxMillimetres: 1.7,
+  },
+  finalmouseIsSlx: true,
+  finalmouseDongleLedMode: 1,
+  finalmouseTournamentScrollMode: 0,
+  finalmouseTournamentScrollTimeoutMs: 500,
+  finalmouseClickModeL: 1,
+  finalmouseClickModeR: 1,
+  finalmouseClickReleaseL: 0,
+  finalmouseClickReleaseR: 2,
+  finalmouseTmrThrL: 20,
+  finalmouseTmrThrR: 15,
+  finalmouseTmrHystL: 220,
+  finalmouseTmrHystR: 220,
+  finalmouseTmrMspL: 100,
+  finalmouseTmrMspR: 110,
+  finalmousePawLodMm: 1.2,
+  finalmousePawLodCustom: true,
+  finalmouseProfileCount: 5,
+  finalmouseProfileActive: 1,
+  finalmouseProfileEnabledMask: 0b11111,
+  finalmouseProfileNames: { 0: "Desktop", 1: "Comp", 2: "Game 3" } as Record<number, string>,
+  firmware: ["Mouse 8.0.3", "Dongle RF 8.0.3", "Dongle USB 8.0.3"],
+} as MouseStatus;
 
 const NINJUTSO: MouseStatus = {
   brand: "Ninjutso",
@@ -849,7 +992,10 @@ const RAWM_V4_GT: MouseStatus = {
 export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   pulsar: { label: "Pulsar X2 V2", status: PULSAR },
   "pulsar-pro": { label: "Pulsar X2 V2 Pro", status: PULSAR_PRO },
+  "pulsar-xs1-8k": { label: "Pulsar XS-1 8K dongle", status: PULSAR_XS1_8K },
+  "pulsar-xs1-unknown": { label: "Pulsar XS-1 unknown polling", status: PULSAR_XS1_UNKNOWN },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
+  "egg-ot": { label: "Endgame Gear OP1 RGB", status: EGG_OT },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
@@ -880,11 +1026,13 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   razer: { label: "Razer Viper V3 Pro", status: RAZER },
   "razer-viper-v2": { label: "Razer Viper V2 Pro", status: RAZER_VIPER_V2 },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
+  "razer-diamondback": { label: "Razer Diamondback Chroma", status: RAZER_DIAMONDBACK },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
   "razer-viper-v4": { label: "Razer Viper V4 Pro", status: RAZER_VIPER_V4 },
   "terra-pro": { label: "Teevolution Terra Pro", status: TEEVOLUTION },
   vgn: { label: "VGN F2 Master Plus", status: VGN },
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
+  "finalmouse-slx": { label: "Finalmouse Starlight X", status: FINALMOUSE_SLX },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
   "nape-pro": { label: "Keychron Nape Pro", status: KEYCHRON },
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },

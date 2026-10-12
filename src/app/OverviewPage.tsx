@@ -23,8 +23,11 @@ import { KeychronNapeLayers } from "./KeychronNapeLayers";
 import { Profiles } from "./Profiles";
 import { MagneticButtons } from "./MagneticButtons";
 import { Superstrike } from "./Superstrike";
+import { ButtonMap, buttonMapAvailable } from "./ButtonMap";
 import { DpiCard } from "./cards/DpiCard";
-import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
+import { KeyboardPanel } from "./cards/KeyboardPanel";
+import { FirmwareCard } from "./cards/FirmwareCard";
+import { DynamicSensitivityCard, LightforceCard, PollingCard, SensorCard, SensorScanningCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
 import { LunaFuryButtonsCard, LunaFuryWheelCard, LunaFuryReceiverLightCard, LunaFuryBottomButtonCard } from "./cards/LunaFuryCards";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
@@ -37,14 +40,17 @@ import {
   EggPollingCard,
   EggSpdtCard,
   FinalmouseCard,
+  FinalmouseProfilesCard,
   IncottCard,
   LowPowerCard,
   NinjutsoClickCard,
   NinjutsoSensorCard,
+  PerfectPollingCard,
   ProcessingCard,
   RazerButtonCard,
   ButtonMappingCard,
   KsnakeMacroCard,
+  WallhackMacroCard,
   PowerModeCard,
   OnboardProfileCard,
   PulsarProCard,
@@ -53,13 +59,15 @@ import {
   SleepCard,
   KsnakeScrollCard,
   DpiLightingCard,
+  TmrDsCard,
 } from "./cards/AdvancedCards";
 import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage, deviceImageFilename, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
-import { availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
+import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs";
 
+/** True when the workspace tab is present in the list. */
 function on(tab: WorkspaceTab, tabs: readonly WorkspaceTab[]): boolean {
   return tabs.includes(tab);
 }
@@ -126,9 +134,10 @@ function noirE1ButtonMarkerPosition(button: string): ButtonMarkerPosition | null
   return NOIR_E1_BUTTON_MARKER_POSITIONS[button.trim().toLowerCase()] ?? null;
 }
 
-// Device artwork requests go straight to the documented GitHub issue form
-// (public/devices/README.md, .github/ISSUE_TEMPLATE/device-artwork.yml).
-const ARTWORK_ISSUE_URL = "https://github.com/OpenMouse-Project/openmouse/issues/new?template=device-artwork.yml";
+// Device artwork requests go to the Artwork Request discussion category
+// (artwork requests were migrated off GitHub issues into Discussions).
+const ARTWORK_DISCUSSION_URL =
+  "https://github.com/OpenMouse-Project/openmouse/discussions/new?category=artwork-request";
 
 function DeviceShowcase({ snapshot }: {
   snapshot: ControlSnapshot;
@@ -137,6 +146,7 @@ function DeviceShowcase({ snapshot }: {
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const image = snapshot.deviceArtwork;
+  const batteryEstimate = control.batteryEstimateParts(status, locale);
   const [imageFailed, setImageFailed] = useState(false);
   const [artSize, setArtSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -147,7 +157,7 @@ function DeviceShowcase({ snapshot }: {
       status.name,
     )
   );
-  const artworkIssueHref = `${ARTWORK_ISSUE_URL}${status.name ? `&title=${encodeURIComponent(`Artwork request: ${status.name}`)}` : ""}`;
+  const artworkDiscussionHref = `${ARTWORK_DISCUSSION_URL}${status.name ? `&title=${encodeURIComponent(`Artwork request: ${status.name}`)}` : ""}`;
 
   return (
     <div className="device-showcase">
@@ -208,6 +218,11 @@ function DeviceShowcase({ snapshot }: {
             <span className="device-showcase-status-item">
               <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
               <span className="device-showcase-status-value">{status.batteryPercent}%</span>
+              {batteryEstimate ? (
+                <span className="device-showcase-status-muted" title={`${batteryEstimate.time} ${batteryEstimate.label}`}>
+                  {batteryEstimate.time}
+                </span>
+              ) : null}
             </span>
           </>
         ) : null}
@@ -232,7 +247,7 @@ function DeviceShowcase({ snapshot }: {
       {needsArtwork ? (
         <a
           className="artwork-upload-trigger"
-          href={artworkIssueHref}
+          href={artworkDiscussionHref}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -336,6 +351,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
   const showButtonMarkers = snapshot.workspaceTab === "buttons"
     && isNoirKsnakeStatus(status)
     && status.buttonMappings != null;
+  const batteryEstimate = control.batteryEstimateParts(status, locale);
 
   return (
     <div className="showcase-sidebar">
@@ -410,6 +426,9 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
             {" · "}
             <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
             {status.batteryPercent}%
+            {batteryEstimate ? (
+              <span title={`${batteryEstimate.time} ${batteryEstimate.label}`}>{" · "}{batteryEstimate.time}</span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -505,6 +524,9 @@ function OverviewContent({ snapshot }: {
     <>
       <M2NexProfileOverview snapshot={snapshot} />
       <DeviceShowcase snapshot={snapshot} />
+      <section id="firmware-update-settings" className="device-data" aria-label="Firmware update">
+        <FirmwareCard snapshot={snapshot} />
+      </section>
       {powerOverview && (has.teevolutionDpiLighting || has.sleep) ? (
         <section id="power-overview-settings" className="settings-grid device-data" aria-label="Power settings">
           {has.teevolutionDpiLighting ? <DpiLightingCard snapshot={snapshot} /> : null}
@@ -551,8 +573,11 @@ export function Workspace({
     show(has.dpi, ["performance"]) ? <DpiCard key="dpi" snapshot={snapshot} /> : null,
     show(has.polling, ["performance"]) ? <PollingCard key="polling" snapshot={snapshot} /> : null,
     show(has.sensor, ["performance"]) ? <SensorCard key="sensor" snapshot={snapshot} /> : null,
+    show(has.wallhackScanning, ["performance"]) ? <SensorScanningCard key="wallhack-scanning" snapshot={snapshot} /> : null,
+    show(has.wallhackCurves, ["performance"]) ? <DynamicSensitivityCard key="wallhack-curves" snapshot={snapshot} /> : null,
     show(has.atkF1Sensor, ["performance"]) ? <AtkSensorCard key="atk-sensor" snapshot={snapshot} /> : null,
     show(has.lightforce, ["buttons"]) ? <LightforceCard key="lightforce" snapshot={snapshot} /> : null,
+    show(has.tmrDs, ["buttons"]) ? <TmrDsCard key="finalmouse-tmr" snapshot={snapshot} /> : null,
     show(has.ninjutsoSensor, ["performance"])
       ? <NinjutsoSensorCard key="ninjutso-sensor" snapshot={snapshot} /> : null,
     show(has.ninjutsoClick, ["performance"])
@@ -580,6 +605,7 @@ export function Workspace({
 
   const macro = [
     show(has.ksnakeMacros, ["macro"]) ? <KsnakeMacroCard key="ksnake-macros" snapshot={snapshot} /> : null,
+    show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [
@@ -590,7 +616,9 @@ export function Workspace({
     show(has.lightingAdvanced, ["advanced"])
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
     show(has.lowPower, ["advanced"]) ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
+    show(has.perfectPolling, ["advanced"]) ? <PerfectPollingCard key="finalmouse-pp" snapshot={snapshot} /> : null,
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
+    show(has.finalmouseProfiles, ["advanced"]) ? <FinalmouseProfilesCard key="finalmouse-profiles" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
     device && show(has.dongleLed, ["advanced"]) ? <DongleLedCard key="dongle-led" snapshot={snapshot} /> : null,
     show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
@@ -613,6 +641,7 @@ export function Workspace({
   const showTeevolutionProfiles = show(snapshot.traits.teevolution && has.onboardProfiles, ["profiles"]);
   const showNapeLayers = show(has.keychronNapeLayers, ["profiles"]);
   const showSuperstrike = show(has.superstrike, ["buttons"]);
+  const showButtonMap = show(buttonMapAvailable(snapshot), ["buttons"]);
   const showMagnetic = show(has.magnetic, ["buttons"]);
   const showLogitechDetails = device && show(has.logitechDetails, ["advanced"]);
   const showMxMaster = on(tab, ["advanced"])
@@ -649,25 +678,34 @@ export function Workspace({
       {showTeevolutionProfiles ? <TeevolutionProfileCard snapshot={snapshot} /> : null}
       {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
 
-      {performance.length > 0 ? (
+      {performance.length > 0 || showSuperstrike || showButtonMap ? (
         <section
           id="performance-settings"
           className={[
             "performance-layout device-data",
             slotsAvailable || stagesAvailable ? "has-dpi-slots" : "",
             lunaButtonsLayout ? "luna-buttons-layout" : "",
+            // The button map has its own mouse, so the side panel's would be a second one.
+            showButtonMap ? "has-no-sidebar" : "",
           ].filter(Boolean).join(" ")}
           data-workspace-host
           role="tabpanel"
           aria-label="Mouse settings"
         >
-          {device ? (
+          {device && !showButtonMap ? (
             <aside className="performance-sidebar">
               <DeviceShowcaseSidebar snapshot={snapshot} />
             </aside>
           ) : null}
-          <div className={`performance-controls${lunaButtonsLayout ? " luna-button-grid" : ""}`}>
-            {performance}
+          <div className="performance-main">
+            {/* The HITS card keeps its own card chrome, first, beside the mouse panel. */}
+            {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
+            {showButtonMap ? <ButtonMap snapshot={snapshot} /> : null}
+            {performance.length > 0 ? (
+              <div className={`performance-controls${lunaButtonsLayout ? " luna-button-grid" : ""}`}>
+                {performance}
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -703,7 +741,6 @@ export function Workspace({
           <MxMasterCards snapshot={snapshot} />
         </section>
       ) : null}
-      {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
       {showMagnetic ? <MagneticButtons snapshot={snapshot} /> : null}
 
       {advanced.length > 0 ? (
@@ -733,6 +770,7 @@ export function Workspace({
   );
 }
 
+/** The authorized-device list shown when no device is active. */
 function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const devices = snapshot.devices;
   const locale = snapshot.preferences.locale;
@@ -753,7 +791,8 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                 ordered.splice(Math.floor(ordered.length / 2), 0, connected);
               }
               return ordered.map((device) => {
-              const connected = device.selected && snapshot.deviceStatus !== null;
+              const connected = device.selected
+                && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
               const liveStatus = connected ? snapshot.deviceStatus : null;
               const pollText = liveStatus?.pollingRateHz ? `${liveStatus.pollingRateHz} Hz` : "–";
               const batteryText = liveStatus?.batteryPercent != null ? `${liveStatus.batteryPercent}%` : "–%";
@@ -837,6 +876,7 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   );
 }
 
+/** The device overview: status, workspace tabs and the active device's cards. */
 export function OverviewPage({
   snapshot,
   onOpenCapture,
@@ -851,7 +891,7 @@ export function OverviewPage({
   const { preferences } = snapshot;
   const locale = preferences.locale;
 
-  const tabs = availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
+  const tabs = snapshot.keyboard ? availableKeyboardWorkspaceTabs(snapshot.keyboard.family) : availableWorkspaceTabs(status !== null, cardAvailability(snapshot), {
     hideLighting: isNoirKsnakeStatus(status),
   });
   const workspaceTab = availableWorkspaceTab(snapshot.workspaceTab, tabs);
@@ -872,20 +912,26 @@ export function OverviewPage({
     });
   }, [snapshot.workspaceTab, workspaceTab]);
 
-  const showingDeviceDashboard = status !== null
+  const showingDeviceDashboard = (status !== null || snapshot.keyboard !== null)
     && (snapshot.deviceView === "device" || snapshot.previewMode !== null);
 
+  // The tablist renders `profiles` in its own nav slot at the end, so arrow-key
+  // navigation has to follow that visible order rather than WORKSPACE_TAB_ORDER.
+  const visibleTabs: readonly WorkspaceTab[] = tabs.includes("profiles")
+    ? [...tabs.filter((tab) => tab !== "profiles"), "profiles"]
+    : [...tabs];
+
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, current: WorkspaceTab): void => {
-    const index = tabs.indexOf(current);
+    const index = visibleTabs.indexOf(current);
     let next: number;
-    if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === "ArrowRight") next = (index + 1) % visibleTabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + visibleTabs.length) % visibleTabs.length;
     else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = tabs.length - 1;
+    else if (event.key === "End") next = visibleTabs.length - 1;
     else return;
     event.preventDefault();
-    control.setWorkspaceTab(tabs[next]);
-    const button = document.querySelector<HTMLButtonElement>(`#workspace-tab-${tabs[next]}`);
+    control.setWorkspaceTab(visibleTabs[next]!);
+    const button = document.querySelector<HTMLButtonElement>(`#workspace-tab-${visibleTabs[next]}`);
     button?.focus();
   };
 
@@ -902,40 +948,48 @@ export function OverviewPage({
               <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
               {t(locale, "common.back")}
             </button>
-            {(tabs.filter((tab) => tab !== "profiles")).map((tab) => (
-              <button
-                key={tab}
-                id={`workspace-tab-${tab}`}
-                type="button"
-                role="tab"
-                className={`device-tab-pill${workspaceTab === tab ? " active" : ""}`}
-                aria-selected={workspaceTab === tab}
-                tabIndex={workspaceTab === tab ? 0 : -1}
-                onClick={() => control.setWorkspaceTab(tab)}
-                onKeyDown={(event) => onTabKey(event, tab)}
-              >
-                <TabIcon tab={tab} />
-                {t(locale, `tab.${tab}` as I18nKey)}
-              </button>
-            ))}
-            {tabs.includes("profiles") ? (
-              <button
-                type="button"
-                role="tab"
-                id="workspace-tab-profiles"
-                className={`device-tab-pill device-tab-profiles-nav${workspaceTab === "profiles" ? " active" : ""}`}
-                aria-selected={workspaceTab === "profiles"}
-                tabIndex={workspaceTab === "profiles" ? 0 : -1}
-                onClick={() => control.setWorkspaceTab("profiles")}
-                onKeyDown={(event) => onTabKey(event, "profiles")}
-              >
-                <TabIcon tab="profiles" />
-                {t(locale, "tab.profiles")}
-              </button>
-            ) : null}
+            {status === null && snapshot.keyboard === null ? null : (
+              <>
+                {(tabs.filter((tab) => tab !== "profiles")).map((tab) => (
+                  <button
+                    key={tab}
+                    id={`workspace-tab-${tab}`}
+                    type="button"
+                    role="tab"
+                    className={`device-tab-pill${workspaceTab === tab ? " active" : ""}`}
+                    aria-selected={workspaceTab === tab}
+                    tabIndex={workspaceTab === tab ? 0 : -1}
+                    onClick={() => control.setWorkspaceTab(tab)}
+                    onKeyDown={(event) => onTabKey(event, tab)}
+                  >
+                    <TabIcon tab={tab} />
+                    {t(locale, `tab.${tab}` as I18nKey)}
+                  </button>
+                ))}
+                {tabs.includes("profiles") ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    id="workspace-tab-profiles"
+                    className={`device-tab-pill device-tab-profiles-nav${workspaceTab === "profiles" ? " active" : ""}`}
+                    aria-selected={workspaceTab === "profiles"}
+                    tabIndex={workspaceTab === "profiles" ? 0 : -1}
+                    onClick={() => control.setWorkspaceTab("profiles")}
+                    onKeyDown={(event) => onTabKey(event, "profiles")}
+                  >
+                    <TabIcon tab="profiles" />
+                    {t(locale, "tab.profiles")}
+                  </button>
+                ) : null}
+              </>
+            )}
           </nav>
 
-          <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} onShareProfile={onShareProfile} />
+          {status === null && snapshot.keyboard !== null ? (
+            <KeyboardPanel snapshot={workspaceSnapshot} />
+          ) : (
+            <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} onShareProfile={onShareProfile} />
+          )}
         </>
       ) : (
         <DeviceListView snapshot={snapshot} />

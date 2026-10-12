@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
 import { Segmented } from "../ui";
+import { atkSensorModes, atkVisibleButtons } from "./atk-capabilities";
 
 export function AtkProfileCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
@@ -30,8 +31,9 @@ export function AtkProfileCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 }
 
 export function AtkButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const mappings = snapshot.status?.atkButtonMappings;
-  if (!mappings?.length) return null;
+  // Vendor catalog: models without an underside button do not show its row.
+  const mappings = atkVisibleButtons(snapshot.status?.atkButtonMappings, snapshot.status?.atkCatalogFeatures);
+  if (!mappings.length) return null;
   return (
     <article id="atk-button-status" className="setting-card">
       <div className="setting-heading compact">
@@ -129,6 +131,9 @@ const ATK_DONGLE_LIGHT_LABELS = ["Close", "Polling Rate Effect", "Battery Gradie
 export function AtkSensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const sensorMode = snapshot.status?.atkSensorMode ?? null;
   if (sensorMode == null) return null;
+  // Vendor catalog: noAthleticsMax mice expose Basic and Shard only, so the
+  // MAX option is dropped rather than offered and rejected by the device.
+  const modes = atkSensorModes(snapshot.status?.atkCatalogFeatures);
   return (
     <article id="atk-sensor-mode" className="setting-card">
       <div className="setting-heading compact">
@@ -136,10 +141,10 @@ export function AtkSensorCard({ snapshot }: { snapshot: ControlSnapshot }): Reac
       </div>
       <Segmented
         ariaLabel="Sensor sampling mode"
-        options={ATK_SENSOR_MODE_LABELS.map((label, value) => ({ value, label }))}
+        options={modes.map((value) => ({ value, label: ATK_SENSOR_MODE_LABELS[value] }))}
         value={sensorMode}
         disabled={snapshot.settingInProgress}
-        className="three"
+        className={modes.length === 3 ? "three" : undefined}
         onChange={(mode) => void control.selectAtkSensorMode(mode)}
       />
       <small className="setting-note setting-note-stable">

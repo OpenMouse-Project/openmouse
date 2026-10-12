@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Artwork request
+    url: https://github.com/OpenMouse-Project/openmouse/discussions/categories/artwork-request
+    about: >-
+      Artwork requests are no longer accepted as issues. Please post your
+      device artwork request as a discussion in the Artwork Request
+      category instead.
+  - name: Device support request
+    url: https://github.com/OpenMouse-Project/openmouse/discussions/categories/q-a
+    about: >-
+      New device support requests are no longer accepted as issues. Please
+      ask in the Q&A discussions instead.

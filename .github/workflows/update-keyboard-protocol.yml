@@ -1,0 +1,65 @@
+name: Update Keyboard Protocol
+
+on:
+  schedule:
+    # Avoid the top of the hour, when scheduled workflows are most likely to queue.
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-protocol-dependencies
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install latest protocol release
+        id: protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          current=$(node -p "require('./package.json').dependencies['@openmouse/keyboard-protocol']")
+          latest=$(npm view @openmouse/keyboard-protocol version)
+
+          if [[ "$current" == "$latest" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          npm install --save-exact "@openmouse/keyboard-protocol@$latest"
+          git diff --exit-code -- . \
+            ':(exclude)package.json' \
+            ':(exclude)package-lock.json'
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Validate control panel
+        if: steps.protocol.outputs.changed == 'true'
+        run: |
+          npm run check
+          npm run size
+          npm audit --audit-level=high
+
+      - name: Commit verified update
+        if: steps.protocol.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.protocol.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(protocol): bump @openmouse/keyboard-protocol to $VERSION"
+          git push

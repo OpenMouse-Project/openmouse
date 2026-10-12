@@ -97,7 +97,9 @@ function validProfile(value: unknown): value is M2NexProfile {
     && profile.buttonMappings !== null
     && Object.values(profile.buttonMappings).every((action) => typeof action === "string")
     && (profile.scrollDirection === undefined || profile.scrollDirection === "Forward" || profile.scrollDirection === "Reverse")
-    && (profile.macros === null || profile.macros === undefined || Array.isArray(profile.macros));
+    && (profile.macros === null || profile.macros === undefined
+      || (Array.isArray(profile.macros) && profile.macros.every((macro) =>
+        typeof macro === "object" && macro !== null && Array.isArray((macro as { steps?: unknown }).steps))));
 }
 
 function normalizeProfiles(raw: unknown, count: number): M2NexProfile[] | null {

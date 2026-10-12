@@ -45,7 +45,7 @@ export function App(): ReactNode {
       ? "hardware-test"
         : showingGames
           ? "games"
-          : status !== null && snapshot.deviceView === "device"
+          : (status !== null || snapshot.keyboard !== null) && snapshot.deviceView === "device"
           ? "dashboard"
           : "home";
 
@@ -121,7 +121,7 @@ export function App(): ReactNode {
       className={[
         "control-shell",
         "full-desktop-shell",
-        status ? "" : "is-empty",
+        status || snapshot.keyboard ? "" : "is-empty",
         sidebarCollapsed ? "sidebar-collapsed" : "",
         preferences.reducedMotion ? "reduce-interface-motion" : "",
         snapshot.pending.count > 0 ? "has-pending-changes" : "",

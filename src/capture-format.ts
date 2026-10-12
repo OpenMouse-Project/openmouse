@@ -233,7 +233,7 @@ export function formatProfileVerificationMarkdown(capture: ProfileVerificationEx
     `- Device mode: ${capture.mode} (${hexByte(capture.modeValue)})`,
     `- Current profile sector: ${hexWord(capture.currentSector)}`,
     `- Directory CRC: ${capture.directoryCrcValid ? "valid" : "INVALID"}`,
-    `- Profile CRCs: ${capture.profiles.every((profile) => profile.crcValid) ? "all valid" : "ONE OR MORE INVALID"}`,
+    `- Profile CRCs: ${capture.profiles.length === 0 ? "no profiles captured" : capture.profiles.every((profile) => profile.crcValid) ? "all valid" : "ONE OR MORE INVALID"}`,
     "",
     "### Raw protocol replies",
     "",

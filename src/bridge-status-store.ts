@@ -15,13 +15,18 @@ let current: BridgeStatus | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 let unsubscribeActive: (() => void) | null = null;
 const listeners = new Set<Listener>();
+// Bumped whenever polling stops, so a status request already in flight cannot
+// repopulate `current` after the last subscriber went away.
+let generation = 0;
 
 function notify(): void {
   for (const listener of listeners) listener(current);
 }
 
 function poll(): void {
+  const mine = generation;
   void bridgeStatus().then((next) => {
+    if (mine !== generation) return;
     current = next;
     notify();
   }).catch(() => {
@@ -37,6 +42,7 @@ function startPolling(): void {
 }
 
 function stopPolling(): void {
+  generation += 1;
   if (timer !== null) clearInterval(timer);
   timer = null;
   current = null;

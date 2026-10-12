@@ -52,6 +52,14 @@ export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: Interfa
       sounded.current.add(toast.id);
       void playToastSound(toast.kind);
     }
+    // Toast ids are monotonic, so an id that is no longer shown can be
+    // forgotten instead of being retained for the tab's whole lifetime.
+    if (sounded.current.size > toasts.length) {
+      const live = new Set(toasts.map((toast) => toast.id));
+      for (const id of sounded.current) {
+        if (!live.has(id)) sounded.current.delete(id);
+      }
+    }
   });
   if (toasts.length === 0) return null;
   return (

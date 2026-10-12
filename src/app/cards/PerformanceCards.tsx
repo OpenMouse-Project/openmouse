@@ -7,11 +7,14 @@ import {
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../../device/controller";
 import { isNoirKsnakeStatus } from "../../device/noir.ts";
+import { pollingRateText } from "../../ui/polling-rate";
 import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
 import type { InterfaceLocale } from "../../interface-preferences";
 import { RateSlider, Segmented, SwitchButton } from "../ui";
+import { fullChargeHoursAt } from "../../battery-history";
+import { BounceCheckDialog } from "../BounceCheckDialog";
 
 const LOD_LEVELS: readonly LiftOffLevel[] = ["Low", "Medium", "High"];
 
@@ -35,7 +38,6 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
 
   const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
     .filter((rate) => !(snapshot.traits.eggControls && rate < 1000))
-    .slice()
     .sort((a, b) => a - b);
 
   const note = perProfile && rates
@@ -64,7 +66,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           <small id="polling-note" className="setting-note">{note}</small>
         </div>
         {!perProfile ? (
-          <output id="polling-value">{status.pollingRateHz.toLocaleString()} Hz</output>
+          <output id="polling-value">{pollingRateText(status.pollingRateHz)} Hz</output>
         ) : null}
       </div>
 
@@ -80,6 +82,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
                 ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless)}
               label={shared ? t(locale, "perf.allConnections") : link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless")}
               disabled={locked || snapshot.settingInProgress}
+              hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
             />
           ))}
@@ -92,6 +95,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
           valueHz={status.pollingRateHz}
           disabled={(snapshot.settingsPending && !nativeX11) || status.ui?.pollingReadOnly === true}
           bubble={false}
+          hoursAt={(hz) => fullChargeHoursAt(status.name, hz)}
           onChange={control.applyPollingRate}
         />
       )}
@@ -327,7 +331,24 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   );
 }
 
-function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+function BounceCheck({ locale, value, canApply }: { locale: InterfaceLocale; value: number; canApply: boolean }): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="icon-button bounce-check-button" onClick={() => setOpen(true)}>Check for bounce</button>
+      <BounceCheckDialog open={open} locale={locale} bunnyHopMs={value} canApply={canApply} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+// While a flash runs the profile is briefly unreadable; keep showing the last good one.
+let lastBunnyHop: ControlSnapshot | null = null;
+
+export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: ControlSnapshot; standalone?: boolean }): ReactNode {
+  if (live.profile.bunnyHopSupported && live.profile.entry) lastBunnyHop = live;
+  const snapshot = live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
+    ? lastBunnyHop
+    : live;
   const entry = snapshot.profile.entry;
   if (!snapshot.profile.bunnyHopSupported || !entry) return null;
   const locale = snapshot.preferences.locale;
@@ -339,9 +360,9 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const value = snapshot.stagedBunnyHopMs ?? entry.bunnyHoppingMs ?? 0;
   const enabled = value !== 0;
 
-  return (
+  const row = (
     <div id="bunny-hop-row">
-      <div className="setting-heading">
+      <div className={standalone ? "setting-heading superstrike-tuning-heading" : "setting-heading"}>
         <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{t(locale, "dpi.perProfile")}</span></h2></div>
       </div>
       <div className="bunny-hop-controls">
@@ -374,8 +395,14 @@ function BunnyHop({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           ? t(locale, "perf.bunnyReadonly")
           : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs })}
       </small>
+      {standalone ? <BounceCheck locale={locale} value={value} canApply={!locked && !snapshot.settingInProgress} /> : null}
     </div>
   );
+  return standalone ? (
+    <div id="bunny-hop-card">
+      <article className="setting-card superstrike-tuning-card">{row}</article>
+    </div>
+  ) : row;
 }
 
 export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
@@ -404,6 +431,158 @@ export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         {t(locale, "perf.lightforceNote")}
       </small>
       <BunnyHop snapshot={snapshot} />
+    </article>
+  );
+}
+
+const WALLHACK_CURVE_MODES = ["classic", "natural", "jump", "custom"] as const;
+
+export function SensorScanningCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || status.sensorScanningMode == null) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.includes("wallhack-scanning");
+  return (
+    <article
+      id="wallhack-scanning-card"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="wallhack-scanning"
+    >
+      <div className="setting-heading"><div><h2>{t(locale, "perf.scanningMode")}</h2></div></div>
+      <Segmented
+        ariaLabel={t(locale, "perf.scanningMode")}
+        options={[
+          { value: "HIGH", label: "HIGH" },
+          { value: "ACCEL", label: "ACCEL" },
+        ]}
+        value={status.sensorScanningMode}
+        disabled={snapshot.settingsPending}
+        onChange={control.applySensorScanningMode}
+      />
+      <small className="setting-note">
+        {t(locale, "perf.scanningNote")}
+      </small>
+    </article>
+  );
+}
+
+export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  if (!status || status.dynamicSensitivityEnabled == null) return null;
+  const locale = snapshot.preferences.locale;
+  const enabled = status.dynamicSensitivityEnabled === true;
+  const mode = status.dynamicSensitivityMode ?? "classic";
+  const curves = snapshot.wallhackCurves;
+  const staged = snapshot.pending.keys.some((key) => key === "wallhack-dynsens" || key === "wallhack-curve");
+  const busy = snapshot.settingsPending || snapshot.wallhackCurvesLoading;
+  const [draft, setDraft] = useState<Array<{ speed: number; gain: number }> | null>(null);
+
+  useEffect(() => {
+    if (status.ui?.family === "wallhack-mouse"
+      && curves === null
+      && !snapshot.wallhackCurvesLoading
+      && snapshot.wallhackCurvesError === null) {
+      control.loadWallhackCurves();
+    }
+  }, [curves, snapshot.wallhackCurvesLoading, snapshot.wallhackCurvesError, status.ui?.family]);
+
+  useEffect(() => {
+    setDraft(null);
+  }, [curves === null]);
+
+  const customPoints = draft ?? curves?.custom ?? null;
+  const updateDraftPoint = (index: number, field: "speed" | "gain", value: number): void => {
+    const base = (curves?.custom ?? []).map((point) => ({ ...point }));
+    while (base.length < 5) base.push({ speed: 0, gain: 1 });
+    base[index] = { ...base[index]!, [field]: value };
+    setDraft(base);
+  };
+
+  return (
+    <article
+      id="wallhack-dynsens-card"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key="wallhack-dynsens"
+    >
+      <div className="setting-heading"><div><h2>{t(locale, "perf.dynSens")}</h2></div></div>
+      <SwitchButton
+        id="wallhack-dynsens-enabled"
+        value={enabled}
+        label={t(locale, "perf.dynSens")}
+        disabled={snapshot.settingsPending}
+        onChange={control.applyDynamicSensitivityEnabled}
+      />
+      <Segmented
+        ariaLabel={t(locale, "perf.dynSensCurve")}
+        options={WALLHACK_CURVE_MODES.map((value) => ({
+          value,
+          label: t(locale, value === "classic" ? "perf.classic" : value === "natural" ? "perf.natural" : value === "jump" ? "perf.jump" : "perf.custom"),
+        }))}
+        value={mode}
+        disabled={snapshot.settingsPending || !enabled}
+        onChange={control.applyDynamicSensitivityMode}
+      />
+      <small className="setting-note">
+        {t(locale, "perf.dynSensNote")}
+      </small>
+      {snapshot.wallhackCurvesLoading ? <p className="field-note">{t(locale, "perf.dynSensLoading")}</p> : null}
+      {snapshot.wallhackCurvesError !== null ? (
+        <p className="field-note">{snapshot.wallhackCurvesError}</p>
+      ) : null}
+      {mode === "custom" && customPoints ? (
+        <div className="macro-steps">
+          {customPoints.map((point, index) => (
+            <div className="macro-step" key={index}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>
+                {t(locale, "perf.dynSensSpeed")}
+                <input
+                  type="number"
+                  min={0}
+                  max={280}
+                  step={1}
+                  value={point.speed}
+                  disabled={busy || !enabled}
+                  aria-label={`${t(locale, "perf.dynSensSpeed")} ${index + 1}`}
+                  onChange={(event) => updateDraftPoint(index, "speed", Number(event.currentTarget.value))}
+                />
+              </label>
+              <label>
+                {t(locale, "perf.dynSensGain")}
+                <input
+                  type="number"
+                  min={0.1}
+                  max={6}
+                  step={0.01}
+                  value={point.gain}
+                  disabled={busy || !enabled}
+                  aria-label={`${t(locale, "perf.dynSensGain")} ${index + 1}`}
+                  onChange={(event) => updateDraftPoint(index, "gain", Number(event.currentTarget.value))}
+                />
+              </label>
+            </div>
+          ))}
+          <div className="setting-action">
+            <button
+              type="button"
+              disabled={busy || !enabled || draft === null}
+              onClick={() => { if (draft) control.applyCustomCurve(draft); }}
+            >
+              {t(locale, "perf.dynSensSave")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <div className="macro-steps">
+        <SwitchButton
+          id="wallhack-dynsens-reporting"
+          value={status.dynamicSensitivitySpeedReporting === true}
+          label={t(locale, "perf.dynSensReporting")}
+          disabled={snapshot.settingsPending}
+          onChange={control.applyDynamicSensitivitySpeedReporting}
+        />
+        <small className="setting-note">{t(locale, "perf.dynSensReportingNote")}</small>
+      </div>
     </article>
   );
 }

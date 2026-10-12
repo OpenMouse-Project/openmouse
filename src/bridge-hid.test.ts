@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bridgeHid, type BridgeTransport } from "./bridge-hid.ts";
+import { bridgeEmptyResultMessage, bridgeHid, type BridgeTransport } from "./bridge-hid.ts";
 
 interface Fake {
   transport: BridgeTransport;
@@ -169,4 +169,17 @@ test("a dropped socket closes every device and rejects what was in flight", asyn
 
   await assert.rejects(pending, /disconnected/);
   assert.equal(device.opened, false);
+});
+
+test("an empty Bridge result with no known devices asks to check the connection", () => {
+  const message = bridgeEmptyResultMessage([]);
+  assert.match(message, /no mice from supported vendors/);
+  assert.match(message, /Add mouse/);
+});
+
+test("an empty Bridge result with known devices names the VID/PID", () => {
+  const message = bridgeEmptyResultMessage([MOUSE as unknown as HIDDevice]);
+  assert.match(message, /none matches a supported control interface/);
+  assert.match(message, /Pulsar X2/);
+  assert.match(message, /VID/);
 });

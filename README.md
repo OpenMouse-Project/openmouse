@@ -1,11 +1,27 @@
 # OpenMouse
 
+<a href="https://trendshift.io/repositories/103495?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-103495" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/103495/daily?language=TypeScript" alt="OpenMouse-Project%2Fopenmouse | Trendshift" width="250" height="55"/></a>
+
+<p>
+  <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/OpenMouse-Project/openmouse/ci.yml?branch=main&label=CI" alt="CI"/></a>
+  <a href="https://www.npmjs.com/package/@openmouse/protocol"><img src="https://img.shields.io/github/package-json/dependency-version/OpenMouse-Project/openmouse/@openmouse%2Fprotocol?label=mouse%20protocol" alt="Mouse protocol version"/></a>
+  <a href="https://www.npmjs.com/package/@openmouse/keyboard-protocol"><img src="https://img.shields.io/github/package-json/dependency-version/OpenMouse-Project/openmouse/@openmouse%2Fkeyboard-protocol?label=keyboard%20protocol" alt="Keyboard protocol version"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/OpenMouse-Project/openmouse" alt="License"/></a>
+  <a href="https://github.com/OpenMouse-Project/openmouse/stargazers"><img src="https://img.shields.io/github/stars/OpenMouse-Project/openmouse" alt="Stars"/></a>
+</p>
+
 OpenMouse is a browser-based control panel for supported gaming mice.
 
 Connect a mouse, view its information, and change supported settings such as DPI
 and polling rate without installing a different app for every brand.
 
-This branch is deployed as the public development control panel.
+<a href="https://control.openmouse.app/"><img src=".github/assets/control-panel-card.svg" width="520" alt="Open the OpenMouse control panel"/></a>
+
+Works in Chromium-based browsers that support WebHID. Learn more at
+[openmouse.app](https://openmouse.app/).
+
+This branch is deployed as the public development control panel at
+[control.openmouse.app](https://control.openmouse.app/).
 
 ## Development
 
@@ -54,6 +70,13 @@ sudo udevadm control --reload-rules
 Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
+
+## Community
+
+Questions, device requests, bug reports, or just want to follow along? Come
+hang out on Discord.
+
+<a href="https://discord.gg/yxC9jzMdw6"><img src="https://control.openmouse.app/api/discord-card" width="520" alt="Join OpenMouse on Discord"/></a>
 
 ## Contributing
 
@@ -112,6 +135,15 @@ library registry automatically.
 
 Hardware-specific validation checklists live in the protocol repository's
 `docs/` directory.
+
+## Star history
+
+<a href="https://star-history.com/#OpenMouse-Project/openmouse&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=OpenMouse-Project/openmouse&type=Date&theme=dark"/>
+    <img src="https://api.star-history.com/svg?repos=OpenMouse-Project/openmouse&type=Date" alt="Star history chart"/>
+  </picture>
+</a>
 
 ## License
 

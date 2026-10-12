@@ -107,6 +107,11 @@ test("Delux M800 Mini and M800 family resolve by name", () => {
   assert.equal(deviceImage(null, "Delux M800 Pro"), "/devices/delux-m800-mini.png");
 });
 
+test("ROG Harpe Ace Aim Lab Edition resolves by name on every connection", () => {
+  assert.equal(deviceImage(null, "ROG Harpe Ace Aim Lab Edition"), "/devices/asus-rog-harpe-ace-aim-lab.png");
+  assert.equal(deviceImage(null, "ROG Omni receiver"), CDN + "unknown-device.png");
+});
+
 test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", () => {
   // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
   // device-images.ts / public/devices/README.md) until a maintainer uploads
@@ -231,6 +236,12 @@ test("Finalmouse Starlight-12 / ULX resolves by name", () => {
   assert.equal(deviceImage(null, "Finalmouse ULX"), CDN + "finalmouse-ulx.png");
 });
 
+test("Finalmouse Starlight X keeps the placeholder until its render lands", () => {
+  assert.equal(deviceImage(null, "Finalmouse Starlight X"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "SLX"), CDN + "unknown-device.png");
+  assert.equal(isUnknownDevice(null, "Finalmouse Starlight X"), true);
+});
+
 test("test-needed and unsupported models are not given new artwork", () => {
   assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "unknown-device.png");
@@ -254,6 +265,14 @@ test("Noir Gear M2-NEX resolves to its maintainer-hosted artwork", () => {
   assert.equal(deviceImage(null, "M2-NEX"), CDN + "noir-m2-nex.png");
   assert.equal(deviceImage(null, "Noir Gear M2-NEX"), CDN + "noir-m2-nex.png");
   assert.equal(deviceImage(null, "NOIR E1"), CDN + "noir-e1.png");
+});
+
+test("Noir Gear M1-NEX resolves to its reserved maintainer-hosted artwork", () => {
+  assert.equal(deviceImage(null, "M1-NEX"), CDN + "noir-m1-nex.png");
+  assert.equal(deviceImage(null, "Noir Gear M1-NEX"), CDN + "noir-m1-nex.png");
+  // Neighboring Noir Gear models must not match the M1-NEX render.
+  assert.equal(deviceImage(null, "Noir M1"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "Noir M1 Lite"), CDN + "unknown-device.png");
 });
 
 test("Noir S1 resolves to the reserved maintainer-hosted artwork filename", () => {

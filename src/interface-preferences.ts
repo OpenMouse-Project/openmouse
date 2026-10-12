@@ -115,7 +115,7 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
   try {
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}") as Partial<InterfacePreferences>;
     return {
-      theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : "Mono",
+      theme: THEMES.includes(saved.theme as InterfaceTheme) ? saved.theme as InterfaceTheme : DEFAULT_INTERFACE_PREFERENCES.theme,
       colorMode: saved.colorMode === "Light" || saved.colorMode === "Dark" ? saved.colorMode : "System",
       locale: coerceLocale(saved.locale),
       reducedMotion:

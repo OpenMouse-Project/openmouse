@@ -63,7 +63,47 @@ test("pid matches prefer the row whose brand matches the device", () => {
   assert.equal(result.pageModel, "G23 V2 (SE / Pro)");
 });
 
-test("M2-NEX resolves to the Noir Gear supported row despite the shared OEM PID", () => {
+test("Attack Shark X11 resolves to its own bridge row despite sharing PIDs with the Delux M800 Mini", () => {
+  // mouse-protocol #161: 0x1d57:0xfa60 is shared by the X11 (model id 0x55)
+  // and the Delux M800 Mini. The brand match must win over the supported
+  // Delux row so the report does not claim the X11 is already Supported.
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Attack Shark", name: "Attack Shark X11", vendorId: 0x1d57, productId: 0xfa60 }),
+    "fail",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "bridge");
+  assert.equal(result.label, "Needs Bridge");
+  assert.equal(result.pageModel, "X11");
+});
+
+test("Delux M800 Mini still resolves to its supported row on the shared PIDs", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Delux", name: "M800 Mini", vendorId: 0x1d57, productId: 0xfa60 }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "M800 Mini");
+});
+
+test("M2-NEX resolves by product name since its row pins no PIDs", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: null }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "name");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "M2-NEX");
+  assert.match(result.detail, /already listed as Supported/);
+});
+
+test("M2-NEX reporting PID 0x2255 routes to the shared K-snake X11 row", () => {
+  // 0x2255 is pinned only on K-snake X11 (shared OEM PID); the Noir M2-NEX
+  // row matches by product name. PID wins when the device reports it.
   const result = crosscheckSupportedDevices(
     device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: 0x2255 }),
     "pass",
@@ -71,19 +111,28 @@ test("M2-NEX resolves to the Noir Gear supported row despite the shared OEM PID"
   assert.equal(result.listed, true);
   assert.equal(result.matchedBy, "pid");
   assert.equal(result.status, "supported");
-  assert.equal(result.pageModel, "M2-NEX");
-  assert.match(result.detail, /already listed as Supported/);
+  assert.equal(result.pageModel, "X11");
 });
 
-test("NOIR E1 resolves to its own pending row despite sharing the M2-NEX PID", () => {
+test("NOIR E1 reporting PID 0x2255 follows the shared PID to K-snake X11", () => {
   const result = crosscheckSupportedDevices(
     device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: 0x2255 }),
     "pass",
   );
   assert.equal(result.listed, true);
   assert.equal(result.matchedBy, "pid");
-  assert.equal(result.status, "pending");
-  assert.equal(result.pageModel, "NOIR E1");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "X11");
+});
+
+test("NOIR E1 has no row since upstream removed it", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: null }),
+    "pass",
+  );
+  assert.equal(result.listed, false);
+  assert.equal(result.matchedBy, null);
+  assert.match(result.detail, /not listed on the supported-devices page/);
 });
 
 test("brand+model name match on a likely row with a passing run qualifies for Supported", () => {

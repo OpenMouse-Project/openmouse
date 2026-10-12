@@ -1,7 +1,10 @@
+import type { KeyboardWorkspace } from "./keyboard-workspace.ts";
+import type { WuqueDeviceFeature, WuquePerformanceBlock } from "@openmouse/keyboard-protocol/wuque";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
+import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../interface-preferences";
 import type { PreviewMode } from "../preview-modes";
@@ -161,9 +164,90 @@ export interface Toast {
   leaving?: boolean;
 }
 
+/**
+ * Keyboard-shaped view of the active device. A keyboard is not a mouse: while
+ * this is populated the mouse `status` stays null and every mouse card stays
+ * unavailable, so the two never mix.
+ */
+export interface KeyboardIdentityView {
+  boardId: number | null;
+  capabilities: WuqueDeviceFeature | null;
+  brand: string;
+  name: string;
+  firmwareVersion: string | null;
+  appVersion: string | null;
+  pcbVersion: string | null;
+  serial: string | null;
+}
+
+export interface KeyboardPollingView {
+  /** Rate the board reports it is running now, or null when it stays silent. */
+  currentHz: number | null;
+  /** Rates the board advertises, ascending. */
+  supportedHz: number[];
+}
+
+/** Editable per-key analog trigger values, all in millimetres. */
+export interface KeyboardTriggerSettings {
+  travelMm: number;
+  rtFirstTouchMm: number;
+  rapidTriggerPressMm: number;
+  rapidTriggerReleaseMm: number;
+  deadBandPressMm: number;
+  deadBandReleaseMm: number;
+}
+
+export interface KeyboardTriggerKey extends KeyboardTriggerSettings {
+  performance: WuquePerformanceBlock;
+  row: number;
+  col: number;
+  keycode: number;
+  /** Vendor keycode category, when the codec recognises the code. */
+  keycodeName: string | null;
+}
+
+/** A partial trigger edit; untouched fields keep the board's live values. */
+export interface KeyboardTriggerPatch {
+  travelMm?: number;
+  rapidTriggerPressMm?: number;
+  rapidTriggerReleaseMm?: number;
+  deadBandPressMm?: number;
+  deadBandReleaseMm?: number;
+}
+
+export interface KeyboardKeyRef {
+  row: number;
+  col: number;
+}
+
+export interface KeyboardTriggerView {
+  /** Raw 6×21 keycode matrix; 0 marks an empty slot. */
+  matrix: readonly (readonly number[])[];
+  keys: readonly KeyboardTriggerKey[];
+  /** Anchor key the trigger controls display, or null when nothing is selected. */
+  selected: KeyboardKeyRef | null;
+  /** Every key a trigger change applies to. */
+  selectedKeys: readonly KeyboardKeyRef[];
+  busy: boolean;
+  statusText: string | null;
+}
+
+export interface KeyboardView {
+  family?: "wuque" | "kochi";
+  name: string;
+  vendorId: number;
+  productId: number;
+  identity: KeyboardIdentityView;
+  polling: KeyboardPollingView;
+  trigger: KeyboardTriggerView;
+  workspace: KeyboardWorkspace;
+}
+
 export interface ControlSnapshot {
   deviceStatus: MouseStatus | null;
   status: MouseStatus | null;
+  /** Populated only while a keyboard device is active; mouse `status` stays null then. */
+  keyboard: KeyboardView | null;
   traits: DriverTraits;
   capabilities: DeviceCapabilities | null;
   settingsPending: boolean;
@@ -181,6 +265,21 @@ export interface ControlSnapshot {
   deviceArtwork: string | null;
   settingInProgress: boolean;
   atkR1SePlusPairingAvailable: boolean;
+
+  /**
+   * Receiver's own firmware (HID++ 1.0 register 0xF1), read once per
+   * wireless Logitech connection on the same interface (device 0xFF).
+   * Null when wired, non-Logitech, or unreadable — the mouse card is
+   * unaffected either way.
+   */
+  /**
+   * Per-MCU firmware readouts from the receiver (HID++ 1.0 register 0xF1,
+   * one (mcu, index) combo each). MCU numbering follows the dfu package
+   * target entities (MCU1/MPR7, MCU2/CC14). Versions are dotted-decimal
+   * triplets of the raw reply bytes; their mapping to package versions is
+   * established empirically (see firmware-updates.ts).
+   */
+  receiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null;
 
   preferences: InterfacePreferences;
   sidebarHidden: boolean;
@@ -216,6 +315,19 @@ export interface ControlSnapshot {
   ksnakeMacros: KsnakeMacroProfile[] | null;
   ksnakeMacrosLoading: boolean;
   ksnakeMacrosError: string | null;
+  /**
+   * WALLHACK M-001 onboard macro slots (4, up to 30 steps each), read from
+   * the device. Empty slots are null. Macros are saved per slot, so unlike
+   * ksnake there is no staged draft: the card edits a local copy and writes
+   * it through applyWallhackMacroSlot.
+   */
+  wallhackMacros: (WallhackMacroStep[] | null)[] | null;
+  wallhackMacrosLoading: boolean;
+  wallhackMacrosError: string | null;
+  /** WALLHACK M-001 DPI-acceleration curve tables, read on demand. */
+  wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null;
+  wallhackCurvesLoading: boolean;
+  wallhackCurvesError: string | null;
   /** Local profile slots matching the M2-NEX vendor configurator. */
   m2nexProfiles: M2NexProfile[] | null;
   activeM2NexProfile: number;

@@ -276,7 +276,16 @@ function Calibration({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 
 export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const magnetic = snapshot.status?.magneticButtons;
-  const same = magnetic && JSON.stringify(magnetic.buttons[0]) === JSON.stringify(magnetic.buttons[1]);
+  const [leftButton, rightButton] = magnetic?.buttons ?? [];
+  // Compare the fields that decide the mode rather than serializing the whole
+  // button objects on every render.
+  const same = magnetic?.buttons.length === 2
+    && leftButton !== undefined && rightButton !== undefined
+    && leftButton.switchType === rightButton.switchType
+    && leftButton.triggerPoint === rightButton.triggerPoint
+    && (leftButton.releasePoint ?? null) === (rightButton.releasePoint ?? null)
+    && leftButton.rapidTrigger === rightButton.rapidTrigger
+    && leftButton.rapidTriggerEnabled === rightButton.rapidTriggerEnabled;
   const [mode, setMode] = useState<"both" | "independent" | null>(null);
   if (!magnetic || magnetic.buttons.length !== 2) return null;
   const locale = snapshot.preferences.locale;

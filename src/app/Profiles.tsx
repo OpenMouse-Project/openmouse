@@ -28,9 +28,18 @@ export function Profiles({
   const profiles = snapshot.onboardProfiles;
 
   useEffect(() => {
-    if (!body.current || !inner.current) return;
-    body.current.style.maxHeight = snapshot.profilesExpanded ? `${inner.current.scrollHeight}px` : "0px";
-  });
+    const bodyEl = body.current;
+    const innerEl = inner.current;
+    if (!bodyEl || !innerEl) return;
+    const sync = (): void => {
+      bodyEl.style.maxHeight = snapshot.profilesExpanded ? `${innerEl.scrollHeight}px` : "0px";
+    };
+    sync();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(innerEl);
+    return () => observer.disconnect();
+  }, [snapshot.profilesExpanded]);
 
   const locale = snapshot.preferences.locale;
   const summary = snapshot.profile.summary;
