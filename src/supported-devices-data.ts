@@ -215,7 +215,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "SteelSeries", model: "Rival 650 Wireless", status: "supported", pids: [0x172b, 0x1726] },
   { brand: "SteelSeries", model: "Aerox 3", status: "supported", pids: [0x1836] },
   { brand: "SteelSeries", model: "Aerox 3 Wireless", status: "supported", pids: [0x1838, 0x183a] },
-  { brand: "SteelSeries", model: "Aerox 3 Wireless Gen 2", status: "supported" },
+  { brand: "SteelSeries", model: "Aerox 3 Wireless Gen 2", status: "supported", pids: [0x1838, 0x183a] },
   { brand: "SteelSeries", model: "Prime+", status: "supported", pids: [0x182c] },
   { brand: "SteelSeries", model: "Rival 310", status: "supported", pids: [0x1720, 0x171e, 0x1736] },
   { brand: "SteelSeries", model: "Prime Mini Wireless", status: "supported", pids: [0x184a, 0x1848] },
