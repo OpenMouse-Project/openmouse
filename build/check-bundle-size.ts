@@ -199,7 +199,12 @@ const BUDGET_BYTES: Record<string, number> = {
   // Wuque codecs/client wiring, shared workspace cards, per-key trigger UI,
   // and keyboard strings in all ten locale chunks. The measured aggregate
   // is 2,419.9 kB, leaving ~30 kB of headroom.
-  ".js": 2_450_000,
+  // Raised to 2,470 kB for the @openmouse/protocol 0.38.0 bump: the AJAZZ
+  // NJ07/NJ08 key-map codec, the 49-entry vendor button-action catalog, and
+  // the marker/default client handling arrive through bridge-hid's
+  // SUPPORTED_HID_FILTERS. The measured aggregate is 2,454.4 kB, 4.4 kB over
+  // the old 2,450 kB budget, leaving ~15 kB of headroom.
+  ".js": 2_470_000,
 };
 
 const ASSETS = join("dist", "assets");
