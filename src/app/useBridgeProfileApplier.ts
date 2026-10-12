@@ -43,23 +43,30 @@ function signature(profile: BridgeProfile): string {
   return `${profile.application.name}|${profile.device.name}|${JSON.stringify(profile.settings)}`;
 }
 
+interface GameProfileSession {
+  signature: string | null;
+  prior: GameProfileSnapshot | null;
+}
+
 export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
   const deviceStatusRef = useRef(snapshot.deviceStatus);
   deviceStatusRef.current = snapshot.deviceStatus;
   const localeRef = useRef(snapshot.preferences.locale);
   localeRef.current = snapshot.preferences.locale;
-  const appliedSignature = useRef<string | null>(null);
-  // What the mouse had, before any profile, for every field a profile has
-  // changed since. Grows as profiles switch; written back when none is active.
-  const priorSettings = useRef<GameProfileSnapshot | null>(null);
+  // Keep inactive banks' originals until that device/bank is selected again.
+  // Never restore them into whichever mouse happens to be active now.
+  const sessions = useRef(new WeakMap<object, Map<number | null, GameProfileSession>>());
   const writing = useRef(false);
 
   useEffect(() => subscribeBridgeStatus((bridge) => {
     if (writing.current) return;
     const status = deviceStatusRef.current;
     const profile = bridge?.activeProfile ?? null;
+    const scope = control.currentGameProfileScope();
+    if (!status || !scope) return;
+    let session = sessions.current.get(scope.device)?.get(scope.profile);
 
-    if (!status || (!profile && !priorSettings.current)) return;
+    if (!profile && !session?.prior) return;
 
     writing.current = true;
     let attemptedPrior: GameProfileSnapshot | null = null;
@@ -68,49 +75,57 @@ export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
       // Refresh before both no-op detection and capturing newly touched fields.
       const confirmed = await control.prepareGameProfileStatus();
       if (typeof confirmed === "string") {
-        if (confirmed === "failed") appliedSignature.current = null;
+        if (confirmed === "failed" && session) session.signature = null;
         return;
       }
+      const confirmedScope = control.currentGameProfileScope(confirmed);
+      if (!confirmedScope || confirmedScope.device !== scope.device) return;
+      let banks = sessions.current.get(confirmedScope.device);
+      if (!banks) sessions.current.set(confirmedScope.device, banks = new Map());
+      session = banks.get(confirmedScope.profile);
+      if (!session) banks.set(confirmedScope.profile, session = { signature: null, prior: null });
       if (!profile || profile.device.name !== confirmed.name) {
         // Nothing (recognized) is active for this mouse right now. Put back
         // what was there before any successful or partial profile application.
-        const prior = priorSettings.current;
+        const prior = session.prior;
         // A failed first application can still have changed earlier batches,
         // even though it never earned an applied signature.
         if (!prior) return;
-        const result = await control.flashGameProfileSnapshot(prior);
+        const result = await control.flashGameProfileSnapshot(prior, confirmedScope);
         if (result === "busy") return;
-        appliedSignature.current = null;
+        session.signature = null;
         if (result === "failed") return;
-        priorSettings.current = null;
+        session.prior = null;
         if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
         return;
       }
 
       const sig = signature(profile);
-      if (sig === appliedSignature.current) return;
+      if (sig === session.signature) return;
 
       const target = profileTarget(profile);
       // Capture only fields not already held: when one game's profile gives way
       // to another's, the originals from before the first one still win.
-      const prior = mergeSnapshots(pickSnapshot(confirmed, target), priorSettings.current ?? {}, confirmed);
+      const prior = mergeSnapshots(pickSnapshot(confirmed, target), session.prior ?? {}, confirmed);
       // Fields the previous profile changed but this one doesn't go back to
       // their originals, so the new game starts from the user's own settings.
-      const toWrite = mergeSnapshots(priorSettings.current ?? {}, target, confirmed);
+      const toWrite = mergeSnapshots(session.prior ?? {}, target, confirmed);
 
       attemptedPrior = prior;
-      const result = await control.flashGameProfileSnapshot(toWrite);
+      const result = await control.flashGameProfileSnapshot(toWrite, confirmedScope);
       if (result === "busy") return;
       // Back up attempted fields too: an unsuccessful write is not atomic.
-      priorSettings.current = prior;
-      appliedSignature.current = result === "failed" ? null : sig;
+      session.prior = prior;
+      session.signature = result === "failed" ? null : sig;
       if (result === "written") {
         control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
       }
     })().catch(() => {
       // Keep originals even if an unexpected rejection followed a partial write.
-      if (attemptedPrior) priorSettings.current = attemptedPrior;
-      appliedSignature.current = null;
+      if (session) {
+        if (attemptedPrior) session.prior = attemptedPrior;
+        session.signature = null;
+      }
     }).finally(() => {
       writing.current = false;
     });

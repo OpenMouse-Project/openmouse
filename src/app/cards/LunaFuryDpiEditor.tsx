@@ -11,7 +11,7 @@ export function LunaFuryDpiEditor({ snapshot }: { snapshot: ControlSnapshot }): 
   const locale = snapshot.preferences.locale;
   const xs = status.dpiStages ?? [];
   const ys = status.dpiStagesY ?? xs;
-  const separate = status.lunafury?.separateDpiAxes === true;
+  const separate = status.lunafury?.separateDpiAxes;
   const limits = status.ui?.dpiStageEditor;
   const max = limits?.maxDpi ?? 30000;
   const active = Math.min(Math.max(status.activeDpiStage ?? 0, 0), Math.max(0, xs.length - 1));
@@ -33,7 +33,8 @@ export function LunaFuryDpiEditor({ snapshot }: { snapshot: ControlSnapshot }): 
     if (busy || !writable || !xs[stage]) return;
     const value = lunaFuryDpiInput(raw, max);
     const x = axis === "x" ? value : xs[stage];
-    const y = !separate ? x : axis === "y" ? value : ys[stage] ?? x;
+    // An unread axis mode is not proof of axis lock; preserve stored Y.
+    const y = separate === false ? x : axis === "y" ? value : ys[stage] ?? x;
     setRows((current) => current.map((row, i) => i === stage ? { x: String(x), y: String(y) } : row));
     if (x !== xs[stage] || y !== ys[stage]) control.applyLunaFuryDpiStageAxes(stage, x, y);
   };
@@ -41,7 +42,7 @@ export function LunaFuryDpiEditor({ snapshot }: { snapshot: ControlSnapshot }): 
   return (
     <div className="lunafury-dpi-editor" id="lunafury-dpi-editor">
       {status.lunafury?.separateDpiAxes != null ? <SwitchRow id="lunafury-dpi-axes-toggle"
-        label={t(locale, "luna.separateAxes")} value={separate} disabled={busy || !writable}
+        label={t(locale, "luna.separateAxes")} value={separate === true} disabled={busy || !writable}
         onChange={control.applyLunaFurySeparateDpiAxes} /> : null}
       {xs.length ? (separate ? ["x", "y"] as const : ["x"] as const).map((axis) => (
         <StepperSlider key={`${status.activeProfile}-${active}-${axis}`} id={`lunafury-dpi-${axis}`}

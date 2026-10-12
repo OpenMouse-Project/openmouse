@@ -7,6 +7,7 @@ import type { BridgeProfile } from "../src/bridge.ts";
 let controller: any;
 const controllerPath = fileURLToPath(new URL("../src/device/controller.ts", import.meta.url)).replaceAll("\\", "/");
 const bridgeHookPath = fileURLToPath(new URL("../src/app/useBridgeProfileApplier.ts", import.meta.url)).replaceAll("\\", "/");
+const dpiEditorPath = fileURLToPath(new URL("../src/app/cards/LunaFuryDpiEditor.tsx", import.meta.url)).replaceAll("\\", "/");
 
 before(async () => {
   const storage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
@@ -22,6 +23,7 @@ before(async () => {
     plugins: [{ name: "controller-test-state", enforce: "pre",
       resolveId(id, importer) {
         if (id === "test:bridge-hooks" || id === "react") return "\0test:bridge-hooks";
+        if (id === "../ui" && importer?.replaceAll("\\", "/") === dpiEditorPath) return "\0test:dpi-ui";
         if (id === "test:bridge-status" || (id === "../bridge-status-store" && importer?.replaceAll("\\", "/") === bridgeHookPath)) {
           return "\0test:bridge-status";
         }
@@ -33,10 +35,13 @@ before(async () => {
           let refs = [], cursor = 0, mounted = false, cleanup;
           export function useRef(initial) { return refs[cursor++] ??= { current: initial }; }
           export function useEffect(setup) { if (!mounted) { mounted = true; cleanup = setup(); } }
+          export function useState(initial) { return [typeof initial === "function" ? initial() : initial, () => {}]; }
           export function beginRender() { cursor = 0; }
           export function resetHook() { cleanup?.(); refs = []; cursor = 0; mounted = false; cleanup = null; }
           export function hookWriting() { return refs.at(-1)?.current === true; }
         `;
+        // Keep the editor's real event handlers; shared widgets need no DOM here.
+        if (id === "\0test:dpi-ui") return `export const OptionMenu = "OptionMenu", StepperSlider = "StepperSlider", SwitchRow = "SwitchRow";`;
         if (id === "\0test:bridge-status") return `
           const listeners = new Set();
           export function subscribeBridgeStatus(listener) { listeners.add(listener); listener(null); return () => listeners.delete(listener); }
@@ -55,8 +60,9 @@ before(async () => {
         import { beginRender, resetHook, hookWriting } from "test:bridge-hooks";
         import { emitBridge } from "test:bridge-status";
         export const testToastLog = [];
-        export async function testConnect(device) {
-          resetHook(); testToastLog.length = 0;
+        export async function testConnect(device, preserveSessions = false) {
+          if (!preserveSessions) resetHook();
+          testToastLog.length = 0;
           clearPendingChanges(); gameProfileDraft = null;
           active = new LamzuHidClient(device); activeDevice = device;
           dpiOptions = active.getDpiOptions(); lastDiagnosticError = null;
@@ -138,6 +144,7 @@ before(async () => {
         export { refreshStatus as testRefreshStatus };
         export function testClientOnly() { activeDevice = null; }
         export { hookWriting as testBridgeWriting };
+        export { LunaFuryDpiEditor as testDpiEditor } from "../app/cards/LunaFuryDpiEditor";
         export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot,
           mergeSnapshots as testMergeSnapshots } from "./game-profile-snapshot.ts";
         `;
@@ -220,6 +227,131 @@ function bridgeSuccessNotices() {
   return controller.testToastLog.filter((toast: { title: string }) =>
     toast.title === "Applied game profile" || toast.title === "Restored your previous mouse settings");
 }
+
+function dpiEditorNodes(status: unknown): any[] {
+  const root = controller.testDpiEditor({ snapshot: { status, preferences: { locale: "en" },
+    capabilities: { dpiStagesWritable: true, activeDpiStageWritable: true } } });
+  const nodes: any[] = [];
+  const visit = (node: any) => {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (!node?.props) return;
+    nodes.push(node); visit(node.props.children);
+  };
+  visit(root);
+  return nodes;
+}
+
+for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  for (const input of ["slider", "number"]) {
+    test(`DPI editor ${input} on ${pid.toString(16)} preserves Y after an axis-mode read failure`, async () => {
+      const mouse = fixture(pid), receive = mouse.device.receiveFeatureReport;
+      mouse.device.receiveFeatureReport = async () => {
+        const request = mouse.sent.at(-1)!;
+        if (request[4] === 1 && request[5] === 0x8d) throw new Error("Injected axis-mode read failure.");
+        return receive();
+      };
+      const before = await controller.testConnect(mouse.device);
+      assert.equal(before.lunafury.separateDpiAxes, undefined);
+      const original = [...mouse.banks[0].table];
+      const nodes = dpiEditorNodes(before);
+      if (input === "slider") nodes.find(node => node.props.id === "lunafury-dpi-x").props.onCommit(1200);
+      else nodes.filter(node => node.type === "input")[1].props.onfocusout({ currentTarget: { value: "1200" } });
+      assert.equal(await controller.flashPendingChanges(), "written");
+      assert.deepEqual(mouse.banks[0].table, [...original.slice(0, 2), 1200, ...original.slice(3)]);
+    });
+  }
+
+  test(`Bridge on ${pid.toString(16)} applies and restores Games separately for each onboard bank`, async () => {
+    const mouse = fixture(pid);
+    mouse.banks[1].table[2] = 1000; mouse.banks[1].table[3] = 2000;
+    const original = structuredClone(mouse.banks);
+    const before = await controller.testConnect(mouse.device);
+    const profile = game("A", { dpi: 1200 }, before.name);
+    await bridgePoll(profile);
+    assert.equal(mouse.banks[0].table[2], 1200);
+    controller.applyProfileSelection(2);
+    assert.equal(await controller.flashPendingChanges(), "written");
+    await bridgePoll(profile);
+    assert.equal(mouse.banks[1].table[2], 1200, "the same game must also apply to the newly selected bank");
+    assert.equal(mouse.banks[1].table[3], 2000);
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks[1], original[1]);
+    assert.equal(mouse.banks[0].table[2], 1200, "do not switch the selected bank during restoration");
+    controller.applyProfileSelection(1);
+    assert.equal(await controller.flashPendingChanges(), "written");
+    await bridgePoll(null);
+    assert.deepEqual(mouse.banks, original, "the inactive bank's backup must survive until it is selected again");
+    assert.equal(controller.testState().error, null);
+    assert.equal(bridgeSuccessNotices().length, 4);
+  });
+}
+
+for (const separate of [false, true]) {
+  test(`DPI editor respects a confirmed ${separate ? "independent" : "linked"} axis mode`, async () => {
+    const mouse = fixture(); mouse.banks[0].axes = separate;
+    const before = await controller.testConnect(mouse.device);
+    dpiEditorNodes(before).find(node => node.props.id === "lunafury-dpi-x").props.onCommit(1200);
+    assert.equal(await controller.flashPendingChanges(), "written");
+    assert.deepEqual(mouse.banks[0].table.slice(2, 4), [1200, separate ? 1600 : 1200]);
+  });
+}
+
+test("Bridge keeps bank backups through a failed restore and a visit to another bank", async () => {
+  const mouse = fixture(), original = structuredClone(mouse.banks);
+  const before = await controller.testConnect(mouse.device);
+  const profile = game("A", { dpi: 1200 }, before.name);
+  await bridgePoll(profile);
+  const allowWrites = ignoreWrites(mouse);
+  await bridgePoll(null);
+  assert.equal(mouse.banks[0].table[2], 1200);
+  controller.applyProfileSelection(2);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  await bridgePoll(profile);
+  assert.equal(mouse.banks[1].table[2], 1200);
+  await bridgePoll(null);
+  assert.deepEqual(mouse.banks[1], original[1]);
+  controller.applyProfileSelection(1);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  allowWrites();
+  await bridgePoll(null);
+  assert.deepEqual(mouse.banks, original);
+});
+
+test("Bridge keeps separate backups for two mice with the same name and bank number", async () => {
+  const first = fixture(), second = fixture();
+  second.banks[0].table[2] = 1000; second.banks[0].table[3] = 2000;
+  const originals = [structuredClone(first.banks), structuredClone(second.banks)];
+  const before = await controller.testConnect(first.device);
+  const profile = game("A", { dpi: 1200 }, before.name);
+  await bridgePoll(profile);
+  await controller.testConnect(second.device, true);
+  await bridgePoll(null);
+  assert.deepEqual(second.banks, originals[1], "the first mouse's backup must not reach the second mouse");
+  await bridgePoll(profile);
+  assert.equal(second.banks[0].table[2], 1200);
+  await bridgePoll(null);
+  assert.deepEqual(second.banks, originals[1]);
+  await controller.testConnect(first.device, true);
+  await bridgePoll(null);
+  assert.deepEqual(first.banks, originals[0]);
+  assert.equal(controller.testState().error, null);
+});
+
+test("Games rejects a saved scope after the selected bank or device changes", async () => {
+  const mouse = fixture();
+  await controller.testConnect(mouse.device);
+  const scope = controller.currentGameProfileScope();
+  controller.applyProfileSelection(2);
+  assert.equal(await controller.flashPendingChanges(), "written");
+  const sent = mouse.sent.length;
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }, scope), "busy");
+  assert.equal(mouse.sent.length, sent);
+  const other = fixture();
+  await controller.testConnect(other.device, true);
+  const otherSent = other.sent.length;
+  assert.equal(await controller.flashGameProfileSnapshot({ dpi: 1200 }, scope), "busy");
+  assert.equal(other.sent.length, otherSent);
+});
 
 for (const pid of [0x32, 0x33, 0x54, 0x84]) {
   test(`controller Games selection/restore on ${pid.toString(16)} never writes either DPI table`, async () => {

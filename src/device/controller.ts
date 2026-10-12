@@ -1515,6 +1515,20 @@ export function isGameProfileDraftActive(): boolean {
 
 export type FlashResult = "written" | "unchanged" | "busy" | "failed";
 
+export interface GameProfileScope {
+  device: object;
+  profile: number | null;
+}
+
+/** Backups belong to a physical connection and, for LunaFury, an onboard bank. */
+export function currentGameProfileScope(status = latestDeviceStatus): GameProfileScope | null {
+  const client = activeSettingsClient();
+  if (!client || !status) return null;
+  const profile = status.brand === "LunaFury" ? status.activeProfile ?? null : null;
+  if (status.brand === "LunaFury" && (profile === null || profile < 1 || profile > 3)) return null;
+  return { device: client.device ?? client, profile };
+}
+
 /** Refresh an unconfirmed post-write cache before Games planning or deduplication. */
 export async function prepareGameProfileStatus(): Promise<MouseStatus | "busy" | "failed"> {
   if (gameProfileDraft || settingInProgress || activationInProgress || !latestDeviceStatus) return "busy";
@@ -1550,9 +1564,12 @@ export async function prepareGameProfileStatus(): Promise<MouseStatus | "busy" |
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
+  scope = currentGameProfileScope(),
 ): Promise<FlashResult> {
   const status = await prepareGameProfileStatus();
   if (typeof status === "string") return status;
+  const currentScope = currentGameProfileScope(status);
+  if (!scope || scope.device !== currentScope?.device || scope.profile !== currentScope.profile) return "busy";
   // Another writer or a draft may start while the refresh yields.
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashPendingChanges();
