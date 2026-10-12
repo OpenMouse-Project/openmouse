@@ -39,8 +39,8 @@ Do not commit a local tarball override or Git/file dependency.
 ## Validation scope
 
 The paired app passes its build, 511 tests, bundle checks and audit with the local
-protocol package. The protocol passes its build, all 2,470 tests and package checks;
-158 Lamzu driver/codec tests also pass with real timers. Local checks do not
+protocol package. The protocol passes its build, all 2,474 tests and package checks;
+162 Lamzu driver/codec tests also pass with real timers. Local checks do not
 replace upstream CI or registry-only app validation.
 
 The owner verified LUNA33 firmware `0.0.26.0` over cable and 8K:
