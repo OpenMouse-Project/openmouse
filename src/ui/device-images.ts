@@ -132,6 +132,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\ba7\s*v3\b/i.test(displayName)) return "mchose-a7-v3.png";
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
   if (/\ba950\s*pro\s*mg\b/i.test(displayName)) return "dareu-a950-pro-mg.png";
+  if (/\baerox\s*3\s*wireless\b/i.test(displayName)) return "steelseries-aerox-3-wireless.png";
   if (/\bmm711\b/i.test(displayName)) return "coolermaster-mm711.png";
   // NinjaForce/Ninjutso family — V3 first so "Sora V3" isn't swallowed by a
   // looser V2 or "Ten" match.
@@ -208,6 +209,7 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
+  "steelseries-aerox-3-wireless.png": "/devices/steelseries-aerox-3-wireless.png",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
