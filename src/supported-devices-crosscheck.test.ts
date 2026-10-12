@@ -101,6 +101,30 @@ test("M2-NEX resolves by product name since its row pins no PIDs", () => {
   assert.match(result.detail, /already listed as Supported/);
 });
 
+test("M2-NEX reporting PID 0x2255 routes to the shared K-snake X11 row", () => {
+  // 0x2255 is pinned only on K-snake X11 (shared OEM PID); the Noir M2-NEX
+  // row matches by product name. PID wins when the device reports it.
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Noir Gear", name: "M2-NEX", vendorId: 0xa8a4, productId: 0x2255 }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "X11");
+});
+
+test("NOIR E1 reporting PID 0x2255 follows the shared PID to K-snake X11", () => {
+  const result = crosscheckSupportedDevices(
+    device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: 0x2255 }),
+    "pass",
+  );
+  assert.equal(result.listed, true);
+  assert.equal(result.matchedBy, "pid");
+  assert.equal(result.status, "supported");
+  assert.equal(result.pageModel, "X11");
+});
+
 test("NOIR E1 has no row since upstream removed it", () => {
   const result = crosscheckSupportedDevices(
     device({ brand: "Noir Gear", name: "NOIR E1", vendorId: 0xa8a4, productId: null }),
