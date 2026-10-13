@@ -1,40 +1,25 @@
 # LunaFury setup and release
 
-These controls require APIs from the paired protocol branch.
-The app's pinned `@openmouse/protocol` `0.40.1` lacks them.
+These controls use `@openmouse/protocol` `0.41.0`, pinned in the app's manifest
+and lockfile. The published package includes the APIs from
+[protocol PR #205](https://github.com/OpenMouse-Project/mouse-protocol/pull/205).
 
 ## Local setup
 
-Use Node.js 24 with the two branches in sibling directories:
+Use Node.js 24 and install dependencies from the npm registry:
 
 ```bash
-git clone --branch codex/lunafury-onboard-controls https://github.com/sekiranunn/mouse-protocol.git mouse-protocol
 git clone --branch codex/lunafury-onboard-controls https://github.com/sekiranunn/openmouse.git openmouse
-cd mouse-protocol
+cd openmouse
 npm ci
-npm run build
-npm pack --ignore-scripts --pack-destination ..
-cd ../openmouse
-npm ci
-npm install --no-save --package-lock=false ../openmouse-protocol-0.1.0.tgz
 npm run check
 npm run size
+npm audit --audit-level=high
 npm run dev
 ```
 
-`0.1.0` is the checkout's local package version. Use the filename printed by
-`npm pack` if it changes. Repeat the no-save install after an app `npm ci`;
-rebuild and repack after protocol changes. Manifest and lockfile remain unchanged.
-
-## Release order
-
-1. Complete protocol CI against the current upstream base.
-2. Merge and publish the protocol, then confirm the package contains the required APIs.
-3. Pin that exact stable npm version in the app and update its lockfile.
-4. Run registry-only `npm ci`, `npm run check`, `npm run size` and audit.
-   Remove the temporary README warning and make the app PR ready for review.
-
-Do not commit a local tarball override or Git/file dependency.
+No local protocol checkout or tarball override is needed. Keep the protocol
+dependency pinned to an exact stable npm version.
 
 ## Validation scope
 
@@ -44,10 +29,9 @@ reusing another bank's backup. After the game exits, the selected bank is restor
 inactive banks retain their in-memory backups until selected again. Restoration
 does not switch the active bank. Failed restores retain that bank's backup for retry.
 
-The paired app passes its build, 528 tests, bundle checks and audit with the local
-protocol package. The protocol passes its build, all 2,474 tests and package checks;
-162 Lamzu driver/codec tests also pass with real timers. Local checks do not
-replace upstream CI or registry-only app validation.
+Run the build, tests, bundle checks and audit after a registry-only clean install.
+The integration suite uses synthetic HID and Bridge callbacks to exercise the
+published protocol through the controller and UI callbacks.
 
 The owner verified LUNA33 firmware `0.0.26.0` over cable and 8K:
 button polling, profiles, DPI, mappings, sleep, receiver lighting and reconnect.

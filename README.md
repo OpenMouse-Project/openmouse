@@ -25,9 +25,6 @@ This branch is deployed as the public development control panel at
 
 ## Development
 
-LunaFury controls require the [paired protocol setup](docs/lunafury-development.md)
-until the required APIs are published and the pinned npm dependency is updated.
-
 ```bash
 npm install
 npm run dev
