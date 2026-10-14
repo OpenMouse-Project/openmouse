@@ -112,7 +112,7 @@ export function extractVersionToken(raw: string): string | null {
   const match = raw.match(/\d+(?:\.\d+)+/);
   if (match) return match[0];
   const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  return /^\d+$/.test(trimmed) ? trimmed : null;
 }
 
 function splitNumeric(version: string): number[] {

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { before, test } from "node:test";
 import { build } from "vite";
 import type { BridgeProfile } from "../src/bridge.ts";
+import { getDfuInfo, type FirmwareManifest } from "../src/device/firmware-updates.ts";
 
 let controller: any;
 const controllerPath = fileURLToPath(new URL("../src/device/controller.ts", import.meta.url)).replaceAll("\\", "/");
@@ -242,6 +244,36 @@ function dpiEditorNodes(status: unknown): any[] {
 }
 
 for (const pid of [0x32, 0x33, 0x54, 0x84]) {
+  test(`firmware manifest matches actual protocol readouts on ${pid.toString(16)}`, async () => {
+    const manifest = JSON.parse(readFileSync(new URL("../public/firmware-manifest.json", import.meta.url), "utf8")) as FirmwareManifest;
+    const wireless = pid === 0x33 || pid === 0x84;
+    const latest = pid === 0x32 || pid === 0x33 ? [25, 0] : [1, 47];
+    const older = latest[1] > 0 ? [latest[0], latest[1] - 1] : [latest[0] - 1, 0];
+    const newer = [latest[0] + 1, latest[1]];
+    for (const [mouseVersion, dongleVersion, entity] of [
+      [latest, latest, null], [newer, newer, null],
+      [older, latest, "Mouse"], [latest, older, wireless ? "Dongle" : null],
+    ] as const) {
+      const mouse = fixture(pid), receive = mouse.device.receiveFeatureReport;
+      mouse.device.receiveFeatureReport = async () => {
+        const reply = await receive(), packet = mouse.sent.at(-1)!;
+        if (packet[4] === 0 && packet[5] === 0x81) {
+          const version = wireless && packet[2] === 0 ? dongleVersion : mouseVersion;
+          new Uint8Array(reply.buffer, reply.byteOffset, reply.byteLength).set([0, 0, ...version], 6);
+        }
+        return reply;
+      };
+      const status = await controller.testConnect(mouse.device);
+      assert.deepEqual(status.firmware, wireless
+        ? [`Mouse ${mouseVersion.join(".")}`, `Dongle ${dongleVersion.join(".")}`]
+        : [`Mouse ${mouseVersion.join(".")}`]);
+      const info = getDfuInfo({ ...status, interfaceId: `373e_${pid.toString(16).padStart(4, "0")}` }, manifest);
+      assert.equal(info?.latestVersion, latest.join("."));
+      assert.equal(info?.dfuAvailable, entity !== null);
+      if (entity !== null) assert.equal(info?.entityName, entity);
+    }
+  });
+
   for (const input of ["slider", "number"]) {
     test(`DPI editor ${input} on ${pid.toString(16)} preserves Y after an axis-mode read failure`, async () => {
       const mouse = fixture(pid), receive = mouse.device.receiveFeatureReport;
