@@ -1,6 +1,6 @@
 # LunaFury setup and release
 
-These controls use `@openmouse/protocol` `0.41.0`, pinned in the app's manifest
+These controls use `@openmouse/protocol` `0.42.1`, pinned in the app's manifest
 and lockfile. The published package includes the APIs from
 [protocol PR #205](https://github.com/OpenMouse-Project/mouse-protocol/pull/205).
 
@@ -33,7 +33,10 @@ Run the build, tests, bundle checks and audit after a registry-only clean instal
 The integration suite uses synthetic HID and Bridge callbacks to exercise the
 published protocol through the controller and UI callbacks.
 
-The owner verified LUNA33 firmware `0.0.26.0` over cable and 8K:
+The owner verified LUNA33 internal firmware `0.0.26.0` over cable and 8K:
 button polling, profiles, DPI, mappings, sleep, receiver lighting and reconnect.
 TYPE33, bottom-button behavior and Games apply/restore have no separate hardware result.
 See the [protocol notes](https://github.com/sekiranunn/mouse-protocol/blob/codex/lunafury-onboard-controls/docs/lunafury-testing.md).
+
+For public firmware versions, device matching and manifest maintenance, see
+the [firmware notes](./lunafury-firmware.md).

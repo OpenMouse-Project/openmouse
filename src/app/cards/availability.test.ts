@@ -108,6 +108,27 @@ test("a driver still reading hides the settings grid but not the rest", () => {
   assert.equal(has.logitechDetails, true);
 });
 
+test("the Finalmouse Starlight X has no polling card; the Ultralight X keeps it", () => {
+  // SLX runs PerfectPolling (a fixed pipeline) and reports a rate it will not
+  // let the user change, so the selector is dropped and PerfectPollingCard
+  // stands in. Only `finalmouseIsSlx` distinguishes the two dongles.
+  const slx = cardAvailability(snapshot({ status: {
+    brand: "Finalmouse",
+    name: "Finalmouse Starlight X",
+    ui: { family: "finalmouse-slx" },
+    finalmouseIsSlx: true,
+  } as Partial<MouseStatus> }));
+  assert.equal(slx.polling, false);
+
+  const ulx = cardAvailability(snapshot({ status: {
+    brand: "Finalmouse",
+    name: "Finalmouse UltralightX",
+    ui: { family: "finalmouse-ulx" },
+    finalmouseIsSlx: false,
+  } as Partial<MouseStatus> }));
+  assert.equal(ulx.polling, true);
+});
+
 test("the sensor card goes when the mouse reports neither surface nor lift-off", () => {
   assert.equal(cardAvailability(snapshot({
     status: { supportedLiftOffDistances: [] },

@@ -54,11 +54,19 @@ The left rail is the app's navigation drawer:
   - Docs: amber `#e8b267`
   - Supported: violet `#a78bfa`
   - What's New: gold `#fbbf24`
-  - Feedback: orange `#fb923c`
+  - Help & Feedback: blurple `#5865f2` — **brand mark** (`DiscordIcon`), sized
+    by height (`16px`) rather than the square 21px nav box, since the glyph is
+    wider than it is tall
   - Settings: slate `#94a3b8`
 - Section order: top nav = Home, Dashboard, Docs. Bottom nav = What's New,
-  Feedback, Settings. Supported devices lives **inside the Settings page**,
-  not the sidebar.
+  Help & Feedback, Settings. Supported devices lives **inside the Settings
+  page**, not the sidebar.
+- **Help & Feedback is the one featured nav row**
+  (`.app-sidebar-nav-item-featured`): taller (`min-height: 52px`) with a second
+  line (`.app-sidebar-nav-sub`) under the label, because the community Discord
+  is where support and feedback now live. It links straight out to
+  `DISCORD_URL` rather than opening an in-app dialog, and collapses back to a
+  plain 42px icon row with the rest when the sidebar is collapsed.
 
 ### Device cards
 

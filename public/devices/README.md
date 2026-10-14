@@ -230,6 +230,11 @@ package:
 - `lamzu-maya-x.png` — Lamzu Maya X render
 - `atk-f1-v2-ultra-max.png` — ATK F1 V2 Ultra Max render
 - `finalmouse-ulx.png` — Finalmouse Starlight-12 / ULX low-profile shape render
+- `finalmouse-slx.png` — Finalmouse Starlight X (SLX) render. The name-fallback
+  mapping in `src/ui/device-images.ts` is in place (keyed on "Starlight X" /
+  "SLX", before the ULX catch-all). **Needs a maintainer upload**; until the
+  file is in the bucket the panel falls back to the placeholder. Vendor product
+  art — request licensing review before publishing it in R2.
 - `mchose-a7-v2.png` — MCHOSE A7 V2 render, from MCHOSE's own M HUB configurator
   (`https://cdn.mchose.com.cn/configCenter/assets/img/mouse/A7V2Pro_white.png`).
   MCHOSE only publishes `A7V2Pro_*` renders and the Pro / Pro+ / Ultra / Ultra+

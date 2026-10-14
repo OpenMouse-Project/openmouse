@@ -742,17 +742,9 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .support-message { padding: .6rem .7rem; border-radius: 7px; background: var(--ui-accent-soft); color: var(--ui-accent); }
 .support-secondary { justify-self: end; padding: .55rem .75rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-control); color: var(--dim); font-size: .7rem; }
 .feedback-description { margin: 0; color: var(--dim); font-size: .82rem; line-height: 1.6; text-wrap: pretty; }
-.feedback-textarea { width: 100%; box-sizing: border-box; min-height: 8.5rem; padding: .65rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-family: var(--font-sans); font-size: .85rem; line-height: 1.55; resize: vertical; color-scheme: dark; }
-.feedback-textarea:focus { outline: none; border-color: var(--accent); }
 .feedback-handle { display: grid; gap: .35rem; color: var(--dim); font-size: .8rem; }
 .feedback-handle input { width: 100%; box-sizing: border-box; padding: .6rem .7rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-input); color: var(--text-input); font-family: var(--font-sans); font-size: .85rem; }
 .feedback-handle input:focus { outline: none; border-color: var(--accent); }
-.feedback-attach { display: flex; align-items: flex-start; gap: .6rem; color: var(--dim); font-size: .8rem; line-height: 1.5; }
-.feedback-attach input { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: .15rem; accent-color: var(--ui-accent); cursor: pointer; }
-.feedback-attach input:disabled { opacity: .45; cursor: default; }
-.feedback-attach span { display: grid; gap: .15rem; }
-.feedback-attach strong { color: var(--bright); font-size: .85rem; font-weight: 650; }
-.feedback-attach small { color: var(--faint); font-size: .78rem; }
 .feedback-error { margin: 0; padding: .55rem .7rem; border: 1px solid color-mix(in srgb, var(--destructive) 45%, var(--border)); border-radius: 7px; background: color-mix(in srgb, var(--destructive) 12%, var(--surface-control)); color: var(--destructive); font-size: .7rem; line-height: 1.45; }
 .feedback-actions { display: flex; justify-content: flex-end; gap: .5rem; }
 .feedback-actions > button { padding: .6rem .9rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-control); color: var(--dim); font-size: .75rem; }
@@ -2757,6 +2749,15 @@ body { height: 100vh; overflow: hidden; }
   height: 21px;
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
 }
+/* Brand marks (Discord) are wider than tall, so they take the same optical
+   width from their aspect ratio instead of being squashed into the square
+   box the lucide nav glyphs use. */
+.app-sidebar-nav-item > .app-sidebar-nav-icon-discord {
+  flex-shrink: 0;
+  width: auto;
+  height: 16px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+}
 .app-sidebar-nav-arrow {
   flex-shrink: 0;
   width: 0.85rem;
@@ -2777,6 +2778,27 @@ body { height: 100vh; overflow: hidden; }
   font-size: 0.95rem;
   font-weight: 650;
   letter-spacing: -0.01em;
+}
+.app-sidebar-nav-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.app-sidebar-nav-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+  font-size: 0.72rem;
+  font-weight: 550;
+  letter-spacing: -0.005em;
+}
+/* The support entry is the one featured row: a second line so the sidebar
+   reads as a way to get help, not just another external link. */
+.app-sidebar-nav-item-featured {
+  height: auto;
+  min-height: 52px;
+  padding-block: 0.4rem;
 }
 .app-sidebar-bottom {
   display: flex;
@@ -2832,12 +2854,15 @@ body { height: 100vh; overflow: hidden; }
 .control-shell.sidebar-collapsed .app-sidebar-brand-text,
 .control-shell.sidebar-collapsed .app-sidebar-brand-version,
 .control-shell.sidebar-collapsed .app-sidebar-nav-label,
+.control-shell.sidebar-collapsed .app-sidebar-nav-sub,
 .control-shell.sidebar-collapsed .app-sidebar-nav-arrow,
 .control-shell.sidebar-collapsed .app-sidebar-nav-sep { display: none; }
 .control-shell.sidebar-collapsed .app-sidebar-nav-item {
   justify-content: center;
   gap: 0;
   padding: 0;
+  height: 42px;
+  min-height: 42px;
 }
 
 /* Page container */

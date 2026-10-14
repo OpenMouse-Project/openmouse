@@ -152,11 +152,15 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // The Attack Shark X11's settings channel is native-only (settingsReady
     // stays false), but its polling rate is still controllable through
     // OpenMouse Bridge — see isNativeAttackSharkX11 in device/controller.ts.
-    polling: ready || (
+    //
+    // The Finalmouse Starlight X reports a polling rate but has no adjustable
+    // one: PerfectPolling runs a fixed pipeline (see PerfectPollingCard), so
+    // there is nothing to pick. Ultralight X keeps the selector.
+    polling: !isSlxStatus(status) && (ready || (
       status.brand === "Attack Shark"
       && status.name === "Attack Shark X11"
       && status.ui?.settingsReady === false
-    ),
+    )),
     sensor: sensor && ready,
     lightforce: Boolean(status.lightforceSwitchMode),
     superstrike: traits.logitech && status.analogButtonTuning?.buttons.length === 2,

@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, FileText, FlaskConical, Gamepad2, House, MessageSquare, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, FlaskConical, Gamepad2, House, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
 import { useBridgeActive } from "./GamesPage";
+import { DISCORD_URL, DiscordIcon } from "./social-links";
 
 export const OPENMOUSE_URL = "https://openmouse.app/";
 
@@ -22,7 +23,6 @@ export function AppSidebar({
   collapsed,
   onToggleCollapsed,
   onNavigate,
-  onOpenFeedback,
   onOpenWhatsNew,
 }: {
   snapshot: ControlSnapshot;
@@ -30,7 +30,6 @@ export function AppSidebar({
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNavigate: (page: DesktopPage) => void;
-  onOpenFeedback: () => void;
   onOpenWhatsNew: () => void;
 }): ReactNode {
   const locale = snapshot.preferences.locale;
@@ -135,16 +134,20 @@ export function AppSidebar({
           <span className="app-sidebar-nav-label">{t(locale, "nav.whatsNew")}</span>
           <NavArrow />
         </button>
-        <button
-          className="app-sidebar-nav-item"
-          type="button"
-          title={t(locale, "nav.feedback")}
-          onClick={onOpenFeedback}
+        <a
+          className="app-sidebar-nav-item app-sidebar-nav-item-featured"
+          href={DISCORD_URL}
+          target="_blank"
+          rel="noreferrer"
+          title={t(locale, "nav.help")}
         >
-          <NavIcon icon={MessageSquare} color="#fb923c" />
-          <span className="app-sidebar-nav-label">{t(locale, "nav.feedback")}</span>
+          <DiscordIcon className="app-sidebar-nav-icon-discord" style={{ color: "#5865f2" }} />
+          <span className="app-sidebar-nav-text">
+            <span className="app-sidebar-nav-label">{t(locale, "nav.help")}</span>
+            <span className="app-sidebar-nav-sub">{t(locale, "nav.helpSubtitle")}</span>
+          </span>
           <NavArrow />
-        </button>
+        </a>
         <button
           className={`app-sidebar-nav-item${page === "settings" ? " active" : ""}`}
           type="button"

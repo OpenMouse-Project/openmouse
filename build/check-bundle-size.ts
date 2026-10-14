@@ -216,7 +216,12 @@ const BUDGET_BYTES: Record<string, number> = {
   // button-slot fix plus the real DPI stage table and per-stage/active
   // setters. The measured aggregate is 2,472.0 kB, under a kilobyte over
   // the old 2,472 kB budget.
-  ".js": 2_474_000,
+  // Raised to 2,478 kB for the @openmouse/protocol 0.42.1 bump: LunaFury
+  // onboard, remapping, and power controls, Wallhack debounce, Attack Shark
+  // X11 SE battery, Superlight 2 Lightspeed polling above 1000 Hz, and the
+  // DeathAdder V3 polling commit. The measured aggregate is 2,476.0 kB,
+  // 2.0 kB over the old 2,474 kB budget, leaving ~2.0 kB of headroom.
+  ".js": 2_478_000,
 };
 
 const ASSETS = join("dist", "assets");
