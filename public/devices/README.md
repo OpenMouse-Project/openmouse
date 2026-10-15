@@ -1,5 +1,11 @@
 # Device artwork
 
+`redgear-x13-pro.png` is the unmodified transparent render from the owner's
+original Redgear package (`skins/DefaultPic/Mouse2.png`), included at the
+owner's explicit request for the X13 Pro avatar. Vendor artwork/trademarks
+retain their original ownership; the AGPL code license does not relicense it.
+This community branch uses a local override pending upstream artwork review.
+
 Top-down product images shown in the persistent device panel. These are
 **not committed to the repo** — they're hosted in the `openmouse-devices`
 Cloudflare R2 bucket (public read via its r2.dev URL, upload access

@@ -202,6 +202,7 @@ import { FaterHidClient } from "@openmouse/protocol/drivers/fater/hid";
 import { RapooHidClient } from "@openmouse/protocol/drivers/rapoo/hid";
 import { CoolerMasterHidClient } from "@openmouse/protocol/drivers/coolermaster/hid";
 import { AjazzHidClient } from "@openmouse/protocol/drivers/ajazz/hid";
+import { RedgearX13HidClient } from "@openmouse/protocol/drivers/redgear/hid";
 import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m690-pro-hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
 import { sleepLabel } from "./options";
@@ -297,7 +298,7 @@ function activeAs<T>(...classes: ClientClass<T>[]): T | null {
 
 const DM_CLASSES = [WLMouseHidClient, LamzuHidClient, LamzuAtlantisHidClient, AtkHidClient, AtkBitmouseHidClient, NinjutsoHidClient] as const;
 const RAZER_CLASSES = [RazerHidClient, RazerViperMiniHidClient, RazerViperHidClient, RazerCobraHidClient] as const;
-const NEEDS_OPEN = [LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
+const NEEDS_OPEN = [RedgearX13HidClient, LamzuAtlantisHidClient, TeevolutionHidClient, VgnF2HidClient, KeychronNapeHidClient, Keychron8kNordicHidClient, WLMouseBeastX4kHidClient, ModdoHidClient, ZaunkoenigHidClient, CorsairHidClient, CorsairBragiHidClient, FantechHidClient, WallhackMouseHidClient, WallhackKeyboardHidClient, GloriousHidClient, GloriousClassicHidClient, GloriousCore2HidClient, MchoseHidClient, MchoseDockHidClient, MchoseA5ProMaxHidClient, MchoseV3HidClient, MicrosoftHidClient, DareuHidClient, IncottHidClient, BytechHidClient, RapooHidClient, FaterHidClient, CoolerMasterHidClient, RedragonM690ProHidClient, AjazzHidClient] as const;
 const PULSAR_CLASSES = [PulsarHidClient, PulsarProHidClient, PulsarXs1HidClient] as const;
 
 const logitechClient = (): LogitechHidppClient | null => activeAs(LogitechHidppClient);
@@ -2584,6 +2585,7 @@ function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
   batch(() => applyStatusInner(deviceStatus, statusKey));
 }
 
+/** Update device telemetry and UI while preserving staged-change status messages. */
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   if (isNativeAttackSharkX11(deviceStatus)) {
     // The firmware has no read-back command for polling rate, so show the
@@ -2630,6 +2632,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
       : summary;
   } else if (!hasPendingChanges()) {
     readStatus = st("ctl.currentLine", { dpi: deviceStatus.dpi.toLocaleString(), hz: pollingRateText(deviceStatus.pollingRateHz) });
+  }
+  const statusNote = status.ui?.statusNote;
+  if (statusNote && !readStatus.endsWith(` · ${statusNote}`)) {
+    readStatus += ` · ${statusNote}`;
   }
 
   if (!customDpiEditing) customDpiText = `${status.dpi.toLocaleString()} DPI`;

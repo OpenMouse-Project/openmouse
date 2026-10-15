@@ -219,7 +219,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // X11 SE battery, Superlight 2 Lightspeed polling above 1000 Hz, and the
   // DeathAdder V3 polling commit. The measured aggregate is 2,476.0 kB,
   // 2.0 kB over the old 2,474 kB budget, leaving ~2.0 kB of headroom.
-  ".js": 2_478_000,
+  // Raised to 2,490 kB for the Redgear X13 Pro driver and app wiring.
+  // On this app baseline, protocol 0.42.2 measures 2,476,093 bytes; the
+  // protocol #233 candidate with its codecs, validation and read-back checks
+  // measures 2,486,140 (+10,047 bytes), leaving 3,860 bytes of headroom.
+  ".js": 2_490_000,
 };
 
 const ASSETS = join("dist", "assets");
