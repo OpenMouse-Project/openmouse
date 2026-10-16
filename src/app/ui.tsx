@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Minus, Plus } from "lucide-react";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
@@ -19,6 +21,7 @@ export function SwitchButton({
   disabled?: boolean;
   onChange: (next: boolean) => void;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const unsupported = value === null || value === undefined;
   return (
     <button
@@ -27,12 +30,12 @@ export function SwitchButton({
       type="button"
       role="switch"
       aria-checked={unsupported ? false : value}
-      aria-label={label ? (unsupported ? `${label}, unavailable on this device` : label) : undefined}
+      aria-label={displayText(__uiLocale, label ? (unsupported ? `${label}, unavailable on this device` : label) : undefined)}
       disabled={unsupported || disabled}
       onClick={() => onChange(value !== true)}
     >
       {unsupported ? (
-        <span className="switch-na">N/A</span>
+        <span className="switch-na">{displayText(__uiLocale, "N/A")}</span>
       ) : (
         <span className="switch-thumb" aria-hidden="true">
           {value ? <Check size={10} strokeWidth={3.4} /> : null}
@@ -59,11 +62,12 @@ export function SwitchRow({
   hidden?: boolean;
   labelId?: string;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   if (hidden) return null;
   return (
     <div className="switch-row">
-      <span id={labelId}>{label}</span>
-      <SwitchButton id={id} value={value} label={label} disabled={disabled} onChange={onChange} />
+      <span id={labelId}>{displayText(__uiLocale, label)}</span>
+      <SwitchButton id={id} value={value} label={displayText(__uiLocale, label)} disabled={disabled} onChange={onChange} />
     </div>
   );
 }
@@ -92,8 +96,9 @@ export function Segmented<T extends string | number>({
   disabled?: boolean;
   id?: string;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   return (
-    <div id={id} className={["segmented", className].filter(Boolean).join(" ")} role="group" aria-label={ariaLabel}>
+    <div id={id} className={["segmented", className].filter(Boolean).join(" ")} role="group" aria-label={displayText(__uiLocale, ariaLabel)}>
       {options.map((option) => (
         <button
           key={String(option.value)}
@@ -104,7 +109,7 @@ export function Segmented<T extends string | number>({
           disabled={disabled || option.disabled || option.hidden}
           onClick={() => onChange(option.value)}
         >
-          {option.label}
+          {displayText(__uiLocale, option.label)}
         </button>
       ))}
     </div>
@@ -139,6 +144,7 @@ export function OptionMenu<T extends string | number>({
   ariaLabel: string;
   disabled?: boolean;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<T | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -193,7 +199,7 @@ export function OptionMenu<T extends string | number>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={ariaLabel}
+        aria-label={displayText(__uiLocale, ariaLabel)}
         disabled={disabled}
         onClick={(event) => {
           event.stopPropagation();
@@ -206,7 +212,7 @@ export function OptionMenu<T extends string | number>({
           }
         }}
       >
-        <span>{current?.label ?? "—"}</span>
+        <span>{displayText(__uiLocale, current?.label ?? "—")}</span>
         <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
       </button>
       {open && !disabled ? (
@@ -214,7 +220,7 @@ export function OptionMenu<T extends string | number>({
           id={menuId}
           className="option-menu-list"
           role="listbox"
-          aria-label={ariaLabel}
+          aria-label={displayText(__uiLocale, ariaLabel)}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault();
@@ -246,7 +252,7 @@ export function OptionMenu<T extends string | number>({
                 }
               }}
             >
-              {option.label}
+              {displayText(__uiLocale, option.label)}
             </li>
           ))}
         </ul>
@@ -297,6 +303,7 @@ export function StepperSlider({
   pendingKey?: string;
   onCommit: (next: number) => void | Promise<void>;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [dragging, setDragging] = useState<number | null>(null);
   const input = useRef<HTMLInputElement | null>(null);
   const pending = useRef(false);
@@ -344,15 +351,15 @@ export function StepperSlider({
       {toggle ? <div className="stepper-slider-toggle">{toggle}</div> : null}
       <div className="stepper-slider-head">
         <span className="stepper-slider-title">
-          <span>{label}</span>
-          {badge ? <em className="stepper-slider-badge">{badge}</em> : null}
+          <span>{displayText(__uiLocale, label)}</span>
+          {badge ? <em className="stepper-slider-badge">{displayText(__uiLocale, badge)}</em> : null}
         </span>
-        <output id={`${id}-value`} htmlFor={id}>{formatValue(shown)}</output>
+        <output id={`${id}-value`} htmlFor={id}>{displayText(__uiLocale, formatValue(shown))}</output>
       </div>
       <div className="stepper-slider-inputs">
         <button
           type="button"
-          aria-label={`${label}: decrease`}
+          aria-label={displayText(__uiLocale, `${label}: decrease`)}
           disabled={disabled || shown <= min}
           onClick={() => commit(shown - step)}
         >
@@ -367,7 +374,7 @@ export function StepperSlider({
           step={step}
           value={shown}
           disabled={disabled}
-          aria-label={label}
+          aria-label={displayText(__uiLocale, label)}
           aria-valuetext={formatValue(shown)}
           style={{ "--fill": `${((shown - min) / span) * 100}%` }}
           onInput={(event) => setDragging(Number(event.currentTarget.value))}
@@ -376,7 +383,7 @@ export function StepperSlider({
         />
         <button
           type="button"
-          aria-label={`${label}: increase`}
+          aria-label={displayText(__uiLocale, `${label}: increase`)}
           disabled={disabled || shown >= max}
           onClick={() => commit(shown + step)}
         >
@@ -384,7 +391,7 @@ export function StepperSlider({
         </button>
       </div>
       <div className="stepper-slider-scale" aria-hidden="true">
-        <span>{scale[0]}</span><i>{scale[1]}</i><span>{scale[2]}</span>
+        <span>{displayText(__uiLocale, scale[0])}</span><i>{displayText(__uiLocale, scale[1])}</i><span>{displayText(__uiLocale, scale[2])}</span>
       </div>
     </div>
   );
@@ -425,11 +432,11 @@ export function RateSlider({
     <div id={id} className="rate-slider" hidden={hidden}>
       {label ? (
         <div className="rate-slider-head">
-          <span>{label}</span>
-          <output>{selected === null ? "—" : options[selected]?.toLocaleString() ?? "—"} Hz</output>
+          <span>{displayText(locale, label)}</span>
+          <output>{displayText(locale, selected === null ? "—" : options[selected]?.toLocaleString() ?? "—")} Hz</output>
         </div>
       ) : null}
-      <div className="rate-slider-buttons" role="group" aria-label={label ?? t(locale, "perf.reportRate")}>
+      <div className="rate-slider-buttons" role="group" aria-label={displayText(locale, label ?? t(locale, "perf.reportRate"))}>
         {options.map((rate, step) => {
           const on = step === selected;
           return (
@@ -439,17 +446,16 @@ export function RateSlider({
               className={on ? "is-on" : ""}
               aria-pressed={on}
               disabled={disabled}
-              title={hoursAt?.(rate) != null ? `${rate.toLocaleString()} Hz - about ${Math.round(hoursAt(rate) as number)} h per charge` : `${rate.toLocaleString()} Hz`}
+              title={displayText(locale, hoursAt?.(rate) != null ? `${rate.toLocaleString()} Hz - about ${Math.round(hoursAt(rate) as number)} h per charge` : `${rate.toLocaleString()} Hz`)}
               onClick={() => onChange(rate)}
             >
-              {shortRate(rate)}
+              {displayText(locale, shortRate(rate))}
             </button>
           );
         })}
       </div>
       {selected !== null && hoursAt?.(options[selected] ?? 0) != null ? (
-        <small className="rate-slider-hours">
-          About {Math.round(hoursAt?.(options[selected] ?? 0) as number)} h per full charge at {options[selected]?.toLocaleString()} Hz
+        <small className="rate-slider-hours">{displayText(locale, `About ${Math.round(hoursAt?.(options[selected] ?? 0) as number)} h per full charge at ${options[selected]?.toLocaleString()} Hz`)}
         </small>
       ) : null}
     </div>
@@ -527,6 +533,7 @@ export function Collapsible({
   hidden?: boolean;
   children: ReactNode;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.open = open;
@@ -541,8 +548,8 @@ export function Collapsible({
     >
       <summary>
         <span>
-          <small>{overline}</small>
-          {title}
+          <small>{displayText(__uiLocale, overline)}</small>
+          {displayText(__uiLocale, title)}
         </span>
         <i aria-hidden="true" />
       </summary>

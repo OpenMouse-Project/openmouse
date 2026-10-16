@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LOGITECH_HAPTIC_PRESETS,
@@ -18,7 +19,7 @@ function HapticsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const staged = snapshot.pending.keys.some((key) => key.startsWith("haptic-"));
   return (
     <article className={`setting-card${staged ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>FEEDBACK</p><h2>{t(locale, "mx.haptics")}</h2></div><output>{status.hapticEnabled ? preset ?? status.hapticIntensity : t(locale, "common.off")}</output></div>
+      <div className="setting-heading compact"><div><p>{displayText(locale, "FEEDBACK")}</p><h2>{t(locale, "mx.haptics")}</h2></div><output>{displayText(locale, status.hapticEnabled ? preset ?? status.hapticIntensity : t(locale, "common.off"))}</output></div>
       <SwitchRow label={t(locale, "mx.hapticFeedback")} value={status.hapticEnabled} onChange={control.applyHapticEnabled} />
       <Segmented
         ariaLabel={t(locale, "mx.hapticStrength")}
@@ -43,7 +44,7 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   ].includes(key));
   return (
     <article className={`setting-card${staged ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>SCROLLING</p><h2>MagSpeed wheel</h2></div><output>{status.wheelRatchetEngaged == null ? "—" : status.wheelRatchetEngaged ? t(locale, "mx.ratcheted") : t(locale, "mx.freeSpinning")}</output></div>
+      <div className="setting-heading compact"><div><p>{displayText(locale, "SCROLLING")}</p><h2>{displayText(locale, "MagSpeed wheel")}</h2></div><output>{displayText(locale, status.wheelRatchetEngaged == null ? "—" : status.wheelRatchetEngaged ? t(locale, "mx.ratcheted") : t(locale, "mx.freeSpinning"))}</output></div>
       {status.wheelMode != null ? (
         <Segmented
           ariaLabel={t(locale, "mx.wheelMode")}
@@ -54,7 +55,7 @@ function WheelCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
       ) : null}
       {status.smartShiftThreshold != null ? (
         <>
-          <SwitchRow label="SmartShift" value={smartShiftOn} onChange={(enabled) => control.applySmartShiftThreshold(enabled ? 50 : null)} />
+          <SwitchRow label={displayText(locale, "SmartShift")} value={smartShiftOn} onChange={(enabled) => control.applySmartShiftThreshold(enabled ? 50 : null)} />
           {smartShiftOn ? (
             <label className="field-label spaced">
               <span>{t(locale, "mx.switchThreshold")}</span>
@@ -89,7 +90,7 @@ function DeviceNameCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   const valid = name.trim().length > 0 && name.trim() !== status.friendlyName;
   return (
     <article className={`setting-card${snapshot.pending.keys.includes("friendly-name") ? " is-staged" : ""}`}>
-      <div className="setting-heading compact"><div><p>DEVICE</p><h2>{t(locale, "mx.friendlyName")}</h2></div></div>
+      <div className="setting-heading compact"><div><p>{displayText(locale, "DEVICE")}</p><h2>{t(locale, "mx.friendlyName")}</h2></div></div>
       <div className="axis-grid">
         <input aria-label={t(locale, "mx.friendlyNameAria")} maxLength={status.friendlyNameMaxLength} value={name} onChange={(event) => setName(event.currentTarget.value)} />
         <button className="axis-apply" type="button" disabled={!valid} onClick={() => control.applyFriendlyName(name)}>{t(locale, "mx.stageName")}</button>
@@ -106,7 +107,7 @@ function EasySwitchCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
   if (status.hostCount == null || status.currentHost == null) return null;
   return (
     <article className="setting-card">
-      <div className="setting-heading compact"><div><p>CONNECTION</p><h2>Easy-Switch</h2></div><output>{tp(locale, "mx.hostOf", { a: status.currentHost + 1, b: status.hostCount })}</output></div>
+      <div className="setting-heading compact"><div><p>{displayText(locale, "CONNECTION")}</p><h2>Easy-Switch</h2></div><output>{tp(locale, "mx.hostOf", { a: status.currentHost + 1, b: status.hostCount })}</output></div>
       <div className="easy-switch-slots" role="group" aria-label={t(locale, "mx.pairedComputers")}>
         {Array.from({ length: status.hostCount }, (_, slot) => {
           const current = slot === status.currentHost;
@@ -159,7 +160,7 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
   return (
     <article className={`setting-card${anyStaged ? " is-staged" : ""}`}>
       <div className="setting-heading compact">
-        <div><p>BUTTONS</p><h2>{t(locale, "mx.remapping")}</h2></div>
+        <div><p>{displayText(locale, "BUTTONS")}</p><h2>{t(locale, "mx.remapping")}</h2></div>
         <output>{controls.length}</output>
       </div>
       <div className="button-remap-list">
@@ -172,11 +173,11 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
               className={`button-remap-row${staged ? " is-staged" : ""}`}
               data-pending-key={`button-${button.controlId}`}
             >
-              <span>{button.name}</span>
+              <span>{displayText(locale, button.name)}</span>
               {canRemap ? (
                 <OptionMenu
                   id={`mx-button-${button.controlId}-select`}
-                  ariaLabel={`${button.name} ${t(locale, "mx.remapping")}`}
+                  ariaLabel={displayText(locale, `${button.name} ${t(locale, "mx.remapping")}`)}
                   options={button.remappableTo.map((target) => ({
                     value: target,
                     label: nameOf(target),
@@ -186,7 +187,7 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
                   onChange={(next) => control.applyButtonMapping(button.controlId, next)}
                 />
               ) : (
-                <output>{button.taskName}</output>
+                <output>{displayText(locale, button.taskName)}</output>
               )}
             </div>
           );
@@ -194,17 +195,17 @@ export function MxMasterButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
       </div>
       {firmwareLocked.length > 0 ? (
         <small className="setting-note">
-{firmwareLocked.length === 1
+{displayText(locale, firmwareLocked.length === 1
             ? tp(locale, "mx.lockedOne", { names: firmwareLocked.map((button) => button.name).join(" e ") })
-            : tp(locale, "mx.lockedMany", { names: firmwareLocked.map((button) => button.name).join(", ") })}
+            : tp(locale, "mx.lockedMany", { names: firmwareLocked.map((button) => button.name).join(", ") }))}
         </small>
       ) : null}
       {diverted.length > 0 ? (
         <div className="button-remap-diverted">
           <p>
-{diverted.length === 1
+{displayText(locale, diverted.length === 1
               ? tp(locale, "mx.divertedOne", { name: diverted[0]!.name })
-              : tp(locale, "mx.divertedMany", { names: diverted.map((button) => button.name).join(", ") })}
+              : tp(locale, "mx.divertedMany", { names: diverted.map((button) => button.name).join(", ") }))}
           </p>
           <button type="button" disabled={busy} onClick={() => void control.restoreDivertedButtons()}>
             {t(locale, "mx.restoreHardware")}

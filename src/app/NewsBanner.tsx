@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { AlertTriangle, Info, OctagonAlert, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchNews, type NewsItem, type NewsLevel } from "../news";
@@ -73,10 +74,10 @@ export function NewsBanner({ locale }: { locale: InterfaceLocale }): ReactNode {
 
   const body = news.url ? (
     <a className="news-banner-link" href={news.url} target="_blank" rel="noreferrer">
-      {news.message}
+      {displayText(locale, news.message)}
     </a>
   ) : (
-    <span className="news-banner-link">{news.message}</span>
+    <span className="news-banner-link">{displayText(locale, news.message)}</span>
   );
   const Icon = LEVEL_ICON[news.level];
 

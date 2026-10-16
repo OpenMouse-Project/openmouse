@@ -191,3 +191,6 @@
 #logitech-button-map .button-map-share:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
 #logitech-button-map .button-map-host { height: auto; min-height: 0; gap: .8rem; display: grid; align-content: start; }
 #logitech-button-map .button-map-hints { display: grid; gap: .15rem; margin: 0 0 .5rem; padding: 0; list-style: none; color: var(--warning); font-size: .64rem; text-align: center; }
+
+:lang(tr) :is(#logitech-analog-button-settings, #magnetic-button-settings) fieldset.superstrike-both-panel::before { content: "●  Her iki ana düğme"; }
+:lang(tr) #logitech-button-map .button-map-spot.is-locked .button-map-label span::after { content: " · kilitli"; }

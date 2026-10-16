@@ -221,7 +221,11 @@ const BUDGET_BYTES: Record<string, number> = {
   // X11 SE battery, Superlight 2 Lightspeed polling above 1000 Hz, and the
   // DeathAdder V3 polling commit. The measured aggregate is 2,476.0 kB,
   // 2.0 kB over the old 2,474 kB budget, leaving ~2.0 kB of headroom.
-  ".js": 2_478_000,
+  // Raised to 2,630 kB for Turkish, including legacy driver labels, dynamic
+  // messages and dialog copy. The two Turkish dictionaries remain lazy
+  // chunks. The measured aggregate is about 2,620 kB, including render-boundary
+  // localization; no additional CSS framework or runtime dependency is added.
+  ".js": 2_630_000,
 };
 
 const ASSETS = join("dist", "assets");

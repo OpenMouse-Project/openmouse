@@ -203,6 +203,7 @@ const en = {
   "set.language": "LANGUAGE",
   "set.languageTitle": "Language",
   "set.languageBody": "Choose the interface language. Device messages stay English for now.",
+  "set.turkish": "Türkçe",
   "set.english": "English",
   "set.portuguese": "Português",
   "set.spanish": "Español",
@@ -1305,6 +1306,7 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
   ["ru", "set.russian"],
   ["vi", "set.vietnamese"],
   ["ar", "set.arabic"],
+  ["tr", "set.turkish"],
 ];
 
 /** Non-English tables load on demand so the initial bundle ships English
@@ -1314,6 +1316,9 @@ export const LOCALE_NAME_KEYS: ReadonlyArray<[InterfaceLocale, I18nKey]> = [
     re-render once it resolves for a stored non-English locale on first load. */
 type LocaleTable = Record<I18nKey, string>;
 const tables: Partial<Record<Exclude<InterfaceLocale, "en">, LocaleTable>> = {};
+let extraTurkish: Readonly<Record<string, string>> = {};
+type DisplayPattern = { pattern: RegExp; names: string[]; translation: string; preserveNames: boolean };
+let displayPatterns: DisplayPattern[] | undefined;
 
 /** One dynamic import per non-English locale, keyed the same way as the
     picker. Adding a language means adding its file and one line here. */
@@ -1328,6 +1333,11 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   ru: () => import("./i18n-ru.ts").then((m) => m.ru),
   vi: () => import("./i18n-vi.ts").then((m) => m.vi),
   ar: () => import("./i18n-ar.ts").then((m) => m.ar),
+  tr: () => Promise.all([import("./i18n-tr.ts"), import("./i18n-tr-extra.ts")]).then(([main, extra]) => {
+    extraTurkish = extra.trExtra;
+    displayPatterns = undefined;
+    return main.tr;
+  }),
 };
 
 export function ensureLocale(locale: InterfaceLocale): Promise<void> {
@@ -1335,6 +1345,19 @@ export function ensureLocale(locale: InterfaceLocale): Promise<void> {
   return LOCALE_LOADERS[locale]().then((table) => {
     tables[locale] = table;
   });
+}
+
+/** Load display copy without blocking startup on a missing/offline lazy chunk.
+ * Failed loads do not populate the locale cache, so a later call can retry. */
+export async function ensureDisplayLocale(
+  locale: InterfaceLocale,
+  load: (locale: InterfaceLocale) => Promise<void> = ensureLocale,
+): Promise<void> {
+  try {
+    await load(locale);
+  } catch {
+    // t() continues to provide the existing English fallback.
+  }
 }
 
 /** Keys present in English but missing (or empty) in another locale. */
@@ -1354,6 +1377,66 @@ export async function missingTranslations(): Promise<Array<{ locale: InterfaceLo
 export function t(locale: InterfaceLocale, key: I18nKey): string {
   if (locale === "en") return en[key] ?? key;
   return tables[locale]?.[key] ?? en[key] ?? key;
+}
+
+const sourceTextKeys = new Map<string, I18nKey>(
+  (Object.keys(en) as I18nKey[]).map((key) => [en[key].replace(/\s+/g, " ").trim(), key]),
+);
+
+/** Translate display strings from legacy UI and driver catalogs at the render boundary.
+ * Never use this for protocol commands, comparisons, identifiers or saved user data. */
+export function displayText<T extends string | number | null | undefined>(locale: InterfaceLocale, value: T): T {
+  if (locale === "en" || typeof value !== "string") return value;
+  return translateDisplay(locale, value, 0) as T;
+}
+
+/** Translate complete display copy before inserting values, preserving user data. */
+export function displayTemplate(locale: InterfaceLocale, source: string, vars: Record<string, string | number>): string {
+  return displayText(locale, source).replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? ""));
+}
+
+function translateDisplay(locale: InterfaceLocale, value: string, depth: number): string {
+  if (depth > 4) return value;
+  const source = value.replace(/\s+/g, " ").trim();
+  const key = sourceTextKeys.get(source);
+  const translated = locale === "tr" ? extraTurkish[source] ?? (key ? t(locale, key) : undefined) : key ? t(locale, key) : undefined;
+  const padding = (text: string) => (value.match(/^\s*/)?.[0] ?? "") + text + (value.match(/\s*$/)?.[0] ?? "");
+  if (translated !== undefined) return padding(translated);
+  if (locale !== "tr") return value;
+  if (!displayPatterns) {
+    const templates = new Map<string, string>();
+    for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t(locale, key));
+    for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
+    displayPatterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
+      const names: string[] = [];
+      let pattern = "";
+      let end = 0;
+      for (const match of english.matchAll(/\{(\w+)\}/g)) {
+        pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        names.push(match[1]);
+        const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
+        pattern += pluralSuffix ? "(s?)" : "(.*?)";
+        end = match.index! + match[0].length;
+      }
+      pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return { pattern: new RegExp(`^${pattern}$`), names, translation,
+        preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
+    });
+    // Specific sentences must win over broad patterns such as "Mouse {0}".
+    displayPatterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  }
+  for (const { pattern, names, translation, preserveNames } of displayPatterns) {
+    const match = pattern.exec(source);
+    if (!match) continue;
+    return padding(translation.replace(/\{(\w+)\}/g, (_, name: string) => {
+      const raw = match[names.indexOf(name) + 1] ?? "";
+      return preserveNames ? raw : translateDisplay(locale, raw, depth + 1);
+    }));
+  }
+  // Reports and connection summaries combine independently meaningful fields.
+  const separators = /(\n| · |; |, )/;
+  if (separators.test(value)) return value.split(separators).map((part, index) => index % 2 ? part : translateDisplay(locale, part, depth + 1)).join("");
+  return value;
 }
 
 /** Translate a template with {placeholders}. */

@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   dismissDfuVersion,
@@ -152,16 +153,16 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
     return (
       <details className="fw-details" open={info.dfuAvailable || undefined}>
         <summary className="fw-transition">
-          {info.dfuAvailable
+          {displayText(locale, info.dfuAvailable
             ? tp(locale, "fw.versions", { current: current ?? "?", latest: info.latestVersion })
-            : t(locale, "fw.history")}
+            : t(locale, "fw.history"))}
         </summary>
-        {notes ? (<><span className="setting-eyebrow">{t(locale, "fw.changelog")}</span><p>{notes}</p></>) : null}
+        {notes ? (<><span className="setting-eyebrow">{t(locale, "fw.changelog")}</span><p>{displayText(locale, notes)}</p></>) : null}
         {past.length > 0 ? (
           <ul className="fw-history">
             {past.map((entry, index) => (
               <li key={`${entry.version}-${index}`}>
-                v{entry.version}{entry.date ? ` — ${formatDate(locale, entry.date)}` : null}
+                v{displayText(locale, entry.version)}{displayText(locale, entry.date ? ` — ${formatDate(locale, entry.date)}` : null)}
               </li>
             ))}
           </ul>
@@ -186,13 +187,13 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
       <div className="fw-summary-row">
         <p className="fw-title">{t(locale, "fw.sectionLabel")}</p>
         <span className="fw-head-actions">
-          <output id="firmware-update-output" className={pillBadge}>{pill}</output>
+          <output id="firmware-update-output" className={pillBadge}>{displayText(locale, pill)}</output>
           <button
             type="button"
             disabled={checking}
             onClick={(event) => { stopToggle(event); void checkNow(); }}
           >
-            {checking ? t(locale, "fw.checking") : error ? t(locale, "fw.retry") : t(locale, "fw.check")}
+            {displayText(locale, checking ? t(locale, "fw.checking") : error ? t(locale, "fw.retry") : t(locale, "fw.check"))}
           </button>
         </span>
       </div>
@@ -201,7 +202,7 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
         <small className="setting-note">{t(locale, "fw.failed")}</small>
       ) : !manifest ? (
         <small className="setting-note">
-          {checking ? t(locale, "fw.checking") : t(locale, "fw.unknownDetail")}
+          {displayText(locale, checking ? t(locale, "fw.checking") : t(locale, "fw.unknownDetail"))}
         </small>
       ) : (
         <>

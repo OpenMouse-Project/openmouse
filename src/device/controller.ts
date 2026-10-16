@@ -60,7 +60,7 @@ import {
   type InterfacePreferences,
   type InterfaceTheme,
 } from "../interface-preferences";
-import { batteryStateText, connectionText, ensureLocale, layerLabel, t, tp, type I18nKey } from "../i18n";
+import { displayText, displayTemplate, batteryStateText, connectionText, ensureDisplayLocale, layerLabel, t, tp, type I18nKey } from "../i18n";
 import {
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
@@ -912,7 +912,7 @@ export function createM2NexProfile(): void {
   if (!isNoirProfileDevice() || !m2nexProfiles?.[activeM2NexProfile]) return;
   const current = m2nexProfiles[activeM2NexProfile];
   const suggested = `Profile ${activeM2NexProfile + 1}`;
-  const name = window.prompt("Profile name", suggested)?.trim();
+  const name = window.prompt(displayText(interfacePreferences.locale, "Profile name"), suggested)?.trim();
   if (!name) return;
   m2nexProfiles = m2nexProfiles.map((profile, index) => index === activeM2NexProfile
     ? { ...cloneM2NexProfile(current), name }
@@ -2355,7 +2355,7 @@ export function setPreference<K extends keyof InterfacePreferences>(
   saveInterfacePreferences();
   // Locale tables load lazily; re-render once the table arrives so a switch
   // never sticks on English fallback strings.
-  if (key === "locale" && value !== "en") void ensureLocale(value as InterfaceLocale).then(() => emit());
+  if (key === "locale" && value !== "en") void ensureDisplayLocale(value as InterfaceLocale).then(() => emit());
 }
 
 /** Re-render subscribers without changing state (e.g. after a lazy asset
@@ -4624,11 +4624,12 @@ function confirmDiscardingProfileEdits(target: number | "host"): boolean {
   const to = target === "host"
     ? "Host"
     : onboardProfiles?.find((profile) => profile.sector === target)?.name ?? `Profile ${target}`;
-  return window.confirm(
-    `${from} has ${staged.length} change${staged.length === 1 ? "" : "s"} you have not flashed:\n\n`
-    + `${staged.map((change) => `  • ${change.label}`).join("\n")}\n\n`
-    + `Opening ${to} discards ${staged.length === 1 ? "it" : "them"}. Continue?`,
-  );
+  return window.confirm(displayTemplate(interfacePreferences.locale,
+    "{from} has {n} change{s} you have not flashed:\n\n{changes}\n\nOpening {to} discards {pronoun}. Continue?",
+    { from, n: staged.length, s: staged.length === 1 ? "" : "s",
+      changes: staged.map((change) => `  • ${displayText(interfacePreferences.locale, change.label)}`).join("\n"),
+      to, pronoun: staged.length === 1 ? "it" : "them" },
+  ));
 }
 
 export function openOnboardProfile(sector: number | "host"): void {
@@ -5036,11 +5037,12 @@ export async function toggleOnboardProfileEnabled(sector: number, enabled: boole
   const client = logitechClient();
   if (!client || refreshInProgress || settingInProgress) return;
 
-  const confirmed = window.confirm(
-    `${enabled ? "Enable" : "Disable"} profile ${sector}?\n\n`
-    + "This writes to the mouse's flash memory — one write cycle per change. "
-    + "OpenMouse has not yet verified this write sequence on hardware; G HUB can restore the profiles if anything goes wrong.",
-  );
+  const confirmed = window.confirm(displayTemplate(interfacePreferences.locale,
+    enabled
+      ? "Enable profile {sector}?\n\nThis writes to the mouse's flash memory — one write cycle per change. OpenMouse has not yet verified this write sequence on hardware; G HUB can restore the profiles if anything goes wrong."
+      : "Disable profile {sector}?\n\nThis writes to the mouse's flash memory — one write cycle per change. OpenMouse has not yet verified this write sequence on hardware; G HUB can restore the profiles if anything goes wrong.",
+    { sector },
+  ));
   if (!confirmed) return;
 
   settingInProgress = true;
@@ -5125,7 +5127,7 @@ export function renameOnboardProfile(sector: number): void {
   if (editedProfile !== sector) openOnboardProfile(sector);
 
   const current = stagedProfileName ?? entry.name ?? "";
-  const input = window.prompt(`Profile name (up to ${maxLength} characters)`, current);
+  const input = window.prompt(displayText(interfacePreferences.locale, `Profile name (up to ${maxLength} characters)`), current);
   if (input === null) return;
 
   const invalid = validateProfileName(input, maxLength);
@@ -5161,9 +5163,9 @@ export async function resetLogitechProfiles(): Promise<void> {
     ? "\n\nYour staged, unflashed changes will also be discarded."
     : "";
   const confirmed = window.confirm(
-    "Delete every onboard profile and restore Logitech defaults?\n\n"
+    displayText(interfacePreferences.locale, "Delete every onboard profile and restore Logitech defaults?\n\n"
     + "This permanently erases all stored DPI stages, polling rates, lift-off distances, button assignments, G-Shift mappings, lighting, names, timeouts and every other byte in onboard profile memory. Fresh default profiles will be written back, with profile 1 as the only enabled profile. This cannot be undone in OpenMouse."
-    + stagedWarning,
+    + stagedWarning),
   );
   if (!confirmed) return;
 
@@ -5207,9 +5209,9 @@ export async function setUpLogitechProfiles(): Promise<void> {
   if (onboardProfiles === null || onboardProfiles.length > 0) return;
 
   const confirmed = window.confirm(
-    "This mouse has no onboard profiles yet.\n\n"
+    displayText(interfacePreferences.locale, "This mouse has no onboard profiles yet.\n\n"
     + "Set them up now? OpenMouse will write the Logitech factory profiles into the mouse's memory, with profile 1 active, without G HUB having to link it first.\n\n"
-    + "This replays the sequence captured from G HUB's own reset. It has not been confirmed on a mouse G HUB has never linked.",
+    + "This replays the sequence captured from G HUB's own reset. It has not been confirmed on a mouse G HUB has never linked."),
   );
   if (!confirmed) return;
 
@@ -6955,7 +6957,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
     installPreviewNapeKeymap(layer, true);
   }
   setConnectionButtons(true, "Preview mode");
-  setReadStatus(st("ctl.previewLabel", { label: fixture.label }));
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, fixture.label) }));
 }
 
 export function start(): void {

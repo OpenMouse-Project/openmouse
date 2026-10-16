@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 import { useEffect, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { t } from "../i18n";
@@ -22,8 +24,9 @@ function Steps({
   disabled?: boolean;
   label: string;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   return (
-    <div id={id} className="superstrike-steps" role="group" aria-label={label}>
+    <div id={id} className="superstrike-steps" role="group" aria-label={displayText(__uiLocale, label)}>
       <div>
         {Array.from({ length: max - min + 1 }, (_, index) => min + index).map((step) => (
           <button key={step} type="button" aria-pressed={step === value} disabled={disabled} onClick={() => onChange(step)}>
@@ -51,7 +54,7 @@ function Toggle({
   locale: InterfaceLocale;
 }): ReactNode {
   return (
-    <div id={id} className="superstrike-steps superstrike-switch" role="group" aria-label={label}>
+    <div id={id} className="superstrike-steps superstrike-switch" role="group" aria-label={displayText(locale, label)}>
       <div>
         {([false, true] as const).map((value) => (
           <button key={String(value)} type="button" aria-pressed={on === value} disabled={disabled} onClick={() => onChange(value)}>
@@ -69,9 +72,10 @@ function nextToTrigger(trigger: number | null, min: number, max: number): number
 }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }): ReactNode {
+  const __uiLocale = useUiLocale();
   return (
     <div className="superstrike-control-row">
-      <label>{label}{hint ? <small>{hint}</small> : null}</label>
+      <label>{displayText(__uiLocale, label)}{hint ? <small>{displayText(__uiLocale, hint)}</small> : null}</label>
       {children}
     </div>
   );
@@ -79,6 +83,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 /** Press depth runs 0 to 100; the bar has ten segments and marks where the click registers. */
 function DepthMeter({ magnetic }: { magnetic: MagneticButtonsStatus }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [depth, setDepth] = useState<[number, number]>([0, 0]);
   useEffect(() => {
     const stop = control.subscribeButtonDepth((left, right) => setDepth([left, right]));
@@ -96,8 +101,8 @@ function DepthMeter({ magnetic }: { magnetic: MagneticButtonsStatus }): ReactNod
         const trigger = magnetic.buttons[index]?.triggerPoint;
         const mark = trigger ? Math.max(0, Math.min(9, Math.round((trigger / span) * 10) - 1)) : -1;
         return (
-          <div key={side} className="superstrike-press-meter" role="meter" aria-label={`${side} press depth`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={depth[index]}>
-            <span>{side}</span>
+          <div key={side} className="superstrike-press-meter" role="meter" aria-label={displayText(__uiLocale, `${side} press depth`)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={depth[index]}>
+            <span>{displayText(__uiLocale, side)}</span>
             <div>
               {Array.from({ length: 10 }, (_, step) => (
                 <i key={step} data-on={step * 10 < depth[index]!} data-actuation={step === mark} />
@@ -136,8 +141,8 @@ function ButtonControls({
   return (
     <>
       {magnetic.canChooseSwitchType ? (
-        <Row label="Switch">
-          <div id={`magnetic-${slug}-switch`} className="superstrike-steps superstrike-switch" role="group" aria-label="magnetic or optical switch">
+        <Row label={displayText(locale, "Switch")}>
+          <div id={`magnetic-${slug}-switch`} className="superstrike-steps superstrike-switch" role="group" aria-label={displayText(locale, "magnetic or optical switch")}>
             <div>
               {(["magnetic", "optical"] as const).map((type) => (
                 <button
@@ -147,7 +152,7 @@ function ButtonControls({
                   disabled={type === "magnetic" && !calibrated}
                   onClick={() => targets.forEach((button) => control.applyMagneticSwitchType(button, type))}
                 >
-                  {type === "magnetic" ? "Magnetic" : "Optical"}
+                  {displayText(locale, type === "magnetic" ? "Magnetic" : "Optical")}
                 </button>
               ))}
             </div>
@@ -157,7 +162,7 @@ function ButtonControls({
       <Row label={t(locale, "super.actuation")} hint={`${trigger.min}–${trigger.max}`}>
         <Steps
           id={`magnetic-${slug}-trigger`}
-          label="actuation point"
+          label={displayText(locale, "actuation point")}
           min={trigger.min}
           max={trigger.max}
           value={state.triggerPoint}
@@ -166,11 +171,11 @@ function ButtonControls({
         />
       </Row>
       {release ? (
-        <Row label="Release Point" hint={separateRelease ? `${release.min}–${release.max}` : "Follows the actuation point"}>
+        <Row label={displayText(locale, "Release Point")} hint={separateRelease ? `${release.min}–${release.max}` : "Follows the actuation point"}>
           <div className="superstrike-rapid-controls">
             <Toggle
               id={`magnetic-${slug}-release-separate`}
-              label="separate release point"
+              label={displayText(locale, "separate release point")}
               locale={locale}
               on={separateRelease}
               disabled={optical}
@@ -179,7 +184,7 @@ function ButtonControls({
             {separateRelease ? (
               <Steps
                 id={`magnetic-${slug}-release`}
-                label="release point"
+                label={displayText(locale, "release point")}
                 min={release.min}
                 max={release.max}
                 value={state.releasePoint ?? null}
@@ -191,11 +196,11 @@ function ButtonControls({
         </Row>
       ) : null}
       {rapid ? (
-        <Row label="Rapid Trigger" hint={magnetic.rapidTriggerUnit === "ms" ? `${rapid.min}–${rapid.max} ms` : `${rapid.min}–${rapid.max}`}>
+        <Row label={displayText(locale, "Rapid Trigger")} hint={magnetic.rapidTriggerUnit === "ms" ? `${rapid.min}–${rapid.max} ms` : `${rapid.min}–${rapid.max}`}>
           <div className="superstrike-rapid-controls">
             <Toggle
               id={`magnetic-${slug}-rapid-enabled`}
-              label="rapid trigger on or off"
+              label={displayText(locale, "rapid trigger on or off")}
               locale={locale}
               on={state.rapidTriggerEnabled}
               disabled={optical}
@@ -203,7 +208,7 @@ function ButtonControls({
             />
             <Steps
               id={`magnetic-${slug}-rapid`}
-              label="rapid trigger"
+              label={displayText(locale, "rapid trigger")}
               min={rapid.min}
               max={rapid.max}
               value={state.rapidTrigger}
@@ -214,28 +219,29 @@ function ButtonControls({
         </Row>
       ) : null}
       {rapid && brand === "G-Wolves" ? (
-        <p className="magnetic-note">Rapid trigger is factory calibrated. Changing it may cause double or dropped inputs.</p>
+        <p className="magnetic-note">{displayText(locale, "Rapid trigger is factory calibrated. Changing it may cause double or dropped inputs.")}</p>
       ) : null}
     </>
   );
 }
 
 function Calibration({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const view = snapshot.magneticCalibration;
   const magnetic = snapshot.status?.magneticButtons;
   if (!magnetic || magnetic.calibration === null) {
-    return <p className="magnetic-note">Calibrate the magnetic switches with the mouse on its cable.</p>;
+    return <p className="magnetic-note">{displayText(__uiLocale, "Calibrate the magnetic switches with the mouse on its cable.")}</p>;
   }
   const running = view.phase === "running";
   return (
     <div className="magnetic-calibration">
       <div className="magnetic-calibration-head">
         <div>
-          <strong>Button Calibration</strong>
+          <strong>{displayText(__uiLocale, "Button Calibration")}</strong>
           <p>
-            {magnetic.calibration === "needed"
+            {displayText(__uiLocale, magnetic.calibration === "needed"
               ? "The magnetic switches need calibrating."
-              : "Only calibrate when your buttons have problems. Keep the mouse on its cable and still while it runs."}
+              : "Only calibrate when your buttons have problems. Keep the mouse on its cable and still while it runs.")}
           </p>
         </div>
         <button
@@ -244,18 +250,16 @@ function Calibration({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           type="button"
           disabled={running || snapshot.settingInProgress}
           onClick={() => void control.startMagneticCalibration()}
-        >
-          Start Calibration
-        </button>
+        > {displayText(__uiLocale, "Start Calibration")} </button>
       </div>
       {view.phase !== "idle" ? (
         <div className="magnetic-calibration-progress" data-phase={view.phase} role="status">
-          <p>{view.message}</p>
+          <p>{displayText(__uiLocale, view.message)}</p>
           {running ? (
             <div className="superstrike-press-meters">
               {(["Left", "Right"] as const).map((side, index) => (
                 <div key={side} className="superstrike-press-meter">
-                  <span>{side}</span>
+                  <span>{displayText(__uiLocale, side)}</span>
                   <div>
                     {Array.from({ length: 10 }, (_, step) => (
                       <i key={step} data-on={step * 10 < (index === 0 ? view.left : view.right)} />
@@ -266,8 +270,8 @@ function Calibration({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
             </div>
           ) : null}
           {running
-            ? <button type="button" className="superstrike-apply-button" onClick={control.cancelMagneticCalibration}>Cancel</button>
-            : <button type="button" className="superstrike-apply-button" onClick={control.dismissMagneticCalibration}>Dismiss</button>}
+            ? <button type="button" className="superstrike-apply-button" onClick={control.cancelMagneticCalibration}>{displayText(__uiLocale, "Cancel")}</button>
+            : <button type="button" className="superstrike-apply-button" onClick={control.dismissMagneticCalibration}>{displayText(__uiLocale, "Dismiss")}</button>}
         </div>
       ) : null}
     </div>
@@ -298,15 +302,15 @@ export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): Re
       className="device-data"
       role="tabpanel"
       aria-labelledby="workspace-tab-buttons"
-      aria-label="Magnetic button settings"
+      aria-label={displayText(locale, "Magnetic button settings")}
     >
       <article className="setting-card superstrike-tuning-card">
-        <div className="setting-heading superstrike-tuning-heading"><div><h2>Magnetic Buttons</h2></div></div>
+        <div className="setting-heading superstrike-tuning-heading"><div><h2>{displayText(locale, "Magnetic Buttons")}</h2></div></div>
         {magnetic.liveDepth ? <DepthMeter magnetic={magnetic} /> : null}
-        <div className="superstrike-tabs" role="tablist" aria-label="Magnetic button mode">
+        <div className="superstrike-tabs" role="tablist" aria-label={displayText(locale, "Magnetic button mode")}>
           {(["both", "independent"] as const).map((value) => (
             <button key={value} type="button" role="tab" aria-selected={shown === value} onClick={() => setMode(value)}>
-              {value === "both" ? t(locale, "super.both") : t(locale, "super.independent")}
+              {displayText(locale, value === "both" ? t(locale, "super.both") : t(locale, "super.independent"))}
             </button>
           ))}
         </div>
@@ -316,7 +320,7 @@ export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): Re
               <fieldset key={side} className="superstrike-button-card">
                 <legend>
                   <span className="superstrike-button-dot" />
-                  {side === 0 ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton")}
+                  {displayText(locale, side === 0 ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton"))}
                 </legend>
                 <ButtonControls group={side} magnetic={magnetic} state={magnetic.buttons[side]!} locale={locale} brand={brand} />
               </fieldset>

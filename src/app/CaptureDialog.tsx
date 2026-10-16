@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CAPTURE_ACTIONS,
@@ -123,18 +124,14 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
       }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
           <div>
-            <p style={{ margin: 0, color: "#77777c", fontSize: ".6rem", letterSpacing: ".05em" }}>DEVELOPMENT</p>
+            <p style={{ margin: 0, color: "#77777c", fontSize: ".6rem", letterSpacing: ".05em" }}>{displayText(locale, "DEVELOPMENT")}</p>
             <h2 style={{ margin: ".1rem 0 0", fontSize: "1rem", color: "#ececef" }}>{t(locale, "cap.title")}</h2>
           </div>
           <button id="capture-close" type="button" aria-label={t(locale, "cap.closeCapture")} onClick={onClose}>{t(locale, "common.close")}</button>
         </div>
 
         <small style={{ color: "#77777c", fontSize: ".64rem" }}>
-          <strong style={{ color: "#a8a8ae" }}>Verify a format:</strong> copy a read-only bundle containing the
-          memory geometry, full directory, every profile and all CRC results. To map an individual setting,
-          snapshot the profiles, change only that setting in G HUB or Onboard Memory Manager, compare, mark the
-          change and copy the comparison.
-        </small>
+          <strong style={{ color: "#a8a8ae" }}>{displayText(locale, "Verify a format:")}</strong> {displayText(locale, "copy a read-only bundle containing the memory geometry, full directory, every profile and all CRC results. To map an individual setting, snapshot the profiles, change only that setting in G HUB or Onboard Memory Manager, compare, mark the change and copy the comparison.")} </small>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: ".4rem", alignItems: "center" }}>
           <button
@@ -169,7 +166,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
               id="capture-write-probe"
               type="button"
               disabled={busy || probe.supported !== true}
-              title={probe.reason}
+              title={displayText(locale, probe.reason)}
               style={{ borderColor: "#7d3038", background: "#32181c", color: "#ff9ca5" }}
               onClick={() => {
                 if (!probe.supported || !probe.prepare || !probe.run) return;
@@ -178,7 +175,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                 void probe.prepare().then(async (backup) => {
                   await navigator.clipboard.writeText(formatProfileWriteProbeBackupMarkdown(backup));
                   const approved = window.confirm(
-                    "Recovery backup copied. This test performs six profile-sector erase/write cycles, temporarily changes the profile name, DPI, and polling rate, then restores the exact original after every step. Do not disconnect or power off the mouse. Run the probe now?",
+                    displayText(locale, "Recovery backup copied. This test performs six profile-sector erase/write cycles, temporarily changes the profile name, DPI, and polling rate, then restores the exact original after every step. Do not disconnect or power off the mouse. Run the probe now?"),
                   );
                   if (!approved) {
                     setMessage("Recovery backup copied. Write probe cancelled before any flash write.");
@@ -235,7 +232,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
             {t(locale, "cap.copyComparison")}
           </button>
           <span id="capture-status" role="status" aria-live="polite" style={{ color: "#77777c", fontSize: ".62rem" }}>
-            {message}
+            {displayText(locale, message)}
           </span>
         </div>
 
@@ -245,25 +242,22 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
         >
           {changed.length === 0 ? (
             <p style={{ color: "#77777c", fontSize: ".62rem", margin: 0 }}>
-              {diffs.length > 0
+              {displayText(locale, diffs.length > 0
                 ? "No profile bytes changed — this setting is not stored in a profile."
                 : snapshot
                   ? "Snapshot ready. Change one setting in the vendor app, then Compare."
-                  : "Snapshot the profiles, change one setting in the vendor app, then Compare."}
+                  : "Snapshot the profiles, change one setting in the vendor app, then Compare.")}
             </p>
           ) : (
             changed.map((diff) => (
               <div key={diff.sector} style={{ marginBottom: ".5rem" }}>
                 <div style={{ display: "flex", gap: ".5rem", alignItems: "baseline", flexWrap: "wrap" }}>
-                  <strong style={{ fontSize: ".66rem", color: "#e6e6ea" }}>
-                    Sector {diff.sector} — {diff.changes.length} byte(s)
-                  </strong>
+                  <strong style={{ fontSize: ".66rem", color: "#e6e6ea" }}> {displayText(locale, "Sector")} {diff.sector} — {diff.changes.length} {displayText(locale, "byte(s)")} </strong>
                   {diff.unreproduced === undefined ? null : diff.unreproduced.length === 0 ? (
-                    <span style={{ color: "#6fd3a0", fontSize: ".6rem", fontWeight: 600 }}>✓ write path verified</span>
+                    <span style={{ color: "#6fd3a0", fontSize: ".6rem", fontWeight: 600 }}>{displayText(locale, "✓ write path verified")}</span>
                   ) : (
                     <span style={{ color: "#e8798f", fontSize: ".6rem", fontWeight: 600 }}>
-                      ✗ {diff.unreproduced.length} byte(s) not reproducible
-                    </span>
+                      ✗ {diff.unreproduced.length} {displayText(locale, "byte(s) not reproducible")} </span>
                   )}
                 </div>
                 <div style={{ display: "grid", gap: ".1rem", marginTop: ".2rem" }}>
@@ -279,7 +273,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                         {change.before.toString(16).padStart(2, "0")} → {change.after.toString(16).padStart(2, "0")}
                       </code>
                       <span style={{ color: change.field === "checksum" ? "#77777c" : "#6fd3a0" }}>
-                        {change.field ?? "unknown"}
+                        {displayText(locale, change.field ?? "unknown")}
                       </span>
                     </div>
                   ))}
@@ -316,7 +310,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                     return next;
                   })}
                 >
-                  {action.label}
+                  {displayText(locale, action.label)}
                 </button>
               );
             })}

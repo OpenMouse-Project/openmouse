@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { Toast } from "../device/types";
@@ -71,11 +72,11 @@ export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: Interfa
         >
           <ToastIcon kind={toast.kind} />
           <div className="toast-copy">
-            <strong>{toast.title}</strong>
-            {toast.detail ? <span>{toast.detail}</span> : null}
+            <strong>{displayText(locale, toast.title)}</strong>
+            {toast.detail ? <span>{displayText(locale, toast.detail)}</span> : null}
             {toast.action ? (
               <a className="toast-action" href={toast.action.href} target="_blank" rel="noreferrer">
-                {toast.action.label}
+                {displayText(locale, toast.action.label)}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>

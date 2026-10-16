@@ -27,6 +27,7 @@ export const vi: Record<I18nKey, string> = {
   "luna.stageYDpi": "Mức {n} · DPI Y",
   "luna.profileSwitchPending": "Áp dụng hoặc hủy chuyển hồ sơ trước khi sửa cài đặt.",
   "luna.discardBeforeSwitch": "Bỏ các thay đổi chưa áp dụng và chuyển hồ sơ trên chuột?",
+  "set.turkish": "Türkçe",
   "luna.angleSnap": "Hiệu chỉnh đường thẳng",
   "luna.competitiveMode": "Chế độ thi đấu",
   "luna.trackingMode": "Chế độ theo dõi",

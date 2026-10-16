@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import type { InterfaceLocale } from "../interface-preferences";
@@ -55,29 +56,28 @@ export function SaveHitsPresetDialog({
       >
         <header>
           <div>
-            <p className="overline">HITS Tuning</p>
-            <h2 id="save-hits-dialog-title">Save preset</h2>
+            <p className="overline">{displayText(locale, "HITS Tuning")}</p>
+            <h2 id="save-hits-dialog-title">{displayText(locale, "Save preset")}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button>
         </header>
         <div className="profile-key-fields">
           <label className="profile-key-field">
-            <span>Preset name</span>
+            <span>{displayText(locale, "Preset name")}</span>
             <input
               type="text"
               value={name}
               maxLength={40}
-              placeholder="Name"
+              placeholder={displayText(locale, "Name")}
               onChange={(event) => setName(event.currentTarget.value)}
               autoFocus
             />
           </label>
-          <small className="setting-description">
-            Left: {describe(values.left)}. Right: {describe(values.right)}.
+          <small className="setting-description"> {displayText(locale, "Left:")} {displayText(locale, describe(values.left))}{displayText(locale, ". Right:")} {displayText(locale, describe(values.right))}.
           </small>
-          {replaces ? <small className="setting-description" role="status">A preset with this name exists and will be replaced.</small> : null}
+          {replaces ? <small className="setting-description" role="status">{displayText(locale, "A preset with this name exists and will be replaced.")}</small> : null}
           <div className="import-hits-actions">
-            <button type="submit" className="connect-button" disabled={!trimmed}>Save</button>
+            <button type="submit" className="connect-button" disabled={!trimmed}>{displayText(locale, "Save")}</button>
             <button type="button" className="connect-button" onClick={onClose}>{t(locale, "common.cancel")}</button>
           </div>
         </div>

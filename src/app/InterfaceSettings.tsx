@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
@@ -72,7 +73,7 @@ export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): R
           });
         }}
       >
-        {copied ? t(locale, "set.copied") : t(locale, "set.copyKey")}
+        {displayText(locale, copied ? t(locale, "set.copied") : t(locale, "set.copyKey"))}
       </button>
       <label className="profile-key-field">
         <span>{t(locale, "set.importKey")}</span>
@@ -116,8 +117,8 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   ): ReactNode => (
     <div className="setting-row">
       <div className="setting-label">
-        <span className="setting-title">{title}</span>
-        <span className="setting-description">{description}</span>
+        <span className="setting-title">{displayText(locale, title)}</span>
+        <span className="setting-description">{displayText(locale, description)}</span>
       </div>
       <ToggleSwitch id={id} checked={checked} onChange={onChange} />
     </div>
@@ -157,7 +158,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
               onClick={() => control.setInterfaceTheme(name)}
             >
               <span className="theme-preset-acc" aria-hidden="true" />
-              <span className="theme-preset-label">{name}</span>
+              <span className="theme-preset-label">{displayText(locale, name)}</span>
             </button>
           ))}
         </fieldset>
@@ -232,8 +233,8 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
                 className={`preview-launcher-link${snapshot.previewMode === key ? " is-active" : ""}`}
                 href={`?preview=${key}`}
               >
-                {label}
-                <small>{key}</small>
+                {displayText(locale, label)}
+                <small>{displayText(locale, key)}</small>
               </a>
             ))}
           </div>
@@ -265,9 +266,9 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
             </span>
           </a>
           <span className="app-footer-socials">
-            <a href={DISCORD_URL} target="_blank" rel="noreferrer" title="OpenMouse on Discord" aria-label="OpenMouse on Discord"><DiscordIcon /></a>
-            <a href={TWITTER_URL} target="_blank" rel="noreferrer" title="OpenMouse on X" aria-label="OpenMouse on X"><TwitterIcon /></a>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer" title="OpenMouse on GitHub" aria-label="OpenMouse on GitHub"><GitHubIcon /></a>
+            <a href={DISCORD_URL} target="_blank" rel="noreferrer" title={displayText(locale, "OpenMouse on Discord")} aria-label={displayText(locale, "OpenMouse on Discord")}><DiscordIcon /></a>
+            <a href={TWITTER_URL} target="_blank" rel="noreferrer" title={displayText(locale, "OpenMouse on X")} aria-label={displayText(locale, "OpenMouse on X")}><TwitterIcon /></a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer" title={displayText(locale, "OpenMouse on GitHub")} aria-label={displayText(locale, "OpenMouse on GitHub")}><GitHubIcon /></a>
           </span>
         </div>
       </div>

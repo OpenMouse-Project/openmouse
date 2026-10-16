@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import {
@@ -370,7 +371,7 @@ function DpiStageEditor({
                 type="button"
                 className="dpi-editor-index"
                 disabled={locked || (mode !== "generic" && !row.enabled) || (mode === "stage" && !activeWritable)}
-                title={rowTitle}
+                title={displayText(locale, rowTitle)}
                 aria-pressed={highlighted}
                 onClick={() => setActive(index)}
               >
@@ -404,7 +405,7 @@ function DpiStageEditor({
           );
         })}
       </div>
-      <small className={`setting-note${singleFillsStages ? " setting-note-warning" : ""}`}>{note}</small>
+      <small className={`setting-note${singleFillsStages ? " setting-note-warning" : ""}`}>{displayText(locale, note)}</small>
     </div>
   );
 }
@@ -440,7 +441,7 @@ export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): R
         <div>
           <div className="title-row">
             <h2>{t(locale, "perf.liftOff")}</h2>
-            <p>SENSOR</p>
+            <p>{displayText(locale, "SENSOR")}</p>
           </div>
           <small id="lod-note" className="setting-note">
             {t(locale, "perf.lodNote")}
@@ -467,7 +468,7 @@ export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): R
                     setOpenMenu(openMenu === index ? null : index);
                   }}
                 >
-                  <span>{level ?? "—"}</span>
+                  <span>{displayText(locale, level ?? "—")}</span>
                   <i aria-hidden="true" />
                 </button>
                 <ul className="lod-select-menu" role="listbox" aria-label={tp(locale, "dpi.slotLiftOff", { n: index + 1 })}>
@@ -481,7 +482,7 @@ export function SlotLiftOffPanel({ snapshot }: { snapshot: ControlSnapshot }): R
                         control.setDpiSlotLod(index, name as LiftOffLevel);
                       }}
                     >
-                      {name}
+                      {displayText(locale, name)}
                     </li>
                   ))}
                 </ul>
@@ -536,11 +537,11 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         <div className="setting-heading">
           <div className="dpi-heading-label">
             <div>
-              <p>DPI</p>
+              <p>{displayText(locale, "DPI")}</p>
               <h2>
                 {t(locale, "dpi.sensitivity")}
                 {snapshot.editedProfile !== null ? (
-                  <span className="setting-scope" id="dpi-scope-badge">{slotsAvailable ? t(locale, "dpi.perProfile") : "Host"}</span>
+                  <span className="setting-scope" id="dpi-scope-badge">{displayText(locale, slotsAvailable ? t(locale, "dpi.perProfile") : "Host")}</span>
                 ) : null}
               </h2>
             </div>
@@ -599,7 +600,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               disabled={snapshot.settingsPending || snapshot.dpiOptions.length === 0}
               onClick={() => (snapshot.customDpiEditing ? control.commitCustomDpi() : control.startCustomDpi())}
             >
-              {snapshot.customDpiEditing ? t(locale, "common.apply") : t(locale, "common.custom")}
+              {displayText(locale, snapshot.customDpiEditing ? t(locale, "common.apply") : t(locale, "common.custom"))}
             </button>
           </div>
         </div>
@@ -611,7 +612,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
 
         <div className="setting-action">
           <span id="dpi-pending">
-            {staged ? tp(locale, "common.staged", { v: label(status) }) : tp(locale, "common.current", { v: label(deviceStatus) })}
+            {displayText(locale, staged ? tp(locale, "common.staged", { v: label(status) }) : tp(locale, "common.current", { v: label(deviceStatus) }))}
           </span>
         </div>
       </div>

@@ -1,6 +1,7 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
-import { ensureLocale } from "../i18n";
+import { ensureDisplayLocale } from "../i18n";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { AppSidebar, type DesktopPage } from "./AppSidebar";
 import { OverviewPage } from "./OverviewPage";
@@ -18,6 +19,7 @@ import { useBridgeBatteryReporter } from "./useBridgeBatteryReporter";
 import { useBridgeProfileApplier } from "./useBridgeProfileApplier";
 import { useControl } from "./useControl";
 import { setSoundsEnabled } from "../sound-manager";
+import { UiLocaleContext } from "./ui-locale";
 
 export function App(): ReactNode {
   const snapshot = useControl();
@@ -60,6 +62,7 @@ export function App(): ReactNode {
         ru: "ru",
         vi: "vi",
         ar: "ar",
+        tr: "tr",
         en: "en",
       };
       const nextLang = htmlLang[locale] ?? "en";
@@ -76,7 +79,10 @@ export function App(): ReactNode {
     }
     // A stored non-English locale resolves its table after first paint;
     // re-render once it arrives instead of sticking on fallback strings.
-    if (locale !== "en") void ensureLocale(locale).then(() => control.refreshInterface());
+    void ensureDisplayLocale(locale).then(() => {
+      control.refreshInterface();
+      window.dispatchEvent(new Event("openmouse-localechange"));
+    });
   }, [locale]);
 
 
@@ -115,6 +121,7 @@ export function App(): ReactNode {
   }
 
   return (
+    <UiLocaleContext.Provider value={locale}>
     <div
       className={[
         "control-shell",
@@ -145,7 +152,7 @@ export function App(): ReactNode {
             />
           )}
           <p className="app-live-region" role="status" aria-live="polite">
-            {snapshot.readStatus}
+            {displayText(locale, snapshot.readStatus)}
           </p>
         </div>
         <PendingBar snapshot={snapshot} />
@@ -157,5 +164,6 @@ export function App(): ReactNode {
       <AiOverlay locale={locale} />
       <ToastHost toasts={snapshot.toasts} locale={locale} />
     </div>
+    </UiLocaleContext.Provider>
   );
 }

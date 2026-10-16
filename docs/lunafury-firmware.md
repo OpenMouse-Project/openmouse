@@ -18,7 +18,7 @@ Mouse entries include both cable and receiver interfaces because the receiver
 also returns the paired mouse's version. Dongle entries match only receivers.
 Bootloader PIDs and name-only matches are excluded.
 
-Protocol 0.42.1's CompX decoder formats the last two version bytes, so
+Protocol 0.42.2's CompX decoder formats the last two version bytes, so
 `latestVersion` uses the two-part driver readout. Both public versions above
 have zero first and second bytes. Recheck the decoder if those bytes change;
 do not discard nonzero version components. A newer internal version, such as

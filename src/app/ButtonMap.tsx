@@ -1,3 +1,6 @@
+import { displayText } from "../i18n";
+import { matchesCommandQuery } from "../ui/command-search";
+import { useUiLocale } from "./ui-locale";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { LogitechButtonAction } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
@@ -54,19 +57,16 @@ export function buttonMapAvailable(snapshot: ControlSnapshot): boolean {
 }
 
 function HostProfileNotice({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const profiles = snapshot.onboardProfiles ?? [];
   const target = profiles.find((profile) => profile.isCurrent) ?? profiles[0];
   return (
     <div id="logitech-button-map">
       <article className="setting-card superstrike-tuning-card button-map-card button-map-host">
-        <div className="setting-heading superstrike-tuning-heading"><div><h2>Button assignments</h2></div></div>
-        <p className="setting-description">
-          You are on the Host profile, which runs from software. Button assignments and Bunny Hop are stored in the
-          mouse's onboard profiles, so open one to edit them.
-        </p>
+        <div className="setting-heading superstrike-tuning-heading"><div><h2>{displayText(__uiLocale, "Button assignments")}</h2></div></div>
+        <p className="setting-description"> {displayText(__uiLocale, "You are on the Host profile, which runs from software. Button assignments and Bunny Hop are stored in the mouse's onboard profiles, so open one to edit them.")} </p>
         {target ? (
-          <button type="button" className="connect-button" onClick={() => control.openOnboardProfile(target.sector)}>
-            Open {control.describeProfileEntry(target).name}
+          <button type="button" className="connect-button" onClick={() => control.openOnboardProfile(target.sector)}> {displayText(__uiLocale, "Open")} {control.describeProfileEntry(target).name}
           </button>
         ) : null}
       </article>
@@ -80,6 +80,7 @@ function HostProfileNotice({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
  * Profiles tab, so instant flash and the Flash bar behave the same.
  */
 export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const snapshot = stableSnapshot(live) ?? live;
   const [layer, setLayer] = useState<Layer>("primary");
   const [selected, setSelected] = useState<number | null>(null);
@@ -148,13 +149,10 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
 
   const hints = layer === "primary" ? conflictHints(layout.spots.map((spot) => ({ label: spot.label, text: textFor(spot) }))) : [];
 
-  const needle = query.trim().toLowerCase();
   const sections = COMMAND_SECTIONS
     .map((section) => ({
       ...section,
-      entries: section.entries.filter((command) => !needle
-        || command.label.toLowerCase().includes(needle)
-        || (command.hint ?? "").toLowerCase().includes(needle)),
+      entries: section.entries.filter((command) => matchesCommandQuery(__uiLocale, query, command.label, command.hint)),
     }))
     .filter((section) => section.entries.length > 0);
 
@@ -168,27 +166,27 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
     <div id="logitech-button-map">
       <article className="setting-card superstrike-tuning-card button-map-card">
         <div className="setting-heading superstrike-tuning-heading button-map-heading">
-          <div><h2>Button assignments</h2></div>
-          <div className="button-map-status" aria-label="Device status">
+          <div><h2>{displayText(__uiLocale, "Button assignments")}</h2></div>
+          <div className="button-map-status" aria-label={displayText(__uiLocale, "Device status")}>
             <strong>{status.name}</strong>
-            {status.connectionType ? <span>{connectionText(snapshot.preferences.locale, status.connectionType)}</span> : null}
+            {status.connectionType ? <span>{displayText(__uiLocale, connectionText(snapshot.preferences.locale, status.connectionType))}</span> : null}
             {status.batteryPercent !== null ? (
-              <span title={estimate ? `${estimate.time} ${estimate.label}` : undefined}>
+              <span title={displayText(__uiLocale, estimate ? `${estimate.time} ${estimate.label}` : undefined)}>
                 <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />{status.batteryPercent}%
-                {estimate ? ` · ${estimate.time}` : ""}
+                {displayText(__uiLocale, estimate ? ` · ${estimate.time}` : "")}
               </span>
             ) : null}
           </div>
-          <button type="button" className="icon-button button-map-share" onClick={() => setSharing(true)}>Share setup</button>
+          <button type="button" className="icon-button button-map-share" onClick={() => setSharing(true)}>{displayText(__uiLocale, "Share setup")}</button>
         </div>
         <SetupCodeDialog open={sharing} snapshot={snapshot} onClose={() => setSharing(false)} />
         <div className="button-map-body">
-          <aside className="button-map-commands" aria-label="Commands">
+          <aside className="button-map-commands" aria-label={displayText(__uiLocale, "Commands")}>
             <input
               type="search"
               className="button-map-search"
-              placeholder="Search commands"
-              aria-label="Search commands"
+              placeholder={displayText(__uiLocale, "Search commands")}
+              aria-label={displayText(__uiLocale, "Search commands")}
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
@@ -199,17 +197,17 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
               disabled={!canAssign}
               onClick={() => setRecording((on) => !on)}
             >
-              {recording ? "Press a key or shortcut... (Esc cancels)" : "Record a key or shortcut"}
+              {displayText(__uiLocale, recording ? "Press a key or shortcut... (Esc cancels)" : "Record a key or shortcut")}
             </button>
             <div className="button-map-reset">
-              <button type="button" disabled={!canAssign} onClick={() => void reset([selected as number])}>Reset button</button>
-              <button type="button" disabled={live.settingInProgress} onClick={() => void reset(unlocked)}>Reset all</button>
+              <button type="button" disabled={!canAssign} onClick={() => void reset([selected as number])}>{displayText(__uiLocale, "Reset button")}</button>
+              <button type="button" disabled={live.settingInProgress} onClick={() => void reset(unlocked)}>{displayText(__uiLocale, "Reset all")}</button>
             </div>
-            <small className="button-map-help" role="status">{help}</small>
+            <small className="button-map-help" role="status">{displayText(__uiLocale, help)}</small>
             <div className="button-map-list">
             {sections.map((section) => (
               <section key={section.id} className="button-map-section">
-                <h3>{section.title}</h3>
+                <h3>{displayText(__uiLocale, section.title)}</h3>
                 {section.entries.map((command) => (
                   <button
                     key={command.id}
@@ -219,13 +217,13 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
                     disabled={!canAssign}
                     onClick={() => assign(command)}
                   >
-                    <span>{command.label}</span>
-                    {command.hint ? <small>{command.hint}</small> : null}
+                    <span>{displayText(__uiLocale, command.label)}</span>
+                    {command.hint ? <small>{displayText(__uiLocale, command.hint)}</small> : null}
                   </button>
                 ))}
               </section>
             ))}
-            {sections.length === 0 ? <small className="button-map-help">No command matches.</small> : null}
+            {sections.length === 0 ? <small className="button-map-help">{displayText(__uiLocale, "No command matches.")}</small> : null}
             </div>
           </aside>
           <div className="button-map-stage">
@@ -241,19 +239,19 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
                   <button
                     type="button"
                     className="button-map-dot"
-                    aria-label={`Select ${spot.label}`}
+                    aria-label={displayText(__uiLocale, `Select ${spot.label}`)}
                     onClick={() => setSelected(spot.button)}
                   />
                   <button type="button" className="button-map-label" onClick={() => setSelected(spot.button)}>
-                    <strong>{spot.label}</strong>
-                    <span>{textFor(spot)}</span>
+                    <strong>{displayText(__uiLocale, spot.label)}</strong>
+                    <span>{displayText(__uiLocale, textFor(spot))}</span>
                   </button>
                 </div>
               ))}
             </div>
-            {hints.length ? <ul className="button-map-hints" role="status">{hints.map((hint) => <li key={hint}>{hint}</li>)}</ul> : null}
-            <div className="button-map-layers" role="tablist" aria-label="Button layer">
-              <button type="button" role="tab" aria-selected={layer === "primary"} onClick={() => setLayer("primary")}>Standard</button>
+            {hints.length ? <ul className="button-map-hints" role="status">{hints.map((hint) => <li key={hint}>{displayText(__uiLocale, hint)}</li>)}</ul> : null}
+            <div className="button-map-layers" role="tablist" aria-label={displayText(__uiLocale, "Button layer")}>
+              <button type="button" role="tab" aria-selected={layer === "primary"} onClick={() => setLayer("primary")}>{displayText(__uiLocale, "Standard")}</button>
               <button type="button" role="tab" aria-selected={layer === "g-shift"} onClick={() => setLayer("g-shift")}>G-Shift</button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { t } from "../i18n";
@@ -131,20 +132,16 @@ export function HitsTestDialog({
       <div className="support-dialog-inner share-profile-dialog-inner hits-test">
         <header>
           <div>
-            <p className="overline">HITS Tuning</p>
-            <h2 id="hits-test-title">HITS speed test</h2>
+            <p className="overline">{displayText(locale, "HITS Tuning")}</p>
+            <h2 id="hits-test-title">{displayText(locale, "HITS speed test")}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button>
         </header>
         <div className="hits-test-body">
           <div className="hits-test-side">
-            <small className="setting-description">
-              A normal mouse switch fires at one fixed point, about step 5 on the HITS scale. When the field turns blue,
-              click as fast as you can. Each press is timed against that step, so you see how much sooner your
-              actuation fires. Change the actuation and run it again to compare.
-            </small>
+            <small className="setting-description"> {displayText(locale, "A normal mouse switch fires at one fixed point, about step 5 on the HITS scale. When the field turns blue, click as fast as you can. Each press is timed against that step, so you see how much sooner your actuation fires. Change the actuation and run it again to compare.")} </small>
             <label className="profile-key-field">
-              <span>Button</span>
+              <span>{displayText(locale, "Button")}</span>
               <select
                 value={side}
                 onChange={(event) => {
@@ -152,19 +149,19 @@ export function HitsTestDialog({
                   reset();
                 }}
               >
-                <option value={0}>Left button</option>
-                <option value={1}>Right button</option>
+                <option value={0}>{displayText(locale, "Left button")}</option>
+                <option value={1}>{displayText(locale, "Right button")}</option>
               </select>
             </label>
             <div className="hits-test-actuation">
-              <span>Actuation point</span>
+              <span>{displayText(locale, "Actuation point")}</span>
               <div>
-                <button type="button" disabled={!canAdjust || value <= 1} onClick={() => onAdjust(side, value - 1)} aria-label="Lower actuation">-</button>
+                <button type="button" disabled={!canAdjust || value <= 1} onClick={() => onAdjust(side, value - 1)} aria-label={displayText(locale, "Lower actuation")}>-</button>
                 <strong>{value}</strong>
-                <button type="button" disabled={!canAdjust || value >= maxActuation} onClick={() => onAdjust(side, value + 1)} aria-label="Raise actuation">+</button>
+                <button type="button" disabled={!canAdjust || value >= maxActuation} onClick={() => onAdjust(side, value + 1)} aria-label={displayText(locale, "Raise actuation")}>+</button>
               </div>
             </div>
-            {!canAdjust ? <small className="setting-description">Turn on Instant flash to change the actuation here.</small> : null}
+            {!canAdjust ? <small className="setting-description">{displayText(locale, "Turn on Instant flash to change the actuation here.")}</small> : null}
           </div>
           <button
             type="button"
@@ -175,23 +172,23 @@ export function HitsTestDialog({
             {phase === "done" && last ? (
               <span className="hits-test-result">
                 <span className="hits-test-result-numbers">
-                  <small>Time saved</small>
-                  <strong>{last.saved === null ? "-" : signed(last.saved)}</strong>
-                  {last.saved !== null && last.saved <= 0 ? <em>Try a lower actuation to save time.</em> : null}
-                  <small>Your HITS setting</small>
-                  <b>{hitsTime === null ? "-" : ms(hitsTime)}</b>
-                  <small>Conventional switch</small>
-                  <b>{conventionalTime === null ? "-" : ms(conventionalTime)}</b>
+                  <small>{displayText(locale, "Time saved")}</small>
+                  <strong>{displayText(locale, last.saved === null ? "-" : signed(last.saved))}</strong>
+                  {last.saved !== null && last.saved <= 0 ? <em>{displayText(locale, "Try a lower actuation to save time.")}</em> : null}
+                  <small>{displayText(locale, "Your HITS setting")}</small>
+                  <b>{displayText(locale, hitsTime === null ? "-" : ms(hitsTime))}</b>
+                  <small>{displayText(locale, "Conventional switch")}</small>
+                  <b>{displayText(locale, conventionalTime === null ? "-" : ms(conventionalTime))}</b>
                 </span>
-                <span className="hits-test-ladder" aria-label="Time to reach each step">
+                <span className="hits-test-ladder" aria-label={displayText(locale, "Time to reach each step")}>
                   {Array.from({ length: 10 }, (_, index) => index + 1).map((step) => (
                     <span key={step} data-mark={step === value ? "hits" : step === CONVENTIONAL_STEP ? "conventional" : undefined}>
                       <i>{step}</i>
-                      <u>{at(step) === null ? "-" : ms(at(step) as number)}</u>
+                      <u>{displayText(locale, at(step) === null ? "-" : ms(at(step) as number))}</u>
                     </span>
                   ))}
                 </span>
-                <small>Click again to start over.</small>
+                <small>{displayText(locale, "Click again to start over.")}</small>
               </span>
             ) : label}
           </button>

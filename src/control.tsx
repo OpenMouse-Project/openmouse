@@ -13,6 +13,8 @@ import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { startSelfXssGuard } from "./self-xss-guard";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
+import { ensureDisplayLocale } from "./i18n";
+import { initialUiLocale } from "./app/ui-locale";
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 
@@ -57,12 +59,13 @@ function Root(): ReactNode {
 
 const root = createRoot(controlApp);
 if (import.meta.env.PROD && isBeforeLaunch()) {
-  root.render(<LaunchHero />);
+  void ensureDisplayLocale(initialUiLocale()).then(() => root.render(<LaunchHero />));
 } else {
   // Prefer Bridge when it is installed: native HID can reach protected mouse
   // collections that Chrome 153+ correctly withholds from WebHID. If Bridge is
   // absent, installation falls back to the browser's own WebHID implementation.
-  void installBridgeHid({ force: true }).then((hasHid) => {
+  void installBridgeHid({ force: true }).then(async (hasHid) => {
+    await ensureDisplayLocale(initialUiLocale());
     const notice = unsupportedNotice({
       hasWebHid: hasHid,
       handheld: window.matchMedia("(pointer: coarse) and (hover: none)").matches,

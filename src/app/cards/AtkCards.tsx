@@ -1,3 +1,5 @@
+import { displayText } from "../../i18n";
+import { useUiLocale } from "../ui-locale";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
@@ -5,16 +7,17 @@ import { Segmented } from "../ui";
 import { atkSensorModes, atkVisibleButtons } from "./atk-capabilities";
 
 export function AtkProfileCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const status = snapshot.status;
   if (!status || status.activeProfile === null || status.atkProfileCount === undefined) return null;
   return (
     <article id="atk-profile-status" className="setting-card">
       <div className="setting-heading compact">
-        <div><p>ONBOARD</p><h2>Configuration bank</h2></div>
+        <div><p>{displayText(__uiLocale, "ONBOARD")}</p><h2>{displayText(__uiLocale, "Configuration bank")}</h2></div>
         <output>{status.activeProfile} / {status.atkProfileCount}</output>
       </div>
       <Segmented
-        ariaLabel="Active configuration bank"
+        ariaLabel={displayText(__uiLocale, "Active configuration bank")}
         options={Array.from({ length: status.atkProfileCount }, (_, index) => ({
           value: index + 1,
           label: String(index + 1),
@@ -23,41 +26,39 @@ export function AtkProfileCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
         disabled={snapshot.settingInProgress}
         onChange={(profile) => void control.selectAtkR1Profile(profile)}
       />
-      <small className="setting-note">
-        Switching changes the active firmware-managed bank and requires readback from the mouse.
-      </small>
+      <small className="setting-note"> {displayText(__uiLocale, "Switching changes the active firmware-managed bank and requires readback from the mouse.")} </small>
     </article>
   );
 }
 
 export function AtkButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   // Vendor catalog: models without an underside button do not show its row.
   const mappings = atkVisibleButtons(snapshot.status?.atkButtonMappings, snapshot.status?.atkCatalogFeatures);
   if (!mappings.length) return null;
   return (
     <article id="atk-button-status" className="setting-card">
       <div className="setting-heading compact">
-        <div><p>BUTTONS</p><h2>Onboard assignments</h2></div>
+        <div><p>{displayText(__uiLocale, "BUTTONS")}</p><h2>{displayText(__uiLocale, "Onboard assignments")}</h2></div>
         <output>{mappings.length}</output>
       </div>
       <div className="button-remap-list">
         {mappings.map((mapping) => (
           <div className="button-remap-row" key={mapping.id}>
-            <span>{mapping.name}</span>
+            <span>{displayText(__uiLocale, mapping.name)}</span>
             <output title={`EEPROM 0x${mapping.address.toString(16).padStart(4, "0")} · ${mapping.raw}`}>
-              {mapping.checksumValid ? mapping.action : `Invalid checksum · ${mapping.raw}`}
+              {mapping.checksumValid ? displayText(__uiLocale, mapping.action) : `${displayText(__uiLocale, "Invalid checksum")} · ${mapping.raw}`}
             </output>
           </div>
         ))}
       </div>
-      <small className="setting-note">
-        Read from the active bank. Assignment writes, shortcuts, and macros remain locked pending reversible validation.
-      </small>
+      <small className="setting-note"> {displayText(__uiLocale, "Read from the active bank. Assignment writes, shortcuts, and macros remain locked pending reversible validation.")} </small>
     </article>
   );
 }
 
 export function AtkReceiverCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [pairingPrepared, setPairingPrepared] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const startPairingRef = useRef<HTMLButtonElement>(null);
@@ -82,37 +83,33 @@ export function AtkReceiverCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   return (
     <article ref={cardRef} id="atk-receiver-status" className="setting-card" tabIndex={-1}>
       <div className="setting-heading compact">
-        <div><p>WIRELESS</p><h2>Receiver</h2></div>
-        <output>{receiver.online ? "Mouse online" : "Mouse offline"}</output>
+        <div><p>{displayText(__uiLocale, "WIRELESS")}</p><h2>{displayText(__uiLocale, "Receiver")}</h2></div>
+        <output>{displayText(__uiLocale, receiver.online ? "Mouse online" : "Mouse offline")}</output>
       </div>
       <div className="button-remap-list">
-        <div className="button-remap-row"><span>RF identifier</span><output>{receiver.rfId}</output></div>
-        <div className="button-remap-row"><span>Pairing state</span><output>{pairing}</output></div>
+        <div className="button-remap-row"><span>{displayText(__uiLocale, "RF identifier")}</span><output>{receiver.rfId}</output></div>
+        <div className="button-remap-row"><span>{displayText(__uiLocale, "Pairing state")}</span><output>{displayText(__uiLocale, pairing)}</output></div>
       </div>
       {snapshot.atkR1SePlusPairingAvailable ? (
         pairingPrepared ? (
           <div className="setting-action">
-            <small className="setting-note">
-              Unplug the mouse cable and select 2.4 GHz mode. After starting, hold left click, wheel click, and right click until the indicator flashes, then release.
-            </small>
+            <small className="setting-note"> {displayText(__uiLocale, "Unplug the mouse cable and select 2.4 GHz mode. After starting, hold left click, wheel click, and right click until the indicator flashes, then release.")} </small>
             <button
               ref={startPairingRef}
               type="button"
               disabled={snapshot.settingInProgress}
               onClick={startPairing}
-            >
-              Ready, start pairing
-            </button>
-            <button type="button" disabled={snapshot.settingInProgress} onClick={closePreparation}>Cancel</button>
+            > {displayText(__uiLocale, "Ready, start pairing")} </button>
+            <button type="button" disabled={snapshot.settingInProgress} onClick={closePreparation}>{displayText(__uiLocale, "Cancel")}</button>
           </div>
         ) : (
           <div className="setting-action">
-            <small className="setting-note">Pairing is verified for the VXE R1 SE+ (CID 02, MID 20).</small>
-            <button type="button" disabled={snapshot.settingInProgress} onClick={() => setPairingPrepared(true)}>Pair R1 SE+</button>
+            <small className="setting-note">{displayText(__uiLocale, "Pairing is verified for the VXE R1 SE+ (CID 02, MID 20).")}</small>
+            <button type="button" disabled={snapshot.settingInProgress} onClick={() => setPairingPrepared(true)}>{displayText(__uiLocale, "Pair R1 SE+")}</button>
           </div>
         )
       ) : (
-        <small className="setting-note">Pairing controls are unavailable on this receiver model.</small>
+        <small className="setting-note">{displayText(__uiLocale, "Pairing controls are unavailable on this receiver model.")}</small>
       )}
     </article>
   );
@@ -129,6 +126,7 @@ const ATK_DONGLE_LIGHT_LABELS = ["Close", "Polling Rate Effect", "Battery Gradie
  * verified on the F1 Ultimate 2.0 (CID 01, MID 08 over 373B:11D9).
  */
 export function AtkSensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const sensorMode = snapshot.status?.atkSensorMode ?? null;
   if (sensorMode == null) return null;
   // Vendor catalog: noAthleticsMax mice expose Basic and Shard only, so the
@@ -137,46 +135,45 @@ export function AtkSensorCard({ snapshot }: { snapshot: ControlSnapshot }): Reac
   return (
     <article id="atk-sensor-mode" className="setting-card">
       <div className="setting-heading compact">
-        <div><p>PERFORMANCE</p><h2>Sensor Sampling Rate</h2></div>
+        <div><p>{displayText(__uiLocale, "PERFORMANCE")}</p><h2>{displayText(__uiLocale, "Sensor Sampling Rate")}</h2></div>
       </div>
       <Segmented
-        ariaLabel="Sensor sampling mode"
-        options={modes.map((value) => ({ value, label: ATK_SENSOR_MODE_LABELS[value] }))}
+        ariaLabel={displayText(__uiLocale, "Sensor sampling mode")}
+        options={modes.map((value) => ({ value, label: displayText(__uiLocale, ATK_SENSOR_MODE_LABELS[value]) }))}
         value={sensorMode}
         disabled={snapshot.settingInProgress}
         className={modes.length === 3 ? "three" : undefined}
         onChange={(mode) => void control.selectAtkSensorMode(mode)}
       />
       <small className="setting-note setting-note-stable">
-        {sensorMode === 2
+        {displayText(__uiLocale, sensorMode === 2
           ? "In this mode, the mouse sensor is in high performance state, high scanning frequency, more responsive control."
           : sensorMode === 1
             ? "ATK Shard competitive firmware: balanced scan rate for match play."
-            : "Basic sensor mode for daily work and maximum battery life."}
+            : "Basic sensor mode for daily work and maximum battery life.")}
       </small>
     </article>
   );
 }
 
 export function AtkDongleCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const dongleLight = snapshot.status?.atkDongleLight ?? (snapshot.status?.atkSensorMode != null ? 2 : null);
   if (dongleLight == null) return null;
   return (
     <article id="atk-dongle-light" className="setting-card">
       <div className="setting-heading compact">
-        <div><p>PARAMETER</p><h2>Dongle Light Effect</h2></div>
+        <div><p>{displayText(__uiLocale, "PARAMETER")}</p><h2>{displayText(__uiLocale, "Dongle Light Effect")}</h2></div>
       </div>
-      <small className="setting-note">Lighting Effect Mode</small>
+      <small className="setting-note">{displayText(__uiLocale, "Lighting Effect Mode")}</small>
       <Segmented
-        ariaLabel="Dongle LED effect"
-        options={ATK_DONGLE_LIGHT_LABELS.map((label, value) => ({ value, label }))}
+        ariaLabel={displayText(__uiLocale, "Dongle LED effect")}
+        options={ATK_DONGLE_LIGHT_LABELS.map((label, value) => ({ value, label: displayText(__uiLocale, label) }))}
         value={dongleLight}
         disabled={snapshot.settingInProgress}
         onChange={(mode) => void control.selectAtkDongleLight(mode)}
       />
-      <small className="setting-note">
-        Effect on the 8K receiver; write-only, confirmed on the LED.
-      </small>
+      <small className="setting-note"> {displayText(__uiLocale, "Effect on the 8K receiver; write-only, confirmed on the LED.")} </small>
     </article>
   );
 }

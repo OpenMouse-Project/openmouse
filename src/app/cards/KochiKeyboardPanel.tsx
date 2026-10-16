@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import type { ReactNode } from "react";
 import type { ControlSnapshot } from "../../device/types";
 import * as control from "../../device/controller";
@@ -13,7 +14,7 @@ export function KochiKeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }):
   const busy = keyboard.trigger.busy;
   return (
     <section className="keyboard-panel" data-workspace-host role="tabpanel" aria-labelledby="workspace-tab-overview">
-      {keyboard.trigger.statusText ? <output className="keyboard-status" role="status">{keyboard.trigger.statusText}</output> : null}
+      {keyboard.trigger.statusText ? <output className="keyboard-status" role="status">{displayText(locale, keyboard.trigger.statusText)}</output> : null}
       <article className="setting-card keyboard-identity-card keyboard-workspace-card">
         <div className="setting-heading"><div><div className="title-row"><h2>{keyboard.name}</h2><p>{t(locale, "kb.keyboardLabel")}</p></div>
           <small className="setting-note">{t(locale, "kb.kochiModeNote")}</small>

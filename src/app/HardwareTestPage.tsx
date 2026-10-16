@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
@@ -494,7 +495,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 disabled={connecting || snapshot.connectDisabled}
                 onClick={connectDevice}
               >
-                {connecting ? "…" : t(locale, "hw.connect")}
+                {displayText(locale, connecting ? "…" : t(locale, "hw.connect"))}
               </button>
             </div>
           )}
@@ -513,7 +514,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
               <span className="hardware-test-panel-title">{t(locale, "hw.panelTitle")}</span>
               <span className={`hardware-test-state-pill ${stateClass}`}>
                 <i aria-hidden="true" />
-                {stateText}
+                {displayText(locale, stateText)}
               </span>
             </div>
 
@@ -550,15 +551,15 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
 
                   <div className="hardware-test-stage-main">
                     <span className="hardware-test-stage-label">
-                      {stage.state === "running" && stage.kind === "check"
+                      {displayText(locale, stage.state === "running" && stage.kind === "check"
                         ? tp(locale, "hw.checking", { label: stage.label })
-                        : stage.label}
+                        : stage.label)}
                     </span>
                     {stage.state === "running" && stage.hint ? (
-                      <span className="hardware-test-stage-hint">{stage.hint}</span>
+                      <span className="hardware-test-stage-hint">{displayText(locale, stage.hint)}</span>
                     ) : null}
                     {stage.state !== "running" && stage.detail ? (
-                      <span className="hardware-test-stage-detail">{stage.detail}</span>
+                      <span className="hardware-test-stage-detail">{displayText(locale, stage.detail)}</span>
                     ) : null}
                     {stage.kind === "sampling" && stage.state === "running" ? (
                       <div className="hardware-test-progress">
@@ -572,9 +573,9 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
 
                   {stage.kind === "sampling" && stage.state === "running" ? (
                     <span className={`hardware-test-live${liveSample ? "" : " empty"}`} aria-live="polite">
-                      {liveSample
+                      {displayText(locale, liveSample
                         ? tp(locale, "hw.liveHertz", { hz: liveSample.hz, samples: liveSample.samples })
-                        : "—"}
+                        : "—")}
                     </span>
                   ) : null}
                 </div>
@@ -593,13 +594,13 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   )}
                 </svg>
                 <div className="hardware-test-banner-text">
-                  <strong>{verdictLabel}</strong>
+                  <strong>{displayText(locale, verdictLabel)}</strong>
                   <span>{tp(locale, "hw.finishTime", { s: (report.durationMs / 1000).toFixed(1) })}</span>
                 </div>
                 <div className="hardware-test-banner-counts">
-                  <span className="ok">{passed} OK</span>
-                  <span className="fail">{failed} FAIL</span>
-                  <span className="skip">{skipped} SKIP</span>
+                  <span className="ok">{passed} {displayText(locale, "OK")}</span>
+                  <span className="fail">{failed} {displayText(locale, "FAIL")}</span>
+                  <span className="skip">{skipped} {displayText(locale, "SKIP")}</span>
                 </div>
               </div>
             ) : null}
@@ -611,7 +612,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 disabled={connecting || running || snapshot.connectDisabled}
                 onClick={connectDevice}
               >
-                {connecting ? "…" : t(locale, "hw.connect")}
+                {displayText(locale, connecting ? "…" : t(locale, "hw.connect"))}
               </button>
               <button className="hardware-test-btn hardware-test-btn-start" type="button" disabled={running} onClick={startTest}>
                 {t(locale, "hw.start")}
@@ -641,18 +642,18 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.identity")}</span>
                     <span className="mouse-test-device-val">
-                      {formatHexId(info.vendorId)} / {formatHexId(info.productId)}
+                      {displayText(locale, formatHexId(info.vendorId))} / {displayText(locale, formatHexId(info.productId))}
                     </span>
                   </div>
                 )}
                 <div className="mouse-test-device-row">
                   <span className="mouse-test-device-key">{t(locale, "hw.transport")}</span>
-                  <span className="mouse-test-device-val">{info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID"}</span>
+                  <span className="mouse-test-device-val">{displayText(locale, info.transport === "bridge" ? "OpenMouse Bridge" : "WebHID")}</span>
                 </div>
                 {info.connectionType && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "test.connection")}</span>
-                    <span className="mouse-test-device-val">{info.connectionType}</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.connectionType)}</span>
                   </div>
                 )}
                 {info.signalStrength !== null && (
@@ -665,21 +666,21 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.receiver")}</span>
                     <span className="mouse-test-device-val">
-                      {info.pairingInProgress ? "pairing…" : info.receiverOnline ? "online" : "offline"}
-                      {info.receiverRfId ? ` · RF ${info.receiverRfId}` : ""}
+                      {displayText(locale, info.pairingInProgress ? "pairing…" : info.receiverOnline ? "online" : "offline")}
+                      {displayText(locale, info.receiverRfId ? ` · RF ${info.receiverRfId}` : "")}
                     </span>
                   </div>
                 )}
                 {info.collectionsSummary && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.interfaces")}</span>
-                    <span className="mouse-test-device-val mouse-test-device-val-wrap">{info.collectionsSummary}</span>
+                    <span className="mouse-test-device-val mouse-test-device-val-wrap">{displayText(locale, info.collectionsSummary)}</span>
                   </div>
                 )}
                 {info.driverFamily && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.driver")}</span>
-                    <span className="mouse-test-device-val">{info.driverFamily}</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.driverFamily)}</span>
                   </div>
                 )}
                 {info.pollingRateHz !== null && (
@@ -691,13 +692,13 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 {info.supportedPollingRates && info.supportedPollingRates.length > 0 && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.rates")}</span>
-                    <span className="mouse-test-device-val">{info.supportedPollingRates.join(" / ")} Hz</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.supportedPollingRates.join(" / "))} Hz</span>
                   </div>
                 )}
                 {info.dpi !== null && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "test.dpi")}</span>
-                    <span className="mouse-test-device-val">{info.dpi.toLocaleString()}</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.dpi.toLocaleString())}</span>
                   </div>
                 )}
                 {info.dpiStages && info.dpiStages.length > 0 && (
@@ -706,7 +707,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                     <span className="mouse-test-device-val mouse-test-dpi-stages">
                       {info.dpiStages.map((stage, index) => (
                         <span key={index} className={`mouse-test-dpi-chip${index === info.activeDpiStage ? " active" : ""}`}>
-                          {stage.toLocaleString()}
+                          {displayText(locale, stage.toLocaleString())}
                         </span>
                       ))}
                     </span>
@@ -715,14 +716,14 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 {info.liftOffDistance && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.lod")}</span>
-                    <span className="mouse-test-device-val">{info.liftOffDistance}</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.liftOffDistance)}</span>
                   </div>
                 )}
                 {info.batteryPercent !== null && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "test.battery")}</span>
                     <span className="mouse-test-device-val">
-                      {info.batteryPercent}% ({info.batteryState})
+                      {info.batteryPercent}% ({displayText(locale, info.batteryState)})
                     </span>
                   </div>
                 )}
@@ -735,7 +736,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                 {info.deviceMode && (
                   <div className="mouse-test-device-row">
                     <span className="mouse-test-device-key">{t(locale, "hw.mode")}</span>
-                    <span className="mouse-test-device-val">{info.deviceMode}</span>
+                    <span className="mouse-test-device-val">{displayText(locale, info.deviceMode)}</span>
                   </div>
                 )}
               </div>
@@ -747,11 +748,11 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
 
       <footer className="hardware-test-footer">
         <p className="hardware-test-footer-note">
-          {footerNoteParts[0]}
+          {displayText(locale, footerNoteParts[0])}
           <a className="hardware-test-footer-link" href={DISCORD_URL} target="_blank" rel="noreferrer">
             {t(locale, "hw.discord")}
           </a>
-          {footerNoteParts[1]}
+          {displayText(locale, footerNoteParts[1])}
         </p>
       </footer>
     </div>

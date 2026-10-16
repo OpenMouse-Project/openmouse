@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { clamp, hexToHsv, hsvToHex, hexToRgb, rgbToHsv, type Hsv } from "../ui/color-math";
 
@@ -61,6 +63,7 @@ export function ColorPicker({
   ariaLabel: string;
   onChange: (hex: string) => void;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(value));
   const [hexText, setHexText] = useState(value);
   const dragging = useRef<"sv" | "hue" | null>(null);
@@ -124,7 +127,7 @@ export function ColorPicker({
 
   return (
     <div className={`lighting-color-picker${disabled ? " is-disabled" : ""}`} ref={root}>
-      <input type="hidden" id={id} value={hex} aria-label={ariaLabel} readOnly />
+      <input type="hidden" id={id} value={hex} aria-label={displayText(__uiLocale, ariaLabel)} readOnly />
       <div
         className="lighting-color-panel"
         onPointerDown={(event) => {

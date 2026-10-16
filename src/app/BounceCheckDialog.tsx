@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BUNNY_HOP_LIMITS, clampBunnyHopMs } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import * as control from "../device/controller";
@@ -56,21 +57,15 @@ export function BounceCheckDialog({
       <div className="support-dialog-inner share-profile-dialog-inner">
         <header>
           <div>
-            <p className="overline">Bunny hop</p>
-            <h2 id="bounce-check-title">Bounce check</h2>
+            <p className="overline">{displayText(locale, "Bunny hop")}</p>
+            <h2 id="bounce-check-title">{displayText(locale, "Bounce check")}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button>
         </header>
         <div className="profile-key-fields">
-          <small className="setting-description">
-            Click a button as fast as you can in the field below for a few seconds. A switch that bounces registers a
-            second press within {BOUNCE_GAP_MS} ms, which a finger cannot do, so those are counted and Bunny Hop is
-            suggested to cover them.
-          </small>
+          <small className="setting-description"> {displayText(locale, "Click a button as fast as you can in the field below for a few seconds. A switch that bounces registers a second press within")} {BOUNCE_GAP_MS} {displayText(locale, "ms, which a finger cannot do, so those are counted and Bunny Hop is suggested to cover them.")} </small>
           {bunnyHopMs > 0 ? (
-            <small className="setting-description" role="status">
-              Bunny Hop is on at {bunnyHopMs} ms, so the mouse is already hiding bounces. Turn it off to see them.
-            </small>
+            <small className="setting-description" role="status"> {displayText(locale, "Bunny Hop is on at")} {bunnyHopMs} {displayText(locale, "ms, so the mouse is already hiding bounces. Turn it off to see them.")} </small>
           ) : null}
           <button
             type="button"
@@ -81,22 +76,19 @@ export function BounceCheckDialog({
               setPresses((previous) => ({ ...previous, [event.button]: [...(previous[event.button] ?? []), time] }));
             }}
             onContextMenu={(event) => event.preventDefault()}
-          >
-            Click here as fast as you can
-          </button>
+          > {displayText(locale, "Click here as fast as you can")} </button>
           <ul className="bounce-check-results">
             {reports.map((entry) => (
               <li key={entry.button}>
-                {entry.label}: {entry.report.clicks} clicks, {entry.report.bounces} bounced
-                {entry.report.longestGap !== null ? `, longest gap ${Math.round(entry.report.longestGap)} ms` : ""}
+                {displayText(locale, entry.label)}: {entry.report.clicks} {displayText(locale, "clicks,")} {entry.report.bounces} {displayText(locale, "bounced")} {displayText(locale, entry.report.longestGap !== null ? `, longest gap ${Math.round(entry.report.longestGap)} ms` : "")}
               </li>
             ))}
           </ul>
           {reports.some((entry) => entry.report.clicks >= 10) ? (
             <small className="setting-description" role="status">
-              {anyBounce
+              {displayText(locale, anyBounce
                 ? `Bounce found. A Bunny Hop of ${suggested} ms (range ${BUNNY_HOP_LIMITS.minMs} to ${BUNNY_HOP_LIMITS.maxMs}) should filter it.`
-                : "No bounce found in these clicks."}
+                : "No bounce found in these clicks.")}
             </small>
           ) : null}
           <div className="import-hits-actions">
@@ -106,11 +98,10 @@ export function BounceCheckDialog({
                 className="connect-button"
                 disabled={!canApply}
                 onClick={() => { control.applyBunnyHopMs(suggested); onClose(); }}
-              >
-                Set Bunny Hop to {suggested} ms
+              > {displayText(locale, "Set Bunny Hop to")} {suggested} ms
               </button>
             ) : null}
-            <button type="button" className="connect-button" onClick={() => setPresses({})}>Clear</button>
+            <button type="button" className="connect-button" onClick={() => setPresses({})}>{displayText(locale, "Clear")}</button>
             <button type="button" className="connect-button" onClick={onClose}>{t(locale, "common.close")}</button>
           </div>
         </div>

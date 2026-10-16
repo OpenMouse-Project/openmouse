@@ -27,6 +27,7 @@ export const ar: Record<I18nKey, string> = {
   "luna.stageYDpi": "المستوى {n} · DPI لمحور Y",
   "luna.profileSwitchPending": "طبّق تبديل الملف أو ألغِه قبل تعديل الإعدادات.",
   "luna.discardBeforeSwitch": "تجاهل التغييرات غير المطبقة وتبديل الملف المدمج؟",
+  "set.turkish": "Türkçe",
   "luna.angleSnap": "تصحيح الخط المستقيم",
   "luna.competitiveMode": "وضع المنافسة",
   "luna.trackingMode": "وضع التتبع",

@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
   KEYCHRON_NAPE_BUTTON_ACTIONS,
@@ -66,7 +67,7 @@ function AssignmentSelect({
       <select
         value={value}
         disabled={disabled}
-        title={action === "Custom" ? `Unknown mapping: 0x${keycode.toString(16).padStart(4, "0")}` : undefined}
+        title={displayText(locale, action === "Custom" ? `Unknown mapping: 0x${keycode.toString(16).padStart(4, "0")}` : undefined)}
         onChange={(event) => {
           const next = event.currentTarget.value;
           if (next === "Custom") return;
@@ -75,7 +76,7 @@ function AssignmentSelect({
       >
         {value === "Custom" ? <option value="Custom">{t(locale, "prof.customPreserved")}</option> : null}
         {KEYCHRON_NAPE_BUTTON_ACTIONS.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{displayText(locale, option)}</option>
         ))}
       </select>
       <i aria-hidden="true" />
@@ -96,7 +97,7 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
     <div className="profile-button-editor">
       <div className="profile-button-heading">
         <div>
-          <p>BUTTONS</p>
+          <p>{displayText(locale, "BUTTONS")}</p>
           <h2>{t(locale, "prof.assign")}</h2>
           <small>{t(locale, "key.assignBody")}</small>
         </div>
@@ -108,7 +109,7 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
             data-pending-key={pendingKey(layer, orientationTarget)}
           >
             <span className="assignment-button-number">0</span>
-            <span className="assignment-button-name">Orientation</span>
+            <span className="assignment-button-name">{displayText(locale, "Orientation")}</span>
             <span className="assignment-select-wrap">
               <select
                 value={stagedOrientation?.keycode ?? map.orientationIndex}
@@ -118,7 +119,7 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
                 }}
               >
                 {KEYCHRON_NAPE_ORIENTATION_OPTIONS.map((option) => (
-                  <option key={option.index} value={option.index}>{option.label}</option>
+                  <option key={option.index} value={option.index}>{displayText(locale, option.label)}</option>
                 ))}
               </select>
               <i aria-hidden="true" />
@@ -135,8 +136,8 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
                 className={`assignment-card${staged ? " is-staged" : ""}`}
                 data-pending-key={pendingKey(layer, target)}
               >
-                <span className="assignment-button-number">{row.number}</span>
-                <span className="assignment-button-name">{row.name}</span>
+                <span className="assignment-button-number">{displayText(locale, row.number)}</span>
+                <span className="assignment-button-name">{displayText(locale, row.name)}</span>
                 <AssignmentSelect
                   layer={layer}
                   target={target}
@@ -161,8 +162,8 @@ function NapeAssignments({ snapshot, layer }: { snapshot: ControlSnapshot; layer
                 className={`assignment-card${staged ? " is-staged" : ""}`}
                 data-pending-key={pendingKey(layer, target)}
               >
-                <span className="assignment-button-number">{row.number}</span>
-                <span className="assignment-button-name">{row.name}</span>
+                <span className="assignment-button-number">{displayText(locale, row.number)}</span>
+                <span className="assignment-button-name">{displayText(locale, row.name)}</span>
                 <AssignmentSelect
                   layer={layer}
                   target={target}
@@ -235,7 +236,7 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
         >
           <span className="profile-summary-text">
             <span className="profile-summary-label">{t(locale, "prof.editing")}</span>
-            <strong>{layerLabel(locale, keychronLayerLabel(editedLayer))}{tags ? ` · ${tags}` : ""}</strong>
+            <strong>{displayText(locale, layerLabel(locale, keychronLayerLabel(editedLayer)))}{displayText(locale, tags ? ` · ${tags}` : "")}</strong>
             <small>{t(locale, "key.layersStored")}</small>
           </span>
           <i className="profile-summary-chevron" aria-hidden="true" />
@@ -277,17 +278,17 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
                     <span className={`device-dot${running ? "" : " is-idle"}`} />
                     <span className="profile-row-text">
                       <strong>
-                        {layerLabel(locale, keychronLayerLabel(layer))}{rowTags ? ` · ${rowTags}` : ""}
+                        {displayText(locale, layerLabel(locale, keychronLayerLabel(layer)))}{displayText(locale, rowTags ? ` · ${rowTags}` : "")}
                       </strong>
                       <small>
-                        {running ? t(locale, "key.currentLayer") : t(locale, "key.storedLayer")}
+                        {displayText(locale, running ? t(locale, "key.currentLayer") : t(locale, "key.storedLayer"))}
                       </small>
                     </span>
                   </button>
                   <button
                     type="button"
                     disabled={busy || running}
-                    title={running ? t(locale, "key.alreadyLayer") : tp(locale, "key.switchLayer", { label: layerLabel(locale, keychronLayerLabel(layer)) })}
+                    title={displayText(locale, running ? t(locale, "key.alreadyLayer") : tp(locale, "key.switchLayer", { label: layerLabel(locale, keychronLayerLabel(layer)) }))}
                     aria-label={tp(locale, "key.switchTo", { label: layerLabel(locale, keychronLayerLabel(layer)) })}
                     aria-pressed={running}
                     className={`icon-button${running ? " is-active" : ""}`}
@@ -299,7 +300,7 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
               );
             })}
           </div>
-          <small id="onboard-status">{snapshot.onboardStatus}</small>
+          <small id="onboard-status">{displayText(locale, snapshot.onboardStatus)}</small>
           <NapeAssignments snapshot={snapshot} layer={editedLayer} />
         </div>
       </div>

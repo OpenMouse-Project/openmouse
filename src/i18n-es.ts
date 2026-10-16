@@ -27,6 +27,7 @@ export const es: Record<I18nKey, string> = {
   "luna.stageYDpi": "Nivel {n} · DPI Y",
   "luna.profileSwitchPending": "Aplica o cancela el cambio de perfil antes de editar los ajustes.",
   "luna.discardBeforeSwitch": "¿Descartar los cambios sin aplicar y cambiar de perfil interno?",
+  "set.turkish": "Türkçe",
   "luna.angleSnap": "Corrección de línea recta",
   "luna.competitiveMode": "Modo competitivo",
   "luna.trackingMode": "Modo de seguimiento",

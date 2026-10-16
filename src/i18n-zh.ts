@@ -27,6 +27,7 @@ export const zh: Record<I18nKey, string> = {
   "luna.stageYDpi": "第 {n} 档 · Y 轴 DPI",
   "luna.profileSwitchPending": "请先应用或取消配置切换，再修改设置。",
   "luna.discardBeforeSwitch": "丢弃尚未应用的修改并切换板载配置？",
+  "set.turkish": "Türkçe",
   "luna.angleSnap": "直线修正",
   "luna.competitiveMode": "竞技模式",
   "luna.trackingMode": "追踪模式",

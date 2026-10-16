@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 // The Games page — only reachable while OpenMouse Bridge is actually
 // reachable, i.e. `navigator.hid` is currently Bridge's WebHID shim, not the
 // browser's own implementation (see bridge-hid.ts). Lists the games Bridge
@@ -90,7 +91,7 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
         <span className="games-bridge-status">
           <span className="games-bridge-dot" aria-hidden="true" />
           {t(locale, "bridge.title")} · {t(locale, "bridge.connected")}
-          {status?.version ? ` · v${status.version}` : ""}
+          {displayText(locale, status?.version ? ` · v${status.version}` : "")}
         </span>
       </div>
 
@@ -102,7 +103,7 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
               <button type="button" className="games-tile" onClick={() => setSelectedGame(game)}>
                 <span className="games-tile-art">
                   {art ? (
-                    <img src={art} alt="" loading="lazy" />
+                    <img src={art} alt={displayText(locale, "")} loading="lazy" />
                   ) : (
                     <Gamepad2 size={28} strokeWidth={1.6} aria-hidden="true" />
                   )}

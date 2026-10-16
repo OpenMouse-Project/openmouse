@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 import { useEffect, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { t, tp } from "../i18n";
@@ -35,8 +37,9 @@ function SuperstrikeSteps({
   onChange: (next: number) => void;
   disabled?: boolean;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   return (
-    <div className="superstrike-steps" role="group" aria-label={id.replace("logitech-", "").replaceAll("-", " ")}>
+    <div className="superstrike-steps" role="group" aria-label={displayText(__uiLocale, id.replace("logitech-", "").replaceAll("-", " "))}>
       <input id={id} type="hidden" value={value} readOnly />
       <div>
         {Array.from({ length: max - min + 1 }, (_, index) => min + index).map((step) => (
@@ -58,6 +61,7 @@ function SuperstrikeSteps({
 // Actuation is read on the same 0..10 scale the mouse streams press depth on
 // (both derive from the same wire byte), so it lines up on the bar as-is.
 function PressMeter({ actuation }: { actuation: [number, number] }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [depth, setDepth] = useState<[number, number]>([0, 0]);
   useEffect(() => {
     control.startAnalogPressStream();
@@ -79,8 +83,8 @@ function PressMeter({ actuation }: { actuation: [number, number] }): ReactNode {
   return (
     <div className="superstrike-press-meters">
       {(["Left", "Right"] as const).map((side, i) => (
-        <div key={side} className="superstrike-press-meter" role="meter" aria-label={`${side} press depth`} aria-valuemin={0} aria-valuemax={10} aria-valuenow={depth[i]}>
-          <span>{side}</span>
+        <div key={side} className="superstrike-press-meter" role="meter" aria-label={displayText(__uiLocale, `${side} press depth`)} aria-valuemin={0} aria-valuemax={10} aria-valuenow={depth[i]}>
+          <span>{displayText(__uiLocale, side)}</span>
           <div>
             {Array.from({ length: 10 }, (_, step) => (
               <i key={step} data-on={step < depth[i]} data-actuation={step === actuation[i] - 1} />
@@ -140,7 +144,7 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
   return (
     <div className="superstrike-presets">
       <select
-        aria-label="HITS presets"
+        aria-label={displayText(locale, "HITS presets")}
         value={selected}
         onChange={(event) => {
           const name = event.currentTarget.value;
@@ -149,19 +153,19 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
           if (preset) load(preset, `"${preset.name}"`);
         }}
       >
-        <option value="">Presets…</option>
-        <optgroup label="Built-in">
+        <option value="">{displayText(locale, "Presets…")}</option>
+        <optgroup label={displayText(locale, "Built-in")}>
           {BUILT_IN_HITS_PRESETS.filter((preset) => presetFits(preset, limits)).map((preset) => (
-            <option key={preset.name} value={`builtin:${preset.name}`}>{preset.name}</option>
+            <option key={preset.name} value={`builtin:${preset.name}`}>{displayText(locale, preset.name)}</option>
           ))}
         </optgroup>
-        <optgroup label="Pro players (G HUB)">
+        <optgroup label={displayText(locale, "Pro players (G HUB)")}>
           {PRO_HITS_PRESETS.filter((preset) => presetFits(preset, limits)).map((preset) => (
             <option key={preset.name} value={`builtin:${preset.name}`}>{preset.name}</option>
           ))}
         </optgroup>
         {presets.length > 0 ? (
-          <optgroup label="Yours">
+          <optgroup label={displayText(locale, "Yours")}>
             {presets.map((preset) => <option key={preset.name} value={preset.name}>{preset.name}</option>)}
           </optgroup>
         ) : null}
@@ -173,16 +177,12 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
           const defaults = BUILT_IN_HITS_PRESETS.find((preset) => preset.name === "Default")!;
           load(defaults, "Default (reset)");
         }}
-      >
-        Reset
-      </button>
+      > {displayText(locale, "Reset")} </button>
       <button
         type="button"
         className="icon-button"
         onClick={() => setSaving(true)}
-      >
-        Save
-      </button>
+      > {displayText(locale, "Save")} </button>
       <SaveHitsPresetDialog
         open={saving}
         locale={locale}
@@ -200,9 +200,7 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
         className="icon-button"
         disabled={!presets.some((preset) => preset.name === selected)}
         onClick={() => setDeleting(selected)}
-      >
-        Delete
-      </button>
+      > {displayText(locale, "Delete")} </button>
       <DeleteHitsPresetDialog
         name={deleting}
         locale={locale}
@@ -214,20 +212,12 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
           setDeleting(null);
         }}
       />
-      <button type="button" className="icon-button" onClick={() => setTesting(true)}>
-        Test
-      </button>
+      <button type="button" className="icon-button" onClick={() => setTesting(true)}> {displayText(locale, "Test")} </button>
       {state.mode === "independent" ? (
         <>
-          <button type="button" className="icon-button" onClick={() => { const { left } = current(); load({ left, right: left }, "left copied to right"); }}>
-            Left to right
-          </button>
-          <button type="button" className="icon-button" onClick={() => { const { right } = current(); load({ left: right, right }, "right copied to left"); }}>
-            Right to left
-          </button>
-          <button type="button" className="icon-button" onClick={() => { const { left, right } = current(); load({ left: right, right: left }, "left and right swapped"); }}>
-            Swap
-          </button>
+          <button type="button" className="icon-button" onClick={() => { const { left } = current(); load({ left, right: left }, "left copied to right"); }}> {displayText(locale, "Left to right")} </button>
+          <button type="button" className="icon-button" onClick={() => { const { right } = current(); load({ left: right, right }, "right copied to left"); }}> {displayText(locale, "Right to left")} </button>
+          <button type="button" className="icon-button" onClick={() => { const { left, right } = current(); load({ left: right, right: left }, "left and right swapped"); }}> {displayText(locale, "Swap")} </button>
         </>
       ) : null}
       <HitsTestDialog
@@ -239,7 +229,7 @@ function HitsPresets({ state, limits, locale, canAdjust }: { state: AnalogTuning
         onAdjust={(side, value) => control.setAnalogTuningValue(state.mode === "both" ? "both" : side === 0 ? "left" : "right", "actuation", value)}
         onClose={() => setTesting(false)}
       />
-      {note ? <small className="superstrike-presets-note" role="status">{note}</small> : null}
+      {note ? <small className="superstrike-presets-note" role="status">{displayText(locale, note)}</small> : null}
     </div>
   );
 }
@@ -303,7 +293,7 @@ function TuningControls({
         return (
           <div key={row.setting} className="superstrike-control-row">
             <label>
-              {row.label} <small>{row.low} <span>{row.high}</span></small>
+              {displayText(locale, row.label)} <small>{displayText(locale, row.low)} <span>{displayText(locale, row.high)}</span></small>
             </label>
             {row.setting === "rapidTrigger" && rapidTriggerEnabled !== undefined ? (
               // One grid cell, like every other row: the switch sits beside the steps.
@@ -312,7 +302,7 @@ function TuningControls({
                   id={`logitech-${group}-rapid-trigger-enabled`}
                   className="superstrike-steps superstrike-switch"
                   role="group"
-                  aria-label="rapid trigger on or off"
+                  aria-label={displayText(locale, "rapid trigger on or off")}
                 >
                   <div>
                     {([false, true] as const).map((on) => (
@@ -352,10 +342,10 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
     <>
     <div id="logitech-analog-button-settings">
       <article className="setting-card superstrike-tuning-card">
-        <div className="setting-heading superstrike-tuning-heading"><div><h2>HITS Tuning</h2></div></div>
+        <div className="setting-heading superstrike-tuning-heading"><div><h2>{displayText(locale, "HITS Tuning")}</h2></div></div>
         <HitsPresets state={state} limits={tuning} locale={locale} canAdjust={!showApply} />
         <PressMeter actuation={[state.left.actuation, state.right.actuation]} />
-        <div className="superstrike-tabs" role="tablist" aria-label="HITS tuning mode">
+        <div className="superstrike-tabs" role="tablist" aria-label={displayText(locale, "HITS tuning mode")}>
           {(["both", "independent"] as const).map((mode) => (
             <button
               key={mode}
@@ -364,7 +354,7 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               aria-selected={state.mode === mode}
               onClick={() => control.setAnalogTuningMode(mode)}
             >
-              {mode === "both" ? t(locale, "super.both") : t(locale, "super.independent")}
+              {displayText(locale, mode === "both" ? t(locale, "super.both") : t(locale, "super.independent"))}
             </button>
           ))}
         </div>
@@ -374,7 +364,7 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               <fieldset key={side} className="superstrike-button-card">
                 <legend>
                   <span className="superstrike-button-dot" />
-                  {side === "left" ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton")}
+                  {displayText(locale, side === "left" ? t(locale, "adv.leftButton") : t(locale, "adv.rightButton"))}
                 </legend>
                 <TuningControls group={side} tuning={state[side]} limits={tuning} locale={locale} />
                 {showApply ? (
@@ -384,7 +374,7 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
                     type="button"
                     onClick={() => control.applyLogitechAnalogButton(side === "left" ? 0 : 1)}
                   >
-                    {side === "left" ? t(locale, "super.applyLeft") : t(locale, "super.applyRight")}
+                    {displayText(locale, side === "left" ? t(locale, "super.applyLeft") : t(locale, "super.applyRight"))}
                   </button>
                 ) : null}
               </fieldset>

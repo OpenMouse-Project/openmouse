@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 // Per-game settings profile, pushed to OpenMouse Bridge's `/v1/profiles` so it
 // keeps applying the moment Bridge sees the game come to the foreground —
 // even with this tab closed. There is no browser-side equivalent: only
@@ -288,27 +289,25 @@ export function GameProfilePanel({
 
         <div className="game-profile-settings">
           <div className="game-profile-name-card">
-            <span className="game-profile-name-label">PROFILE</span>
+            <span className="game-profile-name-label">{displayText(locale, "PROFILE")}</span>
             <span className="game-profile-name">{game.name}</span>
             <span className="game-profile-changed">
-              {changedCount === 0
+              {displayText(locale, changedCount === 0
                 ? t(locale, "games.noChanges")
-                : tp(locale, "games.changedCount", { n: changedCount })}
+                : tp(locale, "games.changedCount", { n: changedCount }))}
             </span>
             <button
               type="button"
               className="game-profile-clear"
               disabled={saving || (!autoApply && changedCount === 0)}
               onClick={clearProfile}
-            >
-              Clear
-            </button>
+            > {displayText(locale, "Clear")} </button>
           </div>
 
           <section className="game-profile-section">
-            <span className="game-profile-section-label">TARGET DEVICE</span>
+            <span className="game-profile-section-label">{displayText(locale, "TARGET DEVICE")}</span>
             {devices.length === 0 ? (
-              <p className="game-profile-empty">No devices detected yet.</p>
+              <p className="game-profile-empty">{displayText(locale, "No devices detected yet.")}</p>
             ) : (
               <ul className="game-profile-devices">
                 {devices.map((device, index) => (
@@ -316,14 +315,14 @@ export function GameProfilePanel({
                     <span className="game-profile-device-icon" aria-hidden="true">?</span>
                     <span className="game-profile-device-text">
                       <span className="game-profile-device-name">{device.name}</span>
-                      <span className="game-profile-device-brand">{deviceBrand(device)}</span>
+                      <span className="game-profile-device-brand">{displayText(locale, deviceBrand(device))}</span>
                     </span>
                     <button
                       type="button"
                       className={`game-profile-select${targetIndex === index ? " is-selected" : ""}`}
                       onClick={() => selectTarget(index)}
                     >
-                      {targetIndex === index ? "Selected" : "Select"}
+                      {displayText(locale, targetIndex === index ? "Selected" : "Select")}
                     </button>
                   </li>
                 ))}
@@ -333,10 +332,8 @@ export function GameProfilePanel({
 
           <section className="game-profile-section game-profile-auto-apply">
             <div className="game-profile-auto-apply-text">
-              <span className="game-profile-auto-apply-title">Apply automatically</span>
-              <span className="game-profile-auto-apply-body">
-                Push this profile to your mouse the moment {game.name} is detected running.
-              </span>
+              <span className="game-profile-auto-apply-title">{displayText(locale, "Apply automatically")}</span>
+              <span className="game-profile-auto-apply-body"> {displayText(locale, `Push this profile to your mouse the moment ${game.name} is detected running.`)} </span>
             </div>
             <button
               type="button"

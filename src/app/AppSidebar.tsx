@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { ChevronLeft, ChevronRight, FileText, FlaskConical, Gamepad2, House, Mouse, Settings as SettingsIcon, Star, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 import type { ControlSnapshot } from "../device/types";
@@ -40,7 +41,7 @@ export function AppSidebar({
         <button
           type="button"
           className="app-sidebar-collapse-toggle"
-          title={collapsed ? t(locale, "nav.expand") : t(locale, "nav.collapse")}
+          title={displayText(locale, collapsed ? t(locale, "nav.expand") : t(locale, "nav.collapse"))}
           onClick={onToggleCollapsed}
         >
           {collapsed ? (
@@ -56,13 +57,13 @@ export function AppSidebar({
           href={OPENMOUSE_URL}
           target="_blank"
           rel="noreferrer"
-          title="OpenMouse"
-          aria-label="OpenMouse"
+          title={displayText(locale, "OpenMouse")}
+          aria-label={displayText(locale, "OpenMouse")}
         >
-          <img className="brand-mark" src="/logo.png" alt="" width={16} height={24} />
+          <img className="brand-mark" src="/logo.png" alt={displayText(locale, "")} width={16} height={24} />
           <span className="app-sidebar-brand-text">OpenMouse</span>
-          <span className="app-sidebar-brand-version" title={snapshot.buildLabel}>
-            {snapshot.buildLabel}
+          <span className="app-sidebar-brand-version" title={displayText(locale, snapshot.buildLabel)}>
+            {displayText(locale, snapshot.buildLabel)}
           </span>
         </a>
 

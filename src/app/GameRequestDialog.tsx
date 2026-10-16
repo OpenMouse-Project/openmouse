@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 // "Request a game or app" — the Games page's request flow. Collects what
 // Bridge's detector needs to add an entry
 // to Desktop's `games.json` (a name plus the executable it watches for) — a
@@ -108,9 +110,10 @@ function useCopied(): [string | null, (key: string, text: string) => void] {
 
 /** Bridge only extracts icons on Windows; everywhere else the URL 404s. */
 function AppIcon({ app }: { app: BridgeApplication }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [failed, setFailed] = useState(false);
   if (failed) return <Gamepad2 size={18} strokeWidth={1.8} aria-hidden="true" />;
-  return <img src={bridgeApplicationIconUrl(app)} alt="" onError={() => setFailed(true)} />;
+  return <img src={bridgeApplicationIconUrl(app)} alt={displayText(__uiLocale, "")} onError={() => setFailed(true)} />;
 }
 
 export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, knownGames }: {
@@ -304,7 +307,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                   spellcheck={false}
                   maxLength={MAX_PATH_LENGTH + 2}
                   className="gamereq-mono"
-                  placeholder={PATH_EXAMPLES[kind][platform]}
+                  placeholder={displayText(locale, PATH_EXAMPLES[kind][platform])}
                   value={path}
                   onChange={(event) => setPath(event.currentTarget.value)}
                 />
@@ -350,13 +353,13 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                       className={platform === key ? "is-active" : ""}
                       onClick={() => setPlatform(key)}
                     >
-                      {PLATFORM_LABELS[key]}
+                      {displayText(locale, PLATFORM_LABELS[key])}
                     </button>
                   ))}
                 </div>
                 <p className="gamereq-hint">{tp(locale, command.hint, { shell: command.shell })}</p>
                 <div className="gamereq-command">
-                  <code className="gamereq-mono">{command.command}</code>
+                  <code className="gamereq-mono">{displayText(locale, command.command)}</code>
                   <button
                     type="button"
                     aria-label={t(locale, "gamereq.copy")}
@@ -402,22 +405,22 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
             <p className="feedback-description">{t(locale, "gamereq.previewDescription")}</p>
 
             <div className="gamereq-embed">
-              <p className="gamereq-embed-title">{KIND_TITLES[kind]}</p>
+              <p className="gamereq-embed-title">{displayText(locale, KIND_TITLES[kind])}</p>
               <div className="gamereq-embed-fields">
                 <div>
-                  <span>{kind === "game" ? "Game" : "App"}</span>
+                  <span>{displayText(locale, kind === "game" ? "Game" : "App")}</span>
                   <strong>{trimmedName}</strong>
                 </div>
                 <div>
-                  <span>Executable</span>
+                  <span>{displayText(locale, "Executable")}</span>
                   <code className="gamereq-mono">{exe}</code>
                 </div>
                 <div>
-                  <span>Platform</span>
-                  <p>{PLATFORM_LABELS[platform]}</p>
+                  <span>{displayText(locale, "Platform")}</span>
+                  <p>{displayText(locale, PLATFORM_LABELS[platform])}</p>
                 </div>
                 <div className="is-wide">
-                  <span>Path</span>
+                  <span>{displayText(locale, "Path")}</span>
                   <code className="gamereq-mono">{cleanedPath}</code>
                 </div>
               </div>
@@ -447,7 +450,7 @@ export function GameRequestDialog({ open, onClose, locale = "en", bridgeActive, 
                 {t(locale, "gamereq.edit")}
               </button>
               <button type="submit" className="is-primary" disabled={busy || cooldown > 0}>
-                {busy ? "…" : t(locale, "gamereq.send")}
+                {displayText(locale, busy ? "…" : t(locale, "gamereq.send"))}
               </button>
             </div>
           </>

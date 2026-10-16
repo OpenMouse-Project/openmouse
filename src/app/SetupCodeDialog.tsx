@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
@@ -105,17 +106,17 @@ export function SetupCodeDialog({
       <div className="support-dialog-inner share-profile-dialog-inner">
         <header>
           <div>
-            <p className="overline">Setup</p>
-            <h2 id="setup-code-title">Share setup</h2>
+            <p className="overline">{displayText(locale, "Setup")}</p>
+            <h2 id="setup-code-title">{displayText(locale, "Share setup")}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label={t(locale, "common.close")}>×</button>
         </header>
         <div className="profile-key-fields">
           <label className="profile-key-field">
-            <span>Your setup code</span>
+            <span>{displayText(locale, "Your setup code")}</span>
             <textarea rows={3} readOnly value={code} onFocus={(event) => event.currentTarget.select()} />
           </label>
-          <small className="setting-description">Holds: {describeSetup(mine).join(", ") || "nothing yet"}.</small>
+          <small className="setting-description">{displayText(locale, "Holds:")} {displayText(locale, describeSetup(mine).join(", ") || "nothing yet")}.</small>
           <div className="import-hits-actions">
             <button
               type="button"
@@ -123,22 +124,20 @@ export function SetupCodeDialog({
               onClick={() => {
                 navigator.clipboard?.writeText(code).then(() => setNote("Code copied."), () => setNote("Copy failed. Select the code and copy it."));
               }}
-            >
-              Copy code
-            </button>
+            > {displayText(locale, "Copy code")} </button>
           </div>
           <label className="profile-key-field">
-            <span>Apply a code</span>
+            <span>{displayText(locale, "Apply a code")}</span>
             <textarea
               rows={3}
-              placeholder="SETUP1-…"
+              placeholder={displayText(locale, "SETUP1-…")}
               value={text}
               onChange={(event) => { setText(event.currentTarget.value); setNote(""); }}
             />
           </label>
-          {problem ? <small className="setting-description" role="alert">{problem}</small> : null}
-          {decoded ? <small className="setting-description" role="status">This code sets: {describeSetup(decoded).join(", ")}.</small> : null}
-          {note ? <small className="setting-description" role="status">{note}</small> : null}
+          {problem ? <small className="setting-description" role="alert">{displayText(locale, problem)}</small> : null}
+          {decoded ? <small className="setting-description" role="status">{displayText(locale, "This code sets:")} {displayText(locale, describeSetup(decoded).join(", "))}.</small> : null}
+          {note ? <small className="setting-description" role="status">{displayText(locale, note)}</small> : null}
           <div className="import-hits-actions">
             <button
               type="button"
@@ -150,9 +149,7 @@ export function SetupCodeDialog({
                 setNote(skipped.length ? `Applied. Left out: ${skipped.join("; ")}.` : "Applied.");
                 setText("");
               }}
-            >
-              Apply setup
-            </button>
+            > {displayText(locale, "Apply setup")} </button>
             <button type="button" className="connect-button" onClick={onClose}>{t(locale, "common.close")}</button>
           </div>
         </div>

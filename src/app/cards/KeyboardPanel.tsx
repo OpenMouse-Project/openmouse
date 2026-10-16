@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import { KochiKeyboardPanel } from "./KochiKeyboardPanel";
 import { KeyboardWorkspaceCards } from "./KeyboardWorkspaceCards";
 import type { ReactNode } from "react";
@@ -40,7 +41,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
 
   return (
     <section className="keyboard-panel" data-workspace-host role="tabpanel" aria-labelledby={`workspace-tab-${snapshot.workspaceTab}`}>
-      {trigger.statusText ? <output className="keyboard-status" role="status">{trigger.statusText}</output> : null}
+      {trigger.statusText ? <output className="keyboard-status" role="status">{displayText(locale, trigger.statusText)}</output> : null}
       <article id="keyboard-card" className="setting-card keyboard-identity-card" hidden={snapshot.workspaceTab !== "overview"}>
         <div className="setting-heading">
           <div>
@@ -55,23 +56,23 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
         <dl className="keyboard-identity">
           <div>
             <dt>{t(locale, "kb.identityFirmware")}</dt>
-            <dd>{identity.firmwareVersion ?? notReported}</dd>
+            <dd>{displayText(locale, identity.firmwareVersion ?? notReported)}</dd>
           </div>
           <div>
             <dt>{t(locale, "kb.identityApp")}</dt>
-            <dd>{identity.appVersion ?? notReported}</dd>
+            <dd>{displayText(locale, identity.appVersion ?? notReported)}</dd>
           </div>
           <div>
             <dt>{t(locale, "kb.identityPcb")}</dt>
-            <dd>{identity.pcbVersion ?? notReported}</dd>
+            <dd>{displayText(locale, identity.pcbVersion ?? notReported)}</dd>
           </div>
           <div>
             <dt>{t(locale, "kb.identitySerial")}</dt>
             <dd>{identity.serial ?? notReported}</dd>
           </div>
-          <div><dt>{t(locale, "kb.boardId")}</dt><dd>{identity.boardId ?? notReported}</dd></div>
+          <div><dt>{t(locale, "kb.boardId")}</dt><dd>{displayText(locale, identity.boardId ?? notReported)}</dd></div>
         </dl>
-        <p className="setting-note">{[identity.capabilities?.axisType.magnetic ? t(locale, "kb.magnetic") : null, identity.capabilities?.connectionMode.usb ? t(locale, "kb.usb") : null, identity.capabilities?.basicFunctions.rgbLighting ? t(locale, "kb.rgb") : null].filter(Boolean).join(" · ")}</p>
+        <p className="setting-note">{displayText(locale, [identity.capabilities?.axisType.magnetic ? t(locale, "kb.magnetic") : null, identity.capabilities?.connectionMode.usb ? t(locale, "kb.usb") : null, identity.capabilities?.basicFunctions.rgbLighting ? t(locale, "kb.rgb") : null].filter(Boolean).join(" · "))}</p>
       </article>
 
       <article id="keyboard-polling-card" className="setting-card" hidden={snapshot.workspaceTab !== "performance"}>
@@ -149,11 +150,11 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
                     className={`keyboard-key${isSelected ? " is-selected" : ""}${label.length > 4 ? " is-long" : ""}`}
                     style={{ gridColumn: `${span.start + 1} / ${span.end + 2}` }}
                     aria-pressed={isSelected}
-                    aria-label={label}
-                    title={`${label} · ${tp(locale, "kb.keyPosition", { row: rowIndex + 1, col: colIndex + 1 })}`}
+                    aria-label={displayText(locale, label)}
+                    title={displayText(locale, `${label} · ${tp(locale, "kb.keyPosition", { row: rowIndex + 1, col: colIndex + 1 })}`)}
                     onClick={() => control.toggleKeyboardKey(rowIndex, colIndex)}
                   >
-                    {label}
+                    {displayText(locale, label)}
                   </button>
                   );
                 })}
@@ -184,7 +185,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
 
         {selectedKey ? (
           <div className="keyboard-trigger-editor">
-          <div className="keyboard-editor-heading"><div><h3>{t(locale, "kb.tuningTitle")}</h3><p>{tp(locale, "kb.valuesFor", { key: selectedKey.keycodeName ?? "" })}</p></div><div className="keyboard-selected-chips">{trigger.selectedKeys.slice(0, 5).map(ref => <span key={`${ref.row}:${ref.col}`}>{trigger.keys.find(k => k.row === ref.row && k.col === ref.col)?.keycodeName}</span>)}{trigger.selectedKeys.length > 5 ? <span>+{trigger.selectedKeys.length - 5}</span> : null}</div></div>
+          <div className="keyboard-editor-heading"><div><h3>{t(locale, "kb.tuningTitle")}</h3><p>{tp(locale, "kb.valuesFor", { key: selectedKey.keycodeName ?? "" })}</p></div><div className="keyboard-selected-chips">{trigger.selectedKeys.slice(0, 5).map(ref => <span key={`${ref.row}:${ref.col}`}>{displayText(locale, trigger.keys.find(k => k.row === ref.row && k.col === ref.col)?.keycodeName)}</span>)}{trigger.selectedKeys.length > 5 ? <span>+{trigger.selectedKeys.length - 5}</span> : null}</div></div>
           <div className="keyboard-trigger-controls">
             <section className="keyboard-tuning-group"><h4>{t(locale, "kb.actuationGroup")}</h4><p>{t(locale, "kb.actuationHint")}</p>
             <StepperSlider
@@ -256,7 +257,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
           </div>
         ) : (
           <p className="keyboard-empty">
-            {trigger.keys.length === 0 ? t(locale, "kb.noKeys") : t(locale, "kb.selectPrompt")}
+            {displayText(locale, trigger.keys.length === 0 ? t(locale, "kb.noKeys") : t(locale, "kb.selectPrompt"))}
           </p>
         )}
       </article>

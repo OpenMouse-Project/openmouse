@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { capabilitiesForFormat } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import { LOGITECH_BUTTON_ACTIONS, type LogitechButtonAction } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
@@ -73,7 +74,7 @@ export function Profiles({
           <span className="profile-summary-text">
             <span className="profile-summary-label">{t(locale, "prof.editing")}</span>
             <strong id="profile-summary-name">{summary.name}</strong>
-            <small id="profile-summary-detail">{summary.detail}</small>
+            <small id="profile-summary-detail">{displayText(locale, summary.detail)}</small>
           </span>
           <i className="profile-summary-chevron" aria-hidden="true" />
         </button>
@@ -136,18 +137,15 @@ export function Profiles({
                   >
                     <span className={`device-dot${hostRunning ? "" : " is-idle"}`} />
                     <span className="profile-row-text">
-                      <strong>
-                        Host — live{hostTags ? ` · ${hostTags}` : ""}
+                      <strong> {displayText(locale, "Host — live")}{displayText(locale, hostTags ? ` · ${hostTags}` : "")}
                       </strong>
-                      <small>
-                        Settings applied by software, not stored on the mouse. Lost on power-cycle.
-                      </small>
+                      <small> {displayText(locale, "Settings applied by software, not stored on the mouse. Lost on power-cycle.")} </small>
                     </span>
                   </button>
                   <button
                     type="button"
                     disabled={hostRunning}
-                    title={hostRunning ? t(locale, "prof.hostAlready") : t(locale, "prof.switchHost")}
+                    title={displayText(locale, hostRunning ? t(locale, "prof.hostAlready") : t(locale, "prof.switchHost"))}
                     aria-label={t(locale, "prof.switchHostAria")}
                     aria-pressed={hostRunning}
                     className={`icon-button${hostRunning ? " is-active" : ""}`}
@@ -158,13 +156,9 @@ export function Profiles({
                 </div>
 
                 <div className="profile-row-rule">
-                  <small>
-                    STORED ON THE MOUSE
-                  </small>
+                  <small> {displayText(locale, "STORED ON THE MOUSE")} </small>
                 </div>
-                <small className="profile-list-hint">
-                  Click a profile to edit it. Use the circle to switch the mouse to it.
-                </small>
+                <small className="profile-list-hint"> {displayText(locale, "Click a profile to edit it. Use the circle to switch the mouse to it.")} </small>
 
                 {profiles.map((profile) => {
                   const dpi = profile.dpiStages.length > 0
@@ -194,30 +188,30 @@ export function Profiles({
                       <button
                         type="button"
                         disabled={locked}
-                        title={locked
+                        title={displayText(locale, locked
                           ? t(locale, "prof.layoutUnverified")
-                          : t(locale, "prof.openProfile")}
+                          : t(locale, "prof.openProfile"))}
                         className="profile-row-open"
                         onClick={() => control.openOnboardProfile(profile.sector)}
                       >
                         <span className={`device-dot${running ? "" : " is-idle"}`} />
                         <span className="profile-row-text">
                           <strong>
-                            {(opened && snapshot.stagedProfileName) || profile.name || `Profile ${profile.sector}`}
-                            {tags ? ` · ${tags}` : ""}
+                            {(opened && snapshot.stagedProfileName) || profile.name || displayText(locale, `Profile ${profile.sector}`)}
+                            {displayText(locale, tags ? ` · ${tags}` : "")}
                           </strong>
-                          <small>{detail}</small>
+                          <small>{displayText(locale, detail)}</small>
                         </span>
                       </button>
                       <button
                         type="button"
                         disabled={renameDisabled}
-                        title={!nameable
+                        title={displayText(locale, !nameable
                           ? t(locale, "prof.noNameField")
                           : !contentsWritable
                             ? t(locale, "prof.contentUnverified")
-                            : t(locale, "prof.renameProfile")}
-                        aria-label={`Rename profile ${profile.sector}`}
+                            : t(locale, "prof.renameProfile"))}
+                        aria-label={displayText(locale, `Rename profile ${profile.sector}`)}
                         className="icon-button"
                         onClick={() => control.renameOnboardProfile(profile.sector)}
                       >
@@ -226,12 +220,12 @@ export function Profiles({
                       <button
                         type="button"
                         disabled={activateDisabled}
-                        title={running
+                        title={displayText(locale, running
                           ? t(locale, "prof.runningProfile")
                           : !profile.enabled
                             ? t(locale, "prof.enableFirst")
-                            : t(locale, "prof.switchProfile")}
-                        aria-label={`Switch to profile ${profile.sector}`}
+                            : t(locale, "prof.switchProfile"))}
+                        aria-label={displayText(locale, `Switch to profile ${profile.sector}`)}
                         aria-pressed={running}
                         className={`icon-button${running ? " is-active" : ""}`}
                         onClick={() => void control.selectOnboardProfile(profile.sector)}
@@ -241,9 +235,9 @@ export function Profiles({
                       <button
                         type="button"
                         disabled={locked}
-                        title={locked
+                        title={displayText(locale, locked
                           ? t(locale, "prof.layoutUnverified")
-                          : profile.enabled ? t(locale, "prof.disableProfile") : t(locale, "prof.enableProfile")}
+                          : profile.enabled ? t(locale, "prof.disableProfile") : t(locale, "prof.enableProfile"))}
                         aria-label={tp(locale, "prof.toggleProfile", { a: profile.enabled ? t(locale, "prof.disable") : t(locale, "prof.enable"), n: profile.sector })}
                         className="icon-button"
                         onClick={() => void control.toggleOnboardProfileEnabled(profile.sector, !profile.enabled)}
@@ -259,7 +253,7 @@ export function Profiles({
           {openedProfile && contentsWritable ? (
             <div className="profile-button-editor">
               <div className="profile-button-heading">
-                <div><p>BUTTONS</p><h2>{t(locale, "prof.assign")}</h2><small>{t(locale, "prof.assignBody")}</small></div>
+                <div><p>{displayText(locale, "BUTTONS")}</p><h2>{t(locale, "prof.assign")}</h2><small>{t(locale, "prof.assignBody")}</small></div>
                 <div className="assignment-layer-tabs" role="tablist" aria-label={t(locale, "prof.assignLayer")}>
                   <button type="button" role="tab" aria-selected={assignmentLayer === "primary"} onClick={() => setAssignmentLayer("primary")}>{t(locale, "prof.normalTab")}</button>
                   <button type="button" role="tab" aria-selected={assignmentLayer === "g-shift"} onClick={() => setAssignmentLayer("g-shift")}>G-Shift</button>
@@ -275,7 +269,7 @@ export function Profiles({
                   return (
                     <label key={`${assignmentLayer}-${assignment.button}`} className="assignment-card">
                       <span className="assignment-button-number">G{assignment.button + 1}</span>
-                      <span className="assignment-button-name">{buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`}</span>
+                      <span className="assignment-button-name">{displayText(locale, buttonNames[assignment.button] ?? `Button ${assignment.button + 1}`)}</span>
                       <span className="assignment-select-wrap">
                         <select
                           value={stagedAssignment?.value ?? assignment.action}
@@ -302,7 +296,7 @@ export function Profiles({
                           {assignment.action === "Custom"
                             ? <option value="Custom">{assignment.raw[0] === 0x80 && assignment.raw[1] === 0x02 ? t(locale, "prof.keyboardShortcut") : t(locale, "prof.customPreserved")}</option>
                             : null}
-                          {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+                          {LOGITECH_BUTTON_ACTIONS.map((action) => <option key={action} value={action}>{displayText(locale, action)}</option>)}
                           <option value="keyboard">{t(locale, "prof.keyboardOpt")}</option>
                           <option value="consumer:233">{t(locale, "prof.volUp")}</option>
                           <option value="consumer:234">{t(locale, "prof.volDown")}</option>
@@ -317,7 +311,7 @@ export function Profiles({
                   );
                 })}
               </div>
-              <small className="setting-note">Changes are stored in this onboard profile. Existing custom macros are preserved byte-for-byte.</small>
+              <small className="setting-note">{displayText(locale, "Changes are stored in this onboard profile. Existing custom macros are preserved byte-for-byte.")}</small>
               {shortcutTarget ? (
                 <div className="shortcut-dialog-backdrop" role="presentation" onMouseDown={(event) => {
                   if (event.currentTarget === event.target) setShortcutTarget(null);
@@ -412,16 +406,16 @@ export function Profiles({
                           setShortcutRecording(true);
                         }
                       }}
-                    ><i aria-hidden="true" />{shortcutRecording ? t(locale, "prof.stopRec") : t(locale, "prof.record")}</button>
+                    ><i aria-hidden="true" />{displayText(locale, shortcutRecording ? t(locale, "prof.stopRec") : t(locale, "prof.record"))}</button>
                     <div className={`shortcut-capture${shortcutSteps.length ? " has-value" : ""}`} aria-live="polite">
                       {shortcutSteps.length ? (
                         <ol>{shortcutSteps.map((step, index) => <li key={`${step.label}-${index}`}>
                           {index > 0 && step.delayMs > 0 ? <small>{step.delayMs} ms</small> : null}
-                          <kbd>{step.label}</kbd>
+                          <kbd>{displayText(locale, step.label)}</kbd>
                         </li>)}</ol>
                       ) : shortcutRecording ? t(locale, "prof.listening") : t(locale, "prof.nothingRec")}
                     </div>
-                    {shortcutError ? <small className="shortcut-error" role="alert">{shortcutError}</small> : null}
+                    {shortcutError ? <small className="shortcut-error" role="alert">{displayText(locale, shortcutError)}</small> : null}
                     {shortcutSteps.length > 1 ? <small className="shortcut-macro-note">{t(locale, "prof.macroNote")}</small> : null}
                     <div className="shortcut-dialog-actions">
                       <button type="button" onClick={() => setShortcutTarget(null)}>{t(locale, "common.cancel")}</button>
@@ -440,14 +434,14 @@ export function Profiles({
                           }
                           setShortcutTarget(null);
                         }}
-                      >{shortcutSteps.length > 1 ? t(locale, "prof.assignSeq") : t(locale, "prof.assignShortcut")}</button>
+                      >{displayText(locale, shortcutSteps.length > 1 ? t(locale, "prof.assignSeq") : t(locale, "prof.assignShortcut"))}</button>
                     </div>
                   </div>
                 </div>
               ) : null}
             </div>
           ) : null}
-          <small id="onboard-status">{snapshot.onboardStatus}</small>
+          <small id="onboard-status">{displayText(locale, snapshot.onboardStatus)}</small>
         </div>
       </div>
     </section>

@@ -1,3 +1,5 @@
+import { displayText } from "../../i18n";
+import { useUiLocale } from "../ui-locale";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   BUNNY_HOP_LIMITS,
@@ -58,15 +60,15 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
             <h2>
               {t(locale, "perf.reportFrequency")}
               {snapshot.editedProfile !== null ? (
-                <span className="setting-scope" id="rate-scope-badge">{perProfile ? t(locale, "dpi.perProfile") : "Host"}</span>
+                <span className="setting-scope" id="rate-scope-badge">{displayText(locale, perProfile ? t(locale, "dpi.perProfile") : "Host")}</span>
               ) : null}
             </h2>
-            <p>POLLING RATE</p>
+            <p>{displayText(locale, "POLLING RATE")}</p>
           </div>
-          <small id="polling-note" className="setting-note">{note}</small>
+          <small id="polling-note" className="setting-note">{displayText(locale, note)}</small>
         </div>
         {!perProfile ? (
-          <output id="polling-value">{pollingRateText(status.pollingRateHz)} Hz</output>
+          <output id="polling-value">{displayText(locale, pollingRateText(status.pollingRateHz))} Hz</output>
         ) : null}
       </div>
 
@@ -80,7 +82,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               options={snapshot.profile.rateOptions[link]}
               valueHz={snapshot.stagedProfileRates[link]
                 ?? (link === "wired" ? entry.reportRateWired : entry.reportRateWireless)}
-              label={shared ? t(locale, "perf.allConnections") : link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless")}
+              label={displayText(locale, shared ? t(locale, "perf.allConnections") : link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless"))}
               disabled={locked || snapshot.settingInProgress}
               hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
@@ -232,10 +234,10 @@ export function LiftOffDistance({ snapshot }: { snapshot: ControlSnapshot }): Re
         <div>
           <div className="title-row">
             <h2>{t(locale, "perf.liftOff")}</h2>
-            <p>SENSOR</p>
+            <p>{displayText(locale, "SENSOR")}</p>
           </div>
           <small id="lod-note" className="setting-note">
-            {lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote")}
+            {displayText(locale, lodNeedsSurface ? t(locale, "perf.lodNeedSurface") : t(locale, "perf.lodNote"))}
           </small>
         </div>
       </div>
@@ -293,6 +295,7 @@ export function LiftOffDistance({ snapshot }: { snapshot: ControlSnapshot }): Re
  * millimetres the driver supplies, so no scale is hard-coded here.
  */
 function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const __uiLocale = useUiLocale();
   const scale = snapshot.status?.liftOffScale;
   const [code, setCode] = useState(scale?.value ?? 0);
 
@@ -308,9 +311,7 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 
   return (
     <div id="lod-scale" className="lod-sliders">
-      <label>
-        Lift-off
-        <output id="lod-scale-value">{millimetres.toFixed(1)} mm</output>
+      <label> {displayText(__uiLocale, "Lift-off")} <output id="lod-scale-value">{displayText(__uiLocale, millimetres.toFixed(1))} mm</output>
         <span className="glass-slider-rail">
           <input
             id="lod-scale-input"
@@ -335,7 +336,7 @@ function BounceCheck({ locale, value, canApply }: { locale: InterfaceLocale; val
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="icon-button bounce-check-button" onClick={() => setOpen(true)}>Check for bounce</button>
+      <button type="button" className="icon-button bounce-check-button" onClick={() => setOpen(true)}>{displayText(locale, "Check for bounce")}</button>
       <BounceCheckDialog open={open} locale={locale} bunnyHopMs={value} canApply={canApply} onClose={() => setOpen(false)} />
     </>
   );
@@ -391,9 +392,9 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
         <span>ms</span>
       </div>
       <small className="setting-note" id="bunny-hop-note">
-        {locked
+        {displayText(locale, locked
           ? t(locale, "perf.bunnyReadonly")
-          : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs })}
+          : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs }))}
       </small>
       {standalone ? <BounceCheck locale={locale} value={value} canApply={!locked && !snapshot.settingInProgress} /> : null}
     </div>
@@ -416,7 +417,7 @@ export function LightforceCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
       className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lightforce-switch-mode"
     >
-      <div className="setting-heading"><div><p>SWITCHES</p><h2>LightForce</h2></div></div>
+      <div className="setting-heading"><div><p>{displayText(locale, "SWITCHES")}</p><h2>LightForce</h2></div></div>
       <Segmented
         ariaLabel={t(locale, "perf.lightforceMode")}
         options={[
@@ -527,7 +528,7 @@ export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot
       </small>
       {snapshot.wallhackCurvesLoading ? <p className="field-note">{t(locale, "perf.dynSensLoading")}</p> : null}
       {snapshot.wallhackCurvesError !== null ? (
-        <p className="field-note">{snapshot.wallhackCurvesError}</p>
+        <p className="field-note">{displayText(locale, snapshot.wallhackCurvesError)}</p>
       ) : null}
       {mode === "custom" && customPoints ? (
         <div className="macro-steps">
@@ -543,7 +544,7 @@ export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot
                   step={1}
                   value={point.speed}
                   disabled={busy || !enabled}
-                  aria-label={`${t(locale, "perf.dynSensSpeed")} ${index + 1}`}
+                  aria-label={displayText(locale, `${t(locale, "perf.dynSensSpeed")} ${index + 1}`)}
                   onChange={(event) => updateDraftPoint(index, "speed", Number(event.currentTarget.value))}
                 />
               </label>
@@ -556,7 +557,7 @@ export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot
                   step={0.01}
                   value={point.gain}
                   disabled={busy || !enabled}
-                  aria-label={`${t(locale, "perf.dynSensGain")} ${index + 1}`}
+                  aria-label={displayText(locale, `${t(locale, "perf.dynSensGain")} ${index + 1}`)}
                   onChange={(event) => updateDraftPoint(index, "gain", Number(event.currentTarget.value))}
                 />
               </label>

@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import { Bot, BotMessageSquare, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
@@ -112,7 +113,7 @@ export function AiOverlay({ locale = "en" }: { locale?: InterfaceLocale }): Reac
           <div className="ai-scroll" ref={scrollRef}>
             {messages.map((message, index) => (
               <div key={index} className={`ai-message is-${message.from}`}>
-                {message.text}
+                {displayText(locale, message.text)}
               </div>
             ))}
             {!typed ? (
@@ -127,7 +128,7 @@ export function AiOverlay({ locale = "en" }: { locale?: InterfaceLocale }): Reac
           <div className="ai-options">
             {TOPIC_ORDER.map((id) => (
               <button key={id} type="button" disabled={!typed} onClick={() => pick(id)}>
-                {topicLabel(id)}
+                {displayText(locale, topicLabel(id))}
               </button>
             ))}
           </div>

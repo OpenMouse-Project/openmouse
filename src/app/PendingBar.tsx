@@ -1,3 +1,4 @@
+import { displayText } from "../i18n";
 import type { ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
@@ -23,8 +24,8 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
           <path d="M12 3 2.5 20h19L12 3Z" />
           <path d="M12 9.5v4M12 16.8v.2" />
         </svg>
-        {label}
-        {pending.labels.length > 0 ? <em className="apply-bar-summary">{pending.labels.join(" · ")}</em> : null}
+        {displayText(locale, label)}
+        {pending.labels.length > 0 ? <em className="apply-bar-summary">{displayText(locale, pending.labels.join(" · "))}</em> : null}
       </span>
       <div className="apply-bar-actions">
         <button
@@ -43,7 +44,7 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
           disabled={busy}
           onClick={() => void control.flashPendingChanges()}
         >
-          {busy ? t(locale, "pend.applying") : t(locale, "pend.apply")}
+          {displayText(locale, busy ? t(locale, "pend.applying") : t(locale, "pend.apply"))}
         </button>
       </div>
     </div>

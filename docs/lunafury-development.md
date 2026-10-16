@@ -1,6 +1,6 @@
 # LunaFury setup and release
 
-These controls use `@openmouse/protocol` `0.42.1`, pinned in the app's manifest
+These controls use `@openmouse/protocol` `0.42.2`, pinned in the app's manifest
 and lockfile. The published package includes the APIs from
 [protocol PR #205](https://github.com/OpenMouse-Project/mouse-protocol/pull/205).
 

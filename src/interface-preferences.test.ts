@@ -125,3 +125,26 @@ test("interface locale persists and falls back to the detected language", () => 
   bogus.setItem("openmouse-interface-settings-v1", JSON.stringify({ locale: "xx" }));
   assert.equal(loadInterfacePreferences(bogus).locale, detectLocale());
 });
+
+test("Turkish locale persists across preference reloads", () => {
+  const storage = new MemoryStorage();
+  saveInterfacePreferences(storage, { ...DEFAULT_INTERFACE_PREFERENCES, locale: "tr" });
+  assert.equal(loadInterfacePreferences(storage).locale, "tr");
+});
+
+test("Turkish browser languages are detected on first run", () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  try {
+    for (const language of ["tr", "tr-TR", "tr-CY", "TR-tr"]) {
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: { language } });
+      assert.equal(detectLocale(), "tr", language);
+      assert.equal(loadInterfacePreferences(new MemoryStorage()).locale, "tr", language);
+    }
+    const storage = new MemoryStorage();
+    saveInterfacePreferences(storage, { ...DEFAULT_INTERFACE_PREFERENCES, locale: "en" });
+    assert.equal(loadInterfacePreferences(storage).locale, "en", "explicit choice overrides browser language");
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
+});

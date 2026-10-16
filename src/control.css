@@ -5539,3 +5539,5 @@ body { height: 100vh; overflow: hidden; }
 #keyboard-polling-card .rate-slider-head { justify-content: flex-end; }
 #keyboard-polling-card .rate-slider-head > span { display: none; }
 @media (max-width: 640px) { #keyboard-polling-card { flex-direction: column; align-items: stretch; gap: .8rem; } #keyboard-polling-card .rate-slider { min-width: 0; max-width: none; } }
+
+:lang(tr) .ksnake-macro-preview::before { content: "Önizleme · "; }

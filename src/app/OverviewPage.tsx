@@ -1,3 +1,5 @@
+import { displayText } from "../i18n";
+import { useUiLocale } from "./ui-locale";
 import {
   ArrowLeft,
   BarChart3,
@@ -162,7 +164,7 @@ function DeviceShowcase({ snapshot }: {
   return (
     <div className="device-showcase">
       <h1 className="device-showcase-name">{status.name}</h1>
-      <p className="device-showcase-brand">{noirBrandLabel(status)}</p>
+      <p className="device-showcase-brand">{displayText(locale, noirBrandLabel(status))}</p>
       <div className="device-diagram">
         <div
           className="device-diagram-canvas"
@@ -192,7 +194,7 @@ function DeviceShowcase({ snapshot }: {
           </div>
         </div>
       </div>
-      <div className="device-showcase-status-pill" aria-label="Device status">
+      <div className="device-showcase-status-pill" aria-label={displayText(locale, "Device status")}>
         <span className="device-showcase-status-primary">
           <span className="device-showcase-dot" aria-hidden="true" />
           {t(locale, "side.connected")}
@@ -200,15 +202,15 @@ function DeviceShowcase({ snapshot }: {
         {status.connectionType ? (
           <>
             <span className="device-showcase-status-separator" aria-hidden="true">·</span>
-            <span className="device-showcase-status-muted">{connectionText(locale, status.connectionType)}</span>
+            <span className="device-showcase-status-muted">{displayText(locale, connectionText(locale, status.connectionType))}</span>
           </>
         ) : null}
         {status.dpi > 0 ? (
           <>
             <span className="device-showcase-status-separator" aria-hidden="true">·</span>
             <span className="device-showcase-status-item">
-              <span className="device-showcase-status-label">DPI</span>
-              <span className="device-showcase-status-value">{status.dpi.toLocaleString()}</span>
+              <span className="device-showcase-status-label">{displayText(locale, "DPI")}</span>
+              <span className="device-showcase-status-value">{displayText(locale, status.dpi.toLocaleString())}</span>
             </span>
           </>
         ) : null}
@@ -219,8 +221,8 @@ function DeviceShowcase({ snapshot }: {
               <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
               <span className="device-showcase-status-value">{status.batteryPercent}%</span>
               {batteryEstimate ? (
-                <span className="device-showcase-status-muted" title={`${batteryEstimate.time} ${batteryEstimate.label}`}>
-                  {batteryEstimate.time}
+                <span className="device-showcase-status-muted" title={displayText(locale, `${displayText(locale, batteryEstimate.time)} ${displayText(locale, batteryEstimate.label)}`)}>
+                  {displayText(locale, batteryEstimate.time)}
                 </span>
               ) : null}
             </span>
@@ -230,7 +232,7 @@ function DeviceShowcase({ snapshot }: {
           <>
             <span className="device-showcase-status-separator" aria-hidden="true">·</span>
             <span className="device-showcase-status-item">
-              <span className="device-showcase-status-value">{status.pollingRateHz.toLocaleString()} Hz</span>
+              <span className="device-showcase-status-value">{displayText(locale, status.pollingRateHz.toLocaleString())} Hz</span>
             </span>
           </>
         ) : null}
@@ -238,7 +240,7 @@ function DeviceShowcase({ snapshot }: {
           <>
             <span className="device-showcase-status-separator" aria-hidden="true">·</span>
             <span className="device-showcase-status-item">
-              <span className="device-showcase-status-label">Profile</span>
+              <span className="device-showcase-status-label">{displayText(locale, "Profile")}</span>
               <span className="device-showcase-status-value">{status.activeProfile}</span>
             </span>
           </>
@@ -281,7 +283,7 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
       <label className="m2nex-profile-overview-picker" htmlFor="m2nex-profile-overview-select">
         <select
           id="m2nex-profile-overview-select"
-          aria-label={`${status.name} profile`}
+          aria-label={displayText(locale, `${status.name} profile`)}
           value={snapshot.activeM2NexProfile}
           disabled={snapshot.settingInProgress || snapshot.pending.busy}
           onChange={(event) => control.selectM2NexProfile(Number(event.currentTarget.value))}
@@ -292,23 +294,19 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
         </select>
       </label>
       <span className={`m2nex-profile-overview-state${snapshot.m2nexProfileDirty ? " is-dirty" : ""}`}>
-        {snapshot.m2nexProfileDirty ? t(locale, "m2nex.pending") : t(locale, "m2nex.saved")}
+        {displayText(locale, snapshot.m2nexProfileDirty ? t(locale, "m2nex.pending") : t(locale, "m2nex.saved"))}
       </span>
       <div className="m2nex-profile-overview-actions">
         <button
           type="button"
           disabled={snapshot.settingInProgress || snapshot.pending.busy}
           onClick={control.createM2NexProfile}
-        >
-          New
-        </button>
+        > {displayText(locale, "New")} </button>
         <button
           type="button"
           disabled={snapshot.settingInProgress || snapshot.pending.busy}
           onClick={() => profileImportRef.current?.click()}
-        >
-          Import
-        </button>
+        > {displayText(locale, "Import")} </button>
         <button
           className="m2nex-profile-overview-apply"
           type="button"
@@ -383,7 +381,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
                       className="button-map-marker"
                       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
                     >
-                      {String(index + 1).padStart(2, "0")}
+                      {displayText(locale, String(index + 1).padStart(2, "0"))}
                     </span>
                   );
                 })}
@@ -392,7 +390,7 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
               <div className="button-map-underside-callout" aria-hidden="true">
                 <span className="button-map-underside-badge">
                   <span className="button-map-underside-number">06</span>
-                  <span>DPI <small>UNDERSIDE</small></span>
+                  <span>{displayText(locale, "DPI")} <small>{displayText(locale, "UNDERSIDE")}</small></span>
                 </span>
               </div>
             ) : null}
@@ -411,23 +409,23 @@ export function DeviceShowcaseSidebar({ snapshot }: { snapshot: ControlSnapshot 
       </div>
       <div className="showcase-sidebar-info">
         <h2 className="showcase-sidebar-name">{status.name}</h2>
-        <p className="showcase-sidebar-brand">{noirBrandLabel(status)}</p>
+        <p className="showcase-sidebar-brand">{displayText(locale, noirBrandLabel(status))}</p>
       </div>
       <div className="showcase-sidebar-status">
         <span className="device-showcase-dot" aria-hidden="true" />
         {t(locale, "side.connected")}
         {status.connectionType ? (
           <span className="device-showcase-status-detail">
-            {" · "}{connectionText(locale, status.connectionType)}
+            {displayText(locale, " · ")}{displayText(locale, connectionText(locale, status.connectionType))}
           </span>
         ) : null}
         {status.batteryPercent !== null ? (
           <span className="device-showcase-status-detail">
-            {" · "}
+            {displayText(locale, " · ")}
             <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
             {status.batteryPercent}%
             {batteryEstimate ? (
-              <span title={`${batteryEstimate.time} ${batteryEstimate.label}`}>{" · "}{batteryEstimate.time}</span>
+              <span title={displayText(locale, `${displayText(locale, batteryEstimate.time)} ${displayText(locale, batteryEstimate.label)}`)}>{displayText(locale, " · ")}{displayText(locale, batteryEstimate.time)}</span>
             ) : null}
           </span>
         ) : null}
@@ -440,6 +438,7 @@ const SHOWCASE_IMAGES = showcaseDeviceImageUrls();
 const SHOWCASE_INTERVAL_MS = 3800;
 
 function MouseArtworkShowcase({ reducedMotion }: { reducedMotion: boolean }): ReactNode {
+  const __uiLocale = useUiLocale();
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -456,7 +455,7 @@ function MouseArtworkShowcase({ reducedMotion }: { reducedMotion: boolean }): Re
         <img
           key={src}
           src={src}
-          alt=""
+          alt={displayText(__uiLocale, "")}
           draggable={false}
           className={`add-device-mouse-showcase-frame${i === index ? " is-active" : ""}`}
         />
@@ -471,8 +470,8 @@ function AddDeviceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const label = busy ? t(locale, "conn.connecting") : t(locale, "conn.addMouse");
   const disabled = busy || snapshot.connectDisabled;
   return (
-    <div className={`device-tile add-device-tile${busy ? " is-busy" : ""}`} aria-label={label}>
-      <span className="device-tile-name">{label}</span>
+    <div className={`device-tile add-device-tile${busy ? " is-busy" : ""}`} aria-label={displayText(locale, label)}>
+      <span className="device-tile-name">{displayText(locale, label)}</span>
       <div className="device-tile-visual" aria-hidden="true">
         <MouseArtworkShowcase reducedMotion={snapshot.preferences.reducedMotion} />
       </div>
@@ -487,7 +486,7 @@ function AddDeviceCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
         }}
       >
         <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
-        {label}
+        {displayText(locale, label)}
       </button>
     </div>
   );
@@ -516,6 +515,7 @@ function OverviewEmpty({ snapshot, compact = false }: { snapshot: ControlSnapsho
 function OverviewContent({ snapshot }: {
   snapshot: ControlSnapshot;
 }): ReactNode {
+  const __uiLocale = useUiLocale();
   const status = snapshot.status;
   if (!status) return <OverviewEmpty snapshot={snapshot} />;
   const has = cardAvailability(snapshot);
@@ -524,11 +524,11 @@ function OverviewContent({ snapshot }: {
     <>
       <M2NexProfileOverview snapshot={snapshot} />
       <DeviceShowcase snapshot={snapshot} />
-      <section id="firmware-update-settings" className="device-data" aria-label="Firmware update">
+      <section id="firmware-update-settings" className="device-data" aria-label={displayText(__uiLocale, "Firmware update")}>
         <FirmwareCard snapshot={snapshot} />
       </section>
       {powerOverview && (has.teevolutionDpiLighting || has.sleep) ? (
-        <section id="power-overview-settings" className="settings-grid device-data" aria-label="Power settings">
+        <section id="power-overview-settings" className="settings-grid device-data" aria-label={displayText(__uiLocale, "Power settings")}>
           {has.teevolutionDpiLighting ? <DpiLightingCard snapshot={snapshot} /> : null}
           {has.sleep ? <SleepCard snapshot={snapshot} /> : null}
         </section>
@@ -690,7 +690,7 @@ export function Workspace({
           ].filter(Boolean).join(" ")}
           data-workspace-host
           role="tabpanel"
-          aria-label="Mouse settings"
+          aria-label={displayText(locale, "Mouse settings")}
         >
           {device && !showButtonMap ? (
             <aside className="performance-sidebar">
@@ -717,7 +717,7 @@ export function Workspace({
           data-workspace-host
           role="tabpanel"
           aria-labelledby="workspace-tab-macro"
-          aria-label="Macro settings"
+          aria-label={displayText(locale, "Macro settings")}
         >
           {macro}
         </section>
@@ -729,7 +729,7 @@ export function Workspace({
           className="settings-grid device-data"
           data-workspace-host
           role="tabpanel"
-          aria-label="Lighting settings"
+          aria-label={displayText(locale, "Lighting settings")}
         >
           {lighting}
         </section>
@@ -737,7 +737,7 @@ export function Workspace({
 
       {showLogitechDetails ? <LogitechDetails snapshot={snapshot} /> : null}
       {showMxMaster ? (
-        <section id="logitech-mx-master-settings" className="settings-grid device-data" data-workspace-host role="tabpanel" aria-label="MX Master settings">
+        <section id="logitech-mx-master-settings" className="settings-grid device-data" data-workspace-host role="tabpanel" aria-label={displayText(locale, "MX Master settings")}>
           <MxMasterCards snapshot={snapshot} />
         </section>
       ) : null}
@@ -749,7 +749,7 @@ export function Workspace({
           className={`device-data${snapshot.traits.eggControls ? " egg-advanced-layout" : ""}`}
           data-workspace-host
           role="tabpanel"
-          aria-label="Device settings"
+          aria-label={displayText(locale, "Device settings")}
           style={{ display: "grid" }}
         >
           {advanced}
@@ -807,7 +807,7 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                 key={device.index}
                 role="button"
                 tabIndex={0}
-                title={`Open ${device.name}`}
+                title={displayText(locale, `Open ${device.name}`)}
                 onClick={() => void control.openDeviceOverview(device.index)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -818,24 +818,24 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               >
                   <span className="device-tile-name">{device.name}</span>
                   {device.transport === "bridge" ? (
-                    <span className="device-tile-transport" title="Connected through OpenMouse Bridge">
+                    <span className="device-tile-transport" title={displayText(locale, "Connected through OpenMouse Bridge")}>
                       Bridge
                     </span>
                   ) : null}
-                  <div className="device-tile-stats" aria-label="Device status">
+                  <div className="device-tile-stats" aria-label={displayText(locale, "Device status")}>
                     <span className="device-tile-stat">
                       <Wifi className="device-tile-stat-icon" strokeWidth={2} aria-hidden="true" />
                     </span>
                     <span className="device-tile-stat">
                       <Clock className="device-tile-stat-icon" strokeWidth={1.8} aria-hidden="true" />
-                      <span className="device-tile-stat-text">{pollText}</span>
+                      <span className="device-tile-stat-text">{displayText(locale, pollText)}</span>
                     </span>
                     <span className="device-tile-stat">
                       <BatteryIcon
                         percent={liveStatus?.batteryPercent != null ? liveStatus.batteryPercent : null}
                         state={liveStatus?.batteryState ?? "Unknown"}
                       />
-                      <span className="device-tile-stat-text">{batteryText}</span>
+                      <span className="device-tile-stat-text">{displayText(locale, batteryText)}</span>
                     </span>
                   </div>
                   <div className="device-tile-visual">
@@ -854,8 +854,8 @@ function DeviceListView({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
                   <button
                     type="button"
                     className="device-tile-gear"
-                    aria-label="Open device settings"
-                    title="Open device settings"
+                    aria-label={displayText(locale, "Open device settings")}
+                    title={displayText(locale, "Open device settings")}
                     onClick={(event) => {
                       event.stopPropagation();
                       void control.openDeviceOverview(device.index);

@@ -1,3 +1,4 @@
+import { displayText } from "../../i18n";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { MouseLighting } from "@openmouse/protocol/drivers/mouse-types";
 import * as control from "../../device/controller";
@@ -46,9 +47,9 @@ export function LightingCard({
     >
       <div className="setting-heading">
         <div>
-          <p>{variant === "advanced" ? "RECEIVER" : "LIGHTING"}</p>
+          <p>{displayText(locale, variant === "advanced" ? "RECEIVER" : "LIGHTING")}</p>
           <h2 id={`${prefix}-title`}>
-            {lighting.zone === "Receiver" ? t(locale, "light.receiverTitle") : tp(locale, "light.zoneTitle", { zone: lighting.zone })}
+            {displayText(locale, lighting.zone === "Receiver" ? t(locale, "light.receiverTitle") : tp(locale, "light.zoneTitle", { zone: lighting.zone }))}
             {lighting.writeOnly ? (
               <span className="setting-scope" id={`${prefix}-write-only-badge`}>{t(locale, "light.writeOnly")}</span>
             ) : null}
@@ -60,12 +61,12 @@ export function LightingCard({
         <div className="lighting-zone-picker" aria-label={t(locale, "light.rgbPart")}>
           <div className="lighting-zone-copy">
             <span>{t(locale, "light.rgbParts")}</span>
-            <strong>{lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone}</strong>
+            <strong>{displayText(locale, lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone)}</strong>
           </div>
           <div
             className={`lighting-strip${hasLightstrip ? " is-lightstrip" : ""}`}
             role="list"
-            aria-label={hasLightstrip ? t(locale, "light.stripLeds") : t(locale, "light.rgbZones")}
+            aria-label={displayText(locale, hasLightstrip ? t(locale, "light.stripLeds") : t(locale, "light.rgbZones"))}
           >
             {zones.map((zone, index) => (
               <button
@@ -74,11 +75,11 @@ export function LightingCard({
                 role="listitem"
                 className={index === activeZoneIndex ? "is-selected" : ""}
                 style={{ "--zone-color": zone.mode === "Off" ? "#15171a" : zone.color ?? "#15171a" } as CSSProperties}
-                title={zone.group ? `${zone.group} ${zone.zone}` : `${zone.zone} effects`}
-                aria-label={zone.group ? `${zone.group} ${zone.zone}` : zone.zone}
+                title={displayText(locale, zone.group ? `${zone.group} ${zone.zone}` : `${zone.zone} effects`)}
+                aria-label={displayText(locale, zone.group ? `${zone.group} ${zone.zone}` : zone.zone)}
                 aria-pressed={index === activeZoneIndex}
                 onClick={() => setSelectedZone(index)}
-              >{zone.hardwareZoneId ?? "FX"}</button>
+              >{displayText(locale, zone.hardwareZoneId ?? "FX")}</button>
             ))}
           </div>
         </div>
@@ -203,13 +204,13 @@ export function LightingCard({
 
       <div className="setting-action">
         <span id={`${prefix}-pending`}>
-          {staged ? tp(locale, "common.staged", { v: control.describeLighting(lighting, locale) }) : t(locale, "light.choose")}
+          {displayText(locale, staged ? tp(locale, "common.staged", { v: control.describeLighting(lighting, locale) }) : t(locale, "light.choose"))}
         </span>
       </div>
       <small id={`${prefix}-note`} className="setting-note">
-        {lighting.writeOnly
+        {displayText(locale, lighting.writeOnly
           ? t(locale, "light.writeOnlyNote")
-          : tp(locale, "light.zoneNote", { zone: lighting.zone })}
+          : tp(locale, "light.zoneNote", { zone: lighting.zone }))}
       </small>
     </article>
   );
