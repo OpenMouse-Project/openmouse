@@ -296,6 +296,11 @@
 .dpi-editor.has-m2nex-stage-colors .m2nex-stage-5 { --dpi-stage-color:var(--m2nex-stage-5) }
 .dpi-editor.has-m2nex-stage-colors .m2nex-stage-6 { --dpi-stage-color:var(--m2nex-stage-6) }
 .dpi-editor.has-m2nex-stage-colors .dpi-editor-row { grid-template-columns:1.4rem 2.35rem 5.2rem minmax(0,1fr) }
+.dpi-editor.has-stage-axes .dpi-editor-row { grid-template-columns:1.4rem 1.7rem 5.2rem 5.2rem minmax(0,1fr) }
+.dpi-editor-axes-head { display:grid;grid-template-columns:1.4rem 1.7rem 5.2rem 5.2rem minmax(0,1fr);gap:.5rem;padding:0 0 .05rem }
+.dpi-editor-axes-head > span { color:var(--text-soft);font:600 .6rem/1 var(--font-mono);letter-spacing:.08em;text-align:center }
+.dpi-editor-axes-head > span:first-child { grid-column:3 }
+.dpi-editor-axes-head > span:last-child { grid-column:4 }
 .dpi-editor.has-m2nex-stage-colors .dpi-editor-row > button.dpi-editor-index { display:inline-flex;align-items:center;justify-content:center;gap:.28rem;border-color:color-mix(in srgb, var(--dpi-stage-color) 58%, var(--border));box-shadow:inset 0 -2px 0 var(--dpi-stage-color) }
 .dpi-editor.has-m2nex-stage-colors .dpi-editor-row > button.dpi-editor-index:hover:not(:disabled) { border-color:var(--dpi-stage-color);color:var(--dpi-stage-color) }
 .dpi-editor.has-m2nex-stage-colors .dpi-editor-row.is-active > button.dpi-editor-index { border-color:var(--dpi-stage-color);background:color-mix(in srgb, var(--dpi-stage-color) 15%, var(--surface-raised));color:var(--dpi-stage-color);box-shadow:inset 0 -2px 0 var(--dpi-stage-color),0 0 0 1px color-mix(in srgb, var(--dpi-stage-color) 28%, transparent) }
@@ -368,8 +373,3 @@
 .luna-key-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 .luna-key-binding output { overflow-wrap: anywhere; color: var(--text-hover); }
 #bunny-hop-card #bunny-hop-row { margin: 0; padding: 0; border: 0; }
-#bunny-hop-card .bounce-check-button { margin-top: .6rem; padding: .4rem .7rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: .66rem; font-weight: 650; }
-#bunny-hop-card .bounce-check-button:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
-.bounce-check-area { min-height: 8rem; padding: 1rem; border: 2px dashed var(--ui-accent); border-radius: 12px; background: var(--surface-raised); color: var(--text-strong); font-size: 1rem; font-weight: 700; user-select: none; cursor: pointer; }
-.bounce-check-area:active { background: var(--ui-accent-soft); }
-.bounce-check-results { display: grid; gap: .2rem; margin: 0; padding-left: 1.1rem; color: var(--text-soft); font-size: .7rem; }

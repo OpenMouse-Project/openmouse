@@ -126,13 +126,22 @@ export function traitsFor(status: MouseStatus | null): DriverTraits {
   const family = familyOf(status);
   const ui = status.ui;
   const traits = { ...NONE, ...BY_FAMILY[family] };
+  // The OP1-8K driver is the only Endgame Gear driver reporting `eggCpiStages`
+  // (egg-we deliberately leaves it out — see egg-we-hid.ts), so the field is
+  // the family tag this brand actually gets from hardware: no EGG driver
+  // publishes a `ui.family`. Everything the "egg-op1" BY_FAMILY entry turns on
+  // has to hang off this flag, or the whole advanced section — filters, GX
+  // switch, CPI, per-button multiclick and mapping — stays off, because
+  // availability.ts gates those cards on `advancedSection`.
+  const egg = traits.eggControls
+    || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   return {
     ...traits,
-    advancedSection: traits.advancedSection || ui?.showAdvancedSection === true,
+    advancedSection: traits.advancedSection || egg || ui?.showAdvancedSection === true,
     signal: traits.signal && ui?.hideSignalCard !== true,
     sleep: traits.sleep && ui?.hideSleepCard !== true,
-    eggControls: traits.eggControls
-      || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages)),
+    eggControls: egg,
+    eggFamily: traits.eggFamily || egg,
   };
 }
 

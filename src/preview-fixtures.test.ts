@@ -71,6 +71,49 @@ test("LunaFury synthetic preview exposes paired stages, three banks and independ
   }
   assert.equal(has.signal, false);
 });
+
+test("the EGG fixtures carry the shape their driver actually reports", () => {
+  // No EGG driver publishes `ui.family`, so neither fixture may claim one: the
+  // previews have to exercise the same path real hardware takes.
+  const v1 = PREVIEW_FIXTURES["egg-op1"].status;
+  assert.equal(v1.brand, "Endgame Gear");
+  assert.equal(familyOf(v1), "endgame gear");
+  assert.deepEqual(v1.eggLodOptions, ["0.7 mm", "1 mm", "2 mm"]);
+  assert.equal(v1.eggSupportsV2SensorControls, false);
+  assert.equal(v1.eggCpiMax, 26_000);
+
+  const v2 = PREVIEW_FIXTURES["egg-op1-v2"].status;
+  assert.equal(v2.eggLodOptions?.length, 11);
+  assert.equal(v2.eggCpiMin, 10);
+  assert.equal(v2.eggCpiMax, 30_000);
+  assert.equal(v2.eggCpiStepLow, 10);
+  assert.equal(v2.eggSupportsV2SensorControls, true);
+  assert.equal(v2.eggMotionSyncAt8k, true);
+});
+
+test("the EGG fixtures light up every advanced card they have controls for", () => {
+  for (const key of ["egg-op1", "egg-op1-v2"] as const) {
+    const status = PREVIEW_FIXTURES[key].status;
+    const has = cardAvailability({
+      status,
+      traits: traitsFor(status),
+      settingsPending: false,
+      preferences: { showExperimental: true },
+    } as unknown as ControlSnapshot);
+    assert.equal(has.advancedHost, true, key);
+    assert.equal(has.eggFilter, true, key);
+    assert.equal(has.eggSpdt, true, key);
+    assert.equal(has.eggCpi, true, key);
+    assert.equal(has.eggButtons, true, key);
+    assert.equal(has.eggHanded, true, key);
+    // Only the v2 mouse has the v2 sensor block.
+    assert.equal(has.eggV2Sensor, key === "egg-op1-v2", key);
+    // Signal and sleep are not part of this driver.
+    assert.equal(has.signal, false, key);
+    assert.equal(has.sleep, false, key);
+  }
+});
+
 test("finalmouse-slx fixture matches the Starlight X driver shape", () => {
   const { status } = PREVIEW_FIXTURES["finalmouse-slx"];
   assert.equal(status.brand, "Finalmouse");
@@ -122,4 +165,19 @@ test("egg-ot fixture matches the OP1 RGB driver shape", () => {
   assert.equal(status.dpi, 800);
   assert.equal(status.profileCount, 5);
   assert.equal(snapshotFor("egg-ot").traits.eggFamily, true);
+});
+
+test("steelseries-gen2 fixture pairs its stage table with the Y table", () => {
+  // The per-stage Y column renders one input per stage row, so the two tables
+  // have to stay the same length and the active stage has to agree with both.
+  const { status } = PREVIEW_FIXTURES["steelseries-gen2"];
+  assert.equal(status.brand, "SteelSeries");
+  assert.equal(familyOf(status), "steelseries-rival3-wireless-v2");
+  assert.equal(status.dpiStages?.length, status.ui?.dpiStageEditor?.maxStages);
+  assert.equal(status.dpiStagesY?.length, status.dpiStages?.length);
+  const active = status.activeDpiStage ?? 0;
+  assert.equal(status.dpi, status.dpiStages?.[active]);
+  assert.equal(status.dpiY, status.dpiStagesY?.[active]);
+  // A fixture whose axes never differ would not exercise the column at all.
+  assert.notDeepEqual(status.dpiStagesY, status.dpiStages);
 });

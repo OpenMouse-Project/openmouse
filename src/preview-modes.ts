@@ -13,6 +13,7 @@ export const PREVIEW_KEYS = [
   "pulsar-xs1-8k",
   "pulsar-xs1-unknown",
   "egg-op1",
+  "egg-op1-v2",
   "egg-ot",
   "egg-we",
   "egg-xm2we",
@@ -42,6 +43,7 @@ export const PREVIEW_KEYS = [
   "rawm-v4-gt",
   "terra-pro",
   "logitech-legacy",
+  "steelseries-gen2",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
@@ -64,6 +66,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "pulsar-xs1-8k": return "pulsar-xs1-8k";
     case "pulsar-xs1-unknown": return "pulsar-xs1-unknown";
     case "egg-op1": return "egg-op1";
+    case "egg-op1-v2": return "egg-op1-v2";
     case "egg-ot": return "egg-ot";
     case "egg-we": return "egg-we";
     case "egg-xm2we": return "egg-xm2we";
@@ -95,6 +98,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "gwolves-pro": return "gwolves-pro";
     case "rawm-v4-gt": return "rawm-v4-gt";
     case "logitech-legacy": return "logitech-legacy";
+    case "steelseries-gen2": return "steelseries-gen2";
     default: return null;
   }
 }

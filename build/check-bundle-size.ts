@@ -225,7 +225,20 @@ const BUDGET_BYTES: Record<string, number> = {
   // messages and dialog copy. The two Turkish dictionaries remain lazy
   // chunks. The measured aggregate is about 2,620 kB, including render-boundary
   // localization; no additional CSS framework or runtime dependency is added.
-  ".js": 2_630_000,
+  // Raised to 2,640 kB for the Endgame Gear OP1-8K control panel: the section
+  // the missing family tag had kept dark adds the sensor-controls, handedness
+  // and lift-off cards plus two strings across twelve locales, taking the
+  // measured aggregate from 2,629.5 kB to 2,632.2 kB — over the old budget by
+  // 2.2 kB, which itself had only 545 bytes of headroom, so any new localized
+  // string would have tripped it.
+  // Raised to 2,720 kB for the @openmouse/protocol 0.43.0 bump: eleven
+  // SteelSeries drivers arrive through the shared registry (the Aerox 3
+  // Wireless Gen 2, Rival 3 Gen 2, and Rival 3 Wireless Gen 2 preset families
+  // plus the Rival 100/110/300/5/600, Sensei 310/Raw/Rival Pro, and Prime Mini
+  // codecs). The per-stage X/Y column adds ~750 bytes of JS and ~460 bytes of
+  // CSS of its own. The measured aggregate is 2,715.0 kB, 75.0 kB over the old
+  // 2,640 kB budget, leaving ~5.0 kB of headroom.
+  ".js": 2_720_000,
 };
 
 const ASSETS = join("dist", "assets");

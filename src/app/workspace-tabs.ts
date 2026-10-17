@@ -8,7 +8,7 @@ export function availableWorkspaceTabs(
   options: { hideLighting?: boolean } = {},
 ): readonly WorkspaceTab[] {
   if (!connected) return WORKSPACE_TAB_ORDER;
-  const hasButtons = has.eggButtons || has.razerButtons || has.mxMasterButtons || has.atkButtons
+  const hasButtons = has.eggButtons || has.eggHanded || has.razerButtons || has.mxMasterButtons || has.atkButtons
     || has.buttonMapping || has.debounce || has.lightforce || has.eggSpdt || has.superstrike || has.magnetic
     || has.ksnakeScroll || has.lunafuryButtons || has.lunafuryWheelGuard || has.lunafuryBottomButton || has.tmrDs;
   const hasProfiles = has.profiles || has.keychronNapeLayers || has.atkProfile

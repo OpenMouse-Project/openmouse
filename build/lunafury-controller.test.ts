@@ -293,6 +293,28 @@ for (const pid of [0x32, 0x33, 0x54, 0x84]) {
     });
   }
 
+  test(`numeric DPI stage edits on ${pid.toString(16)} respect LunaFury axis mode`, async () => {
+    for (const separate of [false, true, undefined]) {
+      const mouse = fixture(pid), receive = mouse.device.receiveFeatureReport;
+      mouse.banks[0].axes = separate !== false;
+      mouse.device.receiveFeatureReport = async () => {
+        const request = mouse.sent.at(-1)!;
+        if (separate === undefined && request[4] === 1 && request[5] === 0x8d) {
+          throw new Error("Injected axis-mode read failure.");
+        }
+        return receive();
+      };
+      const before = await controller.testConnect(mouse.device);
+      assert.equal(before.lunafury.separateDpiAxes, separate);
+      const y = separate === false ? 1200 : before.dpiStagesY[1];
+      controller.applyDpiStageValue(1, 1200);
+      const preview = controller.testState().preview;
+      assert.deepEqual([preview.dpiStages[1], preview.dpiStagesY[1]], [1200, y]);
+      assert.equal(await controller.flashPendingChanges(), "written");
+      assert.deepEqual(mouse.banks[0].table.slice(2, 4), [1200, y]);
+    }
+  });
+
   test(`Bridge on ${pid.toString(16)} applies and restores Games separately for each onboard bank`, async () => {
     const mouse = fixture(pid);
     mouse.banks[1].table[2] = 1000; mouse.banks[1].table[3] = 2000;

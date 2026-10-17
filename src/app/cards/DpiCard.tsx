@@ -16,7 +16,7 @@ import { LunaFuryDpiEditor } from "./LunaFuryDpiEditor";
 const MAX_EDITOR_ROWS = 4;
 const DEFAULT_LOD = 2;
 
-type StageRow = { enabled: boolean; value: string; lod: number };
+type StageRow = { enabled: boolean; value: string; valueY: string; lod: number };
 
 function isUniform(stages: readonly number[] | undefined): boolean {
   return stages !== undefined && stages.length > 1 && stages.every((value) => value === stages[0]);
@@ -66,6 +66,12 @@ function DpiStageEditor({
 
   const naturalMode: "logitech" | "stage" | "generic" = isLogitech ? "logitech" : isStage ? "stage" : "generic";
   const mode: "logitech" | "stage" | "generic" = editorView === "single" ? "generic" : naturalMode;
+  // A per-stage Y column only exists where the driver publishes the Y table and
+  // the client can write one axis without the other. Every other client mirrors
+  // Y into the single stage value, so a second column would be a lie.
+  const stageAxesEditable = mode === "stage"
+    && snapshot.capabilities?.dpiStageAxesWritable === true
+    && Array.isArray(status?.dpiStagesY);
   const stageColors = mode === "stage"
     ? status?.dpiStageColors ?? (isNoirKsnakeStatus(status) ? NOIR_DPI_STAGE_COLORS : null)
     : null;
@@ -83,15 +89,21 @@ function DpiStageEditor({
     if (mode === "logitech" && snapshot.dpiSlotPlan) {
       const stages = snapshot.dpiSlotPlan.stages.slice(0, rowCap);
       const last = stages[stages.length - 1]?.x ?? status?.dpi ?? 800;
-      const rows = stages.map((stage) => ({ enabled: true, value: String(stage.x), lod: stage.lod }));
-      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD });
+      const rows = stages.map((stage) => ({ enabled: true, value: String(stage.x), valueY: String(stage.y ?? stage.x), lod: stage.lod }));
+      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), valueY: String(last), lod: DEFAULT_LOD });
       return rows;
     }
     if (mode === "stage" && status?.dpiStages) {
       const stages = status.dpiStages.slice(0, rowCap);
+      const stagesY = status.dpiStagesY;
       const last = stages[stages.length - 1] ?? status.dpi ?? 800;
-      const rows: StageRow[] = stages.map((value) => ({ enabled: true, value: String(value), lod: DEFAULT_LOD }));
-      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), lod: DEFAULT_LOD });
+      const rows: StageRow[] = stages.map((value, index) => ({
+        enabled: true,
+        value: String(value),
+        valueY: String(stagesY?.[index] ?? value),
+        lod: DEFAULT_LOD,
+      }));
+      while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), valueY: String(last), lod: DEFAULT_LOD });
       return rows;
     }
     const presets = dpiPresetValues(options);
@@ -99,7 +111,7 @@ function DpiStageEditor({
       .filter((value): value is number => typeof value === "number")
       .slice(0, MAX_EDITOR_ROWS);
     while (ordered.length < MAX_EDITOR_ROWS) ordered.push(ordered[ordered.length - 1] ?? 800);
-    return ordered.map((value) => ({ enabled: value === status?.dpi, value: String(value), lod: DEFAULT_LOD }));
+    return ordered.map((value) => ({ enabled: value === status?.dpi, value: String(value), valueY: String(value), lod: DEFAULT_LOD }));
   };
 
   const [rows, setRows] = useState<StageRow[]>(initRows);
@@ -151,7 +163,7 @@ function DpiStageEditor({
   const sourceSig = mode === "logitech"
     ? (snapshot.dpiSlotPlan?.stages.map((stage) => stage.x).join(",") ?? "-")
     : mode === "stage"
-      ? (status?.dpiStages?.join(",") ?? "-")
+      ? `${status?.dpiStages?.join(",") ?? "-"}|${status?.dpiStagesY?.join(",") ?? "-"}`
       : String(status?.dpi ?? 0);
   const lastSigRef = useRef(sourceSig);
   useEffect(() => {
@@ -202,12 +214,23 @@ function DpiStageEditor({
     if (mode === "stage") {
       const enabled = next.filter((row) => row.enabled);
       const current = status?.dpiStages ?? [];
+      const currentY = status?.dpiStagesY ?? [];
       const currentCount = current.length;
       if (stageEditor?.countEditable === true && enabled.length !== currentCount) {
         control.applyDpiStageCount(enabled.length);
       }
       enabled.forEach((row, position) => {
         const value = parseRow(row.value);
+        const valueY = parseRow(row.valueY);
+        if (stageAxesEditable) {
+          // Send only the axes the user actually moved, so the untouched one
+          // stays whatever the mouse holds.
+          const edit: { x?: number; y?: number } = {};
+          if (value !== null && current[position] !== value) edit.x = value;
+          if (valueY !== null && currentY[position] !== valueY) edit.y = valueY;
+          if (edit.x !== undefined || edit.y !== undefined) control.applyDpiStageAxes(position, edit);
+          return;
+        }
         if (value === null || current[position] === value) return;
         control.applyDpiStageValue(position, value);
       });
@@ -264,6 +287,13 @@ function DpiStageEditor({
 
   const setValue = (index: number, raw: string): void => {
     const next = rows.map((row, i) => (i === index ? { ...row, value: raw.replace(/[^\d]/g, "") } : row));
+    setRows(next);
+    rowsRef.current = next;
+    markEdited(next);
+  };
+
+  const setValueY = (index: number, raw: string): void => {
+    const next = rows.map((row, i) => (i === index ? { ...row, valueY: raw.replace(/[^\d]/g, "") } : row));
     setRows(next);
     rowsRef.current = next;
     markEdited(next);
@@ -332,7 +362,7 @@ function DpiStageEditor({
   const enabledCount = rows.filter((row) => row.enabled).length;
 
   return (
-    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${showStageColors ? " has-m2nex-stage-colors" : ""}`}>
+    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${showStageColors ? " has-m2nex-stage-colors" : ""}${stageAxesEditable ? " has-stage-axes" : ""}`}>
       <div className="dpi-editor-bar">
         <span className="dpi-editor-bar-label">
           {t(locale, mode === "logitech" ? "dpi.slotsInUse" : mode === "stage" ? "dpi.stagesInUse" : "dpi.presetsInUse")}
@@ -340,6 +370,12 @@ function DpiStageEditor({
         <span className="dpi-editor-bar-count">{enabledCount} / {rows.length}</span>
       </div>
       <div className="dpi-slot-rule" />
+      {stageAxesEditable ? (
+        <div className="dpi-editor-axes-head" aria-hidden="true">
+          <span>{t(locale, "dpi.axisX")}</span>
+          <span>{t(locale, "dpi.axisY")}</span>
+        </div>
+      ) : null}
       <div id="dpi-editor-list" className="dpi-editor-list">
         {rows.map((row, index) => {
           const slider = sliderFor(row);
@@ -389,6 +425,19 @@ function DpiStageEditor({
                 disabled={locked || (mode === "stage" && !stagesWritable)}
                 onChange={(event) => setValue(index, event.currentTarget.value)}
               />
+              {stageAxesEditable ? (
+                <input
+                  type="number"
+                  className="dpi-editor-value"
+                  aria-label={tp(locale, "dpi.stageDpiY", { n: index + 1 })}
+                  min={slider.min}
+                  max={slider.max}
+                  step={slider.step}
+                  value={row.valueY}
+                  disabled={locked || !stagesWritable}
+                  onChange={(event) => setValueY(index, event.currentTarget.value)}
+                />
+              ) : null}
               <input
                 type="range"
                 className="dpi-editor-slider"

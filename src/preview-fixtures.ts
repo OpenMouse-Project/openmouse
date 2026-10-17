@@ -86,7 +86,6 @@ const PULSAR_PRO: MouseStatus = {
 const EGG_OP1: MouseStatus = {
   brand: "Endgame Gear",
   name: "OP1 8K",
-  ui: { family: "egg-op1", hideLodLow: true, hideUnsupportedPollingRates: true },
   batteryPercent: null,
   batteryState: "Unknown",
   dpi: 3200,
@@ -101,11 +100,68 @@ const EGG_OP1: MouseStatus = {
   leftSpdtMode: "GX Speed",
   rightSpdtMode: "GX Safe",
   eggCpiLevels: 4,
+  eggCpiMin: 50,
+  eggCpiMax: 26_000,
+  eggCpiStepLow: 50,
+  eggCpiStepHigh: 50,
   eggCpiStages: [{ x: 800, y: 800 }, { x: 1600, y: 1600 }, { x: 3200, y: 3200 }, { x: 6400, y: 6400 }],
   eggPollingDivider: 1,
-  eggMulticlickFilters: [0, 0],
-  eggButtonMappings: ["Left", "Right", "Middle", "Back", "Forward"],
+  eggLodIndex: 1,
+  eggLodOptions: ["0.7 mm", "1 mm", "2 mm"],
+  eggMulticlickFilters: [8, 8, 8, 8, 8],
+  eggButtonMappings: ["Left Click", "Right Click", "Middle Click", "Forward", "Back", "Wheel Up", "Wheel Down"],
+  eggMotionSyncAt8k: false,
+  eggSupportsV2SensorControls: false,
+  eggLeftHanded: false,
   firmware: ["1.02.00"],
+};
+
+/** OP1 8K v2 (`0x1978`): the v2 sensor block and the eleven-stop millimetre
+    lift-off list the v1 mouse does not have. */
+const EGG_OP1_V2: MouseStatus = {
+  brand: "Endgame Gear",
+  name: "Endgame Gear OP1 8K v2",
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 3200,
+  dpiY: 3200,
+  supportsSeparateDpiAxes: true,
+  pollingRateHz: 8000,
+  supportedPollingRates: [1000, 2000, 4000, 8000],
+  activeProfile: null,
+  liftOffDistance: "Medium",
+  connectionType: "Wired",
+  connectionDetail: "Wired USB - PID 0x1978 - PAW3950",
+  motionSync: true,
+  angleSnapping: false,
+  rippleControl: false,
+  slamclickFilter: true,
+  motionJitterFilter: false,
+  leftSpdtMode: "GX Speed",
+  rightSpdtMode: "GX Safe",
+  eggCpiLevels: 4,
+  eggCpiMin: 10,
+  eggCpiMax: 30_000,
+  eggCpiStepLow: 10,
+  eggCpiStepHigh: 50,
+  eggCpiStages: [{ x: 800, y: 800 }, { x: 1600, y: 1600 }, { x: 3200, y: 3200 }, { x: 6400, y: 6400 }],
+  eggPollingDivider: 1,
+  eggLodIndex: 3,
+  eggLodOptions: [
+    "0.7 mm", "0.8 mm", "0.9 mm", "1.0 mm", "1.1 mm", "1.2 mm",
+    "1.3 mm", "1.4 mm", "1.5 mm", "1.6 mm", "1.7 mm",
+  ],
+  eggGlassMode: false,
+  eggSupportsGlassMode: true,
+  eggMulticlickFilters: [8, 8, 8, 8, 8],
+  eggButtonMappings: ["Left Click", "Right Click", "Middle Click", "Forward", "Back", "Wheel Up", "Wheel Down"],
+  eggMotionSyncAt8k: true,
+  eggSupportsV2SensorControls: true,
+  eggAngleTuning: 0,
+  eggForceMaxFps: false,
+  eggLedLiftOffDisabled: false,
+  eggLeftHanded: false,
+  firmware: ["Firmware V1.20"],
 };
 
 const EGG_OT: MouseStatus = {
@@ -986,6 +1042,42 @@ const RAWM_V4_GT: MouseStatus = {
 };
 
 /**
+ * The shape the SteelSeries Gen 2 families report once the protocol publishes
+ * the five-slot preset table they already track. Today the drivers report only
+ * the active stage's X, so this fixture is the only place the per-stage Y
+ * column can be exercised; the stages whose X and Y differ model a mouse whose
+ * axes were written separately. See `steelseriesStagePreviewClient`, which
+ * stands in for the driver so the column can be edited here.
+ */
+const STEELSERIES_GEN2: MouseStatus = {
+  brand: "SteelSeries",
+  name: "SteelSeries Rival 3 Wireless Gen 2",
+  ui: {
+    family: "steelseries-rival3-wireless-v2",
+    settingsReady: true,
+    valuesVerified: false,
+    hideUnsupportedPollingRates: true,
+    hideProcessingCard: true,
+    pollingNote: "The Rival 3 Wireless Gen 2 cannot report its current DPI or polling rate; values shown are the last written by this app, or assumed defaults.",
+    defaultDisplayName: "SteelSeries Rival 3 Wireless Gen 2",
+    dpiStageEditor: { maxStages: 5, countEditable: false, minDpi: 100, maxDpi: 18000, stepDpi: 100 },
+  },
+  batteryPercent: 78,
+  batteryState: "Discharging",
+  dpi: 1600,
+  dpiY: 1600,
+  dpiStages: [400, 800, 1600, 3200, 6400],
+  dpiStagesY: [200, 800, 1600, 1600, 6400],
+  activeDpiStage: 2,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: null,
+  liftOffDistance: null,
+  connectionType: "Wireless",
+  firmware: ["1.5"],
+};
+
+/**
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
  */
@@ -995,6 +1087,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "pulsar-xs1-8k": { label: "Pulsar XS-1 8K dongle", status: PULSAR_XS1_8K },
   "pulsar-xs1-unknown": { label: "Pulsar XS-1 unknown polling", status: PULSAR_XS1_UNKNOWN },
   "egg-op1": { label: "Endgame Gear OP1 8K", status: EGG_OP1 },
+  "egg-op1-v2": { label: "Endgame Gear OP1 8K v2", status: EGG_OP1_V2 },
   "egg-ot": { label: "Endgame Gear OP1 RGB", status: EGG_OT },
   "egg-we": { label: "Endgame Gear OP1we", status: EGG_WE },
   "egg-xm2we": { label: "Endgame Gear XM2we", status: EGG_XM2WE },
@@ -1040,4 +1133,5 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "gwolves-pro": { label: "G-Wolves HTS Plus Pro", status: GWOLVES_PRO },
   "rawm-v4-gt": { label: "RAWM Leviathan V4 GT", status: RAWM_V4_GT },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
+  "steelseries-gen2": { label: "SteelSeries Rival 3 Wireless Gen 2", status: STEELSERIES_GEN2 },
 };

@@ -770,6 +770,30 @@ function clientHasMethod(method: string): boolean {
   return typeof client?.[method] === "function";
 }
 
+/**
+ * The per-stage axes setter this client exposes, if any. Both take
+ * `(stage, x, y)`: Lamzu Luna's is per-model (`setLunaFuryDpiStageAxes`), the
+ * generic name is what the SteelSeries Gen 2 families use.
+ */
+function dpiStageAxesWriterName(): string | null {
+  if (clientHasMethod("setDpiStageAxes")) return "setDpiStageAxes";
+  if (clientHasMethod("setLunaFuryDpiStageAxes")) return "setLunaFuryDpiStageAxes";
+  return null;
+}
+
+/**
+ * Clients that take a plain DPI per stage. Their table is the numeric
+ * `status.dpiStages` list, which is what gates the stage editor in the first
+ * place. The SteelSeries Gen 2 families (Aerox 3 Wireless Gen 2, Rival 3 Gen 2,
+ * Rival 3 Wireless Gen 2) instead take an X/Y/lift-off preset and publish no
+ * stage table at all, so they can never reach the write below. Deriving the
+ * contract from the protocol union keeps it honest: a client that changes shape
+ * becomes a type error here rather than a mis-typed write.
+ */
+type NumericDpiStageClient = Extract<SupportedClient, {
+  setDpiStageValue: (stage: number, dpi: number) => Promise<unknown>;
+}>;
+
 type KsnakeMacroClient = {
   setMacros(profiles: readonly KsnakeMacroProfile[]): Promise<void>;
 };
@@ -1350,6 +1374,11 @@ function readCapabilities(): DeviceCapabilities {
     // active stage, not the table.
     dpiStagesWritable: clientHasMethod("setDpiStageValue"),
     activeDpiStageWritable: clientHasMethod("setActiveDpiStage"),
+    // Only a per-stage axes write can change one axis and keep the other: the
+    // numeric `setDpiStageValue` mirrors X into Y everywhere it appears. Lamzu
+    // Luna spells it `setLunaFuryDpiStageAxes`, the SteelSeries Gen 2 families
+    // take the generic name.
+    dpiStageAxesWritable: dpiStageAxesWriterName() !== null,
     // Any client may publish these; the two named drivers are just the ones
     // that predate the generic lookup below.
     sleepOptions: dm
@@ -1868,9 +1897,18 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     else applySensorMode(s.sensorMode);
   }
   if (s.powerMode) applyPowerMode(s.powerMode);
+  // An Egg mouse whose 8K mode drops Motion Sync cannot take both from one
+  // profile: the driver clears Motion Sync when it writes 8,000 Hz and refuses
+  // to turn it back on there, so staging both would abort the flash after the
+  // rate had already landed. The hardware's answer is the only one, so the
+  // request follows it rather than being refused mid-flash.
+  const motionSyncAt8k = status.eggMotionSyncAt8k === false
+    && (s.pollingRateHz ?? status.pollingRateHz) >= 8000;
   for (const field of PULSAR_TOGGLE_FIELDS) {
-    const value = s[field];
-    if (typeof value === "boolean") applyPulsarToggle(field, value);
+    let value = s[field];
+    if (typeof value !== "boolean") continue;
+    if (field === "motionSync" && motionSyncAt8k) value = false;
+    applyPulsarToggle(field, value);
   }
   if (s.debounceMs != null) applyPulsarValue("debounce", s.debounceMs);
   if (s.sleepTimeout != null) applyPulsarValue("sleep", s.sleepTimeout);
@@ -1909,6 +1947,10 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   if (s.dpiLedSpeed != null) applyTeevolutionDpiLighting("speed", s.dpiLedSpeed);
   if (s.dpiLedSleepTimeout != null) applyDpiLightingSleepTimeout(s.dpiLedSleepTimeout);
 
+  // Handedness is deliberately not part of a game profile: the firmware
+  // rewrites both main buttons to their swapped defaults when it changes, so a
+  // profile could neither keep nor restore a custom mapping — see
+  // GAME_PROFILE_FIELDS and applyEggLeftHanded.
   if (typeof s.slamclickFilter === "boolean") applyEggFilter("slamclick", s.slamclickFilter);
   if (typeof s.motionJitterFilter === "boolean") applyEggFilter("motionJitter", s.motionJitterFilter);
   if (s.leftSpdtMode) applyEggSpdtMode("left", s.leftSpdtMode);
@@ -1919,6 +1961,10 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   s.eggMulticlickFilters?.forEach((value, button) => applyEggMulticlick(button as EggButtonIndex, value));
   s.eggButtonMappings?.forEach((mapping, button) =>
     applyEggButtonMapping(button as EggButtonIndex, mapping as EggButtonMapping));
+  if (s.eggLodIndex != null) applyEggLodIndex(s.eggLodIndex);
+  if (s.eggAngleTuning != null) applyEggAngleTuning(s.eggAngleTuning);
+  if (typeof s.eggForceMaxFps === "boolean") applyEggForceMaxFps(s.eggForceMaxFps);
+  if (typeof s.eggLedLiftOffDisabled === "boolean") applyEggLedLiftOff(s.eggLedLiftOffDisabled);
 
   const mappings = status.brand === "LunaFury" ? pickLunaFuryMappings(status, s.buttonMappings) : s.buttonMappings ?? {};
   for (const [button, action] of Object.entries(mappings)) applyDeviceButtonMapping(button, action);
@@ -4091,6 +4137,13 @@ export function applyActiveDpiStage(stage: number): void {
 export function applyDpiStageValue(stage: number, rawDpi: number): void {
   if (!hasActiveClient()) return;
   const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  // A client that can address the axes separately must not take the numeric
+  // route: that one mirrors X into Y and would discard the stage's Y.
+  // LunaFury uses its model-specific path below to honor linked-axis mode.
+  if (stagedStatus?.brand !== "LunaFury" && dpiStageAxesWriterName() !== null) {
+    applyDpiStageAxes(stage, { x: rawDpi });
+    return;
+  }
   const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
   if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
   const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
@@ -4119,7 +4172,80 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
       if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
     },
     apply: async () => {
-      await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+      const client = requireClientMethod("setDpiStageValue", "DPI stage value") as NumericDpiStageClient;
+      await client.setDpiStageValue(stage, dpi);
+    },
+  });
+}
+
+/**
+ * Write one or both axes of a single DPI stage on a client that stores them
+ * independently. The untouched axis is filled in from the stage's current
+ * value, so a Y edit cannot silently move X.
+ */
+export function applyDpiStageAxes(stage: number, edit: { x?: number; y?: number }): void {
+  if (!hasActiveClient()) return;
+  const writer = dpiStageAxesWriterName();
+  if (writer === null) return;
+  const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
+  if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
+  const snap = (rawDpi: number): number | null => {
+    const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
+    return dpiOptions.includes(dpi) ? dpi : null;
+  };
+  const x = edit.x === undefined ? null : snap(edit.x);
+  const y = edit.y === undefined ? null : snap(edit.y);
+  if ((edit.x !== undefined && x === null) || (edit.y !== undefined && y === null)) {
+    setReadStatus(st("ctl.dpiNotSupported", { dpi: (edit.x ?? edit.y ?? 0).toLocaleString() }));
+    emit();
+    return;
+  }
+  const currentY = (stagedStatus?.dpiStagesY ?? latestDeviceStatus?.dpiStagesY)?.[stage] ?? stages[stage];
+  const nextX = x ?? stages[stage];
+  const nextY = y ?? currentY;
+  // The change writes the resolved pair, so describe the pair — not just the
+  // axis this edit moved. Two edits to one stage collapse onto the same key,
+  // and the label of the second one must not hide the first one's write.
+  const deviceY = latestDeviceStatus?.dpiStagesY;
+  const described = [
+    nextX !== latestDeviceStatus?.dpiStages?.[stage] ? `X ${nextX.toLocaleString()}` : null,
+    deviceY !== undefined && nextY !== deviceY[stage] ? `Y ${nextY.toLocaleString()}` : null,
+  ].filter((axis): axis is string => axis !== null);
+  const axes = (described.length > 0 ? described : [
+    x === null ? null : `X ${x.toLocaleString()}`,
+    y === null ? null : `Y ${y.toLocaleString()}`,
+  ].filter((axis): axis is string => axis !== null)).join(" · ");
+  stageChange({
+    key: `dpi-stage-${stage}`,
+    label: `Stage ${stage + 1} · ${axes} DPI`,
+    command: `Set DPI stage ${stage + 1} to ${axes} DPI`,
+    progress: `Setting stage ${stage + 1} to ${axes} DPI…`,
+    preview: (status) => {
+      // Preview the resolved pair rather than only the axis this edit moved: a
+      // later edit to the same stage replaces this change, and `matchesDeviceStatus`
+      // and the editor's own row comparison both read this preview. A preview
+      // that dropped the carried axis would make the editor re-issue it as a
+      // fresh change on its next commit and misstate what is about to be written.
+      const axesPresent = Array.isArray(status.dpiStagesY);
+      const next = status.dpiStages?.slice() ?? [];
+      while (next.length <= stage) next.push(next.at(-1) ?? status.dpi);
+      next[stage] = nextX;
+      status.dpiStages = next;
+      if (axesPresent) {
+        const nextY2 = status.dpiStagesY!.slice();
+        while (nextY2.length <= stage) nextY2.push(nextY2.at(-1) ?? status.dpiY ?? status.dpi);
+        nextY2[stage] = nextY;
+        status.dpiStagesY = nextY2;
+      }
+      if ((status.activeDpiStage ?? 0) === stage) {
+        status.dpi = nextX;
+        if (axesPresent) status.dpiY = nextY;
+      }
+    },
+    apply: async () => {
+      const client = requireSettingsClient() as unknown as Record<string, ((stage: number, x: number, y: number) => Promise<unknown>) | undefined>;
+      await client[writer]!(stage, nextX, nextY);
     },
   });
 }
@@ -5983,6 +6109,91 @@ export function applyEggButtonMapping(button: EggButtonIndex, mapping: EggButton
 }
 
 /**
+ * Lift-off by the mouse's own list index, so the millimetre values the driver
+ * publishes (0.7–1.7 mm on a v2 mouse) can be picked directly instead of being
+ * squeezed into the three shared Low/Medium/High stops — only three of which
+ * any v2 millimetre value even maps to.
+ */
+export function applyEggLodIndex(index: number): void {
+  // A profile can name an entry this mouse does not have: the v2 list is eleven
+  // long and a v1's three, and switching glass mode on shrinks it to two. The
+  // driver rejects such an index outright, so it follows the rule every other
+  // field the connected mouse cannot hold follows — ignored, not flashed into a
+  // failed write that stops a profile half-applied.
+  const label = latestDeviceStatus?.eggLodOptions?.[index];
+  if (label === undefined) return;
+  stageEggChange({
+    key: "egg-lod",
+    label: `Lift-off ${label}`,
+    what: "lift-off distance",
+    preview: (status) => {
+      status.eggLodIndex = index;
+      status.liftOffDistance = eggLodLevel(label);
+    },
+    change: async (client) => client.setEggLodIndex(index),
+  });
+}
+
+/** The driver's own mapping from its millimetre labels to the shared stops. */
+function eggLodLevel(label: string | undefined): MouseStatus["liftOffDistance"] {
+  if (label === "0.7 mm") return "Low";
+  if (label === "1 mm" || label === "1.0 mm") return "Medium";
+  if (label === "2 mm" || label === "2.0 mm") return "High";
+  return null;
+}
+
+/** v2 mice only: a raw signed sensor-angle offset. */
+export function applyEggAngleTuning(value: number): void {
+  stageEggChange({
+    key: "egg-angle-tuning",
+    label: `Sensor angle tuning ${value}`,
+    what: "sensor angle tuning",
+    preview: (status) => {
+      status.eggAngleTuning = value;
+    },
+    change: async (client) => client.setSensorAngleTuning(value),
+  });
+}
+
+/** v2 mice only: keeps the sensor at its highest frame rate. */
+export function applyEggForceMaxFps(enabled: boolean): void {
+  stageEggChange({
+    key: "egg-force-max-fps",
+    label: `Force max sensor FPS ${enabled ? "on" : "off"}`,
+    what: "max sensor FPS",
+    preview: (status) => {
+      status.eggForceMaxFps = enabled;
+    },
+    change: async (client) => client.setForceMaxSensorFps(enabled),
+  });
+}
+
+/** v2 mice only: turns the LED off while the mouse is lifted. */
+export function applyEggLedLiftOff(enabled: boolean): void {
+  stageEggChange({
+    key: "egg-led-lift-off",
+    label: `LED on lift-off ${enabled ? "off" : "on"}`,
+    what: "lift-off LED",
+    preview: (status) => {
+      status.eggLedLiftOffDisabled = enabled;
+    },
+    change: async (client) => client.setLedLiftOffDisabled(enabled),
+  });
+}
+
+export function applyEggLeftHanded(enabled: boolean): void {
+  stageEggChange({
+    key: "egg-handed",
+    label: `Left-handed mode ${enabled ? "on" : "off"}`,
+    what: "handedness",
+    preview: (status) => {
+      status.eggLeftHanded = enabled;
+    },
+    change: async (client) => client.setLeftHanded(enabled),
+  });
+}
+
+/**
  * Select a named power/performance mode on any driver that exposes
  * `setPowerMode`.
  */
@@ -6787,6 +6998,55 @@ function previewClient(): LogitechHidppClient {
   });
 }
 
+/**
+ * A stand-in that keeps the five DPI presets in memory, so the preview behaves
+ * like a connected Gen 2 mouse: the axes column writes through to it and the
+ * status that comes back shows the result.
+ */
+function steelseriesStagePreviewClient(initial: MouseStatus): SupportedClient {
+  const status = structuredClone(initial);
+  const stages = (): number[] => status.dpiStages ?? [];
+  const stagesY = (): number[] => status.dpiStagesY ?? [];
+  const write = (stage: number, x: number | null, y: number | null): void => {
+    if (x !== null) stages()[stage] = x;
+    if (y !== null) stagesY()[stage] = y;
+    if ((status.activeDpiStage ?? 0) === stage) {
+      status.dpi = stages()[stage] ?? status.dpi;
+      status.dpiY = stagesY()[stage] ?? status.dpiY;
+    }
+  };
+  const client = {
+    device: {} as HIDDevice,
+    pollIntervalMs: 0,
+    open: async () => undefined,
+    close: async () => undefined,
+    readStatus: async () => structuredClone(status),
+    setDpi: async (dpi: number) => {
+      write(status.activeDpiStage ?? 0, dpi, dpi);
+      return dpi;
+    },
+    setDpiStageValue: async (stage: number, dpi: number) => {
+      write(stage, dpi, dpi);
+      return dpi;
+    },
+    setDpiStageAxes: async (stage: number, x: number, y: number) => {
+      write(stage, x, y);
+      return { x, y };
+    },
+    setActiveDpiStage: async (stage: number) => {
+      status.activeDpiStage = stage;
+      status.dpi = stages()[stage] ?? status.dpi;
+      status.dpiY = stagesY()[stage] ?? status.dpiY;
+      return stage;
+    },
+    setPollingRate: async (hz: number) => {
+      status.pollingRateHz = hz;
+      return hz;
+    },
+  };
+  return client as unknown as SupportedClient;
+}
+
 function showSlotsPreview(): void {
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 8000, 16000, 32000];
   const stages = [
@@ -6945,6 +7205,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
   if (name === "g703") showG703PreviewProfiles();
+  if (name === "steelseries-gen2") active = steelseriesStagePreviewClient(fixture.status);
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   if (name === "finalmouse" || name === "finalmouse-slx") active = finalmousePreviewClient(fixture.status);

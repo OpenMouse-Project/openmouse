@@ -37,6 +37,8 @@ export interface CardAvailability {
   eggPolling: boolean;
   eggCpi: boolean;
   eggButtons: boolean;
+  eggV2Sensor: boolean;
+  eggHanded: boolean;
   razerButtons: boolean;
   atkButtons: boolean;
   atkProfile: boolean;
@@ -91,6 +93,8 @@ const NOTHING: CardAvailability = {
   eggPolling: false,
   eggCpi: false,
   eggButtons: false,
+  eggV2Sensor: false,
+  eggHanded: false,
   razerButtons: false,
   atkButtons: false,
   atkProfile: false,
@@ -229,6 +233,10 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     eggCpi: eggs,
     eggButtons: eggs
       && status.eggMulticlickFilters !== undefined && status.eggButtonMappings !== undefined,
+    // The v2 mice (OP1/XM2 8K v2, OP1w/XM2w 4K v2) expose three more sensor
+    // controls; the driver flags them rather than the panel guessing from PID.
+    eggV2Sensor: eggs && status.eggSupportsV2SensorControls === true,
+    eggHanded: eggs && typeof status.eggLeftHanded === "boolean",
     // The driver reports an empty list for a mouse without 0x1B04, which the
     // controller stores as null — so this is "the device has controls", not
     // "the device is an MX Master".

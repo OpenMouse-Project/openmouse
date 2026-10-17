@@ -159,6 +159,64 @@ test("an Endgame Gear 8K mouse gets its own cards and loses signal and sleep", (
   assert.equal(has.sleep, false);
 });
 
+test("the Endgame Gear 8K family is recognized without a ui.family tag", () => {
+  // No EGG driver publishes a `ui.family`: the OP1-8K driver is identified by
+  // the `eggCpiStages` list it reports, which egg-we deliberately leaves out
+  // (see egg-we-hid.ts). Real hardware therefore reaches traits.ts without the
+  // "egg-op1" tag the preview fixture carries, and must still get the section.
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      eggCpiStages: [{ x: 800, y: 800 }],
+      eggMulticlickFilters: [8, 8],
+      eggButtonMappings: ["Left", "Right"],
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.eggFilter, true);
+  assert.equal(has.eggSpdt, true);
+  assert.equal(has.eggCpi, true);
+  assert.equal(has.eggButtons, true);
+
+  // The wireless driver reports no stage list, so it keeps its own smaller
+  // feature set rather than inheriting the 8K's advanced UI.
+  const we = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      ui: { family: "egg-we" },
+      eggMulticlickFilters: [8],
+      eggButtonMappings: ["Left"],
+    },
+  }));
+  assert.equal(we.advancedHost, false);
+  assert.equal(we.eggFilter, false);
+  assert.equal(we.eggCpi, false);
+});
+
+test("the Endgame Gear v2 sensor and handedness cards follow the driver's fields", () => {
+  const v2 = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      eggCpiStages: [{ x: 800, y: 800 }],
+      eggSupportsV2SensorControls: true,
+      eggLeftHanded: false,
+    },
+  }));
+  assert.equal(v2.eggV2Sensor, true);
+  assert.equal(v2.eggHanded, true);
+
+  // A v1 8K mouse has neither the v2 sensor block nor a handedness readout…
+  const v1 = cardAvailability(snapshot({
+    status: { brand: "Endgame Gear", eggCpiStages: [{ x: 800, y: 800 }], eggSupportsV2SensorControls: false },
+  }));
+  assert.equal(v1.eggV2Sensor, false);
+  assert.equal(v1.eggHanded, false);
+  // …and the cards stay inside the EGG advanced section either way.
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, eggSupportsV2SensorControls: true, eggLeftHanded: true },
+  })).eggV2Sensor, false);
+});
+
 test("Pulsar keeps the shared advanced cards", () => {
   const has = cardAvailability(snapshot({
     status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4 },

@@ -53,6 +53,8 @@ export interface DeviceCapabilities {
   dpiStagesWritable: boolean;
   /** Whether the connected driver can select which DPI stage is active. */
   activeDpiStageWritable: boolean;
+  /** Whether the connected driver can write one stage's X and Y independently. */
+  dpiStageAxesWritable: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
   debounceOptions?: number[] | null;

@@ -14,9 +14,8 @@ import { isNativeAttackSharkX11, RATE_STEPS_HZ } from "../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../device/types";
 import { t, tp } from "../../i18n";
 import type { InterfaceLocale } from "../../interface-preferences";
-import { RateSlider, Segmented, SwitchButton } from "../ui";
+import { OptionMenu, RateSlider, Segmented, SwitchButton } from "../ui";
 import { fullChargeHoursAt } from "../../battery-history";
-import { BounceCheckDialog } from "../BounceCheckDialog";
 
 const LOD_LEVELS: readonly LiftOffLevel[] = ["Low", "Medium", "High"];
 
@@ -215,6 +214,10 @@ export function hasLiftOff(snapshot: ControlSnapshot): boolean {
   return Boolean(status.asymmetricLiftOff)
     || Boolean(status.liftOffScale)
     || status.liftOffDistance != null
+    // The EGG mice report their own millimetre list and leave the shared
+    // Low/Medium/High stops null for most of it (8 of the v2 list's 11 values
+    // map to no shared stop at all), so the list itself is the capability.
+    || (Array.isArray(status.eggLodOptions) && status.eggLodOptions.length > 0)
     || (Array.isArray(status.supportedLiftOffDistances) && status.supportedLiftOffDistances.length > 0);
 }
 
@@ -227,6 +230,7 @@ export function LiftOffDistance({ snapshot }: { snapshot: ControlSnapshot }): Re
   const showPair = pair?.enabled === true;
   const lodNeedsSurface = ui?.lodRequiresSurface === true && status.gamingSurfaceMode === "Off";
   const supportedLods = status.supportedLiftOffDistances;
+  const eggLods = snapshot.traits.eggControls ? status.eggLodOptions : undefined;
 
   return (
     <div id="host-lod-row">
@@ -263,25 +267,53 @@ export function LiftOffDistance({ snapshot }: { snapshot: ControlSnapshot }): Re
         <LiftOffScale snapshot={snapshot} />
       ) : (
         <div id="lod-single">
-          <Segmented
-            className="three"
-            ariaLabel={t(locale, "perf.liftOff")}
-            options={LOD_LEVELS.map((level) => {
-              const hideLow = level === "Low" && (snapshot.traits.eggFamily || ui?.hideLodLow === true);
-              const unsupported = Array.isArray(supportedLods) && !supportedLods.includes(level);
-              const legacyLogitechLow = snapshot.traits.logitech
-                && !Array.isArray(supportedLods)
-                && level === "Low";
-              return {
-                value: level,
-                label: lodLabel(locale, level),
-                hidden: hideLow || unsupported,
-                disabled: snapshot.settingsPending || legacyLogitechLow || lodNeedsSurface,
-              };
-            })}
-            value={status.liftOffDistance}
-            onChange={control.applyLiftOffDistance}
-          />
+          {eggLods && eggLods.length > 0 ? (
+            // The mouse's own list, in millimetres: three stops on a v1 mouse,
+            // eleven on a v2, and a two-value glass-mode list. It grows past a
+            // segmented row's width at eleven, so it switches to the menu.
+            eggLods.length <= 3 ? (
+              <Segmented
+                className="three"
+                ariaLabel={t(locale, "perf.liftOff")}
+                options={eggLods.map((label, index) => ({ value: index, label }))}
+                value={status.eggLodIndex ?? null}
+                disabled={snapshot.settingsPending || lodNeedsSurface}
+                onChange={control.applyEggLodIndex}
+              />
+            ) : (
+              <div className="field-label">
+                <span>{t(locale, "perf.liftOff")}</span>
+                <OptionMenu
+                  id="egg-lod-select"
+                  ariaLabel={t(locale, "perf.liftOff")}
+                  options={eggLods.map((label, index) => ({ value: index, label }))}
+                  value={status.eggLodIndex ?? null}
+                  disabled={snapshot.settingsPending || lodNeedsSurface}
+                  onChange={control.applyEggLodIndex}
+                />
+              </div>
+            )
+          ) : (
+            <Segmented
+              className="three"
+              ariaLabel={t(locale, "perf.liftOff")}
+              options={LOD_LEVELS.map((level) => {
+                const hideLow = level === "Low" && (snapshot.traits.eggFamily || ui?.hideLodLow === true);
+                const unsupported = Array.isArray(supportedLods) && !supportedLods.includes(level);
+                const legacyLogitechLow = snapshot.traits.logitech
+                  && !Array.isArray(supportedLods)
+                  && level === "Low";
+                return {
+                  value: level,
+                  label: lodLabel(locale, level),
+                  hidden: hideLow || unsupported,
+                  disabled: snapshot.settingsPending || legacyLogitechLow || lodNeedsSurface,
+                };
+              })}
+              value={status.liftOffDistance}
+              onChange={control.applyLiftOffDistance}
+            />
+          )}
         </div>
       )}
     </div>
@@ -329,16 +361,6 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
         </span>
       </label>
     </div>
-  );
-}
-
-function BounceCheck({ locale, value, canApply }: { locale: InterfaceLocale; value: number; canApply: boolean }): ReactNode {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" className="icon-button bounce-check-button" onClick={() => setOpen(true)}>{displayText(locale, "Check for bounce")}</button>
-      <BounceCheckDialog open={open} locale={locale} bunnyHopMs={value} canApply={canApply} onClose={() => setOpen(false)} />
-    </>
   );
 }
 
@@ -396,7 +418,6 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
           ? t(locale, "perf.bunnyReadonly")
           : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs }))}
       </small>
-      {standalone ? <BounceCheck locale={locale} value={value} canApply={!locked && !snapshot.settingInProgress} /> : null}
     </div>
   );
   return standalone ? (

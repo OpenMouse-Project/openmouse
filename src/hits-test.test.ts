@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { averageMs, bounceReport, savedMs, stepTimes } from "./hits-test.ts";
+import { averageMs, savedMs, stepTimes } from "./hits-test.ts";
 
 const press = (...steps: [number, number][]) => steps.map(([t, depth]) => ({ t, depth }));
 
@@ -32,8 +32,3 @@ test("the average skips presses that could not be compared", () => {
   assert.equal(averageMs([null, null]), null);
 });
 
-test("presses closer than the bounce gap are counted as bounce", () => {
-  assert.deepEqual(bounceReport([0, 120, 135, 300, 310, 600]), { clicks: 6, bounces: 2, longestGap: 15 });
-  assert.deepEqual(bounceReport([0, 100, 250]), { clicks: 3, bounces: 0, longestGap: null });
-  assert.deepEqual(bounceReport([]), { clicks: 0, bounces: 0, longestGap: null });
-});

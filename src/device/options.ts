@@ -52,3 +52,27 @@ export function valuesWithCurrent(offered: number[], current: number | null | un
   if (current === null || current === undefined || offered.includes(current)) return offered;
   return [...offered, current].sort((left, right) => left - right);
 }
+
+/** The CPI range an Egg mouse reports, with a step for each end of it. */
+export interface CpiLimits {
+  min: number;
+  max: number;
+  stepLow: number;
+  stepHigh: number;
+}
+
+/**
+ * The value the mouse itself would store — the protocol's `eggClampCpi`: clamp,
+ * snap to the step at that end of the range, clamp again. The v2 generation
+ * takes 10-CPI steps below 10,000 CPI and 50 above; v1 uses 50 throughout.
+ *
+ * The panel's number fields cannot express a grid whose step changes partway up
+ * the range (HTML measures `step` from `min`), so they keep the fine step and
+ * snap through here on Apply rather than offering the driver values it refuses.
+ */
+export function snapCpiToDevice(value: number, limits: CpiLimits): number {
+  const clamped = Math.max(limits.min, Math.min(limits.max, Math.round(value)));
+  const step = clamped <= 10_000 ? limits.stepLow : limits.stepHigh;
+  const snapped = Math.floor((clamped + step / 2) / step) * step;
+  return Math.max(limits.min, Math.min(limits.max, snapped));
+}
