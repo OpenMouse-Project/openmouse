@@ -1,6 +1,6 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
-import { t, type I18nKey } from "../i18n.ts";
-import type { InterfaceLocale } from "../interface-preferences.ts";
+import { t, type I18nKey } from "../i18n/index.ts";
+import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 
 // Names verified against LunaFury's language.js and patternModule.vue.
 // Its Competitive Mode calls setHyperMode (0x0b), while Tracking Mode

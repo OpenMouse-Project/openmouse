@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { before, test } from "node:test";
 import { build } from "vite";
-import type { BridgeProfile } from "../src/bridge.ts";
+import type { BridgeProfile } from "../src/features/bridge/bridge.ts";
 import { getDfuInfo, type FirmwareManifest } from "../src/device/firmware-updates.ts";
 
 let controller: any;
 const controllerPath = fileURLToPath(new URL("../src/device/controller.ts", import.meta.url)).replaceAll("\\", "/");
-const bridgeHookPath = fileURLToPath(new URL("../src/app/useBridgeProfileApplier.ts", import.meta.url)).replaceAll("\\", "/");
-const dpiEditorPath = fileURLToPath(new URL("../src/app/cards/LunaFuryDpiEditor.tsx", import.meta.url)).replaceAll("\\", "/");
+const bridgeHookPath = fileURLToPath(new URL("../src/features/bridge/useBridgeProfileApplier.ts", import.meta.url)).replaceAll("\\", "/");
+const dpiEditorPath = fileURLToPath(new URL("../src/features/devices/cards/LunaFuryDpiEditor.tsx", import.meta.url)).replaceAll("\\", "/");
 
 before(async () => {
   const storage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
@@ -25,8 +25,8 @@ before(async () => {
     plugins: [{ name: "controller-test-state", enforce: "pre",
       resolveId(id, importer) {
         if (id === "test:bridge-hooks" || id === "react") return "\0test:bridge-hooks";
-        if (id === "../ui" && importer?.replaceAll("\\", "/") === dpiEditorPath) return "\0test:dpi-ui";
-        if (id === "test:bridge-status" || (id === "../bridge-status-store" && importer?.replaceAll("\\", "/") === bridgeHookPath)) {
+        if (id === "../../../shared/ui" && importer?.replaceAll("\\", "/") === dpiEditorPath) return "\0test:dpi-ui";
+        if (id === "test:bridge-status" || (id === "./bridge-status-store" && importer?.replaceAll("\\", "/") === bridgeHookPath)) {
           return "\0test:bridge-status";
         }
       },
@@ -58,7 +58,7 @@ before(async () => {
           "export function pushToast(kind: ToastKind, title: string, detail?: string, options: ToastOptions = {}): void {",
           "$&\n  testToastLog.push({ kind, title, detail });",
         ) + `
-        import { useBridgeProfileApplier } from "../app/useBridgeProfileApplier";
+        import { useBridgeProfileApplier } from "../features/bridge/useBridgeProfileApplier";
         import { beginRender, resetHook, hookWriting } from "test:bridge-hooks";
         import { emitBridge } from "test:bridge-status";
         export const testToastLog = [];
@@ -146,7 +146,7 @@ before(async () => {
         export { refreshStatus as testRefreshStatus };
         export function testClientOnly() { activeDevice = null; }
         export { hookWriting as testBridgeWriting };
-        export { LunaFuryDpiEditor as testDpiEditor } from "../app/cards/LunaFuryDpiEditor";
+        export { LunaFuryDpiEditor as testDpiEditor } from "../features/devices/cards/LunaFuryDpiEditor";
         export { snapshotDiff as testSnapshotDiff, pickSnapshot as testPickSnapshot,
           mergeSnapshots as testMergeSnapshots } from "./game-profile-snapshot.ts";
         `;

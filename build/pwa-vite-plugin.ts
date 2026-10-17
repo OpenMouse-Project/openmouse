@@ -21,7 +21,6 @@ export const PRECACHE_PAGES = ["index.html"];
 
 export const ROOT_PAGE = "index.html";
 
-/** The root page is served from "/", every other page from its own filename. */
 export function pageUrl(file: string): string {
   return file === ROOT_PAGE ? "/" : `/${file}`;
 }

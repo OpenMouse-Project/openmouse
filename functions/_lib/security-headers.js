@@ -3,7 +3,7 @@
 // `public/_headers` declares the exact same set for the static assets Pages
 // serves directly; this module applies it to the Pages Functions responses
 // (the IP-ban screen, blocked/rate-limited replies, and all /api/* payloads),
-// which `_headers` does not cover. `src/security-headers.test.ts` keeps the two
+// which `_headers` does not cover. `test/security-headers.test.ts` keeps the two
 // copies in lockstep so they cannot drift.
 //
 // `upgrade-insecure-requests` is deliberately absent. It would rewrite the

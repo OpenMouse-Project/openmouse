@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ensureLocale } from "../i18n.ts";
+import { ensureLocale } from "../i18n/index.ts";
 import { lunafurySettingLabel, lunafurySettingPriority, lunafuryTrackingVisible } from "./lunafury-labels.ts";
 
 test("LunaFury Chinese names match the vendor's command mappings", async () => {

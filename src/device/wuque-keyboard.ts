@@ -21,7 +21,6 @@ import type {
 } from "./types.ts";
 type ReportRateKey = keyof typeof WUQUE_REPORT_RATE;
 
-/** Board rate enums mapped to the polling rates the panel shows, ascending. */
 const REPORT_RATE_HZ: Readonly<Record<ReportRateKey, number>> = {
   r8khz: 8000,
   r4khz: 4000,
@@ -81,8 +80,6 @@ function triggerKey(
     row,
     col,
     keycode,
-    // Short button label from the vendor's own keycode name table; null when
-    // the board reports a code the vendor names nowhere (e.g. 0xF20A).
     keycodeName: wuqueMatrixKeyLabel(keycode) ?? `0x${keycode.toString(16).padStart(4, "0")}`,
     performance: block,
     ...settingsFromBlock(block),

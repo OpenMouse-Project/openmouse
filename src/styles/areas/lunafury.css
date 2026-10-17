@@ -1,0 +1,49 @@
+.dpi-card.lunafury-dpi-card.has-lift-off { grid-template-columns: minmax(0, 1fr); }
+.dpi-card.lunafury-dpi-card.has-lift-off > .dpi-card-lift { border-inline-start: 0; border-top: 1px solid var(--line-1); padding: 16px 0 0; }
+.lunafury-dpi-editor { display: grid; gap: 16px; min-width: 0; }
+.lunafury-dpi-editor .stepper-slider { margin: 0; }
+.lunafury-dpi-stage-bar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+.lunafury-dpi-stage-list { display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.lunafury-dpi-stage { display: grid; gap: 8px; width: 56px; min-width: 0; }
+.lunafury-dpi-stage.stage-1 { --luna-stage-color: var(--luna-stage-1); }
+.lunafury-dpi-stage.stage-2 { --luna-stage-color: var(--luna-stage-2); }
+.lunafury-dpi-stage.stage-3 { --luna-stage-color: var(--luna-stage-3); }
+.lunafury-dpi-stage.stage-4 { --luna-stage-color: var(--luna-stage-4); }
+.lunafury-dpi-stage.stage-5 { --luna-stage-color: var(--luna-stage-5); }
+.lunafury-dpi-stage.stage-6 { --luna-stage-color: var(--luna-stage-6); }
+.lunafury-dpi-stage-tile { justify-self: center; width: 40px; height: 40px; padding: 0; border: 2px solid transparent; border-radius: var(--r-sm); background: var(--luna-stage-color); cursor: pointer; }
+.lunafury-dpi-stage.is-active .lunafury-dpi-stage-tile { border-color: var(--text-1); }
+.lunafury-dpi-stage-tile:hover:not(:disabled) { box-shadow: var(--focus); }
+.lunafury-dpi-stage-value { display: grid; gap: 4px; min-width: 0; color: var(--text-3); font-size: var(--fs-meta); text-align: center; }
+.lunafury-dpi-stage-value input { width: 100%; min-width: 0; padding: 8px 0; font-size: var(--fs-body); font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; appearance: textfield; }
+.lunafury-dpi-stage-value input::-webkit-inner-spin-button { appearance: none; }
+.lunafury-dpi-count { display: grid; gap: 8px; flex: 0 0 80px; margin-inline-start: auto; color: var(--text-3); font-size: var(--fs-meta); }
+.lunafury-dpi-count .option-menu { width: 100%; }
+.lunafury-dpi-editor .setting-note { margin: 0; }
+.lunafury-dpi-editor :disabled { cursor: not-allowed; }
+
+#button-mapping-settings.luna-button-mapping { container: luna-remap / inline-size; }
+.luna-map-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-width: 0; padding-block: 12px; border-top: 1px solid var(--line-1); }
+.luna-map-item:first-child { border-top: 0; }
+#button-mapping-settings .luna-map-item .button-map-row { grid-template-columns: minmax(96px, 1fr) minmax(0, 1fr); gap: 12px; border: 0; }
+.luna-key-binding { min-width: 0; color: var(--text-3); font-size: var(--fs-meta); }
+.luna-key-binding summary { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--btn); box-shadow: var(--btn-shadow); color: var(--text-2); cursor: pointer; list-style: none; }
+.luna-key-binding summary::after { width: 6px; height: 6px; border-inline-end: 1px solid currentColor; border-bottom: 1px solid currentColor; content: ""; transform: rotate(45deg) translateY(-2px); }
+[dir="rtl"] .luna-key-binding summary::after { transform: rotate(-45deg) translateY(-2px); }
+.luna-key-binding[open] summary::after { transform: rotate(225deg) translateY(-2px); }
+[dir="rtl"] .luna-key-binding[open] summary::after { transform: rotate(-225deg) translateY(-2px); }
+.luna-key-binding summary:hover { background: var(--btn-hover); }
+.luna-key-binding fieldset { display: grid; gap: 12px; min-width: 0; margin: 12px 0 0; padding: 16px; border: 0; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); }
+.luna-key-binding fieldset > label { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.luna-key-binding select, .luna-key-binding button { min-height: 40px; max-width: 100%; }
+.luna-key-binding :disabled { opacity: .45; cursor: not-allowed; }
+.luna-key-modifiers, .luna-key-actions { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.luna-key-modifiers label { display: flex; align-items: center; gap: 8px; }
+.luna-key-binding output { overflow-wrap: anywhere; color: var(--text-1); }
+.luna-map-item:has(.luna-key-binding[open]) { grid-template-columns: minmax(0, 1fr); }
+.luna-key-binding[open] { grid-column: 1 / -1; }
+.luna-key-binding[open] summary { width: fit-content; margin-inline-start: auto; }
+@container luna-remap (max-width: 480px) {
+  .luna-map-item { grid-template-columns: minmax(0, 1fr); }
+  .luna-key-binding summary { width: fit-content; margin-inline-start: auto; }
+}

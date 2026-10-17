@@ -1,8 +1,9 @@
-import { displayText } from "../i18n";
+import { displayText } from "../i18n/index";
+import { PenLine } from "lucide-react";
 import type { ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
-import { t } from "../i18n";
+import { t } from "../i18n/index";
 
 export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { pending } = snapshot;
@@ -20,10 +21,7 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       aria-label={t(locale, "pend.region")}
     >
       <span className="apply-bar-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3 2.5 20h19L12 3Z" />
-          <path d="M12 9.5v4M12 16.8v.2" />
-        </svg>
+        <PenLine strokeWidth={1.8} aria-hidden="true" />
         {displayText(locale, label)}
         {pending.labels.length > 0 ? <em className="apply-bar-summary">{displayText(locale, pending.labels.join(" · "))}</em> : null}
       </span>

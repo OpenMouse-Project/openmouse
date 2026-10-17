@@ -9,5 +9,4 @@ import { WUQUE_HID_FILTERS, KOCHI_HID_FILTERS } from "@openmouse/keyboard-protoc
  */
 export const BASILISK_V3_PRO_BLUETOOTH = { vendorId: 0x068e, productId: 0x00ac };
 
-/** Everything the app asks the browser (or Bridge) for. */
 export const HID_FILTERS: HIDDeviceFilter[] = [...SUPPORTED_HID_FILTERS, ...WUQUE_HID_FILTERS, ...KOCHI_HID_FILTERS, BASILISK_V3_PRO_BLUETOOTH];

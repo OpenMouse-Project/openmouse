@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { LUNAFURY_BUTTON_ACTIONS, LUNAFURY_BUTTON_IDS } from "@openmouse/protocol/lamzu";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
-import { ensureLocale, t } from "../i18n.ts";
-import { LOCALES } from "../interface-preferences.ts";
+import { ensureLocale, t } from "../i18n/index.ts";
+import { LOCALES } from "../features/settings/interface-preferences.ts";
 import { LUNAFURY_KEY_CHOICES, canEditLunaFuryMapping, lunaFuryKeyAction, lunaFuryKeyboardLabel,
   lunaFuryMappingLabel, pickLunaFuryMappings } from "./lunafury-buttons.ts";
 

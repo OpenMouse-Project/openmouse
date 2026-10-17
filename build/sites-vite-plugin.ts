@@ -2,7 +2,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
-/** Adds the Cloudflare Worker entry point required by the Sites host. */
 export function sites(): Plugin {
   let root = process.cwd();
   let outputDirectory = "dist";

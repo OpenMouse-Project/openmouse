@@ -1,0 +1,135 @@
+.om-device-page { gap: 18px; }
+
+.om-hero {
+  display: grid;
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(60% 120% at 0% 0%, rgb(var(--accent-rgb) / 0.07), transparent 60%),
+    var(--sheen), var(--surface-1);
+  box-shadow: var(--lit);
+}
+.om-hero-top {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 22px 16px 16px;
+}
+.om-hero-stage {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-md);
+  background: var(--stage-light), var(--well);
+  box-shadow: var(--inset-shadow);
+}
+.om-hero-stage img {
+  position: absolute; inset: 8%;
+  width: 84%; height: 84%;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 18px rgb(var(--shade-rgb) / 0.5));
+}
+.om-hero-main { display: grid; gap: 8px; min-width: 0; align-content: center; }
+.om-crumbs { display: flex; align-items: center; gap: 4px; color: var(--text-3); font-size: var(--fs-meta); }
+.om-crumbs button { padding: 2px 4px; margin-inline-start: -4px; border-radius: var(--r-xs); color: var(--text-3); font-weight: 500; }
+.om-crumbs button:hover { color: var(--text-1); background: var(--glint); }
+.om-crumbs svg { width: 13px; height: 13px; color: var(--text-4); }
+[dir="rtl"] .om-crumbs svg { transform: scaleX(-1); }
+.om-crumbs span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.om-hero-name { font-size: 28px; font-weight: 650; letter-spacing: -0.025em; line-height: 1.1; overflow-wrap: anywhere; }
+.om-hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--text-2); font-size: 12.5px; }
+.om-hero-meta .om-sep { color: var(--text-4); }
+.om-hero .om-stats { margin-top: 6px; gap: 8px 18px; }
+.om-hero .om-stat { font-size: 13px; }
+.om-hero-actions { display: flex; align-items: flex-start; gap: 6px; align-self: start; }
+
+.om-tabs {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line-1);
+}
+.om-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; padding-inline: 12px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-weight: 600; font-size: 12.5px;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.om-tab svg { color: var(--text-3); }
+.om-tab:hover { background: var(--glint); color: var(--text-1); }
+.om-tab.is-active { background: var(--surface-3); color: var(--text-1); box-shadow: var(--lit); }
+.om-tab.is-active svg { color: var(--accent); }
+
+.om-device-body { display: grid; gap: 16px; min-width: 0; animation: om-fade var(--t-base) var(--ease) both; }
+.device-data { min-width: 0; }
+
+@keyframes om-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.om-setup-figures {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  padding: 6px 18px 18px;
+}
+.om-setup-figure { display: grid; gap: 6px; align-content: start; padding-inline: 18px; border-inline-start: 1px solid var(--line-1); }
+.om-setup-figure:first-child { padding-inline-start: 0; border-inline-start: 0; }
+.om-setup-figure .om-fig { font-size: 30px; }
+.om-setup-stages {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--line-1);
+}
+.om-setup-stage-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.om-overview-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.om-overview-grid.is-single { grid-template-columns: 1fr; }
+.om-overview-grid > * { min-width: 0; }
+.om-overview-grid > .device-data { display: grid; }
+
+.om-battery { display: flex; flex-direction: column; }
+.om-battery .om-end { gap: 8px; align-items: baseline; }
+.om-battery-chart { display: grid; gap: 6px; padding: 4px 18px 16px; margin-top: auto; }
+.om-battery-chart svg { width: 100%; height: 120px; overflow: visible; }
+.om-chart-guide { stroke: var(--line-1); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.om-chart-area { fill: rgb(var(--accent-rgb) / 0.14); }
+.om-chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.om-battery-axis { display: flex; justify-content: space-between; color: var(--text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+
+.performance-layout { display: grid; gap: 16px; grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+.performance-layout.has-no-sidebar { grid-template-columns: minmax(0, 1fr); }
+.performance-sidebar { position: sticky; top: 16px; }
+.performance-main { display: grid; gap: 16px; min-width: 0; }
+.performance-controls { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); align-items: start; }
+
+.showcase-sidebar {
+  display: grid; gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--sheen), var(--surface-1);
+  box-shadow: var(--lit);
+}
+.showcase-sidebar-visual {
+  position: relative;
+  display: grid; place-items: center;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-md);
+  background: var(--stage-light), var(--well);
+  box-shadow: var(--inset-shadow);
+}
+.showcase-sidebar-image { position: absolute; inset: 8%; width: 84%; height: 84%; object-fit: contain; filter: drop-shadow(0 14px 18px rgb(var(--shade-rgb) / 0.5)); }
+.showcase-sidebar-info { display: grid; gap: 2px; }
+.showcase-sidebar-name { font-size: 17px; font-weight: 650; letter-spacing: -0.015em; }
+.showcase-sidebar-brand { color: var(--text-3); font-size: var(--fs-meta); }
+.showcase-sidebar-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-2); font-size: var(--fs-meta); }
+.showcase-sidebar-status .battery-icon { width: 18px; height: 9px; margin-inline-end: 3px; }
+.device-showcase-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.device-showcase-status-detail { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); }
+
+@media (max-width: 1180px) {
+  .om-hero-top { grid-template-columns: 132px minmax(0, 1fr); }
+  .om-hero-actions { grid-column: 2; }
+  .om-setup-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px; }
+  .om-setup-figure:nth-child(odd) { padding-inline-start: 0; border-inline-start: 0; }
+  .om-overview-grid { grid-template-columns: 1fr; }
+  .performance-layout { grid-template-columns: minmax(0, 1fr); }
+  .performance-sidebar { position: static; }
+}

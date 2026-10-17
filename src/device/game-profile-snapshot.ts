@@ -108,14 +108,12 @@ function same(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-/** Top-level MouseStatus fields whose value differs between the two. */
 export function changedFields(before: MouseStatus, after: MouseStatus): string[] {
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   return [...keys].filter((key) =>
     !same((before as unknown as Record<string, unknown>)[key], (after as unknown as Record<string, unknown>)[key]));
 }
 
-/** The game-profile fields `after` changed relative to `before`, with `after`'s values. */
 export function snapshotDiff(before: MouseStatus, after: MouseStatus): GameProfileSnapshot {
   const diff: Record<string, unknown> = {};
   for (const field of GAME_PROFILE_FIELDS) {
@@ -170,7 +168,6 @@ export function snapshotKey(snapshot: GameProfileSnapshot): string {
   return JSON.stringify(Object.fromEntries(Object.entries(canonical).sort(([left], [right]) => left.localeCompare(right))));
 }
 
-/** Drops anything a stored snapshot carries that this build cannot apply. */
 export function sanitizeSnapshot(raw: unknown): GameProfileSnapshot {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
   const clean: Record<string, unknown> = {};
@@ -183,7 +180,6 @@ export function sanitizeSnapshot(raw: unknown): GameProfileSnapshot {
   return clean as GameProfileSnapshot;
 }
 
-/** Track nested LunaFury controls separately while retaining the old field policy. */
 export function editableProfileFields(before: MouseStatus, after: MouseStatus): string[] | null {
   const fields = changedFields(before, after);
   if (!fields.every(isGameProfileField)) return null;

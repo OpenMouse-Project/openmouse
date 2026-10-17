@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test \"src/**/*.test.ts\" \"build/**/*.test.ts\"",
+    "test": "node --test \"src/**/*.test.ts\" \"test/**/*.test.ts\" \"build/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
     "check": "npm run build && npm test",
     "preview": "vite preview"

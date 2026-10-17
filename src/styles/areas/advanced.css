@@ -1,0 +1,231 @@
+#signal-settings { gap: 4px; }
+#signal-output {
+  background: none;
+  padding: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+#signal-detail { padding-inline-end: 64px; }
+#dongle-led-settings { min-height: 76px; justify-content: center; }
+
+#sleep-settings, #low-power-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  row-gap: 4px;
+  align-items: center;
+}
+#sleep-settings > .setting-heading { min-width: 0; }
+#sleep-settings:has(#sleep-toggle) > .setting-heading { grid-column: 1 / -1; }
+#sleep-settings > .option-menu, #sleep-settings > .sleep-time-picker { grid-column: 2; }
+#sleep-settings:has(#sleep-toggle) > .option-menu,
+#sleep-settings:has(#sleep-toggle) > .sleep-time-picker { margin-top: 8px; }
+#low-power-settings > .option-menu { grid-column: 2; grid-row: 1 / 3; }
+#low-power-note { grid-column: 1; grid-row: 2; max-width: 48ch; }
+.sleep-time-picker { display: flex; align-items: center; gap: 6px; max-width: 240px; }
+.sleep-time-picker label { display: grid; gap: 4px; min-width: 0; text-align: center; color: var(--text-3); font-size: var(--fs-small); }
+.sleep-time-picker input[type="number"] { width: 56px; min-width: 0; text-align: center; padding-inline: 4px; font-variant-numeric: tabular-nums; }
+.sleep-time-sep { align-self: start; padding-top: 6px; color: var(--text-3); }
+
+:is(#incott-settings, #finalmouse-settings) { gap: 0; }
+:is(#incott-settings, #finalmouse-settings) > .setting-heading { margin-bottom: 8px; }
+:is(#incott-settings, #finalmouse-settings) > .field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  min-height: 56px;
+  padding-block: 10px;
+  margin: 0;
+  border-top: 1px solid var(--line-1);
+  color: var(--text-2);
+  font-size: var(--fs-body);
+}
+:is(#incott-settings, #finalmouse-settings) .option-menu { flex: 0 1 220px; }
+#incott-fire-key-interval { width: 88px; text-align: end; font-variant-numeric: tabular-nums; }
+#finalmouse-perfect-polling .stat-row { display: flex; justify-content: space-between; gap: 16px; padding-block: 12px; border-block: 1px solid var(--line-1); color: var(--text-3); }
+#perfect-polling-latency { color: var(--text-1); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#perfect-polling-output { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+
+#atk-receiver-status .button-remap-list { display: grid; }
+#atk-receiver-status .button-remap-row { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
+#atk-receiver-status .button-remap-row > span { color: var(--text-3); }
+#atk-receiver-status .button-remap-row > output { font-variant-numeric: tabular-nums; text-align: end; overflow-wrap: anywhere; }
+#atk-receiver-status .setting-action { justify-content: flex-end; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line-1); }
+#atk-receiver-status .setting-action > small { flex: 1 1 220px; }
+#atk-receiver-status .setting-action:has(button + button) > small { flex-basis: 100%; }
+#atk-dongle-light > .segmented { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 4px; }
+#atk-dongle-light > .segmented > button { min-width: 0; height: auto; min-height: 36px; padding: 8px 10px; white-space: normal; line-height: 1.4; }
+#atk-dongle-light > small:first-of-type { color: var(--text-2); }
+
+#firmware-update { gap: 0; padding: 0; }
+.fw-collapse { min-width: 0; }
+.fw-collapse > summary { list-style: none; cursor: pointer; padding: 16px 18px; border-radius: var(--r-md); }
+.fw-summary-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fw-title { flex: 1; font-size: var(--fs-h2); font-weight: 600; }
+.fw-summary-row::after, .fw-details > summary::after,
+.device-debug-raw > summary::after, .keyboard-layout-details > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-inline-end: 1.5px solid var(--text-3);
+  border-bottom: 1.5px solid var(--text-3);
+  transform: rotate(45deg);
+  transition: transform var(--t-base) var(--ease);
+}
+.fw-collapse[open] > summary .fw-summary-row::after,
+.fw-details[open] > summary::after,
+.device-debug-raw[open] > summary::after,
+.keyboard-layout-details[open] > summary::after { transform: rotate(-135deg); }
+.fw-head-actions { display: flex; align-items: center; gap: 10px; }
+#firmware-update-output, #firmware-update .fw-badge-available {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--fs-small);
+  font-weight: 550;
+  line-height: 1.3;
+}
+#firmware-update .fw-badge-available { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+.fw-current { display: grid; gap: 6px; padding-top: 20px; color: var(--text-3); font-size: var(--fs-meta); }
+.fw-current strong { color: var(--text-1); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fw-collapse > .setting-note { padding: 0 18px 18px; }
+.fw-device { border-top: 1px solid var(--line-1); padding: 12px 18px; }
+.fw-device .setting-heading { gap: 10px; min-height: 24px; }
+.fw-device .setting-heading > div > :is(span, p) { color: var(--text-2); font-size: var(--fs-body); font-weight: 550; }
+.fw-details { margin-top: 8px; color: var(--text-2); font-size: var(--fs-meta); }
+.fw-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; list-style: none; cursor: pointer; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.fw-details > summary:hover { color: var(--text-1); }
+.fw-details > :is(p, .setting-eyebrow, ul) { margin-top: 8px; }
+.fw-details > p { line-height: 1.5; white-space: pre-line; }
+.fw-details .setting-eyebrow { display: block; color: var(--text-1); font-weight: 550; }
+.fw-history { display: grid; gap: 6px; list-style: none; padding: 0; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.fw-meta { padding: 8px 18px 16px; color: var(--text-3); font-size: var(--fs-small); }
+#firmware-update .setting-action { padding: 12px 18px 16px; border-top: 1px solid var(--line-1); }
+#firmware-update .setting-action > span { display: flex; flex-wrap: wrap; gap: 8px; }
+.om-overview-grid #firmware-update { height: 100%; }
+
+:is(#device-debug-details, #logitech-device-details) .setting-card { padding: 0; background: none; box-shadow: none; gap: 16px; }
+.device-debug-overview, #logitech-detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
+:is(.device-debug-overview, #logitech-detail-list) > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; padding-block: 10px; border-top: 1px solid var(--line-1); }
+:is(.device-debug-overview, #logitech-detail-list) small { color: var(--text-3); font-size: var(--fs-meta); flex: 0 1 auto; }
+:is(.device-debug-overview, #logitech-detail-list) span { color: var(--text-1); text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+.device-debug-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line-1); }
+#diagnostic-download-status { color: var(--text-3); font-size: var(--fs-meta); flex: 1 1 200px; }
+.device-debug-raw { min-width: 0; background: var(--well); border-radius: var(--r-sm); box-shadow: var(--inset-shadow); }
+.device-debug-raw > summary, .keyboard-layout-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; list-style: none; min-height: 40px; padding: 10px 12px; cursor: pointer; color: var(--text-2); font-size: var(--fs-meta); font-weight: 550; }
+.device-debug-snapshot { max-height: 360px; min-width: 0; overflow: auto; padding: 12px; border-top: 1px solid var(--line-1); color: var(--text-2); font: 12px/1.65 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+aside.testing-note { padding-inline: 2px; color: var(--text-3); font-size: var(--fs-meta); line-height: 1.5; }
+aside.testing-note strong { display: none; }
+
+.keyboard-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; min-width: 0; align-items: start; }
+.keyboard-panel [hidden] { display: none !important; }
+.keyboard-status { grid-column: 1 / -1; padding: 12px 16px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); overflow-wrap: anywhere; }
+.keyboard-identity { display: grid; min-width: 0; }
+.keyboard-identity > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
+.keyboard-identity dt { color: var(--text-3); font-size: var(--fs-meta); }
+.keyboard-identity dd { text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.keyboard-macro-events) { grid-column: 1 / -1; }
+.keyboard-key-deck { padding: 16px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); min-width: 0; }
+.keyboard-matrix { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
+.keyboard-matrix-row { display: grid; grid-auto-columns: minmax(36px, 1fr); grid-auto-flow: column; gap: 6px; min-width: 680px; }
+.keyboard-key { display: grid; place-items: center; min-width: 0; min-height: 42px; padding: 4px; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); color: var(--text-2); font-size: var(--fs-meta); font-weight: 550; overflow-wrap: anywhere; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.keyboard-key:hover:not(:disabled) { background: var(--btn-hover); color: var(--text-1); }
+.keyboard-key.is-selected { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.keyboard-key.is-empty { visibility: hidden; }
+.keyboard-key.is-long { font-size: var(--fs-small); }
+.keyboard-key:disabled { opacity: 0.45; }
+.keyboard-selection-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
+.keyboard-selection-count { color: var(--text-3); font-size: var(--fs-meta); margin-inline-end: auto; }
+.keyboard-trigger-editor { display: grid; gap: 16px; padding-top: 8px; }
+.keyboard-editor-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.keyboard-editor-heading h3 { font-size: var(--fs-h2); font-weight: 600; }
+.keyboard-editor-heading p { margin-top: 4px; color: var(--text-3); font-size: var(--fs-meta); }
+.keyboard-selected-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.keyboard-selected-chips span { padding: 4px 8px; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-small); }
+.keyboard-trigger-controls { display: grid; gap: 0; }
+.keyboard-tuning-group { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 1fr); gap: 8px 32px; padding-block: 18px; border-top: 1px solid var(--line-1); }
+.keyboard-tuning-group h4 { grid-column: 1; font-size: var(--fs-body); font-weight: 600; }
+.keyboard-tuning-group > p { grid-column: 1; color: var(--text-3); font-size: var(--fs-meta); max-width: 48ch; }
+.keyboard-tuning-group > .stepper-slider { grid-column: 2; }
+.keyboard-tuning-group > .stepper-slider:first-of-type { grid-row: 1 / 3; }
+.keyboard-empty { color: var(--text-3); font-size: var(--fs-meta); padding-block: 12px; }
+.keyboard-fields { display: grid; gap: 16px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.keyboard-workspace-card > .om-btn { align-self: flex-end; }
+.keyboard-fields > .om-btn { justify-self: end; }
+.keyboard-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); align-items: end; gap: 12px; }
+.keyboard-field { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-width: 0; color: var(--text-2); font-size: var(--fs-meta); }
+.keyboard-field :is(input, select) { width: 54%; min-width: 0; font-variant-numeric: tabular-nums; }
+.keyboard-field-grid .keyboard-field { display: grid; gap: 6px; }
+.keyboard-field-grid .keyboard-field :is(input, select) { width: 100%; }
+.keyboard-inline-form { display: flex; gap: 8px; align-items: end; }
+.keyboard-inline-form > .keyboard-field { flex: 1; }
+.keyboard-color-field { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--text-2); font-size: var(--fs-meta); }
+.keyboard-save-confirm { padding: 12px; border-radius: var(--r-sm); background: var(--well); display: flex; flex-wrap: wrap; gap: 8px; }
+.keyboard-save-confirm > p { flex-basis: 100%; color: var(--text-2); font-size: var(--fs-meta); }
+.keyboard-macro-events { display: grid; gap: 0; max-height: 480px; overflow: auto; }
+.keyboard-macro-event { display: grid; grid-template-columns: 24px minmax(80px, 0.7fr) minmax(140px, 1.5fr) minmax(100px, 1fr) auto; gap: 12px; align-items: end; border-top: 1px solid var(--line-1); padding-block: 12px; }
+.keyboard-macro-event > span { color: var(--text-3); font-size: var(--fs-meta); align-self: center; font-variant-numeric: tabular-nums; }
+.keyboard-macro-event > .keyboard-field { display: grid; gap: 6px; }
+.keyboard-macro-event > .keyboard-field :is(input, select) { width: 100%; }
+.keyboard-sensor-readout { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-top: 12px; border-top: 1px solid var(--line-1); }
+.keyboard-sensor-readout strong { color: var(--text-3); font-size: var(--fs-meta); font-weight: 500; }
+.keyboard-sensor-readout output { color: var(--text-1); font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.keyboard-layout-details { background: var(--well); border-radius: var(--r-sm); min-width: 0; overflow: auto; }
+.keyboard-layout-details table { width: 100%; border-collapse: collapse; text-align: start; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.keyboard-layout-details :is(th, td) { padding: 8px 12px; border-top: 1px solid var(--line-1); text-align: start; }
+.keyboard-layout-details th { color: var(--text-3); font-weight: 500; }
+
+#capture-dialog { width: min(1000px, calc(100vw - 48px)); max-width: none; height: min(88vh, 900px); }
+.capture-layout { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+#capture-dialog .om-dialog-head { padding-bottom: 14px; }
+#capture-dialog .om-dialog-body { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
+.capture-intro { color: var(--text-3); font-size: var(--fs-meta); line-height: 1.55; }
+.capture-intro strong { color: var(--text-2); font-weight: 600; }
+.capture-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+#capture-status { flex-basis: 100%; color: var(--text-3); font-size: var(--fs-meta); min-height: 18px; }
+#capture-diff { flex: 1; min-height: 120px; overflow: auto; padding: 12px; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); }
+.capture-empty { color: var(--text-3); font-size: var(--fs-meta); }
+.capture-sector + .capture-sector { margin-top: 16px; }
+.capture-sector-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+.capture-sector-heading strong { font-size: var(--fs-meta); font-weight: 600; font-variant-numeric: tabular-nums; }
+.capture-result { font-size: var(--fs-small); font-weight: 550; }
+.capture-result.is-ok { color: var(--ok); }
+.capture-result.is-bad { color: var(--bad); }
+.capture-changes { display: grid; margin-top: 8px; gap: 4px; }
+.capture-change { display: flex; align-items: baseline; gap: 16px; font-size: var(--fs-meta); }
+.capture-change code { font: 12px/1.6 var(--font-mono); color: var(--text-2); min-width: 70px; user-select: text; }
+.capture-change code:first-child { color: var(--text-3); min-width: 48px; }
+.capture-change span { color: var(--text-2); }
+.capture-change span.is-checksum { color: var(--text-3); }
+.capture-actions-label { color: var(--text-3); font-size: var(--fs-meta); margin-bottom: 8px; }
+#capture-action-list { display: flex; flex-wrap: wrap; gap: 6px; }
+#capture-action-list button { background: var(--well); color: var(--text-3); box-shadow: var(--inset-shadow); }
+#capture-action-list button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+#capture-notes { width: 100%; min-height: 64px; }
+
+@media (max-width: 1180px) {
+  #pulsar-advanced { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .device-debug-overview, #logitech-detail-list { grid-template-columns: minmax(0, 1fr); }
+  .keyboard-tuning-group { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .keyboard-tuning-group > .stepper-slider, .keyboard-tuning-group > .stepper-slider:first-of-type { grid-column: 1; grid-row: auto; }
+  .keyboard-macro-event { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr); }
+  .keyboard-macro-event > .keyboard-field:last-of-type { grid-column: 2; }
+  .keyboard-editor-heading { flex-direction: column; }
+  .keyboard-key-deck { padding: 8px; }
+  #sleep-settings, #low-power-settings { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  #sleep-settings > .option-menu, #sleep-settings > .sleep-time-picker,
+  #low-power-settings > .option-menu, #low-power-note { grid-column: 1; grid-row: auto; }
+  #low-power-note { order: 0; }
+  #low-power-settings > .option-menu { order: 1; }
+  .fw-head-actions { flex-wrap: wrap; }
+  #capture-dialog { width: calc(100vw - 24px); max-height: calc(100vh - 32px); height: auto; }
+}

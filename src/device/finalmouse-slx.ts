@@ -16,7 +16,6 @@ import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 export const SLX_CLICK_MECHANICAL = 0;
 export const SLX_CLICK_ANALOG = 1;
 
-/** Release point: 0 normal (default), 1 early, 2 late. */
 export const SLX_RELEASE_NORMAL = 0;
 export const SLX_RELEASE_EARLY = 1;
 export const SLX_RELEASE_LATE = 2;
@@ -31,7 +30,6 @@ export const SLX_TMR = {
   rtRecommendedUm: 220,
 } as const;
 
-/** Extra status fields an SLX-capable driver fills in. */
 export interface SlxStatusFields {
   finalmouseIsSlx?: boolean | null;
   finalmouseClickModeL?: number | null;
@@ -58,12 +56,10 @@ function fields(status: MouseStatus | null | undefined): SlxStatusFields {
   return (status ?? {}) as SlxStatusFields;
 }
 
-/** True when the connected driver reported a Starlight X dongle. */
 export function isSlxStatus(status: MouseStatus | null | undefined): boolean {
   return fields(status).finalmouseIsSlx === true;
 }
 
-/** TMR click-mode / actuation / MSP snapshot, or null when not reported. */
 export function slxTmr(status: MouseStatus | null | undefined): {
   modeL: number;
   modeR: number;
@@ -92,7 +88,6 @@ export function slxTmr(status: MouseStatus | null | undefined): {
   };
 }
 
-/** Profile roster snapshot, or null when the driver did not report one. */
 export function slxProfiles(status: MouseStatus | null | undefined): {
   count: number;
   active: number;
@@ -109,7 +104,6 @@ export function slxProfiles(status: MouseStatus | null | undefined): {
   };
 }
 
-/** Driver methods an SLX-capable client exposes. All are optional at runtime. */
 export interface SlxClient {
   setClickMode?(modeL: number, modeR: number, relL?: number, relR?: number): Promise<unknown>;
   setTmrActuation?(actuationMmL: number, actuationMmR: number, rtUmL?: number, rtUmR?: number): Promise<unknown>;
@@ -135,7 +129,6 @@ export function tmrStepsToMm(steps: number): number {
   return Math.min(0.4, Math.max(0.01, Math.round(steps) / 100));
 }
 
-/** Millimetres to steps, clamped to the 1-40 device range. */
 export function tmrMmToSteps(mm: number): number {
   return Math.min(SLX_TMR.actuationMaxSteps, Math.max(SLX_TMR.actuationMinSteps, Math.round(mm * 100)));
 }

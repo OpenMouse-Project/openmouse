@@ -1,8 +1,8 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { LUNAFURY_BUTTON_ACTIONS, LUNAFURY_BUTTON_IDS, lunafuryButtonActionWritable,
   lunafuryIsMappedButton, lunafuryKeyboardAction, lunafuryParseKeyboardAction } from "@openmouse/protocol/lamzu";
-import { t } from "../i18n.ts";
-import type { InterfaceLocale } from "../interface-preferences.ts";
+import { t } from "../i18n/index.ts";
+import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 
 export function canEditLunaFuryMapping(status: MouseStatus, button: string, action: string): boolean {
   const current = status.buttonMappings?.[button];
