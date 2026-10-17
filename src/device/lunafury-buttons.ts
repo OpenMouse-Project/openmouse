@@ -64,5 +64,5 @@ export function lunaFuryMappingLabel(locale: InterfaceLocale, value: string, phy
   const names = physical ? Object.keys(LUNAFURY_BUTTON_IDS) : LUNAFURY_BUTTON_ACTIONS;
   const index = names.indexOf(value);
   if (index >= 0) return t(locale, physical ? "luna.physicalButtons" : "luna.buttonActions").split("|")[index] ?? value;
-  return lunaFuryKeyboardLabel(value) ?? t(locale, "prof.customPreserved");
+  return lunaFuryKeyboardLabel(value) ?? value;
 }

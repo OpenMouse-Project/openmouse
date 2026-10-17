@@ -48,8 +48,11 @@ test("every locale labels the complete physical-button and action vocabularies",
     assert.equal(t(locale, "luna.physicalButtons").split("|").length, Object.keys(LUNAFURY_BUTTON_IDS).length);
     assert.equal(t(locale, "luna.buttonActions").split("|").length, LUNAFURY_BUTTON_ACTIONS.length);
     for (const action of LUNAFURY_BUTTON_ACTIONS) assert.ok(lunaFuryMappingLabel(locale, action));
+    for (const action of ["Macro:16:1", "Macro:17:1", "Unknown:255:"]) {
+      assert.equal(lunaFuryMappingLabel(locale, action), action);
+    }
+    assert.equal(lunaFuryMappingLabel(locale, "Keyboard:129:4"), "Ctrl L + Win R + A");
   }
   assert.equal(lunaFuryMappingLabel("zh", "Right", true), "右键");
   assert.equal(lunaFuryMappingLabel("zh", "DPI Cycle"), "循环切换 DPI");
-  assert.equal(lunaFuryMappingLabel("zh", "Macro:16:1"), t("zh", "prof.customPreserved"));
 });
