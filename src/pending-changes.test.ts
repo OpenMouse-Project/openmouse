@@ -131,6 +131,57 @@ test("pending changes preview without mutating the device status", () => {
   assert.equal(hasPendingChanges(), false);
 });
 
+test("state-dependent priorities re-evaluate the same staging after hardware count changes", () => {
+  clearPendingChanges();
+  try {
+    stagePendingChange({ key: "count", label: "", command: "", progress: "",
+      resolvePriority: current => 4 > current.dpiStages!.length ? -1 : 4 < current.dpiStages!.length ? 1 : 0,
+      apply: async () => {} });
+    stagePendingChange({ key: "slot", label: "", command: "", progress: "", apply: async () => {} });
+    const current = { ...status(), dpiStages: [400, 800, 1600, 3200, 6400, 8000] };
+    const staged = pendingChanges();
+    assert.deepEqual(pendingChangeBatches(current).map(([change]) => change?.key), ["slot", "count"]);
+    current.dpiStages = current.dpiStages.slice(0, 3);
+    assert.deepEqual(pendingChangeBatches(current).map(([change]) => change?.key), ["count", "slot"]);
+    current.dpiStages.push(3200);
+    assert.deepEqual(pendingChangeBatches(current).map(([change]) => change?.key), ["count", "slot"]);
+    assert.deepEqual(pendingChanges(), staged, "resolving must not replace or reorder the stored user edits");
+  } finally {
+    clearPendingChanges();
+  }
+});
+
+test("dynamic ordering requires status even for a single batch", () => {
+  clearPendingChanges();
+  try {
+    stagePendingChange({ key: "count", label: "", command: "", progress: "",
+      resolvePriority: () => -1, apply: async () => {} });
+    assert.throws(() => pendingChangeBatches(), /Confirmed device status is required/);
+  } finally {
+    clearPendingChanges();
+  }
+});
+
+test("dynamic ordering preserves grouped last-writer semantics and stable equal priorities", () => {
+  clearPendingChanges();
+  try {
+    const stage = (key: string, group?: string) => stagePendingChange({
+      key, group, label: "", command: "", progress: "", apply: async () => {} });
+    stagePendingChange({ key: "mode-first", group: "mode", label: "", command: "", progress: "",
+      resolvePriority: () => 0, apply: async () => {} });
+    stage("unrelated");
+    stage("mode-last", "mode");
+    stagePendingChange({ key: "count", label: "", command: "", progress: "",
+      resolvePriority: () => -1, apply: async () => {} });
+    const batches = pendingChangeBatches(status());
+    assert.deepEqual(batches.map(batch => batch.map(change => change.key)),
+      [["count"], ["mode-first", "mode-last"], ["unrelated"]]);
+    assert.equal(batches[1].at(-1)?.key, "mode-last");
+  } finally {
+    clearPendingChanges();
+  }
+});
+
 test("stashed changes come back in their original order after another set was staged", () => {
   clearPendingChanges();
   const change = (key: string) => ({ key, label: key, command: "", progress: "", apply: async () => {} });

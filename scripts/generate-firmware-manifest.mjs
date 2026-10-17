@@ -1,5 +1,5 @@
-// Builds public/firmware-manifest.json from Logitech's own update CDN —
-// no vendor software involved at any step.
+// Builds public/firmware-manifest.json from Logitech's update CDN and
+// verified vendor entries in firmware-manifest.extra.json.
 //
 // Each firmware depot is a small archive published at:
 //   https://updates.ghub.logitechg.com/depots/<uuid>/<name>.depot
@@ -30,7 +30,7 @@
 // such devices via firmware-manifest.extra.json instead.
 //
 // Hand entries: scripts/firmware-manifest.extra.json holds confirmed values
-// for devices without usable depots (merged last, extra wins on id clash).
+// for devices without usable depots. Use unique ids; generated ids take priority.
 //
 // Safety: downloads are verified (archive parses end-to-end; binaries are
 // cross-checked against dfu.json hashes where present). A depot that fails
@@ -171,7 +171,7 @@ for (const entry of seed) {
 }
 
 
-// Hand-maintained entries (confirmed values, non-depot devices). Extra wins.
+// Hand-maintained entries (confirmed values, non-depot devices).
 const extraPath = join(here, 'firmware-manifest.extra.json');
 try {
   const extra = JSON.parse(readFileSync(extraPath, 'utf8'));
@@ -209,11 +209,12 @@ devices.sort((a, b) => a.id.localeCompare(b.id));
 const manifest = {
   _comment:
     "AUTO-GENERATED — do not edit by hand. Regenerate with: node scripts/generate-firmware-manifest.mjs. " +
-    "Sources: Logitech update CDN depots listed in scripts/firmware-depots.seed.json (plain HTTPS, no auth). " +
+    "Sources: Logitech update CDN depots listed in scripts/firmware-depots.seed.json (plain HTTPS, no auth), " +
+    "plus verified vendor entries in scripts/firmware-manifest.extra.json. " +
     "Versions/hashes/blockers are re-derived from each depot's dfu.json every run.",
   manifestVersion: MANIFEST_VERSION,
   updatedAt: new Date().toISOString(),
-  source: "scripts/generate-firmware-manifest.mjs over updates.ghub.logitechg.com",
+  source: "Logitech update CDN and verified vendor entries (scripts/firmware-manifest.extra.json)",
   devices,
 };
 

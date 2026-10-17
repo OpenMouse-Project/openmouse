@@ -43,57 +43,88 @@ function signature(profile: BridgeProfile): string {
   return `${profile.application.name}|${profile.device.name}|${JSON.stringify(profile.settings)}`;
 }
 
+interface GameProfileSession {
+  signature: string | null;
+  prior: GameProfileSnapshot | null;
+}
+
 export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
   const deviceStatusRef = useRef(snapshot.deviceStatus);
   deviceStatusRef.current = snapshot.deviceStatus;
   const localeRef = useRef(snapshot.preferences.locale);
   localeRef.current = snapshot.preferences.locale;
-  const appliedSignature = useRef<string | null>(null);
-  // What the mouse had, before any profile, for every field a profile has
-  // changed since. Grows as profiles switch; written back when none is active.
-  const priorSettings = useRef<GameProfileSnapshot | null>(null);
+  // Keep inactive banks' originals until that device/bank is selected again.
+  // Never restore them into whichever mouse happens to be active now.
+  const sessions = useRef(new WeakMap<object, Map<number | null, GameProfileSession>>());
   const writing = useRef(false);
 
   useEffect(() => subscribeBridgeStatus((bridge) => {
     if (writing.current) return;
     const status = deviceStatusRef.current;
     const profile = bridge?.activeProfile ?? null;
+    const scope = control.currentGameProfileScope();
+    if (!status || !scope) return;
+    let session = sessions.current.get(scope.device)?.get(scope.profile);
 
-    if (!profile || !status || profile.device.name !== status.name) {
-      // Nothing (recognized) is active for this mouse right now. If we were
-      // the one who applied a profile, put back what was there before it.
-      const prior = priorSettings.current;
-      if (appliedSignature.current === null || !prior) return;
-      writing.current = true;
-      void control.flashGameProfileSnapshot(prior).then((result) => {
-        if (result === "busy") return;
-        appliedSignature.current = null;
-        priorSettings.current = null;
-        if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
-      }).finally(() => {
-        writing.current = false;
-      });
-      return;
-    }
-
-    const sig = signature(profile);
-    if (sig === appliedSignature.current) return;
-
-    const target = profileTarget(profile);
-    // Capture only fields not already held: when one game's profile gives way
-    // to another's, the originals from before the first one still win.
-    const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {});
-    // Fields the previous profile changed but this one doesn't go back to
-    // their originals, so the new game starts from the user's own settings.
-    const toWrite = mergeSnapshots(priorSettings.current ?? {}, target);
+    if (!profile && !session?.prior) return;
 
     writing.current = true;
-    void control.flashGameProfileSnapshot(toWrite).then((result) => {
+    let attemptedPrior: GameProfileSnapshot | null = null;
+    void (async () => {
+      // A failed final read leaves a display snapshot, not a reliable baseline.
+      // Refresh before both no-op detection and capturing newly touched fields.
+      const confirmed = await control.prepareGameProfileStatus();
+      if (typeof confirmed === "string") {
+        if (confirmed === "failed" && session) session.signature = null;
+        return;
+      }
+      const confirmedScope = control.currentGameProfileScope(confirmed);
+      if (!confirmedScope || confirmedScope.device !== scope.device) return;
+      let banks = sessions.current.get(confirmedScope.device);
+      if (!banks) sessions.current.set(confirmedScope.device, banks = new Map());
+      session = banks.get(confirmedScope.profile);
+      if (!session) banks.set(confirmedScope.profile, session = { signature: null, prior: null });
+      if (!profile || profile.device.name !== confirmed.name) {
+        // Nothing (recognized) is active for this mouse right now. Put back
+        // what was there before any successful or partial profile application.
+        const prior = session.prior;
+        // A failed first application can still have changed earlier batches,
+        // even though it never earned an applied signature.
+        if (!prior) return;
+        const result = await control.flashGameProfileSnapshot(prior, confirmedScope);
+        if (result === "busy") return;
+        session.signature = null;
+        if (result === "failed") return;
+        session.prior = null;
+        if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
+        return;
+      }
+
+      const sig = signature(profile);
+      if (sig === session.signature) return;
+
+      const target = profileTarget(profile);
+      // Capture only fields not already held: when one game's profile gives way
+      // to another's, the originals from before the first one still win.
+      const prior = mergeSnapshots(pickSnapshot(confirmed, target), session.prior ?? {}, confirmed);
+      // Fields the previous profile changed but this one doesn't go back to
+      // their originals, so the new game starts from the user's own settings.
+      const toWrite = mergeSnapshots(session.prior ?? {}, target, confirmed);
+
+      attemptedPrior = prior;
+      const result = await control.flashGameProfileSnapshot(toWrite, confirmedScope);
       if (result === "busy") return;
-      priorSettings.current = prior;
-      appliedSignature.current = sig;
+      // Back up attempted fields too: an unsuccessful write is not atomic.
+      session.prior = prior;
+      session.signature = result === "failed" ? null : sig;
       if (result === "written") {
         control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
+      }
+    })().catch(() => {
+      // Keep originals even if an unexpected rejection followed a partial write.
+      if (session) {
+        if (attemptedPrior) session.prior = attemptedPrior;
+        session.signature = null;
       }
     }).finally(() => {
       writing.current = false;

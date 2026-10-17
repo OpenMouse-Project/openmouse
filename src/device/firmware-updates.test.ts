@@ -49,6 +49,9 @@ test("extractVersionToken finds the dotted token inside driver strings", () => {
   assert.equal(extractVersionToken("Mouse v27.1.2"), "27.1.2");
   assert.equal(extractVersionToken("MPM 39.00.B0004"), "39.00");
   assert.equal(extractVersionToken("  "), null);
+  assert.equal(extractVersionToken("Mouse firmware unavailable"), null);
+  assert.equal(extractVersionToken("Dongle firmware unavailable"), null);
+  assert.equal(extractVersionToken("42"), "42");
 });
 
 test("compareVersions compares numerically, not lexicographically", () => {

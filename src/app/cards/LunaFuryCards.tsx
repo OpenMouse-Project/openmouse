@@ -1,9 +1,53 @@
 import type { ReactNode } from "react";
-import type { LunaFuryButton } from "@openmouse/protocol/lamzu";
+import type { LunaFuryButton, LunaFuryReceiverLightMode } from "@openmouse/protocol/lamzu";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
 import { t, type I18nKey } from "../../i18n";
-import { Segmented, StepperSlider, SwitchRow } from "../ui";
+import { OptionMenu, RateSlider, Segmented, StepperSlider, SwitchRow } from "../ui";
+
+export function LunaFuryBottomButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const mode = snapshot.status?.lunafury?.bottomButtonMode;
+  if (mode == null || snapshot.gameProfileDraft) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.includes("lunafury-bottom-button");
+  return (
+    <article id="lunafury-bottom-button" className={`setting-card luna-power-card${staged ? " is-staged" : ""}`}
+      data-pending-key="lunafury-bottom-button">
+      <div className="setting-heading compact"><div><p>LUNAFURY</p><h2>{t(locale, "luna.bottomButton")}</h2></div></div>
+      <OptionMenu id="lunafury-bottom-button-select" ariaLabel={t(locale, "luna.bottomButton")}
+        options={[
+          { value: 1, label: t(locale, "luna.bottomPower") },
+          { value: 2, label: t(locale, "luna.bottomPowerDpi") },
+        ]}
+        value={mode} disabled={snapshot.settingInProgress || snapshot.settingsPending}
+        onChange={(value) => control.applyLunaFuryBottomButtonMode(value as 1 | 2)} />
+      <small className="setting-note">{t(locale, "luna.bottomButtonNote")}</small>
+    </article>
+  );
+}
+
+export function LunaFuryReceiverLightCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const mode = snapshot.status?.lunafury?.receiverLightMode;
+  if (mode == null || snapshot.gameProfileDraft) return null;
+  const locale = snapshot.preferences.locale;
+  const staged = snapshot.pending.keys.includes("lunafury-receiver-light");
+  return (
+    <article id="lunafury-receiver-light" className={`setting-card luna-power-card${staged ? " is-staged" : ""}`}
+      data-pending-key="lunafury-receiver-light">
+      <div className="setting-heading compact"><div><p>LUNAFURY</p><h2>{t(locale, "luna.receiverLight")}</h2></div></div>
+      <OptionMenu id="lunafury-receiver-light-select" ariaLabel={t(locale, "luna.receiverLight")}
+        options={[
+          { value: 2, label: t(locale, "luna.lightMixed") },
+          { value: 6, label: t(locale, "luna.lightBattery") },
+          { value: 11, label: t(locale, "luna.lightDpi") },
+          { value: 0, label: t(locale, "common.off") },
+        ]}
+        value={mode} disabled={snapshot.settingInProgress || snapshot.settingsPending}
+        onChange={(value) => control.applyLunaFuryReceiverLightMode(value as LunaFuryReceiverLightMode)} />
+      <small className="setting-note">{t(locale, "luna.receiverLightNote")}</small>
+    </article>
+  );
+}
 
 export function LunaFuryButtonsCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const settings = snapshot.status?.lunafury;
@@ -18,8 +62,16 @@ export function LunaFuryButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
   ];
   return (
     <article id="lunafury-buttons" className={`setting-card${staged ? " is-staged" : ""}`}
-      data-pending-key="lunafury-lightning lunafury-button-left lunafury-button-right lunafury-button-middle">
+      data-pending-key="lunafury-lightning lunafury-button-left lunafury-button-right lunafury-button-middle lunafury-button-rate">
       <div className="setting-heading compact"><div><p>LUNAFURY</p><h2>{t(locale, "luna.buttons")}</h2></div></div>
+      {settings.buttonPollingRateHz != null && settings.supportedButtonPollingRates?.length ? (
+        <div className="field-label spaced">
+          <RateSlider id="lunafury-button-rate" locale={locale} label={t(locale, "luna.buttonPollingRate")} options={[...settings.supportedButtonPollingRates]}
+            valueHz={settings.buttonPollingRateHz} disabled={busy || settings.supportedButtonPollingRates.length < 2}
+            onChange={(value) => control.applyLunaFuryButtonPollingRate(value as 1000 | 2000 | 4000 | 8000)} />
+          <small className="setting-note">{t(locale, "luna.buttonPollingNote")}</small>
+        </div>
+      ) : null}
       {settings.lightningMode != null ? (
         <div className="field-label spaced">
           <span>{t(locale, "luna.lightning")}</span>

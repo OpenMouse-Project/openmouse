@@ -21,7 +21,9 @@ const BUDGET_BYTES: Record<string, number> = {
   // card (callouts, command list, scrollbar), the HITS presets/test/share dialogs
   // and the Bunny Hop card add ~15 kB of scoped styles; the measured CSS is
   // 210.6 kB, which was 631 bytes over the old 210 kB budget.
-  ".css": 225_000,
+  // LunaFury's DPI stage editor and Buttons layout add 8.8 kB over the
+  // 222.3 kB upstream stylesheet. The paired build measures 231.1 kB.
+  ".css": 235_000,
   // Raised from 510 kB for Bridge discovery, profile editing, automatic
   // reconnection, and recent device support, which have since grown further
   // with the supported-device page and MX Master remap controls. Preview

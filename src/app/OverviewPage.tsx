@@ -31,7 +31,7 @@ import { KeyboardPanel } from "./cards/KeyboardPanel";
 import { FirmwareCard } from "./cards/FirmwareCard";
 import { DynamicSensitivityCard, LightforceCard, PollingCard, SensorCard, SensorScanningCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
-import { LunaFuryButtonsCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
+import { LunaFuryButtonsCard, LunaFuryWheelCard, LunaFuryReceiverLightCard, LunaFuryBottomButtonCard } from "./cards/LunaFuryCards";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
 import { AtkButtonCard, AtkDongleCard, AtkProfileCard, AtkReceiverCard, AtkSensorCard } from "./cards/AtkCards";
 import {
@@ -564,6 +564,12 @@ export function Workspace({
   const show = (available: boolean, tabs: readonly WorkspaceTab[]): boolean => available && on(tab, tabs);
   const device = !gameProfile;
   const powerOverview = status.ui?.powerOverview === true;
+  const lunaButtonsLayout = status.brand === "LunaFury" && tab === "buttons";
+  const lunaButtonExtras = [
+    show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
+    show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,
+    device && show(has.lunafuryBottomButton, ["buttons"]) ? <LunaFuryBottomButtonCard key="lunafury-bottom-button" snapshot={snapshot} /> : null,
+  ].filter((node) => node !== null);
 
   const performance = [
     show(has.dpi, ["performance"]) ? <DpiCard key="dpi" snapshot={snapshot} /> : null,
@@ -597,6 +603,8 @@ export function Workspace({
       ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
     show(has.ksnakeScroll, ["buttons"])
       ? <KsnakeScrollCard key="ksnake-scroll" snapshot={snapshot} /> : null,
+    lunaButtonExtras.length > 0
+      ? <div key="lunafury-button-extras" className="luna-button-extras">{lunaButtonExtras}</div> : null,
   ].filter((node) => node !== null);
 
   const macro = [
@@ -605,6 +613,8 @@ export function Workspace({
   ].filter((node) => node !== null);
 
   const advanced = [
+    device && show(has.lunafuryReceiverLight, ["advanced"])
+      ? <LunaFuryReceiverLightCard key="lunafury-receiver-light" snapshot={snapshot} /> : null,
     device && show(has.signal, ["advanced"]) ? <SignalCard key="signal" snapshot={snapshot} /> : null,
     !powerOverview && show(has.sleep, ["advanced"]) ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
     show(has.lightingAdvanced, ["advanced"])
@@ -614,8 +624,6 @@ export function Workspace({
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
     show(has.finalmouseProfiles, ["advanced"]) ? <FinalmouseProfilesCard key="finalmouse-profiles" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
-    show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
-    show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,
     device && show(has.dongleLed, ["advanced"]) ? <DongleLedCard key="dongle-led" snapshot={snapshot} /> : null,
     show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
     device && show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
@@ -680,6 +688,7 @@ export function Workspace({
           className={[
             "performance-layout device-data",
             slotsAvailable || stagesAvailable ? "has-dpi-slots" : "",
+            lunaButtonsLayout ? "luna-buttons-layout" : "",
             // The button map has its own mouse, so the side panel's would be a second one.
             showButtonMap ? "has-no-sidebar" : "",
           ].filter(Boolean).join(" ")}
@@ -697,7 +706,7 @@ export function Workspace({
             {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
             {showButtonMap ? <ButtonMap snapshot={snapshot} /> : null}
             {performance.length > 0 ? (
-              <div className="performance-controls">
+              <div className={`performance-controls${lunaButtonsLayout ? " luna-button-grid" : ""}`}>
                 {performance}
               </div>
             ) : null}

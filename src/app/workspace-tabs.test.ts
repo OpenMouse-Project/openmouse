@@ -17,11 +17,17 @@ function availability(enabled: Partial<CardAvailability>): CardAvailability {
 }
 
 test("LunaFury response and wheel guard retain the Buttons tab without global debounce", () => {
-  for (const field of ["lunafuryButtons", "lunafuryWheelGuard"] as const) {
+  for (const field of ["lunafuryButtons", "lunafuryWheelGuard", "lunafuryBottomButton"] as const) {
     assert.deepEqual(availableWorkspaceTabs(true, availability({ [field]: true })), [
       "overview", "performance", "buttons", "advanced",
     ]);
   }
+});
+
+test("Finalmouse TMR-DS retains the Buttons tab without other button controls", () => {
+  assert.deepEqual(availableWorkspaceTabs(true, availability({ tmrDs: true })), [
+    "overview", "performance", "buttons", "advanced",
+  ]);
 });
 
 test("a connected mouse exposes only tabs backed by available controls", () => {

@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-maintained entries merged into public/firmware-manifest.json by scripts/generate-firmware-manifest.mjs (extra wins on id clash). Use for devices whose firmware Logitech only ships outside versioned depots, or values confirmed against vendor software. Prefer generated entries whenever a depot exists. Versions here are in device-reported (entity) numbering, e.g. HID++ MPM 38.00, which G HUB displays as package 38.0.5 \u2014 see releaseNotes. Receiver entries are deliberately absent: HID++ 1.0 register 0xF1 was proven (pre/post-flash identical bytes) to report per-MCU bootloader identifiers, not app versions, so no honest version verdict exists yet. See docs/logitech-firmware-handoff.md.",
+  "_comment": "Hand-maintained entries merged into public/firmware-manifest.json by scripts/generate-firmware-manifest.mjs (use unique ids; generated ids take priority). Use for devices without usable depots, with versions confirmed against vendor software or public firmware directories. Prefer generated entries whenever a depot exists. Versions here are in device-reported (entity) numbering, e.g. HID++ MPM 38.00, which G HUB displays as package 38.0.5 \u2014 see releaseNotes. Logitech receiver entries are deliberately absent: HID++ 1.0 register 0xF1 was proven (pre/post-flash identical bytes) to report per-MCU bootloader identifiers, not app versions, so no honest version verdict exists yet. See docs/logitech-firmware-handoff.md.",
   "devices": [
     {
       "id": "logitech-pro-x-superlight-2c-mpm",
@@ -72,6 +72,46 @@
       "firmwareName": "Dongle USB",
       "latestVersion": "8.0.3",
       "releaseNotes": "Dongle USB 8.0.3 == xpanel 2.6.2 DONGLE_USB_LATEST. Check-only; see mouse entry."
+    },
+    {
+      "id": "lunafury-luna33-mouse",
+      "brand": "LunaFury",
+      "interfaceIds": ["373e_0032", "373e_0033"],
+      "firmwareName": "Mouse",
+      "latestVersion": "25.0",
+      "required": false,
+      "downloadUrl": "https://mouse.lunafury.games/",
+      "releaseNotes": "Public firmware 0.0.25.0 (reported as 25.0). Connect the LUNA33 by USB and use the official LunaFury web driver to update."
+    },
+    {
+      "id": "lunafury-luna33-dongle",
+      "brand": "LunaFury",
+      "interfaceIds": ["373e_0033"],
+      "firmwareName": "Dongle",
+      "latestVersion": "25.0",
+      "required": false,
+      "downloadUrl": "https://mouse.lunafury.games/",
+      "releaseNotes": "Public firmware 0.0.25.0 (reported as 25.0). Use the LUNA33 8K receiver update in the official LunaFury web driver."
+    },
+    {
+      "id": "lunafury-type33-mouse",
+      "brand": "LunaFury",
+      "interfaceIds": ["373e_0054", "373e_0084"],
+      "firmwareName": "Mouse",
+      "latestVersion": "1.47",
+      "required": false,
+      "downloadUrl": "https://mouse.lunafury.games/",
+      "releaseNotes": "Public firmware 0.0.1.47 (reported as 1.47). Connect the TYPE33 by USB and use the official LunaFury web driver to update."
+    },
+    {
+      "id": "lunafury-type33-dongle",
+      "brand": "LunaFury",
+      "interfaceIds": ["373e_0084"],
+      "firmwareName": "Dongle",
+      "latestVersion": "1.47",
+      "required": false,
+      "downloadUrl": "https://mouse.lunafury.games/",
+      "releaseNotes": "Public firmware 0.0.1.47 (reported as 1.47). Use the TYPE33 8K receiver update in the official LunaFury web driver."
     }
   ]
 }

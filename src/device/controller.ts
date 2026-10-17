@@ -21,6 +21,9 @@ import {
 import { closestDpiOption } from "../dpi-presets";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
+import { canEditLunaFuryMapping, pickLunaFuryMappings } from "./lunafury-buttons.ts";
+import { stageLunaFuryGameDpi } from "./lunafury-game-dpi.ts";
+import type { LunaFuryDpiStorage } from "@openmouse/protocol/lamzu";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
 import {
   clearPendingChanges,
@@ -379,6 +382,9 @@ const deviceStatuses = new Map<HIDDevice, MouseStatus>();
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
 let latestDeviceStatus: MouseStatus | null = null;
+// Keep the last snapshot visible after a read failure, but do not use it to
+// confirm no-op writes or capture Games originals after an unconfirmed write.
+let deviceStatusNeedsRefresh = false;
 let lastDiagnosticCommand: string | null = null;
 let lastDiagnosticError: string | null = null;
 let reconnectInFlight = false;
@@ -1402,6 +1408,11 @@ function stageChange(change: PendingChange): void {
     setReadStatus(st("ctl.waitFlash"));
     return;
   }
+  if (latestDeviceStatus?.brand === "LunaFury" && change.key !== "onboard-profile" && isPendingChange("onboard-profile")) {
+    setReadStatus(st("luna.profileSwitchPending"));
+    emit();
+    return;
+  }
   if (gameProfileDraft) {
     const fields = gameProfileFieldsOf(change);
     if (!fields) {
@@ -1448,7 +1459,7 @@ function queueInstantFlash(): void {
 let matchesBaseline: { status: MouseStatus; json: string } | null = null;
 
 function matchesDeviceStatus(change: PendingChange): boolean {
-  if (!latestDeviceStatus) return false;
+  if (!latestDeviceStatus || deviceStatusNeedsRefresh) return false;
   if (!change.preview) return false;
   if (matchesBaseline?.status !== latestDeviceStatus) {
     matchesBaseline = { status: latestDeviceStatus, json: JSON.stringify(latestDeviceStatus) };
@@ -1531,23 +1542,79 @@ export function isGameProfileDraftActive(): boolean {
   return gameProfileDraft !== null;
 }
 
+export type FlashResult = "written" | "unchanged" | "busy" | "failed";
+
+export interface GameProfileScope {
+  device: object;
+  profile: number | null;
+}
+
+/** Backups belong to a physical connection and, for LunaFury, an onboard bank. */
+export function currentGameProfileScope(status = latestDeviceStatus): GameProfileScope | null {
+  const client = activeSettingsClient();
+  if (!client || !status) return null;
+  const profile = status.brand === "LunaFury" ? status.activeProfile ?? null : null;
+  if (status.brand === "LunaFury" && (profile === null || profile < 1 || profile > 3)) return null;
+  return { device: client.device ?? client, profile };
+}
+
+/** Refresh an unconfirmed post-write cache before Games planning or deduplication. */
+export async function prepareGameProfileStatus(): Promise<MouseStatus | "busy" | "failed"> {
+  if (gameProfileDraft || settingInProgress || activationInProgress || !latestDeviceStatus) return "busy";
+  if (!deviceStatusNeedsRefresh) return latestDeviceStatus;
+  if (refreshInProgress) return "busy";
+  const client = activeSettingsClient();
+  if (!client) return "busy";
+  const device = activeDevice;
+  refreshInProgress = true;
+  try {
+    const status = await statusAfterWrite(client);
+    if (client !== activeSettingsClient() || device !== activeDevice) return "busy";
+    applyStatus(status);
+    return latestDeviceStatus!;
+  } catch (error) {
+    recordDiagnosticError(error, st("ctl.unableRefresh"));
+    const failure = diagnosticErrorMessage(error, st("ctl.unableRefresh"));
+    setReadStatus(failure);
+    pushToast("error", st("ctl.flashFailed"), failure);
+    return "failed";
+  } finally {
+    refreshInProgress = false;
+  }
+}
+
 /**
  * Writes `snapshot` to the mouse now (a game starting or stopping). Only the
  * snapshot is flashed: the user's own unflashed edits are set aside for the
  * write and staged again afterwards. "busy" means nothing was attempted (a
  * draft is open or another write is running) and the caller should retry;
- * "unchanged" means the mouse already had every value.
+ * "unchanged" means a confirmed status already had every value. "failed" means the
+ * attempt did not complete; earlier batches may already have landed.
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
-): Promise<"written" | "unchanged" | "busy"> {
+  scope = currentGameProfileScope(),
+): Promise<FlashResult> {
+  const status = await prepareGameProfileStatus();
+  if (typeof status === "string") return status;
+  const currentScope = currentGameProfileScope(status);
+  if (!scope || scope.device !== currentScope?.device || scope.profile !== currentScope.profile) return "busy";
+  // Another writer or a draft may start while the refresh yields.
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashPendingChanges();
-  applyGameProfileSnapshot(snapshot);
-  const staged = hasPendingChanges();
-  if (staged) await flashPendingChanges();
-  restorePendingChanges(stash);
-  return staged ? "written" : "unchanged";
+  try {
+    applyGameProfileSnapshot(snapshot);
+    return hasPendingChanges() ? await flashPendingChanges() : "unchanged";
+  } catch (error) {
+    recordDiagnosticError(error, st("ctl.unableFlash"));
+    const failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
+    setReadStatus(failure);
+    pushToast("error", st("ctl.flashFailed"), failure);
+    return "failed";
+  } finally {
+    // Failed game writes must not replace the user's unrelated staged edits.
+    restorePendingChanges(stash);
+  }
 }
 
 /** Writes that bypass staging must not reach the mouse while a game profile is being edited. */
@@ -1795,18 +1862,29 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   // the snapshot: a plain DPI change on a stage-aware mouse also rewrites the
   // active entry of dpiStages, so both fields can be present.
   const stageEditor = status.ui?.dpiStageEditor;
-  if (stageEditor && status.dpiStages?.length) {
+  // LunaFury also accepts older snapshots carrying a selected stage's scalars.
+  const lunaDpi = stageLunaFuryGameDpi(status, s, {
+    storage: stageLunaFuryDpiStorage,
+    count: applyDpiStageCount, axes: applyLunaFuryDpiStageAxes, active: applyActiveDpiStage,
+  });
+  if (!lunaDpi && stageEditor && status.dpiStages?.length) {
     if (s.dpiStages?.length) {
       if (stageEditor.countEditable === true && s.dpiStages.length !== status.dpiStages.length) {
         applyDpiStageCount(s.dpiStages.length);
       }
-      s.dpiStages.forEach((value, stage) => applyDpiStageValue(stage, value));
+      s.dpiStages.forEach((value, stage) => {
+        if (status.brand === "LunaFury" && s.dpiStagesY?.[stage] != null) applyLunaFuryDpiStageAxes(stage, value, s.dpiStagesY[stage]);
+        else applyDpiStageValue(stage, value);
+      });
+    } else if (status.brand === "LunaFury" && s.dpiStagesY?.length) {
+      s.dpiStagesY.forEach((value, stage) => applyLunaFuryDpiStageAxes(stage, status.dpiStages![stage], value));
     } else if (s.dpi != null) {
-      applyDpiValue(s.dpi);
+      if (status.brand === "LunaFury" && s.dpiY != null) applyLunaFuryDpiStageAxes(status.activeDpiStage ?? 0, s.dpi, s.dpiY);
+      else applyDpiValue(s.dpi);
     }
     s.dpiStageColors?.forEach((color, stage) => applyDpiStageColor(stage, color));
     if (s.activeDpiStage != null) applyActiveDpiStage(s.activeDpiStage);
-  } else if (s.dpi != null) {
+  } else if (!lunaDpi && s.dpi != null) {
     if (s.dpiY != null && s.dpiY !== s.dpi && status.supportsSeparateDpiAxes) applyLogitechAxisDpi(s.dpi, s.dpiY);
     else applyDpiValue(s.dpi);
   }
@@ -1844,6 +1922,8 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     lightning: applyLunaFuryLightningMode,
     button: applyLunaFuryButtonDebounce,
     wheel: applyLunaFuryWheelGuard,
+    buttonRate: applyLunaFuryButtonPollingRate,
+    separateAxes: applyLunaFurySeparateDpiAxes,
   });
   if (typeof s.wheelAcceleration === "boolean") applyProSetting("wheelAcceleration", s.wheelAcceleration);
 
@@ -1886,7 +1966,8 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
   if (typeof s.eggForceMaxFps === "boolean") applyEggForceMaxFps(s.eggForceMaxFps);
   if (typeof s.eggLedLiftOffDisabled === "boolean") applyEggLedLiftOff(s.eggLedLiftOffDisabled);
 
-  for (const [button, action] of Object.entries(s.buttonMappings ?? {})) applyDeviceButtonMapping(button, action);
+  const mappings = status.brand === "LunaFury" ? pickLunaFuryMappings(status, s.buttonMappings) : s.buttonMappings ?? {};
+  for (const [button, action] of Object.entries(mappings)) applyDeviceButtonMapping(button, action);
   for (const [control, mapping] of Object.entries(s.razerButtonMappings ?? {})) {
     applyRazerButtonMapping(control as RazerButtonControl, mapping as RazerButtonMapping);
   }
@@ -1915,6 +1996,24 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
       speed: zone.speed ?? undefined,
       brightness: zone.brightness ?? undefined,
     }, zoneIndex);
+  });
+}
+
+/** Final Games DPI storage, composed from its backup and target; never saved/imported. */
+function stageLunaFuryDpiStorage(storage: LunaFuryDpiStorage): void {
+  const saved = structuredClone(storage);
+  stageChange({
+    key: "lunafury-dpi-storage", priority: -20,
+    label: "Restore stored DPI slots", command: "Restore complete onboard DPI storage",
+    progress: "Restoring DPI storage…",
+    preview: (status) => {
+      status.dpiStages = saved.stages.slice(0, saved.count).map(stage => stage.x);
+      status.dpiStagesY = saved.stages.slice(0, saved.count).map(stage => stage.y);
+      status.activeDpiStage = Math.min(status.activeDpiStage ?? 0, saved.count - 1);
+      status.dpi = status.dpiStages[status.activeDpiStage]; status.dpiY = status.dpiStagesY[status.activeDpiStage];
+      status.lunafury = { ...status.lunafury, dpiStorage: structuredClone(saved) };
+    },
+    apply: () => callClientMethod("setLunaFuryDpiStorage", "stored DPI slots", saved),
   });
 }
 
@@ -2178,19 +2277,24 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
   await wait(milliseconds);
 }
 
-export async function flashPendingChanges(): Promise<void> {
-  if (gameProfileDraft) return;
-  const batches = pendingChangeBatches();
-  if (batches.length === 0) return;
+export async function flashPendingChanges(): Promise<FlashResult> {
+  if (gameProfileDraft || activationInProgress) return "busy";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
-    return;
+    return "busy";
   }
+  if (!hasPendingChanges() && !deviceStatusNeedsRefresh) return "unchanged";
+  const client = activeSettingsClient();
+  if (!client || !latestDeviceStatus) return "busy";
+  const device = activeDevice;
+  // Lock staging before waiting/reading and bind this attempt to its client.
+  // Batch ordering must use the recovered status, not a pre-await plan.
   settingInProgress = true;
-  pendingBusy = true;
+  pendingBusy = hasPendingChanges();
   emit();
   let written = 0;
+  let writeAttempted = false;
   let failure: string | null = null;
   if (refreshInProgress) {
     pendingStatusText = st("ctl.waitRefresh");
@@ -2205,6 +2309,17 @@ export async function flashPendingChanges(): Promise<void> {
     }
   }
   try {
+    if (!failure) {
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      if (deviceStatusNeedsRefresh) {
+        const status = await statusAfterWrite(client);
+        if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+        applyStatus(status);
+      }
+    }
+    // Resolve on every Apply, including when a background read already
+    // recovered trust but the user's pending operations predate that read.
+    const batches = failure ? [] : pendingChangeBatches(latestDeviceStatus!);
     for (const batch of batches) {
       if (failure) break;
       const writer = batch[batch.length - 1];
@@ -2213,7 +2328,9 @@ export async function flashPendingChanges(): Promise<void> {
       readStatus = writer.progress;
       emit();
       await flashPause();
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
       for (const change of batch) recordDiagnosticCommand(change.command);
+      writeAttempted = true;
       await writer.apply();
       for (const change of batch) dropPendingChange(change.key);
       written += batch.length;
@@ -2222,28 +2339,47 @@ export async function flashPendingChanges(): Promise<void> {
     recordDiagnosticError(error, st("ctl.unableFlash"));
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
-  await flashPause(FLASH_SETTLE_MS);
-  const client = activeSettingsClient();
-  const status = client ? await statusAfterWrite(client).catch(() => null) : null;
-  if (status) applyStatus(status);
-  endDeviceWrite();
-  pendingBusy = false;
+  try {
+    // A failed preflight must leave staging intact and perform no speculative
+    // writes or second status read. Actual writes still require final readback.
+    if (writeAttempted) {
+      await flashPause(FLASH_SETTLE_MS);
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      const status = await statusAfterWrite(client);
+      if (client !== activeSettingsClient() || device !== activeDevice) throw new Error(st("ctl.gone"));
+      applyStatus(status);
+    }
+  } catch (error) {
+    deviceStatusNeedsRefresh = true;
+    lastRenderedStatusKey = null;
+    matchesBaseline = null;
+    if (!failure) {
+      recordDiagnosticError(error, st("ctl.unableFlash"));
+      failure = diagnosticErrorMessage(error, st("ctl.unableFlash"));
+    }
+  } finally {
+    pendingBusy = false;
+    endDeviceWrite();
+  }
   if (flashQueued) {
     flashQueued = false;
-    if (hasPendingChanges()) return flashPendingChanges();
+    // A queued retry must not turn this failed attempt into reported success.
+    if (!failure && hasPendingChanges()) return flashPendingChanges();
   }
   if (failure) {
     pendingStatusText = failure;
     setReadStatus(failure);
     pushToast("error", st("ctl.flashFailed"), failure);
-    return;
+    return "failed";
   }
   pendingStatusText = null;
+  if (written === 0) return "unchanged";
   const flashed = written === 1
     ? st("ctl.flashedOne")
     : st("ctl.flashedMany", { n: written });
   setReadStatus(flashed);
   pushToast("success", flashed);
+  return "written";
 }
 
 function endDeviceWrite(): void {
@@ -2626,8 +2762,11 @@ function setPageTitle(prefix?: string): void {
   document.title = prefix ? `${prefix} - ${DEFAULT_TITLE}` : DEFAULT_TITLE;
 }
 
-function applyStatus(deviceStatus: MouseStatus, statusKey?: string): void {
-  batch(() => applyStatusInner(deviceStatus, statusKey));
+function applyStatus(deviceStatus: MouseStatus, statusKey?: string, confirmed = true): void {
+  batch(() => {
+    if (confirmed) deviceStatusNeedsRefresh = false;
+    applyStatusInner(deviceStatus, statusKey);
+  });
 }
 
 function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
@@ -3296,6 +3435,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   if (active && active !== client) await active.close().catch(() => undefined);
   clearPendingChanges();
   latestDeviceStatus = null;
+  deviceStatusNeedsRefresh = false;
   clearActiveClients();
   clearActiveKeyboard();
   if (switchingDevice) {
@@ -3506,6 +3646,7 @@ function showDisconnectedState(): void {
   capabilities = null;
   clearPendingChanges();
   latestDeviceStatus = null;
+  deviceStatusNeedsRefresh = false;
   buttons = null;
   clearNapeKeymaps();
   setPageTitle();
@@ -3866,6 +4007,13 @@ export function cancelCustomDpi(dpi?: number): void {
 
 export function applyDpiValue(dpi: number): boolean {
   if (!hasActiveClient() || !dpiOptions.includes(dpi)) return false;
+  const staged = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  if (staged?.brand === "LunaFury" && staged.dpiStagesY && staged.activeDpiStage != null) {
+    const stage = staged.activeDpiStage;
+    const y = staged.lunafury?.separateDpiAxes !== false ? staged.dpiStagesY[stage] ?? dpi : dpi;
+    applyLunaFuryDpiStageAxes(stage, dpi, y);
+    return true;
+  }
   stageChange({
     key: "dpi",
     label: `DPI ${dpi.toLocaleString()}`,
@@ -3879,6 +4027,7 @@ export function applyDpiValue(dpi: number): boolean {
         status.dpiStages = status.dpiStages.map((value, index) => (
           index === status.activeDpiStage ? dpi : value
         ));
+        if (status.dpiStagesY) status.dpiStagesY = status.dpiStagesY.map((value, index) => index === status.activeDpiStage ? dpi : value);
       }
     },
     apply: async () => {
@@ -3889,22 +4038,28 @@ export function applyDpiValue(dpi: number): boolean {
 }
 
 export function applyDpiStageCount(count: number): void {
-  if (!hasActiveClient()) return;
+  if (!hasActiveClient() || settingInProgress) return;
   const editor = latestDeviceStatus?.ui?.dpiStageEditor;
   if (!editor || editor.countEditable !== true) return;
   if (!Number.isInteger(count) || count < 1 || count > editor.maxStages) return;
   if (!("setDpiStageCount" in requireSettingsClient())) return;
-  const currentCount = latestDeviceStatus?.dpiStages?.length ?? count;
-  if (count < currentCount) {
-    for (const change of pendingChanges()) {
-      const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
-      if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+  // The user's final count bounds all staged slots, even when both the
+  // previous and new requested counts exceed the current hardware count.
+  for (const change of pendingChanges()) {
+    const match = /^dpi-stage(?:-color)?-(\d+)$/.exec(change.key);
+    if (match && Number(match[1]) >= count) dropPendingChange(change.key);
+    if (change.key === "dpi-active-stage" && latestDeviceStatus) {
+      const target = structuredClone(latestDeviceStatus);
+      change.preview?.(target);
+      if ((target.activeDpiStage ?? 0) >= count) dropPendingChange(change.key);
     }
-    dropPendingChange("dpi-active-stage");
   }
   stageChange({
     key: "dpi-stage-count",
-    priority: count > currentCount ? -1 : count < currentCount ? 1 : 0,
+    resolvePriority: (status) => {
+      const currentCount = status.dpiStages?.length ?? count;
+      return count > currentCount ? -1 : count < currentCount ? 1 : 0;
+    },
     label: `${count} DPI stage${count === 1 ? "" : "s"}`,
     command: `Set DPI stage count to ${count}`,
     progress: `Setting ${count} DPI stages…`,
@@ -3913,6 +4068,11 @@ export function applyDpiStageCount(count: number): void {
       status.dpiStages = count <= current.length
         ? current.slice(0, count)
         : [...current, ...Array.from({ length: count - current.length }, () => current.at(-1) ?? status.dpi)];
+      if (status.dpiStagesY) {
+        const ys = status.dpiStagesY.slice();
+        status.dpiStagesY = count <= ys.length ? ys.slice(0, count)
+          : [...ys, ...Array.from({ length: count - ys.length }, () => ys.at(-1) ?? status.dpiY ?? status.dpi)];
+      }
       if (status.dpiStageColors) {
         status.dpiStageColors = count <= status.dpiStageColors.length
           ? status.dpiStageColors.slice(0, count)
@@ -3924,6 +4084,7 @@ export function applyDpiStageCount(count: number): void {
       if ((status.activeDpiStage ?? 0) >= count) {
         status.activeDpiStage = count - 1;
         status.dpi = status.dpiStages[count - 1] ?? status.dpi;
+        if (status.dpiStagesY) status.dpiY = status.dpiStagesY[count - 1];
       }
     },
     apply: async () => {
@@ -3965,6 +4126,7 @@ export function applyActiveDpiStage(stage: number): void {
     preview: (status) => {
       status.activeDpiStage = stage;
       status.dpi = status.dpiStages?.[stage] ?? status.dpi;
+      if (status.dpiStagesY) status.dpiY = status.dpiStagesY[stage];
     },
     apply: async () => {
       await requireClientMethod("setActiveDpiStage", "DPI stage").setActiveDpiStage(stage);
@@ -3974,19 +4136,25 @@ export function applyActiveDpiStage(stage: number): void {
 
 export function applyDpiStageValue(stage: number, rawDpi: number): void {
   if (!hasActiveClient()) return;
+  const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
   // A client that can address the axes separately must not take the numeric
   // route: that one mirrors X into Y and would discard the stage's Y.
-  if (dpiStageAxesWriterName() !== null) {
+  // LunaFury uses its model-specific path below to honor linked-axis mode.
+  if (stagedStatus?.brand !== "LunaFury" && dpiStageAxesWriterName() !== null) {
     applyDpiStageAxes(stage, { x: rawDpi });
     return;
   }
-  const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
   const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
   if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
   const dpi = closestDpiOption(dpiOptions, rawDpi) ?? rawDpi;
   if (!dpiOptions.includes(dpi)) {
     setReadStatus(st("ctl.dpiNotSupported", { dpi: rawDpi.toLocaleString() }));
     emit();
+    return;
+  }
+  if (stagedStatus?.brand === "LunaFury" && stagedStatus.dpiStagesY) {
+    const y = stagedStatus.lunafury?.separateDpiAxes !== false ? stagedStatus.dpiStagesY[stage] ?? dpi : dpi;
+    applyLunaFuryDpiStageAxes(stage, dpi, y);
     return;
   }
   stageChange({
@@ -4960,7 +5128,7 @@ export async function switchNapeLayer(layer: number): Promise<void> {
     const status = latestDeviceStatus;
     if (!status) return;
     editedNapeLayer = layer;
-    applyStatus({ ...status, napeLayer: layer });
+    applyStatus({ ...status, napeLayer: layer }, undefined, false);
     installPreviewNapeKeymap(layer);
     setReadStatus(st("ctl.previewSwitched", { label: layerLabel(interfacePreferences.locale, keychronLayerLabel(layer)) }));
     return;
@@ -6048,6 +6216,8 @@ export function applyPowerMode(mode: string): void {
  * above, which reassigns a Logitech control by id.
  */
 export function applyDeviceButtonMapping(button: string, action: string): void {
+  if (latestDeviceStatus?.brand === "LunaFury"
+    && !canEditLunaFuryMapping(withPendingChanges(latestDeviceStatus), button, action)) return;
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
@@ -6117,6 +6287,14 @@ export function resetKsnakeButtonMappings(): void {
  * rather than previewing a value that is about to be replaced wholesale.
  */
 export function applyProfileSelection(profile: number): void {
+  if (latestDeviceStatus?.brand === "LunaFury") {
+    if (!Number.isInteger(profile) || profile < 1 || profile > (latestDeviceStatus.profileCount ?? 0)) return;
+    if (blockedByGameProfileDraft()) return;
+    if (hasPendingChanges()) {
+      if (!window.confirm(st("luna.discardBeforeSwitch"))) return;
+      clearPendingChanges();
+    }
+  }
   stageChange({
     key: "onboard-profile",
     label: st("adv.profileOpt", { n: profile }),
@@ -6499,6 +6677,60 @@ export function applyIncottFireKey(times: number, intervalMs: number): void {
   });
 }
 
+export function applyLunaFuryButtonPollingRate(hertz: 1000 | 2000 | 4000 | 8000): void {
+  const settings = latestDeviceStatus?.lunafury;
+  if (settings?.buttonPollingRateHz == null || !settings.supportedButtonPollingRates?.includes(hertz)) return;
+  stageChange({
+    key: "lunafury-button-rate",
+    label: `${st("luna.buttonPollingRate")} · ${hertz} Hz`,
+    command: `Set button polling rate to ${hertz} Hz`,
+    progress: `Setting button polling rate to ${hertz} Hz…`,
+    preview: (status) => { if (status.lunafury) status.lunafury.buttonPollingRateHz = hertz; },
+    apply: () => callClientMethod("setLunaFuryButtonPollingRate", "button polling rate", hertz),
+  });
+}
+
+export function applyLunaFurySeparateDpiAxes(enabled: boolean): void {
+  if (latestDeviceStatus?.lunafury?.separateDpiAxes == null) return;
+  stageChange({
+    key: "lunafury-dpi-axes",
+    priority: enabled ? -5 : 5,
+    label: `${st("luna.separateAxes")} · ${st(enabled ? "common.on" : "common.off")}`,
+    command: `Set separate DPI axes to ${enabled}`,
+    progress: "Setting DPI axis mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.separateDpiAxes = enabled; },
+    apply: () => callClientMethod("setLunaFurySeparateDpiAxes", "DPI axis mode", enabled),
+  });
+}
+
+export function applyLunaFuryDpiStageAxes(stage: number, x: number, y: number): void {
+  const status = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
+  if (status?.brand !== "LunaFury" || !status.dpiStagesY || !status.dpiStages ||
+    !Number.isInteger(stage) || stage < 0 || stage >= status.dpiStages.length ||
+    !dpiOptions.includes(x) || !dpiOptions.includes(y)) return;
+  stageChange({
+    key: `dpi-stage-${stage}`,
+    label: `Stage ${stage + 1} · X ${x} / Y ${y} DPI`,
+    command: `Set DPI stage ${stage + 1} to X ${x} / Y ${y}`,
+    progress: `Setting DPI stage ${stage + 1}…`,
+    preview: (target) => {
+      const xs = target.dpiStages?.slice() ?? [];
+      const ys = target.dpiStagesY?.slice() ?? [];
+      while (xs.length <= stage) xs.push(xs.at(-1) ?? target.dpi);
+      while (ys.length <= stage) ys.push(ys.at(-1) ?? target.dpiY ?? target.dpi);
+      xs[stage] = x; ys[stage] = y;
+      target.dpiStages = xs; target.dpiStagesY = ys;
+      if (target.activeDpiStage === stage) { target.dpi = x; target.dpiY = y; }
+    },
+    apply: async () => {
+      const client = requireClientMethod("setLunaFuryDpiStageAxes", "DPI stage axes") as unknown as {
+        setLunaFuryDpiStageAxes(stage: number, x: number, y: number): Promise<unknown>;
+      };
+      await client.setLunaFuryDpiStageAxes(stage, x, y);
+    },
+  });
+}
+
 export function applyLunaFuryLightningMode(mode: 0 | 1 | 2): void {
   if (latestDeviceStatus?.lunafury?.lightningMode == null) return;
   stageChange({
@@ -6527,6 +6759,34 @@ export function applyLunaFuryButtonDebounce(button: "left" | "right" | "middle",
       };
       await client.setLunaFuryButtonDebounce(button, milliseconds);
     },
+  });
+}
+
+export function applyLunaFuryBottomButtonMode(mode: 1 | 2): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.bottomButtonMode == null || (mode !== 1 && mode !== 2)) return;
+  const label = st(mode === 1 ? "luna.bottomPower" : "luna.bottomPowerDpi");
+  stageChange({
+    key: "lunafury-bottom-button",
+    label: `${st("luna.bottomButton")} · ${label}`,
+    command: `Set bottom-button mode to ${mode}`,
+    progress: "Setting bottom-button mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.bottomButtonMode = mode; },
+    apply: () => callClientMethod("setLunaFuryBottomButtonMode", "bottom-button behavior", mode),
+  });
+}
+
+export function applyLunaFuryReceiverLightMode(mode: 0 | 2 | 6 | 11): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.receiverLightMode == null || ![0, 2, 6, 11].includes(mode)) return;
+  const label = st(mode === 2 ? "luna.lightMixed" : mode === 6 ? "luna.lightBattery" : mode === 11 ? "luna.lightDpi" : "common.off");
+  stageChange({
+    key: "lunafury-receiver-light",
+    label: `${st("luna.receiverLight")} · ${label}`,
+    command: `Set receiver light mode to ${mode}`,
+    progress: "Setting receiver light mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.receiverLightMode = mode; },
+    apply: () => callClientMethod("setLunaFuryReceiverLightMode", "receiver lighting", mode),
   });
 }
 
@@ -6569,7 +6829,7 @@ async function refreshStatus(): Promise<void> {
     const currentClient = activeSettingsClient();
     if (client !== currentClient || client.device !== activeDevice) return;
     const key = JSON.stringify(status);
-    if (key !== lastRenderedStatusKey) applyStatus(status, key);
+    if (deviceStatusNeedsRefresh || key !== lastRenderedStatusKey) applyStatus(status, key);
   } catch (error) {
     lastRenderedStatusKey = null;
     deviceStatusText = st("ctl.waitingRefresh");
@@ -6950,6 +7210,7 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   capabilities = readCapabilities();
   if (name === "finalmouse" || name === "finalmouse-slx") active = finalmousePreviewClient(fixture.status);
   else if (fixture.status.magneticButtons) active = magneticPreviewClient(fixture.status);
+  if (name === "lunafury") capabilities = { ...capabilities, sleepOptions: [0, ...Array.from({ length: 30 }, (_, i) => (i + 1) * 60)] };
   applyStatus(fixture.status);
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;

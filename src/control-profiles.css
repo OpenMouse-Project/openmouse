@@ -103,6 +103,34 @@
 .shortcut-dialog-actions button.is-primary { border-color:var(--ui-accent);background:var(--ui-accent);color:var(--ui-accent-ink);font-weight:650 }
 .shortcut-dialog-actions button:disabled { opacity:.4;cursor:default }
 
+.control-shell .dpi-card.lunafury-dpi-card.has-lift-off { grid-template-columns:minmax(0,1fr) }
+.control-shell .dpi-card.lunafury-dpi-card.has-lift-off > .dpi-card-lift { border-inline-start:0;border-top:1px solid var(--line-strong);padding:1rem 0 0 }
+.lunafury-dpi-editor { display:grid;gap:1rem;min-width:0 }
+.lunafury-dpi-editor .switch-row { font-size:.875rem }
+.lunafury-dpi-editor .stepper-slider { margin:0 }
+.lunafury-dpi-stage-bar { display:flex;flex-wrap:wrap;align-items:flex-start;gap:1rem }
+.lunafury-dpi-stage-list { display:flex;flex-wrap:wrap;gap:.75rem;flex:0 1 auto;min-width:0 }
+.lunafury-dpi-stage { display:grid;gap:.45rem;width:3.5rem;flex:0 0 3.5rem;min-width:0 }
+.lunafury-dpi-stage.stage-1 { --luna-stage-color:var(--luna-stage-1) }
+.lunafury-dpi-stage.stage-2 { --luna-stage-color:var(--luna-stage-2) }
+.lunafury-dpi-stage.stage-3 { --luna-stage-color:var(--luna-stage-3) }
+.lunafury-dpi-stage.stage-4 { --luna-stage-color:var(--luna-stage-4) }
+.lunafury-dpi-stage.stage-5 { --luna-stage-color:var(--luna-stage-5) }
+.lunafury-dpi-stage.stage-6 { --luna-stage-color:var(--luna-stage-6) }
+.lunafury-dpi-stage-tile { justify-self:center;box-sizing:border-box;width:2.5rem;height:2.5rem;aspect-ratio:1;padding:0;border:2px solid transparent;border-radius:.75rem;background:var(--luna-stage-color);cursor:pointer }
+.lunafury-dpi-stage.is-active .lunafury-dpi-stage-tile { border-color:var(--text-strong) }
+.lunafury-dpi-stage-tile:hover:not(:disabled) { box-shadow:0 0 0 3px var(--hover) }
+.lunafury-dpi-stage-tile:focus-visible { outline:3px solid var(--info);outline-offset:3px }
+.lunafury-dpi-stage-value { display:flex;flex-direction:column;align-items:stretch;gap:.15rem;min-width:0;color:var(--text-soft);font-size:.875rem }
+.lunafury-dpi-stage-value > span { font-size:.75rem;text-align:center }
+.lunafury-dpi-stage-value input { box-sizing:border-box;width:100%;min-width:0;padding:.4rem .15rem;border:1px solid var(--border);border-radius:.5rem;background:var(--surface-input);color:var(--text-input);font:600 .875rem/1.3 var(--font-mono);text-align:center;appearance:textfield }
+.lunafury-dpi-stage-value input::-webkit-inner-spin-button { appearance:none }
+.lunafury-dpi-stage-value input:focus-visible { outline:2px solid var(--info);outline-offset:1px }
+.lunafury-dpi-count { display:grid;gap:.45rem;flex:0 0 5rem;margin-inline-start:auto;color:var(--text-soft);font-size:.875rem }
+.lunafury-dpi-count .option-menu { width:100% }
+.lunafury-dpi-editor .setting-note { margin:0;font-size:.8125rem }
+.lunafury-dpi-editor :disabled { cursor:not-allowed }
+
 /* `.segmented` and friends set display, which outranks the user-agent
    `[hidden] { display: none }` rule — so hiding those rows by setting the
    hidden property silently did nothing. Make the attribute win everywhere. */
@@ -223,7 +251,9 @@
 /* Stage/Single mode switch. A compact pill sitting on the right of the DPI
    card's heading text; the active segment inverts like the shared
    `.segmented` controls do. */
-.dpi-card .dpi-heading-label { display:flex;align-items:center;gap:.8rem;min-width:0 }
+.dpi-card-main > .setting-heading { flex-wrap:wrap;gap:.75rem }
+.dpi-card .dpi-heading-label { display:flex;align-items:center;gap:.8rem;min-width:0;flex-shrink:0;flex-wrap:wrap;max-width:100% }
+.dpi-card .dpi-heading-label > div:first-child { flex-shrink:0 }
 .dpi-view-toggle { display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--border);border-radius:999px;background:var(--surface-control) }
 .dpi-view-toggle button { padding:.45rem .95rem;border:0;border-radius:999px;background:transparent;color:var(--text-soft);font:600 .75rem/1 var(--font-sans);white-space:nowrap;cursor:pointer;transition:background .15s ease,color .15s ease }
 .dpi-view-toggle button:hover { color:var(--text-hover) }
@@ -306,4 +336,40 @@
 .preview-launcher-link small { color:var(--ghost);font-family:'JetBrains Mono',monospace;font-size:.55rem }
 .preview-launcher-link.is-active { border-color:var(--ui-accent);color:var(--ui-accent) }
 .preview-launcher-link.is-active small { color:var(--ui-accent) }
+.luna-key-binding {
+  margin: .25rem .65rem .6rem;
+  color: var(--text-soft);
+  font-size: .875rem;
+}
+.luna-key-binding summary { cursor: pointer; padding: .4rem 0; }
+.luna-key-binding fieldset {
+  display: grid;
+  gap: .65rem;
+  min-width: 0;
+  margin: .35rem 0 0;
+  padding: .8rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  box-shadow: 0 2px 8px var(--ui-accent-soft);
+}
+.luna-key-binding fieldset > label { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }
+.luna-key-binding select, .luna-key-binding button {
+  min-height: 2.5rem;
+  max-width: 100%;
+  padding: .5rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--text-input);
+  font: inherit;
+}
+.luna-key-binding button { cursor: pointer; }
+.luna-key-binding button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.luna-key-binding button:hover:not(:disabled) { background: var(--surface-hover-soft); }
+.luna-key-binding :disabled { opacity: .6; cursor: not-allowed; }
+.luna-key-modifiers { display: flex; flex-wrap: wrap; gap: .6rem 1rem; }
+.luna-key-modifiers label { display: flex; align-items: center; gap: .35rem; }
+.luna-key-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.luna-key-binding output { overflow-wrap: anywhere; color: var(--text-hover); }
 #bunny-hop-card #bunny-hop-row { margin: 0; padding: 0; border: 0; }

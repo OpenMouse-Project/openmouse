@@ -19,6 +19,7 @@
     "preact": "^10.29.8"
   },
   "devDependencies": {
+    "terser": "^5.51.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }

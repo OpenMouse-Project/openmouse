@@ -48,6 +48,30 @@ test("atk-f1 fixture lights up the offender cards", () => {
   assert.equal(has.atkF1Dongle, true);
 });
 
+test("LunaFury synthetic preview exposes paired stages, three banks and independent button rates", () => {
+  const status = PREVIEW_FIXTURES.lunafury.status;
+  assert.equal(status.brand, "LunaFury");
+  assert.equal(status.profileCount, 3);
+  assert.equal(status.dpiStages?.length, 6);
+  assert.equal(status.dpiStagesY?.length, 6);
+  assert.notEqual(status.dpi, status.dpiY);
+  assert.notEqual(status.pollingRateHz, status.lunafury?.buttonPollingRateHz);
+  const has = cardAvailability({ status, traits: traitsFor(status), settingsPending: false } as ControlSnapshot);
+  assert.equal(has.onboardProfiles, true);
+  assert.equal(has.lunafuryButtons, true);
+  assert.equal(has.lunafuryWheelGuard, true);
+  assert.equal(has.lunafuryReceiverLight, true);
+  assert.equal(has.lunafuryBottomButton, true);
+  assert.equal(status.lunafury?.bottomButtonMode, 2);
+  assert.equal(status.sleepTimeout, 0);
+  for (const receiverLightMode of [0, undefined] as const) {
+    const variant = { ...status, lunafury: { ...status.lunafury, receiverLightMode } };
+    assert.equal(cardAvailability({ status: variant, traits: traitsFor(variant) } as ControlSnapshot).lunafuryReceiverLight,
+      receiverLightMode !== undefined);
+  }
+  assert.equal(has.signal, false);
+});
+
 test("the EGG fixtures carry the shape their driver actually reports", () => {
   // No EGG driver publishes `ui.family`, so neither fixture may claim one: the
   // previews have to exercise the same path real hardware takes.
