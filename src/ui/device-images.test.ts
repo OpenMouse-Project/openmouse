@@ -364,3 +364,10 @@ test("Incott names do not collide with other brands' renders", () => {
   assert.equal(deviceImage(null, "G203 LIGHTSYNC"), CDN + "logitech-g203.png");
   assert.equal(deviceImage(null, "G303 SHROUD"), CDN + "logitech-g303.png");
 });
+
+test("SteelSeries Aerox 3 Wireless resolves to its artwork", () => {
+  assert.equal(deviceImage(null, "SteelSeries Aerox 3 Wireless"), "/devices/steelseries-aerox-3-wireless.png");
+  assert.equal(deviceImage(null, "Aerox 3 Wireless (wired mode)"), "/devices/steelseries-aerox-3-wireless.png");
+  assert.equal(deviceImage(null, "Aerox 3 Wireless Gen 2"), "/devices/steelseries-aerox-3-wireless.png");
+});
+

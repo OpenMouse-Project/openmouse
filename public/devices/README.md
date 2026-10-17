@@ -274,3 +274,7 @@ package:
   **Needs a maintainer upload** to the `openmouse-devices` R2 bucket; the mapping in
   `src/ui/device-images.ts` is in place and falls back cleanly to the placeholder until then.
 
+- `steelseries-aerox-3-wireless.png` — SteelSeries Aerox 3 Wireless (wired `0x1038:0x183a`, 2.4 GHz `0x1038:0x1838`).
+  Normalized from official product render on transparent 700×700 canvas. Temporarily served from
+  `public/devices/steelseries-aerox-3-wireless.png` via `LOCAL_OVERRIDES`. Needs a maintainer upload to R2 bucket.
+
