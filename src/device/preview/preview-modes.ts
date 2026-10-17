@@ -1,0 +1,100 @@
+/**
+ * Development preview routes accepted by the control app.
+ *
+ * Keep this as an explicit allowlist: arbitrary query-string values must not
+ * be able to disable the real HID startup path.
+ */
+export const PREVIEW_KEYS = [
+  "list",
+  "slots",
+  "superstrike",
+  "pulsar",
+  "pulsar-pro",
+  "pulsar-xs1-8k",
+  "pulsar-xs1-unknown",
+  "egg-op1",
+  "egg-op1-v2",
+  "egg-ot",
+  "egg-we",
+  "egg-xm2we",
+  "wlmouse",
+  "lamzu",
+  "attack-shark",
+  "crdrako",
+  "m3k",
+  "atk",
+  "atk-f1",
+  "orbital",
+  "razer",
+  "razer-viper-v2",
+  "razer-viper-mini",
+  "razer-diamondback",
+  "razer-cobra",
+  "razer-viper-v4",
+  "vgn",
+  "finalmouse",
+  "finalmouse-slx",
+  "ninjutso",
+  "nape-pro",
+  "mx-master-3s",
+  "g703",
+  "gwolves-pro",
+  "rawm-v4-gt",
+  "terra-pro",
+  "logitech-legacy",
+  "steelseries-gen2",
+] as const;
+
+export type PreviewMode = typeof PREVIEW_KEYS[number];
+export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike">;
+
+export function previewsEnabled(buildChannel: string, viteDev: boolean): boolean {
+  return viteDev || buildChannel === "insiders";
+}
+
+/** Returns only trusted literals, breaking the data flow from the URL value. */
+export function parsePreviewMode(value: string | null): PreviewMode | null {
+  switch (value) {
+    case "list": return "list";
+    case "slots": return "slots";
+    case "superstrike": return "superstrike";
+    case "pulsar": return "pulsar";
+    case "pulsar-pro": return "pulsar-pro";
+    case "pulsar-xs1-8k": return "pulsar-xs1-8k";
+    case "pulsar-xs1-unknown": return "pulsar-xs1-unknown";
+    case "egg-op1": return "egg-op1";
+    case "egg-op1-v2": return "egg-op1-v2";
+    case "egg-ot": return "egg-ot";
+    case "egg-we": return "egg-we";
+    case "egg-xm2we": return "egg-xm2we";
+    case "wlmouse": return "wlmouse";
+    case "lamzu": return "lamzu";
+    case "attack-shark": return "attack-shark";
+    case "crdrako": return "crdrako";
+    case "m3k": return "m3k";
+    case "atk": return "atk";
+    case "atk-f1": return "atk-f1";
+    case "orbital": return "orbital";
+    case "razer": return "razer";
+    case "razer-viper-v2": return "razer-viper-v2";
+    case "razer-viper-mini": return "razer-viper-mini";
+    case "razer-diamondback": return "razer-diamondback";
+    case "razer-cobra": return "razer-cobra";
+    case "razer-viper-v4": return "razer-viper-v4";
+    case "terra-pro": return "terra-pro";
+    case "vgn": return "vgn";
+    case "finalmouse": return "finalmouse";
+    case "finalmouse-slx": return "finalmouse-slx";
+    case "ninjutso": return "ninjutso";
+    case "keychron":
+    case "keychron-nape":
+    case "nape-pro": return "nape-pro";
+    case "mx-master-3s": return "mx-master-3s";
+    case "g703": return "g703";
+    case "gwolves-pro": return "gwolves-pro";
+    case "rawm-v4-gt": return "rawm-v4-gt";
+    case "logitech-legacy": return "logitech-legacy";
+    case "steelseries-gen2": return "steelseries-gen2";
+    default: return null;
+  }
+}

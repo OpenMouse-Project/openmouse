@@ -1,9 +1,9 @@
 import { emptyKeyboardWorkspace } from "./keyboard-workspace.ts";
 import type { KeyboardCommand } from "./keyboard-workspace.ts";
-import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../battery-history";
-import { bridgeEmptyResultMessage, isBridgeHidActive } from "../bridge-hid";
-import { applyBridgeNativeSettings } from "../bridge";
-import { pollingRateText } from "../ui/polling-rate";
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../features/devices/battery-history";
+import { bridgeEmptyResultMessage, isBridgeHidActive } from "../features/bridge/bridge-hid";
+import { applyBridgeNativeSettings } from "../features/bridge/bridge";
+import { pollingRateText } from "../shared/polling-rate";
 import {
   clientSupportScore,
   createKeyboardClient,
@@ -17,11 +17,11 @@ import {
   pickLogicalDevice,
   type PulsarClient,
   type SupportedClient,
-} from "../device-clients";
-import { closestDpiOption } from "../dpi-presets";
+} from "./device-clients";
+import { closestDpiOption } from "./dpi-presets";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
-import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "../hid-diagnostics";
+import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
 import {
   clearPendingChanges,
   dropPendingChange,
@@ -35,15 +35,15 @@ import {
   stashPendingChanges,
   withPendingChanges,
   type PendingChange,
-} from "../pending-changes";
+} from "./pending-changes";
 import {
   draftProfileSnapshot,
   editableProfileFields,
   matchingProfileFields,
   type GameProfileSnapshot,
 } from "./game-profile-snapshot";
-import { deviceImage } from "../ui/device-images";
-import { batteryNeedsCharging } from "../ui/battery-icon";
+import { deviceImage } from "../shared/device-images";
+import { batteryNeedsCharging } from "../shared/battery-icon";
 import {
   isVxeR1SePlusReceiver,
   receiverPairingSucceeded,
@@ -56,8 +56,8 @@ import {
   type InterfaceLocale,
   type InterfacePreferences,
   type InterfaceTheme,
-} from "../interface-preferences";
-import { displayText, displayTemplate, batteryStateText, connectionText, ensureDisplayLocale, layerLabel, t, tp, type I18nKey } from "../i18n";
+} from "../features/settings/interface-preferences";
+import { displayText, displayTemplate, batteryStateText, connectionText, ensureDisplayLocale, layerLabel, t, tp, type I18nKey } from "../i18n/index";
 import {
   EGG_BUTTON_NAMES,
   EggOp1HidClient,
@@ -106,7 +106,7 @@ import {
   type LogitechButtonBinding,
   type LogitechMacroStep,
 } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
-import { setCaptureContext } from "../capture-context";
+import { setCaptureContext } from "../features/capture/capture-context";
 import {
   decodeProfileKey, encodeProfileKey, profileKeyMatchesDevice, type ProfileKeyPayload,
 } from "./profile-key";
@@ -203,7 +203,7 @@ import { RapooHidClient } from "@openmouse/protocol/drivers/rapoo/hid";
 import { CoolerMasterHidClient } from "@openmouse/protocol/drivers/coolermaster/hid";
 import { AjazzHidClient } from "@openmouse/protocol/drivers/ajazz/hid";
 import { RedragonM690ProHidClient } from "@openmouse/protocol/drivers/redragon/m690-pro-hid";
-import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
+import { parsePreviewMode, previewsEnabled, type FixturePreviewMode, type PreviewMode } from "./preview/preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
 import type { SlxStatus } from "./finalmouse-slx.ts";
@@ -696,7 +696,7 @@ function toastForError(title: string, error: unknown): void {
       {
         action: {
           label: "See workaround & status",
-          href: "https://openmouse.app/blog-razer-windows-chrome-153",
+          href: "https://openmouse.app/blog/razer-windows-chrome-153",
         },
         prominent: true,
         persistent: true,
@@ -2899,6 +2899,19 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 
 /** Open the given device's dashboard from the picker, connecting it first when needed. */
 export async function openDeviceOverview(index: number): Promise<void> {
+  if (isAnyPreview) {
+    const key = previewMode === "list" ? previewShelfKeys[index] : undefined;
+    if (key) {
+      window.location.search = `?preview=${key}`;
+      return;
+    }
+    if (latestDeviceStatus !== null || activeKeyboard !== null) {
+      deviceListView = "device";
+      activeWorkspaceTab = "overview";
+      emit();
+    }
+    return;
+  }
   await waitForControllerIdle();
   const groups = await authorizedDeviceGroups();
   if (!groups) return;
@@ -2919,6 +2932,47 @@ export async function openDeviceOverview(index: number): Promise<void> {
     activeWorkspaceTab = "overview";
     emit();
   }
+}
+
+export async function removeAuthorizedDevice(index: number): Promise<void> {
+  if (isAnyPreview) {
+    if (previewMode !== "list") return;
+    const name = sidebarDevices[index]?.name ?? "";
+    previewShelfKeys = previewShelfKeys.filter((_, at) => at !== index);
+    sidebarDevices = sidebarDevices.filter((_, at) => at !== index).map((entry, at) => ({ ...entry, index: at }));
+    pushToast("info", st("ctl.deviceForgotten"), name);
+    emit();
+    return;
+  }
+  await waitForControllerIdle();
+  const groups = await authorizedDeviceGroups();
+  const group = groups?.[index];
+  if (!group) return;
+  const name = sidebarDevices[index]?.name ?? group[0]?.productName ?? "";
+  const isOpen = group.some((device) => device === activeDevice || eggWeOwnsDevice(eggWeClient(), device))
+    || (activeKeyboard !== null && group.some((device) => device === activeDevice));
+  if (isOpen) {
+    const client = active;
+    showDisconnectedState();
+    await client?.close().catch(() => undefined);
+    deviceListView = "list";
+  }
+  let forgotten = 0;
+  for (const device of group) {
+    const forget = (device as HIDDevice & { forget?: () => Promise<void> }).forget;
+    if (typeof forget !== "function") continue;
+    try {
+      await forget.call(device);
+      forgotten += 1;
+    } catch {
+    }
+  }
+  if (forgotten === 0) {
+    pushToast("info", st("ctl.deviceForgetUnsupported"), name);
+  } else {
+    pushToast("info", st("ctl.deviceForgotten"), name);
+  }
+  await refreshSidebar();
 }
 
 /** Return from an opened device dashboard to the device picker. */
@@ -6582,7 +6636,7 @@ async function refreshStatus(): Promise<void> {
 
 async function loadPreviewEntries(): Promise<void> {
   if (!previewModeEnabled || previewEntries.length > 0) return;
-  const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
+  const { PREVIEW_FIXTURES } = await import("./preview/preview-fixtures");
   previewEntries = [
     ["slots", "Logitech G502 X PLUS"],
     ["superstrike", "Logitech PRO X 2 Superstrike"],
@@ -6591,7 +6645,6 @@ async function loadPreviewEntries(): Promise<void> {
   emit();
 }
 
-/** A stand-in that keeps magnetic settings in memory, so the preview behaves like a connected mouse. */
 function magneticPreviewClient(initial: MouseStatus): SupportedClient {
   const status = structuredClone(initial);
   const buttons = (): MagneticButtonStatus[] => status.magneticButtons!.buttons;
@@ -6738,11 +6791,6 @@ function previewClient(): LogitechHidppClient {
   });
 }
 
-/**
- * A stand-in that keeps the five DPI presets in memory, so the preview behaves
- * like a connected Gen 2 mouse: the axes column writes through to it and the
- * status that comes back shows the result.
- */
 function steelseriesStagePreviewClient(initial: MouseStatus): SupportedClient {
   const status = structuredClone(initial);
   const stages = (): number[] => status.dpiStages ?? [];
@@ -6932,17 +6980,30 @@ function showG703PreviewProfiles(): void {
   active = previewClient();
 }
 
+const PREVIEW_SHELF: readonly FixturePreviewMode[] = ["razer", "pulsar-pro", "g703", "egg-op1", "nape-pro"];
+let previewShelfKeys: readonly FixturePreviewMode[] = [];
+
+function previewShelfEntry(index: number, name: string, selected: boolean): SidebarDevice {
+  return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
+}
+
 async function showFixturePreview(name: PreviewMode): Promise<void> {
-  const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
+  const { PREVIEW_FIXTURES } = await import("./preview/preview-fixtures");
   await loadPreviewEntries();
   const fixture = name === "list" || name === "slots" || name === "superstrike"
     ? undefined
     : PREVIEW_FIXTURES[name];
   if (!fixture) {
     previewListMessage = name === "list" ? "Pick a driver preview." : `Unknown preview "${name}".`;
+    if (name === "list") {
+      previewShelfKeys = PREVIEW_SHELF.filter((key) => PREVIEW_FIXTURES[key]);
+      sidebarDevices = previewShelfKeys.map((key, index) => previewShelfEntry(index, PREVIEW_FIXTURES[key]!.status.name, false));
+      emit();
+    }
     setReadStatus(previewListMessage);
     return;
   }
+  sidebarDevices = [previewShelfEntry(0, fixture.status.name, true)];
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
   if (name === "g703") showG703PreviewProfiles();
   if (name === "steelseries-gen2") active = steelseriesStagePreviewClient(fixture.status);

@@ -29,7 +29,6 @@ export interface FirmwareManifestEntry {
   brand?: string;
   /** Any substring match against MouseStatus.name (case-insensitive). */
   nameMatch?: string[];
-  /** Optional exact match against MouseStatus.modelId. */
   modelId?: string;
   /**
    * HID interface identities this package fits ("046d_xxxx", lowercase).
@@ -38,9 +37,7 @@ export interface FirmwareManifestEntry {
    * brand/nameMatch whenever the connected device exposes its VID/PID.
    */
   interfaceIds?: string[];
-  /** Source depot name on the update CDN. */
   depot?: string;
-  /** Full download URL of the source depot (plain HTTPS, no auth). */
   depotUrl?: string;
   /** Logical binary key inside the depot (e.g. "dfu_binary"). */
   firmwareKey?: string;
@@ -48,9 +45,7 @@ export interface FirmwareManifestEntry {
   binaryHash?: string;
   /** Previously seen versions, newest first — written by the generator. */
   history?: Array<{ version: string; date: string | null }>;
-  /** Flashing constraints, e.g. "BLOCKER_CONNECT_USB". */
   startBlockers?: string[];
-  /** Advisory warnings, e.g. receiver/device pairing notes. */
   startWarnings?: string[];
   /**
    * Optional HID++ 0x0003 entity prefix (e.g. "MPM"). When set, the entry
@@ -59,11 +54,8 @@ export interface FirmwareManifestEntry {
    * bootloader entity from being compared against the mouse's latest.
    */
   firmwareName?: string;
-  /** Latest known firmware, e.g. "27.1.2". Compared numerically. */
   latestVersion: string;
-  /** True = G Hub would show REQUIRED instead of AVAILABLE. */
   required?: boolean;
-  /** Where the update button goes until in-app DFU exists. */
   downloadUrl?: string;
   releaseNotes?: string;
 }
@@ -71,7 +63,6 @@ export interface FirmwareManifestEntry {
 export interface FirmwareManifest {
   manifestVersion: number;
   updatedAt: string;
-  /** Human-readable provenance, e.g. "weekly mirror of vendor feeds". */
   source: string;
   devices: FirmwareManifestEntry[];
 }
@@ -104,10 +95,8 @@ const FALLBACK_URL = "/firmware-manifest.json";
 const MANIFEST_CACHE_KEY = "openmouse.firmware-manifest-cache.v3";
 const DISMISSED_KEY = "openmouse.firmware-dismissed";
 
-/** Background cadence — manual checks bypass this. */
 export const FIRMWARE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-/** First `1.2.3`-shaped token in a driver string like "Mouse v27.1.2". */
 export function extractVersionToken(raw: string): string | null {
   const match = raw.match(/\d+(?:\.\d+)+/);
   if (match) return match[0];
@@ -122,7 +111,6 @@ function splitNumeric(version: string): number[] {
     .map((n) => (Number.isFinite(n) ? n : 0));
 }
 
-/** Numeric dot-separated compare. Returns -1 / 0 / 1. */
 export function compareVersions(a: string, b: string): number {
   const pa = splitNumeric(a);
   const pb = splitNumeric(b);
@@ -151,7 +139,6 @@ function interfaceMatches(entry: FirmwareManifestEntry, device: FirmwareDeviceRe
 }
 
 function deviceMatches(entry: FirmwareManifestEntry, device: FirmwareDeviceRef): boolean {
-  // Interface identity is exact — a generated entry pins its device.
   if ((entry.interfaceIds?.length ?? 0) > 0) return interfaceMatches(entry, device);
   if (entry.brand && entry.brand.toLowerCase() !== device.brand.toLowerCase()) return false;
   if (entry.modelId && device.modelId && entry.modelId === device.modelId) return true;
@@ -159,8 +146,6 @@ function deviceMatches(entry: FirmwareManifestEntry, device: FirmwareDeviceRef):
   if ((entry.nameMatch ?? []).some((needle) => needle.length > 0 && name.includes(needle.toLowerCase()))) {
     return true;
   }
-  // Brand-only entry with no other matchers acts as a fallback for that
-  // brand. An entry with no usable matcher at all never matches.
   if (!entry.brand) return false;
   return (entry.nameMatch ?? []).length === 0 && !entry.modelId;
 }
@@ -296,7 +281,6 @@ function writeCache(manifest: FirmwareManifest): number {
   try {
     localStorage.setItem(MANIFEST_CACHE_KEY, JSON.stringify({ fetchedAt, manifest }));
   } catch {
-    // Storage full / blocked — the check still worked, just not cached.
   }
   return fetchedAt;
 }

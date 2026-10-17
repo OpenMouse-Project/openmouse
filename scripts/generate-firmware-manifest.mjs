@@ -89,7 +89,6 @@ function entryId(depotName, version, key) {
   return `${depotName}@${version}${key && key !== "dfu_binary" ? `:${key}` : ""}`;
 }
 
-/** Plain-text English changelog from the depot, if shipped. */
 function depotReleaseNotes(files) {
   const raw = files.get('release_notes/dfu_release_notes.html');
   if (!raw) return null;

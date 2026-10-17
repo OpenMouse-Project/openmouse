@@ -1,5 +1,5 @@
-import { t, tp, type I18nKey } from "../i18n.ts";
-import type { InterfaceLocale } from "../interface-preferences.ts";
+import { t, tp, type I18nKey } from "../i18n/index.ts";
+import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 export function sleepLabel(seconds: number, locale: InterfaceLocale = "en"): string {
   const unit = (n: number, one: I18nKey, many: I18nKey): string =>
     n === 1 ? t(locale, one) : tp(locale, many, { n });
@@ -53,7 +53,6 @@ export function valuesWithCurrent(offered: number[], current: number | null | un
   return [...offered, current].sort((left, right) => left - right);
 }
 
-/** The CPI range an Egg mouse reports, with a step for each end of it. */
 export interface CpiLimits {
   min: number;
   max: number;

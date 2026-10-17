@@ -6,8 +6,8 @@ import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
-import type { InterfacePreferences } from "../interface-preferences";
-import type { PreviewMode } from "../preview-modes";
+import type { InterfacePreferences } from "../features/settings/interface-preferences";
+import type { PreviewMode } from "./preview/preview-modes";
 import type { DriverTraits } from "./traits";
 import type { M2NexProfile } from "./m2nex-profiles";
 
@@ -49,11 +49,8 @@ export interface TeevolutionProfile {
 export interface DeviceCapabilities {
   canDisableSleep: boolean;
   angleTuningWritable: boolean;
-  /** Whether the connected driver can write DPI stage table values, or reports the table read-only. */
   dpiStagesWritable: boolean;
-  /** Whether the connected driver can select which DPI stage is active. */
   activeDpiStageWritable: boolean;
-  /** Whether the connected driver can write one stage's X and Y independently. */
   dpiStageAxesWritable: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
@@ -72,8 +69,6 @@ export interface SidebarDevice {
   vendorId: number;
   productId: number;
   kind: "mouse" | "keyboard";
-  /** "bridge" when this device was opened through OpenMouse Bridge's native
-   *  HID socket rather than the browser's own WebHID (see bridge-hid.ts). */
   transport: "bridge" | "webhid";
 }
 
@@ -107,7 +102,6 @@ export interface AnalogTuning {
   actuation: number;
   rapidTrigger: number;
   haptics: number;
-  /** Rapid trigger on/off. Undefined when the mouse does not report it. */
   rapidTriggerEnabled?: boolean;
 }
 
@@ -183,13 +177,10 @@ export interface KeyboardIdentityView {
 }
 
 export interface KeyboardPollingView {
-  /** Rate the board reports it is running now, or null when it stays silent. */
   currentHz: number | null;
-  /** Rates the board advertises, ascending. */
   supportedHz: number[];
 }
 
-/** Editable per-key analog trigger values, all in millimetres. */
 export interface KeyboardTriggerSettings {
   travelMm: number;
   rtFirstTouchMm: number;
@@ -204,7 +195,6 @@ export interface KeyboardTriggerKey extends KeyboardTriggerSettings {
   row: number;
   col: number;
   keycode: number;
-  /** Vendor keycode category, when the codec recognises the code. */
   keycodeName: string | null;
 }
 
@@ -228,7 +218,6 @@ export interface KeyboardTriggerView {
   keys: readonly KeyboardTriggerKey[];
   /** Anchor key the trigger controls display, or null when nothing is selected. */
   selected: KeyboardKeyRef | null;
-  /** Every key a trigger change applies to. */
   selectedKeys: readonly KeyboardKeyRef[];
   busy: boolean;
   statusText: string | null;
@@ -287,7 +276,6 @@ export interface ControlSnapshot {
   sidebarHidden: boolean;
   interfaceSettingsOpen: boolean;
   workspaceTab: WorkspaceTab;
-  /** "list" shows the welcome/cross-device picker, "device" shows the opened dashboard. */
   deviceView: "list" | "device";
 
   dpiOptions: number[];
@@ -311,7 +299,6 @@ export interface ControlSnapshot {
   stagedBunnyHopMs: number | null;
   stagedProfileRates: { wireless: number | null; wired: number | null };
   stagedProfileName: string | null;
-  /** Control id → staged remap target, for controls with an unflashed remap. */
   stagedButtonMappings: Record<number, number>;
   /** M2-NEX/K-snake onboard macro slots, prepared locally for a full-table write. */
   ksnakeMacros: KsnakeMacroProfile[] | null;
@@ -326,21 +313,16 @@ export interface ControlSnapshot {
   wallhackMacros: (WallhackMacroStep[] | null)[] | null;
   wallhackMacrosLoading: boolean;
   wallhackMacrosError: string | null;
-  /** WALLHACK M-001 DPI-acceleration curve tables, read on demand. */
   wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null;
   wallhackCurvesLoading: boolean;
   wallhackCurvesError: string | null;
-  /** Local profile slots matching the M2-NEX vendor configurator. */
   m2nexProfiles: M2NexProfile[] | null;
   activeM2NexProfile: number;
-  /** True when the selected local profile differs from the device. */
   m2nexProfileDirty: boolean;
   stagedProfileButtonAssignments: StagedProfileButtonAssignment[];
-  /** Nape Pro VIA keymap for the layer currently open in the Buttons tab. */
   napeKeymap: KeychronNapeLayerKeymap | null;
   /** Unflashed Nape Pro button and wheel remaps, including other layers. */
   stagedNapeAssignments: StagedNapeAssignment[];
-  /** Nape Pro layer currently open in the Profiles tab, or null when unread. */
   editedNapeLayer: number | null;
   analogTuning: AnalogTuningState;
   magneticCalibration: MagneticCalibrationView;
@@ -353,7 +335,6 @@ export interface ControlSnapshot {
   diagnosticsOpen: boolean;
   captureAvailable: boolean;
   resetProfilesAvailable: boolean;
-  /** A Logitech mouse with no stored profiles that OpenMouse can set up itself. */
   setupProfilesAvailable: boolean;
 
   previewMode: PreviewMode | null;

@@ -1,10 +1,10 @@
-import { displayText } from "../i18n";
+import { displayText } from "../i18n/index";
 import { useEffect, useRef, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { Toast } from "../device/types";
-import type { InterfaceLocale } from "../interface-preferences";
-import { t } from "../i18n";
-import { playToastSound } from "../sound-manager";
+import type { InterfaceLocale } from "../features/settings/interface-preferences";
+import { t } from "../i18n/index";
+import { playToastSound } from "../platform/sound-manager";
 
 const TOAST_ICON: Record<Toast["kind"], ReactNode> = {
   success: <path d="M20 6 9 17l-5-5" />,

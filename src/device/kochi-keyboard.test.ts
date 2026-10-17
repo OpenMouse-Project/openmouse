@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
-import { createKeyboardClient, createSupportedClient, listLogicalDevices } from "../device-clients.ts";
+import { createKeyboardClient, createSupportedClient, listLogicalDevices } from "./device-clients.ts";
 import { HID_FILTERS } from "./hid-filters.ts";
 
-/** A KOCHI68 fixture carrying a single collection at the given usage. */
 function device(usagePage = 0xffa0, usage = 1): HIDDevice {
   return { vendorId: 0x1ca2, productId: 0x0901, productName: "KOCHI68 Keyboard", opened: false,
     collections: [{ usagePage, usage, inputReports: [], outputReports: [], featureReports: [], children: [] }],
@@ -22,7 +21,6 @@ test("HB68 is discovered as a keyboard and only its command collection is offere
 });
 
 test("HB68 rejects unrelated workspace commands and invalid modes before USB access", async () => {
-  // This fixture has no USB methods: a command reaching hardware would fail.
   const client = new KochiKeyboardClient(device());
   await assert.rejects(client.command({ kind: "sleep", value: 30 }), /Windows\/Mac mode only/);
   await assert.rejects(client.command({ kind: "save", scope: "all" }), /Windows\/Mac mode only/);

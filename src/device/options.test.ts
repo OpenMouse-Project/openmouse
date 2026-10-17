@@ -25,7 +25,6 @@ test("CPI snaps to the step of the range the value sits in", () => {
   assert.equal(snapCpiToDevice(10_010, v2), 10_000);
   assert.equal(snapCpiToDevice(10_030, v2), 10_050);
   assert.equal(snapCpiToDevice(10_060, v2), 10_050);
-  // Off-range values clamp before they snap.
   assert.equal(snapCpiToDevice(0, v2), 10);
   assert.equal(snapCpiToDevice(30_040, v2), 30_000);
 });

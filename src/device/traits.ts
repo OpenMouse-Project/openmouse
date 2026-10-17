@@ -95,9 +95,6 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // The G-Wolves XVI generation (HTX Mini 8K) publishes its own sleep list
   // and reads its before-press debounce; no signal-strength command exists.
   "gwolves-xvi": { advancedSection: true, sleep: true, debounce: true },
-  // HyperX publishes DPI, polling rate and lift-off in the settings grid only;
-  // no signal, sleep or debounce card exists, and the processing card is
-  // deliberately hidden, so no advanced-section flags are needed.
   hyperx: {},
   "cooler master": { advancedSection: true, debounce: true },
   "coolermaster-mm711": { advancedSection: true, debounce: true },

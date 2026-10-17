@@ -103,10 +103,29 @@ device inventory changes are written to the browser console with the
 downloadable diagnostics from a connected device's **Advanced** panel; HID
 report payloads are not written to the console.
 
-The control panel is organized by responsibility: `control.ts` coordinates the
-application, while the template, events, DOM helpers, persisted preferences,
-battery history, device selection, and rendering live in focused modules under
-`src/`.
+The control panel is organized by feature. Tests sit next to the code they cover.
+
+| Folder | What lives there |
+| --- | --- |
+| `src/main.tsx` | Entry point: guards, service worker, mounts the app |
+| `src/app/` | The shell: `App`, sidebar, pending-changes bar, toasts, AI overlay |
+| `src/features/devices/` | Device home, device page, hero, stats, and the setting `cards/` |
+| `src/features/buttons/` | Button mapping, setup codes, Logitech button commands |
+| `src/features/profiles/` | Onboard profiles and profile sharing |
+| `src/features/superstrike/` | Superstrike hit test and presets |
+| `src/features/bridge/` | OpenMouse Bridge client, status line, update checks |
+| `src/features/games/` | Games page and per-game profiles (Bridge only) |
+| `src/features/hardware-test/` | Hardware test page, report builder, supported-devices cross-check |
+| `src/features/capture/` | Report capture dialog and export formats |
+| `src/features/news/` | News banner and "What's new" |
+| `src/features/settings/` | Interface settings and stored preferences |
+| `src/device/` | Device controller, per-vendor glue, pending changes, preview fixtures |
+| `src/shared/` | UI primitives, icons, colour picker, formatting helpers |
+| `src/i18n/` | Strings: `index.ts` is English and the API, `locales/` has one file per language |
+| `src/platform/` | Service worker, offline banner, Trusted Types, browser support, sounds |
+| `src/styles/` | Design tokens, base styles, and one stylesheet per area |
+| `src/types/` | Global type declarations (Vite, WebHID) |
+| `test/` | Tests for the Cloudflare functions, security headers and the PWA build |
 
 Packet codecs and WebHID drivers live in the standalone
 [`@openmouse/protocol`](https://github.com/OpenMouse-Project/mouse-protocol)

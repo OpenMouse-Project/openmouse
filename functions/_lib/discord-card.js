@@ -1,11 +1,3 @@
-// Renders the README's "OpenMouse on Discord" card as an SVG, with live member
-// and online counts when Discord answers.
-//
-// Counts come from Discord's public invite lookup (no bot or token needed):
-// `approximate_member_count` and `approximate_presence_count`. When the lookup
-// fails, the card falls back to the static tagline so the README never shows a
-// broken image. Layout and colors mirror `.github/assets/discord-card.svg`.
-
 export const DISCORD_INVITE_CODE = "yxC9jzMdw6";
 
 const INVITE_API = `https://discord.com/api/v10/invites/${DISCORD_INVITE_CODE}?with_counts=true`;

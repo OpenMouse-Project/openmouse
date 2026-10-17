@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { LunaFurySettings } from "@openmouse/protocol/lamzu";
-import { clearPendingChanges, pendingChangeBatches, stagePendingChange } from "../pending-changes.ts";
+import { clearPendingChanges, pendingChangeBatches, stagePendingChange } from "./pending-changes.ts";
 import { pickSnapshot } from "./game-profile-snapshot.ts";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { lunaFuryLightningPriority, sanitizeLunaFurySettings, stageLunaFuryProfile, type LunaFuryProfileActions } from "./lunafury-profile.ts";

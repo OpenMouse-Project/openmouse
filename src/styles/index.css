@@ -1,0 +1,15 @@
+@import "./tokens.css";
+@import "./base.css";
+@import "./controls.css";
+@import "./shell.css";
+@import "./home.css";
+@import "./device.css";
+@import "./settings.css";
+
+@import "./areas/performance.css";
+@import "./areas/buttons.css";
+@import "./areas/library.css";
+@import "./areas/advanced.css";
+@import "./areas/pages.css";
+
+@import "./instrument.css";

@@ -15,9 +15,6 @@ const packageVersion = JSON.parse(
 ) as { version: string };
 const buildChannel = process.env.OPENMOUSE_BUILD_CHANNEL ?? "beta";
 
-/** Beta build version: major.minor from the package plus the build number
-    (total commits on this history, monotonic per push). Falls back to a
-    date-based number when git is unavailable (e.g. source archives). */
 const versionBase = packageVersion.version.replace(/\.\d+$/, "");
 function betaBuildVersion(): string {
   const sha = process.env.CF_PAGES_COMMIT_SHA;

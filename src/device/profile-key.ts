@@ -25,7 +25,6 @@ export interface ProfileKeyLighting {
 
 export interface ProfileKeyPayload {
   v: typeof KEY_VERSION;
-  /** Identifies the exact model this key was captured from. */
   brand: MouseStatus["brand"];
   name: string;
   dpi?: number;

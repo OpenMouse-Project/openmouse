@@ -1,0 +1,172 @@
+.card-flow {
+  display: block;
+  columns: 2 400px;
+  column-gap: 16px;
+}
+.card-flow > * {
+  display: block;
+  break-inside: avoid;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 16px;
+}
+.card-flow > :last-child { margin-bottom: 0; }
+.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental, :only-child) { column-span: all; }
+.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental):not(:last-child) { margin-bottom: 16px; }
+.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental):not(:first-child) { margin-top: 16px; }
+.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental) + :is(.is-wide, details, .egg-collapsible, .egg-experimental) { margin-top: 0; }
+#pulsar-advanced.card-flow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+#pulsar-advanced.card-flow > * { margin: 0; }
+#pulsar-advanced.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental) { grid-column: 1 / -1; align-self: start; }
+#pulsar-advanced.card-flow > .card-slot > .setting-card { height: 100%; }
+
+.card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { column-span: all; }
+#pulsar-advanced.card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { grid-column: 1 / -1; }
+
+.card-slot:empty, .card-slot:has(> [hidden]:first-child) { display: none; }
+.card-slot { position: relative; }
+.card-slot > .setting-card { height: auto; }
+
+.card-glyph {
+  position: absolute;
+  inset-block-start: 15px;
+  inset-inline-start: 16px;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.2), rgb(var(--accent-rgb) / 0.08));
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.22), 0 4px 14px -6px rgb(var(--accent-rgb) / 0.55);
+  color: var(--accent);
+  pointer-events: none;
+}
+.card-glyph svg { width: 16px; height: 16px; }
+.card-slot:has(> .setting-card > .setting-heading) > .setting-card > .setting-heading,
+.card-slot > .dpi-card > .dpi-card-main > .setting-heading:first-child { padding-inline-start: 40px; min-height: 30px; }
+.card-slot:not(:has(> .setting-card > .setting-heading, > .dpi-card > .dpi-card-main > .setting-heading:first-child)) > .card-glyph { display: none; }
+
+.setting-card:has(> .switch-row ~ .switch-row) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+.setting-card:has(> .switch-row ~ .switch-row) > :not(.switch-row) { flex: 1 1 100%; min-width: 0; }
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row { flex: 1 1 128px; min-width: 0; }
+.setting-card:has(> .switch-row ~ .switch-row) > .setting-heading { margin-bottom: 4px; }
+
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "icon switch" "label label";
+  align-items: start;
+  gap: 14px 8px;
+  min-height: 96px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line-1);
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row:hover:not([data-inert]) {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row > .switch-row-icon { grid-area: icon; }
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row > .switch-button { grid-area: switch; justify-self: end; }
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row > .switch-row-label {
+  grid-area: label;
+  align-self: end;
+  color: var(--text-2);
+  font-size: 13px; font-weight: 600; line-height: 1.3;
+  transition: color var(--t-base) var(--ease);
+}
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row:not(.has-icon) {
+  grid-template-areas: "switch switch" "label label";
+}
+
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row[data-state="on"] {
+  background: radial-gradient(120% 90% at 0% 0%, rgb(var(--accent-rgb) / 0.16), transparent 70%), var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35), 0 8px 22px -14px rgb(var(--accent-rgb) / 0.7);
+}
+[dir="rtl"] .setting-card:has(> .switch-row ~ .switch-row) > .switch-row[data-state="on"] {
+  background: radial-gradient(120% 90% at 100% 0%, rgb(var(--accent-rgb) / 0.16), transparent 70%), var(--surface-2);
+}
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row[data-state="on"] > .switch-row-label { color: var(--text-1); }
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row[data-inert] { cursor: default; }
+.setting-card:has(> .switch-row ~ .switch-row) > .switch-row[data-state="na"] { opacity: 0.55; }
+
+.switch-row-icon {
+  display: grid; place-items: center;
+  flex: none;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  transition: background var(--t-base) var(--ease), color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.switch-row-icon svg { width: 15px; height: 15px; }
+.switch-row[data-state="on"] > .switch-row-icon {
+  background: rgb(var(--accent-rgb) / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.3);
+  color: var(--accent);
+}
+.switch-row.has-icon { justify-content: flex-start; }
+.switch-row.has-icon > .switch-row-label { flex: 1; min-width: 0; }
+.switch-row.has-icon { cursor: pointer; }
+.switch-row.has-icon[data-inert] { cursor: default; }
+
+.rate-slider-buttons > button { --lvl: 1; }
+.rate-slider-buttons > button:nth-child(2) { --lvl: 2; }
+.rate-slider-buttons > button:nth-child(3) { --lvl: 3; }
+.rate-slider-buttons > button:nth-child(4) { --lvl: 4; }
+.rate-slider-buttons > button:nth-child(5) { --lvl: 5; }
+.rate-slider-buttons > button:nth-child(6) { --lvl: 6; }
+.rate-slider-buttons > button:nth-child(7) { --lvl: 7; }
+.rate-slider-buttons > button:nth-child(8) { --lvl: 8; }
+
+#polling-card .rate-slider-buttons > button,
+#keyboard-polling-card .rate-slider-buttons > button {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px;
+  height: 74px;
+  padding-block: 8px 9px;
+}
+#polling-card .rate-slider-buttons > button::before,
+#keyboard-polling-card .rate-slider-buttons > button::before {
+  content: "";
+  display: block;
+  width: min(60%, 34px);
+  height: calc(6px + var(--lvl) * 4px);
+  border-radius: 3px;
+  background: var(--surface-4);
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+#polling-card .rate-slider-buttons > button:has(~ button.is-on)::before,
+#keyboard-polling-card .rate-slider-buttons > button:has(~ button.is-on)::before { background: rgb(var(--accent-rgb) / 0.42); }
+#polling-card .rate-slider-buttons > button.is-on::before,
+#keyboard-polling-card .rate-slider-buttons > button.is-on::before {
+  background: var(--accent);
+  box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.55);
+}
+#polling-card .rate-slider-buttons > button.is-on::after,
+#keyboard-polling-card .rate-slider-buttons > button.is-on::after { display: none; }
+#polling-card .rate-slider-buttons > button.is-on,
+#keyboard-polling-card .rate-slider-buttons > button.is-on { color: var(--accent); }
+
+.performance-figure {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+.performance-figure .performance-unit { color: var(--accent); }
+
+.reduce-interface-motion :is(.switch-row, .switch-row-icon, .rate-slider-buttons > button::before) { transition: none; }
+@media (max-width: 720px) {
+  .card-flow { columns: 1; }
+}

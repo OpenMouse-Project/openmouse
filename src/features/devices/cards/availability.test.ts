@@ -1,0 +1,731 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { cardAvailability } from "./availability.ts";
+import { traitsFor } from "../../../device/traits.ts";
+import type { ControlSnapshot, DeviceCapabilities } from "../../../device/types.ts";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+
+const STATUS: MouseStatus = {
+  brand: "Logitech",
+  name: "Test mouse",
+  batteryPercent: 50,
+  batteryState: "Discharging",
+  dpi: 800,
+  pollingRateHz: 1000,
+  firmware: [],
+};
+
+function snapshot(overrides: {
+  status?: Partial<MouseStatus> | null;
+  capabilities?: Partial<DeviceCapabilities>;
+  settingsPending?: boolean;
+  showExperimental?: boolean;
+  buttons?: ControlSnapshot["buttons"];
+}): ControlSnapshot {
+  const status = overrides.status === null ? null : { ...STATUS, ...overrides.status };
+  return {
+    status,
+    traits: traitsFor(status),
+    capabilities: overrides.capabilities ?? null,
+    settingsPending: overrides.settingsPending ?? false,
+    buttons: overrides.buttons ?? null,
+    preferences: { showExperimental: overrides.showExperimental ?? true },
+  } as unknown as ControlSnapshot;
+}
+
+const CONTROL = {
+  controlId: 0x00c3, taskId: 0x009c, flags: 0x31, group: 2, groupMask: 3,
+  name: "Gesture button", taskName: "Gesture button", reprogrammable: true,
+  mappedTo: 0x00c3, diverted: false, remappableTo: [0x0052], remapFlags: 0,
+} as unknown as NonNullable<ControlSnapshot["buttons"]>[number];
+
+test("LunaFury exposes only successfully read controls and replaces global debounce", () => {
+  const has = cardAvailability(snapshot({ status: {
+    brand: "LunaFury", ui: { family: "lunafury" }, debounceMs: 4, angleTuning: -12,
+    lunafury: { lightningMode: 0, leftDebounceMs: 0, middleDebounceMs: 1,
+      wheelGuard: { enabled: false, windowMs: 0 } },
+  } }));
+  assert.equal(has.lunafuryButtons, true);
+  assert.equal(has.lunafuryWheelGuard, true);
+  assert.equal(has.processing, true);
+  assert.equal(has.debounce, false);
+});
+
+test("unknown LunaFury controls are hidden without losing basic debounce", () => {
+  const has = cardAvailability(snapshot({ status: {
+    brand: "LunaFury", ui: { family: "lunafury" }, debounceMs: 4, lunafury: {},
+  } }));
+  assert.equal(has.lunafuryButtons, false);
+  assert.equal(has.lunafuryWheelGuard, false);
+  assert.equal(has.debounce, true);
+  const middleOnly = cardAvailability(snapshot({ status: {
+    brand: "LunaFury", ui: { family: "lunafury" }, debounceMs: 4, lunafury: { middleDebounceMs: 1 },
+  } }));
+  assert.equal(middleOnly.lunafuryButtons, true);
+  assert.equal(middleOnly.debounce, true);
+});
+
+test("LunaFury-specific cards are not offered to another CompX brand", () => {
+  const has = cardAvailability(snapshot({ status: {
+    brand: "Attack Shark", ui: { family: "attack-shark" },
+    lunafury: { lightningMode: 1, wheelGuard: { enabled: true, windowMs: 100 } },
+  } }));
+  assert.equal(has.lunafuryButtons, false);
+  assert.equal(has.lunafuryWheelGuard, false);
+});
+
+test("the button card appears only when the mouse reports controls", () => {
+  // The driver answers with an empty list on a mouse without 0x1B04, so this
+  // must key on the controls themselves rather than on the brand.
+  assert.equal(cardAvailability(snapshot({})).mxMasterButtons, false);
+  assert.equal(cardAvailability(snapshot({ buttons: [] })).mxMasterButtons, false);
+  assert.equal(cardAvailability(snapshot({ buttons: [CONTROL] })).mxMasterButtons, true);
+});
+
+test("a non-Logitech mouse never gets the button card", () => {
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar" }, buttons: [CONTROL],
+  })).mxMasterButtons, false);
+});
+
+test("no device offers no cards at all", () => {
+  const has = cardAvailability(snapshot({ status: null }));
+  assert.equal(Object.values(has).every((value) => value === false), true);
+});
+
+test("a driver still reading hides the settings grid but not the rest", () => {
+  const has = cardAvailability(snapshot({ settingsPending: true }));
+  assert.equal(has.dpi, false);
+  assert.equal(has.polling, false);
+  assert.equal(has.sensor, false);
+  assert.equal(has.logitechDetails, true);
+});
+
+test("the Finalmouse Starlight X has no polling card; the Ultralight X keeps it", () => {
+  // SLX runs PerfectPolling (a fixed pipeline) and reports a rate it will not
+  // let the user change, so the selector is dropped and PerfectPollingCard
+  // stands in. Only `finalmouseIsSlx` distinguishes the two dongles.
+  const slx = cardAvailability(snapshot({ status: {
+    brand: "Finalmouse",
+    name: "Finalmouse Starlight X",
+    ui: { family: "finalmouse-slx" },
+    finalmouseIsSlx: true,
+  } as Partial<MouseStatus> }));
+  assert.equal(slx.polling, false);
+
+  const ulx = cardAvailability(snapshot({ status: {
+    brand: "Finalmouse",
+    name: "Finalmouse UltralightX",
+    ui: { family: "finalmouse-ulx" },
+    finalmouseIsSlx: false,
+  } as Partial<MouseStatus> }));
+  assert.equal(ulx.polling, true);
+});
+
+test("the sensor card goes when the mouse reports neither surface nor lift-off", () => {
+  assert.equal(cardAvailability(snapshot({
+    status: { supportedLiftOffDistances: [] },
+  })).sensor, false);
+  assert.equal(cardAvailability(snapshot({})).sensor, true);
+  assert.equal(cardAvailability(snapshot({
+    status: { supportedLiftOffDistances: [], gamingSurfaceMode: "Auto" },
+  })).sensor, true);
+});
+
+test("Logitech has no advanced section, so nothing inside it appears", () => {
+  const has = cardAvailability(snapshot({ status: { motionSync: true, lighting: {} as never } }));
+  assert.equal(has.advancedHost, false);
+  assert.equal(has.processing, false);
+  assert.equal(has.lightingAdvanced, false);
+  assert.equal(has.lighting, true);
+});
+
+test("an Endgame Gear 8K mouse gets its own cards and loses signal and sleep", () => {
+  const has = cardAvailability(snapshot({
+    status: { brand: "Endgame Gear", ui: { family: "egg-op1" }, eggCpiStages: [] as never },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.eggFilter, true);
+  assert.equal(has.eggSpdt, true);
+  assert.equal(has.eggCpi, true);
+  assert.equal(has.signal, false);
+  assert.equal(has.sleep, false);
+});
+
+test("the Endgame Gear 8K family is recognized without a ui.family tag", () => {
+  // No EGG driver publishes a `ui.family`: the OP1-8K driver is identified by
+  // the `eggCpiStages` list it reports, which egg-we deliberately leaves out
+  // (see egg-we-hid.ts). Real hardware therefore reaches traits.ts without the
+  // "egg-op1" tag the preview fixture carries, and must still get the section.
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      eggCpiStages: [{ x: 800, y: 800 }],
+      eggMulticlickFilters: [8, 8],
+      eggButtonMappings: ["Left", "Right"],
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.eggFilter, true);
+  assert.equal(has.eggSpdt, true);
+  assert.equal(has.eggCpi, true);
+  assert.equal(has.eggButtons, true);
+
+  // The wireless driver reports no stage list, so it keeps its own smaller
+  // feature set rather than inheriting the 8K's advanced UI.
+  const we = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      ui: { family: "egg-we" },
+      eggMulticlickFilters: [8],
+      eggButtonMappings: ["Left"],
+    },
+  }));
+  assert.equal(we.advancedHost, false);
+  assert.equal(we.eggFilter, false);
+  assert.equal(we.eggCpi, false);
+});
+
+test("the Endgame Gear v2 sensor and handedness cards follow the driver's fields", () => {
+  const v2 = cardAvailability(snapshot({
+    status: {
+      brand: "Endgame Gear",
+      eggCpiStages: [{ x: 800, y: 800 }],
+      eggSupportsV2SensorControls: true,
+      eggLeftHanded: false,
+    },
+  }));
+  assert.equal(v2.eggV2Sensor, true);
+  assert.equal(v2.eggHanded, true);
+
+  // A v1 8K mouse has neither the v2 sensor block nor a handedness readout…
+  const v1 = cardAvailability(snapshot({
+    status: { brand: "Endgame Gear", eggCpiStages: [{ x: 800, y: 800 }], eggSupportsV2SensorControls: false },
+  }));
+  assert.equal(v1.eggV2Sensor, false);
+  assert.equal(v1.eggHanded, false);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, eggSupportsV2SensorControls: true, eggLeftHanded: true },
+  })).eggV2Sensor, false);
+});
+
+test("Pulsar keeps the shared advanced cards", () => {
+  const has = cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4 },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.signal, true);
+  assert.equal(has.sleep, true);
+  assert.equal(has.debounce, true);
+  assert.equal(has.eggFilter, false);
+});
+
+test("ATK exposes its processing and DPI-lighting cards from reported controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: {
+        family: "atk",
+        showAdvancedSection: true,
+        dpiLighting: { modes: [0, 1, 2], brightness: [0, 1, 2], speed: [0, 1, 2] },
+      },
+      longRangeMode: false,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.processing, true);
+  assert.equal(has.teevolutionDpiLighting, true);
+});
+
+test("Dareu exposes its verified mouse and DPI-indicator sleep controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Dareu",
+      ui: {
+        family: "dareu",
+        showAdvancedSection: true,
+        dpiLighting: {
+          modes: [0, 1, 2], brightness: [1, 2], speed: [1, 2], sleepTimeouts: [0, 60],
+        },
+      },
+      sleepTimeout: 180,
+      dpiLedSleepTimeout: 180,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.sleep, true);
+  assert.equal(has.teevolutionDpiLighting, true);
+});
+
+test("angle tuning belongs to processing rather than creating a second power-mode card", () => {
+  const angleOnly = cardAvailability(snapshot({
+    status: { brand: "VXE", ui: { family: "atk" }, angleTuning: 0 },
+  }));
+  assert.equal(angleOnly.processing, true);
+  assert.equal(angleOnly.powerMode, false);
+
+  const namedModes = cardAvailability(snapshot({
+    status: { brand: "MCHOSE", ui: { family: "mchose" }, powerModes: ["Eco", "Performance"] },
+  }));
+  assert.equal(namedModes.powerMode, true);
+});
+
+test("ATK inspection cards require data actually read from the device", () => {
+  const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
+  assert.equal(empty.atkButtons, false);
+  assert.equal(empty.atkProfile, false);
+  assert.equal(empty.atkReceiver, false);
+
+  const inspected = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      ui: { family: "atk" },
+      activeProfile: 0,
+      atkProfileCount: 4,
+      atkButtonMappings: [{ id: "left" }] as never,
+      atkReceiver: { online: true } as never,
+    },
+  }));
+  assert.equal(inspected.atkButtons, true);
+  assert.equal(inspected.atkProfile, true);
+  assert.equal(inspected.atkReceiver, true);
+});
+
+test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Keychron",
+      ui: { family: "keychron-nape", showAdvancedSection: true },
+      sleepTimeout: 600,
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.sleep, true);
+  assert.equal(has.debounce, false);
+  assert.equal(has.signal, false);
+});
+
+test("Keychron Launcher 8k mice get sleep and debounce, 1k mice only debounce", () => {
+  const family = (f: string) => cardAvailability(snapshot({
+    status: { brand: "Keychron", ui: { family: f }, debounceMs: 4 },
+  }));
+  const k8 = family("keychron-8k");
+  assert.equal(k8.advancedHost, true);
+  assert.equal(k8.sleep, true);
+  assert.equal(k8.debounce, true);
+  const k1 = family("keychron-1k");
+  assert.equal(k1.advancedHost, true);
+  assert.equal(k1.sleep, false);
+  assert.equal(k1.debounce, true);
+});
+
+test("a driver may opt into the advanced section and still suppress its cards", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Zaunkoenig",
+      ui: { family: "zaunkoenig", showAdvancedSection: true, hideSignalCard: true, hideSleepCard: true },
+    },
+  }));
+  assert.equal(has.advancedHost, true);
+  assert.equal(has.signal, false);
+  assert.equal(has.sleep, false);
+});
+
+test("the experimental polling card follows the interface preference", () => {
+  const egg = { status: { brand: "Endgame Gear", ui: { family: "egg-op1" }, eggPollingDivider: 1 } };
+  assert.equal(cardAvailability(snapshot({ ...egg, showExperimental: true })).eggPolling, true);
+  assert.equal(cardAvailability(snapshot({ ...egg, showExperimental: false })).eggPolling, false);
+  // The OP1w/XM2w 4K v2 driver leaves the divider out, so its card stays hidden.
+  const egg4k = { status: { brand: "Endgame Gear", ui: { family: "egg-op1" } } };
+  assert.equal(cardAvailability(snapshot({ ...egg4k, showExperimental: true })).eggPolling, false);
+});
+
+test("onboard profiles need a Logitech mouse reporting a known mode", () => {
+  assert.equal(cardAvailability(snapshot({ status: { deviceMode: "Onboard" } })).profiles, true);
+  assert.equal(cardAvailability(snapshot({ status: { deviceMode: "Unknown" } })).profiles, false);
+  assert.equal(cardAvailability(snapshot({})).profiles, false);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, deviceMode: "Onboard" },
+  })).profiles, false);
+});
+
+test("Keychron Nape Pro layers appear on the profiles tab when VIA reports a count", () => {
+  const withoutLayers = cardAvailability(snapshot({
+    status: { brand: "Keychron", ui: { family: "keychron-nape", showAdvancedSection: true } },
+  }));
+  assert.equal(withoutLayers.keychronNapeLayers, false);
+  assert.equal(withoutLayers.profiles, false);
+
+  const withLayers = cardAvailability(snapshot({
+    status: {
+      brand: "Keychron",
+      ui: { family: "keychron-nape", showAdvancedSection: true },
+      napeLayer: 2,
+      napeLayerCount: 8,
+    },
+  }));
+  assert.equal(withLayers.keychronNapeLayers, true);
+  assert.equal(withLayers.profiles, false);
+});
+
+test("HITS tuning needs exactly the two primary buttons", () => {
+  const tuning = { maxActuation: 10, maxRapidTrigger: 5, maxHaptics: 5 };
+  assert.equal(cardAvailability(snapshot({
+    status: { analogButtonTuning: { ...tuning, buttons: [{}, {}] } as never },
+  })).superstrike, true);
+  assert.equal(cardAvailability(snapshot({
+    status: { analogButtonTuning: { ...tuning, buttons: [{}] } as never },
+  })).superstrike, false);
+  assert.equal(cardAvailability(snapshot({})).superstrike, false);
+});
+
+test("the magnetic card follows the mouse's own report, whatever the brand", () => {
+  const range = { triggerPointRange: { min: 1, max: 10 }, rapidTriggerRange: null, rapidTriggerUnit: "ms" as const, rapidTriggerSwitch: false, canChooseSwitchType: false, calibration: null, liveDepth: false };
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "G-Wolves", magneticButtons: { ...range, buttons: [{}, {}] as never } },
+  })).magnetic, true);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "G-Wolves", magneticButtons: { ...range, buttons: [{}] as never } },
+  })).magnetic, false);
+  assert.equal(cardAvailability(snapshot({ status: { brand: "G-Wolves" } })).magnetic, false);
+});
+
+test("debounce is offered only by the families that store it", () => {
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4 },
+  })).debounce, true);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Logitech", debounceMs: 4 },
+  })).debounce, false);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" } },
+  })).debounce, false);
+});
+
+test("low power needs the Razer capability, not merely a reported threshold", () => {
+  // selectableValues treats an empty option list as unbounded, so a mouse that
+  // reports a threshold without the Razer driver must not show the card.
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, lowBatteryWarning: 15 },
+  })).lowPower, false);
+  assert.equal(cardAvailability(snapshot({
+    status: { brand: "Razer", ui: { family: "razer", showAdvancedSection: true }, lowBatteryWarning: 15 },
+    capabilities: { razerLowPowerOptions: [5, 10, 15, 20] },
+  })).lowPower, true);
+});
+
+test("the Razer buttons card appears only when the driver reported mappings", () => {
+  const withMappings = cardAvailability(snapshot({
+    status: { brand: "Razer", razerButtonMappings: { leftClick: "Left Click" } },
+  }));
+  assert.equal(withMappings.razerButtons, true);
+
+  // A Razer that never answered the class 0x02 read leaves the field undefined
+  // — the tab must stay empty rather than render a card with no rows.
+  assert.equal(cardAvailability(snapshot({ status: { brand: "Razer" } })).razerButtons, false);
+});
+
+test("Terra Pro remap uses the generic button card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Teevolution",
+      buttonMappings: { Left: "Left Click", Forward: "Forward" },
+      buttonOptions: ["Left Click", "Forward"],
+    },
+  }));
+  assert.equal(has.buttonMapping, true);
+});
+
+test("Terra Pro onboard banks use the generic profile card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Teevolution",
+      activeProfile: 1,
+      profileCount: 4,
+    },
+  }));
+  assert.equal(has.onboardProfiles, true);
+});
+
+test("the generic button card follows the K-snake key-map read", () => {
+  // The driver opens the advanced section only when getKeys() succeeded,
+  // so the card must not appear on a silent dongle even though the family
+  // is unknown to the traits table.
+  const withKeys = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      buttonMappings: { Forward: "Backward" },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(withKeys.buttonMapping, true);
+
+  const silent = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      ui: { family: "ksnake", showAdvancedSection: false },
+      buttonOptions: ["Backward", "DPI loop"],
+    },
+  }));
+  assert.equal(silent.buttonMapping, false);
+});
+
+test("a K-snake sleep capability exposes the shared auto-sleep card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Noir Gear",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      sleepTimeout: 300,
+    },
+    capabilities: { sleepOptions: [60, 180, 300] },
+  }));
+  assert.equal(has.sleep, true);
+});
+
+test("a K-snake config exposes its lighting and scroll controls", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Noir Gear",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      lighting: {
+        zone: "Mouse",
+        modes: ["Off", "Wave"],
+        mode: "Wave",
+        color: null,
+        color2: null,
+        colorModes: [],
+        dualColorModes: [],
+        reactiveModes: [],
+        speeds: [],
+        speed: null,
+      },
+      scrollDirection: "Forward",
+    },
+  }));
+  assert.equal(has.lighting, true);
+  assert.equal(has.ksnakeScroll, true);
+});
+
+test("M2-NEX exposes the macro capability even when its UI family is absent", () => {
+  const has = cardAvailability(snapshot({
+    status: { brand: "Noir Gear", name: "M2-NEX", ui: { showAdvancedSection: true } },
+  }));
+  assert.equal(has.ksnakeMacros, true);
+});
+
+test("WALLHACK M-001 exposes scanning, curves and macros from its status", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "WALLHACK",
+      name: "WALLHACK M-001",
+      ui: { family: "wallhack-mouse", showAdvancedSection: true },
+      sensorScanningMode: "HIGH",
+      dynamicSensitivityEnabled: false,
+      dynamicSensitivityMode: "classic",
+      buttonMappings: { Left: "Left Click" },
+      buttonOptions: ["Left Click", "Disabled"],
+    },
+  }));
+  assert.equal(has.wallhackScanning, true);
+  assert.equal(has.wallhackCurves, true);
+  assert.equal(has.wallhackMacros, true);
+  assert.equal(has.buttonMapping, true);
+});
+
+test("WALLHACK scanning and curves hide when the mouse did not answer", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "WALLHACK",
+      name: "WALLHACK M-001",
+      ui: { family: "wallhack-mouse", showAdvancedSection: true },
+    },
+  }));
+  assert.equal(has.wallhackScanning, false);
+  assert.equal(has.wallhackCurves, false);
+  assert.equal(has.wallhackMacros, true);
+});
+
+test("M2-NEX keeps lighting out of Advanced", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Noir Gear",
+      name: "M2-NEX",
+      ui: { family: "ksnake", showAdvancedSection: true },
+      lighting: {} as never,
+    },
+  }));
+  assert.equal(has.lighting, true);
+  assert.equal(has.lightingAdvanced, false);
+});
+
+test("NOIR S1 exposes its standard controls and hides unsupported extras", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      // The published 0.22 K-snake client identifies this model by name but
+      // still reports its protocol family as the brand.
+      brand: "K-snake",
+      name: "NOIR S1",
+      ui: {
+        family: "ksnake",
+        showAdvancedSection: true,
+        hideSleepCard: true,
+      },
+      buttonMappings: {
+        Left: "Left click",
+        Right: "Right click",
+        Middle: "Middle click",
+        Forward: "Forward",
+        Backward: "Backward",
+        DPI: "DPI loop",
+      },
+      buttonOptions: ["Left click", "Right click", "Scroll up", "DPI loop"],
+      dpiStages: [800, 1200, 1600, 3200, 5000, 12000],
+      scrollDirection: "Reverse",
+      lighting: {} as never,
+    },
+  }));
+  assert.equal(has.dpi, true);
+  assert.equal(has.polling, true);
+  assert.equal(has.buttonMapping, true);
+  assert.equal(has.ksnakeScroll, true);
+  assert.equal(has.ksnakeMacros, true);
+  assert.equal(has.lighting, true);
+  assert.equal(has.lightingAdvanced, false);
+  assert.equal(has.sleep, false);
+  assert.equal(has.sensor, true, "surface capability is independent of lift-off control visibility");
+});
+
+test("the generic button card follows the driver\'s mappings, not the advanced section", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "G-Wolves",
+      ui: { family: "vgn-f2" },
+      motionSync: true,
+      buttonMappings: { Left: "Left Click", Forward: "Forward" },
+      buttonOptions: ["Left Click", "Forward", "DPI Loop"],
+    },
+  }));
+  assert.equal(has.buttonMapping, true);
+  assert.equal(has.processing, false, "the rest of the advanced section stays closed");
+});
+
+test("NOIR E1 gets the same core configurator controls even without a family hint", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "K-snake",
+      name: "NOIR E1",
+      ui: { showAdvancedSection: true },
+      buttonMappings: {
+        Left: "Left click",
+        Right: "Right click",
+        Middle: "Middle click",
+        Forward: "Forward",
+        Backward: "Backward",
+        DPI: "DPI loop",
+      },
+      buttonOptions: ["Left click", "Right click", "Scroll up", "DPI loop"],
+      dpiStages: [800, 1200, 1600, 3200, 5000, 12000],
+      scrollDirection: "Forward",
+      lighting: {} as never,
+    },
+  }));
+  assert.equal(has.dpi, true);
+  assert.equal(has.polling, true);
+  assert.equal(has.buttonMapping, true);
+  assert.equal(has.ksnakeScroll, true);
+  assert.equal(has.ksnakeMacros, true);
+  assert.equal(has.lightingAdvanced, false);
+});
+
+test("the G-Wolves XVI generation opens sleep, debounce and processing, but not signal", () => {
+  const cards = cardAvailability(snapshot({
+    status: {
+      brand: "G-Wolves",
+      ui: { family: "gwolves-xvi" },
+      motionSync: false,
+      angleSnapping: true,
+      rippleControl: null,
+      debounceMs: 2,
+      sleepTimeout: 60,
+    },
+  }));
+  assert.equal(cards.sleep, true);
+  assert.equal(cards.debounce, true);
+  assert.equal(cards.processing, true);
+  assert.equal(cards.signal, false);
+});
+
+test("LunaFury exposes CompX advanced controls without a signal card", () => {
+  const cards = cardAvailability(snapshot({
+    status: {
+      brand: "LunaFury",
+      ui: { family: "lunafury" },
+      motionSync: true,
+      angleSnapping: false,
+      rippleControl: false,
+      debounceMs: 4,
+      sleepTimeout: 300,
+    },
+  }));
+  assert.equal(cards.advancedHost, true);
+  assert.equal(cards.sleep, true);
+  assert.equal(cards.debounce, true);
+  assert.equal(cards.processing, true);
+  assert.equal(cards.signal, false);
+});
+
+test("the Incott card follows the fields the device reported, not a brand trait", () => {
+  const wireless = cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      ui: { family: "incott", showAdvancedSection: true },
+      incottReceiverLedMode: 0,
+      incottFireKeyTimes: 3,
+      incottFireKeyIntervalMs: 10,
+    },
+  }));
+  assert.equal(wireless.incott, true);
+
+  // Wired: the receiver LED is gone with the dongle, but rapid fire lives in
+  // the mouse, so the card still has something to show.
+  const wired = cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      ui: { family: "incott", showAdvancedSection: true },
+      incottFireKeyTimes: 3,
+      incottFireKeyIntervalMs: 10,
+    },
+  }));
+  assert.equal(wired.incott, true);
+
+  const silent = cardAvailability(snapshot({
+    status: { brand: "Incott", ui: { family: "incott", showAdvancedSection: true } },
+  }));
+  assert.equal(silent.incott, false);
+});
+
+test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profile card, but not sleep or signal", () => {
+  const cards = cardAvailability(snapshot({
+    status: {
+      brand: "Glorious",
+      ui: {
+        family: "glorious-core2",
+        showAdvancedSection: true,
+        hideAngleSnapping: true,
+        hideRippleControl: true,
+        hideSleepCard: true,
+        hideSignalCard: true,
+      },
+      debounceMs: 10,
+      motionSync: true,
+      activeProfile: 1,
+      profileCount: 3,
+    },
+  }));
+  assert.equal(cards.debounce, true);
+  assert.equal(cards.processing, true);
+  assert.equal(cards.onboardProfiles, true);
+  assert.equal(cards.sleep, false);
+  assert.equal(cards.signal, false);
+});

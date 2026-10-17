@@ -1,4 +1,4 @@
-// Mirrors the supported-devices table into src/supported-devices-data.ts.
+// Mirrors the supported-devices table into src/features/hardware-test/supported-devices-data.ts.
 //
 // The source of truth is the landing page's `supported-mice.ts` (the table the
 // openmouse.app/supported page renders; itself re-checked against the
@@ -19,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-const source = join(root, "..", "openmouse-landing-page", "src", "supported-mice.ts");
+const source = join(root, "..", "openmouse-landing-page", "src", "data", "supported-mice.ts");
 
 const { MICE } = await import(pathToFileURL(source).href);
 
@@ -31,7 +31,7 @@ const rows = MICE.map((entry) => {
 const out = `// Supported-devices table, mirrored from the landing page.
 //
 // AUTO-GENERATED — do not edit by hand. Source of truth:
-//   openmouse-landing-page/src/supported-mice.ts
+//   openmouse-landing-page/src/data/supported-mice.ts
 // (the table behind openmouse.app/supported, re-checked against the
 // @openmouse/protocol driver registry every time the landing page builds).
 //
@@ -61,5 +61,5 @@ ${rows.join("\n")}
 ];
 `;
 
-writeFileSync(join(root, "src", "supported-devices-data.ts"), out);
-console.log(`Wrote src/supported-devices-data.ts with ${MICE.length} entries from ${source}`);
+writeFileSync(join(root, "src", "features", "hardware-test", "supported-devices-data.ts"), out);
+console.log(`Wrote src/features/hardware-test/supported-devices-data.ts with ${MICE.length} entries from ${source}`);

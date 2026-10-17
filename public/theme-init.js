@@ -11,6 +11,5 @@
     document.documentElement.dataset.colorScheme = dark ? "dark" : "light";
     document.documentElement.style.colorScheme = dark ? "dark" : "light";
   } catch {
-    /* storage disabled — fall back to the stylesheet default */
   }
 })();
