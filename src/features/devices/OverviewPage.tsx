@@ -492,7 +492,7 @@ export function Workspace({
               <DeviceShowcaseSidebar snapshot={snapshot} />
             </aside>
           ) : null}
-          <div className={`performance-main${status.brand === "LunaFury" ? " lunafury-card-layout" : ""}`}>
+          <div className="performance-main">
             {/* The HITS card keeps its own card chrome, first, beside the mouse panel. */}
             {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
             {showButtonMap ? <ButtonMap snapshot={snapshot} /> : null}

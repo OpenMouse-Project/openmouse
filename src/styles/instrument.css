@@ -32,31 +32,6 @@
 .card-slot { position: relative; }
 .card-slot > .setting-card { height: auto; }
 
-.lunafury-card-layout { container: lunafury-cards / inline-size; }
-.lunafury-card-layout > .card-flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-.lunafury-card-layout > .card-flow > .card-slot { margin: 0; }
-.lunafury-card-layout > .card-flow > .card-slot:has(> .card-glyph:only-child) { display: none; }
-.lunafury-card-layout > .card-flow > .card-slot > .setting-card { height: 100%; }
-.lunafury-card-layout > .card-flow > .is-wide { grid-column: 1 / -1; }
-
-@container lunafury-cards (min-width: 816px) {
-  .lunafury-card-layout > .card-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lunafury-card-layout > .card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { grid-column: 1 / -1; }
-  .lunafury-card-layout #polling-card > .rate-slider {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-  }
-  .lunafury-card-layout #polling-card .rate-slider-buttons { flex: 1; align-items: stretch; min-height: 100px; }
-  .lunafury-card-layout #polling-card .rate-slider-buttons > button { height: auto; }
-  .lunafury-card-layout #polling-card .rate-slider-buttons > button::before { height: calc((var(--lvl) + 1) * 10%); min-height: calc(6px + var(--lvl) * 4px); }
-}
-
 .card-glyph {
   position: absolute;
   inset-block-start: 15px;
