@@ -3,7 +3,7 @@ import type { LunaFuryButton, LunaFuryReceiverLightMode } from "@openmouse/proto
 import * as control from "../../../device/controller";
 import type { ControlSnapshot } from "../../../device/types";
 import { t, type I18nKey } from "../../../i18n/index";
-import { OptionMenu, RateSlider, Segmented, StepperSlider, SwitchRow } from "../../../shared/ui";
+import { OptionMenu, RateSlider, Segmented, StepperSlider, SwitchButton } from "../../../shared/ui";
 
 export function LunaFuryBottomButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const mode = snapshot.status?.lunafury?.bottomButtonMode;
@@ -126,14 +126,16 @@ export function LunaFuryWheelCard({ snapshot }: { snapshot: ControlSnapshot }): 
   return (
     <article id="lunafury-wheel-guard" className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lunafury-wheel-guard">
-      <div className="setting-heading compact"><div><h2>{t(locale, "luna.wheelGuard")}</h2></div></div>
-      <SwitchRow
-        id="lunafury-wheel-guard-toggle"
-        label={t(locale, "luna.wheelGuard")}
-        value={guard.enabled}
-        disabled={busy}
-        onChange={(enabled) => control.applyLunaFuryWheelGuard({ enabled, windowMs: guard.windowMs || 100 })}
-      />
+      <div className="setting-heading compact">
+        <div><h2>{t(locale, "luna.wheelGuard")}</h2></div>
+        <SwitchButton
+          id="lunafury-wheel-guard-toggle"
+          label={t(locale, "luna.wheelGuard")}
+          value={guard.enabled}
+          disabled={busy}
+          onChange={(enabled) => control.applyLunaFuryWheelGuard({ enabled, windowMs: guard.windowMs || 100 })}
+        />
+      </div>
       {guard.enabled ? (
         <StepperSlider
           id="lunafury-wheel-guard-window"
