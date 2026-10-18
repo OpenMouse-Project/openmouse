@@ -29,6 +29,15 @@
 #egg-button-list .option-menu { width: 100%; min-width: 0; }
 :is(#lunafury-buttons, #lunafury-wheel-guard) .stepper-slider + .stepper-slider { padding-top: 16px; border-top: 1px solid var(--line-1); }
 #lunafury-buttons .field-label { display: grid; gap: 8px; }
+.lunafury-response-options, .lunafury-response-delays { display: grid; gap: 16px; min-width: 0; }
+.lunafury-response-options > .field-label { align-content: start; margin: 0; }
+.lunafury-response-options:empty, .lunafury-response-delays:empty { display: none; }
+.lunafury-response-delays:not(:first-child) { padding-top: 16px; border-top: 1px solid var(--line-1); }
+@container lunafury-cards (min-width: 816px) {
+  .lunafury-response-options { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .lunafury-response-delays { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  #lunafury-buttons .lunafury-response-delays > .stepper-slider + .stepper-slider { padding-top: 0; border-top: 0; }
+}
 #debounce-settings > .option-menu { width: min(100%, 240px); }
 #finalmouse-tmr-settings > .segmented { align-self: start; }
 .tmr-side { display: grid; gap: 16px; padding-top: 12px; border-top: 1px solid var(--line-1); }

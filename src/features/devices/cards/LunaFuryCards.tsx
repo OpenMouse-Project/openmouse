@@ -67,48 +67,52 @@ export function LunaFuryButtonsCard({ snapshot }: { snapshot: ControlSnapshot })
     <article id="lunafury-buttons" className={`setting-card${staged ? " is-staged" : ""}`}
       data-pending-key="lunafury-lightning lunafury-button-left lunafury-button-right lunafury-button-middle lunafury-button-rate">
       <div className="setting-heading compact"><div><h2>{t(locale, "luna.buttons")}</h2></div></div>
-      {settings.buttonPollingRateHz != null && settings.supportedButtonPollingRates?.length ? (
-        <div className="field-label spaced">
-          <RateSlider id="lunafury-button-rate" locale={locale} label={t(locale, "luna.buttonPollingRate")}
-            options={[...settings.supportedButtonPollingRates]} valueHz={settings.buttonPollingRateHz}
-            disabled={rateBusy || settings.supportedButtonPollingRates.length < 2}
-            onChange={(value) => control.applyLunaFuryButtonPollingRate(value as 1000 | 2000 | 4000 | 8000)} />
-          <small className="setting-note">{t(locale, "luna.buttonPollingNote")}</small>
-        </div>
-      ) : null}
-      {settings.lightningMode != null ? (
-        <div className="field-label spaced">
-          <span>{t(locale, "luna.lightning")}</span>
-          <Segmented
-            ariaLabel={t(locale, "luna.lightning")}
-            className="three"
-            options={[
-              { value: 1, label: t(locale, "luna.leftPriority") },
-              { value: 0, label: t(locale, "common.off") },
-              { value: 2, label: t(locale, "luna.rightPriority") },
-            ]}
-            value={settings.lightningMode}
-            disabled={busy}
-            onChange={(mode) => control.applyLunaFuryLightningMode(mode as 0 | 1 | 2)}
+      <div className="lunafury-response-options">
+        {settings.buttonPollingRateHz != null && settings.supportedButtonPollingRates?.length ? (
+          <div className="field-label">
+            <RateSlider id="lunafury-button-rate" locale={locale} label={t(locale, "luna.buttonPollingRate")}
+              options={[...settings.supportedButtonPollingRates]} valueHz={settings.buttonPollingRateHz}
+              disabled={rateBusy || settings.supportedButtonPollingRates.length < 2}
+              onChange={(value) => control.applyLunaFuryButtonPollingRate(value as 1000 | 2000 | 4000 | 8000)} />
+            <small className="setting-note">{t(locale, "luna.buttonPollingNote")}</small>
+          </div>
+        ) : null}
+        {settings.lightningMode != null ? (
+          <div className="field-label">
+            <span>{t(locale, "luna.lightning")}</span>
+            <Segmented
+              ariaLabel={t(locale, "luna.lightning")}
+              className="three"
+              options={[
+                { value: 1, label: t(locale, "luna.leftPriority") },
+                { value: 0, label: t(locale, "common.off") },
+                { value: 2, label: t(locale, "luna.rightPriority") },
+              ]}
+              value={settings.lightningMode}
+              disabled={busy}
+              onChange={(mode) => control.applyLunaFuryLightningMode(mode as 0 | 1 | 2)}
+            />
+          </div>
+        ) : null}
+      </div>
+      <div className="lunafury-response-delays">
+        {buttons.map(({ button, value, label, min, max }) => value == null ? null : (
+          <StepperSlider
+            key={button}
+            id={`lunafury-${button}-latency`}
+            label={t(locale, label)}
+            value={value}
+            min={min}
+            max={max}
+            step={1}
+            scale={[`${min} ms`, `${button === "middle" ? 15 : 7} ms`, `${max} ms`]}
+            formatValue={(shown) => `${shown} ms`}
+            disabled={busy || (button === "left" && settings.lightningMode === 1) || (button === "right" && settings.lightningMode === 2)}
+            pendingKey={`lunafury-button-${button}`}
+            onCommit={(milliseconds) => control.applyLunaFuryButtonDebounce(button, milliseconds)}
           />
-        </div>
-      ) : null}
-      {buttons.map(({ button, value, label, min, max }) => value == null ? null : (
-        <StepperSlider
-          key={button}
-          id={`lunafury-${button}-latency`}
-          label={t(locale, label)}
-          value={value}
-          min={min}
-          max={max}
-          step={1}
-          scale={[`${min} ms`, `${button === "middle" ? 15 : 7} ms`, `${max} ms`]}
-          formatValue={(shown) => `${shown} ms`}
-          disabled={busy || (button === "left" && settings.lightningMode === 1) || (button === "right" && settings.lightningMode === 2)}
-          pendingKey={`lunafury-button-${button}`}
-          onCommit={(milliseconds) => control.applyLunaFuryButtonDebounce(button, milliseconds)}
-        />
-      ))}
+        ))}
+      </div>
     </article>
   );
 }

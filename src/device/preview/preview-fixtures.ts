@@ -314,6 +314,7 @@ const LUNAFURY: MouseStatus = {
   buttonOptions: [...LUNAFURY_BUTTON_ACTIONS],
   fixedButtons: ["Left", "Forward"],
   angleSnapping: false,
+  angleTuning: 0,
   rippleControl: false,
   hyperMode: true,
   performanceMode: true,

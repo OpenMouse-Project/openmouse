@@ -47,11 +47,14 @@
 @container lunafury-cards (min-width: 816px) {
   .lunafury-card-layout > .card-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lunafury-card-layout > .card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { grid-column: 1 / -1; }
-  /* The two smaller button cards share the height of the response card. */
-  .lunafury-card-layout > .card-flow:has(> [data-card="lunafury-wheel"]):has(> [data-card="lunafury-bottom-button"]) > [data-card="lunafury-buttons"] { grid-row: span 2; }
-  .lunafury-card-layout #polling-card > .rate-slider,
-  .lunafury-card-layout #lunafury-wheel-guard > .switch-row,
-  .lunafury-card-layout #lunafury-bottom-button > .option-menu { margin-block: auto; }
+  .lunafury-card-layout #polling-card > .rate-slider {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .lunafury-card-layout #polling-card .rate-slider-buttons { flex: 1; align-items: stretch; min-height: 100px; }
+  .lunafury-card-layout #polling-card .rate-slider-buttons > button { height: auto; }
+  .lunafury-card-layout #polling-card .rate-slider-buttons > button::before { height: calc((var(--lvl) + 1) * 10%); min-height: calc(6px + var(--lvl) * 4px); }
 }
 
 .card-glyph {

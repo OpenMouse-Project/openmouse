@@ -55,7 +55,7 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "dpi-indicator": Palette,
 };
 
-const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "lighting-tab", "button-mapping"]);
+const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "lighting-tab", "button-mapping", "lunafury-buttons"]);
 
 export function slotCards(cards: readonly ReactNode[]): ReactNode[] {
   return Children.toArray(cards).map((card) => {
