@@ -29,6 +29,8 @@ export interface CardAvailability {
   incott: boolean;
   lunafuryButtons: boolean;
   lunafuryWheelGuard: boolean;
+  lunafuryReceiverLight: boolean;
+  lunafuryBottomButton: boolean;
   dongleLed: boolean;
   eggFilter: boolean;
   eggSpdt: boolean;
@@ -83,6 +85,8 @@ const NOTHING: CardAvailability = {
   incott: false,
   lunafuryButtons: false,
   lunafuryWheelGuard: false,
+  lunafuryReceiverLight: false,
+  lunafuryBottomButton: false,
   dongleLed: false,
   eggFilter: false,
   eggSpdt: false,
@@ -212,8 +216,11 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lunafuryButtons: host && status.brand === "LunaFury" && (
       status.lunafury?.lightningMode != null || status.lunafury?.leftDebounceMs != null
       || status.lunafury?.rightDebounceMs != null || status.lunafury?.middleDebounceMs != null
+      || (status.lunafury?.buttonPollingRateHz != null && Boolean(status.lunafury.supportedButtonPollingRates?.length))
     ),
     lunafuryWheelGuard: host && status.brand === "LunaFury" && status.lunafury?.wheelGuard != null,
+    lunafuryReceiverLight: host && status.brand === "LunaFury" && status.lunafury?.receiverLightMode != null,
+    lunafuryBottomButton: host && status.brand === "LunaFury" && status.lunafury?.bottomButtonMode != null,
     dongleLed: typeof status.dongleLedEnabled === "boolean",
     eggFilter: eggs,
     eggSpdt: eggs,

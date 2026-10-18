@@ -27,7 +27,7 @@ import { KeyboardPanel } from "./cards/KeyboardPanel";
 import { FirmwareCard } from "./cards/FirmwareCard";
 import { DynamicSensitivityCard, LightforceCard, PollingCard, SensorCard, SensorScanningCard } from "./cards/PerformanceCards";
 import { LightingCard } from "./cards/LightingCard";
-import { LunaFuryButtonsCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
+import { LunaFuryBottomButtonCard, LunaFuryButtonsCard, LunaFuryReceiverLightCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
 import { AtkButtonCard, AtkDongleCard, AtkProfileCard, AtkReceiverCard, AtkSensorCard } from "./cards/AtkCards";
 import {
@@ -394,6 +394,9 @@ export function Workspace({
       ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
     show(has.ksnakeScroll, ["buttons"])
       ? <KsnakeScrollCard key="ksnake-scroll" snapshot={snapshot} /> : null,
+    show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
+    show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,
+    device && show(has.lunafuryBottomButton, ["buttons"]) ? <LunaFuryBottomButtonCard key="lunafury-bottom-button" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const macro = [
@@ -411,8 +414,7 @@ export function Workspace({
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
     show(has.finalmouseProfiles, ["advanced"]) ? <FinalmouseProfilesCard key="finalmouse-profiles" snapshot={snapshot} /> : null,
     show(has.incott, ["advanced"]) ? <IncottCard key="incott" snapshot={snapshot} /> : null,
-    show(has.lunafuryButtons, ["buttons"]) ? <LunaFuryButtonsCard key="lunafury-buttons" snapshot={snapshot} /> : null,
-    show(has.lunafuryWheelGuard, ["buttons"]) ? <LunaFuryWheelCard key="lunafury-wheel" snapshot={snapshot} /> : null,
+    device && show(has.lunafuryReceiverLight, ["advanced"]) ? <LunaFuryReceiverLightCard key="lunafury-receiver-light" snapshot={snapshot} /> : null,
     device && show(has.dongleLed, ["advanced"]) ? <DongleLedCard key="dongle-led" snapshot={snapshot} /> : null,
     show(has.atkProfile, ["profiles"]) ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
     device && show(has.atkReceiver, ["advanced"]) ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,

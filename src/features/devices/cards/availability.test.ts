@@ -65,6 +65,24 @@ test("unknown LunaFury controls are hidden without losing basic debounce", () =>
   assert.equal(middleOnly.debounce, true);
 });
 
+test("LunaFury optional controls follow successful reads, including receiver off", () => {
+  const cards = (brand: MouseStatus["brand"], lunafury: MouseStatus["lunafury"]) => cardAvailability(snapshot({
+    status: { brand, ui: { family: "lunafury" }, lunafury },
+  }));
+  const reported = { buttonPollingRateHz: 1000 as const, supportedButtonPollingRates: [1000 as const],
+    receiverLightMode: 0 as const, bottomButtonMode: 1 as const };
+  const available = cards("LunaFury", reported);
+  assert.equal(available.lunafuryButtons, true);
+  assert.equal(available.lunafuryReceiverLight, true);
+  assert.equal(available.lunafuryBottomButton, true);
+  for (const missing of [cards("LunaFury", {}), cards("Lamzu", reported)]) {
+    assert.equal(missing.lunafuryButtons, false);
+    assert.equal(missing.lunafuryReceiverLight, false);
+    assert.equal(missing.lunafuryBottomButton, false);
+  }
+  assert.equal(cards("LunaFury", { buttonPollingRateHz: 1000 }).lunafuryButtons, false);
+});
+
 test("LunaFury-specific cards are not offered to another CompX brand", () => {
   const has = cardAvailability(snapshot({ status: {
     brand: "Attack Shark", ui: { family: "attack-shark" },

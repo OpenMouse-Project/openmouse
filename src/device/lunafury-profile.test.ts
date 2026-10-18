@@ -33,6 +33,7 @@ test("invalid imported values never become protocol writes", () => {
 test("profile staging calls only supported controls and ignores unknown commands", () => {
   const calls: unknown[] = [];
   const actions: LunaFuryProfileActions = {
+    buttonRate: () => {},
     lightning: (mode) => { calls.push(["lightning", mode]); },
     button: (button, milliseconds) => { calls.push([button, milliseconds]); },
     wheel: (guard) => { calls.push(["wheel", guard]); },
@@ -48,6 +49,7 @@ test("profile staging calls only supported controls and ignores unknown commands
 test("apply and restore preserve zero values and do not write unrelated peers", () => {
   const current = structuredClone(settings);
   const actions: LunaFuryProfileActions = {
+    buttonRate: () => {},
     lightning: (mode) => { current.lightningMode = mode; },
     button: (button, milliseconds) => { current[`${button}DebounceMs`] = milliseconds; },
     wheel: (guard) => { current.wheelGuard = { ...guard }; },
@@ -70,6 +72,7 @@ test("pending batches honor lightning disable/latency/enable ordering for game p
     });
     try {
       stageLunaFuryProfile({ lightningMode: mode, leftDebounceMs: 1, rightDebounceMs: 2 }, settings, {
+        buttonRate: () => {},
         lightning: (value) => stage("lightning", lunaFuryLightningPriority(value)),
         button: (button) => stage(button),
         wheel: () => stage("wheel"),
@@ -80,4 +83,24 @@ test("pending batches honor lightning disable/latency/enable ordering for game p
       clearPendingChanges();
     }
   }
+});
+
+test("button polling profiles use supported rates and exclude hardware-only settings", () => {
+  assert.deepEqual(sanitizeLunaFurySettings({ buttonPollingRateHz: 4000, receiverLightMode: 0, bottomButtonMode: 1 }),
+    { buttonPollingRateHz: 4000 });
+  for (const rate of [0, 125, 16000, "1000", NaN]) {
+    assert.deepEqual(sanitizeLunaFurySettings({ buttonPollingRateHz: rate }), {});
+  }
+  const calls: number[] = [];
+  const actions: LunaFuryProfileActions = {
+    buttonRate: rate => { calls.push(rate); }, lightning: () => {}, button: () => {}, wheel: () => {},
+  };
+  stageLunaFuryProfile({ buttonPollingRateHz: 4000 },
+    { buttonPollingRateHz: 1000, supportedButtonPollingRates: [1000] }, actions);
+  stageLunaFuryProfile({ buttonPollingRateHz: 4000 },
+    { buttonPollingRateHz: 1000, supportedButtonPollingRates: [1000, 4000] }, actions);
+  assert.deepEqual(calls, [4000]);
+  const current = { lunafury: { buttonPollingRateHz: 1000, receiverLightMode: 6 } } as MouseStatus;
+  assert.deepEqual(pickSnapshot(current, { lunafury: { buttonPollingRateHz: 4000 } }),
+    { lunafury: { buttonPollingRateHz: 1000 } });
 });

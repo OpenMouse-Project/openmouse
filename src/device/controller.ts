@@ -1841,6 +1841,7 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     else applyAngleTuning(s.angleTuning);
   }
   stageLunaFuryProfile(s.lunafury, status.brand === "LunaFury" ? status.lunafury : undefined, {
+    buttonRate: applyLunaFuryButtonPollingRate,
     lightning: applyLunaFuryLightningMode,
     button: applyLunaFuryButtonDebounce,
     wheel: applyLunaFuryWheelGuard,
@@ -6566,6 +6567,49 @@ export function applyIncottFireKey(times: number, intervalMs: number): void {
       };
       await client.setFireKey(times, intervalMs);
     },
+  });
+}
+
+export function applyLunaFuryButtonPollingRate(hertz: 1000 | 2000 | 4000 | 8000): void {
+  const settings = latestDeviceStatus?.lunafury;
+  if (latestDeviceStatus?.brand !== "LunaFury" || settings?.buttonPollingRateHz == null
+    || !settings.supportedButtonPollingRates?.includes(hertz) || isPendingChange("onboard-profile")) return;
+  stageChange({
+    key: "lunafury-button-rate",
+    label: `${st("luna.buttonPollingRate")} · ${hertz} Hz`,
+    command: `Set button polling rate to ${hertz} Hz`,
+    progress: `Setting button polling rate to ${hertz} Hz…`,
+    preview: (status) => { if (status.lunafury) status.lunafury.buttonPollingRateHz = hertz; },
+    apply: () => callClientMethod("setLunaFuryButtonPollingRate", "button polling rate", hertz),
+  });
+}
+
+export function applyLunaFuryBottomButtonMode(mode: 1 | 2): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.bottomButtonMode == null || (mode !== 1 && mode !== 2)
+    || isPendingChange("onboard-profile")) return;
+  const label = st(mode === 1 ? "luna.bottomPower" : "luna.bottomPowerDpi");
+  stageChange({
+    key: "lunafury-bottom-button",
+    label: `${st("luna.bottomButton")} · ${label}`,
+    command: `Set bottom-button mode to ${mode}`,
+    progress: "Setting bottom-button mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.bottomButtonMode = mode; },
+    apply: () => callClientMethod("setLunaFuryBottomButtonMode", "bottom-button behavior", mode),
+  });
+}
+
+export function applyLunaFuryReceiverLightMode(mode: 0 | 2 | 6 | 11): void {
+  if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
+    || latestDeviceStatus.lunafury?.receiverLightMode == null || ![0, 2, 6, 11].includes(mode)) return;
+  const label = st(mode === 2 ? "luna.lightMixed" : mode === 6 ? "luna.lightBattery" : mode === 11 ? "luna.lightDpi" : "common.off");
+  stageChange({
+    key: "lunafury-receiver-light",
+    label: `${st("luna.receiverLight")} · ${label}`,
+    command: `Set receiver light mode to ${mode}`,
+    progress: "Setting receiver light mode…",
+    preview: (status) => { if (status.lunafury) status.lunafury.receiverLightMode = mode; },
+    apply: () => callClientMethod("setLunaFuryReceiverLightMode", "receiver lighting", mode),
   });
 }
 
