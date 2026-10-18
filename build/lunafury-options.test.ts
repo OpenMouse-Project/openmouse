@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
-import { before, test } from "node:test";
+import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 
 let controller: any;
+const timers = new Set<ReturnType<typeof setTimeout>>();
+
+after(() => { for (const timer of timers) clearTimeout(timer); });
 
 before(async () => {
   const storage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   (globalThis as any).localStorage = storage;
   (globalThis as any).window = { localStorage: storage, location: { search: "" },
-    matchMedia: () => ({ matches: false }), setTimeout, clearTimeout };
+    matchMedia: () => ({ matches: false }), clearTimeout,
+    setTimeout: (callback: () => void, delay?: number) => {
+      const timer = setTimeout(callback, delay); timers.add(timer); return timer;
+    } };
   (globalThis as any).document = { title: "OpenMouse test" };
   const entry = fileURLToPath(new URL("../src/device/controller.ts", import.meta.url));
   const result: any = await build({
@@ -21,24 +27,45 @@ before(async () => {
         // Stub UI notifications; keep the real staging, validation and dispatch.
         return source.replace("function emit(): void {", "function emit(): void { return;") + `
           export const testWrites = [];
+          export const testBankWrites = [];
+          let testProfile, testBanks, testReader;
           export function testSetup(settings, brand = "LunaFury", draft = false) {
-            clearPendingChanges(); testWrites.length = 0;
+            clearPendingChanges(); testWrites.length = 0; testBankWrites.length = 0; toasts.length = 0;
+            testProfile = 1; testReader = null;
+            testBanks = new Map([1, 2, 3].map(profile => [profile, structuredClone(settings)]));
             latestDeviceStatus = { brand, name: "Test mouse", dpi: 800, pollingRateHz: 1000,
-              batteryPercent: null, batteryState: "Unknown", firmware: [], lunafury: settings };
+              batteryPercent: null, batteryState: "Unknown", firmware: [],
+              activeProfile: 1, profileCount: 3, lunafury: structuredClone(settings) };
             matchesBaseline = null; settingInProgress = false;
-            interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES, instantFlash: false };
+            dpiOptions = [800, 1600];
+            interfacePreferences = { ...DEFAULT_INTERFACE_PREFERENCES, locale: "en",
+              instantFlash: false, reducedMotion: true };
             gameProfileDraft = draft ? { touched: new Set() } : null;
+            const write = (kind, field, value) => {
+              testWrites.push([kind, value]); testBankWrites.push([kind, testProfile, value]);
+              testBanks.get(testProfile)[field] = value;
+            };
             active = {
-              setLunaFuryButtonPollingRate: async value => { testWrites.push(["rate", value]); },
-              setLunaFuryReceiverLightMode: async value => { testWrites.push(["light", value]); },
-              setLunaFuryBottomButtonMode: async value => { testWrites.push(["bottom", value]); },
+              setLunaFuryButtonPollingRate: async value => write("rate", "buttonPollingRateHz", value),
+              setLunaFuryReceiverLightMode: async value => {
+                testWrites.push(["light", value]);
+                for (const bank of testBanks.values()) bank.receiverLightMode = value;
+              },
+              setLunaFuryBottomButtonMode: async value => write("bottom", "bottomButtonMode", value),
+              setProfile: async profile => { testProfile = profile; testWrites.push(["profile", profile]); },
+              readStatus: async () => {
+                const status = { ...latestDeviceStatus, activeProfile: testProfile,
+                  ui: { ...latestDeviceStatus.ui, settingsReady: true },
+                  lunafury: structuredClone(testBanks.get(testProfile)) };
+                return testReader ? await testReader(status) : status;
+              },
             };
           }
           export function testPending() { return pendingChanges(); }
           export function testPreview() { return withPendingChanges(latestDeviceStatus); }
-          export function testProfileSwitch() {
-            stagePendingChange({ key: "onboard-profile", label: "", command: "", progress: "", apply: async () => {} });
-          }
+          export function testWarnings() { return toasts.filter(toast => toast.kind === "warning"); }
+          export function testBank(profile, settings) { testBanks.set(profile, structuredClone(settings)); }
+          export function testReadWith(reader) { testReader = reader; }
         `;
       },
     }],
@@ -92,8 +119,109 @@ test("hardware-only controls stay out of Games and bank edits wait for profile s
   controller.applyLunaFuryBottomButtonMode(1);
   assert.deepEqual(controller.testPending(), []);
   controller.testSetup(SETTINGS);
-  controller.testProfileSwitch();
+  controller.applyProfileSelection(2);
   controller.applyLunaFuryButtonPollingRate(4000);
   controller.applyLunaFuryBottomButtonMode(1);
   assert.deepEqual(controller.testPending().map((pending: any) => pending.key), ["onboard-profile"]);
+});
+
+test("LunaFury profile switching rejects staged bank edits in reverse order", () => {
+  for (const stage of [
+    () => controller.applyLunaFuryButtonPollingRate(4000),
+    () => controller.applyLunaFuryBottomButtonMode(1),
+    () => controller.applyDpiValue(1600),
+  ]) {
+    controller.testSetup(SETTINGS);
+    stage();
+    const keys = controller.testPending().map((pending: any) => pending.key);
+    assert.equal(keys.length, 1);
+    controller.applyProfileSelection(2);
+    assert.deepEqual(controller.testPending().map((pending: any) => pending.key), keys);
+    assert.equal(controller.testPreview().activeProfile, 1);
+    assert.equal(controller.testWarnings().length, 1);
+    assert.ok(controller.testWarnings()[0].title.length > 0);
+    assert.deepEqual(controller.testWrites, []);
+    controller.revertPendingChanges();
+    controller.applyProfileSelection(2);
+    assert.deepEqual(controller.testPending().map((pending: any) => pending.key), ["onboard-profile"]);
+  }
+});
+
+test("profile selection can be revised and preserves independent receiver edits", () => {
+  controller.testSetup(SETTINGS);
+  controller.applyProfileSelection(2);
+  controller.applyProfileSelection(3);
+  assert.equal(controller.testPreview().activeProfile, 3);
+  assert.equal(controller.testPending().length, 1);
+  controller.applyProfileSelection(1);
+  assert.deepEqual(controller.testPending(), []);
+  controller.applyLunaFuryReceiverLightMode(0);
+  controller.applyProfileSelection(2);
+  assert.deepEqual(controller.testPending().map((pending: any) => pending.key),
+    ["lunafury-receiver-light", "onboard-profile"]);
+  controller.applyLunaFuryReceiverLightMode(11);
+  assert.equal(controller.testPending().length, 2);
+
+  controller.testSetup(SETTINGS, "Lamzu");
+  controller.applyDpiValue(1600);
+  controller.applyProfileSelection(2);
+  assert.deepEqual(controller.testPending().map((pending: any) => pending.key), ["dpi", "onboard-profile"]);
+});
+
+test("LunaFury edits wait for profile read-back and then target the new bank", async () => {
+  controller.testSetup(SETTINGS);
+  controller.testBank(2, { ...SETTINGS, buttonPollingRateHz: 2000, bottomButtonMode: 1 });
+  let started!: () => void;
+  const reading = new Promise<void>(resolve => { started = resolve; });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  controller.testReadWith(async (status: unknown) => { started(); await gate; return status; });
+  controller.applyProfileSelection(2);
+  const applying = controller.flashPendingChanges();
+  await reading;
+  try {
+    controller.applyLunaFuryButtonPollingRate(4000);
+    controller.applyLunaFuryBottomButtonMode(1);
+    controller.applyDpiValue(1600);
+    assert.deepEqual(controller.testPending().map((pending: any) => pending.key), ["onboard-profile"]);
+    assert.deepEqual(controller.testBankWrites, []);
+  } finally {
+    release();
+    await applying;
+  }
+  assert.equal(controller.testPreview().activeProfile, 2);
+  assert.equal(controller.testPreview().lunafury.buttonPollingRateHz, 2000);
+  assert.deepEqual(controller.testPending(), []);
+  controller.applyLunaFuryButtonPollingRate(4000);
+  controller.applyLunaFuryBottomButtonMode(2);
+  await controller.flashPendingChanges();
+  assert.deepEqual(controller.testBankWrites, [["rate", 2, 4000], ["bottom", 2, 2]]);
+});
+
+test("failed LunaFury profile read-back keeps bank edits blocked until a successful retry", async () => {
+  for (const revert of [false, true]) {
+    controller.testSetup(SETTINGS);
+    controller.testReadWith(() => { throw new Error("Profile read-back failed"); });
+    controller.applyProfileSelection(2);
+    await controller.flashPendingChanges();
+    controller.applyLunaFuryButtonPollingRate(4000);
+    controller.applyLunaFuryBottomButtonMode(1);
+    assert.deepEqual(controller.testPending().map((pending: any) => pending.key), ["onboard-profile"]);
+    assert.deepEqual(controller.testBankWrites, []);
+    if (revert) {
+      controller.revertPendingChanges();
+      controller.applyLunaFuryButtonPollingRate(4000);
+      controller.applyLunaFuryBottomButtonMode(1);
+      controller.applyDpiValue(1600);
+      assert.deepEqual(controller.testPending(), []);
+      controller.applyProfileSelection(2);
+    }
+    controller.testReadWith(null);
+    await controller.flashPendingChanges();
+    assert.deepEqual(controller.testPending(), []);
+    assert.equal(controller.testPreview().activeProfile, 2);
+    controller.applyLunaFuryBottomButtonMode(1);
+    await controller.flashPendingChanges();
+    assert.deepEqual(controller.testBankWrites, [["bottom", 2, 1]]);
+  }
 });

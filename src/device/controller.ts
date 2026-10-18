@@ -1402,6 +1402,22 @@ function stageChange(change: PendingChange): void {
     setReadStatus(st("ctl.waitFlash"));
     return;
   }
+  if (latestDeviceStatus?.brand === "LunaFury" && change.key !== "lunafury-receiver-light") {
+    const profileSwitch = change.key === "onboard-profile";
+    if (!profileSwitch && latestDeviceStatus.ui?.settingsReady === false) {
+      setReadStatus(st("ctl.waitingRefresh"));
+      return;
+    }
+    // Receiver lighting is independent of the bank; other edits use the last read profile.
+    const otherEdits = profileSwitch && pendingChanges().some((pending) =>
+      pending.key !== "onboard-profile" && pending.key !== "lunafury-receiver-light");
+    if (otherEdits || (!profileSwitch && isPendingChange("onboard-profile"))) {
+      const message = st("ctl.atkPending");
+      setReadStatus(message);
+      pushToast("warning", message);
+      return;
+    }
+  }
   if (gameProfileDraft) {
     const fields = gameProfileFieldsOf(change);
     if (!fields) {
@@ -6195,7 +6211,14 @@ export function applyProfileSelection(profile: number): void {
     progress: st("ctl.progProfile"),
     preview: (status) => { status.activeProfile = profile; },
     apply: async () => {
-      await requireClientMethod("setProfile", "the active profile").setProfile(profile);
+      const client = requireClientMethod("setProfile", "the active profile");
+      const refreshProfile = latestDeviceStatus?.brand === "LunaFury";
+      if (refreshProfile && latestDeviceStatus) {
+        applyStatus({ ...latestDeviceStatus, ui: { ...latestDeviceStatus.ui, settingsReady: false } });
+      }
+      await client.setProfile(profile);
+      // Keep the switch pending, and stale controls locked, until its bank is read back.
+      if (refreshProfile) applyStatus(await statusAfterWrite(client));
     },
   });
 }
@@ -6573,7 +6596,7 @@ export function applyIncottFireKey(times: number, intervalMs: number): void {
 export function applyLunaFuryButtonPollingRate(hertz: 1000 | 2000 | 4000 | 8000): void {
   const settings = latestDeviceStatus?.lunafury;
   if (latestDeviceStatus?.brand !== "LunaFury" || settings?.buttonPollingRateHz == null
-    || !settings.supportedButtonPollingRates?.includes(hertz) || isPendingChange("onboard-profile")) return;
+    || !settings.supportedButtonPollingRates?.includes(hertz)) return;
   stageChange({
     key: "lunafury-button-rate",
     label: `${st("luna.buttonPollingRate")} · ${hertz} Hz`,
@@ -6586,8 +6609,7 @@ export function applyLunaFuryButtonPollingRate(hertz: 1000 | 2000 | 4000 | 8000)
 
 export function applyLunaFuryBottomButtonMode(mode: 1 | 2): void {
   if (gameProfileDraft || latestDeviceStatus?.brand !== "LunaFury"
-    || latestDeviceStatus.lunafury?.bottomButtonMode == null || (mode !== 1 && mode !== 2)
-    || isPendingChange("onboard-profile")) return;
+    || latestDeviceStatus.lunafury?.bottomButtonMode == null || (mode !== 1 && mode !== 2)) return;
   const label = st(mode === 1 ? "luna.bottomPower" : "luna.bottomPowerDpi");
   stageChange({
     key: "lunafury-bottom-button",

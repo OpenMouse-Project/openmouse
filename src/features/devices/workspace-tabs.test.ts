@@ -30,6 +30,17 @@ test("a connected mouse exposes only tabs backed by available controls", () => {
   ]);
 });
 
+test("Games omits device-only bottom-button controls without hiding editable button settings", () => {
+  const deviceOnly = availability({ lunafuryBottomButton: true });
+  assert.equal(availableWorkspaceTabs(true, deviceOnly).includes("buttons"), true);
+  assert.equal(availableWorkspaceTabs(true, deviceOnly, { gameProfile: true }).includes("buttons"), false);
+  for (const field of ["lunafuryButtons", "lunafuryWheelGuard", "buttonMapping"] as const) {
+    assert.equal(availableWorkspaceTabs(true, availability({
+      lunafuryBottomButton: true, [field]: true,
+    }), { gameProfile: true }).includes("buttons"), true);
+  }
+});
+
 test("magnetic buttons put their settings under the buttons tab", () => {
   assert.deepEqual(availableWorkspaceTabs(true, availability({ magnetic: true })), [
     "overview", "performance", "buttons", "advanced",
