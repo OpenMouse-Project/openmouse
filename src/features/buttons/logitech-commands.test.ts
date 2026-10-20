@@ -6,6 +6,15 @@ import { ALT, COMMAND_SECTIONS, CTRL, META, SHIFT, bindingFromKeyEvent, conflict
 
 const entries = COMMAND_SECTIONS.flatMap((section) => section.entries);
 
+test("F13 to F24 record and read back, so a rarely used key can be assigned", () => {
+  assert.equal(usageForCode("F13"), 0x68);
+  assert.equal(usageForCode("F24"), 0x73);
+  assert.equal(usageForCode("F25"), null);
+  assert.equal(keyName(0x68), "F13");
+  assert.equal(keyName(0x73), "F24");
+  assert.equal(shortcutText(0x68, CTRL), "Ctrl + F13");
+});
+
 test("every command has a unique id", () => {
   assert.equal(new Set(entries.map((entry) => entry.id)).size, entries.length);
 });

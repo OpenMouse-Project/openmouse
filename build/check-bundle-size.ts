@@ -4,9 +4,13 @@ import { join } from "node:path";
 // JS raised from 2_800_000: posthog-js (anonymous analytics, src/platform/analytics.ts,
 // the no-external build so nothing is injected past Trusted Types) added about 385 kB;
 // measured 3_171_143 bytes with it.
+// Raised again to 3_230_000 for custom games (dialog, Bridge calls), the game
+// profile Apply now button, Host bunny hop, the side buttons card, custom game
+// pictures, renaming a custom game and a report rate per connection, with their
+// strings in 12 languages. Measured 3_209_919 after the last change.
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 165_000,
-  ".js": 3_200_000,
+  ".js": 3_230_000,
 };
 
 const ASSETS = join("dist", "assets");

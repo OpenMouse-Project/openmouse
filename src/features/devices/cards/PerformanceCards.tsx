@@ -23,6 +23,10 @@ function lodLabel(locale: InterfaceLocale, level: LiftOffLevel): string {
   return level === "Low" ? t(locale, "perf.lodLow") : level === "Medium" ? t(locale, "perf.lodMedium") : t(locale, "perf.lodHigh");
 }
 
+function nearestRateAtOrBelow(options: number[], hz: number): number {
+  return options.filter((rate) => rate <= hz).at(-1) ?? options[0] ?? hz;
+}
+
 export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
@@ -36,6 +40,14 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
   const locked = snapshot.profileFormat?.writable !== true;
   const shared = (snapshot.profileFormat?.id ?? 6) < 6;
   const nativeX11 = isNativeAttackSharkX11(status);
+  // A game profile keeps a rate per connection, like the onboard profiles do.
+  const splitInGame = snapshot.gameProfileDraft && !shared && status.connectionType !== undefined
+    && snapshot.profile.rateOptions.wireless.length > 0 && snapshot.profile.rateOptions.wired.length > 0;
+  const gameRates = (["wireless", "wired"] as const).map((link) => {
+    const options = snapshot.profile.rateOptions[link];
+    const set = link === "wireless" ? status.pollingRateWirelessHz : status.pollingRateWiredHz;
+    return { link, options, hz: snapshot.gameProfileRates[link] ?? set ?? nearestRateAtOrBelow(options, status.pollingRateHz) };
+  });
 
   const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
     .filter((rate) => !(snapshot.traits.eggControls && rate < 1000))
@@ -84,6 +96,25 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               disabled={locked || snapshot.settingInProgress}
               hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
+            />
+          ))}
+        </div>
+      ) : splitInGame ? (
+        <div id="game-rate-rows">
+          {gameRates.map(({ link, hz: shown, options }) => (
+            <RateSlider
+              key={link}
+              locale={locale}
+              id={`game-rate-${link}`}
+              options={options}
+              valueHz={shown}
+              label={displayText(locale, link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless"))}
+              hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
+              onChange={(hz) => {
+                control.applyGameProfilePollingRate(link, hz);
+                // The other slider follows the mouse's live rate until it is set, so it is set here to stay put.
+                for (const other of gameRates) if (other.link !== link) control.applyGameProfilePollingRate(other.link, other.hz);
+              }}
             />
           ))}
         </div>
@@ -350,25 +381,29 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 let lastBunnyHop: ControlSnapshot | null = null;
 
 export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: ControlSnapshot; standalone?: boolean }): ReactNode {
+  const host = !live.profile.entry
+    && (live.status?.deviceMode === "Host" || live.gameProfileDraft)
+    && control.hostBunnyHopSupported(live.status);
   if (live.profile.bunnyHopSupported && live.profile.entry) lastBunnyHop = live;
-  const snapshot = live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
+  const snapshot = !host && live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
     ? lastBunnyHop
     : live;
   const entry = snapshot.profile.entry;
-  if (!snapshot.profile.bunnyHopSupported || !entry) return null;
+  if (!host && (!snapshot.profile.bunnyHopSupported || !entry)) return null;
   const locale = snapshot.preferences.locale;
 
-  const locked = snapshot.profileFormat?.writable !== true;
+  const locked = !host && snapshot.profileFormat?.writable !== true;
   // Support is a property of the format, not of the stored value: a profile
   // that never had bunny hop written reads 0xff and decodes to null, which
   // means off, not unsupported.
-  const value = snapshot.stagedBunnyHopMs ?? entry.bunnyHoppingMs ?? 0;
+  const value = host ? snapshot.status?.hostBunnyHopMs ?? 0 : snapshot.stagedBunnyHopMs ?? entry?.bunnyHoppingMs ?? 0;
+  const apply = host ? control.applyHostBunnyHopMs : control.applyBunnyHopMs;
   const enabled = value !== 0;
 
   const row = (
     <div id="bunny-hop-row">
       <div className={standalone ? "setting-heading superstrike-tuning-heading" : "setting-heading"}>
-        <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{t(locale, "dpi.perProfile")}</span></h2></div>
+        <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{host ? displayText(locale, "Host") : t(locale, "dpi.perProfile")}</span></h2></div>
       </div>
       <div className="bunny-hop-controls">
         <SwitchButton
@@ -376,7 +411,7 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
           value={enabled}
           label={t(locale, "perf.bunnyHop")}
           disabled={locked || snapshot.settingInProgress}
-          onChange={(next) => control.applyBunnyHopMs(next ? BUNNY_HOP_LIMITS.minMs : 0)}
+          onChange={(next) => apply(next ? BUNNY_HOP_LIMITS.minMs : 0)}
         />
         <input
           id="bunny-hop-input"
@@ -391,12 +426,14 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
           // "change" not "input": a number field fires it on blur or Enter, so a
           // value is not staged on every keystroke. min/max/step only gate the
           // spinner, not typing, so the typed value is snapped into range here.
-          onChange={(event) => control.applyBunnyHopMs(clampBunnyHopMs(Number(event.currentTarget.value)))}
+          onChange={(event) => apply(clampBunnyHopMs(Number(event.currentTarget.value)))}
         />
         <span>ms</span>
       </div>
       <small className="setting-note" id="bunny-hop-note">
-        {displayText(locale, locked
+        {displayText(locale, host
+          ? t(locale, "perf.bunnyHostNote")
+          : locked
           ? t(locale, "perf.bunnyReadonly")
           : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs }))}
       </small>
