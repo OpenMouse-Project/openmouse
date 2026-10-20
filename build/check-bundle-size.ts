@@ -3,7 +3,9 @@ import { join } from "node:path";
 
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 165_000,
-  ".js": 2_800_000,
+  // Raised from 2_800_000 for the Amkette XS driver and its shared 0x04F3 codec
+  // in @openmouse/protocol: +18,522 bytes measured against mouse-protocol main.
+  ".js": 2_820_000,
 };
 
 const ASSETS = join("dist", "assets");
