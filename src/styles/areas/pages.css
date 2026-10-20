@@ -86,6 +86,13 @@
 .games-tile-art > img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .games-tile-badge { position: absolute; inset-inline-start: 8px; bottom: 8px; background: var(--solid-2); color: var(--text-1); box-shadow: var(--lit); }
 .games-tile-name { padding: 12px 6px 6px; color: var(--text-1); font-size: var(--fs-body); font-weight: 600; overflow-wrap: anywhere; }
+.game-profile-actions { display: flex; gap: 8px; align-items: center; }
+.customgame-image { display: flex; align-items: center; gap: 12px; }
+.customgame-link { flex: 1; min-width: 0; }
+.customgame-image-preview { width: 64px; height: 48px; object-fit: cover; border-radius: var(--r-sm); }
+.games-grid > li { position: relative; }
+.games-tile-remove { position: absolute; inset-block-start: 14px; inset-inline-end: 14px; background: var(--solid-2); color: var(--text-1); box-shadow: var(--lit); }
+.games-tile-request:disabled { cursor: default; opacity: 0.5; }
 .games-tile-request { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
 .games-tile-request .games-tile-art { box-shadow: none; background: transparent; padding: 16px; }
 .games-tile-request-copy { font-size: var(--fs-meta); color: var(--text-2); text-align: center; }
@@ -116,12 +123,19 @@
 [dir="rtl"] .game-profile-back svg { transform: scaleX(-1); }
 .game-profile-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; padding: 18px; align-items: start; }
 .game-profile-side { min-width: 0; }
-.game-profile-art { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); color: var(--text-3); overflow: hidden; }
+.game-profile-art { display: grid; position: relative; place-items: center; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); color: var(--text-3); overflow: hidden; }
 .game-profile-art img { width: 100%; height: 100%; object-fit: cover; }
+.game-profile-art-change { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; border: 0; background: rgb(var(--shade-rgb) / 0.62); color: var(--text-1); font: inherit; font-size: 13px; cursor: pointer; opacity: 0; transition: opacity 0.15s; }
+.game-profile-art-change:hover, .game-profile-art-change:focus-visible { opacity: 1; }
+@media (hover: none) { .game-profile-art-change { opacity: 1; inset: auto 0 0 0; padding: 8px; grid-auto-flow: column; place-content: center; } }
 .game-profile-settings { min-width: 0; display: grid; gap: 16px; }
 .game-profile-name-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .game-profile-name-card > div { display: grid; gap: 5px; min-width: 0; }
 .game-profile-name { font-size: var(--fs-title); font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.game-profile-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.game-profile-name-edit { flex: none; opacity: 0.6; }
+.game-profile-name-row:hover .game-profile-name-edit, .game-profile-name-edit:focus-visible { opacity: 1; }
+.game-profile-name-input { font-size: var(--fs-title); font-weight: 650; width: 100%; }
 .game-profile-changed { font-size: var(--fs-meta); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .game-profile-section { border-top: 1px solid var(--line-1); padding-top: 14px; }
 .game-profile-section-label { font-size: var(--fs-body); font-weight: 600; margin-bottom: 6px; }

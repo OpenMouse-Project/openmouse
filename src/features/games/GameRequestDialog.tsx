@@ -102,7 +102,7 @@ function useCopied(): [string | null, (key: string, text: string) => void] {
 }
 
 /** Bridge only extracts icons on Windows; everywhere else the URL 404s. */
-function AppIcon({ app }: { app: BridgeApplication }): ReactNode {
+export function AppIcon({ app }: { app: BridgeApplication }): ReactNode {
   const __uiLocale = useUiLocale();
   const [failed, setFailed] = useState(false);
   if (failed) return <Gamepad2 size={18} strokeWidth={1.8} aria-hidden="true" />;
