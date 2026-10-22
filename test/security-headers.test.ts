@@ -42,7 +42,7 @@ test("public/_headers mirrors the canonical security header set", () => {
 
 test("the deployed CSP keeps scripts same-origin and inline-free", () => {
   assert.equal(directive("default-src"), "default-src 'self'");
-  assert.equal(directive("script-src"), "script-src 'self' https://us-assets.i.posthog.com");
+  assert.equal(directive("script-src"), "script-src 'self'");
   assert.ok(!CSP.includes("'unsafe-inline'"), "no directive may allow inline code");
   assert.ok(!CSP.includes("'unsafe-eval'"), "eval must stay blocked");
   assert.equal(directive("script-src-attr"), "script-src-attr 'none'");

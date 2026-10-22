@@ -22,7 +22,7 @@
 
 export const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://us-assets.i.posthog.com",
+  "script-src 'self'",
   "script-src-attr 'none'",
   "style-src 'self' https://fonts.googleapis.com",
   "style-src-attr 'none'",

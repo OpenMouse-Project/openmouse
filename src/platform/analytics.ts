@@ -1,4 +1,4 @@
-import posthogClient from "posthog-js";
+import posthogClient from "posthog-js/dist/module.no-external";
 
 const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
 const posthogHost = import.meta.env.VITE_POSTHOG_HOST;
@@ -6,35 +6,50 @@ const posthogHost = import.meta.env.VITE_POSTHOG_HOST;
 // Without both variables (local dev, forks, previews) analytics is a no-op.
 export const posthog = posthogKey && posthogHost ? posthogClient : undefined;
 
+// Analytics must never take the app down: a failed init just leaves it silent.
+let initialised = false;
 if (posthog) {
-  posthog.init(posthogKey!, {
-    api_host: posthogHost!,
-    defaults: "2026-05-30",
-    // Anonymous random id in localStorage only: counts users and return visits.
-    persistence: "localStorage",
-    ip: false,
-    respect_dnt: true,
-    autocapture: false,
-    disable_session_recording: true,
-    person_profiles: "identified_only",
-    capture_exceptions: true,
-    before_send: scrubExceptionEvent,
-  });
+  try {
+    posthog.init(posthogKey!, {
+      api_host: posthogHost!,
+      defaults: "2026-05-30",
+      // Anonymous random id in localStorage only: counts users and return visits.
+      persistence: "localStorage",
+      ip: false,
+      respect_dnt: true,
+      autocapture: false,
+      disable_session_recording: true,
+      person_profiles: "identified_only",
+      // The bundled build ships no error wrappers, and the lazy-loaded ones would
+      // be blocked by Trusted Types, so uncaught errors are forwarded below.
+      capture_exceptions: false,
+      before_send: scrubExceptionEvent,
+    });
+    window.addEventListener("error", (event) => {
+      posthog.captureException(event.error ?? new Error(event.message));
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      posthog.captureException(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+    });
+    initialised = true;
+  } catch {
+    /* analytics is optional */
+  }
 }
 
 /** Whether anonymous diagnostics are being sent (on unless the user opted out). */
 export function analyticsEnabled(): boolean {
-  return posthog ? !posthog.has_opted_out_capturing() : false;
+  return initialised && posthog ? !posthog.has_opted_out_capturing() : false;
 }
 
 export function setAnalyticsEnabled(enabled: boolean): void {
-  if (!posthog) return;
+  if (!initialised || !posthog) return;
   if (enabled) posthog.opt_in_capturing();
   else posthog.opt_out_capturing();
 }
 
 /** Whether this build reports anything, so Settings can hide a dead switch. */
-export const analyticsAvailable = posthog !== undefined;
+export const analyticsAvailable = initialised;
 
 /** Model-level device facts only: never serials, receiver ids or user text. */
 export interface DeviceFacts {
@@ -105,5 +120,5 @@ function scrubExceptionEvent<T extends OutgoingEvent | null>(event: T): T {
 }
 
 export function track(event: string, props?: Record<string, unknown>): void {
-  posthog?.capture(event, props);
+  if (initialised) posthog?.capture(event, props);
 }
