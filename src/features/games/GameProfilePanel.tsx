@@ -262,7 +262,7 @@ export function GameProfilePanel({
 
   const artwork = catalogEntry ? gameArtwork(catalogEntry) : null;
   const tabs = editing
-    ? availableWorkspaceTabs(true, cardAvailability(snapshot)).filter((entry) => GAME_PROFILE_TABS.includes(entry))
+    ? availableWorkspaceTabs(true, cardAvailability(snapshot), { gameProfile: true }).filter((entry) => GAME_PROFILE_TABS.includes(entry))
     : [];
   const activeTab = tabs.includes(tab) ? tab : tabs[0] ?? "performance";
 
