@@ -320,8 +320,7 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   if (!scale) return null;
 
   const span = Math.max(1, scale.max - scale.min);
-  const millimetres = scale.minMillimetres
-    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / span;
+  const millimetres = control.liftOffScaleMillimetres(scale, code);
 
   return (
     <div id="lod-scale" className="lod-sliders">

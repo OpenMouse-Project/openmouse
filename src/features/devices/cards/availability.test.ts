@@ -402,6 +402,14 @@ test("debounce is offered only by the families that store it", () => {
   })).debounce, false);
 });
 
+test("the Atlantis family (Lamzu Atlantis, Scyrox V8S) gets debounce and sleep", () => {
+  const status = { brand: "Scyrox", ui: { family: "lamzu-atlantis" }, debounceMs: 0, sleepTimeout: 60 } as const;
+  const has = cardAvailability(snapshot({ status }));
+  assert.equal(has.debounce, true);
+  assert.equal(has.sleep, true);
+  assert.equal(traitsFor({ ...STATUS, ...status }).directMode, true, "the debounce ceiling comes from the driver");
+});
+
 test("low power needs the Razer capability, not merely a reported threshold", () => {
   // selectableValues treats an empty option list as unbounded, so a mouse that
   // reports a threshold without the Razer driver must not show the card.
