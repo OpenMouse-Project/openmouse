@@ -122,6 +122,7 @@ export function keyName(usage: number): string {
   if (usage >= 0x1e && usage <= 0x26) return String(usage - 0x1d);
   if (usage === 0x27) return "0";
   if (usage >= 0x3a && usage <= 0x45) return `F${usage - 0x39}`;
+  if (usage >= 0x68 && usage <= 0x73) return `F${usage - 0x68 + 13}`;
   return KEY_NAMES[usage] ?? `Key 0x${usage.toString(16)}`;
 }
 
@@ -204,6 +205,8 @@ export function usageForCode(code: string): number | null {
   if (digit) return digit[1] === "0" ? 0x27 : 0x1d + Number(digit[1]);
   const fn = /^F([1-9]|1[0-2])$/.exec(code);
   if (fn) return 0x39 + Number(fn[1]);
+  const extra = /^F(1[3-9]|2[0-4])$/.exec(code);
+  if (extra) return 0x68 + Number(extra[1]) - 13;
   return CODE_USAGE[code] ?? null;
 }
 

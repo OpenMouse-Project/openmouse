@@ -1,14 +1,16 @@
 import { displayText } from "../../i18n/index";
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, Gamepad2, Plus } from "lucide-react";
-import { bridgeGames, bridgeProfiles, type BridgeGame, type BridgeStatus } from "../bridge/bridge";
+import { Download, Gamepad2, Plus, X } from "lucide-react";
+import { bridgeCustomGames, bridgeGames, bridgeProfiles, customGameImageUrl, saveBridgeCustomGameImage, saveBridgeCustomGames, saveBridgeProfiles, type BridgeGame, type BridgeStatus } from "../bridge/bridge";
 import { isBridgeHidActive, subscribeBridgeHidActive } from "../bridge/bridge-hid";
 import { subscribeBridgeStatus } from "../bridge/bridge-status-store";
 import type { ControlSnapshot } from "../../device/types";
 import { fetchGamesCatalog, gameArtwork } from "./games-catalog";
-import { t } from "../../i18n/index";
+import { t, tp } from "../../i18n/index";
 import { GameProfilePanel } from "./GameProfilePanel";
 import { GameRequestDialog } from "./GameRequestDialog";
+import { CustomGameDialog } from "./CustomGameDialog";
+import { CustomGameImage } from "./CustomGameImage";
 import { BRIDGE_RELEASES_URL } from "../bridge/BridgeStatus";
 
 export function useBridgeActive(): boolean {
@@ -17,17 +19,18 @@ export function useBridgeActive(): boolean {
   return active;
 }
 
-function useBridgeGames(active: boolean): BridgeGame[] {
-  const [games, setGames] = useState<BridgeGame[]>([]);
+/** `games` is the catalog plus `custom`, the games added by hand. */
+function useBridgeGames(active: boolean, version: number): { games: BridgeGame[]; custom: BridgeGame[] } {
+  const [lists, setLists] = useState<{ games: BridgeGame[]; custom: BridgeGame[] }>({ games: [], custom: [] });
   useEffect(() => {
     if (!active) return;
-    // The games list only changes with a commit to Desktop's repo, not
-    // anything a session does — one fetch per connection is plenty.
     const controller = new AbortController();
-    void bridgeGames(controller.signal).then(setGames).catch(() => undefined);
+    void Promise.all([bridgeGames(controller.signal), bridgeCustomGames(controller.signal)])
+      .then(([games, custom]) => setLists({ games, custom }))
+      .catch(() => undefined);
     return () => controller.abort();
-  }, [active]);
-  return games;
+  }, [active, version]);
+  return lists;
 }
 
 function useCatalog(): { artwork: Map<string, string>; games: BridgeGame[] } {
@@ -52,16 +55,52 @@ function useCatalog(): { artwork: Map<string, string>; games: BridgeGame[] } {
 export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const locale = snapshot.preferences.locale;
   const active = useBridgeActive();
-  const bridgeList = useBridgeGames(active);
+  const [gamesVersion, setGamesVersion] = useState(0);
+  const { games: bridgeList, custom: customGames } = useBridgeGames(active, gamesVersion);
   const catalog = useCatalog();
   const artwork = catalog.artwork;
   const games = active ? bridgeList : catalog.games;
+  const customNames = new Set(customGames.map((game) => game.name.toLowerCase()));
   const [status, setStatus] = useState<BridgeStatus | null>(null);
   const [profiled, setProfiled] = useState<Set<string>>(new Set());
   const [selectedGame, setSelectedGame] = useState<BridgeGame | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
 
   useEffect(() => subscribeBridgeStatus(setStatus), []);
+
+  /** Bridge keys a custom game's picture and profile by its name, so both move with it. */
+  async function renameCustomGame(game: BridgeGame, name: string): Promise<"renamed" | "duplicate" | "failed"> {
+    const wanted = name.trim();
+    if (wanted === "" || wanted === game.name) return "failed";
+    const taken = bridgeList.some((entry) => entry.name !== game.name && entry.name.toLowerCase() === wanted.toLowerCase());
+    if (taken) return "duplicate";
+    try {
+      const picture = await fetch(customGameImageUrl(game.name)).then((response) => (response.ok ? response.blob() : null)).catch(() => null);
+      await saveBridgeCustomGames(customGames.map((entry) => (entry.name === game.name ? { ...entry, name: wanted } : entry)));
+      if (picture) await saveBridgeCustomGameImage(wanted, picture).catch(() => undefined);
+      const profiles = await bridgeProfiles();
+      if (profiles.some((profile) => profile.application.name.toLowerCase() === game.name.toLowerCase())) {
+        await saveBridgeProfiles(profiles.map((profile) => (
+          profile.application.name.toLowerCase() === game.name.toLowerCase()
+            ? { ...profile, application: { ...profile.application, name: wanted } }
+            : profile
+        )));
+      }
+      setSelectedGame({ ...game, name: wanted });
+      setGamesVersion((version) => version + 1);
+      return "renamed";
+    } catch {
+      return "failed";
+    }
+  }
+
+  function removeCustomGame(game: BridgeGame): void {
+    const remaining = customGames.filter((entry) => entry.name !== game.name);
+    void saveBridgeCustomGames(remaining)
+      .then(() => setGamesVersion((version) => version + 1))
+      .catch(() => undefined);
+  }
 
   // Refetched every time the grid comes back into view, so a profile just
   // turned on/off in GameProfilePanel shows up in its badge immediately.
@@ -77,7 +116,16 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   }, [active, selectedGame]);
 
   if (selectedGame) {
-    return <GameProfilePanel snapshot={snapshot} game={selectedGame} onBack={() => setSelectedGame(null)} />;
+    return (
+      <GameProfilePanel
+        snapshot={snapshot}
+        game={selectedGame}
+        custom={customNames.has(selectedGame.name.toLowerCase())}
+        onImageChanged={() => setGamesVersion((version) => version + 1)}
+        onRename={(name) => renameCustomGame(selectedGame, name)}
+        onBack={() => setSelectedGame(null)}
+      />
+    );
   }
 
   return (
@@ -117,10 +165,13 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
       <ul className={`games-grid${active ? "" : " is-locked"}`}>
         {games.map((game) => {
           const art = artwork.get(game.name.toLowerCase());
+          const isCustom = active && customNames.has(game.name.toLowerCase());
           const body = (
             <>
               <span className="games-tile-art">
-                {art ? (
+                {isCustom ? (
+                  <CustomGameImage name={game.name} version={gamesVersion} />
+                ) : art ? (
                   <img src={art} alt={displayText(locale, "")} loading="lazy" />
                 ) : (
                   <Gamepad2 size={28} strokeWidth={1.6} aria-hidden="true" />
@@ -139,9 +190,29 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
               ) : (
                 <div className="games-tile">{body}</div>
               )}
+              {active && customNames.has(game.name.toLowerCase()) ? (
+                <button
+                  type="button"
+                  className="om-icon-btn games-tile-remove"
+                  aria-label={tp(locale, "customgame.removeLabel", { name: game.name })}
+                  title={tp(locale, "customgame.removeLabel", { name: game.name })}
+                  onClick={() => removeCustomGame(game)}
+                >
+                  <X size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+              ) : null}
             </li>
           );
         })}
+        <li>
+          <button type="button" className="games-tile games-tile-request" disabled={!active} onClick={() => setCustomOpen(true)}>
+            <span className="games-tile-art">
+              <Plus size={28} strokeWidth={2} aria-hidden="true" />
+              <span className="games-tile-request-copy">{t(locale, "customgame.tileHint")}</span>
+            </span>
+            <span className="games-tile-name">{t(locale, "customgame.tile")}</span>
+          </button>
+        </li>
         <li>
           <button type="button" className="games-tile games-tile-request" onClick={() => setRequestOpen(true)}>
             <span className="games-tile-art">
@@ -152,6 +223,15 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
           </button>
         </li>
       </ul>
+
+      <CustomGameDialog
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        locale={locale}
+        knownGames={games}
+        customGames={customGames}
+        onSaved={() => setGamesVersion((version) => version + 1)}
+      />
 
       <GameRequestDialog
         open={requestOpen}
