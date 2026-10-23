@@ -20,6 +20,7 @@ export const PREVIEW_KEYS = [
   "wlmouse",
   "lamzu",
   "attack-shark",
+  "kilonova",
   "crdrako",
   "m3k",
   "atk",
@@ -70,6 +71,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "wlmouse": return "wlmouse";
     case "lamzu": return "lamzu";
     case "attack-shark": return "attack-shark";
+    case "kilonova": return "kilonova";
     case "crdrako": return "crdrako";
     case "m3k": return "m3k";
     case "atk": return "atk";
