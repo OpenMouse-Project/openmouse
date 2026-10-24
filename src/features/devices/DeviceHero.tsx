@@ -30,6 +30,7 @@ export function DeviceHero({
   const activeEntry = snapshot.devices.find((device) => device.selected) ?? null;
   const name = status?.name ?? keyboard?.name ?? activeEntry?.name ?? "";
   const brand = status ? noirBrandLabel(status) : null;
+  const statusNote = status?.ui?.statusNote ?? null;
   const image = snapshot.deviceArtwork
     ?? (keyboard ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
   const needsArtwork = Boolean(status && active && (imageFailed || isUnknownDevice(
@@ -82,6 +83,7 @@ export function DeviceHero({
             {brand ? <><span className="om-sep" aria-hidden="true">·</span><span>{displayText(locale, brand)}</span></> : null}
             {status?.connectionDetail ? <><span className="om-sep" aria-hidden="true">·</span><span>{displayText(locale, status.connectionDetail)}</span></> : null}
             {activeEntry?.transport === "bridge" ? <><span className="om-sep" aria-hidden="true">·</span><span>{t(locale, "bridge.title")}</span></> : null}
+            {statusNote ? <><span className="om-sep" aria-hidden="true">·</span><span>{statusNote}</span></> : null}
           </p>
           {status ? <DeviceStats status={status} locale={locale} transport={activeEntry?.transport} full /> : null}
         </div>
@@ -152,6 +154,8 @@ export function CurrentSetupPanel({ snapshot }: { snapshot: ControlSnapshot }): 
       unit: "%",
       sub: displayText(locale, status.batteryState),
     });
+  } else if (status.ui?.forceShowBattery === true) {
+    figures.push({ key: "battery", label: t(locale, "ov.batteryLabel"), value: "–" });
   }
   if (status.activeProfile != null) {
     figures.push({ key: "profile", label: t(locale, "ov.onboardProfile"), value: String(status.activeProfile) });
