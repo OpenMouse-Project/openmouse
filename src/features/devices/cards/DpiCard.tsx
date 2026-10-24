@@ -239,14 +239,14 @@ function DpiStageEditor({
     }
   };
 
-  const markEdited = (next: StageRow[], delay = 450): void => {
+  const markEdited = (delay = 450, nextRows?: StageRow[]): void => {
     touchedRef.current = Date.now();
+    const snapshotRows = nextRows ?? rowsRef.current;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-      commit(rowsRef.current);
+      commit(snapshotRows);
     }, delay);
-    void next;
   };
 
   const flushEdit = (): void => {
@@ -284,7 +284,7 @@ function DpiStageEditor({
     if (fixedStageCount) return;
     setRows(next);
     rowsRef.current = next;
-    markEdited(next);
+    markEdited();
   };
 
   const TYPING_DELAY = 1200;
@@ -296,7 +296,7 @@ function DpiStageEditor({
       : row));
     setRows(next);
     rowsRef.current = next;
-    markEdited(next, delay);
+    markEdited(delay);
   };
 
   const inputEdit = (event: Event, oldRaw: string): { raw: string; delay?: number } => {
@@ -321,14 +321,14 @@ function DpiStageEditor({
     });
     setRows(next);
     rowsRef.current = next;
-    markEdited(next);
+    markEdited();
   };
 
   const setValueY = (index: number, raw: string, delay?: number): void => {
     const next = rows.map((row, i) => (i === index ? { ...row, valueY: raw.replace(/[^\d]/g, "") } : row));
     setRows(next);
     rowsRef.current = next;
-    markEdited(next, delay);
+    markEdited(delay);
   };
 
   const setSlider = (index: number, numeric: number): void => setValue(index, String(numeric));

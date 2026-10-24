@@ -82,6 +82,28 @@ test("a payload without a message or id produces no banner", async () => {
   );
 });
 
+test("non-web notice links are dropped instead of reaching the banner anchor", async () => {
+  for (const url of ["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:msgbox(1)"]) {
+    await withFetch(
+      async () => Response.json({ id: "x", message: "Hello", url }),
+      async () => {
+        assert.equal((await fetchNews())?.url, undefined, url);
+      },
+    );
+  }
+});
+
+test("web and relative notice links are kept", async () => {
+  for (const url of ["https://openmouse.app/blog", "http://example.test/note", "/news/item"]) {
+    await withFetch(
+      async () => Response.json({ id: "x", message: "Hello", url }),
+      async () => {
+        assert.equal((await fetchNews())?.url, url);
+      },
+    );
+  }
+});
+
 test("an aborted request does not retry against the fallback", async () => {
   const requested: string[] = [];
   const controller = new AbortController();

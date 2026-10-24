@@ -20,6 +20,14 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string): void { this.#values.set(key, value); }
 }
 
+test("a failing storage write does not break the settings update", () => {
+  const storage = new MemoryStorage();
+  storage.setItem = () => {
+    throw new DOMException("Quota exceeded", "QuotaExceededError");
+  };
+  assert.doesNotThrow(() => saveInterfacePreferences(storage, DEFAULT_INTERFACE_PREFERENCES));
+});
+
 test("interface preferences restore only supported values", () => {
   const storage = new MemoryStorage();
   saveInterfacePreferences(storage, {

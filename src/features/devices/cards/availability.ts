@@ -136,7 +136,6 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || status.angleTuning != null
     || status.longRangeMode != null
     || status.sensorMode != null || status.performanceDuration != null
-    || status.longRangeMode != null
   );
 
   const eggs = host && traits.eggControls;
