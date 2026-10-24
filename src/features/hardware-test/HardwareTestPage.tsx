@@ -320,8 +320,22 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   note: "the reporting rate changes briefly",
                   currentRaw: rateCurrent,
                   targetRaw: rateTarget,
-                  stageTarget: () => { control.applyPollingRate(rateTarget); return true; },
-                  stageRestore: () => { control.applyPollingRate(rateCurrent); return true; },
+                  stageTarget: () => {
+                    try {
+                      control.applyPollingRate(rateTarget);
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
+                  stageRestore: () => {
+                    try {
+                      control.applyPollingRate(rateCurrent);
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
                   read: () => control.getSnapshot().status?.pollingRateHz ?? null,
                 }));
               }
@@ -343,8 +357,22 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   note: "the sensor lift height changes briefly",
                   currentRaw: lodCurrent,
                   targetRaw: lodTarget,
-                  stageTarget: () => { control.applyLiftOffDistance(lodTarget); return true; },
-                  stageRestore: () => { control.applyLiftOffDistance(lodCurrent); return true; },
+                  stageTarget: () => {
+                    try {
+                      control.applyLiftOffDistance(lodTarget);
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
+                  stageRestore: () => {
+                    try {
+                      control.applyLiftOffDistance(lodCurrent);
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  },
                   read: () => control.getSnapshot().status?.liftOffDistance ?? null,
                 }));
               }

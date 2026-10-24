@@ -48,11 +48,11 @@ export function ProfileKeyFields({ snapshot }: { snapshot: ControlSnapshot }): R
           disabled={!key}
           onClick={() => {
             if (!key) return;
-            void navigator.clipboard.writeText(key).then(() => {
+            void navigator.clipboard?.writeText(key).then(() => {
               track("profile_key_copied");
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
-            });
+            }).catch(() => undefined);
           }}
         >
           {displayText(locale, copied ? t(locale, "set.copied") : t(locale, "set.copyKey"))}

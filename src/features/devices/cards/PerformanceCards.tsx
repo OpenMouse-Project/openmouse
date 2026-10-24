@@ -496,7 +496,7 @@ export function DynamicSensitivityCard({ snapshot }: { snapshot: ControlSnapshot
 
   const customPoints = draft ?? curves?.custom ?? null;
   const updateDraftPoint = (index: number, field: "speed" | "gain", value: number): void => {
-    const base = (curves?.custom ?? []).map((point) => ({ ...point }));
+    const base = (draft ?? curves?.custom ?? []).map((point) => ({ ...point }));
     while (base.length < 5) base.push({ speed: 0, gain: 1 });
     base[index] = { ...base[index]!, [field]: value };
     setDraft(base);

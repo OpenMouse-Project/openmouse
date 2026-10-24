@@ -141,7 +141,7 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
   const isNoirProfile = isNoirKsnakeStatus(status);
   const profileImportRef = useRef<HTMLInputElement>(null);
   if (!status || !isNoirProfile || snapshot.m2nexProfiles === null) return null;
-  const profile = snapshot.m2nexProfiles[snapshot.activeM2NexProfile];
+  const profile = snapshot.m2nexProfiles[snapshot.activeM2NexProfile] ?? snapshot.m2nexProfiles[0];
   if (!profile) return null;
   const applyDisabled = snapshot.settingInProgress || snapshot.pending.count > 0;
   return (
@@ -206,7 +206,7 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = "";
           if (!file) return;
-          void file.text().then((text) => control.importM2NexProfiles(text));
+          void file.text().then((text) => control.importM2NexProfiles(text)).catch(() => undefined);
         }}
       />
     </section>

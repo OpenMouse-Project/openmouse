@@ -93,7 +93,14 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
         return;
       }
       const binding = bindingFromKeyEvent(event);
-      if (!binding || binding.kind !== "keyboard") return;
+      if (!binding) {
+        setRecording(false);
+        return;
+      }
+      if (binding.kind !== "keyboard") {
+        setRecording(false);
+        return;
+      }
       void control.applyLogitechButtonAssignment(layer, selected, binding);
       setPending((previous) => ({ ...previous, [`${layer}-${selected}`]: shortcutText(binding.key, binding.modifiers) }));
       setRecording(false);
@@ -132,8 +139,12 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
   const defaultFor = (button: number): LogitechButtonAction => (layer === "primary" ? DEFAULT_ACTION[button] : "Disabled") as LogitechButtonAction;
   const reset = async (buttons: number[]): Promise<void> => {
     for (const button of buttons) {
-      await control.applyLogitechButtonAssignment(layer, button, defaultFor(button));
-      setPending((previous) => ({ ...previous, [`${layer}-${button}`]: defaultFor(button) }));
+      try {
+        await control.applyLogitechButtonAssignment(layer, button, defaultFor(button));
+        setPending((previous) => ({ ...previous, [`${layer}-${button}`]: defaultFor(button) }));
+      } catch {
+        // Keep going; failure is reported through the existing pending/flash flow.
+      }
     }
   };
   const unlocked = layout.spots.filter((spot) => !isLocked(spot)).map((spot) => spot.button);
