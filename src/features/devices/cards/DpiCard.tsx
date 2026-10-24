@@ -9,6 +9,7 @@ import * as control from "../../../device/controller";
 import type { ControlSnapshot, LiftOffLevel } from "../../../device/types";
 import { isNoirE1Status, isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLORS } from "../../../device/noir.ts";
 import { closestDpiOption, dpiPresetValues } from "../../../device/dpi-presets";
+import { createDpiEditDebouncer } from "./dpi-edit-debounce";
 import { t, tp } from "../../../i18n/index";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
 import { IconLinked, IconUnlinked } from "../../../shared/icons";
@@ -110,13 +111,13 @@ function DpiStageEditor({
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const touchedRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [edits] = useState(() => createDpiEditDebouncer());
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      edits.cancel();
     };
-  }, []);
+  }, [edits]);
 
   const fixedStageCount = mode === "stage" && stageEditor?.countEditable !== true;
   const fillsStageTable = singleFillsStageTable(snapshot);
@@ -160,7 +161,7 @@ function DpiStageEditor({
   useEffect(() => {
     if (sourceSig === lastSigRef.current) return;
     lastSigRef.current = sourceSig;
-    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !timerRef.current)) setRows(initRows(rowsRef.current));
+    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !edits.pending())) setRows(initRows(rowsRef.current));
     // initRows is recreated each render on purpose so it always reads fresh snapshot data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceSig]);
@@ -242,17 +243,11 @@ function DpiStageEditor({
   const markEdited = (delay = 450, nextRows?: StageRow[]): void => {
     touchedRef.current = Date.now();
     const snapshotRows = nextRows ?? rowsRef.current;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      commit(snapshotRows);
-    }, delay);
+    edits.schedule(() => commit(snapshotRows), delay);
   };
 
   const flushEdit = (): void => {
-    if (!timerRef.current) return;
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
+    if (!edits.cancel()) return;
     commit(rowsRef.current);
   };
 
@@ -262,6 +257,10 @@ function DpiStageEditor({
       if (!enabled || next[index].enabled === rows[index].enabled) return;
       const snap = closestDpiOption(options, parseRow(next[index].value) ?? status?.dpi ?? 0);
       if (snap === null) return;
+      // A slider or typed edit may still have a debounced commit pending with
+      // the rows it captured. The pick is newer, so drop that commit or it
+      // would re-apply the old row's DPI over this one when it fires.
+      edits.cancel();
       const selected = next.map((row, i) => (i === index ? { ...row, enabled: true } : { ...row, enabled: false }));
       setRows(selected);
       rowsRef.current = selected;
