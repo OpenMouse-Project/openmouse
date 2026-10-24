@@ -257,7 +257,9 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
             return { setting: leg.setting, current: leg.current, target: leg.target, status: "fail", detail: `wrote ${leg.target} but read back something else — the write did not stick.` };
           }
           try {
-            leg.stageRestore();
+            if (!leg.stageRestore()) {
+              return { setting: leg.setting, current: leg.current, target: leg.target, status: "fail", detail: `restore to ${leg.current} failed after reading back ${leg.target} — device settings may have changed.` };
+            }
             await control.flashPendingChanges();
             if (leg.read() !== leg.currentRaw) {
               return { setting: leg.setting, current: leg.current, target: leg.target, status: "fail", detail: `restore to ${leg.current} failed after reading back ${leg.target} — device settings may have changed.` };
@@ -298,7 +300,13 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
                   currentRaw: dpiCurrent,
                   targetRaw: dpiTarget,
                   stageTarget: () => control.applyDpiValue(dpiTarget),
-                  stageRestore: () => control.applyDpiValue(dpiCurrent),
+                  stageRestore: () => {
+                    try {
+                      return control.applyDpiValue(dpiCurrent);
+                    } catch {
+                      return false;
+                    }
+                  },
                   read: () => control.getSnapshot().status?.dpi ?? null,
                 }));
               }

@@ -206,7 +206,12 @@ function M2NexProfileOverview({ snapshot }: { snapshot: ControlSnapshot }): Reac
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = "";
           if (!file) return;
-          void file.text().then((text) => control.importM2NexProfiles(text)).catch(() => undefined);
+          void file
+            .text()
+            .then((text) => control.importM2NexProfiles(text))
+            .catch((error) => {
+              control.pushToast("error", "Import failed", error instanceof Error ? error.message : undefined);
+            });
         }}
       />
     </section>

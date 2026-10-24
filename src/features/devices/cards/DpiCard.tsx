@@ -239,12 +239,13 @@ function DpiStageEditor({
     }
   };
 
-  const markEdited = (delay = 450): void => {
+  const markEdited = (delay = 450, nextRows?: StageRow[]): void => {
     touchedRef.current = Date.now();
+    const snapshotRows = nextRows ?? rowsRef.current;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-      commit(rowsRef.current);
+      commit(snapshotRows);
     }, delay);
   };
 

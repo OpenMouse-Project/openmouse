@@ -92,8 +92,15 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
         setRecording(false);
         return;
       }
+      const isModifierKey = event.code === "ShiftLeft" || event.code === "ShiftRight" || event.code === "ControlLeft" || event.code === "ControlRight" || event.code === "AltLeft" || event.code === "AltRight" || event.code === "MetaLeft" || event.code === "MetaRight" || event.code === "OSLeft" || event.code === "OSRight";
+      if (isModifierKey) {
+        return;
+      }
       const binding = bindingFromKeyEvent(event);
-      if (!binding) return;
+      if (!binding) {
+        setRecording(false);
+        return;
+      }
       if (binding.kind !== "keyboard") {
         setRecording(false);
         return;
