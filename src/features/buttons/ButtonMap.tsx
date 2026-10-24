@@ -93,10 +93,7 @@ export function ButtonMap({ snapshot: live }: { snapshot: ControlSnapshot }): Re
         return;
       }
       const binding = bindingFromKeyEvent(event);
-      if (!binding) {
-        setRecording(false);
-        return;
-      }
+      if (!binding) return;
       if (binding.kind !== "keyboard") {
         setRecording(false);
         return;
