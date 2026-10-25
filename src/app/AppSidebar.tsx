@@ -76,7 +76,7 @@ function SidebarDeviceRow({
   const device = snapshot.devices.find((entry) => entry.index === index);
   if (!device) return null;
   const live = device.selected && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
-  const status = live ? snapshot.deviceStatus : null;
+  const mouseStatus = live ? snapshot.deviceStatus : null;
   const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
   return (
     <li>
@@ -102,10 +102,10 @@ function SidebarDeviceRow({
         <span className="om-side-device-text">
           <span className="om-side-device-name">{device.name}</span>
           <span className="om-side-device-sub">
-            {status?.batteryPercent != null ? (
+            {mouseStatus?.batteryPercent != null ? (
               <>
-                <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
-                <span>{status.batteryPercent}%</span>
+                <BatteryIcon percent={mouseStatus.batteryPercent} state={mouseStatus.batteryState} />
+                <span>{mouseStatus.batteryPercent}%</span>
               </>
             ) : (
               <span>{live ? t(locale, "side.connected") : t(locale, "home.notConnected")}</span>

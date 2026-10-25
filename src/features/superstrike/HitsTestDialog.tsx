@@ -99,7 +99,7 @@ export function HitsTestDialog({
       setNote("Too early. Wait for blue.");
       setPhase("idle");
     } else if (phase === "go") {
-      const reaction = event.timeStamp - goAt.current;
+      const reaction = performance.now() - goAt.current;
       setPhase("settle");
       timer.current = window.setTimeout(() => {
         const saved = savedMs(samples.current, actuationRef.current[sideRef.current]);

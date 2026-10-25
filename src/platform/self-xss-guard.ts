@@ -11,7 +11,7 @@
  * debugging, and misfire on browsers with wide chrome (e.g. Firefox forks
  * with vertical tabs or sidebars).
  *
- * Call only on production builds (see control.tsx).
+ * Call only on production builds (see main.tsx).
  */
 
 const WARNING_TITLE = "Stop!";

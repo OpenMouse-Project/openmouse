@@ -280,8 +280,13 @@ let keyboardWorkspace = emptyKeyboardWorkspace();
 let keyboardBusy = false;
 let keyboardStatusText: string | null = null;
 let x11PollingRateHz = (() => {
-  const saved = Number(window.localStorage.getItem(X11_POLLING_STORAGE_KEY));
-  return X11_POLLING_RATES_HZ.includes(saved) ? saved : 1000;
+  try {
+    const saved = Number(window.localStorage.getItem(X11_POLLING_STORAGE_KEY));
+    return X11_POLLING_RATES_HZ.includes(saved) ? saved : 1000;
+  } catch {
+    // Storage can be unavailable (private mode, blocked cookies).
+    return 1000;
+  }
 })();
 
 /** True for the specific Attack Shark X11 units whose settings channel is native-only. */
@@ -5441,7 +5446,11 @@ export function applyPollingRate(rate: number): void {
       if (nativeX11) {
         await applyBridgeNativeSettings({ brand: "Attack Shark", pollingRateHz: rate });
         x11PollingRateHz = rate;
-        window.localStorage.setItem(X11_POLLING_STORAGE_KEY, String(rate));
+        try {
+          window.localStorage.setItem(X11_POLLING_STORAGE_KEY, String(rate));
+        } catch {
+          // The rate is applied; persistence is best effort.
+        }
       } else {
         await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
       }

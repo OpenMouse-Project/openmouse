@@ -207,7 +207,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                 diffs,
                 sectors,
               });
-              void navigator.clipboard.writeText(markdown).then(
+              void (navigator.clipboard?.writeText(markdown) ?? Promise.reject(new Error("Clipboard unavailable."))).then(
                 () => setMessage("Capture copied — paste it into a GitHub issue."),
                 () => setMessage("Could not copy to the clipboard."),
               );

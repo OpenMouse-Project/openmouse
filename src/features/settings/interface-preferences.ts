@@ -129,7 +129,12 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
 }
 
 export function saveInterfacePreferences(storage: Storage, preferences: InterfacePreferences): void {
-  storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  } catch {
+    // Storage can be unavailable or full (private mode, blocked cookies).
+    // Losing persistence is preferable to breaking the settings UI.
+  }
 }
 
 /** Dataset value for the theme selector. Display names carry spaces, one
