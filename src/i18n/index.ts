@@ -151,6 +151,8 @@ const en = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "OpenMouse cannot read the receiver's firmware version, so it is not checked against update data.",
+  "fw.receiverMcu": "MCU {mcu} bootloader {value}",
   "ov.connection": "CONNECTION",
   "ov.connReceiver": "2.4 GHz receiver",
   "ov.conn24": "2.4 GHz",

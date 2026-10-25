@@ -85,27 +85,15 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const mouseVisible = mouseDfu !== null && !isDfuDismissed(deviceKey, mouseDfu.latestVersion) ? mouseDfu : null;
 
   const receiver = snapshot.receiverFirmware;
-  // Primary readout is the MCU2/CC14 line. Both MCU readouts are
-  // bootloader identifiers (proven static across a real 14.3.19 -> 14.4.20
-  // flash), so they identify hardware only — version verdicts need an app
-  // firmware source that WebHID cannot reach yet.
-  const primaryMcu = receiver?.mcus.find((entry) => entry.mcu === 2) ?? receiver?.mcus[0] ?? null;
-  const receiverRef = receiver === null || primaryMcu === null || primaryMcu.version === null ? null : {
-    brand: status.brand,
-    name: status.name,
-    modelId: null as string | null,
-    firmware: ['Receiver ' + primaryMcu.version],
-    interfaceId: receiver.interfaceId,
-  };
-  const receiverDfu: DfuInfo | null = manifest !== null && receiverRef !== null
-    ? getDfuInfo(receiverRef, manifest)
-    : null;
-  const receiverKey = receiver === null ? '' : 'receiver:' + receiver.interfaceId;
-  const receiverVisible = receiverDfu !== null && !isDfuDismissed(receiverKey, receiverDfu.latestVersion)
-    ? receiverDfu
-    : null;
+  // Both MCU readouts are bootloader identifiers (proven static across a
+  // real 14.3.19 -> 14.4.20 flash), so they identify hardware only. They
+  // can never be compared against the manifest's package versions — doing
+  // so reports "update available" on receivers that are already current
+  // (issue #1111). No dfuInfo is produced for the receiver; the row below
+  // is informational until an app-firmware source exists.
+  const receiverMcus = receiver?.mcus ?? [];
 
-  const available = [mouseVisible, receiverVisible].filter((info) => info?.dfuAvailable);
+  const available = [mouseVisible].filter((info) => info?.dfuAvailable);
   const download = available.find((info) => info?.downloadUrl) ?? null;
 
   let pill: string;
@@ -113,7 +101,7 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
     pill = t(locale, "fw.checking");
   } else if (available.length > 0) {
     pill = t(locale, "fw.available");
-  } else if (mouseVisible || receiverVisible) {
+  } else if (mouseVisible) {
     pill = t(locale, "fw.upToDate");
   } else {
     pill = t(locale, "fw.unknown");
@@ -122,7 +110,6 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
 
   function dismissAll(): void {
     if (mouseVisible) dismissDfuVersion(deviceKey, mouseVisible.latestVersion);
-    if (receiverVisible) dismissDfuVersion(receiverKey, receiverVisible.latestVersion);
     setDismissTick((n) => n + 1);
   }
 
@@ -201,13 +188,17 @@ export function FirmwareCard({ snapshot }: { snapshot: ControlSnapshot }): React
             </div>
             {deviceDetails(mouseVisible, mouseDfu?.currentVersion ?? null)}
           </div>
-          {receiver !== null ? (
+          {receiverMcus.length > 0 ? (
             <div className="fw-device">
               <div className="setting-heading compact">
                 <div><p>{t(locale, "hw.receiver")}</p></div>
-                {rowBadge(receiverVisible)}
               </div>
-              {deviceDetails(receiverVisible, primaryMcu?.version ?? null)}
+              <small className="setting-note">{t(locale, "fw.receiverIdentity")}</small>
+              <ul className="fw-history">
+                {receiverMcus.map((mcu) => (
+                  <li key={mcu.mcu}>{tp(locale, "fw.receiverMcu", { mcu: mcu.mcu, value: mcu.version ?? "–" })}</li>
+                ))}
+              </ul>
             </div>
           ) : null}
           {manifestDate ? (

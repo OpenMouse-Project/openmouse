@@ -95,6 +95,8 @@ export const tr: Record<I18nKey, string> = {
   "fw.history": "Sürüm geçmişi",
   "fw.dataFrom": "{date} tarihli güncelleme verileri",
   "fw.sectionLabel": "Aygıt yazılımı güncellemesi",
+  "fw.receiverIdentity": "Alıcının aygıt yazılımı sürümü okunamıyor, bu yüzden güncelleme verileriyle karşılaştırılmıyor.",
+  "fw.receiverMcu": "MCU {mcu} önyükleyici {value}",
   "ov.connection": "BAĞLANTI",
   "ov.connReceiver": "2,4 GHz alıcı",
   "ov.conn24": "2,4 GHz",

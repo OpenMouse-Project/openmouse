@@ -95,6 +95,8 @@ export const ar: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "لا يمكن لـ OpenMouse قراءة إصدار برنامج المستقبل الثابت، لذلك لا يُفحص بحثًا عن تحديثات.",
+  "fw.receiverMcu": "مُحمّل إقلاع MCU {mcu} {value}",
   "ov.connection": "الاتصال",
   "ov.connReceiver": "مستقبل 2.4 GHz",
   "ov.conn24": "2.4 GHz",

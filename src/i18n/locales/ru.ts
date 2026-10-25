@@ -95,6 +95,8 @@ export const ru: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "Версия прошивки приёмника недоступна для чтения, поэтому она не сравнивается с данными обновлений.",
+  "fw.receiverMcu": "Загрузчик MCU {mcu} {value}",
   "ov.connection": "ПОДКЛЮЧЕНИЕ",
   "ov.connReceiver": "Приёмник 2,4 ГГц",
   "ov.conn24": "2,4 ГГц",

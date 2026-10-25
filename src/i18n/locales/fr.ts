@@ -95,6 +95,8 @@ export const fr: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "OpenMouse ne peut pas lire la version du firmware du récepteur, il n'est donc pas vérifié.",
+  "fw.receiverMcu": "Bootloader du MCU {mcu} {value}",
   "ov.connection": "CONNEXION",
   "ov.connReceiver": "Récepteur 2,4 GHz",
   "ov.conn24": "2,4 GHz",

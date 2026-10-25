@@ -95,6 +95,8 @@ export const pt: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "A versão de firmware do receptor não pode ser lida, por isso não é verificada contra dados de atualização.",
+  "fw.receiverMcu": "Bootloader do MCU {mcu} {value}",
   "ov.connection": "CONEXÃO",
   "ov.connReceiver": "Receptor 2,4 GHz",
   "ov.conn24": "2,4 GHz",

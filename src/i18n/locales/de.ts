@@ -95,6 +95,8 @@ export const de: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "Die Firmware-Version des Empfängers kann nicht gelesen werden, daher wird er nicht auf Updates geprüft.",
+  "fw.receiverMcu": "MCU {mcu} Bootloader {value}",
   "ov.connection": "VERBINDUNG",
   "ov.connReceiver": "2,4-GHz-Empfänger",
   "ov.conn24": "2,4 GHz",

@@ -95,6 +95,8 @@ export const ja: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "OpenMouse はレシーバーのファームウェアバージョンを読み取れないため、更新データとの照合は行われません。",
+  "fw.receiverMcu": "MCU {mcu} ブートローダー {value}",
   "ov.connection": "接続",
   "ov.connReceiver": "2.4 GHz レシーバー",
   "ov.conn24": "2.4 GHz",

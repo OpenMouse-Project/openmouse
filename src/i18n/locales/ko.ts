@@ -95,6 +95,8 @@ export const ko: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "OpenMouse는 수신기의 펌웨어 버전을 읽을 수 없어 업데이트 데이터와 비교하지 않습니다.",
+  "fw.receiverMcu": "MCU {mcu} 부트로더 {value}",
   "ov.connection": "연결",
   "ov.connReceiver": "2.4 GHz 수신기",
   "ov.conn24": "2.4 GHz",

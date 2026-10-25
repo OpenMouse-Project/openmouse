@@ -95,6 +95,8 @@ export const vi: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "OpenMouse không đọc được phiên bản firmware của bộ thu, nên không kiểm tra cập nhật cho nó.",
+  "fw.receiverMcu": "Bootloader MCU {mcu} {value}",
   "ov.connection": "KẾT NỐI",
   "ov.connReceiver": "Receiver 2.4 GHz",
   "ov.conn24": "2.4 GHz",

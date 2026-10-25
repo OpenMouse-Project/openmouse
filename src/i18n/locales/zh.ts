@@ -95,6 +95,8 @@ export const zh: Record<I18nKey, string> = {
   "fw.history": "Version history",
   "fw.dataFrom": "Update data from {date}",
   "fw.sectionLabel": "Firmware update",
+  "fw.receiverIdentity": "无法读取接收器的固件版本，因此不会对它进行更新检查。",
+  "fw.receiverMcu": "MCU {mcu} 引导加载程序 {value}",
   "ov.connection": "连接",
   "ov.connReceiver": "2.4 GHz 接收器",
   "ov.conn24": "2.4 GHz",
