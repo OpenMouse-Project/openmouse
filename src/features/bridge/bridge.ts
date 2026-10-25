@@ -90,12 +90,52 @@ export async function bridgeGames(signal?: AbortSignal): Promise<BridgeGame[]> {
   return bridgeRequest<BridgeGame[]>("/v1/games", undefined, signal);
 }
 
+/** Games the user added by hand; `bridgeGames` already includes them. */
+export async function bridgeCustomGames(signal?: AbortSignal): Promise<BridgeGame[]> {
+  return bridgeRequest<BridgeGame[]>("/v1/custom-games", undefined, signal);
+}
+
+/** Where Bridge serves a custom game's image; `version` makes the browser ask again after it changes. */
+export function customGameImageUrl(name: string, version = 0): string {
+  return `${BRIDGE_URL}/v1/custom-games/image?name=${encodeURIComponent(name)}&v=${version}`;
+}
+
+export async function saveBridgeCustomGameImage(name: string, image: Blob): Promise<void> {
+  await bridgeRequest(`/v1/custom-games/image?name=${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": image.type || "application/octet-stream" },
+    body: image,
+  });
+}
+
+/** The image a link points at, downloaded by Bridge because most sites block a page from doing it. */
+export async function bridgeImageFromUrl(link: string): Promise<Blob> {
+  const response = await fetch(`${BRIDGE_URL}/v1/custom-games/image-from-url?url=${encodeURIComponent(link)}`, {
+    signal: AbortSignal.timeout(BRIDGE_NATIVE_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.blob();
+}
+
+export async function saveBridgeCustomGames(games: BridgeGame[]): Promise<BridgeGame[]> {
+  return bridgeRequest<BridgeGame[]>("/v1/custom-games", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(games),
+  });
+}
+
 export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {
   await bridgeRequest("/v1/profiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ profiles }),
   });
+}
+
+/** The profile Bridge uses whenever no game's is active, or null when none is saved. */
+export async function bridgeDefaultProfile(signal?: AbortSignal): Promise<BridgeProfile | null> {
+  return bridgeRequest<BridgeProfile | null>("/v1/default-profile", undefined, signal);
 }
 
 export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<void> {
