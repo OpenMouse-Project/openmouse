@@ -410,6 +410,16 @@ test("the Atlantis family (Lamzu Atlantis, Scyrox V8S) gets debounce and sleep",
   assert.equal(traitsFor({ ...STATUS, ...status }).directMode, true, "the debounce ceiling comes from the driver");
 });
 
+test("the Hitscan family alone gives the advanced section and debounce, not sleep or signal", () => {
+  // No ui flags beyond the family, so the result comes from the traits entry.
+  const status = { brand: "Hitscan", ui: { family: "hitscan" }, debounceMs: 4, sleepTimeout: 60, signalStrength: 80 } as const;
+  const has = cardAvailability(snapshot({ status }));
+  assert.equal(traitsFor({ ...STATUS, ...status }).advancedSection, true);
+  assert.equal(has.debounce, true);
+  assert.equal(has.sleep, false);
+  assert.equal(has.signal, false);
+});
+
 test("low power needs the Razer capability, not merely a reported threshold", () => {
   // selectableValues treats an empty option list as unbounded, so a mouse that
   // reports a threshold without the Razer driver must not show the card.

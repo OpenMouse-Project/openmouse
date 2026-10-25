@@ -1,7 +1,7 @@
 import { displayText } from "../../i18n/index";
-import { analyticsAvailable, analyticsEnabled, setAnalyticsEnabled, track } from "../../platform/analytics";
+import { analyticsAvailable, analyticsEnabled, ANALYTICS_READY_EVENT, setAnalyticsEnabled, track } from "../../platform/analytics";
 import { Globe, RotateCcw } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
 import { LOCALE_NAME_KEYS, t } from "../../i18n/index";
@@ -119,6 +119,16 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
   const preferences = snapshot.preferences;
   const locale = preferences.locale;
   const [analyticsOn, setAnalyticsOn] = useState(analyticsEnabled);
+  // posthog loads in the background; the switch appears once it is ready.
+  const [analyticsReady, setAnalyticsReady] = useState(analyticsAvailable());
+  useEffect(() => {
+    const update = (): void => {
+      setAnalyticsReady(analyticsAvailable());
+      setAnalyticsOn(analyticsEnabled());
+    };
+    window.addEventListener(ANALYTICS_READY_EVENT, update);
+    return () => window.removeEventListener(ANALYTICS_READY_EVENT, update);
+  }, []);
   const set = <K extends keyof typeof preferences>(key: K) => (value: (typeof preferences)[K]): void =>
     control.setPreference(key, value);
 
@@ -195,7 +205,7 @@ export function InterfaceSettings({ snapshot }: { snapshot: ControlSnapshot }): 
         {toggle("interface-sounds", t(locale, "set.soundTitle"), t(locale, "set.soundDescription"), preferences.enabledSounds, set("enabledSounds"))}
         {toggle("interface-expand-sections", t(locale, "set.advancedEditors"), t(locale, "set.advancedEditorsBody"), preferences.expandSections, set("expandSections"))}
         {toggle("interface-show-experimental", t(locale, "set.experimentalTitle"), t(locale, "set.experimentalBody"), preferences.showExperimental, set("showExperimental"))}
-        {analyticsAvailable
+        {analyticsReady
           ? toggle("interface-analytics", t(locale, "set.analytics"), t(locale, "set.analyticsBody"), analyticsOn, (next) => {
               setAnalyticsEnabled(next);
               setAnalyticsOn(next);

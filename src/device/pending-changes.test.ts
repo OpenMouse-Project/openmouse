@@ -7,6 +7,7 @@ import {
   pendingChangeBatches,
   pendingChanges,
   restorePendingChanges,
+  setStatusOverlay,
   stagePendingChange,
   stashPendingChanges,
   withPendingChanges,
@@ -144,4 +145,21 @@ test("stashed changes come back in their original order after another set was st
   restorePendingChanges(stashed);
   assert.deepEqual(pendingChanges().map((entry) => entry.key), ["a", "b"]);
   clearPendingChanges();
+});
+
+test("an overlay shows on top of the status and of the staged changes, and outlives them", () => {
+  clearPendingChanges();
+  const deviceStatus = status();
+  stagePendingChange({ key: "dpi", label: "DPI 1600", command: "", progress: "", preview: (value) => { value.dpi = 1600; }, apply: async () => {} });
+  setStatusOverlay((value) => { value.hostBunnyHopMs = 40; });
+
+  const shown = withPendingChanges(deviceStatus);
+  assert.equal(shown.dpi, 1600);
+  assert.equal(shown.hostBunnyHopMs, 40);
+  assert.equal(deviceStatus.hostBunnyHopMs, undefined, "the status itself is left alone");
+
+  clearPendingChanges();
+  assert.equal(withPendingChanges(deviceStatus).hostBunnyHopMs, 40, "nothing is staged, the overlay still shows");
+  setStatusOverlay(null);
+  assert.equal(withPendingChanges(deviceStatus), deviceStatus);
 });

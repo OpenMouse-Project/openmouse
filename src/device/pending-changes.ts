@@ -102,10 +102,22 @@ export function clearPendingChanges(): void {
  * refreshes cannot snap the controls back to the values still on the device.
  */
 export function withPendingChanges(status: MouseStatus): MouseStatus {
-  if (changes.size === 0) return status;
+  if (changes.size === 0 && !overlay) return status;
   const preview = structuredClone(status);
   for (const change of changes.values()) change.preview?.(preview);
+  overlay?.(preview);
   return preview;
+}
+
+let overlay: ((status: MouseStatus) => void) | null = null;
+
+/**
+ * Values the mouse cannot take right now (a game profile's side buttons, or a
+ * Host bunny hop while the mouse is on Onboard) still have to show as set, so a
+ * game profile draft puts them on top of every preview. `null` removes it.
+ */
+export function setStatusOverlay(next: ((status: MouseStatus) => void) | null): void {
+  overlay = next;
 }
 
 export function stashPendingChanges(): PendingChange[] {

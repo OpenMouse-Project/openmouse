@@ -92,10 +92,7 @@
 
 #logitech-button-map { min-width: 0; container-type: inline-size; }
 .button-map-heading { flex-wrap: wrap; }
-.button-map-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-inline-start: auto; color: var(--text-3); font-size: var(--fs-meta); }
-.button-map-status strong { font-weight: 500; color: var(--text-2); }
-.button-map-status span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
-.button-map-status .battery-icon { width: 18px; height: 9px; }
+.button-map-share { margin-inline-start: auto; }
 .button-map-body { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 24px; }
 .button-map-commands { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .button-map-search { width: 100%; }
@@ -202,8 +199,7 @@
   .button-map-canvas .button-map-label { position: static; transform: none; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-content: center; gap: 2px 6px; width: auto; min-height: 48px; text-align: start; font-size: var(--fs-small); }
   .button-map-label::before { content: attr(data-button-number); grid-row: 1 / span 2; align-self: center; color: var(--text-3); font-weight: 650; font-variant-numeric: tabular-nums; }
   .button-map-label > * { grid-column: 2; }
-  .button-map-status { margin-inline-start: 0; }
-  .button-map-status strong { display: none; }
+  .button-map-share { margin-inline-start: 0; }
   .superstrike-press-meters { grid-template-columns: 1fr; gap: 12px; }
 }
 @media (max-width: 680px) {

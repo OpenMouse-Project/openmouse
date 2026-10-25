@@ -57,6 +57,13 @@ const media = (id: string, label: string, usage: number): CommandEntry => ({
   target: { kind: "consumer", usage },
 });
 
+/** A bare key with no modifiers, for the virtual keyboard list. */
+const bareKey = (label: string, usage: number): CommandEntry => ({
+  id: `key:${label}`,
+  label,
+  target: { kind: "keyboard", key: usage, modifiers: 0 },
+});
+
 export const COMMAND_SECTIONS: readonly CommandSection[] = [
   {
     id: "mouse",
@@ -107,6 +114,29 @@ export const COMMAND_SECTIONS: readonly CommandSection[] = [
     ],
   },
   {
+    // Virtual keyboard (issue #423): every key the profile can store, pickable
+    // without a physical keypress. The record button only sees keys the
+    // computer's keyboard can produce, so F13-F24 and the rarer specials are
+    // only reachable from this list. F5 and Print Screen are omitted: their
+    // bindings are already offered as "Reload" and "Print screen", and two
+    // commands with the same binding would highlight ambiguously. Key names
+    // are HID tokens and stay as code.
+    id: "keys",
+    title: "Keys",
+    entries: [
+      ...[1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].map((n): CommandEntry => ({
+        id: `key:f${n}`,
+        label: `F${n}`,
+        target: { kind: "keyboard", key: n <= 12 ? 0x39 + n : 0x68 + n - 13, modifiers: 0 },
+      })),
+      bareKey("Enter", 0x28), bareKey("Esc", 0x29), bareKey("Tab", 0x2b), bareKey("Space", 0x2c),
+      bareKey("Backspace", 0x2a), bareKey("Delete", 0x4c), bareKey("Insert", 0x49),
+      bareKey("Home", 0x4a), bareKey("End", 0x4d), bareKey("Page Up", 0x4b), bareKey("Page Down", 0x4e),
+      bareKey("Scroll Lock", 0x47), bareKey("Pause", 0x48),
+      bareKey("←", 0x50), bareKey("→", 0x4f), bareKey("↓", 0x51), bareKey("↑", 0x52),
+    ],
+  },
+  {
     id: "system",
     title: "System",
     entries: [
@@ -122,6 +152,7 @@ export function keyName(usage: number): string {
   if (usage >= 0x1e && usage <= 0x26) return String(usage - 0x1d);
   if (usage === 0x27) return "0";
   if (usage >= 0x3a && usage <= 0x45) return `F${usage - 0x39}`;
+  if (usage >= 0x68 && usage <= 0x73) return `F${usage - 0x68 + 13}`;
   return KEY_NAMES[usage] ?? `Key 0x${usage.toString(16)}`;
 }
 
@@ -204,6 +235,11 @@ export function usageForCode(code: string): number | null {
   if (digit) return digit[1] === "0" ? 0x27 : 0x1d + Number(digit[1]);
   const fn = /^F([1-9]|1[0-2])$/.exec(code);
   if (fn) return 0x39 + Number(fn[1]);
+  // F13-F24 sit at the end of the HID keyboard usage table. No browser key
+  // event produces them on a normal keyboard, which is exactly why the virtual
+  // picker below exists (issue #423): push-to-talk and macro users bind them.
+  const fnHigh = /^F(1[3-9]|2[0-4])$/.exec(code);
+  if (fnHigh) return 0x68 + Number(fnHigh[1]) - 13;
   return CODE_USAGE[code] ?? null;
 }
 

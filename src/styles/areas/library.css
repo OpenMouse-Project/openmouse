@@ -64,6 +64,7 @@
 .profile-row-rule { display: none; }
 .profile-rule { border-top: 1px solid var(--line-1); }
 .profile-list-hint { display: block; padding: 12px 4px; color: var(--text-3); font-size: var(--fs-meta); line-height: 1.45; }
+.profile-empty-note { display: block; margin: 4px 4px 12px; padding: 12px; border: 1px solid var(--line-1); border-radius: var(--r-sm); color: var(--text-2); font-size: var(--fs-meta); line-height: 1.45; }
 .profile-setup-button.icon-button { width: auto; padding-inline: 10px; background: var(--btn); box-shadow: var(--btn-shadow); font-size: 12px; font-weight: 600; }
 .profile-delete-button.icon-button { color: var(--bad); }
 #onboard-status { display: block; color: var(--text-3); font-size: var(--fs-meta); line-height: 1.5; padding: 12px 4px 0; }

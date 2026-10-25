@@ -1,6 +1,7 @@
 # OpenMouse
 
 <a href="https://trendshift.io/repositories/103495?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-103495" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/103495/daily?language=TypeScript" alt="OpenMouse-Project%2Fopenmouse | Trendshift" width="250" height="55"/></a>
+<a href="https://osscar.dev/org/openmouse-project" target="_blank" rel="noopener noreferrer"><img src="https://osscar.dev/api/badge?slug=openmouse-project" alt="Featured on OSSCAR" height="55"/></a>
 
 <p>
   <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/OpenMouse-Project/openmouse/ci.yml?branch=main&label=CI" alt="CI"/></a>
