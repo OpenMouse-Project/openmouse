@@ -582,6 +582,7 @@ export const de: Record<I18nKey, string> = {
   "prof.profileStores": "Jedes Profil speichert seine eigenen DPI-Stufen und Abfragerate, diese Werte ändern sich also mit dem Profil.",
   "map.remap": "Neu belegen",
   "map.defaultNote": "„Standard“ stellt die Werkseinstellung einer Taste wieder her.",
+  "map.keysSection": "Tasten",
   "pow.mode": "Modus",
   "pow.perfMode": "Leistungsmodus",
   "diag.details": "Gerätedetails",

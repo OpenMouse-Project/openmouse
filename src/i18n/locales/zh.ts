@@ -582,6 +582,7 @@ export const zh: Record<I18nKey, string> = {
   "prof.profileStores": "每个配置文件都存储各自的 DPI 阶段和回报率，因此这些数值会随配置文件切换而变化。",
   "map.remap": "重新映射",
   "map.defaultNote": "“默认”会恢复按键的出厂功能。",
+  "map.keysSection": "按键",
   "pow.mode": "模式",
   "pow.perfMode": "性能模式",
   "diag.details": "设备详情",

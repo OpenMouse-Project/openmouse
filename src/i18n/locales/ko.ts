@@ -582,6 +582,7 @@ export const ko: Record<I18nKey, string> = {
   "prof.profileStores": "각 프로필은 자체 DPI 단계와 폴링 레이트를 저장하므로, 프로필을 전환하면 이 값들도 함께 바뀝니다.",
   "map.remap": "재할당",
   "map.defaultNote": "\"기본값\"은 버튼을 출고 시 기능으로 되돌립니다.",
+  "map.keysSection": "키",
   "pow.mode": "모드",
   "pow.perfMode": "성능 모드",
   "diag.details": "장치 세부 정보",

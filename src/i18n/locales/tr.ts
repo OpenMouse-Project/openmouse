@@ -570,6 +570,7 @@ export const tr: Record<I18nKey, string> = {
   "prof.profileStores": "Her profil kendi DPI kademelerini ve yoklama hızını saklar; bu değerler profille birlikte değişir.",
   "map.remap": "Yeniden eşle",
   "map.defaultNote": "“Varsayılan”, düğmenin fabrika işlevini geri yükler.",
+  "map.keysSection": "Tuşlar",
   "pow.mode": "Mod",
   "pow.perfMode": "Performans modu",
   "diag.details": "Cihaz bilgileri",

@@ -532,6 +532,7 @@ export const vi: Record<I18nKey, string> = {
   "prof.profileStores": "Mỗi profile lưu các stage DPI và polling rate riêng, vì vậy các giá trị này thay đổi theo profile.",
   "map.remap": "Gán lại",
   "map.defaultNote": "“Mặc định” khôi phục chức năng xuất xưởng của nút.",
+  "map.keysSection": "Phím",
   "pow.mode": "Chế độ",
   "pow.perfMode": "Chế độ hiệu năng",
   "diag.details": "Chi tiết thiết bị",

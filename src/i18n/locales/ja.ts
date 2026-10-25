@@ -582,6 +582,7 @@ export const ja: Record<I18nKey, string> = {
   "prof.profileStores": "各プロファイルは独自のDPIステージとポーリングレートを保存するため、プロファイルを切り替えるとこれらの値も変わります。",
   "map.remap": "再割り当て",
   "map.defaultNote": "「デフォルト」はボタンの出荷時の機能に戻します。",
+  "map.keysSection": "キー",
   "pow.mode": "モード",
   "pow.perfMode": "パフォーマンスモード",
   "diag.details": "デバイスの詳細",
