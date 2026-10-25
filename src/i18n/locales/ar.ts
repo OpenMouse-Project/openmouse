@@ -581,6 +581,7 @@ export const ar: Record<I18nKey, string> = {
   "prof.profileStores": "يخزّن كل ملف مراحل DPI ومعدل الاستقصاء الخاصين به، لذا تتغير تلك القيم مع الملف.",
   "map.remap": "إعادة ربط",
   "map.defaultNote": "«افتراضي» يعيد وظيفة الزر الأصلية من المصنع.",
+  "map.keysSection": "المفاتيح",
   "pow.mode": "الوضع",
   "pow.perfMode": "وضع الأداء",
   "diag.details": "تفاصيل الجهاز",

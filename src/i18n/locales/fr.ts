@@ -582,6 +582,7 @@ export const fr: Record<I18nKey, string> = {
   "prof.profileStores": "Chaque profil enregistre ses propres étapes DPI et son taux de sondage, ces valeurs changent donc avec le profil.",
   "map.remap": "Réaffecter",
   "map.defaultNote": "« Par défaut » restaure la fonction d'usine d'un bouton.",
+  "map.keysSection": "Touches",
   "pow.mode": "Mode",
   "pow.perfMode": "Mode performance",
   "diag.details": "Détails de l'appareil",

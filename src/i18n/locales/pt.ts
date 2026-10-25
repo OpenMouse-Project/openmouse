@@ -582,6 +582,7 @@ export const pt: Record<I18nKey, string> = {
   "prof.profileStores": "Cada perfil guarda seus próprios estágios de DPI e polling rate, então esses valores mudam com o perfil.",
   "map.remap": "Remapear",
   "map.defaultNote": "“Padrão” restaura a função de fábrica do botão.",
+  "map.keysSection": "Teclas",
   "pow.mode": "Modo",
   "pow.perfMode": "Modo de desempenho",
   "diag.details": "Detalhes do dispositivo",

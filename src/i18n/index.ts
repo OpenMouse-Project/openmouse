@@ -639,6 +639,7 @@ const en = {
   "prof.profileStores": "Each profile stores its own DPI stages and polling rate, so those values change with the profile.",
   "map.remap": "Remap",
   "map.defaultNote": "“Default” restores a button’s factory function.",
+  "map.keysSection": "Keys",
   "pow.mode": "Mode",
   "pow.perfMode": "Performance mode",
   "diag.details": "Device details",
