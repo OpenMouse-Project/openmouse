@@ -402,6 +402,20 @@ test("debounce is offered only by the families that store it", () => {
   })).debounce, false);
 });
 
+test("Hitscan gets debounce but no sleep or signal card", () => {
+  const has = cardAvailability(snapshot({
+    status: {
+      brand: "Hitscan",
+      ui: { family: "hitscan", hideSleepCard: true, hideSignalCard: true, showAdvancedSection: true },
+      debounceMs: 4,
+      sleepTimeout: 60,
+    },
+  }));
+  assert.equal(has.debounce, true);
+  assert.equal(has.sleep, false);
+  assert.equal(has.signal, false);
+});
+
 test("low power needs the Razer capability, not merely a reported threshold", () => {
   // selectableValues treats an empty option list as unbounded, so a mouse that
   // reports a threshold without the Razer driver must not show the card.
