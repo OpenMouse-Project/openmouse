@@ -709,7 +709,28 @@ function toastForError(title: string, error: unknown): void {
     );
     return;
   }
+  if (isLinuxOpenPermissionError(error)) {
+    pushToast("error", st("ctl.linuxOpenTitle"), st("ctl.linuxOpenBody"), { persistent: true });
+    return;
+  }
   pushToast("error", title, error instanceof Error ? error.message : title);
+}
+
+/**
+ * Chrome reports a Linux device-permission problem as NotAllowedError
+ * "Failed to open the device" — the mouse is authorized but /dev/hidraw*
+ * is not readable by the user (issue #233). Point at the fix instead of
+ * echoing the raw DOMException.
+ */
+function isLinuxOpenPermissionError(error: unknown): boolean {
+  const name = (error as { name?: string } | null)?.name;
+  const message = error instanceof Error ? error.message : "";
+  if (name !== "NotAllowedError" || !/failed to open the device/i.test(message)) return false;
+  try {
+    return navigator.userAgent.includes("Linux") && !/Android/i.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
 }
 
 export function reportStatus(text: string): void {

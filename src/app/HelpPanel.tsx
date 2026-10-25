@@ -9,6 +9,7 @@ const TOPICS: { question: I18nKey; answer: I18nKey }[] = [
   { question: "ai.topic2", answer: "ai.topic2Ans" },
   { question: "ai.topic3", answer: "ai.topic3Ans" },
   { question: "ai.topic4", answer: "ai.topic4Ans" },
+  { question: "ai.linuxTopic", answer: "ai.linuxTopicAns" },
 ];
 
 const FAQ_URL = "https://openmouse.app/faq";
