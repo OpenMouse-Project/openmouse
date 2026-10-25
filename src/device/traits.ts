@@ -101,6 +101,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // The NJ07/NJ08 family keeps the sleep timer in its config block and has no
   // debounce setting in the vendor panel, so only the sleep card.
   ajazz: { advancedSection: true, sleep: true },
+  // Hitscan stores a 0-8 ms debounce in flash and publishes its own ceiling.
+  // Its sleep units are unresolved, so the driver hides the sleep card.
+  hitscan: { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
