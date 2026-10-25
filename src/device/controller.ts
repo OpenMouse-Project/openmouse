@@ -2740,18 +2740,18 @@ function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
 }
 
 /** One sidebar card per physical device, marking the active one. */
-function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
-  const groups = logicalDeviceGroups(devices);
+async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
+  const groups = await logicalDeviceGroups(devices);
   const entries: SidebarDevice[] = [];
   for (let index = 0; index < groups.length; index += 1) {
     const group = groups[index];
     const activeMember = group.find((member) => member === activeDevice);
-    const device = activeMember ?? pickLogicalDevice(group);
+    const device = activeMember ?? await pickLogicalDevice(group);
     const transport = (device as HIDDevice & { openMouseTransport?: string }).openMouseTransport === "bridge"
       ? "bridge"
       : "webhid";
     const selected = group.some((member) => member === activeDevice);
-    const client = createSupportedClient(device);
+    const client = await createSupportedClient(device);
     if (!client) {
       const keyboard = createKeyboardClient(device);
       if (!keyboard) continue;
@@ -2777,10 +2777,10 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
         ? EGG_WE_DISPLAY_NAME
         : client instanceof FinalmouseHidClient
           ? client.displayName()
-          : (device.productName ?? `${deviceBrand(client)} mouse`));
+          : (device.productName ?? `${await deviceBrand(client)} mouse`));
     const detail = status
       ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
-      : `${deviceBrand(client)} · Available`;
+      : `${await deviceBrand(client)} · Available`;
     entries.push({
       index,
       name,
@@ -2808,7 +2808,7 @@ async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
       return;
     }
   }
-  sidebarDevices = sidebarEntries(all);
+  sidebarDevices = await sidebarEntries(all);
   emit();
 }
 
@@ -2879,8 +2879,10 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
   const group = groups[index];
   if (!group) return;
   if (group.some((device) => device === activeDevice) && (latestDeviceStatus !== null || activeKeyboard !== null)) return;
-  const candidates = group
-    .map((device) => ({ client: createSupportedClient(device), score: clientSupportScore(device) }))
+  const candidates = (await Promise.all(group.map(async (device) => ({
+    client: await createSupportedClient(device),
+    score: await clientSupportScore(device),
+  }))))
     .filter((entry): entry is { client: SupportedClient; score: number } => entry.client !== null)
     .sort((left, right) => right.score - left.score);
   if (candidates.length === 0) {
@@ -3623,14 +3625,14 @@ function handleHidConnect(event: HIDConnectionEvent): void {
     void refreshSidebar();
     return;
   }
-  const client = createSupportedClient(event.device);
-  if (!client) {
-    void refreshSidebar();
-    return;
-  }
+  void (async () => {
+    const client = await createSupportedClient(event.device);
+    if (!client) {
+      void refreshSidebar();
+      return;
+    }
 
-  if (isEggWeClient(client)) {
-    void (async () => {
+    if (isEggWeClient(client)) {
       const all = await navigator.hid?.getDevices() ?? [];
       await refreshSidebar(all);
       const result = await eggWeResolveConnect(event.device, eggWeClient(), activeDevice, all);
@@ -3651,16 +3653,11 @@ function handleHidConnect(event: HIDConnectionEvent): void {
         : st("ctl.reading", { name: EGG_WE_DISPLAY_NAME });
       emit();
       await activateClient(result.client);
-    })().catch((error: unknown) => {
-      deviceStatusText = st("ctl.connFailed");
-      readStatus = error instanceof Error ? error.message : st("ctl.unableRead");
-      toastForError("Connection failed", error);
-      void refreshSidebar();
-    });
-    return;
-  }
+      return;
+    }
 
-  void activateClient(client, true).catch((error: unknown) => {
+    await activateClient(client, true);
+  })().catch((error: unknown) => {
     deviceStatusText = st("ctl.connFailed");
     readStatus = error instanceof Error ? error.message : st("ctl.unableRead");
     toastForError("Connection failed", error);
@@ -3681,9 +3678,8 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   void (async () => {
     const devices = (await navigator.hid?.getDevices() ?? [])
       .filter((device) => device !== event.device);
-    const logical = listLogicalDevices(devices);
-    const replacement = logical
-      .map(createSupportedClient)
+    const logical = await listLogicalDevices(devices);
+    const replacement = (await Promise.all(logical.map((device) => createSupportedClient(device))))
       .find((client): client is SupportedClient => client !== null);
     if (replacement) {
       await activateClient(replacement);
@@ -3724,8 +3720,11 @@ async function requestSupportedClient(
     if (weClient) return weClient;
   }
 
-  const ranked = devices
-    .map((device) => ({ device, client: createSupportedClient(device), score: clientSupportScore(device) }))
+  const ranked = (await Promise.all(devices.map(async (device) => ({
+    device,
+    client: await createSupportedClient(device),
+    score: await clientSupportScore(device),
+  }))))
     .filter((entry) => entry.client !== null)
     .sort((left, right) => right.score - left.score);
   const best = ranked[0];
@@ -3877,16 +3876,15 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       // authorized, and multiple keyboards must respect the saved preference
       // too. Mice keep the first slot when nothing is preferred, which was the
       // behavior before keyboards joined the reconnect path.
-      const candidates = listLogicalDevices(devices)
-        .map((device) => {
-          const client = createSupportedClient(device) ?? createKeyboardClient(device);
-          return client === null ? null : {
-            client,
-            preferred: deviceStorageKey(device) === preferredKey,
-            keyboard: isKeyboardClient(client),
-            score: clientSupportScore(device),
-          };
-        })
+      const candidates = (await Promise.all((await listLogicalDevices(devices)).map(async (device) => {
+        const client = await createSupportedClient(device) ?? createKeyboardClient(device);
+        return client === null ? null : {
+          client,
+          preferred: deviceStorageKey(device) === preferredKey,
+          keyboard: isKeyboardClient(client),
+          score: await clientSupportScore(device),
+        };
+      })))
         .filter((entry): entry is { client: SupportedClient | KeyboardClient; preferred: boolean; keyboard: boolean; score: number } => entry !== null)
         .sort((left, right) => Number(right.preferred) - Number(left.preferred)
           || Number(left.keyboard) - Number(right.keyboard)
