@@ -4685,6 +4685,51 @@ export function setDpiSlotAxis(index: number, axis: "x" | "y", value: number): v
   stageDpiSlots();
 }
 
+const DPI_UNLINKED_STORAGE_KEY = "openmouse.dpi-unlinked";
+
+/** The per-device record kept in localStorage under `storageKey`, empty when missing or unreadable. */
+function storedRecord(storageKey: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Identifies the device and profile the unlink choices belong to; two identical Bridge devices differ by session key. */
+export function dpiUnlinkKey(): string | null {
+  if (!activeDevice || editedProfile === null) return null;
+  const bridge = activeDevice as HIDDevice & { openMouseTransport?: string; key?: string };
+  const device = bridge.openMouseTransport === "bridge" ? `bridge:${bridge.key ?? ""}` : deviceStorageKey(activeDevice);
+  return `${device}#${editedProfile}`;
+}
+
+/** Slot rows whose X and Y were unlinked on purpose; the mouse cannot store that when the two are equal. */
+export function unlinkedDpiSlots(): number[] {
+  const key = dpiUnlinkKey();
+  const saved = key ? storedRecord(DPI_UNLINKED_STORAGE_KEY)[key] : undefined;
+  return Array.isArray(saved) ? saved.filter((index): index is number => Number.isInteger(index)) : [];
+}
+
+/** Replaces the whole unlinked list for the active device and profile. */
+export function replaceDpiUnlinkedSlots(indices: number[]): void {
+  const key = dpiUnlinkKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(DPI_UNLINKED_STORAGE_KEY, JSON.stringify({ ...storedRecord(DPI_UNLINKED_STORAGE_KEY), [key]: [...new Set(indices)].sort((a, b) => a - b) }));
+  } catch {
+    // Storage can be blocked; the rows then read linked again after a refresh.
+  }
+}
+
+export function setDpiSlotUnlinked(index: number, unlinked: boolean): void {
+  const rows = new Set(unlinkedDpiSlots());
+  if (unlinked) rows.add(index);
+  else rows.delete(index);
+  replaceDpiUnlinkedSlots([...rows]);
+}
+
 export function dpiAxisLockedAt(index: number): boolean {
   return dpiAxisLocks[index] ?? true;
 }

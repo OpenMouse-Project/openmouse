@@ -77,11 +77,12 @@ function DpiStageEditor({
   const countCap = isLogitech ? (limits?.maxStages ?? 1) : stageEditor?.maxStages ?? 1;
   const rowCap = mode === "generic" ? MAX_EDITOR_ROWS : countCap;
 
-  const initRows = (prev?: StageRow[]): StageRow[] => {
+  const initRows = (): StageRow[] => {
     if (mode === "logitech" && snapshot.dpiSlotPlan) {
       const stages = snapshot.dpiSlotPlan.stages.slice(0, rowCap);
+      const unlinked = control.unlinkedDpiSlots();
       const last = stages[stages.length - 1]?.x ?? status?.dpi ?? 800;
-      const rows = stages.map((stage, index) => ({ enabled: true, value: String(stage.x), valueY: String(stage.y ?? stage.x), lod: stage.lod, linked: (stage.y ?? stage.x) === stage.x && prev?.[index]?.linked !== false }));
+      const rows = stages.map((stage, index) => ({ enabled: true, value: String(stage.x), valueY: String(stage.y ?? stage.x), lod: stage.lod, linked: (stage.y ?? stage.x) === stage.x && !unlinked.includes(index) }));
       while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), valueY: String(last), lod: DEFAULT_LOD, linked: true });
       return rows;
     }
@@ -160,7 +161,7 @@ function DpiStageEditor({
   useEffect(() => {
     if (sourceSig === lastSigRef.current) return;
     lastSigRef.current = sourceSig;
-    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !timerRef.current)) setRows(initRows(rowsRef.current));
+    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !timerRef.current)) setRows(initRows());
     // initRows is recreated each render on purpose so it always reads fresh snapshot data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceSig]);
@@ -190,6 +191,10 @@ function DpiStageEditor({
       // side panel), so a DPI-value commit must not clobber it with the local
       // row copy. Enabled rows map 1:1 to plan stages in order.
       const planLods = snapshot.dpiSlotPlan?.stages.map((stage) => stage.lod) ?? [];
+      // Disabled rows drop out of the plan, so saved unlink rows move to their compacted index.
+      control.replaceDpiUnlinkedSlots(
+        next.filter((row) => row.enabled).flatMap((row, position) => (row.linked === false ? [position] : [])),
+      );
       control.applyDpiSlotEditor(
         next.map((row, index) => {
           const position = next.slice(0, index).filter((entry) => entry.enabled).length;
@@ -314,11 +319,9 @@ function DpiStageEditor({
   };
 
   const toggleLink = (index: number): void => {
-    const next = rows.map((row, i) => {
-      if (i !== index) return row;
-      const linked = row.linked === false;
-      return { ...row, linked, valueY: linked ? row.value : row.valueY };
-    });
+    const linked = rows[index]?.linked === false;
+    if (mode === "logitech") control.setDpiSlotUnlinked(index, !linked);
+    const next = rows.map((row, i) => (i === index ? { ...row, linked, valueY: linked ? row.value : row.valueY } : row));
     setRows(next);
     rowsRef.current = next;
     markEdited(next);
@@ -705,6 +708,8 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
 
         <DpiStageEditor
+          // Remount per device and profile so rows and their link state never carry over.
+          key={control.dpiUnlinkKey() ?? "dpi"}
           snapshot={snapshot}
           editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}
         />
