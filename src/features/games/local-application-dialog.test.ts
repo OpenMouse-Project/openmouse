@@ -7,7 +7,7 @@ import * as local from "./local-applications.ts";
 
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 const plain = (value: any) => JSON.parse(JSON.stringify(value));
-function harness(application?: any, transform: (value: any[]) => any[] = (value) => value) {
+function harness(application?: any, transform: (value: any[]) => any[] = (value) => value, running: any[] = []) {
   const slots: any[] = [];
   let cursor = 0;
   let effects: (() => void)[] = [];
@@ -27,7 +27,7 @@ function harness(application?: any, transform: (value: any[]) => any[] = (value)
   vm.runInNewContext(code, { exports, crypto: { randomUUID: () => "id" }, document: { activeElement: null }, HTMLElement: class {}, require: (name: string) => {
     if (name === "react") return react;
     if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
-    if (name.endsWith("/bridge")) return { bridgeLocalApplications: async () => plain(stored), saveBridgeLocalApplications: async (value: any[]) => { writes.push(plain(value)); stored = transform(plain(value)); }, bridgeRunningApplications: async () => { processCalls++; return []; }, BridgeHttpError: class extends Error {} };
+    if (name.endsWith("/bridge")) return { bridgeLocalApplications: async () => plain(stored), saveBridgeLocalApplications: async (value: any[]) => { writes.push(plain(value)); stored = transform(plain(value)); }, bridgeRunningApplications: async () => { processCalls++; return plain(running); }, bridgeApplicationIconUrl: () => "icon", BridgeHttpError: class extends Error {} };
     if (name.endsWith("local-applications")) return local;
     if (name.endsWith("i18n/index")) return { t: (_: unknown, key: string) => key, tp: (_: unknown, key: string) => key };
     throw new Error(name);
@@ -84,8 +84,48 @@ test("late write response cannot call a closed form's completion callback", asyn
   h.input("local-app-name", "Editor"); h.input("local-app-target", "/usr/bin/editor"); await h.submit(); assert.equal(h.writes.length, 1); assert.equal(h.saved.length, 0);
 });
 
-test("manual full-path app creation explicitly requests running activation without a process chooser", async () => {
+test("manual full-path app creation still works beside the running-app list", async () => {
   const h = harness(); h.input("local-app-name", "Editor"); h.input("local-app-target", "/usr/bin/editor"); h.choose("localApps.app"); await h.submit();
   assert.equal(h.writes[0][0].activation, "running"); assert.equal(h.saved.length, 1);
-  assert.equal(h.nodes().some((node) => node.props?.children === "localApps.pick"), false); assert.equal(h.processCalls(), 0);
+  assert.equal(h.processCalls(), 1);
+});
+
+const RUNNING = [
+  { name: "Notes", executable: "notes", path: "/usr/bin/notes", foreground: false, iconId: "b" },
+  { name: "Hunt: Showdown", executable: "HuntGame.exe", path: "C:\\Games\\Hunt\\HuntGame.exe", foreground: true, iconId: "a" },
+  { name: "Launcher", executable: "start.sh", path: "/opt/game/start.sh", foreground: false, iconId: "c" },
+];
+const rows = (h: ReturnType<typeof harness>) => h.nodes().filter((node) => node.type === "button" && "aria-pressed" in node.props);
+const rowName = (node: any) => node.props.children[1].props.children[0].props.children;
+
+test("a new target lists running apps, the one in front first, without launchers", async () => {
+  const h = harness(undefined, undefined, RUNNING); await settle(); h.render();
+  assert.deepEqual(rows(h).map(rowName), ["Hunt: Showdown", "Notes"]);
+});
+
+test("picking a running app fills the name and full path and saves it", async () => {
+  const h = harness(undefined, undefined, RUNNING); await settle(); h.render();
+  rows(h)[0].props.onClick(); h.render();
+  assert.equal(h.nodes().find((node) => node.props?.id === "local-app-target").props.value, "C:\\Games\\Hunt\\HuntGame.exe");
+  rows(h)[1].props.onClick(); h.render();
+  assert.equal(h.nodes().find((node) => node.props?.id === "local-app-name").props.value, "Notes");
+  await h.submit();
+  assert.equal(h.writes[0][0].name, "Notes"); assert.equal(h.writes[0][0].path, "/usr/bin/notes"); assert.equal(h.writes[0][0].executable, "notes");
+});
+
+test("a typed name survives picking a running app", async () => {
+  const h = harness(undefined, undefined, RUNNING); await settle(); h.render();
+  h.input("local-app-name", "Hunt"); rows(h)[0].props.onClick(); h.render();
+  assert.equal(h.nodes().find((node) => node.props?.id === "local-app-name").props.value, "Hunt");
+});
+
+test("search narrows the running list", async () => {
+  const h = harness(undefined, undefined, RUNNING); await settle(); h.render();
+  h.input("local-app-search", "notes");
+  assert.deepEqual(rows(h).map(rowName), ["Notes"]);
+});
+
+test("editing a saved target does not ask Bridge for running apps", async () => {
+  const h = harness({ id: "local:old", name: "Editor", executable: "editor", path: "/usr/bin/editor", kind: "app" }, undefined, RUNNING); await settle(); h.render();
+  assert.equal(h.processCalls(), 0); assert.equal(rows(h).length, 0);
 });

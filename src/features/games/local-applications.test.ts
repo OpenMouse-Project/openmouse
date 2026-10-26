@@ -93,6 +93,13 @@ test("canonical local game and profile metadata retain activation, bundles and s
   assert.deepEqual(profileApplication(game), { name: target.name, executable: target.executable, path: target.path, localId: target.id, activation: target.activation, bundlePath: target.bundlePath, bundleIdentifier: target.bundleIdentifier });
 });
 
+test("a local game carries Bridge's icon id to the grid but not into its profile", () => {
+  const game = targets.localGame({ id: "local:hunt", name: "Hunt", executable: "HuntGame.exe", path: "C:\\Games\\HuntGame.exe", kind: "game", iconId: "abc" });
+  assert.equal(game.iconId, "abc");
+  assert.equal("iconId" in profileApplication(game), false);
+  assert.equal("iconId" in targets.localGame({ id: "local:old", name: "Old", executable: "old.exe", path: "C:\\old.exe", kind: "game" }), false);
+});
+
 test("activation defaults preserve legacy category semantics without overriding explicit choice", () => {
   assert.equal(typeof targets.targetActivation, "function");
   assert.equal(targets.targetActivation({ kind: "app" }), "focused");

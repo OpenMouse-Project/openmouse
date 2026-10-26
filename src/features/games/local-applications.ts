@@ -1,4 +1,4 @@
-import type { BridgeGame, BridgeProfile, BridgeTargetMetadata, LocalApplication } from "../bridge/bridge";
+import type { BridgeApplication, BridgeGame, BridgeProfile, BridgeTargetMetadata, LocalApplication } from "../bridge/bridge";
 
 export function targetActivation(target: BridgeTargetMetadata & { kind?: "game" | "app" }): "running" | "focused" {
   return target.activation ?? (target.kind === "app" ? "focused" : "running");
@@ -13,7 +13,7 @@ function targetMetadata(target: BridgeTargetMetadata): BridgeTargetMetadata {
 }
 
 export function localGame(application: LocalApplication): BridgeGame {
-  return { name: application.name, executables: [application.executable], id: application.id, source: "local", path: application.path, kind: application.kind, ...targetMetadata(application) };
+  return { name: application.name, executables: [application.executable], id: application.id, source: "local", path: application.path, kind: application.kind, ...targetMetadata(application), ...(application.iconId ? { iconId: application.iconId } : {}) };
 }
 
 export function parseLocalTarget(input: string): { executable: string; path: string } | null {
@@ -30,6 +30,34 @@ export function parseLocalTarget(input: string): { executable: string; path: str
   const executable = parts.pop() ?? "";
   if (!executable || executable === "." || executable === ".." || [...executable].length > 255 || /:/.test(executable) || /\.exe\s|\s[-/]/i.test(executable)) return null;
   return { executable, path: absolute ? value : "" };
+}
+
+const LAUNCHER = /\.(?:desktop|appimage|sh|bash|zsh|fish|py|pl|rb|js|bat|cmd|ps1|lnk)$/i;
+
+/** A full path to a real executable or `.app` bundle; scripts and launchers are refused. */
+export function supportedLocalTarget(input: string): { executable: string; path: string } | null {
+  const parsed = parseLocalTarget(input);
+  return parsed?.path && !LAUNCHER.test(parsed.executable) ? parsed : null;
+}
+
+/** The path a running app is saved under: the bundle on macOS, the executable elsewhere. */
+export function runningTargetPath(app: BridgeApplication): string {
+  return app.bundlePath || app.path;
+}
+
+/** Running apps that can be saved as a local target, one per path, the app in front first. */
+export function runningTargets(apps: BridgeApplication[]): BridgeApplication[] {
+  const seen = new Set<string>();
+  return apps
+    .filter((app) => {
+      const target = supportedLocalTarget(runningTargetPath(app));
+      if (!target) return false;
+      const key = localTargetIdentity(target);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => Number(b.foreground) - Number(a.foreground) || a.name.localeCompare(b.name));
 }
 
 export function presetGames(bridge: BridgeGame[], catalog: BridgeGame[]): BridgeGame[] {

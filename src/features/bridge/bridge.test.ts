@@ -23,6 +23,17 @@ test("local application API reads and writes only the loopback batch endpoint", 
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("a saved local app's icon id is read from Bridge but never written back", async () => {
+  const originalFetch = globalThis.fetch;
+  const bodies: (BodyInit | null | undefined)[] = [];
+  globalThis.fetch = async (_input, init) => { bodies.push(init?.body); return Response.json({ ok: true }); };
+  try {
+    await bridge.saveBridgeLocalApplications([{ id: "local:hunt", name: "Hunt", executable: "HuntGame.exe", path: "C:/Games/HuntGame.exe", kind: "game", iconId: "e2d0cf998041c322" }]);
+    assert.deepEqual(JSON.parse(String(bodies[0])), { applications: [{ id: "local:hunt", name: "Hunt", executable: "HuntGame.exe", path: "C:/Games/HuntGame.exe", kind: "game" }] });
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal(bridge.bridgeIconUrl("a/b"), "http://127.0.0.1:17846/v1/applications/a%2Fb/icon");
+});
+
 test("local application failures expose HTTP status and never report unsupported saves as success", async () => {
   assert.equal(typeof bridge.bridgeLocalApplications, "function");
   const originalFetch = globalThis.fetch;

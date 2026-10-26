@@ -8,6 +8,7 @@ import type { ControlSnapshot } from "../../device/types";
 import { fetchGamesCatalog, gameArtwork } from "./games-catalog";
 import { GameProfilePanel } from "./GameProfilePanel";
 import { gameIdentity, localGame, presetGames } from "./local-applications";
+import { AppIcon } from "./AppIcon";
 import { BRIDGE_RELEASES_URL } from "../bridge/BridgeStatus";
 
 const LocalApplicationDialog = lazy(() => import("./LocalApplicationDialog").then((module) => ({ default: module.LocalApplicationDialog })));
@@ -97,7 +98,7 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     const art = game.source === "local" ? undefined : catalog.artwork.get(game.name.toLowerCase());
     return <>
       <span className="games-tile-art">
-        {art ? <img src={art} alt={displayText(locale, "")} loading="lazy" /> : <Gamepad2 size={28} strokeWidth={1.6} aria-hidden="true" />}
+        {art ? <img src={art} alt={displayText(locale, "")} loading="lazy" /> : <AppIcon iconId={game.iconId} className="games-tile-icon" fallback={<Gamepad2 size={28} strokeWidth={1.6} aria-hidden="true" />} />}
         {profiled.has(gameIdentity(game)) && active ? <span className="om-badge games-tile-badge">{t(locale, "games.autoApply")}</span> : null}
       </span>
       <span className="games-tile-name">{game.name}</span>

@@ -37,8 +37,12 @@ export interface BridgeApplication extends BridgeTargetMetadata {
   iconId: string;
 }
 
+export function bridgeIconUrl(iconId: string): string {
+  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(iconId)}/icon`;
+}
+
 export function bridgeApplicationIconUrl(application: BridgeApplication): string {
-  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(application.iconId)}/icon`;
+  return bridgeIconUrl(application.iconId);
 }
 
 export interface BridgeProfile {
@@ -69,6 +73,8 @@ export interface BridgeGame extends BridgeTargetMetadata {
   source?: "preset" | "local";
   path?: string;
   kind?: "game" | "app";
+  /** Bridge's icon for a local target; missing from older Bridge builds. */
+  iconId?: string;
 }
 
 export interface LocalApplication extends BridgeTargetMetadata {
@@ -77,6 +83,8 @@ export interface LocalApplication extends BridgeTargetMetadata {
   executable: string;
   path: string;
   kind: "game" | "app";
+  /** Read-only: Bridge derives it from the path, so it is never sent back. */
+  iconId?: string;
 }
 
 export class BridgeHttpError extends Error {
@@ -95,7 +103,7 @@ export async function saveBridgeLocalApplications(applications: LocalApplication
   await bridgeRequest("/v1/local-applications", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ applications }),
+    body: JSON.stringify({ applications: applications.map(({ iconId: _iconId, ...application }) => application) }),
   });
 }
 

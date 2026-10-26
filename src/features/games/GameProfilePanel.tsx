@@ -19,6 +19,7 @@ import type { BridgeGame, BridgeProfile } from "../bridge/bridge";
 import { bridgeProfiles, saveBridgeProfiles } from "../bridge/bridge";
 import { subscribeBridgeHidActive } from "../bridge/bridge-hid";
 import { fetchGamesCatalog, gameArtwork, type CatalogGame } from "./games-catalog";
+import { AppIcon } from "./AppIcon";
 import { snapshotKey, type GameProfileSnapshot } from "../../device/game-profile-snapshot";
 import type { ControlSnapshot, SidebarDevice, ToastKind, WorkspaceTab } from "../../device/types";
 import { t, tp, type I18nKey } from "../../i18n/index";
@@ -339,7 +340,7 @@ export function GameProfilePanel({
             {artwork ? (
               <img src={artwork} alt={game.name} loading="lazy" draggable={false} />
             ) : (
-              <Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />
+              <AppIcon iconId={game.iconId} className="game-profile-icon" fallback={<Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />} />
             )}
           </div>
         </div>

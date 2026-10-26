@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { bridgeLocalApplications, saveBridgeLocalApplications, BridgeHttpError, type LocalApplication } from "../bridge/bridge";
+import { bridgeApplicationIconUrl, bridgeLocalApplications, bridgeRunningApplications, saveBridgeLocalApplications, BridgeHttpError, type BridgeApplication, type LocalApplication } from "../bridge/bridge";
 import { t, tp, type I18nKey } from "../../i18n/index";
 import type { InterfaceLocale } from "../settings/interface-preferences";
-import { localTargetIdentity, parseLocalTarget, targetActivation } from "./local-applications";
+import { localTargetIdentity, parseLocalTarget, runningTargetPath, runningTargets, supportedLocalTarget, targetActivation } from "./local-applications";
+
+/** Bridge only extracts icons on Windows; elsewhere the URL 404s and the slot stays empty. */
+function RunningIcon({ app }: { app: BridgeApplication }): ReactNode {
+  const [failed, setFailed] = useState(false);
+  return failed ? <span className="local-app-icon" aria-hidden="true" /> : <img className="local-app-icon" src={bridgeApplicationIconUrl(app)} alt="" onError={() => setFailed(true)} />;
+}
 
 export function LocalApplicationDialog({ locale, application, remove = false, active, onClose, onSaved }: {
   locale: InterfaceLocale;
@@ -21,9 +27,38 @@ export function LocalApplicationDialog({ locale, application, remove = false, ac
   const [activation, setActivation] = useState<"running" | "focused">(application ? targetActivation(application) : "running");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<I18nKey | null>(null);
+  const [running, setRunning] = useState<BridgeApplication[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<BridgeApplication | null>(null);
   const id = useRef(application?.id ?? `local:${crypto.randomUUID()}`);
   const parsed = parseLocalTarget(target);
-  const valid = Boolean(parsed?.path && !/\.(?:desktop|appimage|sh|bash|zsh|fish|py|pl|rb|js|bat|cmd|ps1|lnk)$/i.test(parsed.executable) && name.trim() && [...name.trim()].length <= 80 && !/[\x00-\x1f\x7f]/.test(name));
+  const valid = Boolean(supportedLocalTarget(target) && name.trim() && [...name.trim()].length <= 80 && !/[\x00-\x1f\x7f]/.test(name));
+  // Only a new target is picked from what is running; an edit keeps its saved path.
+  const picking = !application && !remove;
+  const needle = query.trim().toLowerCase();
+  const shown = running?.filter((app) => !needle || app.name.toLowerCase().includes(needle) || app.executable.toLowerCase().includes(needle)) ?? [];
+
+  async function loadRunning(): Promise<void> {
+    setRunning(null);
+    try {
+      const list = runningTargets(await bridgeRunningApplications());
+      if (mounted.current) setRunning(list);
+    } catch {
+      if (mounted.current) setRunning([]);
+    }
+  }
+
+  function pick(app: BridgeApplication): void {
+    setTarget(runningTargetPath(app));
+    // A name the user typed stays; one filled in from an earlier pick follows the new pick.
+    if (!name.trim() || name === picked?.name.slice(0, 80)) setName(app.name.slice(0, 80));
+    setPicked(app);
+    setError(null);
+  }
+
+  useEffect(() => {
+    if (picking && active) void loadRunning();
+  }, [active]);
 
   useEffect(() => {
     const element = dialog.current;
@@ -93,6 +128,38 @@ export function LocalApplicationDialog({ locale, application, remove = false, ac
           <button type="button" className="om-icon-btn" disabled={busy} onClick={close} aria-label={t(locale, "common.close")}>{"×"}</button>
         </header>
         {remove ? <p>{tp(locale, "localApps.removeConfirm", { name: application?.name ?? "" })}</p> : <>
+          {picking && active ? (
+            <section className="gamereq-finder local-app-running" aria-labelledby="local-app-running-title">
+              <div className="local-app-running-head">
+                <p id="local-app-running-title" className="gamereq-finder-title">{t(locale, "localApps.runningTitle")}</p>
+                <button type="button" className="om-btn is-ghost is-sm" disabled={busy || running === null} onClick={() => { void loadRunning(); }}>{t(locale, "localApps.refresh")}</button>
+              </div>
+              {running === null ? <p className="gamereq-hint">{t(locale, "localApps.loadingRunning")}</p>
+                : running.length === 0 ? <p className="gamereq-hint">{t(locale, "localApps.noRunning")}</p>
+                : <>
+                  <input id="local-app-search" type="search" value={query} disabled={busy} aria-label={t(locale, "localApps.search")} placeholder={t(locale, "localApps.search")}
+                    onChange={(event) => setQuery(event.currentTarget.value)} />
+                  {shown.length === 0 ? <p className="gamereq-hint">{t(locale, "localApps.noMatch")}</p> : (
+                    <ul className="gamereq-apps">
+                      {shown.map((app) => {
+                        const path = runningTargetPath(app);
+                        return (
+                          <li key={path}>
+                            <button type="button" aria-pressed={target === path} disabled={busy} onClick={() => pick(app)}>
+                              <RunningIcon app={app} />
+                              <span>
+                                <strong>{app.name}</strong>
+                                <small className="gamereq-mono">{path}</small>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>}
+            </section>
+          ) : null}
           <label className="feedback-handle" htmlFor="local-app-name">
             <span>{t(locale, "localApps.name")}</span>
             <input id="local-app-name" value={name} required disabled={busy} onChange={(event) => setName(event.currentTarget.value)} />
