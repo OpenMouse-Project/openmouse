@@ -375,7 +375,7 @@ let settingInProgress = false;
 // `touched` is every field the profile sets: its saved fields plus any a draft
 // edit has changed. A touched field stays in the profile even when its value
 // happens to match the mouse right now.
-let gameProfileDraft: { stash: PendingChange[]; touched: Set<string> } | null = null;
+let gameProfileDraft: { owner: GameProfileOwner; stash: PendingChange[]; touched: Set<string> } | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
@@ -478,6 +478,25 @@ function batch(run: () => void): void {
       emit();
     }
   }
+}
+
+export interface GameProfileOwner {
+  readonly client: object;
+  readonly device: HIDDevice | null;
+}
+
+let gameProfileOwner: GameProfileOwner | null = null;
+
+export function getGameProfileOwner(): GameProfileOwner | null {
+  if (!active || !latestDeviceStatus) return null;
+  if (!gameProfileOwner || gameProfileOwner.client !== active || gameProfileOwner.device !== activeDevice) {
+    gameProfileOwner = { client: active, device: activeDevice };
+  }
+  return gameProfileOwner;
+}
+
+export function isGameProfileOwner(owner: GameProfileOwner | null): boolean {
+  return owner !== null && getGameProfileOwner() === owner;
 }
 
 export function getActiveDevice(): HIDDevice | null {
@@ -1490,8 +1509,9 @@ function gameProfileFieldsOf(change: PendingChange): string[] | null {
  */
 export function beginGameProfileDraft(initial: GameProfileSnapshot): boolean {
   if (gameProfileDraft) endGameProfileDraft();
-  if (settingInProgress || !latestDeviceStatus) return false;
-  gameProfileDraft = { stash: stashPendingChanges(), touched: new Set() };
+  const owner = getGameProfileOwner();
+  if (settingInProgress || !latestDeviceStatus || !owner) return false;
+  gameProfileDraft = { owner, stash: stashPendingChanges(), touched: new Set() };
   openGameProfileDraft(initial);
   emit();
   return true;
@@ -1524,8 +1544,8 @@ export function resetGameProfileDraft(snapshot: GameProfileSnapshot): void {
   emit();
 }
 
-export function endGameProfileDraft(): void {
-  if (!gameProfileDraft) return;
+export function endGameProfileDraft(owner: GameProfileOwner | null = getGameProfileOwner()): void {
+  if (!gameProfileDraft || gameProfileDraft.owner !== owner || !isGameProfileOwner(owner)) return;
   const { stash } = gameProfileDraft;
   gameProfileDraft = null;
   restorePendingChanges(stash);
@@ -1545,14 +1565,20 @@ export function isGameProfileDraftActive(): boolean {
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
-): Promise<"written" | "unchanged" | "busy"> {
+  owner: GameProfileOwner | null = getGameProfileOwner(),
+): Promise<"written" | "unchanged" | "busy" | "stale" | "failed" | "partial"> {
+  if (!isGameProfileOwner(owner)) return "stale";
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashPendingChanges();
-  applyGameProfileSnapshot(snapshot);
-  const staged = hasPendingChanges();
-  if (staged) await flashPendingChanges();
-  restorePendingChanges(stash);
-  return staged ? "written" : "unchanged";
+  try {
+    applyGameProfileSnapshot(snapshot);
+    if (!isGameProfileOwner(owner)) return "stale";
+    const result = hasPendingChanges() ? await flashPendingChanges() : "unchanged";
+    if (!isGameProfileOwner(owner)) return "stale";
+    return result;
+  } finally {
+    if (isGameProfileOwner(owner)) restorePendingChanges(stash);
+  }
 }
 
 /** Writes that bypass staging must not reach the mouse while a game profile is being edited. */
@@ -2183,14 +2209,16 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
   await wait(milliseconds);
 }
 
-export async function flashPendingChanges(): Promise<void> {
-  if (gameProfileDraft) return;
+export async function flashPendingChanges(): Promise<"written" | "unchanged" | "busy" | "stale" | "failed" | "partial"> {
+  if (gameProfileDraft) return "busy";
+  const owner = getGameProfileOwner();
+  if (!owner) return "stale";
   const batches = pendingChangeBatches();
-  if (batches.length === 0) return;
+  if (batches.length === 0) return "unchanged";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
-    return;
+    return "busy";
   }
   settingInProgress = true;
   pendingBusy = true;
@@ -2222,8 +2250,11 @@ export async function flashPendingChanges(): Promise<void> {
       readStatus = writer.progress;
       emit();
       await flashPause();
+      if (!isGameProfileOwner(owner)) break;
       for (const change of batch) recordDiagnosticCommand(change.command);
+      if (!isGameProfileOwner(owner)) break;
       await writer.apply();
+      if (!isGameProfileOwner(owner)) break;
       for (const change of batch) dropPendingChange(change.key);
       written += batch.length;
     }
@@ -2232,20 +2263,28 @@ export async function flashPendingChanges(): Promise<void> {
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
   await flashPause(FLASH_SETTLE_MS);
-  const client = activeSettingsClient();
+  const client = isGameProfileOwner(owner) ? activeSettingsClient() : null;
   const status = client ? await statusAfterWrite(client).catch(() => null) : null;
-  if (status) applyStatus(status);
+  if (status && isGameProfileOwner(owner)) applyStatus(status);
   endDeviceWrite();
   pendingBusy = false;
-  if (flashQueued) {
+  if (!isGameProfileOwner(owner)) {
     flashQueued = false;
-    if (hasPendingChanges()) return flashPendingChanges();
+    return "stale";
   }
   if (failure) {
+    flashQueued = false;
     pendingStatusText = failure;
     setReadStatus(failure);
     pushToast("error", st("ctl.flashFailed"), failure);
-    return;
+    return written > 0 ? "partial" : "failed";
+  }
+  if (flashQueued) {
+    flashQueued = false;
+    if (hasPendingChanges()) {
+      const result = await flashPendingChanges();
+      return written > 0 && result === "failed" ? "partial" : result;
+    }
   }
   pendingStatusText = null;
   const flashed = written === 1
@@ -2254,6 +2293,7 @@ export async function flashPendingChanges(): Promise<void> {
   setReadStatus(flashed);
   pushToast("success", flashed);
   track("pending_changes_applied", { change_count: written });
+  return "written";
 }
 
 function endDeviceWrite(): void {
@@ -3159,6 +3199,11 @@ function statusNameForClient(client: SupportedClient): string {
 }
 
 function clearActiveClients(): void {
+  if (gameProfileDraft) {
+    gameProfileDraft = null;
+    clearPendingChanges();
+  }
+  gameProfileOwner = null;
   active = null;
 }
 

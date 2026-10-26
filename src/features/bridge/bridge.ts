@@ -23,7 +23,13 @@ export interface BridgeStatus {
   clientConnected: boolean;
 }
 
-export interface BridgeApplication {
+export interface BridgeTargetMetadata {
+  activation?: "running" | "focused";
+  bundlePath?: string;
+  bundleIdentifier?: string;
+}
+
+export interface BridgeApplication extends BridgeTargetMetadata {
   name: string;
   executable: string;
   path: string;
@@ -36,7 +42,7 @@ export function bridgeApplicationIconUrl(application: BridgeApplication): string
 }
 
 export interface BridgeProfile {
-  application: Pick<BridgeApplication, "name" | "executable" | "path">;
+  application: Pick<BridgeApplication, "name" | "executable" | "path"> & BridgeTargetMetadata & { localId?: string };
   device: { id: string; name: string };
   /**
    * False keeps the profile stored without Bridge ever matching it (the
@@ -56,9 +62,41 @@ export interface BridgeProfile {
   };
 }
 
-export interface BridgeGame {
+export interface BridgeGame extends BridgeTargetMetadata {
   name: string;
   executables: string[];
+  id?: string;
+  source?: "preset" | "local";
+  path?: string;
+  kind?: "game" | "app";
+}
+
+export interface LocalApplication extends BridgeTargetMetadata {
+  id: string;
+  name: string;
+  executable: string;
+  path: string;
+  kind: "game" | "app";
+}
+
+export class BridgeHttpError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`Bridge returned HTTP ${status}.`);
+    this.status = status;
+  }
+}
+
+export async function bridgeLocalApplications(signal?: AbortSignal): Promise<LocalApplication[]> {
+  return bridgeRequest<LocalApplication[]>("/v1/local-applications", undefined, signal);
+}
+
+export async function saveBridgeLocalApplications(applications: LocalApplication[]): Promise<void> {
+  await bridgeRequest("/v1/local-applications", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ applications }),
+  });
 }
 
 export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
@@ -158,6 +196,6 @@ async function bridgeRequest<T>(
     ...init,
     signal: combined,
   });
-  if (!response.ok) throw new Error(`Bridge returned HTTP ${response.status}.`);
+  if (!response.ok) throw new BridgeHttpError(response.status);
   return await response.json() as T;
 }

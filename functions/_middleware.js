@@ -1,3 +1,5 @@
+import { boundedRequest, BodyTooLarge } from "./_lib/body-limit.js";
+
 // Site-wide security guard. Runs before every Cloudflare Pages route — static
 // pages, admin, and all /api/* endpoints. Tracks per-IP behavior, flags
 // abuse/exploit attempts, and permanently bans repeat offenders.
@@ -128,6 +130,9 @@ const ASSET_DESTS = new Set([
 const ASSET_EXT_RE = /\.(?:js|mjs|css|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|ogg|wav|wasm|webmanifest)$/i;
 
 function isStaticSubresource(request, url) {
+  let pathname;
+  try { pathname = decodeURIComponent(url.pathname); } catch { return false; }
+  if (/^\/+api(?:\/|$)/i.test(pathname) || !ASSET_EXT_RE.test(pathname)) return false;
   const method = request.method.toUpperCase();
   if (method !== "GET" && method !== "HEAD") return false;
   const dest = request.headers.get("Sec-Fetch-Dest");
@@ -176,15 +181,23 @@ export async function onRequest(context) {
 }
 
 async function handle({ request, env, next }) {
+  const pathname = new URL(request.url).pathname;
+  const limit = pathname === "/api/comments" ? 16 * 1024 : MAX_BODY_BYTES;
+  try {
+    request = await boundedRequest(request, limit);
+  } catch (error) {
+    return error instanceof BodyTooLarge ? tooLarge() : new Response("Invalid body", { status: 400 });
+  }
+  const forward = () => next(request);
   const kv = env.SECURITY_KV;
-  if (!kv) return next();
+  if (!kv) return forward();
 
   const ip = clientIp(request);
   const url = new URL(request.url);
 
   // Subresources are the bulk of traffic and the bulk of the KV bill; skip them
   // before any storage work.
-  if (isStaticSubresource(request, url)) return next();
+  if (isStaticSubresource(request, url)) return forward();
 
   // An admin who is themselves caught by a ban (shared/NAT IP) still has to
   // reach the unban endpoint, so that one path is exempt — and only when the
@@ -224,5 +237,5 @@ async function handle({ request, env, next }) {
     return tooMany();
   }
 
-  return next();
+  return forward();
 }

@@ -36,6 +36,12 @@ Run the full local check before pushing changes:
 npm run check
 ```
 
+### Bundle budget
+
+Production assets are limited to 3,240,000 JavaScript bytes and 165,000 CSS
+bytes. The JavaScript budget includes the 40,000-byte allowance for local
+game/app management. Run `npm run size` after a fresh build for current totals.
+
 ### Linux WebHID permissions
 
 If a device appears in Chromium's picker but OpenMouse reports `Failed to open
@@ -67,6 +73,28 @@ sudo udevadm control --reload-rules
 Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
+
+## Local game and app profiles
+
+Games & apps separates OpenMouse presets from Your apps. With the updated
+OpenMouse Bridge running, Add game or app lets users choose a running app or
+enter an executable name/full path. Personal entries are saved in Bridge's
+local config, not sent to OpenMouse for approval. They survive catalog refreshes
+and Bridge restarts. Adding/editing/removing an entry does not require a mouse.
+
+Choose Game to keep its profile while the process runs, including after
+alt-tabbing. Choose App for foreground-only switching. A full executable path
+matches that installation only; a filename matches any executable with that
+name. Foreground matching on Linux requires X11. Local profiles retain the
+existing native/full-settings limits: Bridge can apply supported DPI/polling
+settings with the browser closed; the control panel must remain open to apply
+and restore full device-settings snapshots.
+
+Local targets use stable IDs, not display names, so a target can be renamed or
+share a name with an OpenMouse preset without losing or confusing its settings.
+Removing a local target also removes its linked mouse profiles; clearing its
+mouse settings leaves the target available. Older Bridges show update guidance
+rather than falling back to a public game request.
 
 ## Community
 

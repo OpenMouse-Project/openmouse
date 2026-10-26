@@ -1,29 +1,29 @@
 .om-panel {
   position: relative;
-  background: var(--sheen), var(--surface-1);
+  background: var(--sheen), linear-gradient(var(--surface-1), var(--surface-1)), var(--ink-1);
   box-shadow: var(--lit);
   border-radius: var(--r-md);
   min-width: 0;
 }
 .om-panel.is-lit {
   background:
-    radial-gradient(70% 90% at 100% 0%, rgb(var(--accent-rgb) / 0.07), transparent 62%),
-    var(--sheen), var(--surface-1);
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.07), transparent 50%),
+    linear-gradient(var(--surface-1), var(--surface-1)), var(--ink-1);
 }
 .om-panel-head {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 52px;
-  padding: 14px 18px 8px;
+  padding: 14px var(--panel-pad) 8px;
 }
-.om-panel-head h2 { font-size: var(--fs-h2); font-weight: 600; }
+.om-panel-head h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: 0; }
 .om-panel-head .om-meta { color: var(--text-3); font-size: var(--fs-meta); }
 .om-panel-head .om-end { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
-.om-panel-body { padding: 6px 18px 18px; }
+.om-panel-body { padding: 6px var(--panel-pad) var(--panel-pad); }
 .om-panel-foot {
   display: flex; align-items: center; gap: 8px;
-  padding: 12px 18px 14px;
+  padding: 12px var(--panel-pad) 14px;
   border-top: 1px solid var(--line-1);
   color: var(--text-3);
   font-size: var(--fs-meta);
@@ -34,7 +34,7 @@
 
 .om-btn, .connect-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  height: 32px; padding-inline: 13px;
+  height: var(--control-h); padding-inline: 13px;
   border-radius: var(--r-sm);
   background: var(--btn);
   box-shadow: var(--btn-shadow);
@@ -95,15 +95,15 @@
 .om-dot.is-bad { background: var(--bad); }
 
 .om-fig {
-  font-size: 28px; font-weight: 650; line-height: 1.05;
-  letter-spacing: -0.02em;
+  font-size: 28px; font-weight: 600; line-height: 1.05;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--text-1);
 }
 .om-fig .om-unit { margin-inline-start: 4px; color: var(--text-3); font-size: 13px; font-weight: 500; letter-spacing: 0; }
 .om-fig.is-sm { font-size: 18px; }
 
-.om-kv { list-style: none; padding: 0 18px 8px; }
+.om-kv { list-style: none; padding: 0 var(--panel-pad) 8px; }
 .om-kv > li {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   min-height: 38px;
@@ -113,7 +113,7 @@
 .om-kv > li > span:first-child { color: var(--text-3); }
 .om-kv > li > :last-child { font-weight: 550; text-align: end; font-variant-numeric: tabular-nums; }
 
-.om-empty { display: grid; gap: 6px; padding: 8px 18px 20px; }
+.om-empty { display: grid; gap: 6px; padding: 8px var(--panel-pad) 20px; }
 .om-empty strong { font-weight: 600; }
 .om-empty p { color: var(--text-3); max-width: 52ch; }
 
@@ -154,16 +154,16 @@
 .switch-button {
   position: relative;
   display: inline-flex; align-items: center;
-  width: 38px; height: 22px; flex: none;
+  width: var(--switch-w); height: var(--switch-h); flex: none;
   padding: 2px;
-  border-radius: 11px;
+  border-radius: calc(var(--switch-h) / 2);
   background: var(--well);
   box-shadow: var(--inset-shadow);
   transition: background var(--t-base) var(--ease);
 }
 .switch-button .switch-thumb {
   display: grid; place-items: center;
-  width: 18px; height: 18px;
+  width: var(--switch-thumb); height: var(--switch-thumb);
   border-radius: 50%;
   background: var(--key);
   box-shadow: var(--key-shadow);
@@ -180,7 +180,7 @@
 
 .switch-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  min-height: 40px;
+  min-height: var(--row-min);
   color: var(--text-1);
   font-weight: 500;
 }
@@ -375,9 +375,9 @@ details[open].egg-collapsible > summary > i, details[open].egg-experimental > su
   position: relative;
   display: flex; flex-direction: column; gap: 12px;
   min-width: 0;
-  padding: 16px 18px 18px;
+  padding: var(--panel-pad);
   border-radius: var(--r-md);
-  background: var(--sheen), var(--surface-1);
+  background: var(--sheen), linear-gradient(var(--surface-1), var(--surface-1)), var(--ink-1);
   box-shadow: var(--lit);
 }
 .setting-card.is-staged { box-shadow: var(--lit), inset 0 0 0 1px var(--accent-line); }

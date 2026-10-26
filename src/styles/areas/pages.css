@@ -73,6 +73,19 @@
 @keyframes hardware-test-spin { to { transform: rotate(360deg); } }
 @keyframes hardware-test-writing { from { transform: translateX(-100%); } to { transform: translateX(440%); } }
 
+.games-section { display: grid; gap: 16px; min-width: 0; }
+.games-section h2 { font-size: var(--fs-h2); font-weight: 600; }
+.games-section-head, .games-local-guidance { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.games-local-target { display: flex; flex-direction: column; min-width: 0; border-radius: var(--r-md); background: var(--sheen), var(--surface-1); box-shadow: var(--lit); }
+.games-local-target .games-tile { height: auto; background: transparent; box-shadow: none; }
+.games-local-target .games-tile:hover { background: var(--glint); }
+.games-local-target .games-tile:focus-visible { box-shadow: var(--focus); }
+.games-local-meta, .games-local-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 14px; }
+.games-local-meta { font-size: var(--fs-small); color: var(--text-2); }
+.games-local-path { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-small); color: var(--text-3); }
+.games-local-target > .games-local-path { padding: 4px 14px 12px; }
+.games-local-actions { margin-top: auto; padding: 8px; border-top: 1px solid var(--line-1); }
+.local-app-dialog .om-dialog-head h2 { min-width: 0; }
 .games-header { align-items: flex-start; }
 .games-subtitle { max-width: 65ch; }
 .games-bridge-status { flex: none; height: auto; min-height: 26px; padding-block: 4px; margin-top: 4px; }

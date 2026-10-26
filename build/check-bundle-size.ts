@@ -6,7 +6,7 @@ import { join } from "node:path";
 // measured 3_171_143 bytes with it.
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 165_000,
-  ".js": 3_200_000,
+  ".js": 3_240_000,
 };
 
 const ASSETS = join("dist", "assets");
