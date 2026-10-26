@@ -14,7 +14,7 @@ import { join } from "node:path";
 // still count, only later.
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 165_000,
-  ".js": 3_240_000,
+  ".js": 3_200_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

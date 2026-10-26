@@ -39,9 +39,8 @@ npm run check
 
 ### Bundle budget
 
-Production assets are limited to 3,240,000 JavaScript bytes and 165,000 CSS
-bytes. The JavaScript budget includes the 40,000-byte allowance for local
-game/app management. Run `npm run size` after a fresh build for current totals.
+Production assets are limited to 3,200,000 JavaScript bytes and 165,000 CSS
+bytes. Run `npm run size` after a fresh build for current totals.
 
 ### Linux WebHID permissions
 
