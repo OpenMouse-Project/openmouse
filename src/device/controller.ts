@@ -345,7 +345,7 @@ let settingInProgress = false;
 // `touched` is every field the profile sets: its saved fields plus any a draft
 // edit has changed. A touched field stays in the profile even when its value
 // happens to match the mouse right now.
-let gameProfileDraft: { owner: GameProfileOwner; stash: PendingChange[]; touched: Set<string> } | null = null;
+let gameProfileDraft: { owner: GameProfileOwner; stash: PendingChange[]; touched: Set<string>; rates: { wireless?: number; wired?: number } } | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
@@ -478,7 +478,7 @@ function buildProfileView(): ProfileView {
   const rates = lastProfileFormat
     ? C().reportRateCapabilitiesFor(lastProfileFormat.id, latestDeviceStatus?.transportIds?.USB)
     : null;
-  return {
+  const view: ProfileView = {
     entry,
     summary: describeProfileEntry(entry),
     slotsAvailable: dpiSlotsAvailable(),
@@ -494,6 +494,9 @@ function buildProfileView(): ProfileView {
     ratesLocked: lastProfileFormat?.writable !== true,
     bunnyHopSupported: bunnyHopSupported(),
   };
+  // A game profile is never written to the mouse's onboard profile, so a draft
+  // hides the per-profile controls that could not save into it.
+  return gameProfileDraft ? { ...view, entry: null, slotsAvailable: false, bunnyHopSupported: false } : view;
 }
 
 let artworkKey: string | null = null;
@@ -619,6 +622,7 @@ function buildSnapshot(): ControlSnapshot {
       keys: changes.map((change) => change.key),
     },
     gameProfileDraft: gameProfileDraft !== null,
+    gameProfileRates: { ...gameProfileDraft?.rates },
     diagnostics: { ...diagnosticsView, downloadStatus: diagnosticDownloadStatus },
     diagnosticsOpen,
     captureAvailable: logitechClient() !== null && latestDeviceStatus?.brand === "Logitech",
@@ -1502,7 +1506,7 @@ export function beginGameProfileDraft(initial: GameProfileSnapshot): boolean {
   if (gameProfileDraft) endGameProfileDraft();
   const owner = getGameProfileOwner();
   if (settingInProgress || !latestDeviceStatus || !owner) return false;
-  gameProfileDraft = { owner, stash: stashPendingChanges(), touched: new Set() };
+  gameProfileDraft = { owner, stash: stashPendingChanges(), touched: new Set(), rates: {} };
   openGameProfileDraft(initial);
   emit();
   return true;
@@ -1523,7 +1527,14 @@ function openGameProfileDraft(initial: GameProfileSnapshot): void {
 export function gameProfileDraftSnapshot(): GameProfileSnapshot {
   if (!gameProfileDraft || !latestDeviceStatus) return {};
   const preview = withPendingChanges(latestDeviceStatus);
-  return draftProfileSnapshot(latestDeviceStatus, preview, gameProfileDraft.touched);
+  const snapshot = draftProfileSnapshot(latestDeviceStatus, preview, gameProfileDraft.touched);
+  // The rate of the connection the mouse is not on can never be flashed, so the draft keeps both itself.
+  delete snapshot.pollingRateWirelessHz;
+  delete snapshot.pollingRateWiredHz;
+  const { wireless, wired } = gameProfileDraft.rates;
+  if (wireless !== undefined) snapshot.pollingRateWirelessHz = wireless;
+  if (wired !== undefined) snapshot.pollingRateWiredHz = wired;
+  return snapshot;
 }
 
 /** Replaces the draft's staged values with `snapshot` (the Clear/Revert paths). */
@@ -1531,6 +1542,7 @@ export function resetGameProfileDraft(snapshot: GameProfileSnapshot): void {
   if (!gameProfileDraft) return;
   clearPendingChanges();
   gameProfileDraft.touched = new Set();
+  gameProfileDraft.rates = {};
   openGameProfileDraft(snapshot);
   emit();
 }
@@ -1833,6 +1845,14 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     else applyDpiValue(s.dpi);
   }
   if (s.pollingRateHz != null) applyPollingRate(s.pollingRateHz);
+  if (gameProfileDraft) {
+    if (s.pollingRateWirelessHz != null) applyGameProfilePollingRate("wireless", s.pollingRateWirelessHz);
+    if (s.pollingRateWiredHz != null) applyGameProfilePollingRate("wired", s.pollingRateWiredHz);
+  } else {
+    // The mouse only has the rate of the connection it is on, so only that one is applied.
+    const linkRate = status.connectionType === "Wireless" ? s.pollingRateWirelessHz : s.pollingRateWiredHz;
+    if (linkRate != null) applyPollingRate(linkRate);
+  }
 
   if (s.gamingSurfaceMode) applyGamingSurfaceMode(s.gamingSurfaceMode);
   if (s.lightforceSwitchMode) applyLightforceSwitchMode(s.lightforceSwitchMode);
@@ -2696,6 +2716,13 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
         pollingNote: "Native control through OpenMouse Bridge. The displayed rate is the "
           + "last value applied here; this firmware does not expose a readable current-rate command.",
       },
+    };
+  }
+  if (deviceStatus.connectionType) {
+    // The rate of the connection the mouse is on, so a game profile can set the other one apart.
+    deviceStatus = {
+      ...deviceStatus,
+      [deviceStatus.connectionType === "Wireless" ? "pollingRateWirelessHz" : "pollingRateWiredHz"]: deviceStatus.pollingRateHz,
     };
   }
   latestDeviceStatus = deviceStatus;
@@ -5461,6 +5488,30 @@ export function applyBunnyHopMs(milliseconds: number): void {
     command: `Set bunny hop to ${milliseconds} ms`,
     progress: milliseconds === 0 ? "Turning bunny hop off…" : `Setting bunny hop to ${milliseconds} ms…`,
     apply: writeStagedProfileSector,
+  });
+}
+
+/** Sets the rate a game profile uses on one connection. */
+export function applyGameProfilePollingRate(link: "wireless" | "wired", hz: number): void {
+  if (!gameProfileDraft || !profileReportRateOptions(link).includes(hz)) return;
+  // The draft must not take a rate that staging refuses while a write is running.
+  if (settingInProgress) {
+    setReadStatus(st("ctl.waitFlash"));
+    return;
+  }
+  const field = link === "wireless" ? "pollingRateWirelessHz" : "pollingRateWiredHz";
+  gameProfileDraft.rates[link] = hz;
+  stageChange({
+    key: `polling-rate-${link}`,
+    label: `${hz.toLocaleString()} Hz ${link}`,
+    command: `Set the ${link} polling rate to ${hz.toLocaleString()} Hz`,
+    progress: `Setting ${hz.toLocaleString()} Hz…`,
+    preview: (status) => { status[field] = hz; },
+    // A draft is never flashed; a game launch applies the rate of the connection in use instead.
+    apply: async () => {
+      if ((latestDeviceStatus?.connectionType === "Wireless") !== (link === "wireless")) return;
+      await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(hz);
+    },
   });
 }
 

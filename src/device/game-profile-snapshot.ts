@@ -20,6 +20,8 @@ export const GAME_PROFILE_FIELDS = [
   "activeDpiStage",
   "dpiStageColors",
   "pollingRateHz",
+  "pollingRateWirelessHz",
+  "pollingRateWiredHz",
   "liftOffDistance",
   "liftOffScale",
   "asymmetricLiftOff",

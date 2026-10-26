@@ -114,3 +114,11 @@ test("switching Games profiles restores previous controls and retains every orig
   assert.deepEqual(firstPrior, { lunafury: { lightningMode: 0, leftDebounceMs: 3 } });
   assert.deepEqual(mergeSnapshots({ dpi: 800 }, { pollingRateHz: 2000, dpi: 1600 }), { dpi: 1600, pollingRateHz: 2000 });
 });
+
+test("a profile keeps a report rate for each connection and restores only the one in use", () => {
+  const wired = status({ connectionType: "Wired", pollingRateHz: 1000, pollingRateWiredHz: 1000 });
+  const edited = { ...wired, pollingRateWirelessHz: 8000, pollingRateWiredHz: 2000 };
+  const profile = snapshotDiff(wired, edited);
+  assert.deepEqual(profile, { pollingRateWirelessHz: 8000, pollingRateWiredHz: 2000 });
+  assert.deepEqual(pickSnapshot(wired, profile), { pollingRateWiredHz: 1000 }, "only the connection in use has a value to put back");
+});

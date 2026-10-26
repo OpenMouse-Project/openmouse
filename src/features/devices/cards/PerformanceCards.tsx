@@ -23,6 +23,10 @@ function lodLabel(locale: InterfaceLocale, level: LiftOffLevel): string {
   return level === "Low" ? t(locale, "perf.lodLow") : level === "Medium" ? t(locale, "perf.lodMedium") : t(locale, "perf.lodHigh");
 }
 
+function nearestRateAtOrBelow(options: number[], hz: number): number {
+  return options.filter((rate) => rate <= hz).at(-1) ?? options[0] ?? hz;
+}
+
 export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;
@@ -36,6 +40,14 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
   const locked = snapshot.profileFormat?.writable !== true;
   const shared = (snapshot.profileFormat?.id ?? 6) < 6;
   const nativeX11 = isNativeAttackSharkX11(status);
+  // A game profile keeps a rate per connection, like the onboard profiles do.
+  const splitInGame = snapshot.gameProfileDraft && !shared && status.connectionType !== undefined
+    && snapshot.profile.rateOptions.wireless.length > 0 && snapshot.profile.rateOptions.wired.length > 0;
+  const gameRates = (["wireless", "wired"] as const).map((link) => {
+    const options = snapshot.profile.rateOptions[link];
+    const set = link === "wireless" ? status.pollingRateWirelessHz : status.pollingRateWiredHz;
+    return { link, options, hz: snapshot.gameProfileRates[link] ?? set ?? nearestRateAtOrBelow(options, status.pollingRateHz) };
+  });
 
   const advertisedRates = (status.supportedPollingRates ?? RATE_STEPS_HZ)
     .filter((rate) => !(snapshot.traits.eggControls && rate < 1000))
@@ -64,7 +76,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
             </h2>
           </div>
         </div>
-        {!perProfile ? (
+        {!perProfile && !splitInGame ? (
           <output id="polling-value" className="performance-figure">{displayText(locale, pollingRateText(status.pollingRateHz))}<span className="performance-unit">{"Hz"}</span></output>
         ) : null}
       </div>
@@ -84,6 +96,26 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               disabled={locked || snapshot.settingInProgress}
               hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
               onChange={(hz) => control.setProfileReportRate(link, hz)}
+            />
+          ))}
+        </div>
+      ) : splitInGame ? (
+        <div id="game-rate-rows">
+          {gameRates.map(({ link, hz, options }) => (
+            <RateSlider
+              key={link}
+              locale={locale}
+              id={`game-rate-${link}`}
+              options={options}
+              valueHz={hz}
+              label={t(locale, link === "wired" ? "perf.wired" : "perf.wireless")}
+              disabled={snapshot.settingInProgress}
+              hoursAt={link === "wired" ? undefined : (rate) => fullChargeHoursAt(status.name, rate)}
+              onChange={(rate) => {
+                control.applyGameProfilePollingRate(link, rate);
+                // The other slider follows the mouse's live rate until it is set, so it is set here to stay put.
+                for (const other of gameRates) if (other.link !== link) control.applyGameProfilePollingRate(other.link, other.hz);
+              }}
             />
           ))}
         </div>
