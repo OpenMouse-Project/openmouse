@@ -10,6 +10,7 @@ import { GamesPage } from "../features/games/GamesPage";
 import { HardwareTestPage } from "../features/hardware-test/HardwareTestPage";
 import { InterfaceSettings } from "../features/settings/InterfaceSettings";
 import { NewsBanner } from "../features/news/NewsBanner";
+import { BridgeManualUpdate } from "../features/bridge/BridgeManualUpdate";
 import { PendingBar } from "./PendingBar";
 import { HelpPanel } from "./HelpPanel";
 import { ShareProfileDialog } from "../features/profiles/ShareProfileDialog";
@@ -170,6 +171,7 @@ export function App(): ReactNode {
       />
 
       <main className="om-main full-desktop-main">
+        <BridgeManualUpdate locale={locale} />
         <NewsBanner locale={locale} />
         <div className="om-content full-desktop-content" ref={panel}>
           {showingSettings ? (
