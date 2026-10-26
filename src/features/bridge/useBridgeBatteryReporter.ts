@@ -16,7 +16,8 @@ import type { ControlSnapshot } from "../../device/types";
 const REFRESH_INTERVAL_MS = 5 * 60_000;
 
 function readingKey(reading: BridgeBatteryReading): string {
-  return `${reading.deviceId}|${reading.percent}|${reading.charging}`;
+  return `${reading.deviceId}|${reading.percent}|${reading.charging}`
+    + `|${reading.dpi ?? ""}|${reading.pollingRateHz ?? ""}|${reading.switchMode ?? ""}`;
 }
 
 export function useBridgeBatteryReporter(snapshot: ControlSnapshot): void {
@@ -27,6 +28,12 @@ export function useBridgeBatteryReporter(snapshot: ControlSnapshot): void {
       deviceName: status.name,
       percent: Math.round(status.batteryPercent),
       charging: status.batteryState.startsWith("Charging"),
+      // The onboard-memory settings the panel is already reading; Bridge's
+      // tray panel shows them next to the battery. Omitted when this
+      // driver's status doesn't carry them.
+      dpi: Math.round(status.dpi),
+      pollingRateHz: Math.round(status.pollingRateHz),
+      switchMode: status.lightforceSwitchMode ?? undefined,
     }
     : null;
   const readingRef = useRef(reading);

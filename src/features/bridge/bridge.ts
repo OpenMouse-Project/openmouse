@@ -152,6 +152,11 @@ export interface BridgeBatteryReading {
   deviceName: string;
   percent: number;
   charging: boolean;
+  /** The settings currently in the mouse's onboard memory, when the panel
+   * can see them — Bridge's tray panel shows them next to the battery. */
+  dpi?: number;
+  pollingRateHz?: number;
+  switchMode?: string;
 }
 
 export async function saveBridgeBattery(
