@@ -129,3 +129,10 @@ test("editing a saved target does not ask Bridge for running apps", async () => 
   const h = harness({ id: "local:old", name: "Editor", executable: "editor", path: "/usr/bin/editor", kind: "app" }, undefined, RUNNING); await settle(); h.render();
   assert.equal(h.processCalls(), 0); assert.equal(rows(h).length, 0);
 });
+
+test("of two windows of one running app, the one in front is kept", async () => {
+  const back = { name: "Hunt (menu)", executable: "HuntGame.exe", path: "C:\\Games\\Hunt\\HuntGame.exe", foreground: false, iconId: "a" };
+  const front = { ...back, name: "Hunt: Showdown", foreground: true };
+  const h = harness(undefined, undefined, [back, front]); await settle(); h.render();
+  assert.deepEqual(rows(h).map(rowName), ["Hunt: Showdown"]);
+});

@@ -77,15 +77,14 @@ to only the `0xff02:0x0002` collection's node is insufficient.
 ## Local game and app profiles
 
 Games & apps separates OpenMouse presets from Your apps. With the updated
-OpenMouse Bridge running, Add game or app lets users choose a running app or
-enter an executable name/full path. Personal entries are saved in Bridge's
+OpenMouse Bridge running, Add game or app lists the apps that are running to
+pick from, or takes the full path to an executable. Personal entries are saved in Bridge's
 local config, not sent to OpenMouse for approval. They survive catalog refreshes
 and Bridge restarts. Adding/editing/removing an entry does not require a mouse.
 
-Choose Game to keep its profile while the process runs, including after
-alt-tabbing. Choose App for foreground-only switching. A full executable path
-matches that installation only; a filename matches any executable with that
-name. Foreground matching on Linux requires X11. Local profiles retain the
+Each entry is a Game or an App, and its profile is active While running (kept
+after alt-tabbing) or While focused (foreground-only switching). The path
+matches that installation only. Foreground matching on Linux requires X11. Local profiles retain the
 existing native/full-settings limits: Bridge can apply supported DPI/polling
 settings with the browser closed; the control panel must remain open to apply
 and restore full device-settings snapshots.

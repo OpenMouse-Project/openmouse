@@ -48,7 +48,9 @@ export function runningTargetPath(app: BridgeApplication): string {
 /** Running apps that can be saved as a local target, one per path, the app in front first. */
 export function runningTargets(apps: BridgeApplication[]): BridgeApplication[] {
   const seen = new Set<string>();
-  return apps
+  // Sorted first, so of two windows of one app the one in front is the one kept.
+  return [...apps]
+    .sort((a, b) => Number(b.foreground) - Number(a.foreground) || a.name.localeCompare(b.name))
     .filter((app) => {
       const target = supportedLocalTarget(runningTargetPath(app));
       if (!target) return false;
@@ -56,8 +58,7 @@ export function runningTargets(apps: BridgeApplication[]): BridgeApplication[] {
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    })
-    .sort((a, b) => Number(b.foreground) - Number(a.foreground) || a.name.localeCompare(b.name));
+    });
 }
 
 export function presetGames(bridge: BridgeGame[], catalog: BridgeGame[]): BridgeGame[] {
