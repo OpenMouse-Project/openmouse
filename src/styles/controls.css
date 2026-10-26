@@ -256,7 +256,7 @@ select {
 }
 select option { background: var(--solid-2); color: var(--text-1); }
 
-input[type="text"], input[type="number"], input[type="search"], input[type="url"], input:not([type]), textarea {
+input[type="text"], input[type="number"], input[type="search"], input:not([type]), textarea {
   min-height: 32px; padding: 6px 10px;
   border: 0; border-radius: var(--r-sm);
   background: var(--well);

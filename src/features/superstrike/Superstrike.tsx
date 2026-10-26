@@ -331,7 +331,9 @@ export function Superstrike({ snapshot }: { snapshot: ControlSnapshot }): ReactN
   if (!tuning || tuning.buttons.length !== 2) return null;
   const locale = snapshot.preferences.locale;
   const state = snapshot.analogTuning;
-  const showApply = !snapshot.preferences.instantFlash;
+  // With instant flash on, a step is written the moment it is picked, so there
+  // is nothing to apply. A game-profile draft stages instead of flashing.
+  const showApply = !snapshot.preferences.instantFlash || snapshot.gameProfileDraft;
 
   return (
     // A card in the Buttons tab's card list, so the mouse panel sits beside it.

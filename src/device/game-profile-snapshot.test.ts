@@ -47,41 +47,6 @@ test("stored snapshots lose fields this build cannot apply", () => {
   assert.deepEqual(sanitizeSnapshot([1]), {});
 });
 
-test("HITS tuning is part of a game profile", () => {
-  const tuning = (actuation: number): MouseStatus["analogButtonTuning"] => ({
-    maxActuation: 10,
-    maxRapidTrigger: 10,
-    maxHaptics: 10,
-    buttons: [
-      { actuation, rapidTrigger: 2, haptics: 3, rapidTriggerEnabled: true },
-      { actuation: 4, rapidTrigger: 2, haptics: 3, rapidTriggerEnabled: false },
-    ],
-  });
-  const before = status({ analogButtonTuning: tuning(4) });
-  const after = status({ analogButtonTuning: tuning(7) });
-  assert.deepEqual(editableProfileFields(before, after), ["analogButtonTuning"]);
-  assert.deepEqual(snapshotDiff(before, after), { analogButtonTuning: tuning(7) });
-  assert.deepEqual(sanitizeSnapshot({ analogButtonTuning: tuning(7) }), { analogButtonTuning: tuning(7) });
-});
-
-test("side button assignments are part of a game profile", () => {
-  const before = status({ hostButtons: {} });
-  const after = status({ hostButtons: { 16: { key: 0x68, modifiers: 0 }, 8: { key: 0x04, modifiers: 3 } } });
-  assert.deepEqual(editableProfileFields(before, after), ["hostButtons"]);
-  assert.deepEqual(snapshotDiff(before, after), { hostButtons: after.hostButtons });
-  assert.deepEqual(pickSnapshot(before, { hostButtons: after.hostButtons }), { hostButtons: {} }, "the prior is no assignments");
-  assert.deepEqual(sanitizeSnapshot({ hostButtons: after.hostButtons }), { hostButtons: after.hostButtons });
-});
-
-test("Host bunny hop is part of a game profile", () => {
-  const before = status({ hostBunnyHopMs: 0 });
-  const after = status({ hostBunnyHopMs: 100 });
-  assert.deepEqual(editableProfileFields(before, after), ["hostBunnyHopMs"]);
-  assert.deepEqual(snapshotDiff(before, after), { hostBunnyHopMs: 100 });
-  assert.deepEqual(pickSnapshot(before, { hostBunnyHopMs: 100 }), { hostBunnyHopMs: 0 });
-  assert.deepEqual(sanitizeSnapshot({ hostBunnyHopMs: 100 }), { hostBunnyHopMs: 100 });
-});
-
 test("the comparison key ignores field order", () => {
   assert.equal(snapshotKey({ dpi: 800, pollingRateHz: 1000 }), snapshotKey({ pollingRateHz: 1000, dpi: 800 }));
   assert.notEqual(snapshotKey({ dpi: 800 }), snapshotKey({ dpi: 1600 }));
@@ -148,12 +113,4 @@ test("switching Games profiles restores previous controls and retains every orig
   }, "settings omitted by the next game go back to their originals");
   assert.deepEqual(firstPrior, { lunafury: { lightningMode: 0, leftDebounceMs: 3 } });
   assert.deepEqual(mergeSnapshots({ dpi: 800 }, { pollingRateHz: 2000, dpi: 1600 }), { dpi: 1600, pollingRateHz: 2000 });
-});
-
-test("a profile keeps a report rate for each connection and restores only the one in use", () => {
-  const wired = status({ connectionType: "Wired", pollingRateHz: 1000, pollingRateWiredHz: 1000 });
-  const edited = { ...wired, pollingRateWirelessHz: 8000, pollingRateWiredHz: 2000 };
-  const profile = snapshotDiff(wired, edited);
-  assert.deepEqual(profile, { pollingRateWirelessHz: 8000, pollingRateWiredHz: 2000 });
-  assert.deepEqual(pickSnapshot(wired, profile), { pollingRateWiredHz: 1000 }, "only the connection in use has a value to put back");
 });

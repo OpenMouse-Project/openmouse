@@ -331,8 +331,6 @@ export interface ControlSnapshot {
   pending: PendingView;
   /** True while the Games page is editing a game profile: edits are staged into a draft that is never flashed. */
   gameProfileDraft: boolean;
-  /** The report rate a game profile being edited keeps for each connection. */
-  gameProfileRates: { wireless?: number; wired?: number };
   diagnostics: DiagnosticsView;
   diagnosticsOpen: boolean;
   captureAvailable: boolean;

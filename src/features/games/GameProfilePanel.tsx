@@ -13,14 +13,12 @@ import { displayText } from "../../i18n/index";
 // settings. useBridgeProfileApplier writes it when the game launches and puts
 // the replaced values back when it closes.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Gamepad2, ImagePlus, Mouse, Pencil } from "lucide-react";
+import { ArrowLeft, Gamepad2, Mouse } from "lucide-react";
 import * as control from "../../device/controller";
 import type { BridgeGame, BridgeProfile } from "../bridge/bridge";
-import { bridgeProfiles, saveBridgeCustomGameImage, saveBridgeProfiles } from "../bridge/bridge";
+import { bridgeProfiles, saveBridgeProfiles } from "../bridge/bridge";
 import { subscribeBridgeHidActive } from "../bridge/bridge-hid";
 import { fetchGamesCatalog, gameArtwork, type CatalogGame } from "./games-catalog";
-import { CustomGameImage } from "./CustomGameImage";
-import { prepareGameImage } from "./game-image";
 import { snapshotKey, type GameProfileSnapshot } from "../../device/game-profile-snapshot";
 import type { ControlSnapshot, SidebarDevice, ToastKind, WorkspaceTab } from "../../device/types";
 import { t, tp, type I18nKey } from "../../i18n/index";
@@ -79,16 +77,10 @@ function selectedIndex(devices: SidebarDevice[]): number | null {
 export function GameProfilePanel({
   snapshot,
   game,
-  custom = false,
-  onImageChanged,
-  onRename,
   onBack,
 }: {
   snapshot: ControlSnapshot;
   game: BridgeGame;
-  custom?: boolean;
-  onImageChanged?: () => void;
-  onRename?: (name: string) => Promise<"renamed" | "duplicate" | "failed">;
   onBack: () => void;
 }): ReactNode {
   const locale = snapshot.preferences.locale;
@@ -99,15 +91,6 @@ export function GameProfilePanel({
   const [autoApply, setAutoApply] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const imagePicker = useRef<HTMLInputElement>(null);
-  const [imageVersion, setImageVersion] = useState(0);
-  const [titleDraft, setTitleDraft] = useState<string | null>(null);
-  const [titleError, setTitleError] = useState<"duplicate" | "failed" | null>(null);
-  const renaming = useRef(false);
-  const cancelled = useRef(false);
-  const gameRef = useRef(game);
-  gameRef.current = game;
   const [tab, setTab] = useState<WorkspaceTab>("performance");
   // The profile as Bridge last stored it; the draft opens on these values.
   const savedRef = useRef<GameProfileSnapshot>({});
@@ -167,25 +150,14 @@ export function GameProfilePanel({
   // The cards edit whichever mouse is connected, so the draft only runs while
   // that is the profile's target. It ends when this panel closes, putting the
   // user's own unflashed device-page edits back.
-  // A write that is not ours restarts the draft once it is over. Apply now is
-  // ours: restarting there would clear the staged changes before the writer
-  // reads them (HITS writes nothing), so the draft stays open through it.
-  const busyElsewhere = snapshot.settingInProgress && !applying;
   useEffect(() => {
-    if (!loaded || !editing || busyElsewhere) return;
+    if (!loaded || !editing || snapshot.settingInProgress) return;
     const reopening = lastDraft.current !== null;
     if (!control.beginGameProfileDraft(lastDraft.current ?? savedRef.current)) return;
     adoptDraft.current = !reopening;
     return () => control.endGameProfileDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, editing, target?.name, busyElsewhere]);
-
-  // Closing the page puts back what "Apply now" replaced. That holds while the
-  // game runs too: the applier can only take over once the draft has ended, and
-  // it captures what the mouse has then as the settings to give back after the game.
-  useEffect(() => () => {
-    void control.restoreGameProfileApply();
-  }, []);
+  }, [loaded, editing, target?.name, snapshot.settingInProgress]);
 
   const draft = snapshot.gameProfileDraft ? control.gameProfileDraftSnapshot() : null;
   if (draft !== null) lastDraft.current = draft;
@@ -202,8 +174,6 @@ export function GameProfilePanel({
     notify: NotifyKind,
   ): Promise<void> {
     const device = next.targetIndex !== null ? devices[next.targetIndex] : undefined;
-    // A save that was queued before a rename lands under the name the game has now.
-    const game = gameRef.current;
     setSaving(true);
     let ok = true;
     try {
@@ -250,19 +220,13 @@ export function GameProfilePanel({
   useEffect(() => {
     pendingSave.current = null;
     if (!loaded || draft === null || currentKey === savedKey.current) return;
-    let timer: ReturnType<typeof setTimeout>;
     const save = (): void => {
-      // A rename moves the stored profile itself; this edit follows once it is over.
-      if (renaming.current) {
-        timer = setTimeout(save, SAVE_DEBOUNCE_MS);
-        return;
-      }
       pendingSave.current = null;
       const on = autoApplyRef.current;
       void persist({ settings: current, targetIndex, autoApply: on }, on ? "updated" : null);
     };
     pendingSave.current = save;
-    timer = setTimeout(save, SAVE_DEBOUNCE_MS);
+    const timer = setTimeout(save, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey, loaded]);
@@ -277,8 +241,7 @@ export function GameProfilePanel({
     // (the effect above starts a new one once the new mouse has been read).
     if (!device.selected) {
       control.endGameProfileDraft();
-      // What Apply now changed goes back to the mouse it was written to, before the other one is selected.
-      void control.restoreGameProfileApply().then(() => control.selectAuthorizedDevice(device.index));
+      void control.selectAuthorizedDevice(device.index);
     }
     void persist({ settings: current, targetIndex: index, autoApply }, autoApply ? "updated" : null);
   }
@@ -295,50 +258,6 @@ export function GameProfilePanel({
     control.resetGameProfileDraft({});
     lastDraft.current = {};
     void persist({ settings: {}, targetIndex, autoApply: false }, wasEnabled ? "disabled" : null);
-  }
-
-  async function applyNow(): Promise<void> {
-    setApplying(true);
-    try {
-      if (await control.applyGameProfileDraftNow() === "written") {
-        control.pushToast("success", t(locale, "games.appliedNow"), t(locale, "games.appliedNowDetail"));
-      }
-    } finally {
-      setApplying(false);
-    }
-  }
-
-  async function renameGame(): Promise<void> {
-    const name = titleDraft?.trim() ?? "";
-    if (renaming.current) return;
-    if (!onRename || name === "" || name === game.name) {
-      setTitleDraft(null);
-      return;
-    }
-    renaming.current = true;
-    // What is edited so far is saved under the old name first; Bridge then moves the profile to the new one.
-    await persist({ settings: current, targetIndex, autoApply }, null);
-    const result = await onRename(name);
-    renaming.current = false;
-    if (result === "renamed") {
-      setTitleDraft(null);
-      setTitleError(null);
-    } else {
-      setTitleError(result);
-    }
-  }
-
-  async function changeImage(file: File): Promise<void> {
-    try {
-      const prepared = await prepareGameImage(file);
-      if (!prepared) throw new Error("unreadable image");
-      // The game may have been renamed while the picture was being prepared; Bridge keeps it under the current name.
-      await saveBridgeCustomGameImage(gameRef.current.name, prepared);
-      setImageVersion((version) => version + 1);
-      onImageChanged?.();
-    } catch {
-      control.pushToast("error", t(locale, "customgame.imageFailed"));
-    }
   }
 
   const artwork = catalogEntry ? gameArtwork(catalogEntry) : null;
@@ -359,91 +278,28 @@ export function GameProfilePanel({
           <div className="game-profile-art">
             {artwork ? (
               <img src={artwork} alt={game.name} loading="lazy" draggable={false} />
-            ) : catalogEntry ? (
-              <Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />
             ) : (
-              <CustomGameImage name={game.name} version={imageVersion} size={40} />
+              <Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />
             )}
-            {custom ? (
-              <>
-                <input
-                  ref={imagePicker}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = "";
-                    if (file) void changeImage(file);
-                  }}
-                />
-                <button type="button" className="game-profile-art-change" onClick={() => imagePicker.current?.click()}>
-                  <ImagePlus size={20} strokeWidth={1.8} aria-hidden="true" />
-                  {t(locale, "customgame.changeImage")}
-                </button>
-              </>
-            ) : null}
           </div>
         </div>
 
         <div className="game-profile-settings">
           <div className="game-profile-name-card">
             <div>
-              {titleDraft !== null ? (
-                <input
-                  className="game-profile-name-input"
-                  type="text"
-                  autoFocus
-                  maxLength={80}
-                  aria-label={t(locale, "customgame.rename")}
-                  value={titleDraft}
-                  onChange={(event) => { setTitleDraft(event.currentTarget.value); setTitleError(null); }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void renameGame();
-                    if (event.key === "Escape") { cancelled.current = true; setTitleDraft(null); setTitleError(null); }
-                  }}
-                  onBlur={() => {
-                    if (cancelled.current) { cancelled.current = false; return; }
-                    void renameGame();
-                  }}
-                />
-              ) : (
-                <div className="game-profile-name-row">
-                  <h1 className="game-profile-name">{game.name}</h1>
-                  {custom && onRename ? (
-                    <button
-                      type="button"
-                      className="om-icon-btn game-profile-name-edit"
-                      title={t(locale, "customgame.rename")}
-                      aria-label={t(locale, "customgame.rename")}
-                      onClick={() => setTitleDraft(game.name)}
-                    >
-                      <Pencil size={14} strokeWidth={1.8} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-              )}
-              {titleError ? <span className="feedback-error" role="alert">{t(locale, titleError === "duplicate" ? "customgame.duplicate" : "customgame.failed")}</span> : null}
+              <h1 className="game-profile-name">{game.name}</h1>
               <span className="game-profile-changed">
                 {displayText(locale, changedCount === 0
                   ? t(locale, "games.noChanges")
                   : tp(locale, "games.changedCount", { n: changedCount }))}
               </span>
             </div>
-            <div className="game-profile-actions">
-              <button
-                type="button"
-                className="om-btn"
-                disabled={applying || !snapshot.gameProfileDraft || snapshot.pending.keys.length === 0}
-                onClick={() => { void applyNow(); }}
-              >{t(locale, "games.applyNow")}</button>
-              <button
-                type="button"
-                className="om-btn is-ghost game-profile-clear"
-                disabled={saving || applying || (!autoApply && changedCount === 0)}
-                onClick={clearProfile}
-              >{t(locale, "cap.clear")}</button>
-            </div>
+            <button
+              type="button"
+              className="om-btn is-ghost game-profile-clear"
+              disabled={saving || (!autoApply && changedCount === 0)}
+              onClick={clearProfile}
+            >{t(locale, "cap.clear")}</button>
           </div>
 
           <section className="game-profile-section">

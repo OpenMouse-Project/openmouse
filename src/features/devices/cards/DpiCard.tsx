@@ -14,8 +14,6 @@ import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
 import { IconLinked, IconUnlinked } from "../../../shared/icons";
 
 const MAX_EDITOR_ROWS = 4;
-/** G HUB's Host profile has five DPI slots. */
-const MAX_HOST_ROWS = 5;
 const DEFAULT_LOD = 2;
 
 type StageRow = { enabled: boolean; value: string; valueY: string; lod: number; linked?: boolean };
@@ -65,10 +63,7 @@ function DpiStageEditor({
     && snapshot.capabilities?.dpiStageAxesWritable === true
     && Array.isArray(status?.dpiStagesY);
   const slotAxesEditable = mode === "logitech" && status?.supportsSeparateDpiAxes === true;
-  const hostAxesEditable = mode === "generic" && snapshot.traits.logitech && status?.supportsSeparateDpiAxes === true;
-  const axesLinkable = slotAxesEditable || hostAxesEditable;
-  const showAxes = stageAxesEditable || slotAxesEditable || hostAxesEditable;
-  const genericRows = hostAxesEditable ? MAX_HOST_ROWS : MAX_EDITOR_ROWS;
+  const showAxes = stageAxesEditable || slotAxesEditable;
   const stageColors = mode === "stage"
     ? status?.dpiStageColors ?? (isNoirKsnakeStatus(status) ? NOIR_DPI_STAGE_COLORS : null)
     : null;
@@ -80,14 +75,13 @@ function DpiStageEditor({
   const locked = mode === "logitech" ? snapshot.profile.slotsLocked : snapshot.settingsPending;
 
   const countCap = isLogitech ? (limits?.maxStages ?? 1) : stageEditor?.maxStages ?? 1;
-  const rowCap = mode === "generic" ? genericRows : countCap;
+  const rowCap = mode === "generic" ? MAX_EDITOR_ROWS : countCap;
 
-  const initRows = (): StageRow[] => {
+  const initRows = (prev?: StageRow[]): StageRow[] => {
     if (mode === "logitech" && snapshot.dpiSlotPlan) {
       const stages = snapshot.dpiSlotPlan.stages.slice(0, rowCap);
-      const unlinked = control.unlinkedDpiSlots();
       const last = stages[stages.length - 1]?.x ?? status?.dpi ?? 800;
-      const rows = stages.map((stage, index) => ({ enabled: true, value: String(stage.x), valueY: String(stage.y ?? stage.x), lod: stage.lod, linked: (stage.y ?? stage.x) === stage.x && !unlinked.includes(index) }));
+      const rows = stages.map((stage, index) => ({ enabled: true, value: String(stage.x), valueY: String(stage.y ?? stage.x), lod: stage.lod, linked: (stage.y ?? stage.x) === stage.x && prev?.[index]?.linked !== false }));
       while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), valueY: String(last), lod: DEFAULT_LOD, linked: true });
       return rows;
     }
@@ -104,37 +98,12 @@ function DpiStageEditor({
       while (rows.length < rowCap) rows.push({ enabled: false, value: String(last), valueY: String(last), lod: DEFAULT_LOD });
       return rows;
     }
-    const savedSlots = hostAxesEditable ? control.loadHostDpiSlots() : null;
-    if (savedSlots) {
-      // Keep the slots where the user put them; only the highlighted one follows the live DPI.
-      const slots = savedSlots.slice(0, genericRows);
-      const current = { x: status?.dpi ?? 800, y: status?.dpiY ?? status?.dpi ?? 800 };
-      let activeAt = slots.findIndex((slot) => slot.x === current.x && slot.y === current.y);
-      if (activeAt < 0) {
-        // The mouse was changed elsewhere since: its DPI takes the first slot, so a row is always the live one.
-        slots.unshift(current);
-        slots.length = Math.min(slots.length, genericRows);
-        activeAt = 0;
-      }
-      while (slots.length < genericRows) slots.push({ ...(slots[slots.length - 1] ?? current) });
-      return slots.map((slot, index) => ({
-        enabled: index === activeAt,
-        value: String(slot.x),
-        valueY: String(slot.y),
-        lod: DEFAULT_LOD,
-        linked: slot.unlinked !== true && slot.x === slot.y,
-      }));
-    }
     const presets = dpiPresetValues(options);
     const ordered = [status?.dpi, ...presets.filter((value) => value !== status?.dpi)]
       .filter((value): value is number => typeof value === "number")
-      .slice(0, genericRows);
-    while (ordered.length < genericRows) ordered.push(ordered[ordered.length - 1] ?? 800);
-    return ordered.map((value) => {
-      const active = value === status?.dpi;
-      const valueY = active && hostAxesEditable ? status?.dpiY ?? value : value;
-      return { enabled: active, value: String(value), valueY: String(valueY), lod: DEFAULT_LOD, linked: valueY === value };
-    });
+      .slice(0, MAX_EDITOR_ROWS);
+    while (ordered.length < MAX_EDITOR_ROWS) ordered.push(ordered[ordered.length - 1] ?? 800);
+    return ordered.map((value) => ({ enabled: value === status?.dpi, value: String(value), valueY: String(value), lod: DEFAULT_LOD }));
   };
 
   const [rows, setRows] = useState<StageRow[]>(initRows);
@@ -186,12 +155,12 @@ function DpiStageEditor({
     ? (snapshot.dpiSlotPlan?.stages.map((stage) => `${stage.x}/${stage.y}`).join(",") ?? "-")
     : mode === "stage"
       ? `${status?.dpiStages?.join(",") ?? "-"}|${status?.dpiStagesY?.join(",") ?? "-"}`
-      : `${status?.dpi ?? 0}/${status?.dpiY ?? 0}`;
+      : String(status?.dpi ?? 0);
   const lastSigRef = useRef(sourceSig);
   useEffect(() => {
     if (sourceSig === lastSigRef.current) return;
     lastSigRef.current = sourceSig;
-    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !timerRef.current)) setRows(initRows());
+    if (Date.now() - touchedRef.current > 1500 || (mode === "logitech" && !timerRef.current)) setRows(initRows(rowsRef.current));
     // initRows is recreated each render on purpose so it always reads fresh snapshot data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceSig]);
@@ -215,28 +184,12 @@ function DpiStageEditor({
   const parseRow = (raw: string): number | null =>
     /^\d+$/.test(raw.trim()) && Number(raw) > 0 ? Number(raw) : null;
 
-  const persistHostSlots = (list: StageRow[]): void => {
-    const snapped = (raw: string, fallback: number): number => {
-      const parsed = parseRow(raw) ?? fallback;
-      return closestDpiOption(options, parsed) ?? parsed;
-    };
-    control.saveHostDpiSlots(list.map((row) => {
-      const x = snapped(row.value, status?.dpi ?? 800);
-      // Equal X and Y cannot say whether the pair was unlinked on purpose, so the choice is stored with it.
-      return { x, y: snapped(row.valueY, x), ...(row.linked === false ? { unlinked: true } : {}) };
-    }));
-  };
-
   const commit = (next: StageRow[]): void => {
     if (mode === "logitech") {
       // Lift-off lives in the slot plan itself now (edited from the dedicated
       // side panel), so a DPI-value commit must not clobber it with the local
       // row copy. Enabled rows map 1:1 to plan stages in order.
       const planLods = snapshot.dpiSlotPlan?.stages.map((stage) => stage.lod) ?? [];
-      // Disabled rows drop out of the plan, so saved unlink rows move to their compacted index.
-      control.replaceDpiUnlinkedSlots(
-        next.filter((row) => row.enabled).flatMap((row, position) => (row.linked === false ? [position] : [])),
-      );
       control.applyDpiSlotEditor(
         next.map((row, index) => {
           const position = next.slice(0, index).filter((entry) => entry.enabled).length;
@@ -275,19 +228,9 @@ function DpiStageEditor({
       });
       return;
     }
-    if (hostAxesEditable) persistHostSlots(next);
     const active = next.find((row) => row.enabled);
     if (!active) return;
     const snap = closestDpiOption(options, parseRow(active.value) ?? status?.dpi ?? 0);
-    if (hostAxesEditable) {
-      const snapY = snap === null ? null : closestDpiOption(options, parseRow(active.valueY) ?? snap);
-      if (snap === null || snapY === null) return;
-      if (snap !== status?.dpi || snapY !== (status?.dpiY ?? status?.dpi)) control.applyLogitechAxisDpi(snap, snapY);
-      const synced = next.map((row) => (row.enabled ? { ...row, value: String(snap), valueY: String(snapY) } : row));
-      setRows(synced);
-      rowsRef.current = synced;
-      return;
-    }
     if (snap !== null && (singleFillsStages ? stagesDifferFrom(snap) : snap !== status?.dpi)) {
       applySingleDpi(snap);
       const next2 = next.map((row) => (row.enabled ? { ...row, value: String(snap) } : row));
@@ -322,9 +265,7 @@ function DpiStageEditor({
       const selected = next.map((row, i) => (i === index ? { ...row, enabled: true } : { ...row, enabled: false }));
       setRows(selected);
       rowsRef.current = selected;
-      if (hostAxesEditable) persistHostSlots(selected);
-      if (hostAxesEditable) control.applyLogitechAxisDpi(snap, closestDpiOption(options, parseRow(next[index].valueY) ?? snap) ?? snap);
-      else applySingleDpi(snap);
+      applySingleDpi(snap);
       touchedRef.current = Date.now();
       return;
     }
@@ -351,7 +292,7 @@ function DpiStageEditor({
   const setValue = (index: number, raw: string, delay?: number): void => {
     const value = raw.replace(/[^\d]/g, "");
     const next = rows.map((row, i) => (i === index
-      ? { ...row, value, valueY: axesLinkable && row.linked !== false ? value : row.valueY }
+      ? { ...row, value, valueY: slotAxesEditable && row.linked !== false ? value : row.valueY }
       : row));
     setRows(next);
     rowsRef.current = next;
@@ -373,10 +314,11 @@ function DpiStageEditor({
   };
 
   const toggleLink = (index: number): void => {
-    const linked = rows[index]?.linked === false;
-    // Host presets keep their link state with the preset; only Logitech slots live in the profile's own record.
-    if (mode === "logitech") control.setDpiSlotUnlinked(index, !linked);
-    const next = rows.map((row, i) => (i === index ? { ...row, linked, valueY: linked ? row.value : row.valueY } : row));
+    const next = rows.map((row, i) => {
+      if (i !== index) return row;
+      const linked = row.linked === false;
+      return { ...row, linked, valueY: linked ? row.value : row.valueY };
+    });
     setRows(next);
     rowsRef.current = next;
     markEdited(next);
@@ -452,7 +394,7 @@ function DpiStageEditor({
   const enabledCount = rows.filter((row) => row.enabled).length;
 
   return (
-    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${axesLinkable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${showAxes ? " has-stage-axes" : ""}`}>
+    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${slotAxesEditable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${showAxes ? " has-stage-axes" : ""}`}>
       <div className="dpi-editor-bar">
         <span className="dpi-editor-bar-label">
           {t(locale, mode === "logitech" ? "dpi.slotsInUse" : mode === "stage" ? "dpi.stagesInUse" : "dpi.presetsInUse")}
@@ -520,7 +462,7 @@ function DpiStageEditor({
                 onBlur={flushEdit}
                 onKeyDown={(event) => { if (event.key === "Enter") flushEdit(); }}
               />
-              {axesLinkable ? (
+              {slotAxesEditable ? (
                 <button
                   type="button"
                   className={`dpi-axis-lock${row.linked === false ? "" : " is-linked"}`}
@@ -542,7 +484,7 @@ function DpiStageEditor({
                   max={slider.max}
                   step={slider.step}
                   value={row.valueY}
-                  disabled={locked || (mode === "stage" && !stagesWritable) || (axesLinkable && row.linked !== false)}
+                  disabled={locked || (mode === "stage" && !stagesWritable) || (slotAxesEditable && row.linked !== false)}
                   onChange={(event) => {
                     const edit = inputEdit(event, row.valueY);
                     setValueY(index, edit.raw, edit.delay);
@@ -763,7 +705,6 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
 
         <DpiStageEditor
-          key={control.dpiUnlinkKey() ?? "dpi"}
           snapshot={snapshot}
           editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}
         />
