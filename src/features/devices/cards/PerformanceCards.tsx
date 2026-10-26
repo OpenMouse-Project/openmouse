@@ -382,25 +382,29 @@ function LiftOffScale({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 let lastBunnyHop: ControlSnapshot | null = null;
 
 export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: ControlSnapshot; standalone?: boolean }): ReactNode {
+  const host = !live.profile.entry
+    && (live.status?.deviceMode === "Host" || live.gameProfileDraft)
+    && control.hostBunnyHopSupported(live.status);
   if (live.profile.bunnyHopSupported && live.profile.entry) lastBunnyHop = live;
-  const snapshot = live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
+  const snapshot = !host && live.settingInProgress && !live.profile.entry && lastBunnyHop !== null && lastBunnyHop.status?.name === live.status?.name
     ? lastBunnyHop
     : live;
   const entry = snapshot.profile.entry;
-  if (!snapshot.profile.bunnyHopSupported || !entry) return null;
+  if (!host && (!snapshot.profile.bunnyHopSupported || !entry)) return null;
   const locale = snapshot.preferences.locale;
 
-  const locked = snapshot.profileFormat?.writable !== true;
+  const locked = !host && snapshot.profileFormat?.writable !== true;
   // Support is a property of the format, not of the stored value: a profile
   // that never had bunny hop written reads 0xff and decodes to null, which
   // means off, not unsupported.
-  const value = snapshot.stagedBunnyHopMs ?? entry.bunnyHoppingMs ?? 0;
+  const value = host ? snapshot.status?.hostBunnyHopMs ?? 0 : snapshot.stagedBunnyHopMs ?? entry?.bunnyHoppingMs ?? 0;
+  const apply = host ? control.applyHostBunnyHopMs : control.applyBunnyHopMs;
   const enabled = value !== 0;
 
   const row = (
     <div id="bunny-hop-row">
       <div className={standalone ? "setting-heading superstrike-tuning-heading" : "setting-heading"}>
-        <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{t(locale, "dpi.perProfile")}</span></h2></div>
+        <div><h2>{t(locale, "perf.bunnyHop")}<span className="setting-scope">{host ? displayText(locale, "Host") : t(locale, "dpi.perProfile")}</span></h2></div>
       </div>
       <div className="bunny-hop-controls">
         <SwitchButton
@@ -408,7 +412,7 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
           value={enabled}
           label={t(locale, "perf.bunnyHop")}
           disabled={locked || snapshot.settingInProgress}
-          onChange={(next) => control.applyBunnyHopMs(next ? BUNNY_HOP_LIMITS.minMs : 0)}
+          onChange={(next) => apply(next ? BUNNY_HOP_LIMITS.minMs : 0)}
         />
         <input
           id="bunny-hop-input"
@@ -423,12 +427,14 @@ export function BunnyHop({ snapshot: live, standalone = false }: { snapshot: Con
           // "change" not "input": a number field fires it on blur or Enter, so a
           // value is not staged on every keystroke. min/max/step only gate the
           // spinner, not typing, so the typed value is snapped into range here.
-          onChange={(event) => control.applyBunnyHopMs(clampBunnyHopMs(Number(event.currentTarget.value)))}
+          onChange={(event) => apply(clampBunnyHopMs(Number(event.currentTarget.value)))}
         />
         <span>ms</span>
       </div>
       <small className="setting-note" id="bunny-hop-note">
-        {displayText(locale, locked
+        {displayText(locale, host
+          ? t(locale, "perf.bunnyHostNote")
+          : locked
           ? t(locale, "perf.bunnyReadonly")
           : tp(locale, "perf.bunnyNote", { min: BUNNY_HOP_LIMITS.minMs, max: BUNNY_HOP_LIMITS.maxMs, step: BUNNY_HOP_LIMITS.stepMs }))}
       </small>

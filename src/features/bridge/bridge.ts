@@ -144,6 +144,11 @@ export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<voi
   });
 }
 
+/** The profile Bridge uses whenever no game's is active, or null when none is saved. */
+export async function bridgeDefaultProfile(signal?: AbortSignal): Promise<BridgeProfile | null> {
+  return bridgeRequest<BridgeProfile | null>("/v1/default-profile", undefined, signal);
+}
+
 export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<void> {
   await bridgeRequest("/v1/default-profile", {
     method: "PUT",

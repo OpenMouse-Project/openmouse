@@ -33,6 +33,7 @@ import {
   pendingChangeBatches,
   pendingChanges,
   restorePendingChanges,
+  setStatusOverlay,
   stagePendingChange,
   stashPendingChanges,
   withPendingChanges,
@@ -42,6 +43,8 @@ import {
   draftProfileSnapshot,
   editableProfileFields,
   matchingProfileFields,
+  mergeSnapshots,
+  pickSnapshot,
   type GameProfileSnapshot,
 } from "./game-profile-snapshot";
 import { deviceImage } from "../shared/device-images";
@@ -345,7 +348,16 @@ let settingInProgress = false;
 // `touched` is every field the profile sets: its saved fields plus any a draft
 // edit has changed. A touched field stays in the profile even when its value
 // happens to match the mouse right now.
-let gameProfileDraft: { owner: GameProfileOwner; stash: PendingChange[]; touched: Set<string>; rates: { wireless?: number; wired?: number } } | null = null;
+// `held` is what the mouse cannot take now (side buttons; a Host bunny hop while
+// it is on Onboard): "Apply now" flashes and clears the staged changes, so these
+// stay here and are laid over every preview.
+let gameProfileDraft: {
+  owner: GameProfileOwner;
+  stash: PendingStash;
+  touched: Set<string>;
+  rates: { wireless?: number; wired?: number };
+  held: Pick<MouseStatus, "hostButtons" | "hostBunnyHopMs">;
+} | null = null;
 let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
@@ -1496,6 +1508,29 @@ function gameProfileFieldsOf(change: PendingChange): string[] | null {
   return editableProfileFields(base, preview);
 }
 
+type PendingStash = { changes: PendingChange[]; analog: Map<0 | 1, AnalogTuning> };
+
+// The HITS values waiting to be written sit in a map of their own, apart from
+// the pending changes that name them, so both are set aside together.
+function stashEverything(): PendingStash {
+  const analog = new Map(stagedAnalogButtons);
+  stagedAnalogButtons.clear();
+  return { changes: stashPendingChanges(), analog };
+}
+
+function restoreEverything(stash: PendingStash): void {
+  restorePendingChanges(stash.changes);
+  stagedAnalogButtons.clear();
+  for (const [button, tuning] of stash.analog) stagedAnalogButtons.set(button, tuning);
+}
+
+function overlayHeldValues(status: MouseStatus): void {
+  const held = gameProfileDraft?.held;
+  if (!held) return;
+  if (held.hostButtons) status.hostButtons = structuredClone(held.hostButtons);
+  if (held.hostBunnyHopMs !== undefined) status.hostBunnyHopMs = held.hostBunnyHopMs;
+}
+
 /**
  * The Games page edits a game profile with the device page's own cards: every
  * `apply*` they call stages into a draft that is never flashed. The user's
@@ -1505,8 +1540,9 @@ function gameProfileFieldsOf(change: PendingChange): string[] | null {
 export function beginGameProfileDraft(initial: GameProfileSnapshot): boolean {
   if (gameProfileDraft) endGameProfileDraft();
   const owner = getGameProfileOwner();
-  if (settingInProgress || !latestDeviceStatus || !owner) return false;
-  gameProfileDraft = { owner, stash: stashPendingChanges(), touched: new Set(), rates: {} };
+  if (gameProfileDraft || settingInProgress || !latestDeviceStatus || !owner) return false;
+  gameProfileDraft = { owner, stash: stashEverything(), touched: new Set(), rates: {}, held: {} };
+  setStatusOverlay(overlayHeldValues);
   openGameProfileDraft(initial);
   emit();
   return true;
@@ -1543,15 +1579,27 @@ export function resetGameProfileDraft(snapshot: GameProfileSnapshot): void {
   clearPendingChanges();
   gameProfileDraft.touched = new Set();
   gameProfileDraft.rates = {};
+  gameProfileDraft.held = {};
   openGameProfileDraft(snapshot);
   emit();
 }
 
+// Set when the draft was asked to end while "Apply now" was still writing it.
+let endDraftWhenWritten = false;
+
 export function endGameProfileDraft(owner: GameProfileOwner | null = getGameProfileOwner()): void {
   if (!gameProfileDraft || gameProfileDraft.owner !== owner || !isGameProfileOwner(owner)) return;
+  // The writer drops the draft's changes by key when it finishes, which would
+  // take the user's own changes with it if they were put back first.
+  if (gameProfileWriting) {
+    endDraftWhenWritten = true;
+    return;
+  }
   const { stash } = gameProfileDraft;
   gameProfileDraft = null;
-  restorePendingChanges(stash);
+  endDraftWhenWritten = false;
+  setStatusOverlay(null);
+  restoreEverything(stash);
   emit();
 }
 
@@ -1572,15 +1620,84 @@ export async function flashGameProfileSnapshot(
 ): Promise<"written" | "unchanged" | "busy" | "stale" | "failed" | "partial"> {
   if (!isGameProfileOwner(owner)) return "stale";
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
-  const stash = stashPendingChanges();
+  const stash = stashEverything();
   try {
     applyGameProfileSnapshot(snapshot);
     if (!isGameProfileOwner(owner)) return "stale";
-    const result = hasPendingChanges() ? await flashPendingChanges() : "unchanged";
+    if (!hasPendingChanges()) return "unchanged";
+    recordDiagnosticCommand(`Game profile: write ${Object.keys(snapshot).join(", ") || "nothing"}`);
+    gameProfileWriting = true;
+    let result: FlashResult;
+    try {
+      result = await flashPendingChanges();
+    } finally {
+      gameProfileWriting = false;
+    }
     if (!isGameProfileOwner(owner)) return "stale";
     return result;
   } finally {
-    if (isGameProfileOwner(owner)) restorePendingChanges(stash);
+    if (isGameProfileOwner(owner)) restoreEverything(stash);
+  }
+}
+
+// True while a game profile is being written, so writes that would also save to
+// the mouse's stored profile (HITS tuning) stay live-only.
+let gameProfileWriting = false;
+
+// What "Apply now" replaced, by mouse: it is written back to the mouse it came from.
+const gameProfileRestores = new Map<string, GameProfileSnapshot>();
+
+function activeDeviceKey(): string | null {
+  return activeDevice ? deviceStorageKey(activeDevice) : null;
+}
+
+export async function applyGameProfileDraftNow(): Promise<"written" | "busy"> {
+  const key = activeDeviceKey();
+  if (!gameProfileDraft || !key || settingInProgress || !latestDeviceStatus || !hasPendingChanges()) return "busy";
+  const before = pickSnapshot(latestDeviceStatus, gameProfileDraftSnapshot());
+  recordDiagnosticCommand(`Game profile: apply now (replacing ${Object.keys(before).join(", ") || "nothing"})`);
+  // Values from before the first apply win, so a second apply still restores the originals.
+  gameProfileRestores.set(key, mergeSnapshots(before, gameProfileRestores.get(key) ?? {}));
+  const owner = gameProfileDraft.owner;
+  gameProfileWriting = true;
+  let written = false;
+  try {
+    // A failed or partial write leaves changes staged, and a stale one went to another session.
+    written = await flashStagedChanges() === "written" && !hasPendingChanges();
+  } finally {
+    gameProfileWriting = false;
+    if (endDraftWhenWritten) endGameProfileDraft(owner);
+  }
+  return written ? "written" : "busy";
+}
+
+/** True when "Apply now" changed the active mouse and that has not been put back yet. */
+export function hasGameProfileApplyToRestore(): boolean {
+  const key = activeDeviceKey();
+  return key !== null && gameProfileRestores.has(key);
+}
+
+/**
+ * Puts back what "Apply now" replaced on the active mouse; call once the draft
+ * has ended. The saved values stay until a write lands, so a mouse that stayed
+ * busy is tried again by the next call.
+ */
+export async function restoreGameProfileApply(): Promise<void> {
+  const key = activeDeviceKey();
+  const restore = key ? gameProfileRestores.get(key) : undefined;
+  if (!key || !restore) return;
+  recordDiagnosticCommand(`Game profile: restore ${JSON.stringify(restore)}`);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const result = await flashGameProfileSnapshot(restore);
+    if (result === "written" || result === "unchanged") {
+      gameProfileRestores.delete(key);
+      return;
+    }
+    // Another session owns the mouse now; the values stay for the next call.
+    if (result === "stale") return;
+    await wait(500);
+    // The write goes to whichever mouse is active now, which must still be the one these values came from.
+    if (activeDeviceKey() !== key) return;
   }
 }
 
@@ -1852,6 +1969,22 @@ export function applyGameProfileSnapshot(snapshot: GameProfileSnapshot): void {
     // The mouse only has the rate of the connection it is on, so only that one is applied.
     const linkRate = status.connectionType === "Wireless" ? s.pollingRateWirelessHz : s.pollingRateWiredHz;
     if (linkRate != null) applyPollingRate(linkRate);
+  }
+  if (typeof s.hostBunnyHopMs === "number") applyHostBunnyHopMs(s.hostBunnyHopMs);
+  if (s.hostButtons && hostBunnyHopSupported(status)) stageHostButtons(s.hostButtons);
+
+  const hits = s.analogButtonTuning?.buttons;
+  const liveHits = status.analogButtonTuning?.buttons;
+  if (Array.isArray(hits) && hits.length === 2 && liveHits?.length === 2) {
+    analogTuning = {
+      mode: JSON.stringify(hits[0]) === JSON.stringify(hits[1]) ? "both" : "independent",
+      left: { ...hits[0] },
+      right: { ...hits[1] },
+      both: { ...hits[0] },
+    };
+    for (const button of [0, 1] as const) {
+      if (JSON.stringify(hits[button]) !== JSON.stringify(liveHits[button])) stageAnalogButton(button, { ...hits[button] });
+    }
   }
 
   if (s.gamingSurfaceMode) applyGamingSurfaceMode(s.gamingSurfaceMode);
@@ -2220,8 +2353,15 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
   await wait(milliseconds);
 }
 
-export async function flashPendingChanges(): Promise<"written" | "unchanged" | "busy" | "stale" | "failed" | "partial"> {
+export type FlashResult = "written" | "unchanged" | "busy" | "stale" | "failed" | "partial";
+
+export async function flashPendingChanges(): Promise<FlashResult> {
   if (gameProfileDraft) return "busy";
+  return flashStagedChanges();
+}
+
+/** Writes every staged change. "Apply now" calls it directly to write a game profile draft. */
+async function flashStagedChanges(): Promise<FlashResult> {
   const owner = getGameProfileOwner();
   if (!owner) return "stale";
   const batches = pendingChangeBatches();
@@ -2293,7 +2433,7 @@ export async function flashPendingChanges(): Promise<"written" | "unchanged" | "
   if (flashQueued) {
     flashQueued = false;
     if (hasPendingChanges()) {
-      const result = await flashPendingChanges();
+      const result = await flashStagedChanges();
       return written > 0 && result === "failed" ? "partial" : result;
     }
   }
@@ -2717,6 +2857,9 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
           + "last value applied here; this firmware does not expose a readable current-rate command.",
       },
     };
+  }
+  if (hostBunnyHopSupported(deviceStatus)) {
+    deviceStatus = { ...deviceStatus, hostBunnyHopMs: savedHostBunnyHopMs(), hostButtons: {} };
   }
   if (deviceStatus.connectionType) {
     // The rate of the connection the mouse is on, so a game profile can set the other one apart.
@@ -4370,8 +4513,9 @@ async function writeStagedAnalogButtons(): Promise<void> {
   for (const entry of staged) await client.setAnalogButtonTuning(entry.button, entry);
   // Then the profile, which is what the mouse loads at power-on. Live values
   // alone are gone after a power cycle. Host mode and profiles that cannot be
-  // written keep the live-only behavior.
-  if (lastDeviceMode === "Onboard" && lastProfileFormat?.writable === true) {
+  // written keep the live-only behavior, and so does a game profile: it must
+  // never rewrite the mouse's stored profile each time a game starts or stops.
+  if (!gameProfileWriting && lastDeviceMode === "Onboard" && lastProfileFormat?.writable === true) {
     await client.persistAnalogButtonTuning(staged);
   }
   stagedAnalogButtons.clear();
@@ -4395,7 +4539,6 @@ function stageAnalogButton(button: 0 | 1, tuning: AnalogTuning): void {
 }
 
 export function applyLogitechAnalogButton(button: 0 | 1): void {
-  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
   stageAnalogButton(button, button === 0 ? analogTuning.left : analogTuning.right);
 }
@@ -4523,7 +4666,6 @@ export function dismissMagneticCalibration(): void {
 }
 
 export function applyLogitechAnalogButtons(): void {
-  if (blockedByGameProfileDraft()) return;
   if (!logitechClient()) return;
   stageAnalogButton(0, analogTuning.both);
   stageAnalogButton(1, analogTuning.both);
@@ -4737,6 +4879,37 @@ export function unlinkedDpiSlots(): number[] {
   const key = dpiUnlinkKey();
   const saved = key ? storedRecord(DPI_UNLINKED_STORAGE_KEY)[key] : undefined;
   return Array.isArray(saved) ? saved.filter((index): index is number => Number.isInteger(index)) : [];
+}
+
+const HOST_DPI_SLOTS_STORAGE_KEY = "openmouse.host-dpi-slots";
+export type HostDpiSlot = { x: number; y: number; unlinked?: boolean };
+
+function isHostDpiSlot(value: unknown): value is HostDpiSlot {
+  const slot = value as Partial<HostDpiSlot> | null;
+  return typeof slot === "object" && slot !== null && Number.isFinite(slot.x) && Number.isFinite(slot.y)
+    && (slot.unlinked === undefined || typeof slot.unlinked === "boolean");
+}
+
+// Bridge hands out per-session device keys (hid-1, hid-2, ...) that can change
+// on every page load, so the slots are keyed by the mouse's identity instead.
+function hostDpiSlotsKey(): string | null {
+  return activeDevice ? deviceStorageKey(activeDevice) : null;
+}
+
+export function loadHostDpiSlots(): HostDpiSlot[] | null {
+  const key = hostDpiSlotsKey();
+  const saved = key ? storedRecord(HOST_DPI_SLOTS_STORAGE_KEY)[key] : undefined;
+  return Array.isArray(saved) && saved.length > 0 && saved.every(isHostDpiSlot) ? saved : null;
+}
+
+export function saveHostDpiSlots(slots: HostDpiSlot[]): void {
+  const key = hostDpiSlotsKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(HOST_DPI_SLOTS_STORAGE_KEY, JSON.stringify({ ...storedRecord(HOST_DPI_SLOTS_STORAGE_KEY), [key]: slots }));
+  } catch {
+    // Storage can be blocked; the slots then simply reorder on refresh.
+  }
 }
 
 /** Replaces the whole unlinked list for the active device and profile. */
@@ -5491,6 +5664,106 @@ export function applyBunnyHopMs(milliseconds: number): void {
   });
 }
 
+const HOST_BUNNY_HOP_STORAGE_KEY = "openmouse.host-bunny-hop";
+const HOST_BUNNY_HOP_KEY = "logitech-host-bunny-hop";
+
+/** Whether the mouse has a Host mode bunny hop setting (the profile format that has bunny hop). */
+export function hostBunnyHopSupported(status: MouseStatus | null): boolean {
+  // The write only exists in protocol releases from mouse-protocol#246 on; older ones leave the Host features off.
+  return status?.brand === "Logitech"
+    && C().capabilitiesForFormat(status.onboardProfileFormat?.id).bunnyHop
+    && clientHasMethod("setHostBunnyHopMs");
+}
+
+/**
+ * The Host bunny hop time last written to this mouse. The mouse cannot report it
+ * back, and G HUB itself starts a Host session at off, so unknown reads as off.
+ */
+function savedHostBunnyHopMs(): number {
+  const value = activeDevice ? storedRecord(HOST_BUNNY_HOP_STORAGE_KEY)[deviceStorageKey(activeDevice)] : undefined;
+  return typeof value === "number" && C().validateBunnyHoppingMs(value) === null ? value : 0;
+}
+
+function saveHostBunnyHopMs(milliseconds: number): void {
+  if (!activeDevice) return;
+  try {
+    localStorage.setItem(
+      HOST_BUNNY_HOP_STORAGE_KEY,
+      JSON.stringify({ ...storedRecord(HOST_BUNNY_HOP_STORAGE_KEY), [deviceStorageKey(activeDevice)]: milliseconds }),
+    );
+  } catch {
+    // Storage can be blocked; the value then reads as off after a refresh.
+  }
+}
+
+const HOST_BUTTONS_KEY = "logitech-host-buttons";
+
+function stageHostButtons(buttons: NonNullable<MouseStatus["hostButtons"]>): void {
+  const holdInDraft = gameProfileDraft !== null && !settingInProgress;
+  stageChange({
+    key: HOST_BUTTONS_KEY,
+    label: "Side buttons",
+    command: "Set the side button assignments",
+    progress: "Saving the side button assignments…",
+    preview: (status) => { status.hostButtons = structuredClone(buttons); },
+    apply: async () => {},
+  });
+  // Bridge presses these keys while the game runs; the mouse has nothing to write. Held only once staging has
+  // marked the field as touched, which compares against what was held before.
+  if (holdInDraft && gameProfileDraft) {
+    gameProfileDraft.held.hostButtons = structuredClone(buttons);
+    emit();
+  }
+}
+
+/** Assigns a side button (bit 8 back, 16 front) a key or media key, or null for its normal click. */
+export function applyHostButton(bit: number, action: NonNullable<MouseStatus["hostButtons"]>[number] | null): void {
+  if (!latestDeviceStatus || !hostBunnyHopSupported(latestDeviceStatus)) return;
+  const next = { ...(withPendingChanges(latestDeviceStatus).hostButtons ?? {}) };
+  if (action) next[bit] = action;
+  else delete next[bit];
+  stageHostButtons(next);
+}
+
+/** Sets bunny hop while the mouse runs from software (the Host profile); 0 turns it off. */
+export function applyHostBunnyHopMs(milliseconds: number): void {
+  if (!logitechClient()) return;
+  const invalid = C().validateBunnyHoppingMs(milliseconds);
+  if (invalid) {
+    setReadStatus(invalid);
+    return;
+  }
+  const holdInDraft = gameProfileDraft !== null && !settingInProgress;
+  stageChange({
+    key: HOST_BUNNY_HOP_KEY,
+    label: milliseconds === 0 ? "Bunny hop off" : `Bunny hop ${milliseconds} ms`,
+    command: `Set Host mode bunny hop to ${milliseconds} ms`,
+    progress: milliseconds === 0 ? "Turning bunny hop off…" : `Setting bunny hop to ${milliseconds} ms…`,
+    preview: (status) => { status.hostBunnyHopMs = milliseconds; },
+    apply: async () => {
+      const client = logitechClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      if (lastDeviceMode !== "Host") {
+        recordDiagnosticCommand("Bunny hop skipped: the mouse is not on the Host profile");
+        return;
+      }
+      // Typed loosely: protocols before mouse-protocol#246 have no such method, and then nothing is written.
+      const writer = client as unknown as { setHostBunnyHopMs?: (milliseconds: number) => Promise<void> };
+      if (typeof writer.setHostBunnyHopMs !== "function") {
+        throw new Error("This protocol version cannot set the Host bunny hop yet.");
+      }
+      await writer.setHostBunnyHopMs(milliseconds);
+      saveHostBunnyHopMs(milliseconds);
+    },
+  });
+  // Kept in the draft as well: on Onboard the mouse cannot take it, and after "Apply now" the staged change is gone.
+  // Held only once staging has marked the field as touched, which compares against what was held before.
+  if (holdInDraft && gameProfileDraft) {
+    gameProfileDraft.held.hostBunnyHopMs = milliseconds;
+    emit();
+  }
+}
+
 /** Sets the rate a game profile uses on one connection. */
 export function applyGameProfilePollingRate(link: "wireless" | "wired", hz: number): void {
   if (!gameProfileDraft || !profileReportRateOptions(link).includes(hz)) return;
@@ -5507,7 +5780,7 @@ export function applyGameProfilePollingRate(link: "wireless" | "wired", hz: numb
     command: `Set the ${link} polling rate to ${hz.toLocaleString()} Hz`,
     progress: `Setting ${hz.toLocaleString()} Hz…`,
     preview: (status) => { status[field] = hz; },
-    // A draft is never flashed; a game launch applies the rate of the connection in use instead.
+    // "Apply now" flashes the draft as it is, and the mouse only has the rate of the connection it is on.
     apply: async () => {
       if ((latestDeviceStatus?.connectionType === "Wireless") !== (link === "wireless")) return;
       await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(hz);

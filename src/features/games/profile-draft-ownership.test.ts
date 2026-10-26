@@ -29,6 +29,8 @@ function panelHarness() {
     beginGameProfileDraft(snapshot: snapshots.GameProfileSnapshot) { opened.push({ owner, snapshot }); draft = snapshot; return true; },
     endGameProfileDraft(target: unknown) { ended.push(target); },
     gameProfileDraftSnapshot: () => draft,
+    hasGameProfileApplyToRestore: () => false,
+    restoreGameProfileApply: async () => {},
   };
   const exports: any = {};
   const source = readFileSync(new URL("./GameProfilePanel.tsx", import.meta.url), "utf8");
@@ -48,7 +50,7 @@ function panelHarness() {
   } });
   function render() {
     cursor = 0; effects = [];
-    exports.GameProfilePanel({ snapshot: { devices: [{ selected: true, index: 0, name: "Same model", detail: "Fake" }], preferences: { locale: "en" }, deviceStatus: owner ? { name: "Same model", dpi: 800 } : null, settingInProgress: false, gameProfileDraft: draft !== null }, game: { source: "local", name: "Test", executables: ["test.exe"] }, onBack() {} });
+    exports.GameProfilePanel({ snapshot: { devices: [{ selected: true, index: 0, name: "Same model", detail: "Fake" }], preferences: { locale: "en" }, deviceStatus: owner ? { name: "Same model", dpi: 800 } : null, settingInProgress: false, gameProfileDraft: draft !== null, pending: { keys: [] } }, game: { source: "local", name: "Test", executables: ["test.exe"] }, onBack() {} });
     effects.forEach((effect) => effect());
   }
   return { opened, ended, render, owner: () => owner, edit() { draft = { dpi: 3200 }; }, switchDevice() { owner = {}; draft = null; }, unmount() { slots.forEach((slot) => slot?.cleanup?.()); } };

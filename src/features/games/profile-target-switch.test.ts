@@ -40,6 +40,8 @@ function harness(initialProfiles?: any[], gameMetadata: object = {}) {
     gameProfileDraftSnapshot: () => draft,
     selectAuthorizedDevice(index: number) { selected = index; owner = {}; draft = null; },
     pushToast: (...args: unknown[]) => toasts.push(args),
+    hasGameProfileApplyToRestore: () => false,
+    restoreGameProfileApply: async () => {},
   };
   const exports: any = {};
   const code = ts.transpileModule(readFileSync(new URL("./GameProfilePanel.tsx", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -59,7 +61,7 @@ function harness(initialProfiles?: any[], gameMetadata: object = {}) {
   } });
   function render() {
     cursor = 0; effects = [];
-    tree = exports.GameProfilePanel({ snapshot: { devices: ["A", "B"].map((name, index) => ({ selected: selected === index, index, name, detail: "Fake" })), preferences: { locale: "en" }, deviceStatus: { name: selected ? "B" : "A" }, settingInProgress: false, gameProfileDraft: draft !== null }, game: { id: "local:test", source: "local", name: "Test", executables: ["test.exe"], ...gameMetadata }, onBack() {} });
+    tree = exports.GameProfilePanel({ snapshot: { devices: ["A", "B"].map((name, index) => ({ selected: selected === index, index, name, detail: "Fake" })), preferences: { locale: "en" }, deviceStatus: { name: selected ? "B" : "A" }, settingInProgress: false, gameProfileDraft: draft !== null, pending: { keys: [] } }, game: { id: "local:test", source: "local", name: "Test", executables: ["test.exe"], ...gameMetadata }, onBack() {} });
     effects.forEach((effect) => effect());
   }
   function nodes(node: any): any[] { if (!node || typeof node !== "object") return []; if (Array.isArray(node)) return node.flatMap((entry) => nodes(entry)); return [node, ...nodes(node.props?.children)]; }

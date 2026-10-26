@@ -92,6 +92,7 @@ export function GameProfilePanel({
   const [saveFailed, setSaveFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [tab, setTab] = useState<WorkspaceTab>("performance");
   // The profile as Bridge last stored it; the draft opens on these values.
   const savedRef = useRef<GameProfileSnapshot>({});
@@ -175,14 +176,25 @@ export function GameProfilePanel({
   // The cards edit whichever mouse is connected, so the draft only runs while
   // that is the profile's target. It ends when this panel closes, putting the
   // user's own unflashed device-page edits back.
+  // A write that is not ours restarts the draft once it is over. Apply now is
+  // ours: restarting there would clear the staged changes before the writer
+  // reads them (HITS writes nothing), so the draft stays open through it.
+  const busyElsewhere = snapshot.settingInProgress && !applying;
   useEffect(() => {
-    if (!loaded || !editing || snapshot.settingInProgress) return;
+    if (!loaded || !editing || busyElsewhere) return;
     const reopening = lastDraft.current !== null;
     if (!control.beginGameProfileDraft(lastDraft.current ?? savedRef.current)) return;
     adoptDraft.current = !reopening;
     return () => control.endGameProfileDraft(draftOwner);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, editing, draftOwner, targetIndex, snapshot.settingInProgress]);
+  }, [loaded, editing, draftOwner, targetIndex, busyElsewhere]);
+
+  // Closing the page puts back what "Apply now" replaced. That holds while the
+  // game runs too: the applier can only take over once the draft has ended, and
+  // it captures what the mouse has then as the settings to give back after the game.
+  useEffect(() => () => {
+    void control.restoreGameProfileApply();
+  }, []);
 
   const draft = snapshot.gameProfileDraft ? control.gameProfileDraftSnapshot() : null;
   if (draft !== null) lastDraft.current = draft;
@@ -299,7 +311,11 @@ export function GameProfilePanel({
     setAutoApply(stored?.enabled ?? false);
     setSaveFailed(stored?.error ?? false);
     setTargetIndex(index);
-    if (!device.selected) void control.selectAuthorizedDevice(device.index);
+    if (!device.selected && control.hasGameProfileApplyToRestore()) {
+      // What Apply now changed goes back to the mouse it was written to, before the other one is selected.
+      control.endGameProfileDraft(draftOwner);
+      void control.restoreGameProfileApply().then(() => control.selectAuthorizedDevice(device.index));
+    } else if (!device.selected) void control.selectAuthorizedDevice(device.index);
   }
 
   function toggleAutoApply(): void {
@@ -316,6 +332,17 @@ export function GameProfilePanel({
     control.resetGameProfileDraft({});
     lastDraft.current = {};
     void persist({ settings: {}, targetIndex, autoApply: false }, wasEnabled ? "disabled" : null);
+  }
+
+  async function applyNow(): Promise<void> {
+    setApplying(true);
+    try {
+      if (await control.applyGameProfileDraftNow() === "written") {
+        control.pushToast("success", t(locale, "games.appliedNow"), t(locale, "games.appliedNowDetail"));
+      }
+    } finally {
+      setApplying(false);
+    }
   }
 
   const artwork = game.source !== "local" && catalogEntry ? gameArtwork(catalogEntry) : null;
@@ -356,12 +383,20 @@ export function GameProfilePanel({
                   : tp(locale, "games.changedCount", { n: changedCount }))}
               </span>
             </div>
-            <button
-              type="button"
-              className="om-btn is-ghost game-profile-clear"
-              disabled={!loaded || saving || (!autoApply && changedCount === 0)}
-              onClick={clearProfile}
-            >{t(locale, "cap.clear")}</button>
+            <div className="game-profile-actions">
+              <button
+                type="button"
+                className="om-btn"
+                disabled={!loaded || applying || !snapshot.gameProfileDraft || snapshot.pending.keys.length === 0}
+                onClick={() => { void applyNow(); }}
+              >{t(locale, "games.applyNow")}</button>
+              <button
+                type="button"
+                className="om-btn is-ghost game-profile-clear"
+                disabled={!loaded || saving || applying || (!autoApply && changedCount === 0)}
+                onClick={clearProfile}
+              >{t(locale, "cap.clear")}</button>
+            </div>
           </div>
 
           <section className="game-profile-section">

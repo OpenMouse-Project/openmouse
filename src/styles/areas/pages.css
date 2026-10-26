@@ -86,6 +86,7 @@
 .games-local-target > .games-local-path { padding: 4px 14px 12px; }
 .games-local-actions { margin-top: auto; padding: 8px; border-top: 1px solid var(--line-1); }
 .local-app-dialog .om-dialog-head h2 { min-width: 0; }
+.game-profile-actions { display: flex; gap: 8px; align-items: center; }
 .local-app-running { gap: 8px; }
 .local-app-running-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .local-app-running input[type="search"] { width: 100%; height: 36px; }
