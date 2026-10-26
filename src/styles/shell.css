@@ -156,6 +156,9 @@ html, body { background: var(--ink-1); }
 .news-banner-link { flex: 1; min-width: 0; }
 a.news-banner-link { color: var(--text-1); text-decoration: underline; text-decoration-color: var(--line-3); text-underline-offset: 3px; }
 a.news-banner-link:hover { text-decoration-color: var(--text-2); }
+.bridge-manual-update { padding-block: 10px; }
+.bridge-manual-update-step { margin-top: 2px; color: var(--text-3); }
+.bridge-manual-update-cmd { display: block; margin-top: 6px; padding: 6px 10px; border-radius: var(--r-sm); background: var(--ink-1); color: var(--text-1); font-family: var(--font-mono, monospace); user-select: all; overflow-wrap: anywhere; }
 .news-banner-dismiss { display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--r-sm); color: var(--text-3); font-size: 18px; line-height: 1; }
 .news-banner-dismiss:hover { background: var(--glint); color: var(--text-1); }
 

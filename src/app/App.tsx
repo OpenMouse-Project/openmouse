@@ -6,6 +6,7 @@ import { interfaceThemeSlug } from "../features/settings/interface-preferences";
 import { AppSidebar, type DesktopPage } from "./AppSidebar";
 import { OverviewPage } from "../features/devices/OverviewPage";
 import { NewsBanner } from "../features/news/NewsBanner";
+import { BridgeManualUpdate } from "../features/bridge/BridgeManualUpdate";
 import { PendingBar } from "./PendingBar";
 import { HelpPanel } from "./HelpPanel";
 import { ToastHost } from "./Toasts";
@@ -182,6 +183,7 @@ export function App(): ReactNode {
       />
 
       <main className="om-main full-desktop-main">
+        <BridgeManualUpdate locale={locale} />
         <NewsBanner locale={locale} />
         <div className="om-content full-desktop-content" ref={panel}>
           <Suspense fallback={null}>
