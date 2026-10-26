@@ -43,59 +43,85 @@ function signature(profile: BridgeProfile): string {
 }
 
 export function useBridgeProfileApplier(snapshot: ControlSnapshot): void {
-  const deviceStatusRef = useRef(snapshot.deviceStatus);
-  deviceStatusRef.current = snapshot.deviceStatus;
+  const deviceStatusRef = useRef({ owner: control.getGameProfileOwner(), status: snapshot.deviceStatus });
+  deviceStatusRef.current = { owner: control.getGameProfileOwner(), status: snapshot.deviceStatus };
   const localeRef = useRef(snapshot.preferences.locale);
   localeRef.current = snapshot.preferences.locale;
   const appliedSignature = useRef<string | null>(null);
   // What the mouse had, before any profile, for every field a profile has
   // changed since. Grows as profiles switch; written back when none is active.
   const priorSettings = useRef<GameProfileSnapshot | null>(null);
-  const writing = useRef(false);
+  const writing = useRef<object | null>(null);
+  const ownerRef = useRef(control.getGameProfileOwner());
+  const currentOwner = control.getGameProfileOwner();
+  if (ownerRef.current !== currentOwner) {
+    ownerRef.current = currentOwner;
+    priorSettings.current = null;
+    appliedSignature.current = null;
+    writing.current = null;
+  }
 
-  useEffect(() => subscribeBridgeStatus((bridge) => {
-    if (writing.current) return;
-    const status = deviceStatusRef.current;
-    const profile = bridge?.activeProfile ?? null;
-
-    if (!profile || !status || profile.device.name !== status.name) {
-      // Nothing (recognized) is active for this mouse right now. If we were
-      // the one who applied a profile, put back what was there before it.
-      const prior = priorSettings.current;
-      if (appliedSignature.current === null || !prior) return;
-      writing.current = true;
-      void control.flashGameProfileSnapshot(prior).then((result) => {
-        if (result === "busy") return;
-        appliedSignature.current = null;
+  useEffect(() => {
+    let disposed = false;
+    const unsubscribe = subscribeBridgeStatus((bridge) => {
+      const owner = control.getGameProfileOwner();
+      if (ownerRef.current !== owner) {
+        ownerRef.current = owner;
         priorSettings.current = null;
-        if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
-      }).finally(() => {
-        writing.current = false;
-      });
-      return;
-    }
-
-    const sig = signature(profile);
-    if (sig === appliedSignature.current) return;
-
-    const target = profileTarget(profile);
-    // Capture only fields not already held: when one game's profile gives way
-    // to another's, the originals from before the first one still win.
-    const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {});
-    // Fields the previous profile changed but this one doesn't go back to
-    // their originals, so the new game starts from the user's own settings.
-    const toWrite = mergeSnapshots(priorSettings.current ?? {}, target);
-
-    writing.current = true;
-    void control.flashGameProfileSnapshot(toWrite).then((result) => {
-      if (result === "busy") return;
-      priorSettings.current = prior;
-      appliedSignature.current = sig;
-      if (result === "written") {
-        control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
+        appliedSignature.current = null;
+        writing.current = null;
       }
-    }).finally(() => {
-      writing.current = false;
+      if (!owner || writing.current) return;
+      const operation = {};
+      const current = () => !disposed && ownerRef.current === owner && control.isGameProfileOwner(owner);
+      if (deviceStatusRef.current.owner !== owner) return;
+      const status = deviceStatusRef.current.status;
+      const profile = bridge?.activeProfile ?? null;
+
+      if (!profile || !status || profile.device.name !== status.name) {
+        // Nothing (recognized) is active for this mouse right now. If we were
+        // the one who applied a profile, put back what was there before it.
+        const prior = priorSettings.current;
+        if (!prior) return;
+        writing.current = operation;
+        void control.flashGameProfileSnapshot(prior, owner).then((result) => {
+          if (!current() || (result !== "written" && result !== "unchanged")) return;
+          appliedSignature.current = null;
+          priorSettings.current = null;
+          if (result === "written") control.pushToast("info", t(localeRef.current, "bridge.profileRestored"));
+        }).catch(() => {}).finally(() => {
+          if (writing.current === operation) writing.current = null;
+        });
+        return;
+      }
+
+      const sig = signature(profile);
+      if (sig === appliedSignature.current) return;
+
+      const target = profileTarget(profile);
+      // Capture only fields not already held: when one game's profile gives way
+      // to another's, the originals from before the first one still win.
+      const prior = mergeSnapshots(pickSnapshot(status, target), priorSettings.current ?? {});
+      // Fields the previous profile changed but this one doesn't go back to
+      // their originals, so the new game starts from the user's own settings.
+      const toWrite = mergeSnapshots(priorSettings.current ?? {}, target);
+
+      writing.current = operation;
+      void control.flashGameProfileSnapshot(toWrite, owner).then((result) => {
+        if (!current() || result === "busy" || result === "stale") return;
+        priorSettings.current = prior;
+        if (result !== "written" && result !== "unchanged") {
+          appliedSignature.current = null;
+          return;
+        }
+        appliedSignature.current = sig;
+        if (result === "written") {
+          control.pushToast("info", t(localeRef.current, "bridge.profileAppliedHere"), profile.application.name);
+        }
+      }).catch(() => {}).finally(() => {
+        if (writing.current === operation) writing.current = null;
+      });
     });
-  }), []);
+    return () => { disposed = true; unsubscribe(); };
+  }, []);
 }
