@@ -1,12 +1,11 @@
-import { displayText, t, tp, type I18nKey } from "../../i18n/index";
+import { connectionText, displayText, t, tp, type I18nKey } from "../../i18n/index";
 import { ChevronRight, ImageUp } from "lucide-react";
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import { cachedBatterySamples, type BatterySample } from "./battery-history";
 import type { ControlSnapshot, WorkspaceTab } from "../../device/types";
-import { noirBrandLabel } from "../../device/noir.ts";
 import { deviceImage, isUnknownDevice } from "../../shared/device-images";
-import { DeviceStats } from "./DeviceStats";
+import { ConnectionIcon } from "./DeviceStats";
 
 const ARTWORK_DISCUSSION_URL =
   "https://github.com/OpenMouse-Project/openmouse/discussions/new?category=artwork-request";
@@ -16,11 +15,13 @@ export function DeviceHero({
   tabs,
   activeTab,
   tabIcon,
+  children,
 }: {
   snapshot: ControlSnapshot;
   tabs: readonly WorkspaceTab[];
   activeTab: WorkspaceTab;
   tabIcon: (tab: WorkspaceTab) => ReactNode;
+  children: ReactNode;
 }): ReactNode {
   const locale = snapshot.preferences.locale;
   const status = snapshot.status;
@@ -29,7 +30,6 @@ export function DeviceHero({
   const active = control.getActiveDevice();
   const activeEntry = snapshot.devices.find((device) => device.selected) ?? null;
   const name = status?.name ?? keyboard?.name ?? activeEntry?.name ?? "";
-  const brand = status ? noirBrandLabel(status) : null;
   const image = snapshot.deviceArtwork
     ?? (keyboard ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
   const needsArtwork = Boolean(status && active && (imageFailed || isUnknownDevice(
@@ -53,10 +53,28 @@ export function DeviceHero({
   };
 
   return (
-    <header className="om-hero">
-      <div className="om-hero-top">
-        <div className="om-hero-stage">
-          {image ? (
+    <div className="om-device-layout">
+      <header className="om-device-rail">
+        <nav className="om-crumbs" aria-label={t(locale, "dev.breadcrumb")}>
+          <button type="button" onClick={() => control.showDeviceList()}>{t(locale, "nav.devices")}</button>
+          <ChevronRight strokeWidth={2} aria-hidden="true" />
+          <span aria-current="page">{name}</span>
+        </nav>
+        <h1 className="om-device-name">{name}</h1>
+        <p className="om-device-status" aria-label={t(locale, "dev.status")}>
+          <span className="om-device-fact">
+            <span className="om-dot is-ok" aria-hidden="true" />
+            {t(locale, "side.connected")}
+          </span>
+          {status?.connectionType ? (
+            <span className="om-device-fact" title={status.connectionDetail ? displayText(locale, status.connectionDetail) : undefined}>
+              <ConnectionIcon type={status.connectionType} />
+              {connectionText(locale, status.connectionType)}
+            </span>
+          ) : null}
+        </p>
+        {image ? (
+          <div className="om-device-art">
             <img
               src={image}
               alt={name}
@@ -67,54 +85,39 @@ export function DeviceHero({
                 setImageFailed(true);
               }}
             />
-          ) : null}
-        </div>
-        <div className="om-hero-main">
-          <nav className="om-crumbs" aria-label={t(locale, "dev.breadcrumb")}>
-            <button type="button" onClick={() => control.showDeviceList()}>{t(locale, "nav.devices")}</button>
-            <ChevronRight strokeWidth={2} aria-hidden="true" />
-            <span aria-current="page">{name}</span>
-          </nav>
-          <h1 className="om-hero-name">{name}</h1>
-          <p className="om-hero-meta">
-            <span className="om-dot is-ok" aria-hidden="true" />
-            <span>{t(locale, "side.connected")}</span>
-            {brand ? <><span className="om-sep" aria-hidden="true">·</span><span>{displayText(locale, brand)}</span></> : null}
-            {status?.connectionDetail ? <><span className="om-sep" aria-hidden="true">·</span><span>{displayText(locale, status.connectionDetail)}</span></> : null}
-            {activeEntry?.transport === "bridge" ? <><span className="om-sep" aria-hidden="true">·</span><span>{t(locale, "bridge.title")}</span></> : null}
-          </p>
-          {status ? <DeviceStats status={status} locale={locale} transport={activeEntry?.transport} full /> : null}
-        </div>
-        {needsArtwork ? (
-          <div className="om-hero-actions">
-            <a className="om-btn is-ghost is-sm" href={artworkHref} target="_blank" rel="noopener noreferrer">
-              <ImageUp strokeWidth={1.9} aria-hidden="true" />
-              {t(locale, "artreq.request" as I18nKey)}
-            </a>
           </div>
         ) : null}
+        {needsArtwork ? (
+          <a className="om-btn is-ghost is-sm om-device-artreq" href={artworkHref} target="_blank" rel="noopener noreferrer">
+            <ImageUp strokeWidth={1.9} aria-hidden="true" />
+            {t(locale, "artreq.request" as I18nKey)}
+          </a>
+        ) : null}
+      </header>
+      <div className="om-device-workspace">
+        {tabs.length > 1 ? (
+          <nav className="om-tabs" role="tablist" aria-label={t(locale, "panel.deviceSections")}>
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                id={`workspace-tab-${tab}`}
+                type="button"
+                role="tab"
+                className={`om-tab${activeTab === tab ? " is-active" : ""}`}
+                aria-selected={activeTab === tab}
+                tabIndex={activeTab === tab ? 0 : -1}
+                onClick={() => control.setWorkspaceTab(tab)}
+                onKeyDown={(event) => onTabKey(event, tab)}
+              >
+                {tabIcon(tab)}
+                <span>{t(locale, `tab.${tab}` as I18nKey)}</span>
+              </button>
+            ))}
+          </nav>
+        ) : null}
+        {children}
       </div>
-      {tabs.length > 1 ? (
-        <nav className="om-tabs" role="tablist" aria-label={t(locale, "panel.deviceSections")}>
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              id={`workspace-tab-${tab}`}
-              type="button"
-              role="tab"
-              className={`om-tab${activeTab === tab ? " is-active" : ""}`}
-              aria-selected={activeTab === tab}
-              tabIndex={activeTab === tab ? 0 : -1}
-              onClick={() => control.setWorkspaceTab(tab)}
-              onKeyDown={(event) => onTabKey(event, tab)}
-            >
-              {tabIcon(tab)}
-              <span>{t(locale, `tab.${tab}` as I18nKey)}</span>
-            </button>
-          ))}
-        </nav>
-      ) : null}
-    </header>
+    </div>
   );
 }
 

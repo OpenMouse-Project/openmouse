@@ -23,7 +23,13 @@ export interface BridgeStatus {
   clientConnected: boolean;
 }
 
-export interface BridgeApplication {
+export interface BridgeTargetMetadata {
+  activation?: "running" | "focused";
+  bundlePath?: string;
+  bundleIdentifier?: string;
+}
+
+export interface BridgeApplication extends BridgeTargetMetadata {
   name: string;
   executable: string;
   path: string;
@@ -31,12 +37,16 @@ export interface BridgeApplication {
   iconId: string;
 }
 
+export function bridgeIconUrl(iconId: string): string {
+  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(iconId)}/icon`;
+}
+
 export function bridgeApplicationIconUrl(application: BridgeApplication): string {
-  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(application.iconId)}/icon`;
+  return bridgeIconUrl(application.iconId);
 }
 
 export interface BridgeProfile {
-  application: Pick<BridgeApplication, "name" | "executable" | "path">;
+  application: Pick<BridgeApplication, "name" | "executable" | "path"> & BridgeTargetMetadata & { localId?: string };
   device: { id: string; name: string };
   /**
    * False keeps the profile stored without Bridge ever matching it (the
@@ -56,9 +66,45 @@ export interface BridgeProfile {
   };
 }
 
-export interface BridgeGame {
+export interface BridgeGame extends BridgeTargetMetadata {
   name: string;
   executables: string[];
+  id?: string;
+  source?: "preset" | "local";
+  path?: string;
+  kind?: "game" | "app";
+  /** Bridge's icon for a local target; missing from older Bridge builds. */
+  iconId?: string;
+}
+
+export interface LocalApplication extends BridgeTargetMetadata {
+  id: string;
+  name: string;
+  executable: string;
+  path: string;
+  kind: "game" | "app";
+  /** Read-only: Bridge derives it from the path, so it is never sent back. */
+  iconId?: string;
+}
+
+export class BridgeHttpError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`Bridge returned HTTP ${status}.`);
+    this.status = status;
+  }
+}
+
+export async function bridgeLocalApplications(signal?: AbortSignal): Promise<LocalApplication[]> {
+  return bridgeRequest<LocalApplication[]>("/v1/local-applications", undefined, signal);
+}
+
+export async function saveBridgeLocalApplications(applications: LocalApplication[]): Promise<void> {
+  await bridgeRequest("/v1/local-applications", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ applications: applications.map(({ iconId: _iconId, ...application }) => application) }),
+  });
 }
 
 export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
@@ -88,41 +134,6 @@ export async function bridgeProfiles(signal?: AbortSignal): Promise<BridgeProfil
 
 export async function bridgeGames(signal?: AbortSignal): Promise<BridgeGame[]> {
   return bridgeRequest<BridgeGame[]>("/v1/games", undefined, signal);
-}
-
-/** Games the user added by hand; `bridgeGames` already includes them. */
-export async function bridgeCustomGames(signal?: AbortSignal): Promise<BridgeGame[]> {
-  return bridgeRequest<BridgeGame[]>("/v1/custom-games", undefined, signal);
-}
-
-/** Where Bridge serves a custom game's image; `version` makes the browser ask again after it changes. */
-export function customGameImageUrl(name: string, version = 0): string {
-  return `${BRIDGE_URL}/v1/custom-games/image?name=${encodeURIComponent(name)}&v=${version}`;
-}
-
-export async function saveBridgeCustomGameImage(name: string, image: Blob): Promise<void> {
-  await bridgeRequest(`/v1/custom-games/image?name=${encodeURIComponent(name)}`, {
-    method: "PUT",
-    headers: { "Content-Type": image.type || "application/octet-stream" },
-    body: image,
-  });
-}
-
-/** The image a link points at, downloaded by Bridge because most sites block a page from doing it. */
-export async function bridgeImageFromUrl(link: string): Promise<Blob> {
-  const response = await fetch(`${BRIDGE_URL}/v1/custom-games/image-from-url?url=${encodeURIComponent(link)}`, {
-    signal: AbortSignal.timeout(BRIDGE_NATIVE_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.blob();
-}
-
-export async function saveBridgeCustomGames(games: BridgeGame[]): Promise<BridgeGame[]> {
-  return bridgeRequest<BridgeGame[]>("/v1/custom-games", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(games),
-  });
 }
 
 export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<void> {
@@ -203,6 +214,6 @@ async function bridgeRequest<T>(
     ...init,
     signal: combined,
   });
-  if (!response.ok) throw new Error(`Bridge returned HTTP ${response.status}.`);
+  if (!response.ok) throw new BridgeHttpError(response.status);
   return await response.json() as T;
 }

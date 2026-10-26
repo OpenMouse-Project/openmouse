@@ -76,7 +76,7 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
             </h2>
           </div>
         </div>
-        {!perProfile ? (
+        {!perProfile && !splitInGame ? (
           <output id="polling-value" className="performance-figure">{displayText(locale, pollingRateText(status.pollingRateHz))}<span className="performance-unit">{"Hz"}</span></output>
         ) : null}
       </div>
@@ -101,17 +101,18 @@ export function PollingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactN
         </div>
       ) : splitInGame ? (
         <div id="game-rate-rows">
-          {gameRates.map(({ link, hz: shown, options }) => (
+          {gameRates.map(({ link, hz, options }) => (
             <RateSlider
               key={link}
               locale={locale}
               id={`game-rate-${link}`}
               options={options}
-              valueHz={shown}
-              label={displayText(locale, link === "wired" ? t(locale, "perf.wired") : t(locale, "perf.wireless"))}
-              hoursAt={link === "wired" ? undefined : (hz) => fullChargeHoursAt(status.name, hz)}
-              onChange={(hz) => {
-                control.applyGameProfilePollingRate(link, hz);
+              valueHz={hz}
+              label={t(locale, link === "wired" ? "perf.wired" : "perf.wireless")}
+              disabled={snapshot.settingInProgress}
+              hoursAt={link === "wired" ? undefined : (rate) => fullChargeHoursAt(status.name, rate)}
+              onChange={(rate) => {
+                control.applyGameProfilePollingRate(link, rate);
                 // The other slider follows the mouse's live rate until it is set, so it is set here to stay put.
                 for (const other of gameRates) if (other.link !== link) control.applyGameProfilePollingRate(other.link, other.hz);
               }}

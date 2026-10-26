@@ -13,14 +13,13 @@ import { displayText } from "../../i18n/index";
 // settings. useBridgeProfileApplier writes it when the game launches and puts
 // the replaced values back when it closes.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Gamepad2, ImagePlus, Mouse, Pencil } from "lucide-react";
+import { ArrowLeft, Gamepad2, Mouse } from "lucide-react";
 import * as control from "../../device/controller";
 import type { BridgeGame, BridgeProfile } from "../bridge/bridge";
-import { bridgeProfiles, saveBridgeCustomGameImage, saveBridgeProfiles } from "../bridge/bridge";
+import { bridgeProfiles, saveBridgeProfiles } from "../bridge/bridge";
 import { subscribeBridgeHidActive } from "../bridge/bridge-hid";
 import { fetchGamesCatalog, gameArtwork, type CatalogGame } from "./games-catalog";
-import { CustomGameImage } from "./CustomGameImage";
-import { prepareGameImage } from "./game-image";
+import { AppIcon } from "./AppIcon";
 import { snapshotKey, type GameProfileSnapshot } from "../../device/game-profile-snapshot";
 import type { ControlSnapshot, SidebarDevice, ToastKind, WorkspaceTab } from "../../device/types";
 import { t, tp, type I18nKey } from "../../i18n/index";
@@ -29,8 +28,10 @@ import { cardAvailability } from "../devices/cards/availability";
 import { TabIcon, Workspace } from "../devices/OverviewPage";
 import { profileTarget } from "../bridge/useBridgeProfileApplier";
 import { availableWorkspaceTabs } from "../devices/workspace-tabs";
+import { gameIdentity, matchesGame, profileApplication, replaceGameProfile, targetActivation } from "./local-applications";
 
 const SAVE_DEBOUNCE_MS = 600;
+let profileWrites: Promise<void> = Promise.resolve();
 
 // Overview is read-only device information, and Profiles manages the mouse's
 // onboard memory itself — neither is a per-game setting.
@@ -66,10 +67,6 @@ function deviceId(device: SidebarDevice): string {
   return `${deviceBrand(device)}:${device.name}`;
 }
 
-function matchesGame(profile: BridgeProfile, game: BridgeGame): boolean {
-  return profile.application.name.toLowerCase() === game.name.toLowerCase();
-}
-
 function selectedIndex(devices: SidebarDevice[]): number | null {
   if (devices.length === 0) return null;
   const selected = devices.findIndex((device) => device.selected);
@@ -79,16 +76,10 @@ function selectedIndex(devices: SidebarDevice[]): number | null {
 export function GameProfilePanel({
   snapshot,
   game,
-  custom = false,
-  onImageChanged,
-  onRename,
   onBack,
 }: {
   snapshot: ControlSnapshot;
   game: BridgeGame;
-  custom?: boolean;
-  onImageChanged?: () => void;
-  onRename?: (name: string) => Promise<"renamed" | "duplicate" | "failed">;
   onBack: () => void;
 }): ReactNode {
   const locale = snapshot.preferences.locale;
@@ -98,24 +89,28 @@ export function GameProfilePanel({
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [autoApply, setAutoApply] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [applying, setApplying] = useState(false);
-  const imagePicker = useRef<HTMLInputElement>(null);
-  const [imageVersion, setImageVersion] = useState(0);
-  const [titleDraft, setTitleDraft] = useState<string | null>(null);
-  const [titleError, setTitleError] = useState<"duplicate" | "failed" | null>(null);
-  const renaming = useRef(false);
-  const cancelled = useRef(false);
-  const gameRef = useRef(game);
-  gameRef.current = game;
   const [tab, setTab] = useState<WorkspaceTab>("performance");
   // The profile as Bridge last stored it; the draft opens on these values.
   const savedRef = useRef<GameProfileSnapshot>({});
   const savedKey = useRef("{}");
+  const targetProfiles = useRef(new Map<string, { settings: GameProfileSnapshot; enabled: boolean; pending?: boolean; error?: boolean }>());
+  const pendingWrites = useRef(0);
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeTarget = useRef<string | null>(null);
   // The draft as of the last render. A draft that has to restart (a write was
   // still running when it began, or the target mouse changed) reopens on
   // these values, so edits not yet saved survive it.
   const lastDraft = useRef<GameProfileSnapshot | null>(null);
+  const draftOwner = control.getGameProfileOwner();
+  const lastDraftOwner = useRef(draftOwner);
+  if (lastDraftOwner.current !== draftOwner) {
+    lastDraftOwner.current = draftOwner;
+    lastDraft.current = null;
+  }
   // Set when a draft opens on the saved profile. Opening can fill in fields
   // the saved copy leaves implicit (a DPI on a stage-aware mouse also sets
   // its stage table), so the first draft is adopted as "saved" instead of
@@ -134,6 +129,10 @@ export function GameProfilePanel({
 
   useEffect(() => {
     const controller = new AbortController();
+    if (game.source === "local") {
+      setCatalogEntry(null);
+      return;
+    }
     void fetchGamesCatalog(controller.signal)
       .then((catalog) => {
         const match = catalog.find((entry) => entry.name.toLowerCase() === game.name.toLowerCase());
@@ -141,13 +140,22 @@ export function GameProfilePanel({
       })
       .catch(() => setCatalogEntry(null));
     return () => controller.abort();
-  }, [game.name]);
+  }, [game.name, game.source]);
 
   useEffect(() => {
     setLoaded(false);
+    setLoadError(false);
     const controller = new AbortController();
-    void bridgeProfiles(controller.signal).then((profiles) => {
-      const existing = profiles.find((profile) => matchesGame(profile, game));
+    void profileWrites.then(() => bridgeProfiles(controller.signal)).then((profiles) => {
+      if (controller.signal.aborted) return;
+      targetProfiles.current.clear();
+      for (const profile of profiles.filter((entry) => matchesGame(entry, game))) {
+        targetProfiles.current.set(profile.device.id, { settings: profileTarget(profile), enabled: profile.enabled !== false });
+      }
+      const selected = devices.find((device) => device.selected);
+      const candidates = profiles.filter((profile) => matchesGame(profile, game));
+      const existing = candidates.find((profile) => selected && profile.device.id === deviceId(selected))
+        ?? candidates.find((profile) => devices.some((device) => deviceId(device) === profile.device.id));
       savedRef.current = existing ? profileTarget(existing) : {};
       savedKey.current = snapshotKey(savedRef.current);
       setAutoApply(existing !== undefined && existing.enabled !== false);
@@ -156,12 +164,13 @@ export function GameProfilePanel({
         : -1;
       setTargetIndex(matchedDevice !== -1 ? matchedDevice : selectedIndex(devices));
       setLoaded(true);
-    }).catch(() => undefined);
+    }).catch(() => { if (!controller.signal.aborted) setLoadError(true); });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.name]);
+  }, [gameIdentity(game)]);
 
   const target = targetIndex !== null ? devices[targetIndex] : undefined;
+  activeTarget.current = target ? deviceId(target) : null;
   const editing = Boolean(target?.selected) && snapshot.deviceStatus !== null;
 
   // The cards edit whichever mouse is connected, so the draft only runs while
@@ -176,9 +185,9 @@ export function GameProfilePanel({
     const reopening = lastDraft.current !== null;
     if (!control.beginGameProfileDraft(lastDraft.current ?? savedRef.current)) return;
     adoptDraft.current = !reopening;
-    return () => control.endGameProfileDraft();
+    return () => control.endGameProfileDraft(draftOwner);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, editing, target?.name, busyElsewhere]);
+  }, [loaded, editing, draftOwner, targetIndex, busyElsewhere]);
 
   // Closing the page puts back what "Apply now" replaced. That holds while the
   // game runs too: the applier can only take over once the draft has ended, and
@@ -202,42 +211,60 @@ export function GameProfilePanel({
     notify: NotifyKind,
   ): Promise<void> {
     const device = next.targetIndex !== null ? devices[next.targetIndex] : undefined;
-    // A save that was queued before a rename lands under the name the game has now.
-    const game = gameRef.current;
+    if (!device || !loaded) return;
+    const owner = draftOwner;
+    const id = deviceId(device);
+    const stored = { settings: next.settings, enabled: next.autoApply, pending: true, error: false };
+    targetProfiles.current.set(id, stored);
+    pendingWrites.current++;
     setSaving(true);
-    let ok = true;
-    try {
-      const profiles = await bridgeProfiles();
-      const withoutThis = profiles.filter((profile) => !matchesGame(profile, game));
-      // A profile is stored whenever it sets anything or is on; the toggle
-      // only decides whether Bridge applies it.
-      const keep = next.autoApply || Object.keys(next.settings).length > 0;
-      if (keep && device) {
-        const profile: BridgeProfile = {
-          application: { name: game.name, executable: game.executables[0] ?? "", path: "" },
-          device: { id: deviceId(device), name: device.name },
-          enabled: next.autoApply,
-          settings: {
-            dpi: next.settings.dpi ?? null,
-            pollingRateHz: next.settings.pollingRateHz ?? null,
-            snapshot: next.settings,
-          },
-        };
-        await saveBridgeProfiles([...withoutThis, profile]);
-      } else {
-        await saveBridgeProfiles(withoutThis);
+    setSaveFailed(false);
+    const write = async (): Promise<void> => {
+      let ok = true;
+      try {
+        const profiles = await bridgeProfiles();
+        // A profile is stored whenever it sets anything or is on; the toggle
+        // only decides whether Bridge applies it.
+        const keep = next.autoApply || Object.keys(next.settings).length > 0;
+        if (keep) {
+          const profile: BridgeProfile = {
+            application: profileApplication(game),
+            device: { id: deviceId(device), name: device.name },
+            enabled: next.autoApply,
+            settings: {
+              dpi: next.settings.dpi ?? null,
+              pollingRateHz: next.settings.pollingRateHz ?? null,
+              snapshot: next.settings,
+            },
+          };
+          await saveBridgeProfiles(replaceGameProfile(profiles, game, deviceId(device), profile));
+        } else {
+          await saveBridgeProfiles(replaceGameProfile(profiles, game, deviceId(device), null));
+        }
+        const acknowledged = (await bridgeProfiles()).find((profile) => matchesGame(profile, game) && profile.device.id === id);
+        if (keep ? !acknowledged || (acknowledged.enabled !== false) !== next.autoApply || snapshotKey(profileTarget(acknowledged)) !== snapshotKey(next.settings) : acknowledged) throw new Error("Profile verification failed");
+        if (activeTarget.current === id && control.getGameProfileOwner() === owner && targetProfiles.current.get(id) === stored) {
+          savedRef.current = next.settings;
+          savedKey.current = snapshotKey(next.settings);
+        }
+      } catch {
+        // Bridge being briefly unreachable shouldn't block the form; the next
+        // successful save (or the next page load's re-fetch) reconciles state
+        // — but the user still needs to know THIS attempt didn't land.
+        ok = false;
+        stored.error = true;
+      } finally {
+        stored.pending = false;
+        pendingWrites.current--;
+        setSaving(pendingWrites.current > 0);
       }
-      savedRef.current = next.settings;
-      savedKey.current = snapshotKey(next.settings);
-    } catch {
-      // Bridge being briefly unreachable shouldn't block the form; the next
-      // successful save (or the next page load's re-fetch) reconciles state
-      // — but the user still needs to know THIS attempt didn't land.
-      ok = false;
-    } finally {
-      setSaving(false);
-    }
-    notifyResult(locale, game.name, notify, ok);
+      if (activeTarget.current === id && control.getGameProfileOwner() === owner && targetProfiles.current.get(id) === stored) {
+        setSaveFailed(!ok);
+        notifyResult(locale, game.name, notify, ok);
+      }
+    };
+    profileWrites = profileWrites.then(write, write);
+    await profileWrites;
   }
 
   // Draft edits save themselves, on or off, so leaving the page never loses
@@ -247,49 +274,59 @@ export function GameProfilePanel({
   const autoApplyRef = useRef(autoApply);
   autoApplyRef.current = autoApply;
   const pendingSave = useRef<(() => void) | null>(null);
-  useEffect(() => {
+  function cancelPending(): void {
     pendingSave.current = null;
-    if (!loaded || draft === null || currentKey === savedKey.current) return;
-    let timer: ReturnType<typeof setTimeout>;
+    if (pendingTimer.current !== null) clearTimeout(pendingTimer.current);
+    pendingTimer.current = null;
+  }
+  useEffect(() => {
+    cancelPending();
+    const stored = target ? targetProfiles.current.get(deviceId(target)) : undefined;
+    if (!loaded || draft === null || currentKey === savedKey.current || (stored?.pending && snapshotKey(stored.settings) === currentKey)) return;
     const save = (): void => {
-      // A rename moves the stored profile itself; this edit follows once it is over.
-      if (renaming.current) {
-        timer = setTimeout(save, SAVE_DEBOUNCE_MS);
-        return;
-      }
-      pendingSave.current = null;
+      cancelPending();
+      if (control.getGameProfileOwner() !== draftOwner) return;
       const on = autoApplyRef.current;
       void persist({ settings: current, targetIndex, autoApply: on }, on ? "updated" : null);
     };
     pendingSave.current = save;
-    timer = setTimeout(save, SAVE_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    pendingTimer.current = setTimeout(save, SAVE_DEBOUNCE_MS);
+    const timer = pendingTimer.current;
+    return () => { if (timer !== null) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey, loaded]);
+  }, [currentKey, loaded, targetIndex, draftOwner]);
   // Leaving the page mid-debounce still saves the last edit.
   useEffect(() => () => pendingSave.current?.(), []);
 
   function selectTarget(index: number): void {
     const device = devices[index];
     if (!device) return;
+    if (index === targetIndex) return;
+    pendingSave.current?.();
+    control.endGameProfileDraft(draftOwner);
+    const stored = targetProfiles.current.get(deviceId(device));
+    savedRef.current = stored?.settings ?? {};
+    savedKey.current = snapshotKey(savedRef.current);
+    lastDraft.current = null;
+    setAutoApply(stored?.enabled ?? false);
+    setSaveFailed(stored?.error ?? false);
     setTargetIndex(index);
-    // The cards can only edit the connected mouse; switching ends this draft
-    // (the effect above starts a new one once the new mouse has been read).
-    if (!device.selected) {
-      control.endGameProfileDraft();
+    if (!device.selected && control.hasGameProfileApplyToRestore()) {
       // What Apply now changed goes back to the mouse it was written to, before the other one is selected.
+      control.endGameProfileDraft(draftOwner);
       void control.restoreGameProfileApply().then(() => control.selectAuthorizedDevice(device.index));
-    }
-    void persist({ settings: current, targetIndex: index, autoApply }, autoApply ? "updated" : null);
+    } else if (!device.selected) void control.selectAuthorizedDevice(device.index);
   }
 
   function toggleAutoApply(): void {
+    cancelPending();
     const next = !autoApply;
     setAutoApply(next);
     void persist({ settings: current, targetIndex, autoApply: next }, next ? "enabled" : "disabled");
   }
 
   function clearProfile(): void {
+    cancelPending();
     const wasEnabled = autoApply;
     setAutoApply(false);
     control.resetGameProfileDraft({});
@@ -308,40 +345,7 @@ export function GameProfilePanel({
     }
   }
 
-  async function renameGame(): Promise<void> {
-    const name = titleDraft?.trim() ?? "";
-    if (renaming.current) return;
-    if (!onRename || name === "" || name === game.name) {
-      setTitleDraft(null);
-      return;
-    }
-    renaming.current = true;
-    // What is edited so far is saved under the old name first; Bridge then moves the profile to the new one.
-    await persist({ settings: current, targetIndex, autoApply }, null);
-    const result = await onRename(name);
-    renaming.current = false;
-    if (result === "renamed") {
-      setTitleDraft(null);
-      setTitleError(null);
-    } else {
-      setTitleError(result);
-    }
-  }
-
-  async function changeImage(file: File): Promise<void> {
-    try {
-      const prepared = await prepareGameImage(file);
-      if (!prepared) throw new Error("unreadable image");
-      // The game may have been renamed while the picture was being prepared; Bridge keeps it under the current name.
-      await saveBridgeCustomGameImage(gameRef.current.name, prepared);
-      setImageVersion((version) => version + 1);
-      onImageChanged?.();
-    } catch {
-      control.pushToast("error", t(locale, "customgame.imageFailed"));
-    }
-  }
-
-  const artwork = catalogEntry ? gameArtwork(catalogEntry) : null;
+  const artwork = game.source !== "local" && catalogEntry ? gameArtwork(catalogEntry) : null;
   const tabs = editing
     ? availableWorkspaceTabs(true, cardAvailability(snapshot)).filter((entry) => GAME_PROFILE_TABS.includes(entry))
     : [];
@@ -354,76 +358,25 @@ export function GameProfilePanel({
         {t(locale, "nav.games")}
       </button>
 
+      {saveFailed ? <div role="alert"><p className="feedback-error">{t(locale, "bridge.profileSaveFailed")}</p><button type="button" className="om-btn is-sm game-profile-retry" disabled={saving} onClick={() => { cancelPending(); void persist({ settings: current, targetIndex, autoApply }, autoApply ? "updated" : null); }}>{t(locale, "set.retry")}</button></div> : null}
+      {!loaded ? <p className="om-meta" role={loadError ? "alert" : "status"}>{t(locale, loadError ? "localApps.loadFailed" : "localApps.loading")}</p> : null}
+
       <div className="om-panel game-profile-layout">
         <div className="game-profile-side">
           <div className="game-profile-art">
             {artwork ? (
               <img src={artwork} alt={game.name} loading="lazy" draggable={false} />
-            ) : catalogEntry ? (
-              <Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />
             ) : (
-              <CustomGameImage name={game.name} version={imageVersion} size={40} />
+              <AppIcon iconId={game.iconId} className="game-profile-icon" fallback={<Gamepad2 size={40} strokeWidth={1.5} aria-hidden="true" />} />
             )}
-            {custom ? (
-              <>
-                <input
-                  ref={imagePicker}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = "";
-                    if (file) void changeImage(file);
-                  }}
-                />
-                <button type="button" className="game-profile-art-change" onClick={() => imagePicker.current?.click()}>
-                  <ImagePlus size={20} strokeWidth={1.8} aria-hidden="true" />
-                  {t(locale, "customgame.changeImage")}
-                </button>
-              </>
-            ) : null}
           </div>
         </div>
 
         <div className="game-profile-settings">
           <div className="game-profile-name-card">
             <div>
-              {titleDraft !== null ? (
-                <input
-                  className="game-profile-name-input"
-                  type="text"
-                  autoFocus
-                  maxLength={80}
-                  aria-label={t(locale, "customgame.rename")}
-                  value={titleDraft}
-                  onChange={(event) => { setTitleDraft(event.currentTarget.value); setTitleError(null); }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void renameGame();
-                    if (event.key === "Escape") { cancelled.current = true; setTitleDraft(null); setTitleError(null); }
-                  }}
-                  onBlur={() => {
-                    if (cancelled.current) { cancelled.current = false; return; }
-                    void renameGame();
-                  }}
-                />
-              ) : (
-                <div className="game-profile-name-row">
-                  <h1 className="game-profile-name">{game.name}</h1>
-                  {custom && onRename ? (
-                    <button
-                      type="button"
-                      className="om-icon-btn game-profile-name-edit"
-                      title={t(locale, "customgame.rename")}
-                      aria-label={t(locale, "customgame.rename")}
-                      onClick={() => setTitleDraft(game.name)}
-                    >
-                      <Pencil size={14} strokeWidth={1.8} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-              )}
-              {titleError ? <span className="feedback-error" role="alert">{t(locale, titleError === "duplicate" ? "customgame.duplicate" : "customgame.failed")}</span> : null}
+              <h1 className="game-profile-name">{game.name}</h1>
+              {game.source === "local" ? <><span className="om-badge">{t(locale, "localApps.local")}</span><span className="games-local-path">{game.bundlePath || game.path || game.executables[0]}</span></> : null}
               <span className="game-profile-changed">
                 {displayText(locale, changedCount === 0
                   ? t(locale, "games.noChanges")
@@ -434,13 +387,13 @@ export function GameProfilePanel({
               <button
                 type="button"
                 className="om-btn"
-                disabled={applying || !snapshot.gameProfileDraft || snapshot.pending.keys.length === 0}
+                disabled={!loaded || applying || !snapshot.gameProfileDraft || snapshot.pending.keys.length === 0}
                 onClick={() => { void applyNow(); }}
               >{t(locale, "games.applyNow")}</button>
               <button
                 type="button"
                 className="om-btn is-ghost game-profile-clear"
-                disabled={saving || applying || (!autoApply && changedCount === 0)}
+                disabled={!loaded || saving || applying || (!autoApply && changedCount === 0)}
                 onClick={clearProfile}
               >{t(locale, "cap.clear")}</button>
             </div>
@@ -462,6 +415,7 @@ export function GameProfilePanel({
                     <button
                       type="button"
                       className={`om-btn is-sm game-profile-select${targetIndex === index ? " is-selected" : ""}`}
+                      disabled={!loaded || saving}
                       onClick={() => selectTarget(index)}
                     >
                       {displayText(locale, targetIndex === index ? "Selected" : "Select")}
@@ -475,14 +429,16 @@ export function GameProfilePanel({
           <section className="game-profile-section game-profile-auto-apply">
             <div className="game-profile-auto-apply-text">
               <span className="game-profile-auto-apply-title">{displayText(locale, "Apply automatically")}</span>
-              <span className="game-profile-auto-apply-body">{tp(locale, "bridge.profileEnabledDetail", { name: game.name })}</span>
+              {game.source === "local" && targetActivation(game) === "focused" ? <span className="game-profile-auto-apply-body">{t(locale, "localApps.focusedLimit")}</span> : null}
+              <span className="game-profile-auto-apply-body">{game.source === "local" ? t(locale, targetActivation(game) === "focused" ? "localApps.appHint" : "localApps.gameHint") : tp(locale, "bridge.profileEnabledDetail", { name: game.name })}</span>
             </div>
             <button
               type="button"
               role="switch"
+              aria-label={t(locale, "games.autoApply")}
               aria-checked={autoApply}
               className={`switch-button game-profile-toggle${autoApply ? " is-on" : ""}`}
-              disabled={saving || targetIndex === null}
+              disabled={!loaded || saving || targetIndex === null}
               onClick={toggleAutoApply}
             >
               <span className="switch-thumb game-profile-toggle-thumb" />

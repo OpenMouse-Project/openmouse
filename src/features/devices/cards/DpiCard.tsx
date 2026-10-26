@@ -763,6 +763,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
 
         <DpiStageEditor
+          // Remount per device and profile so rows and their link state never carry over.
           key={control.dpiUnlinkKey() ?? "dpi"}
           snapshot={snapshot}
           editorView={stageCapable && singleDpiAvailable ? editorView : stageCapable ? "stage" : undefined}

@@ -37,6 +37,11 @@ Run the full local check before pushing changes:
 npm run check
 ```
 
+### Bundle budget
+
+Production assets are limited to 3,200,000 JavaScript bytes and 165,000 CSS
+bytes. Run `npm run size` after a fresh build for current totals.
+
 ### Linux WebHID permissions
 
 If a device appears in Chromium's picker but OpenMouse reports `Failed to open
@@ -68,6 +73,27 @@ sudo udevadm control --reload-rules
 Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
+
+## Local game and app profiles
+
+Games & apps separates OpenMouse presets from Your apps. With the updated
+OpenMouse Bridge running, Add game or app lists the apps that are running to
+pick from, or takes the full path to an executable. Personal entries are saved in Bridge's
+local config, not sent to OpenMouse for approval. They survive catalog refreshes
+and Bridge restarts. Adding/editing/removing an entry does not require a mouse.
+
+Each entry is a Game or an App, and its profile is active While running (kept
+after alt-tabbing) or While focused (foreground-only switching). The path
+matches that installation only. Foreground matching on Linux requires X11. Local profiles retain the
+existing native/full-settings limits: Bridge can apply supported DPI/polling
+settings with the browser closed; the control panel must remain open to apply
+and restore full device-settings snapshots.
+
+Local targets use stable IDs, not display names, so a target can be renamed or
+share a name with an OpenMouse preset without losing or confusing its settings.
+Removing a local target also removes its linked mouse profiles; clearing its
+mouse settings leaves the target available. Older Bridges show update guidance
+rather than falling back to a public game request.
 
 ## Community
 

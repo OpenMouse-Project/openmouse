@@ -352,6 +352,7 @@ let settingInProgress = false;
 // it is on Onboard): "Apply now" flashes and clears the staged changes, so these
 // stay here and are laid over every preview.
 let gameProfileDraft: {
+  owner: GameProfileOwner;
   stash: PendingStash;
   touched: Set<string>;
   rates: { wireless?: number; wired?: number };
@@ -461,6 +462,25 @@ function batch(run: () => void): void {
   }
 }
 
+export interface GameProfileOwner {
+  readonly client: object;
+  readonly device: HIDDevice | null;
+}
+
+let gameProfileOwner: GameProfileOwner | null = null;
+
+export function getGameProfileOwner(): GameProfileOwner | null {
+  if (!active || !latestDeviceStatus) return null;
+  if (!gameProfileOwner || gameProfileOwner.client !== active || gameProfileOwner.device !== activeDevice) {
+    gameProfileOwner = { client: active, device: activeDevice };
+  }
+  return gameProfileOwner;
+}
+
+export function isGameProfileOwner(owner: GameProfileOwner | null): boolean {
+  return owner !== null && getGameProfileOwner() === owner;
+}
+
 export function getActiveDevice(): HIDDevice | null {
   return activeDevice;
 }
@@ -486,6 +506,8 @@ function buildProfileView(): ProfileView {
     ratesLocked: lastProfileFormat?.writable !== true,
     bunnyHopSupported: bunnyHopSupported(),
   };
+  // A game profile is never written to the mouse's onboard profile, so a draft
+  // hides the per-profile controls that could not save into it.
   return gameProfileDraft ? { ...view, entry: null, slotsAvailable: false, bunnyHopSupported: false } : view;
 }
 
@@ -1517,8 +1539,9 @@ function overlayHeldValues(status: MouseStatus): void {
  */
 export function beginGameProfileDraft(initial: GameProfileSnapshot): boolean {
   if (gameProfileDraft) endGameProfileDraft();
-  if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return false;
-  gameProfileDraft = { stash: stashEverything(), touched: new Set(), rates: {}, held: {} };
+  const owner = getGameProfileOwner();
+  if (gameProfileDraft || settingInProgress || !latestDeviceStatus || !owner) return false;
+  gameProfileDraft = { owner, stash: stashEverything(), touched: new Set(), rates: {}, held: {} };
   setStatusOverlay(overlayHeldValues);
   openGameProfileDraft(initial);
   emit();
@@ -1564,8 +1587,8 @@ export function resetGameProfileDraft(snapshot: GameProfileSnapshot): void {
 // Set when the draft was asked to end while "Apply now" was still writing it.
 let endDraftWhenWritten = false;
 
-export function endGameProfileDraft(): void {
-  if (!gameProfileDraft) return;
+export function endGameProfileDraft(owner: GameProfileOwner | null = getGameProfileOwner()): void {
+  if (!gameProfileDraft || gameProfileDraft.owner !== owner || !isGameProfileOwner(owner)) return;
   // The writer drops the draft's changes by key when it finishes, which would
   // take the user's own changes with it if they were put back first.
   if (gameProfileWriting) {
@@ -1593,26 +1616,28 @@ export function isGameProfileDraftActive(): boolean {
  */
 export async function flashGameProfileSnapshot(
   snapshot: GameProfileSnapshot,
-): Promise<"written" | "unchanged" | "busy"> {
+  owner: GameProfileOwner | null = getGameProfileOwner(),
+): Promise<"written" | "unchanged" | "busy" | "stale" | "failed" | "partial"> {
+  if (!isGameProfileOwner(owner)) return "stale";
   if (gameProfileDraft || settingInProgress || !latestDeviceStatus) return "busy";
   const stash = stashEverything();
-  applyGameProfileSnapshot(snapshot);
-  const staged = hasPendingChanges();
-  let landed = true;
-  recordDiagnosticCommand(`Game profile: write ${Object.keys(snapshot).join(", ") || "nothing"} (staged ${staged})`);
-  if (staged) {
+  try {
+    applyGameProfileSnapshot(snapshot);
+    if (!isGameProfileOwner(owner)) return "stale";
+    if (!hasPendingChanges()) return "unchanged";
+    recordDiagnosticCommand(`Game profile: write ${Object.keys(snapshot).join(", ") || "nothing"}`);
     gameProfileWriting = true;
+    let result: FlashResult;
     try {
-      await flashPendingChanges();
-      // A write that failed leaves its changes staged: that is not a write, and the caller should try again.
-      landed = !hasPendingChanges();
+      result = await flashPendingChanges();
     } finally {
       gameProfileWriting = false;
     }
+    if (!isGameProfileOwner(owner)) return "stale";
+    return result;
+  } finally {
+    if (isGameProfileOwner(owner)) restoreEverything(stash);
   }
-  restoreEverything(stash);
-  if (!landed) return "busy";
-  return staged ? "written" : "unchanged";
 }
 
 // True while a game profile is being written, so writes that would also save to
@@ -1633,16 +1658,23 @@ export async function applyGameProfileDraftNow(): Promise<"written" | "busy"> {
   recordDiagnosticCommand(`Game profile: apply now (replacing ${Object.keys(before).join(", ") || "nothing"})`);
   // Values from before the first apply win, so a second apply still restores the originals.
   gameProfileRestores.set(key, mergeSnapshots(before, gameProfileRestores.get(key) ?? {}));
+  const owner = gameProfileDraft.owner;
   gameProfileWriting = true;
   let written = false;
   try {
-    await flashStagedChanges();
-    written = !hasPendingChanges();
+    // A failed or partial write leaves changes staged, and a stale one went to another session.
+    written = await flashStagedChanges() === "written" && !hasPendingChanges();
   } finally {
     gameProfileWriting = false;
-    if (endDraftWhenWritten) endGameProfileDraft();
+    if (endDraftWhenWritten) endGameProfileDraft(owner);
   }
   return written ? "written" : "busy";
+}
+
+/** True when "Apply now" changed the active mouse and that has not been put back yet. */
+export function hasGameProfileApplyToRestore(): boolean {
+  const key = activeDeviceKey();
+  return key !== null && gameProfileRestores.has(key);
 }
 
 /**
@@ -1656,10 +1688,13 @@ export async function restoreGameProfileApply(): Promise<void> {
   if (!key || !restore) return;
   recordDiagnosticCommand(`Game profile: restore ${JSON.stringify(restore)}`);
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    if (await flashGameProfileSnapshot(restore) !== "busy") {
+    const result = await flashGameProfileSnapshot(restore);
+    if (result === "written" || result === "unchanged") {
       gameProfileRestores.delete(key);
       return;
     }
+    // Another session owns the mouse now; the values stay for the next call.
+    if (result === "stale") return;
     await wait(500);
     // The write goes to whichever mouse is active now, which must still be the one these values came from.
     if (activeDeviceKey() !== key) return;
@@ -2318,18 +2353,23 @@ async function flashPause(milliseconds = FLASH_STEP_DELAY_MS): Promise<void> {
   await wait(milliseconds);
 }
 
-export async function flashPendingChanges(): Promise<void> {
-  if (gameProfileDraft) return;
-  await flashStagedChanges();
+export type FlashResult = "written" | "unchanged" | "busy" | "stale" | "failed" | "partial";
+
+export async function flashPendingChanges(): Promise<FlashResult> {
+  if (gameProfileDraft) return "busy";
+  return flashStagedChanges();
 }
 
-async function flashStagedChanges(): Promise<void> {
+/** Writes every staged change. "Apply now" calls it directly to write a game profile draft. */
+async function flashStagedChanges(): Promise<FlashResult> {
+  const owner = getGameProfileOwner();
+  if (!owner) return "stale";
   const batches = pendingChangeBatches();
-  if (batches.length === 0) return;
+  if (batches.length === 0) return "unchanged";
   if (settingInProgress) {
     flashQueued = true;
     setReadStatus(st("ctl.waitFlash"));
-    return;
+    return "busy";
   }
   settingInProgress = true;
   pendingBusy = true;
@@ -2361,8 +2401,11 @@ async function flashStagedChanges(): Promise<void> {
       readStatus = writer.progress;
       emit();
       await flashPause();
+      if (!isGameProfileOwner(owner)) break;
       for (const change of batch) recordDiagnosticCommand(change.command);
+      if (!isGameProfileOwner(owner)) break;
       await writer.apply();
+      if (!isGameProfileOwner(owner)) break;
       for (const change of batch) dropPendingChange(change.key);
       written += batch.length;
     }
@@ -2371,20 +2414,28 @@ async function flashStagedChanges(): Promise<void> {
     failure = error instanceof Error ? error.message : "Unable to flash the staged changes.";
   }
   await flashPause(FLASH_SETTLE_MS);
-  const client = activeSettingsClient();
+  const client = isGameProfileOwner(owner) ? activeSettingsClient() : null;
   const status = client ? await statusAfterWrite(client).catch(() => null) : null;
-  if (status) applyStatus(status);
+  if (status && isGameProfileOwner(owner)) applyStatus(status);
   endDeviceWrite();
   pendingBusy = false;
-  if (flashQueued) {
+  if (!isGameProfileOwner(owner)) {
     flashQueued = false;
-    if (hasPendingChanges()) return flashPendingChanges();
+    return "stale";
   }
   if (failure) {
+    flashQueued = false;
     pendingStatusText = failure;
     setReadStatus(failure);
     pushToast("error", st("ctl.flashFailed"), failure);
-    return;
+    return written > 0 ? "partial" : "failed";
+  }
+  if (flashQueued) {
+    flashQueued = false;
+    if (hasPendingChanges()) {
+      const result = await flashStagedChanges();
+      return written > 0 && result === "failed" ? "partial" : result;
+    }
   }
   pendingStatusText = null;
   const flashed = written === 1
@@ -2393,6 +2444,7 @@ async function flashStagedChanges(): Promise<void> {
   setReadStatus(flashed);
   pushToast("success", flashed);
   track("pending_changes_applied", { change_count: written });
+  return "written";
 }
 
 function endDeviceWrite(): void {
@@ -3314,6 +3366,11 @@ function statusNameForClient(client: SupportedClient): string {
 }
 
 function clearActiveClients(): void {
+  if (gameProfileDraft) {
+    gameProfileDraft = null;
+    clearPendingChanges();
+  }
+  gameProfileOwner = null;
   active = null;
 }
 
@@ -4821,7 +4878,7 @@ export function dpiUnlinkKey(): string | null {
 export function unlinkedDpiSlots(): number[] {
   const key = dpiUnlinkKey();
   const saved = key ? storedRecord(DPI_UNLINKED_STORAGE_KEY)[key] : undefined;
-  return Array.isArray(saved) ? saved : [];
+  return Array.isArray(saved) ? saved.filter((index): index is number => Number.isInteger(index)) : [];
 }
 
 const HOST_DPI_SLOTS_STORAGE_KEY = "openmouse.host-dpi-slots";
@@ -4862,6 +4919,7 @@ export function replaceDpiUnlinkedSlots(indices: number[]): void {
   try {
     localStorage.setItem(DPI_UNLINKED_STORAGE_KEY, JSON.stringify({ ...storedRecord(DPI_UNLINKED_STORAGE_KEY), [key]: [...new Set(indices)].sort((a, b) => a - b) }));
   } catch {
+    // Storage can be blocked; the rows then read linked again after a refresh.
   }
 }
 
