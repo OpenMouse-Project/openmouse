@@ -214,3 +214,38 @@ test("starlight X entity entries compare per element without a download", () => 
   const current = getDfuInfo({ ...ref, firmware: ["Mouse 8.0.3", "Dongle RF 8.0.3", "Dongle USB 8.0.3"] }, m);
   assert.equal(current?.dfuAvailable, false);
 });
+
+test("Cooler Master MM711 entry matches by interfaceId and compares version", () => {
+  const m = {
+    manifestVersion: 3,
+    updatedAt: "2026-10-10T00:00:00.000Z",
+    source: "test",
+    devices: [
+      {
+        id: "coolermaster-mm711",
+        brand: "Cooler Master",
+        nameMatch: ["MM711"],
+        interfaceIds: ["2516_0101"],
+        latestVersion: "1.05.00",
+        required: false,
+        downloadUrl: "https://masterplus.coolermaster.com/",
+        releaseNotes: "Firmware 1.05.00 is the latest stable release for MM711 via MasterPlus+.",
+      },
+    ],
+  } as unknown as import("./firmware-updates.ts").FirmwareManifest;
+  const ref = {
+    brand: "Cooler Master",
+    name: "Cooler Master MM711",
+    modelId: null,
+    firmware: ["1.04.00"],
+    interfaceId: "2516_0101",
+  };
+  const behind = getDfuInfo(ref, m);
+  assert.equal(behind?.dfuAvailable, true);
+  assert.equal(behind?.currentVersion, "1.04.00");
+  assert.equal(behind?.latestVersion, "1.05.00");
+  assert.equal(behind?.downloadUrl, "https://masterplus.coolermaster.com/");
+
+  const current = getDfuInfo({ ...ref, firmware: ["1.05.00"] }, m);
+  assert.equal(current?.dfuAvailable, false);
+});
