@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@openmouse/keyboard-protocol": "1.1.0",
-    "@openmouse/protocol": "0.48.0",
+    "@openmouse/protocol": "0.48.1",
     "lucide-react": "^1.43.0",
     "posthog-js": "^1.438.17",
     "preact": "^10.29.8"
