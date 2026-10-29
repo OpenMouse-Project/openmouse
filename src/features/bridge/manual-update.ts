@@ -59,7 +59,7 @@ export function manualInstallFor(platform: string): BridgeManualInstall | null {
     case "macos":
       return { platform, url: `${LATEST_DOWNLOAD}/OpenMouse-Bridge-macos-universal.dmg` };
     case "windows":
-      return { platform, url: `${LATEST_DOWNLOAD}/openmouse-bridge-windows-x64-full.zip` };
+      return { platform, url: `${LATEST_DOWNLOAD}/openmouse-bridge-windows-x64.zip` };
     case "linux":
       return { platform, command: BRIDGE_LINUX_INSTALL_COMMAND };
     default:
