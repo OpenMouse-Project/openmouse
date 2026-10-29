@@ -63,7 +63,6 @@ export type DriverModules = typeof import("@openmouse/protocol/drivers/endgame/e
   & typeof import("@openmouse/protocol/drivers/fantech/hid")
   & typeof import("@openmouse/protocol/drivers/wallhack/mouse-hid")
   & typeof import("@openmouse/protocol/drivers/wallhack/keyboard-hid")
-  & typeof import("@openmouse/protocol/drivers/wooting/hid")
   & typeof import("@openmouse/protocol/keychron")
   & typeof import("@openmouse/protocol/drivers/vendors")
   & typeof import("@openmouse/protocol/drivers/wlmouse/hid")
@@ -130,7 +129,6 @@ export function ensureDriverModules(): Promise<DriverModules> {
     import("@openmouse/protocol/drivers/fantech/hid"),
     import("@openmouse/protocol/drivers/wallhack/mouse-hid"),
     import("@openmouse/protocol/drivers/wallhack/keyboard-hid"),
-    import("@openmouse/protocol/drivers/wooting/hid"),
     import("@openmouse/protocol/keychron"),
     import("@openmouse/protocol/drivers/vendors"),
     import("@openmouse/protocol/drivers/wlmouse/hid"),

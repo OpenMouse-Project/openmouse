@@ -2935,7 +2935,6 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
 /** Whether a client appears as a keyboard or a mouse in the sidebar. */
 function sidebarEntryForm(client: SupportedClient): "mouse" | "keyboard" {
   if (isA(client, CM()?.KeychronNapeHidClient)
-    || isA(client, CM()?.WootingHidClient)
     || isA(client, CM()?.WallhackKeyboardHidClient)) return "keyboard";
   return "mouse";
 }
@@ -3281,7 +3280,11 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
     }
-    keyboardStatusText = command.kind === "caps" || command.kind === "direct" ? st("kb.sent") : st("kb.updated");
+    keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
+      ? st("kb.sent")
+      : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
+        ? st("kb.writeOnly")
+        : st("kb.updated");
   } catch (error) {
     if (activeKeyboard !== client) return;
     keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");

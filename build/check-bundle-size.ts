@@ -12,9 +12,16 @@ import { join } from "node:path";
 // first paint waits on — so new drivers landing in the registry grow the lazy
 // chunk, not the initial load. The total budget is unchanged: shipped bytes
 // still count, only later.
+// 2026-10-27: The locally linked keyboard-protocol Wooting driver and its
+// panel (default and per-key actuation save, keyboard map) take total JS past the old 3.2 MB cap. Measured: 3,408,090 bytes.
+// 2026-10-27: Descriptor-driven effect editors, chunked AKC editor, typed
+// RGB/profile surfaces and their strings. Measured: 3,474,377 bytes.
+// 2026-10-29: Razer, Logitech and SteelSeries keyboard HID clients and panels
+// add three real device protocols. Measured: 3,558,003 bytes across all
+// chunks, with the main chunk at 1,149,146 bytes (below its existing cap).
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 165_000,
-  ".js": 3_200_000,
+  ".js": 3_600_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

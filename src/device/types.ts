@@ -224,7 +224,7 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries";
   name: string;
   vendorId: number;
   productId: number;

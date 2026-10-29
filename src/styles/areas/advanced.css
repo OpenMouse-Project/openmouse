@@ -229,3 +229,55 @@ aside.testing-note strong { display: none; }
   .fw-head-actions { flex-wrap: wrap; }
   #capture-dialog { width: calc(100vw - 24px); max-height: calc(100vh - 32px); height: auto; }
 }
+
+.keyboard-workspace-card:has(.wooting-map) { grid-column: 1 / -1; }
+.wooting-map { padding: 16px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); min-width: 0; container-type: inline-size; }
+.wooting-map-body { display: grid; gap: 6px; width: 100%; max-width: 900px; margin-inline: auto; padding: 10px; border-radius: var(--r-md); background: var(--surface-2); aspect-ratio: 15.6 / 5.6; direction: ltr; }
+.wooting-map-row { display: grid; grid-template-columns: repeat(60, minmax(0, 1fr)); gap: 6px; min-height: 0; }
+.wooting-key { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); color: var(--text-2); font: inherit; font-size: clamp(9px, 1.5cqi, var(--fs-meta)); font-weight: 550; cursor: pointer; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.wooting-key > span { position: relative; }
+.wooting-key-mm { font-size: 0.78em; font-weight: 450; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.wooting-key:hover:not(:disabled) { color: var(--text-1); }
+.wooting-key:disabled { cursor: default; opacity: 0.55; }
+.wooting-key.is-down { background: linear-gradient(to top, rgb(var(--accent-rgb) / 0.5) calc(var(--travel) * 100%), transparent 0), var(--key); color: var(--text-1); }
+.wooting-key.has-override .wooting-key-mm { color: var(--accent); font-weight: 650; }
+.wooting-key-rt-value { font-size: 0.72em; font-weight: 450; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wooting-key.has-rt-custom .wooting-key-rt-value { color: var(--accent); font-weight: 650; }
+.wooting-key.has-rt-off .wooting-key-rt-value { color: var(--text-3); }
+.wooting-key.is-selected { box-shadow: inset 0 0 0 1px var(--accent-line); color: var(--accent); }
+.keyboard-workspace-card.wooting-rt-card { grid-column: 1 / -1; }
+.wooting-rt-editor { display: grid; gap: 16px; }
+.wooting-rt-editor > .segmented, .wooting-rt-editor > .om-btn { justify-self: start; }
+.wooting-rt-editor > .setting-note, .wooting-rt-editor > .keyboard-save-confirm { grid-column: 1 / -1; }
+.wooting-unmapped ul { display: grid; gap: 4px; margin-top: 8px; list-style: none; }
+.wooting-unmapped li { display: flex; justify-content: space-between; gap: 16px; padding-block: 6px; border-top: 1px solid var(--line-1); color: var(--text-2); font-size: var(--fs-meta); }
+.wooting-rgb-layers { display: grid; gap: 8px; }
+.wooting-rgb-layer { display: grid; gap: 10px; padding: 10px; border-radius: var(--r-sm); background: var(--well); color: var(--text-2); font-size: var(--fs-meta); }
+.wooting-rgb-layer-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.wooting-rgb-layer-head strong { color: var(--text-1); font-weight: 600; }
+.wooting-rgb-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px 16px; }
+.wooting-rgb-fields .keyboard-field { display: grid; gap: 6px; }
+.wooting-rgb-fields .keyboard-field :is(input, .option-menu) { width: 100%; }
+.wooting-rgb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.wooting-profiles { display: grid; gap: 0; list-style: none; }
+.wooting-profiles li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 10px; border-top: 1px solid var(--line-1); color: var(--text-2); font-size: var(--fs-meta); }
+.wooting-profiles li.is-active { color: var(--accent); }
+.wooting-profiles em { font-style: normal; color: var(--text-3); font-size: var(--fs-small); }
+.wooting-akc-editor { display: grid; gap: 12px; }
+.wooting-akc-dks { display: grid; gap: 8px; grid-column: 1 / -1; }
+.wooting-akc-dks-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; padding-top: 8px; border-top: 1px solid var(--line-1); }
+.wooting-akc-list { display: grid; gap: 0; list-style: none; margin-top: 8px; }
+.wooting-akc-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 8px; border-top: 1px solid var(--line-1); color: var(--text-2); font-size: var(--fs-meta); }
+.wooting-key-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+.wooting-key-editor .keyboard-identity { grid-column: 1 / -1; }
+.wooting-key-editor > .wooting-mm-control { grid-column: 1 / -1; }
+.wooting-key-editor .setting-note, .wooting-key-editor .keyboard-save-confirm { grid-column: 1 / -1; }
+.wooting-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.wooting-fields > .wooting-mm-control { grid-column: 1 / -1; }
+.wooting-mm-control { display: grid; grid-template-columns: minmax(0, 1fr) minmax(72px, 96px); gap: 12px; align-items: end; }
+.wooting-mm-input { display: grid; gap: 6px; color: var(--text-3); font-size: var(--fs-meta); }
+.wooting-mm-input input { width: 100%; text-align: end; font-variant-numeric: tabular-nums; }
+.keyboard-workspace-card:has(.wooting-identity) { grid-column: 1 / -1; }
+.wooting-identity { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 0 24px; }
+.wooting-identity > div { flex-direction: column; align-items: flex-start; gap: 4px; }
+.wooting-identity dd { text-align: start; }
