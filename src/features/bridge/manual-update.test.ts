@@ -39,7 +39,7 @@ test("downloads are chosen by platform", () => {
   });
   assert.deepEqual(manualInstallFor("windows"), {
     platform: "windows",
-    url: "https://github.com/OpenMouse-Project/OpenMouse-Bridge/releases/latest/download/openmouse-bridge-windows-x64.zip",
+    url: "https://github.com/OpenMouse-Project/OpenMouse-Bridge/releases/latest/download/openmouse-bridge-windows-x64-full.zip",
   });
   assert.equal(manualInstallFor("linux")?.platform, "linux");
   assert.equal(manualInstallFor("plan9"), null);
