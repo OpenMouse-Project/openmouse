@@ -3,7 +3,7 @@ import type { KeyboardIdentityView, KeyboardPollingView, KeyboardTriggerKey, Key
 
 export interface KeyboardClient {
   readonly device: HIDDevice;
-  readonly family: "wuque" | "kochi";
+  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries";
   readonly brand: string;
   readonly name: string;
   open(): Promise<void>;

@@ -1,8 +1,25 @@
 import type { WuqueGlobalState, WuqueKeyState, WuqueLightingState } from '@openmouse/keyboard-protocol/drivers';
+import type { KeyboardStatus } from '@openmouse/keyboard-protocol/drivers';
 import type { WuqueMacroRead, WuqueHidClient } from '@openmouse/keyboard-protocol/drivers/wuque/hid';
 import type { WuqueAxisReading, WuqueHigherKey, WuqueHigherKeyWrite, WuqueKeyLayoutStyle, WuqueKeyLayoutDefault, WuqueLightingBase, WuqueLightingLed, WuqueLightingPaletteColor, WuqueMacroEvent, WuqueRgb } from '@openmouse/keyboard-protocol/wuque';
+import type { WootingAkcPayloadWrite, WootingRapidTriggerTarget, WootingRgbColors, WootingRgbCore, WootingRgbCoreWrite } from '@openmouse/keyboard-protocol/wooting';
+import type { RazerKeyboardCommand } from './razer-keyboard.ts';
+import type { LogitechKeyboardCommand } from './logitech-keyboard.ts';
+import type { SteelSeriesKeyboardCommand } from './steelseries-keyboard.ts';
+
+export interface WootingRgbView {
+  core: WootingRgbCore | null;
+  colors1: WootingRgbColors | null;
+  colors2: WootingRgbColors | null;
+}
 
 export interface KeyboardWorkspace {
+  wooting?: KeyboardStatus | null;
+  /** Status returned by a Razer, Logitech or SteelSeries keyboard. */
+  vendorStatus?: KeyboardStatus | null;
+  razerGameModeLed?: boolean | null;
+  /** Typed RGB core and color pages; raw `wooting.rgb` stays for diagnostics. */
+  wootingRgb?: WootingRgbView | null;
   /** HB68 mode; independent of the Wuque global-settings structure. */
   systemMode?: "win" | "mac";
   global: WuqueGlobalState | null;
@@ -18,7 +35,14 @@ export interface KeyboardWorkspace {
 }
 export const emptyKeyboardWorkspace = (): KeyboardWorkspace => ({ global: null, lighting: null, custom: [], shell: null, layer: null, styles: [], defaults: [], macro: null, higher: null, adc: null });
 export type KeyboardCommand =
+  | RazerKeyboardCommand | LogitechKeyboardCommand | SteelSeriesKeyboardCommand
   | { kind: 'refresh' }
+  | { kind: 'wootingKeyActuation'; keys: number | readonly number[]; actuationMm: number | null }
+  | { kind: 'wootingKeyRapidTrigger'; keys: number | readonly number[]; target: WootingRapidTriggerTarget | null }
+  | { kind: 'wootingRgbApply'; core?: WootingRgbCoreWrite; colors1?: readonly (readonly number[])[]; colors2?: readonly (readonly number[])[]; save: boolean }
+  | { kind: 'wootingProfileSwitch'; slot: number }
+  | { kind: 'wootingAkcItem'; keyIndex: number; layer: number; payload: WootingAkcPayloadWrite | null }
+  | { kind: 'wootingAnalog'; actuationMm?: number; rapidTriggerEnabled?: boolean; rapidTriggerSensitivityMm?: number }
   | { kind: 'system'; value: number }
   | { kind: 'sleep'; value: number }
   | { kind: 'shake'; value: boolean }
@@ -52,6 +76,12 @@ function color(value: WuqueRgb): void { integer(value.r, 255); integer(value.g, 
 /** Only return data decoded from the board. Direct frames and caps have no acknowledgement. */
 export async function runKeyboardCommand(client: WuqueHidClient, command: KeyboardCommand): Promise<Partial<KeyboardWorkspace>> {
   switch (command.kind) {
+    case 'wootingKeyActuation':
+    case 'wootingKeyRapidTrigger':
+    case 'wootingRgbApply':
+    case 'wootingProfileSwitch':
+    case 'wootingAkcItem':
+    case 'wootingAnalog': throw new Error('This command is only for Wooting keyboards.');
     case 'refresh': client.invalidateReadCache(); return { global: await client.readGlobalState(), lighting: await client.readLighting(), custom: await client.readLightingCustom(), shell: await client.readKeyboardColor() };
     case 'system':
       integer(command.value, 1);
@@ -143,5 +173,6 @@ export async function runKeyboardCommand(client: WuqueHidClient, command: Keyboa
       return { higher };
     }
     case 'adc': integer(command.row, 5); return { adc: required(await client.readAxisAdc(command.row)) };
+    default: throw new Error('This command is only for a different keyboard brand.');
   }
 }

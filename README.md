@@ -24,6 +24,22 @@ Works in Chromium-based browsers that support WebHID. Learn more at
 This branch is deployed as the public development control panel at
 [control.openmouse.app](https://control.openmouse.app/).
 
+## Keyboard controls
+
+OpenMouse also detects supported Wooting, Wuque, Kochi, Razer, Logitech and
+SteelSeries keyboard command interfaces through WebHID. The Razer, Logitech
+and SteelSeries panels expose only controls implemented by the corresponding
+keyboard-protocol driver; some settings are shown only when the keyboard
+advertises the feature. Razer effect writes and SteelSeries direct lighting
+have no active-state read-back. SteelSeries live analog changes require an
+explicit on-board profile save; use a disposable profile when testing.
+
+The new Razer, Logitech and SteelSeries paths have codec and simulated-HID
+coverage, but no physical keyboard was connected during integration. Model
+recognition is not hardware certification. See the [keyboard-protocol coverage
+ledgers](https://github.com/OpenMouse-Project/keyboard-protocol/tree/feat/keyboard-vendor-support/docs)
+for model-specific limits and capture requirements.
+
 ## Development
 
 ```bash
@@ -39,7 +55,7 @@ npm run check
 
 ### Bundle budget
 
-Production assets are limited to 3,200,000 JavaScript bytes and 165,000 CSS
+Production assets are limited to 3,600,000 JavaScript bytes and 165,000 CSS
 bytes. Run `npm run size` after a fresh build for current totals.
 
 ### Linux WebHID permissions

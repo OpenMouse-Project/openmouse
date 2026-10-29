@@ -1,6 +1,10 @@
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import type { KeyboardClient } from "./keyboard-client.ts";
 import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
+import { WootingKeyboardClient } from "./wooting-keyboard.ts";
+import { RazerKeyboardClient } from "./razer-keyboard.ts";
+import { LogitechKeyboardClient } from "./logitech-keyboard.ts";
+import { SteelSeriesKeyboardClient } from "./steelseries-keyboard.ts";
 import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
 export { type PulsarClient, type SupportedClient };
@@ -73,6 +77,7 @@ async function bridgeRazerClient(device: HIDDevice): Promise<SupportedClient | n
 
 
 export async function createSupportedClient(device: HIDDevice): Promise<SupportedClient | null> {
+  if (createKeyboardClient(device)) return null;
   if (isBridgeRazer(device)) return bridgeRazerClient(device);
   return (await loadRegistry()).createSupportedClient(device);
 }
@@ -90,7 +95,8 @@ export async function prepareAutoConnectClient(client: SupportedClient): Promise
 export type { KeyboardClient };
 
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
-  return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient;
+  return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
+    || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient;
 }
 
 /**
@@ -99,16 +105,19 @@ export function isKeyboardClient(client: SupportedClient | KeyboardClient): clie
  * `MouseStatus` would surface mouse cards for a device that has none.
  */
 export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
+  if (WootingKeyboardClient.isSupported(device)) return new WootingKeyboardClient(device);
   if (KochiKeyboardClient.isSupported(device)) return new KochiKeyboardClient(device);
-  return WuqueKeyboardClient.isSupported(device) ? new WuqueKeyboardClient(device) : null;
+  if (WuqueKeyboardClient.isSupported(device)) return new WuqueKeyboardClient(device);
+  if (RazerKeyboardClient.isSupported(device)) return new RazerKeyboardClient(device);
+  if (LogitechKeyboardClient.isSupported(device)) return new LogitechKeyboardClient(device);
+  if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
+  return null;
 }
 
 export async function clientSupportScore(device: HIDDevice): Promise<number> {
+  // Keyboard command interfaces win over generic mouse HID++/Razer registries.
+  if (createKeyboardClient(device)) return 900;
   if (await bridgeRazerClient(device) !== null) return 10_000;
-  // A Wuque board exposes a boot keyboard, a consumer-control and a mouse
-  // collection beside its vendor config interface. Only the vendor page answers
-  // commands, so it has to win the pick for the physical device.
-  if (createKeyboardClient(device) !== null) return 900;
   return (await loadRegistry()).clientSupportScore(device);
 }
 
