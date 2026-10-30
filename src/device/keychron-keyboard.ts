@@ -129,8 +129,16 @@ export class KeychronKeyboardClient implements KeyboardClient {
     const status = await this.client.readStatus();
     const profile = await this.client.readProfile();
     const features = status.keychron?.features;
-    const curve = await this.client.readCurve();
-    const axis = features?.switchAxis ? await this.client.readAxisType() : null;
+    // A decoded absence is optional. Transport failures must surface because the driver faults the session.
+    const optionalRead = async <T,>(read: () => Promise<T>): Promise<T | null> => {
+      try { return await read(); }
+      catch (error) {
+        if (error instanceof Error && /did not report (?:its response curve|its switch axis type)/.test(error.message)) return null;
+        throw error;
+      }
+    };
+    const curve = await optionalRead(() => this.client.readCurve());
+    const axis = features?.switchAxis ? await optionalRead(() => this.client.readAxisType()) : null;
     const layout = await loadKeychronLayout(this.device.productId, status.keychron?.rows ?? 0, status.keychron?.cols ?? 0);
     // A board that ignores VIA leaves remapping unavailable and the keymap null;
     // keys are then labelled by row and column.
