@@ -12,7 +12,7 @@ const ROWS: readonly (readonly number[])[] = [
 const UNIT = 20;
 const GAP = 3;
 const PAD = 10;
-const WIDTH = 15 * UNIT + PAD * 2;
+const WIDTH = 16 * UNIT + PAD * 2;
 const HEIGHT = ROWS.length * UNIT + PAD * 2;
 
 /** Stand-in artwork for keyboards that have no product render. */

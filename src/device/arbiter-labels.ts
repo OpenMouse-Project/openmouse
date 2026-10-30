@@ -1,4 +1,6 @@
 import { ARBITER_KEY_CODE, ARBITER_LIGHT_EFFECTS } from "@openmouse/keyboard-protocol/arbiter";
+import { t, type I18nKey } from "../i18n/index.ts";
+import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 
 export type ArbiterKeyCategory = "letters" | "numbers" | "function" | "punctuation" | "navigation" | "modifiers" | "media" | "special";
 
@@ -44,7 +46,10 @@ export function arbiterKeyCategory(code: number): ArbiterKeyCategory | null {
 }
 
 /** The vendor's effect names, with the underscores of their identifiers read as spaces. */
-export function arbiterEffectLabel(effect: number): string {
+export function arbiterEffectLabel(effect: number, locale?: InterfaceLocale): string {
+  if (locale && Number.isInteger(effect) && effect >= 0 && effect < ARBITER_LIGHT_EFFECTS.length) {
+    return t(locale, `kb.arbEffect${effect}` as I18nKey);
+  }
   return (ARBITER_LIGHT_EFFECTS[effect] ?? `Effect ${effect}`).replaceAll("_", " ");
 }
 

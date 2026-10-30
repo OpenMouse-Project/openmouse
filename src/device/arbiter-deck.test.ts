@@ -5,6 +5,8 @@ import { deckRows } from "./arbiter-deck.ts";
 import { ARBITER_KEY_CHOICES, arbiterEffectLabel, arbiterHexToRgb, arbiterKeyCategory, arbiterKeyLabel, arbiterRgbToHex } from "./arbiter-labels.ts";
 
 test("every wire entry of every Arbiter model is drawn once, inside its table", () => {
+  const polar75 = ARBITER_PRODUCTS.find((product) => product.name === "Polar 75 PRO")!;
+  assert.equal(deckRows(polar75, "travel").flat().find((key) => key.name === "Enter")?.wire, 53);
   for (const product of ARBITER_PRODUCTS) {
     for (const table of ["travel", "bindings"] as const) {
       const wires = deckRows(product, table).flat().map((key) => key.wire);

@@ -333,7 +333,7 @@ function LightCard({ locale, arbiter, disabled }: { locale: InterfaceLocale; arb
             <div className="keyboard-fields">
               <SwitchRow id="arbiter-light-on" label={t(locale, "kb.arbLightOn")} value={draft.on} disabled={disabled} onChange={(on) => edit({ on })} />
               <OptionMenu id="arbiter-effect" ariaLabel={t(locale, "kb.arbEffect")} value={draft.effect} disabled={disabled}
-                options={ARBITER_LIGHT_EFFECTS.map((_, value) => ({ value, label: arbiterEffectLabel(value) }))} onChange={(effect) => edit({ effect })} />
+                options={ARBITER_LIGHT_EFFECTS.map((_, value) => ({ value, label: arbiterEffectLabel(value, locale) }))} onChange={(effect) => edit({ effect })} />
               <StepperSlider id="arbiter-brightness" label={t(locale, "kb.arbBrightness")} value={draft.brightness} {...RAW} formatValue={raw} disabled={disabled} onCommit={(brightness) => edit({ brightness })} />
               <StepperSlider id="arbiter-speed" label={t(locale, "kb.arbSpeed")} value={draft.speed} {...RAW} formatValue={raw} disabled={disabled} onCommit={(speed) => edit({ speed })} />
             </div>

@@ -3302,7 +3302,7 @@ export async function reconnectKeyboard(): Promise<void> {
   const next = createKeyboardClient(previous.device);
   if (!next) return;
   await previous.close().catch(() => undefined);
-  await activateClient(next);
+  if (activeKeyboard === previous) await activateClient(next);
 }
 
 /** Write the polling rate and confirm it by re-reading the board. */
