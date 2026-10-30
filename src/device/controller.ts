@@ -3301,8 +3301,15 @@ export async function reconnectKeyboard(): Promise<void> {
   if (!previous || keyboardBusy) return;
   const next = createKeyboardClient(previous.device);
   if (!next) return;
-  await previous.close().catch(() => undefined);
-  if (activeKeyboard === previous) await activateClient(next);
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.applying");
+  emit();
+  try {
+    await previous.close().catch(() => undefined);
+    if (activeKeyboard === previous) await activateClient(next, false, previous);
+  } finally {
+    if (activeKeyboard === previous) { keyboardBusy = false; emit(); }
+  }
 }
 
 /** Write the polling rate and confirm it by re-reading the board. */
@@ -3771,11 +3778,12 @@ async function loadKeyboardTrigger(client: KeyboardClient): Promise<void> {
 }
 
 /** Queue a device activation so only one keyboard/mouse switch runs at a time. */
-function activateClient(target: SupportedClient | KeyboardClient, autoConnect = false): Promise<void> {
+function activateClient(target: SupportedClient | KeyboardClient, autoConnect = false, expectedKeyboard?: KeyboardClient): Promise<void> {
   const run = activationQueue.then(async () => {
     // The queued body reads the lazy driver tables (accessors, preview
     // stand-ins); nothing may set `active` before they exist.
     await ensureDriverModules();
+    if (expectedKeyboard && activeKeyboard !== expectedKeyboard) return;
     activationInProgress = true;
     try {
       if (autoConnect && !isKeyboardClient(target)) {
