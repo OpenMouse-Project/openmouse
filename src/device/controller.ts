@@ -141,7 +141,7 @@ import type { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
-import { parsePreviewMode, previewsEnabled, type FixturePreviewMode, type PreviewMode } from "./preview/preview-modes";
+import { parsePreviewMode, previewsEnabled, type FixturePreviewMode, type KeyboardPreviewMode, type PreviewMode } from "./preview/preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
 import type { SlxStatus } from "./finalmouse-slx.ts";
@@ -530,6 +530,7 @@ function buildKeyboardView(): KeyboardView | null {
   if (!activeKeyboard || !keyboardIdentity) return null;
   return {
     family: activeKeyboard.family,
+    faulted: activeKeyboard.faulted === true,
     name: keyboardIdentity.name,
     vendorId: activeKeyboard.device.vendorId,
     productId: activeKeyboard.device.productId,
@@ -3292,6 +3293,16 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
   }
+}
+
+/** Reopen the active keyboard after its driver marked the session unusable. */
+export async function reconnectKeyboard(): Promise<void> {
+  const previous = activeKeyboard;
+  if (!previous || keyboardBusy) return;
+  const next = createKeyboardClient(previous.device);
+  if (!next) return;
+  await previous.close().catch(() => undefined);
+  await activateClient(next);
 }
 
 /** Write the polling rate and confirm it by re-reading the board. */
@@ -7505,7 +7516,22 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
   return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
 }
 
-async function showFixturePreview(name: PreviewMode): Promise<void> {
+/** Show an Arbiter keyboard from invented data; nothing is read from or written to a device. */
+async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
+  const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
+  const client = new ArbiterPreviewClient(name);
+  activeDevice = client.device;
+  activeKeyboard = client;
+  keyboardIdentity = await client.readIdentity();
+  keyboardWorkspace = { ...keyboardWorkspace, ...await client.command({ kind: "refresh" }) };
+  sidebarDevices = [{ index: 0, name: client.name, detail: "", selected: true, vendorId: client.device.vendorId, productId: client.device.productId, kind: "keyboard", transport: "webhid" }];
+  setConnectionButtons(true, "Preview mode");
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, arbiterPreviewLabel(name)) }));
+  deviceListView = "device";
+  emit();
+}
+
+async function showFixturePreview(name: Exclude<PreviewMode, KeyboardPreviewMode>): Promise<void> {
   // Fixture previews build stand-in clients from the real driver prototypes;
   // the module has to be here before the fixture activates.
   await ensureDriverModules();
@@ -7580,6 +7606,8 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65") {
+    void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {
     void showFixturePreview(previewMode).then(() => {
       if (latestDeviceStatus !== null) deviceListView = "device";
