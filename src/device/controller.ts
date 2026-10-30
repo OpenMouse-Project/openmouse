@@ -3695,7 +3695,7 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
     keyboardPolling = client.readPolling ? await client.readPolling() : null;
   } catch (error) {
     const receiverMouse = (error instanceof Error && /no supported keyboard paired/i.test(error.message))
-      ? await createMouseClient(client.device)
+      ? await createMouseClient(client.device).catch(() => null)
       : null;
     if (receiverMouse) {
       await client.close().catch(() => undefined);
@@ -3706,7 +3706,7 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
       deviceStatusText = st("ctl.opening");
       readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
       emit();
-      await activateClient(receiverMouse);
+      await activateClientNow(receiverMouse);
       return;
     }
     await client.close().catch(() => undefined);
