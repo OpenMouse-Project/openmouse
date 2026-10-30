@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { describeHidDevice } from "./hid-diagnostics.ts";
-import { createSupportedClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
+import { createKeyboardClient, createMouseClient, createSupportedClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
 
 function supportedWebHidDevice(options: {
   vendorId?: number;
@@ -171,4 +171,23 @@ test("automatic selection leaves specialized Razer and WebHID clients on their e
     assert.ok(client);
     assert.equal(await prepareAutoConnectClient(client), client);
   }
+});
+
+test("a shared Logitech receiver routes keyboard-first with the mouse registry intact", async () => {
+  const receiver = {
+    productName: "LIGHTSPEED receiver",
+    vendorId: 0x046d,
+    productId: 0xc539,
+    collections: [{ usagePage: 0xff00, usage: 2, inputReports: [], outputReports: [], featureReports: [], children: [] }],
+    opened: false,
+  } as unknown as HIDDevice;
+  // The keyboard matcher claims every receiver interface by VID/PID + HID++
+  // collection, so sidebar/connect ordering stays keyboard-first for issue #1282.
+  assert.ok(createKeyboardClient(receiver));
+  assert.equal(await createSupportedClient(receiver), null);
+  // A mouse-only pairing has no keyboard behind the receiver: the activation
+  // fallback in activateKeyboardClientNow uses this to reconnect it as a mouse.
+  const mouse = await createMouseClient(receiver);
+  assert.ok(mouse);
+  assert.equal(mouse.device, receiver);
 });

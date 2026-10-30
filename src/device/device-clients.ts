@@ -75,11 +75,13 @@ async function bridgeRazerClient(device: HIDDevice): Promise<SupportedClient | n
   return bridgeRazerClientFrom(device, await loadRazerBridge());
 }
 
-
-export async function createSupportedClient(device: HIDDevice): Promise<SupportedClient | null> {
-  if (createKeyboardClient(device)) return null;
+export async function createMouseClient(device: HIDDevice): Promise<SupportedClient | null> {
   if (isBridgeRazer(device)) return bridgeRazerClient(device);
   return (await loadRegistry()).createSupportedClient(device);
+}
+export async function createSupportedClient(device: HIDDevice): Promise<SupportedClient | null> {
+  if (createKeyboardClient(device)) return null;
+  return createMouseClient(device);
 }
 
 export async function prepareAutoConnectClient(client: SupportedClient): Promise<SupportedClient | null> {
