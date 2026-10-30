@@ -1239,6 +1239,7 @@ export const fr: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "Éteindre le RGB après",
   "kb.kochiModeNote": "Choisissez le mode Windows pour Windows ou Linux, ou le mode Mac pour macOS. Les modifications sont confirmées par une relecture du clavier.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "C’est la seule touche de couche de cette couche. La remplacer empêche d’accéder aux autres couches depuis ici.",
   "kb.available": "Disponible",
   "kb.keyboardLabel": "CLAVIER",
   "kb.reading": "Lecture du clavier…",

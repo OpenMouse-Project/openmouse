@@ -1239,6 +1239,7 @@ export const zh: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "RGB 关闭时间",
   "kb.kochiModeNote": "Windows 或 Linux 请选择 Windows 模式，macOS 请选择 Mac 模式。更改后会重新读取键盘设置进行确认。",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "这是此层唯一的层切换键；替换后将无法从这里切换到其他层。",
   "kb.available": "可用",
   "kb.keyboardLabel": "键盘",
   "kb.reading": "正在读取键盘…",

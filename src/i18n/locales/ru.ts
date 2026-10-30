@@ -1239,6 +1239,7 @@ export const ru: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "Выключить RGB через",
   "kb.kochiModeNote": "Выберите режим Windows для Windows или Linux либо режим Mac для macOS. Изменения подтверждаются повторным чтением настроек клавиатуры.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Это единственная клавиша слоя на этом слое. После её замены перейти отсюда на другие слои будет нельзя.",
   "kb.available": "Доступно",
   "kb.keyboardLabel": "КЛАВИАТУРА",
   "kb.reading": "Чтение клавиатуры…",

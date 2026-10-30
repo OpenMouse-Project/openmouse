@@ -16,8 +16,7 @@ export interface KeychronLayout {
  * `import()` keeps them out of the main bundle.
  */
 export async function loadKeychronLayout(productId: number, rows: number, cols: number): Promise<KeychronLayout> {
-  const { keychronLayoutFor } = await import("./keychron-layout-data.ts");
-  const known = keychronLayoutFor(productId);
+  const known = await import("./keychron-layout-data.ts").then(({ keychronLayoutFor }) => keychronLayoutFor(productId)).catch(() => null);
   if (known && known.keys.length > 0) return { keys: known.keys, width: known.width, height: known.height, physical: true };
   const keys: KeychronLayoutKey[] = [];
   for (let row = 0; row < rows; row++) {

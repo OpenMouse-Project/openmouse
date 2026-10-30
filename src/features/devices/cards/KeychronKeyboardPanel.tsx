@@ -172,10 +172,10 @@ function LiveCard({ kc, locale, busy, hidden, primary }: { kc: KeychronWorkspace
   const state = kc.status.keychron;
   const [follow, setFollow] = useState(false);
   useEffect(() => {
-    if (!follow || !primary) return undefined;
-    const timer = setInterval(() => { void send({ kind: "keychronKeyTravel", ...primary }); }, 500);
+    if (!follow || !primary || hidden) return undefined;
+    const timer = setInterval(() => { if (!control.getSnapshot().keyboard?.trigger.busy) void send({ kind: "keychronKeyTravel", ...primary }); }, 500);
     return () => clearInterval(timer);
-  }, [follow, primary]);
+  }, [follow, primary, hidden]);
   if (!state) return null;
   const reading = kc.keyTravel && primary && kc.keyTravel.row === primary.row && kc.keyTravel.col === primary.col ? kc.keyTravel : null;
   return <Card title={l(locale, "Live")} hidden={hidden}>

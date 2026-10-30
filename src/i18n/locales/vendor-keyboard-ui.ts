@@ -108,6 +108,7 @@ export const VENDOR_KEYBOARD_UI_STRINGS = {
   "kb.keychronRemapUnknown": "Unrecognised key",
   "kb.keychronRemapUnknownBody": "This code is not one the app can name, so it shows as its hex value and is not offered in the picker.",
   "kb.keychronRemapWarningTitle": "Check before replacing this key",
+  "kb.keychronOnlyLayerWarning": "This is the only layer key on this layer; replacing it removes the way to reach other layers from here.",
   "kb.keychronRemapReplaceAnyway": "Replace anyway",
   "kb.keychronRemapDone": "{key} on layer {layer} is now {legend}. The keyboard confirmed it by reading the key back.",
   "kb.keychronRemapFailed": "{key} was not changed to {legend}: {message} The map shows what the keyboard holds.",

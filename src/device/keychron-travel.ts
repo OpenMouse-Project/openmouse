@@ -44,6 +44,7 @@ export function travelBounds(state: KeychronState): KeychronTravelBounds {
 }
 
 export interface KeychronTravelRequest {
+  rapidTrigger?: boolean;
   pressMm: number;
   sensitivePressMm: number;
   sensitiveReleaseMm: number;
@@ -62,11 +63,15 @@ export function travelToSteps(state: KeychronState, request: KeychronTravelReque
     if (!Number.isFinite(mm) || mm < bounds.minMm - 1e-9 || mm > bounds.maxMm + 1e-9) {
       throw new RangeError(`${label} must be between ${bounds.minMm} and ${bounds.maxMm} mm.`);
     }
-    return mmToSteps(mm, bounds.stepMm);
+    const steps = mmToSteps(mm, bounds.stepMm);
+    if (stepsToMm(steps, bounds.stepMm) > bounds.maxMm + 1e-9) {
+      throw new RangeError(`${label} must be between ${bounds.minMm} and ${bounds.maxMm} mm.`);
+    }
+    return steps;
   };
   return {
     press: convert(request.pressMm, "Actuation"),
-    sensitivePress: convert(request.sensitivePressMm, "Rapid trigger press"),
-    sensitiveRelease: convert(request.sensitiveReleaseMm, "Rapid trigger release"),
+    sensitivePress: request.rapidTrigger === false ? 0 : convert(request.sensitivePressMm, "Rapid trigger press"),
+    sensitiveRelease: request.rapidTrigger === false ? 0 : convert(request.sensitiveReleaseMm, "Rapid trigger release"),
   };
 }

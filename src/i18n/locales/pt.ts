@@ -1239,6 +1239,7 @@ export const pt: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "Desligar RGB após",
   "kb.kochiModeNote": "Escolha o modo Windows para Windows ou Linux, ou o modo Mac para macOS. As alterações são confirmadas relendo o teclado.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Esta é a única tecla de camada nesta camada; substituí-la impede o acesso às outras camadas a partir daqui.",
   "kb.available": "Disponível",
   "kb.keyboardLabel": "TECLADO",
   "kb.reading": "Lendo teclado…",

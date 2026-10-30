@@ -80,7 +80,7 @@ export async function loadRemap(client: KeychronHidClient, layer: number, previo
       originals: previous?.originals ?? {}, warning: null, result: null,
     };
   } catch (error) {
-    return emptyRemap(messageOf(error));
+    return { ...emptyRemap(messageOf(error)), originals: previous?.originals ?? {} };
   }
 }
 

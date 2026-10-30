@@ -166,7 +166,8 @@ export class FakeKeychronBoard {
   close(): Promise<void> { this.opened = false; return Promise.resolve(); }
   addEventListener(_type: string, listener: (event: HIDInputReportEvent) => void): void { this.listeners.add(listener); }
   removeEventListener(_type: string, listener: (event: HIDInputReportEvent) => void): void { this.listeners.delete(listener); }
-  forget(): Promise<void> { return Promise.resolve(); }
+  forgotten = false;
+  forget(): Promise<void> { this.forgotten = true; return Promise.resolve(); }
 
   private applyTravel(request: Uint8Array): void {
     const word = (at: number): number => request[at]! | (request[at + 1]! << 8);
@@ -312,10 +313,10 @@ export function installKeychronPreview(search: string): boolean {
     location.reload();
     return false;
   }
-  const board = new FakeKeychronBoard(mode.layout === "v5", 15, { protocol: mode.protocol, fault: mode.fault }) as unknown as HIDDevice;
+  const board = new FakeKeychronBoard(mode.layout === "v5", 15, { protocol: mode.protocol, fault: mode.fault });
   const hid = {
-    getDevices: async () => [board],
-    requestDevice: async () => [board],
+    getDevices: async () => board.forgotten ? [] : [board],
+    requestDevice: async () => { board.forgotten = false; return [board]; },
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
     dispatchEvent: () => true,

@@ -1216,6 +1216,7 @@ export const tr: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "RGB kapanma süresi",
   "kb.kochiModeNote": "Windows veya Linux için Windows modunu, macOS için Mac modunu seçin. Değişiklikler klavyeden geri okunarak doğrulanır.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Bu katmandaki tek katman tuşu budur; değiştirilirse buradan diğer katmanlara geçilemez.",
   "kb.available": "Kullanılabilir",
   "kb.keyboardLabel": "KLAVYE",
   "kb.reading": "Klavye okunuyor…",

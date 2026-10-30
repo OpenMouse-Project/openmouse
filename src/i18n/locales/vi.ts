@@ -1244,6 +1244,7 @@ export const vi: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "Tắt RGB sau",
   "kb.kochiModeNote": "Chọn chế độ Windows cho Windows hoặc Linux, hoặc chế độ Mac cho macOS. Thay đổi được xác nhận bằng cách đọc lại cài đặt bàn phím.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Đây là phím lớp duy nhất trên lớp này; thay thế nó sẽ khiến bạn không thể chuyển sang lớp khác từ đây.",
   "kb.available": "Khả dụng",
   "kb.keyboardLabel": "BÀN PHÍM",
   "kb.reading": "Đang đọc bàn phím…",

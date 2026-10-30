@@ -29,6 +29,7 @@ class FakeBoard {
   viaSent: Uint8Array[] = [];
   /** Leave VIA reads unanswered, as a board without the dynamic keymap would. */
   noKeymap = false;
+  noCalibrationRead = false;
   get hid(): HIDDevice { return this as unknown as HIDDevice; }
   async open() { this.opened = true; }
   async close() { this.opened = false; }
@@ -57,6 +58,7 @@ class FakeBoard {
     assert.equal(request[0], KEYCHRON_HE_COMMAND);
     this.sent.push(request.slice());
     if (request[1] === SUB.calibrate && request[2] === 4) return; // stop is never answered
+    if (request[1] === SUB.getCalibrateState && this.noCalibrationRead) return;
     const reply = new Uint8Array(32);
     reply.set(request.slice(0, 2));
     switch (request[1]) {
@@ -136,8 +138,18 @@ test("setTravel stages the write and does not save", async () => {
 
 test("plain actuation uses the static work mode and sends no rapid-trigger values", async () => {
   const { board, client } = await ready();
-  await client.command({ kind: "keychronSetTravel", rapidTrigger: false, pressMm: 1.5, sensitivePressMm: 0.3, sensitiveReleaseMm: 0.4 });
+  await client.command({ kind: "keychronSetTravel", rapidTrigger: false, pressMm: 1.5, sensitivePressMm: 0, sensitiveReleaseMm: 0 });
   assert.deepEqual([...board.commands(SUB.setTravel)[0]!.slice(2, 8)], [1, 1, 15, 0, 0, 1]);
+});
+
+test("refresh preserves a staged travel change and its save guard", async () => {
+  const { client } = await ready();
+  await client.command({ kind: "keychronSetTravel", rapidTrigger: false, pressMm: 1.5, sensitivePressMm: 0, sensitiveReleaseMm: 0 });
+  const refreshed = await client.command({ kind: "refresh" });
+  assert.equal(refreshed.keychron?.unsaved?.press, 15);
+  await assert.rejects(() => client.command({ kind: "keychronSelectProfile", slot: 2 }), /unsaved/);
+  const saved = await client.command({ kind: "keychronSave" });
+  assert.equal(saved.keychron?.unsaved, null);
 });
 
 test("a selected key is written through the per-key bitmap", async () => {
@@ -215,6 +227,13 @@ test("starting calibration needs the confirmation flag; stop is sent without a r
   const stopped = await client.command({ kind: "keychronCalibration", action: "stop" });
   assert.deepEqual(board.commands(SUB.calibrate).map((frame) => frame[2]), [2, 4]);
   assert.equal(stopped.keychron?.calibration, null);
+});
+
+test("a failed calibration read still reports that calibration started", async () => {
+  const { board, client } = await ready();
+  board.noCalibrationRead = true;
+  await assert.rejects(() => client.command({ kind: "keychronCalibration", action: "start", confirmed: true }));
+  assert.equal(client.recoveredWorkspace()?.keychron?.calibrationPhase, "started");
 });
 
 test("a curve write is confirmed by reading the board back", async () => {

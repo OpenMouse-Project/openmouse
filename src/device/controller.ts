@@ -3258,8 +3258,9 @@ export function clearKeyboardSelection(): void {
 export async function applyKeyboardCommand(command: KeyboardCommand): Promise<void> {
   const client = activeKeyboard;
   if (!client || keyboardBusy) return;
+  const telemetry = command.kind === "keychronKeyTravel";
   keyboardBusy = true;
-  keyboardStatusText = st("kb.applying");
+  if (!telemetry) keyboardStatusText = st("kb.applying");
   emit();
   try {
     const update = await client.command(command);
@@ -3281,7 +3282,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
     }
-    keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
+    if (!telemetry) keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
       ? st("kb.sent")
       : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
         ? st("kb.writeOnly")
@@ -3290,7 +3291,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     if (activeKeyboard !== client) return;
     const recovered = client.recoveredWorkspace?.();
     if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
-    keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+    if (!telemetry) keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
   }

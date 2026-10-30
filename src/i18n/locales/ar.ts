@@ -1237,6 +1237,7 @@ export const ar: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "إيقاف RGB بعد",
   "kb.kochiModeNote": "اختر وضع Windows لنظام Windows أو Linux، أو وضع Mac لنظام macOS. يتم تأكيد التغييرات بإعادة قراءة إعدادات لوحة المفاتيح.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "هذا هو مفتاح الطبقة الوحيد في هذه الطبقة؛ استبداله يمنع الوصول إلى الطبقات الأخرى من هنا.",
   "kb.available": "متاح",
   "kb.keyboardLabel": "لوحة المفاتيح",
   "kb.reading": "جارٍ قراءة لوحة المفاتيح…",

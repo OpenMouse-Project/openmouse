@@ -142,8 +142,18 @@ export class KeychronKeyboardClient implements KeyboardClient {
     const remap = await loadRemap(this.client, 0, this.state?.remap ?? null);
     return this.publish({
       status, profile, curve, axis, layout, keymap: remap.keymap, remap, calibration: this.state?.calibration ?? null,
-      calibrationPhase: this.state?.calibrationPhase ?? "idle", keyTravel: this.state?.keyTravel ?? null, unsaved: null,
+      calibrationPhase: this.state?.calibrationPhase ?? "idle", keyTravel: this.state?.keyTravel ?? null, unsaved: this.state?.unsaved ?? null,
     });
+  }
+
+  /** A successful write followed by a failed read leaves the previous profile unsafe to edit. */
+  private async refreshAfterWrite(): Promise<Partial<KeyboardWorkspace>> {
+    try { return await this.refresh(); }
+    catch (error) {
+      this.state = null;
+      this.recovered = { keychron: null };
+      throw error;
+    }
   }
 
   async command(command: KeyboardCommand): Promise<Partial<KeyboardWorkspace>> {
@@ -153,12 +163,12 @@ export class KeychronKeyboardClient implements KeyboardClient {
       case "keychronSelectProfile":
         if (this.current().unsaved) throw new Error("Save or discard the unsaved travel change before switching profile.");
         await this.client.selectProfile(command.slot);
-        return this.refresh();
+        return this.refreshAfterWrite();
       case "keychronRename":
         // renameProfile saves the active profile, which would also persist a staged travel change.
         if (this.current().unsaved) throw new Error("Save or discard the unsaved travel change before renaming.");
         await this.client.renameProfile(command.slot, command.name);
-        return this.refresh();
+        return this.refreshAfterWrite();
       case "keychronSetTravel": {
         const steps = travelToSteps(this.keychronState(), command);
         const target = keychronKeyTarget(command.keys);
@@ -173,18 +183,23 @@ export class KeychronKeyboardClient implements KeyboardClient {
       case "keychronSave": {
         if (!this.current().unsaved) throw new Error("There is no travel change to save.");
         await this.client.saveProfile();
-        return this.refresh();
+        this.state = { ...this.current(), unsaved: null };
+        return this.refreshAfterWrite();
       }
       case "keychronClear":
         if (command.confirmed !== true) throw new Error("Clearing a profile needs confirmation.");
         await this.client.clearProfile();
-        return this.refresh();
+        this.state = { ...this.current(), unsaved: null };
+        return this.refreshAfterWrite();
       case "keychronWriteCurve": {
         const { maxX } = curveScale(this.keychronState(), this.current().axis?.maxMm ?? null);
         if (!curveInRange(command.curve, maxX)) throw new RangeError(`Curve points need x from 0 to ${maxX} in rising order and y from 0 to 127.`);
         await this.client.writeCurve(command.curve);
         const confirmed = await this.client.readCurve();
-        if (!sameCurve(confirmed, command.curve)) throw new Error("The keyboard reported a different response curve after the write.");
+        if (!sameCurve(confirmed, command.curve)) {
+          this.recovered = this.publish({ ...this.current(), curve: confirmed });
+          throw new Error("The keyboard reported a different response curve after the write.");
+        }
         return this.publish({ ...this.current(), curve: confirmed });
       }
       case "keychronSelectLayer":
@@ -220,7 +235,12 @@ export class KeychronKeyboardClient implements KeyboardClient {
           // The board sends no reply to stop, so the last known state is not refreshed.
           return this.publish({ ...this.current(), calibration: null, calibrationPhase: "stopped" });
         }
-        return this.publish({ ...this.current(), calibration: await this.client.readCalibration() });
+        try {
+          return this.publish({ ...this.current(), calibration: await this.client.readCalibration() });
+        } catch (error) {
+          if (command.action === "start") this.recovered = { keychron: this.current() };
+          throw error;
+        }
     }
   }
 }

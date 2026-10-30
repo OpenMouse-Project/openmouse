@@ -64,8 +64,12 @@ void installBridgeHid({ force: true }).then(async (hasHid) => {
     return;
   }
   if (import.meta.env.DEV) {
-    const { installKeychronPreview } = await import("./device/preview/keychron-preview");
-    if (!installKeychronPreview(location.search)) return;
+    try {
+      const { installKeychronPreview } = await import("./device/preview/keychron-preview");
+      if (!installKeychronPreview(location.search)) return;
+    } catch (error) {
+      console.error("Keychron preview unavailable:", error);
+    }
   }
   start();
   root.render(<Root />);

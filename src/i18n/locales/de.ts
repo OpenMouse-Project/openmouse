@@ -1267,6 +1267,7 @@ export const de: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "RGB ausschalten nach",
   "kb.kochiModeNote": "Windows-Modus für Windows oder Linux, Mac-Modus für macOS. Änderungen werden durch erneutes Auslesen der Tastatur bestätigt.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Dies ist die einzige Ebenentaste auf dieser Ebene; nach dem Ersetzen sind andere Ebenen von hier aus nicht mehr erreichbar.",
   "kb.available": "Verfügbar",
   "kb.keyboardLabel": "TASTATUR",
   "kb.reading": "Tastatur wird gelesen…",

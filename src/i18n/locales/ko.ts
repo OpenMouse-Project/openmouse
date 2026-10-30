@@ -1239,6 +1239,7 @@ export const ko: Record<I18nKey, string> = {
   "kb.wootingRgbOff": "RGB 끄기까지",
   "kb.kochiModeNote": "Windows 또는 Linux에서는 Windows 모드, macOS에서는 Mac 모드를 선택하세요. 변경 후 키보드 설정을 다시 읽어 확인합니다.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "이 레이어의 유일한 레이어 키입니다. 교체하면 여기에서 다른 레이어로 이동할 수 없습니다.",
   "kb.available": "사용 가능",
   "kb.keyboardLabel": "키보드",
   "kb.reading": "키보드 읽는 중…",
