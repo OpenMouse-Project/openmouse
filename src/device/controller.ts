@@ -3288,6 +3288,8 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
         : st("kb.updated");
   } catch (error) {
     if (activeKeyboard !== client) return;
+    const recovered = client.recoveredWorkspace?.();
+    if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
     keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
