@@ -8,6 +8,7 @@ import type { RazerKeyboardCommand } from './razer-keyboard.ts';
 import type { LogitechKeyboardCommand } from './logitech-keyboard.ts';
 import type { SteelSeriesKeyboardCommand } from './steelseries-keyboard.ts';
 import type { KeychronKeyboardCommand, KeychronWorkspace } from './keychron-keyboard.ts';
+import type { ViaKeyboardCommand, ViaWorkspace } from './via-keyboard.ts';
 
 export interface WootingRgbView {
   core: WootingRgbCore | null;
@@ -24,6 +25,7 @@ export interface KeyboardWorkspace {
   wootingRgb?: WootingRgbView | null;
   /** Keychron Hall-effect state; set only while the experimental flag is on. */
   keychron?: KeychronWorkspace | null;
+  via?: ViaWorkspace | null;
   /** HB68 mode; independent of the Wuque global-settings structure. */
   systemMode?: "win" | "mac";
   global: WuqueGlobalState | null;
@@ -40,7 +42,7 @@ export interface KeyboardWorkspace {
 }
 export const emptyKeyboardWorkspace = (): KeyboardWorkspace => ({ global: null, lighting: null, custom: [], shell: null, layer: null, styles: [], defaults: [], macro: null, higher: null, adc: null });
 export type KeyboardCommand =
-  | RazerKeyboardCommand | LogitechKeyboardCommand | SteelSeriesKeyboardCommand | KeychronKeyboardCommand
+  | RazerKeyboardCommand | LogitechKeyboardCommand | SteelSeriesKeyboardCommand | KeychronKeyboardCommand | ViaKeyboardCommand
   | { kind: 'refresh' }
   | { kind: 'wootingKeyActuation'; keys: number | readonly number[]; actuationMm: number | null }
   | { kind: 'wootingKeyRapidTrigger'; keys: number | readonly number[]; target: WootingRapidTriggerTarget | null }

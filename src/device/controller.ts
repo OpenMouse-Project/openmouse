@@ -2507,6 +2507,8 @@ export function closeInterfaceSettings(): void {
 
 export function setWorkspaceTab(tab: WorkspaceTab): void {
   activeWorkspaceTab = tab;
+  // A command confirmation belongs to the tab it was made on; an error stays until the next command.
+  if (keyboardStatusText && [st("kb.updated"), st("kb.sent"), st("kb.writeOnly")].includes(keyboardStatusText)) keyboardStatusText = null;
   emit();
 }
 
@@ -3312,6 +3314,18 @@ export async function reconnectKeyboard(): Promise<void> {
     if (activeKeyboard === previous) await activateClient(next, false, previous);
   } finally {
     if (activeKeyboard === previous) { keyboardBusy = false; emit(); }
+  }
+}
+
+/** The keys held down right now, or null when nothing can be read. Deliberately silent: no busy flag, status text or redraw. */
+export async function probeKeyboardKeys(): Promise<readonly number[] | null> {
+  const client = activeKeyboard;
+  if (!client?.probeKeys || keyboardBusy) return null;
+  try {
+    const keys = await client.probeKeys();
+    return activeKeyboard === client ? keys : null;
+  } catch {
+    return null;
   }
 }
 

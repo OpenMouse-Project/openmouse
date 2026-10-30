@@ -8,6 +8,7 @@ import { LogitechKeyboardClient } from "./logitech-keyboard.ts";
 import { SteelSeriesKeyboardClient } from "./steelseries-keyboard.ts";
 import { KeychronKeyboardClient } from "./keychron-keyboard.ts";
 import { keychronHallEffectEnabled } from "./keychron-flag.ts";
+import { ViaKeyboardClient } from "./via-keyboard.ts";
 import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
 export { type PulsarClient, type SupportedClient };
@@ -102,7 +103,8 @@ export type { KeyboardClient };
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
     || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
-    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient;
+    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient
+    || client instanceof ViaKeyboardClient;
 }
 
 /**
@@ -119,6 +121,7 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
   if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
   if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
   if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
+  if (ViaKeyboardClient.isSupported(device)) return new ViaKeyboardClient(device);
   return null;
 }
 

@@ -274,7 +274,7 @@ test("the keyboard factory ignores Keychron boards until the flag is set", () =>
   Object.defineProperty(globalThis, "localStorage", { value: storage, configurable: true });
   try {
     const board = new FakeBoard();
-    assert.equal(createKeyboardClient(board.hid), null);
+    assert.equal(createKeyboardClient(board.hid)?.family, "via");
     store.set(KEYCHRON_HALL_EFFECT_FLAG, "1");
     assert.ok(createKeyboardClient(board.hid) instanceof KeychronKeyboardClient);
   } finally {
