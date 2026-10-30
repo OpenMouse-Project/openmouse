@@ -1,3 +1,4 @@
+import { ArbiterKeyboardClient } from "./arbiter-keyboard.ts";
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import type { KeyboardClient } from "./keyboard-client.ts";
 import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
@@ -101,7 +102,7 @@ export type { KeyboardClient };
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
     || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
-    || client instanceof KeychronKeyboardClient;
+    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient;
 }
 
 /**
@@ -116,6 +117,7 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
   if (RazerKeyboardClient.isSupported(device)) return new RazerKeyboardClient(device);
   if (LogitechKeyboardClient.isSupported(device)) return new LogitechKeyboardClient(device);
   if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
+  if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
   if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
   return null;
 }

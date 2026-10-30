@@ -3,8 +3,10 @@ import type { KeyboardIdentityView, KeyboardPollingView, KeyboardTriggerKey, Key
 
 export interface KeyboardClient {
   readonly device: HIDDevice;
-  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron";
+  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter";
   readonly brand: string;
+  /** Set once the session needs a reconnect before it can be used again. */
+  readonly faulted?: boolean;
   readonly name: string;
   open(): Promise<void>;
   close(): Promise<void>;
