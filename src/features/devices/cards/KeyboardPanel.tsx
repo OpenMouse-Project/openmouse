@@ -1,4 +1,5 @@
 import { displayText } from "../../../i18n/index";
+import { ArbiterKeyboardPanel } from "./ArbiterKeyboardPanel";
 import { KochiKeyboardPanel } from "./KochiKeyboardPanel";
 import { WootingKeyboardPanel } from "./WootingKeyboardPanel";
 import { KeyboardWorkspaceCards } from "./KeyboardWorkspaceCards";
@@ -32,6 +33,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
   if (keyboard.family === "razer") return <Suspense fallback={null}><RazerKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "logitech") return <Suspense fallback={null}><LogitechKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "steelseries") return <Suspense fallback={null}><SteelSeriesKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "arbiter") return <ArbiterKeyboardPanel snapshot={snapshot} />;
   const locale = snapshot.preferences.locale;
   const { identity, polling, trigger } = keyboard;
   const busy = trigger.busy;

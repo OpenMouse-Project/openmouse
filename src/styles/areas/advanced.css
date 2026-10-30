@@ -131,7 +131,7 @@ aside.testing-note strong { display: none; }
 .keyboard-identity > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
 .keyboard-identity dt { color: var(--text-3); font-size: var(--fs-meta); }
 .keyboard-identity dd { text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
-#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.keyboard-macro-events) { grid-column: 1 / -1; }
+#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.arbiter-deck), .keyboard-workspace-card:has(.keyboard-macro-events) { grid-column: 1 / -1; }
 .keyboard-key-deck { padding: 16px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); min-width: 0; }
 .keyboard-matrix { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
 .keyboard-matrix-row { display: grid; grid-auto-columns: minmax(36px, 1fr); grid-auto-flow: column; gap: 6px; min-width: 680px; }
@@ -139,6 +139,27 @@ aside.testing-note strong { display: none; }
 .keyboard-key:hover:not(:disabled) { background: var(--btn-hover); color: var(--text-1); }
 .keyboard-key.is-selected { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .keyboard-key.is-empty { visibility: hidden; }
+.arbiter-deck { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
+.arbiter-deck-row { display: flex; gap: 6px; min-width: 640px; }
+.arbiter-key { flex-basis: 0; flex-shrink: 1; align-content: center; gap: 2px; min-height: 46px; }
+.arbiter-key small { color: var(--text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; line-height: 1; }
+.arbiter-key.is-selected small { color: inherit; }
+.arbiter-note { grid-column: 1 / -1; padding-inline: 4px; }
+.arbiter-fault { grid-column: 1 / -1; }
+.arbiter-light-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px 32px; align-items: start; }
+.arbiter-palette .lighting-color-picker { max-width: 240px; gap: 8px; }
+.arbiter-palette .lighting-sv-canvas { aspect-ratio: 22 / 8; }
+.arbiter-supertap-tiles { display: flex; gap: 12px; flex-wrap: wrap; }
+.om-btn.arbiter-supertap-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 112px; min-width: 0; height: auto; min-height: 72px; padding: 12px; text-align: center; }
+.arbiter-supertap-tile small { color: var(--text-3); font-size: var(--fs-small); line-height: 1.2; }
+.arbiter-supertap-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: 600; line-height: 1.2; }
+.om-btn.arbiter-supertap-tile.is-armed { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.arbiter-supertap-tile.is-armed small { color: inherit; }
+.arbiter-apply { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding-block: 12px 4px; background: var(--surface-1); }
+.keyboard-art { width: 100%; height: 100%; }
+.keyboard-art-body { fill: var(--surface-2); stroke: var(--line-3); }
+.keyboard-art-key { fill: var(--solid-2); stroke: var(--line-2); }
+.arbiter-fault { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--r-md); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--warn); }
 .keyboard-key.is-long { font-size: var(--fs-small); }
 .keyboard-key:disabled { opacity: 0.45; }
 .keyboard-selection-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
