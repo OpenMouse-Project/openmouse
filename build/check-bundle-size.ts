@@ -22,9 +22,13 @@ import { join } from "node:path";
 // 2026-10-30: Keychron Hall-effect panel (key map, response curve graph) adds
 // styles/areas/keychron.css, about 3 kB. Measured: 164,771 bytes of CSS before the
 // bump; the lazy layout tables add a 251 kB chunk of JS (main grew 6.7 kB).
+// 2026-10-30: Arbiter Studio controls and Keychron Hall-effect controls together
+// add two keyboard workspaces, layouts, localized strings and device artwork.
+// Measured after merging both: 168,860 bytes CSS, 3,652,136 bytes JS;
+// main is 1,288,217 bytes, below its existing cap.
 const BUDGET_BYTES: Record<string, number> = {
-  ".css": 168_000,
-  ".js": 3_600_000,
+  ".css": 170_000,
+  ".js": 3_700_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
