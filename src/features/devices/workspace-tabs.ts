@@ -30,6 +30,7 @@ export function availableWorkspaceTab(
 
 export function availableKeyboardWorkspaceTabs(family?: string): readonly WorkspaceTab[] {
   if (family === "kochi") return ["overview"];
+  if (family === "keychron") return ["overview", "performance", "buttons", "profiles", "advanced"];
   if (family === "wooting") return ["overview", "performance", "lighting", "profiles", "advanced"];
   if (family === "razer") return ["overview", "performance", "lighting"];
   if (family === "logitech") return ["overview", "performance", "lighting"];

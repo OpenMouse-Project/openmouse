@@ -19,8 +19,11 @@ import { join } from "node:path";
 // 2026-10-29: Razer, Logitech and SteelSeries keyboard HID clients and panels
 // add three real device protocols. Measured: 3,558,003 bytes across all
 // chunks, with the main chunk at 1,149,146 bytes (below its existing cap).
+// 2026-10-30: Keychron Hall-effect panel (key map, response curve graph) adds
+// styles/areas/keychron.css, about 3 kB. Measured: 164,771 bytes of CSS before the
+// bump; the lazy layout tables add a 251 kB chunk of JS (main grew 6.7 kB).
 const BUDGET_BYTES: Record<string, number> = {
-  ".css": 165_000,
+  ".css": 168_000,
   ".js": 3_600_000,
 };
 
