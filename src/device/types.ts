@@ -224,7 +224,9 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "arbiter";
+  /** True when the driver marked the session unusable; reconnect before retrying. */
+  faulted?: boolean;
   name: string;
   vendorId: number;
   productId: number;

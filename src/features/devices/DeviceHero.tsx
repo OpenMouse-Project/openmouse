@@ -5,6 +5,7 @@ import * as control from "../../device/controller";
 import { cachedBatterySamples, type BatterySample } from "./battery-history";
 import type { ControlSnapshot, WorkspaceTab } from "../../device/types";
 import { deviceImage, isUnknownDevice } from "../../shared/device-images";
+import { KeyboardArt } from "../../shared/KeyboardArt";
 import { ConnectionIcon } from "./DeviceStats";
 
 const ARTWORK_DISCUSSION_URL =
@@ -30,8 +31,10 @@ export function DeviceHero({
   const active = control.getActiveDevice();
   const activeEntry = snapshot.devices.find((device) => device.selected) ?? null;
   const name = status?.name ?? keyboard?.name ?? activeEntry?.name ?? "";
+  // Arbiter keyboards have no product render; draw a keyboard rather than the unknown-device mouse.
+  const keyboardArt = keyboard?.family === "arbiter" && !snapshot.deviceArtwork;
   const image = snapshot.deviceArtwork
-    ?? (keyboard ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
+    ?? (keyboard && !keyboardArt ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
   const needsArtwork = Boolean(status && active && (imageFailed || isUnknownDevice(
     { vendorId: active.vendorId, productId: active.productId } as HIDDevice,
     status.name,
@@ -87,6 +90,7 @@ export function DeviceHero({
             />
           </div>
         ) : null}
+        {keyboardArt ? <div className="om-device-art"><KeyboardArt label={name} /></div> : null}
         {needsArtwork ? (
           <a className="om-btn is-ghost is-sm om-device-artreq" href={artworkHref} target="_blank" rel="noopener noreferrer">
             <ImageUp strokeWidth={1.9} aria-hidden="true" />

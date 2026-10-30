@@ -6,6 +6,7 @@ import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspa
 
 test("HB68 exposes only system mode; Wooting exposes key tuning and global settings", () => {
   assert.deepEqual(availableKeyboardWorkspaceTabs("kochi"), ["overview"]);
+  assert.deepEqual(availableKeyboardWorkspaceTabs("arbiter"), ["overview", "performance", "buttons", "lighting"]);
   assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("kochi")), "overview");
   assert.deepEqual(availableKeyboardWorkspaceTabs("wooting"), ["overview", "performance", "lighting", "profiles", "advanced"]);
   assert.equal(availableWorkspaceTab("buttons", availableKeyboardWorkspaceTabs("wooting")), "overview");
