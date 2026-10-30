@@ -1285,6 +1285,7 @@ export const tr: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Bir tuş kutusu seçin, ardından klavyedeki bir tuşu seçin.",
   "kb.arbSuperTapPick": "Klavyede {n}. tuş için tuşu seçin.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Bu katmandaki tek katman tuşu budur; değiştirilirse buradan diğer katmanlara geçilemez.",
   "kb.available": "Kullanılabilir",
   "kb.keyboardLabel": "KLAVYE",
   "kb.reading": "Klavye okunuyor…",

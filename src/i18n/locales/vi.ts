@@ -1313,6 +1313,7 @@ export const vi: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Chọn một ô phím, rồi chọn một phím trên bàn phím.",
   "kb.arbSuperTapPick": "Chọn phím cho phím {n} trên bàn phím.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Đây là phím lớp duy nhất trên lớp này; thay thế nó sẽ khiến bạn không thể chuyển sang lớp khác từ đây.",
   "kb.available": "Khả dụng",
   "kb.keyboardLabel": "BÀN PHÍM",
   "kb.reading": "Đang đọc bàn phím…",

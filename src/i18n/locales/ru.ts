@@ -1308,6 +1308,7 @@ export const ru: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Выберите плитку клавиши, затем клавишу на клавиатуре.",
   "kb.arbSuperTapPick": "Выберите на клавиатуре клавишу для клавиши {n}.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Это единственная клавиша слоя на этом слое. После её замены перейти отсюда на другие слои будет нельзя.",
   "kb.available": "Доступно",
   "kb.keyboardLabel": "КЛАВИАТУРА",
   "kb.reading": "Чтение клавиатуры…",

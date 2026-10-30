@@ -8,6 +8,9 @@ test("HB68 exposes only system mode; Wooting exposes key tuning and global setti
   assert.deepEqual(availableKeyboardWorkspaceTabs("kochi"), ["overview"]);
   assert.deepEqual(availableKeyboardWorkspaceTabs("arbiter"), ["overview", "performance", "buttons", "lighting"]);
   assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("kochi")), "overview");
+  assert.deepEqual(availableKeyboardWorkspaceTabs("keychron"), ["overview", "performance", "buttons", "profiles", "advanced"]);
+  assert.equal(availableWorkspaceTab("lighting", availableKeyboardWorkspaceTabs("keychron")), "overview");
+  assert.equal(availableWorkspaceTab("advanced", availableKeyboardWorkspaceTabs("keychron")), "advanced");
   assert.deepEqual(availableKeyboardWorkspaceTabs("wooting"), ["overview", "performance", "lighting", "profiles", "advanced"]);
   assert.equal(availableWorkspaceTab("buttons", availableKeyboardWorkspaceTabs("wooting")), "overview");
   assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("wooting")), "performance");

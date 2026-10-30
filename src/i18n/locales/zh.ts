@@ -1308,6 +1308,7 @@ export const zh: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "先选择一个按键块，再选择键盘上的按键。",
   "kb.arbSuperTapPick": "在键盘上选择按键 {n} 要使用的按键。",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "这是此层唯一的层切换键；替换后将无法从这里切换到其他层。",
   "kb.available": "可用",
   "kb.keyboardLabel": "键盘",
   "kb.reading": "正在读取键盘…",

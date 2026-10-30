@@ -1308,6 +1308,7 @@ export const fr: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Sélectionnez une case de touche, puis une touche du clavier.",
   "kb.arbSuperTapPick": "Sélectionnez sur le clavier la touche pour la touche {n}.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "C’est la seule touche de couche de cette couche. La remplacer empêche d’accéder aux autres couches depuis ici.",
   "kb.available": "Disponible",
   "kb.keyboardLabel": "CLAVIER",
   "kb.reading": "Lecture du clavier…",

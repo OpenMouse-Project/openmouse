@@ -1336,6 +1336,7 @@ export const de: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Wähle ein Tastenfeld und dann eine Taste auf der Tastatur.",
   "kb.arbSuperTapPick": "Wähle die Taste für Taste {n} auf der Tastatur.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Dies ist die einzige Ebenentaste auf dieser Ebene; nach dem Ersetzen sind andere Ebenen von hier aus nicht mehr erreichbar.",
   "kb.available": "Verfügbar",
   "kb.keyboardLabel": "TASTATUR",
   "kb.reading": "Tastatur wird gelesen…",

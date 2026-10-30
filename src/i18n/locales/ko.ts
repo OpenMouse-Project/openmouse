@@ -1308,6 +1308,7 @@ export const ko: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "키 타일을 선택한 다음 키보드에서 키를 선택하세요.",
   "kb.arbSuperTapPick": "키보드에서 키 {n}에 사용할 키를 선택하세요.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "이 레이어의 유일한 레이어 키입니다. 교체하면 여기에서 다른 레이어로 이동할 수 없습니다.",
   "kb.available": "사용 가능",
   "kb.keyboardLabel": "키보드",
   "kb.reading": "키보드 읽는 중…",

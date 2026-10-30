@@ -8,6 +8,7 @@ import * as control from "../../../device/controller";
 import type { ControlSnapshot, KeyboardTriggerKey } from "../../../device/types";
 import { t, tp } from "../../../i18n/index";
 import { RateSlider, StepperSlider } from "../../../shared/ui";
+const KeychronKeyboardPanel = lazy(() => import("./KeychronKeyboardPanel").then(({ KeychronKeyboardPanel }) => ({ default: KeychronKeyboardPanel })));
 const RazerKeyboardPanel = lazy(() => import("./RazerKeyboardPanel").then(({ RazerKeyboardPanel }) => ({ default: RazerKeyboardPanel })));
 const LogitechKeyboardPanel = lazy(() => import("./LogitechKeyboardPanel").then(({ LogitechKeyboardPanel }) => ({ default: LogitechKeyboardPanel })));
 const SteelSeriesKeyboardPanel = lazy(() => import("./SteelSeriesKeyboardPanel").then(({ SteelSeriesKeyboardPanel }) => ({ default: SteelSeriesKeyboardPanel })));
@@ -29,6 +30,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
   const keyboard = snapshot.keyboard;
   if (!keyboard) return null;
   if (keyboard.family === "kochi") return <KochiKeyboardPanel snapshot={snapshot} />;
+  if (keyboard.family === "keychron") return <Suspense fallback={null}><KeychronKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "wooting") return <WootingKeyboardPanel snapshot={snapshot} />;
   if (keyboard.family === "razer") return <Suspense fallback={null}><RazerKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "logitech") return <Suspense fallback={null}><LogitechKeyboardPanel snapshot={snapshot} /></Suspense>;

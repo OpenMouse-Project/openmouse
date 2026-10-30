@@ -1308,6 +1308,7 @@ export const ja: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "キーのタイルを選び、続けてキーボード上のキーを選択してください。",
   "kb.arbSuperTapPick": "キーボード上で「キー {n}」に割り当てるキーを選択してください。",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "このレイヤーで唯一のレイヤーキーです。置き換えると、ここからほかのレイヤーに移動できなくなります。",
   "kb.available": "利用可能",
   "kb.keyboardLabel": "キーボード",
   "kb.reading": "キーボードを読み取り中…",

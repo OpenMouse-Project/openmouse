@@ -1306,6 +1306,7 @@ export const ar: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "اختر خانة مفتاح ثم اختر مفتاحًا على لوحة المفاتيح.",
   "kb.arbSuperTapPick": "اختر على لوحة المفاتيح المفتاح الذي سيُستخدم للمفتاح {n}.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "هذا هو مفتاح الطبقة الوحيد في هذه الطبقة؛ استبداله يمنع الوصول إلى الطبقات الأخرى من هنا.",
   "kb.available": "متاح",
   "kb.keyboardLabel": "لوحة المفاتيح",
   "kb.reading": "جارٍ قراءة لوحة المفاتيح…",

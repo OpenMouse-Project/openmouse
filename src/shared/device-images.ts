@@ -164,6 +164,8 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
+  // Keychron Hall-effect keyboards share one neutral silhouette until real art exists.
+  if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return "keychron-keyboard.svg";
   // Starlight X is a different shell from the ULX/Starlight-12, so it gets its
   // own render instead of borrowing the ULX's. Until the file is uploaded the
   // panel falls back to the placeholder at image-load time.
@@ -213,6 +215,8 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
+  // A generic keyboard outline, not product art; it stays until Keychron renders are uploaded.
+  "keychron-keyboard.svg": "/devices/keychron-keyboard.svg",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {

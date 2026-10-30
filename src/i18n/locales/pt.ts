@@ -1308,6 +1308,7 @@ export const pt: Record<I18nKey, string> = {
   "kb.arbSuperTapArm": "Selecione um quadro de tecla e depois uma tecla do teclado.",
   "kb.arbSuperTapPick": "Selecione no teclado a tecla para a tecla {n}.",
   "kb.brand": "Wuque Studio",
+  "kb.keychronOnlyLayerWarning": "Esta é a única tecla de camada nesta camada; substituí-la impede o acesso às outras camadas a partir daqui.",
   "kb.available": "Disponível",
   "kb.keyboardLabel": "TECLADO",
   "kb.reading": "Lendo teclado…",
