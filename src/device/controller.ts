@@ -3291,7 +3291,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     if (activeKeyboard !== client) return;
     const recovered = client.recoveredWorkspace?.();
     if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
-    if (!telemetry) keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+    keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
   }

@@ -125,17 +125,12 @@ export class KeychronKeyboardClient implements KeyboardClient {
     return this.publish({ ...current, remap, keymap: remap.layer === 0 && remap.keymap ? remap.keymap : current.keymap });
   }
 
-  /** Optional reads must not block the rest of the panel when a board lacks them. */
-  private async optional<T>(read: () => Promise<T>): Promise<T | null> {
-    try { return await read(); } catch { return null; }
-  }
-
   private async refresh(): Promise<Partial<KeyboardWorkspace>> {
     const status = await this.client.readStatus();
     const profile = await this.client.readProfile();
     const features = status.keychron?.features;
-    const curve = await this.optional(() => this.client.readCurve());
-    const axis = features?.switchAxis ? await this.optional(() => this.client.readAxisType()) : null;
+    const curve = await this.client.readCurve();
+    const axis = features?.switchAxis ? await this.client.readAxisType() : null;
     const layout = await loadKeychronLayout(this.device.productId, status.keychron?.rows ?? 0, status.keychron?.cols ?? 0);
     // A board that ignores VIA leaves remapping unavailable and the keymap null;
     // keys are then labelled by row and column.

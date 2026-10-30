@@ -116,22 +116,23 @@ function KeysCard({ kc, locale, busy, hidden, selection, primary, onSelect, onSe
 function TravelCard({ kc, locale, busy, hidden, selection, primary }: {
   kc: KeychronWorkspace; locale: Locale; busy: boolean; hidden: boolean; selection: ReadonlySet<string>; primary: KeyRef | null;
 }): ReactNode {
+  const [target, setTarget] = useState<"all" | "selected">("all");
   const single = selection.size === 1 && primary ? kc.profile?.keys[primary.row]?.[primary.col] : undefined;
   const source = single ?? kc.profile?.global ?? null;
   return <TravelForm key={`${single && primary ? keyId(primary.row, primary.col) : "all"}:${JSON.stringify(source)}`}
-    state={kc.status.keychron ?? null} unsaved={kc.unsaved} source={source} locale={locale} busy={busy} hidden={hidden} selection={selection} />;
+    state={kc.status.keychron ?? null} unsaved={kc.unsaved} source={source} locale={locale} busy={busy} hidden={hidden} selection={selection} target={target} setTarget={setTarget} />;
 }
 
-function TravelForm({ state, unsaved, source, locale, busy, hidden, selection }: {
+function TravelForm({ state, unsaved, source, locale, busy, hidden, selection, target, setTarget }: {
   state: KeychronWorkspace["status"]["keychron"] | null; unsaved: KeychronWorkspace["unsaved"];
   source: { distance: number; advancePress: number; advanceRelease: number } | null;
   locale: Locale; busy: boolean; hidden: boolean; selection: ReadonlySet<string>;
+  target: "all" | "selected"; setTarget: (target: "all" | "selected") => void;
 }): ReactNode {
   const [draft, setDraft] = useState(() => state && source
     ? { press: stepsToMm(source.distance, state.unit), rtPress: stepsToMm(source.advancePress, state.unit), rtRelease: stepsToMm(source.advanceRelease, state.unit) }
     : null);
   const [rapidTrigger, setRapidTrigger] = useState(() => source !== null && (source.advancePress > 0 || source.advanceRelease > 0));
-  const [target, setTarget] = useState<"all" | "selected">("all");
   if (!state || !draft) return <Card title={l(locale, "Travel")} hidden={hidden}><p className="setting-note">{l(locale, "NoData")}</p></Card>;
   const bounds = travelBounds(state);
   const clamp = (mm: number): number => Math.min(bounds.maxMm, Math.max(bounds.minMm, mm));

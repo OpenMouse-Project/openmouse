@@ -122,8 +122,11 @@ export async function remapKey(
     return { state: { ...state, keymap, originals, warning: null, result: { kind: "ok", layer, row, col, code: confirmed, message: null } }, error: null };
   } catch (error) {
     const reread = await attempt(() => client.readKeymap(layer));
+    const originals = { ...state.originals };
+    const id = remapKeyId(layer, row, col);
+    if (reread?.[row]?.[col] === code && !(id in originals)) originals[id] = previous;
     return {
-      state: { ...state, keymap: reread ?? state.keymap, warning: null, result: { kind: "failed", layer, row, col, code, message: messageOf(error) } },
+      state: { ...state, keymap: reread ?? state.keymap, originals, warning: null, result: { kind: "failed", layer, row, col, code, message: messageOf(error) } },
       error: error instanceof Error ? error : new Error(String(error)),
     };
   }
