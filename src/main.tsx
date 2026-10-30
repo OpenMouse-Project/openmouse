@@ -63,6 +63,10 @@ void installBridgeHid({ force: true }).then(async (hasHid) => {
     root.render(<UnsupportedNotice notice={notice} />);
     return;
   }
+  if (import.meta.env.DEV) {
+    const { installKeychronPreview } = await import("./device/preview/keychron-preview");
+    if (!installKeychronPreview(location.search)) return;
+  }
   start();
   root.render(<Root />);
 });
