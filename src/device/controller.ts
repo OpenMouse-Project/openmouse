@@ -8,11 +8,12 @@ import { pollingRateText } from "../shared/polling-rate";
 import {
   clientSupportScore,
   createKeyboardClient,
+  createMouseClient,
+  createSupportedClient,
+  describeHidDevice,
+  deviceBrand,
   isKeyboardClient,
   type KeyboardClient,
-  createSupportedClient,
-  deviceBrand,
-  describeHidDevice,
   listLogicalDevices,
   logicalDeviceGroups,
   pickLogicalDevice,
@@ -3693,6 +3694,21 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
     keyboardIdentity = await client.readIdentity();
     keyboardPolling = client.readPolling ? await client.readPolling() : null;
   } catch (error) {
+    const receiverMouse = (error instanceof Error && /no supported keyboard paired/i.test(error.message))
+      ? await createMouseClient(client.device).catch(() => null)
+      : null;
+    if (receiverMouse) {
+      await client.close().catch(() => undefined);
+      keyboardBusy = false;
+      keyboardStatusText = null;
+      activeKeyboard = null;
+      activeDevice = null;
+      deviceStatusText = st("ctl.opening");
+      readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
+      emit();
+      await activateClientNow(receiverMouse);
+      return;
+    }
     await client.close().catch(() => undefined);
     keyboardBusy = false;
     keyboardStatusText = null;
