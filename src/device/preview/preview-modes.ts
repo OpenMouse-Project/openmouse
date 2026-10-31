@@ -45,11 +45,12 @@ export const PREVIEW_KEYS = [
   "steelseries-gen2",
   "arbiter-polar-65-pro",
   "arbiter-polar-65",
+  "mchose-ace68-air",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
 /** Keyboard previews have no mouse status; they run a stand-in keyboard client instead. */
-export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65";
+export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65" | "mchose-ace68-air";
 export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike" | KeyboardPreviewMode>;
 
 export function previewsEnabled(buildChannel: string, viteDev: boolean): boolean {
@@ -101,6 +102,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "steelseries-gen2": return "steelseries-gen2";
     case "arbiter-polar-65-pro": return "arbiter-polar-65-pro";
     case "arbiter-polar-65": return "arbiter-polar-65";
+    case "mchose-ace68-air": return "mchose-ace68-air";
     default: return null;
   }
 }

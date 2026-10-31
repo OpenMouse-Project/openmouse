@@ -31,8 +31,8 @@ export function DeviceHero({
   const active = control.getActiveDevice();
   const activeEntry = snapshot.devices.find((device) => device.selected) ?? null;
   const name = status?.name ?? keyboard?.name ?? activeEntry?.name ?? "";
-  // Arbiter keyboards have no product render; draw a keyboard rather than the unknown-device mouse.
-  const keyboardArt = keyboard?.family === "arbiter" && !snapshot.deviceArtwork;
+  // Arbiter and MCHOSE keyboards have no product render; draw a keyboard rather than the unknown-device mouse.
+  const keyboardArt = (keyboard?.family === "arbiter" || keyboard?.family === "mchose") && !snapshot.deviceArtwork;
   const image = snapshot.deviceArtwork
     ?? (keyboard && !keyboardArt ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
   const needsArtwork = Boolean(status && active && (imageFailed || isUnknownDevice(

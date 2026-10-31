@@ -133,13 +133,13 @@
 .rate-slider-buttons > button:nth-child(8) { --lvl: 8; }
 
 #polling-card .rate-slider-buttons > button,
-#keyboard-polling-card .rate-slider-buttons > button {
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px;
   height: 74px;
   padding-block: 8px 9px;
 }
 #polling-card .rate-slider-buttons > button::before,
-#keyboard-polling-card .rate-slider-buttons > button::before {
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button::before {
   content: "";
   display: block;
   width: min(60%, 34px);
@@ -149,16 +149,16 @@
   transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
 }
 #polling-card .rate-slider-buttons > button:has(~ button.is-on)::before,
-#keyboard-polling-card .rate-slider-buttons > button:has(~ button.is-on)::before { background: rgb(var(--accent-rgb) / 0.42); }
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button:has(~ button.is-on)::before { background: rgb(var(--accent-rgb) / 0.42); }
 #polling-card .rate-slider-buttons > button.is-on::before,
-#keyboard-polling-card .rate-slider-buttons > button.is-on::before {
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button.is-on::before {
   background: var(--accent);
   box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.55);
 }
 #polling-card .rate-slider-buttons > button.is-on::after,
-#keyboard-polling-card .rate-slider-buttons > button.is-on::after { display: none; }
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button.is-on::after { display: none; }
 #polling-card .rate-slider-buttons > button.is-on,
-#keyboard-polling-card .rate-slider-buttons > button.is-on { color: var(--accent); }
+:is(#keyboard-polling-card, #keyboard-scan-card) .rate-slider-buttons > button.is-on { color: var(--accent); }
 
 .performance-figure {
   font-family: var(--font-mono);

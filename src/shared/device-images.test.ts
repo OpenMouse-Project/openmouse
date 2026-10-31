@@ -354,3 +354,8 @@ test("Keychron Hall-effect keyboards get the local keyboard silhouette, not the 
   }
   assert.equal(deviceImage(null, "Keychron M6"), CDN + "keychron-m6.png");
 });
+
+test("MCHOSE Ace 68 Air II and III share one render", () => {
+  assert.equal(deviceImage(null, "Ace 68 Air III"), CDN + "mchose-ace68-air.png");
+  assert.equal(deviceImage(null, "Ace 68 Air II"), CDN + "mchose-ace68-air.png");
+});

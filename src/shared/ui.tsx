@@ -448,6 +448,58 @@ export function StepperSlider({
   );
 }
 
+/**
+ * StepperSlider plus a number field for typing an exact value. Both commit
+ * through the caller, so the device write and its read-back stay the only
+ * source of truth; the field is never edited optimistically. A null value
+ * leaves the field empty.
+ */
+export function SliderField({ unit, value, ...props }: Omit<Parameters<typeof StepperSlider>[0], "value"> & { value: number | null; unit: string }): ReactNode {
+  const { min, max, step, label, disabled, onCommit } = props;
+  const places = (String(step).split(".")[1] ?? "").length;
+  const shown = value == null ? "" : value.toFixed(places);
+  const [text, setText] = useState(shown);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(shown);
+  }, [shown, focused]);
+  const commitText = (): void => {
+    const next = Number(text.replace(",", "."));
+    if (text.trim() === "" || !Number.isFinite(next) || next < min || next > max || next.toFixed(places) === shown) {
+      setText(shown);
+      return;
+    }
+    setText(next.toFixed(places));
+    void onCommit(Number(next.toFixed(places)));
+  };
+  return (
+    <div className="slider-field">
+      <StepperSlider {...props} value={value ?? min} />
+      <label className="slider-field-input">
+        <span>{unit}</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          inputMode="decimal"
+          aria-label={label}
+          disabled={disabled}
+          value={text}
+          onFocus={() => setFocused(true)}
+          onChange={(event) => setText(event.currentTarget.value)}
+          onBlur={() => { setFocused(false); commitText(); }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            event.currentTarget.blur();
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
 function shortRate(hz: number): string {
   return hz >= 1000 ? `${hz / 1000}K` : String(hz);
 }

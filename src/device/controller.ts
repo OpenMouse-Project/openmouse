@@ -1,6 +1,7 @@
 import { emptyKeyboardWorkspace } from "./keyboard-workspace.ts";
 import { track, deviceProps, scrubError } from "../platform/analytics";
 import type { KeyboardCommand } from "./keyboard-workspace.ts";
+import type { KeyboardKeyReport } from "./keyboard-client.ts";
 import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../features/devices/battery-history";
 import { bridgeEmptyResultMessage, isBridgeHidActive } from "../features/bridge/bridge-hid";
 import { applyBridgeNativeSettings } from "../features/bridge/bridge";
@@ -3300,6 +3301,34 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
   }
 }
 
+/**
+ * After a keyboard reboots itself (an MCHOSE factory reset), find it again and
+ * switch to it. The reboot can finish before the reset call returns, so this
+ * polls the authorized devices rather than waiting for a connect event.
+ */
+export async function reconnectAfterReboot(): Promise<void> {
+  const previous = activeKeyboard;
+  if (previewMode || !previous) return;
+  const { vendorId, productId } = previous.device;
+  for (let tries = 0; tries < 24; tries += 1) {
+    await wait(500);
+    if (activeKeyboard !== previous) return;
+    const devices = (await navigator.hid?.getDevices()) ?? [];
+    // A rebooted keyboard normally comes back as a new device object; accept the old one too after a few tries.
+    for (const device of devices.filter((entry) => entry.vendorId === vendorId && entry.productId === productId && (entry !== previous.device || tries >= 6))) {
+      const next = createKeyboardClient(device);
+      if (!next) continue;
+      try {
+        await previous.close().catch(() => undefined);
+        if (activeKeyboard === previous) await activateClient(next, false, previous);
+        return;
+      } catch {
+        await next.close().catch(() => undefined);
+      }
+    }
+  }
+}
+
 /** Reopen the active keyboard after its driver marked the session unusable. */
 export async function reconnectKeyboard(): Promise<void> {
   const previous = activeKeyboard;
@@ -3315,6 +3344,11 @@ export async function reconnectKeyboard(): Promise<void> {
   } finally {
     if (activeKeyboard === previous) { keyboardBusy = false; emit(); }
   }
+}
+
+/** Follow keys as the active keyboard reports them; a no-op where it cannot. Returns a function that stops. */
+export function watchKeyboardKeys(listener: (report: KeyboardKeyReport) => void, depth = false): () => void {
+  return activeKeyboard?.watchKeys?.(listener, depth) ?? (() => undefined);
 }
 
 /** The keys held down right now, or null when nothing can be read. Deliberately silent: no busy flag, status text or redraw. */
@@ -7541,17 +7575,18 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
   return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
 }
 
-/** Show an Arbiter keyboard from invented data; nothing is read from or written to a device. */
+/** Show a keyboard from invented data; nothing is read from or written to a device. */
 async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
-  const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
-  const client = new ArbiterPreviewClient(name);
+  const { client, label } = name === "mchose-ace68-air"
+    ? await import("./preview/mchose-preview").then(({ MchosePreviewClient, MCHOSE_PREVIEW_LABEL }) => ({ client: new MchosePreviewClient(), label: MCHOSE_PREVIEW_LABEL }))
+    : await import("./preview/arbiter-preview").then(({ ArbiterPreviewClient, arbiterPreviewLabel }) => ({ client: new ArbiterPreviewClient(name), label: arbiterPreviewLabel(name) }));
   activeDevice = client.device;
   activeKeyboard = client;
   keyboardIdentity = await client.readIdentity();
   keyboardWorkspace = { ...keyboardWorkspace, ...await client.command({ kind: "refresh" }) };
   sidebarDevices = [{ index: 0, name: client.name, detail: "", selected: true, vendorId: client.device.vendorId, productId: client.device.productId, kind: "keyboard", transport: "webhid" }];
   setConnectionButtons(true, "Preview mode");
-  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, arbiterPreviewLabel(name)) }));
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, label) }));
   deviceListView = "device";
   emit();
 }
@@ -7631,7 +7666,7 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
-  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65") {
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65" || previewMode === "mchose-ace68-air") {
     void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {
     void showFixturePreview(previewMode).then(() => {

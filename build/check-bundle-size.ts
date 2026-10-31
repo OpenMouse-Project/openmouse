@@ -30,9 +30,36 @@ import { join } from "node:path";
 // 2026-10-31: VIA keyboard support adds the keycode tables, the definition
 // parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
 // (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
+//
+// 2026-10-31: MCHOSE Ace 68 Air support (keyboard-protocol codec and driver,
+// per-key travel, keymap, macros, DKS/mod-tap/toggle, lighting, calibration
+// panels and their strings in 12 languages), about 209 kB of JS (3,947,820
+// bytes measured) and the keyboard deck, macro step and DKS grid styles,
+// about 6 kB of CSS (174,587 bytes measured). The panel and the HID driver
+// are lazy-loaded; the main chunk grew 20 kB, mostly English strings.
+//
+// 2026-10-31: MCHOSE follow-ups: media keycap icons (nine lucide icons), Mac
+// layer labels, keyboard-function names and a shared slider with a typed
+// number field (Wooting's millimetre field, now reused), about 5 kB of JS
+// (3,953,032 bytes measured).
+//
+// 2026-10-31: MCHOSE parity with the vendor app's trigger, key and advanced
+// tabs: per-direction rapid-trigger precision, travel view and selection
+// tools, ready-made shortcuts, layer restore, live key depth, binding list,
+// and 18 new strings in 12 languages, about 14 kB of JS (3,969,768 bytes
+// measured).
+//
+// 2026-10-31: MCHOSE profile save/load to a file, official setups in the
+// profile card and their strings in 12 languages, about 14 kB of JS
+// (3,983,809 bytes measured).
+//
+// 2026-10-31: MCHOSE gradient editor and key-colour reset, factory reset
+// (one profile or the whole keyboard), and their strings in 12 languages:
+// about 21 kB of JS (4,004,460 bytes measured) and the gradient bar's styles,
+// about 0.5 kB of CSS (175,264 bytes measured).
 const BUDGET_BYTES: Record<string, number> = {
-  ".css": 170_000,
-  ".js": 3_800_000,
+  ".css": 176_000,
+  ".js": 4_010_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

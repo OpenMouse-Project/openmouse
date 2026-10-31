@@ -131,7 +131,7 @@ aside.testing-note strong { display: none; }
 .keyboard-identity > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
 .keyboard-identity dt { color: var(--text-3); font-size: var(--fs-meta); }
 .keyboard-identity dd { text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
-#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.arbiter-deck), .keyboard-workspace-card:has(.keyboard-macro-events), .keyboard-workspace-card.is-wide { grid-column: 1 / -1; }
+#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.arbiter-deck), .keyboard-workspace-card:has(.mchose-deck), .keyboard-workspace-card:has(.keyboard-macro-events), .keyboard-workspace-card.is-wide { grid-column: 1 / -1; }
 .keyboard-key-deck { padding: 16px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); min-width: 0; }
 .keyboard-matrix { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
 .keyboard-matrix-row { display: grid; grid-auto-columns: minmax(36px, 1fr); grid-auto-flow: column; gap: 6px; min-width: 680px; }
@@ -139,13 +139,13 @@ aside.testing-note strong { display: none; }
 .keyboard-key:hover:not(:disabled) { background: var(--btn-hover); color: var(--text-1); }
 .keyboard-key.is-selected { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .keyboard-key.is-empty { visibility: hidden; }
-.arbiter-deck { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
-.arbiter-deck-row { display: flex; gap: 6px; min-width: 640px; }
-.arbiter-key { flex-basis: 0; flex-shrink: 1; align-content: center; gap: 2px; min-height: 46px; }
-.arbiter-key small { color: var(--text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; line-height: 1; }
-.arbiter-key.is-selected small { color: inherit; }
-.arbiter-note { grid-column: 1 / -1; padding-inline: 4px; }
-.arbiter-fault { grid-column: 1 / -1; }
+.arbiter-deck, .mchose-deck { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
+.arbiter-deck-row, .mchose-deck-row { display: flex; gap: 6px; min-width: 640px; }
+.arbiter-key, .mchose-key { flex-basis: 0; flex-shrink: 1; align-content: center; gap: 2px; min-height: 46px; }
+.arbiter-key small, .mchose-key small { color: var(--text-3); font-size: var(--fs-small); font-variant-numeric: tabular-nums; line-height: 1; }
+.arbiter-key.is-selected small, .mchose-key.is-selected small { color: inherit; }
+.arbiter-note, .mchose-note { grid-column: 1 / -1; padding-inline: 4px; }
+.arbiter-fault, .mchose-fault { grid-column: 1 / -1; }
 .arbiter-light-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px 32px; align-items: start; }
 .arbiter-palette .lighting-color-picker { max-width: 240px; gap: 8px; }
 .arbiter-palette .lighting-sv-canvas { aspect-ratio: 22 / 8; }
@@ -156,10 +156,75 @@ aside.testing-note strong { display: none; }
 .om-btn.arbiter-supertap-tile.is-armed { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
 .arbiter-supertap-tile.is-armed small { color: inherit; }
 .arbiter-apply { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding-block: 12px 4px; background: var(--surface-1); }
+/* MCHOSE tabs are laid out as full-width cards and rows of equal-height cards, so no width leaves holes. */
+.mchose-panel > * { grid-column: 1 / -1; }
+.mchose-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: stretch; min-width: 0; }
+.mchose-row > .setting-card { height: 100%; }
+.mchose-stack { display: grid; grid-template-rows: auto 1fr; gap: 16px; min-width: 0; }
+/* A physical keyboard keeps its left-to-right layout in RTL locales. */
+.mchose-deck { direction: ltr; }
+.mchose-key { position: relative; }
+.mchose-key span, .mchose-key small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mchose-key.is-muted:not(.is-selected) span { color: var(--text-3); }
+.mchose-key.is-tight span { font-size: var(--fs-small); letter-spacing: 0; }
+.mchose-depth { position: absolute; inset: auto 0 0; height: calc(var(--depth) * 100%); border-radius: inherit; background: rgb(var(--accent-rgb) / 0.3); pointer-events: none; }
+.mchose-swatch { position: absolute; inset-block-end: 4px; inset-inline-end: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 1px var(--line-2); }
+.mchose-apply { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding-block-start: 12px; }
+.mchose-editor { display: grid; gap: 12px; padding-block-start: 16px; border-top: 1px solid var(--line-1); }
+.mchose-assigned { color: var(--text-2); font-size: var(--fs-meta); }
+.mchose-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px; min-width: 0; }
+.mchose-modifiers { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+.om-btn.mchose-chip.is-on { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.mchose-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.mchose-pair section { display: grid; gap: 8px; align-content: start; }
+.mchose-pair h4, .mchose-dks-action h4 { font-size: var(--fs-body); font-weight: 600; }
+.mchose-settings { display: grid; gap: 12px; }
+.mchose-setting { display: grid; gap: 4px; }
+.mchose-name-row { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.mchose-name { display: grid; gap: 4px; flex: 1 1 200px; min-width: 0; color: var(--text-2); font-size: var(--fs-meta); }
+.mchose-color-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.mchose-gradient-editor { display: grid; gap: 8px; margin-top: 16px; }
+.mchose-gradient { position: relative; height: 28px; margin-bottom: 14px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--gradient); cursor: copy; touch-action: none; }
+.mchose-gradient-stop { position: absolute; top: 100%; width: 16px; height: 16px; margin-inline-start: -8px; padding: 0; border: 2px solid var(--text-2); border-radius: 50%; background: var(--swatch); cursor: grab; }
+.mchose-gradient-stop.is-on { border-color: var(--accent); box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.3); }
+.mchose-color-row .arbiter-palette { flex: 0 1 280px; min-width: 0; }
+.mchose-preset { display: grid; grid-template-columns: minmax(0, 240px) auto; gap: 8px 12px; align-items: center; padding-block: 12px; border-top: 1px solid var(--line-1); }
+.mchose-preset .setting-note { grid-column: 1 / -1; }
+.mchose-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; }
+.mchose-rule { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); color: var(--text-1); text-align: start; }
+.mchose-rule small { color: var(--text-3); font-size: var(--fs-small); }
+.mchose-rule.is-on { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
+/* Calibration: green once a key is calibrated; a held key is outlined. */
+.mchose-calibration .mchose-key.is-selected { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--text-1); }
+.mchose-calibration .mchose-key.is-muted { outline: 2px solid var(--ok); outline-offset: -2px; opacity: 1; }
+.mchose-test-log { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin: 0; padding: 0; list-style: none; }
+.mchose-test-log li { padding: 2px 8px; border-radius: var(--r-xs); background: var(--well); color: var(--text-2); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.mchose-test-log li.is-down { color: var(--accent); }
+.mchose-dks { display: grid; gap: 16px; }
+.mchose-dks-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px 24px; }
+.mchose-dks-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 8px 6px; align-items: center; min-width: 0; }
+.mchose-dks-head { color: var(--text-3); font-size: var(--fs-small); text-align: center; }
+.mchose-dks-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; padding-block: 12px; border-top: 1px solid var(--line-1); }
+.mchose-dks-action { display: grid; gap: 8px; min-width: 0; padding-inline-end: 8px; }
+.mchose-dks-action .mchose-picker { grid-template-columns: 1fr; }
+.mchose-dks-track { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: 32px; gap: 6px; }
+.mchose-dks-bar { grid-row: 1; align-self: stretch; border-radius: var(--r-sm); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.mchose-dks-cell { grid-row: 1; z-index: 1; height: 32px; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mchose-dks-cell.is-on, .mchose-dks-cell.is-covered { background: transparent; box-shadow: none; color: var(--accent); font-weight: 600; }
+.mchose-dks-cell:hover:not(:disabled) { color: var(--text-1); }
+.mchose-macro-steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mchose-macro-step { display: grid; grid-template-columns: 28px minmax(96px, 1fr) auto auto auto; align-items: center; gap: 12px; min-height: var(--row-min); padding: 6px 8px 6px 12px; border-radius: var(--r-sm); background: var(--well); }
+.mchose-step-index { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.mchose-step-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.mchose-delay { display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: var(--fs-meta); }
+.mchose-delay input[type="number"] { width: 80px; font-variant-numeric: tabular-nums; }
+.mchose-unit { color: var(--text-3); }
+@media (max-width: 720px) { .mchose-macro-step { grid-template-columns: 28px 1fr; } .mchose-dks-grid { grid-template-columns: minmax(0, 1fr) repeat(4, minmax(0, 1fr)); } }
+.mchose-delay input[type="number"] { width: 88px; font-variant-numeric: tabular-nums; }
 .keyboard-art { width: 100%; height: 100%; }
 .keyboard-art-body { fill: var(--surface-2); stroke: var(--line-3); }
 .keyboard-art-key { fill: var(--solid-2); stroke: var(--line-2); }
-.arbiter-fault { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--r-md); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--warn); }
+.arbiter-fault, .mchose-fault { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--r-md); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--warn); }
 .keyboard-key.is-long { font-size: var(--fs-small); }
 .keyboard-key:disabled { opacity: 0.45; }
 .keyboard-selection-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
@@ -291,13 +356,10 @@ aside.testing-note strong { display: none; }
 .wooting-akc-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block: 8px; border-top: 1px solid var(--line-1); color: var(--text-2); font-size: var(--fs-meta); }
 .wooting-key-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .wooting-key-editor .keyboard-identity { grid-column: 1 / -1; }
-.wooting-key-editor > .wooting-mm-control { grid-column: 1 / -1; }
+.wooting-key-editor > .slider-field { grid-column: 1 / -1; }
 .wooting-key-editor .setting-note, .wooting-key-editor .keyboard-save-confirm { grid-column: 1 / -1; }
 .wooting-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
-.wooting-fields > .wooting-mm-control { grid-column: 1 / -1; }
-.wooting-mm-control { display: grid; grid-template-columns: minmax(0, 1fr) minmax(72px, 96px); gap: 12px; align-items: end; }
-.wooting-mm-input { display: grid; gap: 6px; color: var(--text-3); font-size: var(--fs-meta); }
-.wooting-mm-input input { width: 100%; text-align: end; font-variant-numeric: tabular-nums; }
+.wooting-fields > .slider-field { grid-column: 1 / -1; }
 .keyboard-workspace-card:has(.wooting-identity) { grid-column: 1 / -1; }
 .wooting-identity { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 0 24px; }
 .wooting-identity > div { flex-direction: column; align-items: flex-start; gap: 4px; }
