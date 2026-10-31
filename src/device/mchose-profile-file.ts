@@ -37,7 +37,8 @@ export const MCHOSE_PROFILE_FORMAT = "openmouse.mchose-profile";
 export function mchoseProfileFile(state: MchoseWorkspace): MchoseProfileFile | null {
   const { settings, lighting, advanced, colors } = state;
   // The same table sizes the parser accepts, so a saved file always loads back.
-  const complete = state.travel.length === 128 && colors?.length === 128 && state.keymap.length === 4 && state.keymap.every((layer) => layer.length === 128);
+  const complete = state.travel.length === 128 && colors?.length === 128 && state.keymap.length === 4 && state.keymap.every((layer) => layer.length === 128)
+    && advanced?.dks.length === 32 && advanced.modTap.length === 32 && advanced.toggle.length === 32;
   if (!settings || !lighting || !advanced || !colors || !complete) return null;
   return {
     format: MCHOSE_PROFILE_FORMAT,
@@ -74,14 +75,23 @@ export function parseMchoseProfileFile(text: string, productId: number): MchoseP
   const isObject = (value: unknown): boolean => typeof value === "object" && value !== null;
   const isAction = (value: unknown): boolean => isObject(value)
     && ["type", "code1", "code2"].every((field) => typeof (value as Record<string, unknown>)[field] === "number");
+  const isNumbers = (value: unknown, fields: readonly string[]): boolean => isObject(value)
+    && fields.every((field) => typeof (value as Record<string, unknown>)[field] === "number");
+  const TRAVEL_FIELDS = ["pressPrecision", "releasePrecision", "actuation", "keyMode", "rapidTriggerPress", "rapidTriggerRelease", "pressDeadzone", "releaseDeadzone", "switchType", "priority"];
   const tables = file.advanced;
+  // Every advanced-key slot the keymap points at must be in the file, or the key would lose its binding.
+  const bound = (action: MchoseAction): boolean => {
+    const table = action.type === 0x90 ? tables?.dks : action.type === 0x91 ? tables?.toggle : action.type >= 0x92 && action.type <= 0x95 ? tables?.modTap : null;
+    return !table || isObject(table[action.code1]);
+  };
   const complete = typeof file.settings === "object" && file.settings !== null
     && typeof file.lighting === "object" && file.lighting !== null
     && isList(file.travel, 128) && isList(file.colors, 128)
     && isList(file.keymap, 4) && file.keymap!.every((layer) => isList(layer, 128))
     && !!tables && isList(tables.dks, 32) && isList(tables.modTap, 32) && isList(tables.toggle, 32)
     // Entries too, so a damaged file is refused before the first write rather than part-way through.
-    && file.keymap!.every((layer) => layer.every(isAction)) && file.travel!.every(isObject) && file.colors!.every(isObject);
+    && file.keymap!.every((layer) => layer.every((action) => isAction(action) && bound(action)))
+    && file.travel!.every((key) => isNumbers(key, TRAVEL_FIELDS)) && file.colors!.every((color) => isNumbers(color, ["r", "g", "b"]));
   if (!complete) throw new RangeError("not-profile");
   return file as MchoseProfileFile;
 }

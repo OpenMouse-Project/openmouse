@@ -634,12 +634,17 @@ export function MacroCard({ locale, mchose, disabled }: { locale: InterfaceLocal
   useEffect(() => {
     if (!recording) return;
     last.current = 0;
+    // Keys pressed while recording; a release is recorded only for one of these, so no step lacks its press.
+    const held = new Set<number>();
     const key = (down: boolean) => (event: KeyboardEvent) => {
       if (event.repeat) return;
-      // Typing in a field (a delay, a name) is not part of the macro.
-      if ((event.target as Element | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
       const code = MODIFIER_CODES[event.code] ?? hidKeyForCode(event.code);
       if (code === null || code === undefined) return;
+      if (down) {
+        // Typing in a field (a delay, a name) is not part of the macro.
+        if ((event.target as Element | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
+        held.add(code);
+      } else if (!held.delete(code)) return;
       event.preventDefault();
       push({ kind: "key", code, down }, event.timeStamp);
     };

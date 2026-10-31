@@ -198,6 +198,14 @@ function ProfileCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mc
   );
 }
 
+/** End calibration as soon as the keyboard is free; a command still running would otherwise drop the request. */
+async function endCalibration(): Promise<void> {
+  for (let tries = 0; tries < 20; tries += 1) {
+    if (await control.runKeyboardCommand({ kind: "mchoseCalibrate", step: "end" })) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
 function CalibrationCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mchose: MchoseWorkspace; disabled: boolean }): ReactNode {
   const [running, setRunning] = useState(false);
   // Keys the keyboard reports as calibrated, and those held down, while calibration runs.
@@ -214,13 +222,16 @@ function CalibrationCard({ locale, mchose, disabled }: { locale: InterfaceLocale
       setDown((current) => (current.has(index) === travel > 10 ? current : toggled(current, index, travel > 10)));
     });
   }, [running]);
-  // Leaving the tab mid-calibration ends it, so the keyboard is not left calibrating.
+  // Leaving the tab mid-calibration ends it, so the keyboard is not left calibrating; that includes a
+  // start still in flight when the card goes away.
   const runningNow = useRef(false);
+  const mounted = useRef(true);
   runningNow.current = running;
-  useEffect(() => () => { if (runningNow.current) void control.applyKeyboardCommand({ kind: "mchoseCalibrate", step: "end" }); }, []);
+  useEffect(() => () => { mounted.current = false; if (runningNow.current) void endCalibration(); }, []);
   const run = async (step: "start" | "end" | "restart"): Promise<void> => {
     const ok = await control.runKeyboardCommand({ kind: "mchoseCalibrate", step });
-    if (!ok && step !== "end") return;
+    if (!ok) return;
+    if (!mounted.current) { if (step !== "end") void endCalibration(); return; }
     setRunning(step !== "end");
     if (step !== "end") { setDone(new Set()); setPending(new Set()); setDown(new Set()); }
   };

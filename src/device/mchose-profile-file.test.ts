@@ -69,4 +69,8 @@ test("only complete profiles are saved, and damaged entries are refused before w
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][0] = { type: "16", code1: 0, code2: 4 }; }), file.productId), { message: "not-profile" });
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.travel[7] = null; }), file.productId), { message: "not-profile" });
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.colors[2] = null; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.travel[7] = {}; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x90, code1: 2, code2: 0 }; copy.advanced.dks[2] = null; }), file.productId), { message: "not-profile" });
+  assert.equal(parseMchoseProfileFile(damaged((copy) => { copy.advanced.dks[2] = null; }), file.productId).advanced.dks[2], null, "an empty slot nothing points at is fine");
+  assert.equal(mchoseProfileFile({ ...workspace(), advanced: { ...workspace().advanced!, dks: [] } }), null, "advanced tables must be complete to save");
 });
