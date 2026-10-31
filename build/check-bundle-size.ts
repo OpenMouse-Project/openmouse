@@ -30,9 +30,13 @@ import { join } from "node:path";
 // 2026-10-31: VIA keyboard support adds the keycode tables, the definition
 // parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
 // (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
+// 2026-11-01: LEOBOG GM3 and VXE R1 SE controls add two drivers, the R1 SE
+// button/macro editors, the GM3 button remapper plus macro recorder, and their
+// strings across twelve locales. Measured 3,817,628 bytes of JS; main is
+// 1,391,607 bytes, still below its cap.
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
-  ".js": 3_800_000,
+  ".js": 3_850_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

@@ -60,8 +60,10 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bcobra\b/i.test(displayName)) return "razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
+  // VXE R1 family: the series render was never uploaded to the bucket, so
+  // this returns the locally committed R1 SE art (the family shares the shell).
   if (/\bvxe\s+r1(?:\s+(?:se\+?|pro(?:\s+max)?))?\b/i.test(displayName)) {
-    return "vxe-r1-series.png";
+    return "vxe-r1-se.png";
   }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
@@ -141,6 +143,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";
+  // LEOBOG GM3: the driver reports "LEOBOG GM3" for both the wired and the
+  // 2.4 GHz receiver connection, so the name is enough to pick the render.
+  if (/\bleobog\s*gm3\b/i.test(displayName)) return "leobog-gm3.png";
   // Incott: six model families, each sold in a base and a Pro version with
   // a different shell finish, so all twelve get their own render. The driver
   // reads the model from the device and appends "Pro" when the PAW3950 is
@@ -217,6 +222,8 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
   // A generic keyboard outline, not product art; it stays until Keychron renders are uploaded.
   "keychron-keyboard.svg": "/devices/keychron-keyboard.svg",
+  "leobog-gm3.png": "/devices/leobog-gm3.png",
+  "vxe-r1-se.png": "/devices/vxe-r1-se.png",
 };
 
 export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {

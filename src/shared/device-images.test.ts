@@ -70,11 +70,13 @@ test("Pulsar 4K receiver artwork follows the reported mouse name", () => {
 });
 
 test("VXE R1 family resolves by name across every generation", () => {
-  assert.equal(deviceImage(null, "VXE R1"), CDN + "vxe-r1-series.png");
-  assert.equal(deviceImage(null, "VXE R1 SE"), CDN + "vxe-r1-series.png");
-  assert.equal(deviceImage(null, "VXE R1 SE+"), CDN + "vxe-r1-series.png");
-  assert.equal(deviceImage(null, "VXE R1 Pro"), CDN + "vxe-r1-series.png");
-  assert.equal(deviceImage(null, "VXE R1 Pro Max"), CDN + "vxe-r1-series.png");
+  // The series render was never uploaded to the bucket, so every R1
+  // generation falls back to the locally committed R1 SE art until it is.
+  assert.equal(deviceImage(null, "VXE R1"), "/devices/vxe-r1-se.png");
+  assert.equal(deviceImage(null, "VXE R1 SE"), "/devices/vxe-r1-se.png");
+  assert.equal(deviceImage(null, "VXE R1 SE+"), "/devices/vxe-r1-se.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro"), "/devices/vxe-r1-se.png");
+  assert.equal(deviceImage(null, "VXE R1 Pro Max"), "/devices/vxe-r1-se.png");
 });
 
 test("Attack Shark R5 Ultra resolves by name", () => {
@@ -120,6 +122,15 @@ test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", 
     deviceImage(dev(0x3151, 0x402d), "Lingbao M5 Pro"),
     CDN + "unknown-device.png",
   );
+});
+
+test("LEOBOG GM3 resolves by name on the wired and receiver connections", () => {
+  // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
+  // device-images.ts / public/devices/README.md) until a maintainer uploads
+  // leobog-gm3.png to R2; then it returns CDN + "leobog-gm3.png" again.
+  assert.equal(deviceImage(null, "LEOBOG GM3"), "/devices/leobog-gm3.png");
+  assert.equal(deviceImage(dev(0x258a, 0x0138), "LEOBOG GM3"), "/devices/leobog-gm3.png");
+  assert.equal(deviceImage(dev(0x258a, 0x0136), "LEOBOG GM3"), "/devices/leobog-gm3.png");
 });
 
 test("OP1we and OP1 8K resolve to distinct renders by name", () => {

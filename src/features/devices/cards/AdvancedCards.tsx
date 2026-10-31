@@ -23,6 +23,10 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
 import type { WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import {
+  LEOBOG_GM3_MACRO_MAX_STEPS,
+  type LeobogGm3MacroStep,
+} from "@openmouse/protocol/leobog";
 import { isPulsarProProtocol } from "../../../device/traits";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import {
@@ -39,6 +43,16 @@ import {
 } from "../../../device/finalmouse-slx.ts";
 import { lunafurySettingLabel, lunafuryTrackingVisible } from "../../../device/lunafury-labels.ts";
 import * as control from "../../../device/controller";
+import {
+  LEOBOG_MACRO_DOM_BUTTON,
+  LEOBOG_MACRO_MOUSE_CHOICES,
+  leobogMacroAppendRecordedStep,
+  leobogMacroEventFromInput,
+  leobogMacroEventTime,
+  leobogMacroInputValue,
+  leobogMacroIsMouse,
+  leobogMacroIsRelease,
+} from "../../../device/leobog-macro-timing.ts";
 import { PULSAR_SLEEP_OPTIONS } from "../../../device/controller";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, snapCpiToDevice, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS, type CpiLimits } from "../../../device/options";
 import type { ControlSnapshot } from "../../../device/types";
@@ -2635,6 +2649,358 @@ export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): 
 }
 
 /**
+ * Keys the GM3 macro editor offers, keyed by HID usage. The base list is the
+ * same catalog the K-snake editor uses; modifiers sit at 0xE0-0xE7 because a
+ * macro step stores a plain usage byte.
+ */
+const LEOBOG_MACRO_KEY_LABELS: Readonly<Record<number, string>> = {
+  ...KSNAKE_KEY_LABELS,
+  0xe0: "Left Ctrl",
+  0xe1: "Left Shift",
+  0xe2: "Left Alt",
+  0xe3: "Left GUI",
+  0xe4: "Right Ctrl",
+  0xe5: "Right Shift",
+  0xe6: "Right Alt",
+  0xe7: "Right GUI",
+};
+
+const LEOBOG_MACRO_KEY_CHOICES = Object.entries(LEOBOG_MACRO_KEY_LABELS)
+  .map(([usage, label]) => ({ usage: Number(usage), label }))
+  .filter((choice) => choice.usage !== 0)
+  .sort((a, b) => a.usage - b.usage);
+
+function leobogMacroKeyLabel(usage: number): string {
+  return LEOBOG_MACRO_KEY_LABELS[usage] ?? `0x${usage.toString(16).padStart(2, "0")}`;
+}
+
+/** HID usage for a browser key event, including the modifier usages. */
+function leobogMacroUsageForEvent(code: string): number | null {
+  const modifier = KSNAKE_MODIFIER_BY_EVENT_CODE[code];
+  if (modifier !== undefined) return 0xe0 + Math.log2(modifier);
+  return KSNAKE_KEY_CODE_BY_EVENT_CODE[code] ?? null;
+}
+
+/** False for a code this build cannot name, so the row still shows its value. */
+function leobogMacroIsKnownInput(step: LeobogGm3MacroStep): boolean {
+  if (leobogMacroIsMouse(step)) {
+    return LEOBOG_MACRO_MOUSE_CHOICES.some((choice) => choice.button === step.event.hidUsage);
+  }
+  return Boolean(LEOBOG_MACRO_KEY_LABELS[step.event.hidUsage]);
+}
+
+/**
+ * LEOBOG GM3 macro editor.
+ *
+ * The device takes a macro through vendor command `03 00` but serves no read
+ * for it, so the slots below hold whatever this session uploaded — never a
+ * read of the mouse. Steps are the key and mouse-button records the vendor
+ * uploads, in the same `flags | time_ms | code` shape, so a slot can mix both.
+ * Mouse movement and wheel steps are not captured yet and are not offered.
+ */
+export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
+  const capable = status?.ui?.family === "leobog-gm3";
+  const macros = status?.leobogMacros ?? null;
+  const [slot, setSlot] = useState(0);
+  const [name, setName] = useState("");
+  const [steps, setSteps] = useState<LeobogGm3MacroStep[]>([]);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<HTMLDivElement | null>(null);
+  const recordingLastRef = useRef<number | null>(null);
+  const staged = snapshot.pending.keys.includes(`leobog-macro-${slot + 1}`);
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+
+  // Seed the editor from the last record uploaded for this slot. Keyed on the
+  // stored value rather than on the status object, so a background refresh or
+  // a toast cannot throw away unsaved step edits.
+  const storedSignature = JSON.stringify(macros?.[slot] ?? null);
+  useEffect(() => {
+    const record = macros?.[slot] ?? null;
+    setName(record?.name ?? `Macro ${slot + 1}`);
+    setSteps(record ? record.steps.map((step) => ({ ...step, event: { ...step.event } })) : []);
+  }, [storedSignature, slot]);
+
+  // Recording appends to whatever is already in the slot so a mis-click cannot
+  // throw away hand-built steps, and timestamps each event against the one
+  // before it — the same thing the vendor editor stores.
+  useEffect(() => {
+    if (!recording) return undefined;
+    recorderRef.current?.focus();
+    const isRecorderControl = (target: EventTarget | null): boolean => (
+      target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
+    );
+    // `at` comes from the event's own timestamp, so a stalled handler cannot
+    // stretch the gap the way it could if we measured the handler time.
+    const append = (event: LeobogGm3MacroStep["event"], at: number): void => {
+      const previous = recordingLastRef.current;
+      recordingLastRef.current = at;
+      setSteps((current) => leobogMacroAppendRecordedStep(
+        current,
+        event,
+        previous === null ? 0 : at - previous,
+        LEOBOG_GM3_MACRO_MAX_STEPS,
+      ));
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      if (event.code === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setRecording(false);
+        return;
+      }
+      if (event.repeat) return;
+      const usage = leobogMacroUsageForEvent(event.code);
+      if (usage === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append({ type: "keyDown", hidUsage: usage }, leobogMacroEventTime(event));
+    };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const usage = leobogMacroUsageForEvent(event.code);
+      if (usage === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append({ type: "keyUp", hidUsage: usage }, leobogMacroEventTime(event));
+    };
+    const onMouseDown = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append({ type: "mouseDown", hidUsage: button }, leobogMacroEventTime(event));
+    };
+    const onMouseUp = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append({ type: "mouseUp", hidUsage: button }, leobogMacroEventTime(event));
+    };
+    // A recorded right button is a step, not a request for the browser menu.
+    const onContextMenu = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("mousedown", onMouseDown, true);
+    window.addEventListener("mouseup", onMouseUp, true);
+    window.addEventListener("contextmenu", onContextMenu, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("mousedown", onMouseDown, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+      window.removeEventListener("contextmenu", onContextMenu, true);
+    };
+  }, [recording]);
+
+  if (!status || !capable || macros === null) return null;
+
+  const startRecording = (): void => {
+    recordingLastRef.current = null;
+    setRecording(true);
+  };
+  const updateStep = (index: number, next: LeobogGm3MacroStep): void => {
+    setSteps((current) => current.map((step, at) => (at === index ? next : step)));
+  };
+  const addStep = (): void => {
+    setSteps((current) => current.length < LEOBOG_GM3_MACRO_MAX_STEPS
+      ? [...current, { delayMs: 0, event: { type: "keyDown", hidUsage: 0x04 } }]
+      : current);
+  };
+  const removeStep = (index: number): void => {
+    setSteps((current) => current.filter((_, at) => at !== index));
+  };
+
+  return (
+    <article
+      id="leobog-macro-settings"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key={`leobog-macro-${slot + 1}`}
+    >
+      <div className="setting-heading compact">
+        <div>
+          <h2>{t(locale, "macro.build")}</h2>
+          <p className="ksnake-macro-lead">{t(locale, "macro.leobogLead")}</p>
+        </div>
+      </div>
+      <label className="ksnake-macro-slot-picker">
+        <span>{t(locale, "macro.slotLabel")}</span>
+        <select value={slot} disabled={disabled} onChange={(event) => setSlot(Number(event.currentTarget.value))}>
+          {macros.map((record, index) => {
+            const count = index === slot ? steps.length : record?.steps.length ?? 0;
+            return (
+              <option key={index} value={index}>
+                {t(locale, "macro.option")} {index + 1}
+                {displayText(locale, count
+                  ? ` · ${tp(locale, "macro.steps", { n: count })}`
+                  : ` · ${t(locale, "macro.empty")}`)}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+      <div
+        className={`ksnake-macro-recorder${recording ? " is-recording" : ""}`}
+        ref={recorderRef}
+        tabIndex={-1}
+      >
+        <div className="ksnake-macro-recorder-status">
+          <span className="ksnake-macro-recorder-dot" aria-hidden="true" />
+          <span>
+            <strong>{displayText(locale, recording ? t(locale, "macro.recording") : t(locale, "macro.addActions"))}</strong>
+            <span>{displayText(locale, recording
+              ? tp(locale, "macro.eventsHint", { n: steps.length })
+              : t(locale, "macro.recorderHint"))}</span>
+          </span>
+        </div>
+        <div className="ksnake-macro-recorder-tools">
+          <label className="ksnake-macro-timing-picker">
+            <span>{t(locale, "macro.nameLabel")}</span>
+            <input
+              type="text"
+              maxLength={16}
+              value={name}
+              disabled={disabled || recording}
+              data-macro-recorder-control
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+          </label>
+          <div className="ksnake-macro-recorder-actions">
+            {recording ? (
+              <button
+                className="ksnake-macro-stop"
+                type="button"
+                data-macro-recorder-control
+                onClick={() => setRecording(false)}
+              >
+                {t(locale, "macro.stopRecording")}
+              </button>
+            ) : (
+              <button
+                className="ksnake-macro-record"
+                type="button"
+                data-macro-recorder-control
+                onClick={startRecording}
+                disabled={disabled}
+              >
+                {t(locale, "macro.recordInput")}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      {steps.length === 0 ? (
+        <p className="field-note">{t(locale, "macro.noActions")}</p>
+      ) : (
+        <div className="macro-steps">
+          {steps.map((step, index) => (
+            <div className="macro-step" key={`${slot}-${index}`}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>{t(locale, "macro.whStepType")}
+                <select
+                  value={leobogMacroIsRelease(step) ? "up" : "down"}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: step.delayMs,
+                    event: leobogMacroEventFromInput(
+                      leobogMacroInputValue(step),
+                      event.currentTarget.value === "up",
+                    ),
+                  })}
+                >
+                  <option value="down">{t(locale, "macro.stepDown")}</option>
+                  <option value="up">{t(locale, "macro.stepUp")}</option>
+                </select>
+              </label>
+              <label>{t(locale, "macro.colInput")}
+                <select
+                  value={leobogMacroInputValue(step)}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: step.delayMs,
+                    event: leobogMacroEventFromInput(
+                      event.currentTarget.value,
+                      leobogMacroIsRelease(step),
+                    ),
+                  })}
+                >
+                  {!leobogMacroIsKnownInput(step) ? (
+                    <option value={leobogMacroInputValue(step)}>
+                      {leobogMacroIsMouse(step)
+                        ? `${t(locale, "macro.whButton")} ${step.event.hidUsage}`
+                        : leobogMacroKeyLabel(step.event.hidUsage)}
+                    </option>
+                  ) : null}
+                  <optgroup label={t(locale, "macro.keyLabel")}>
+                    {LEOBOG_MACRO_KEY_CHOICES.map((choice) => (
+                      <option key={`key:${choice.usage}`} value={`key:${choice.usage}`}>{choice.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t(locale, "home.mouse")}>
+                    {LEOBOG_MACRO_MOUSE_CHOICES.map((choice) => (
+                      <option key={`mouse:${choice.button}`} value={`mouse:${choice.button}`}>
+                        {displayText(locale, choice.label)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
+              <label>{t(locale, "macro.colDelay")}
+                <input
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={step.delayMs}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: Math.min(65535, Math.max(0, Number(event.currentTarget.value) || 0)),
+                    event: { ...step.event },
+                  })}
+                />
+              </label>
+              <button
+                type="button"
+                className="ksnake-macro-delete"
+                disabled={disabled}
+                onClick={() => removeStep(index)}
+                aria-label={tp(locale, "macro.removeStep", { n: index + 1 })}
+                title={t(locale, "macro.removeStepTitle")}
+              >
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="setting-action ksnake-macro-actions">
+        <button type="button" onClick={addStep} disabled={disabled || steps.length >= LEOBOG_GM3_MACRO_MAX_STEPS}>
+          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.whAdd")}
+        </button>
+        <button
+          className="ksnake-macro-save"
+          type="button"
+          onClick={() => control.applyLeobogMacro(slot, name, steps)}
+          disabled={disabled}
+        >
+          <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.save")}
+        </button>
+      </div>
+      <small className="setting-note">{t(locale, "macro.noticeWriteOnly")}</small>
+    </article>
+  );
+}
+
+/**
  * Button remapping for drivers that publish a plain name -> action map. Stays
  * brand-agnostic: the driver supplies both the button list and the vocabulary,
  * so nothing here knows what a given mouse can do.
@@ -2653,6 +3019,10 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   const mappings = selectedM2NexProfile?.buttonMappings ?? status.buttonMappings;
   const pendingButtons = new Set(snapshot.pending.keys);
   const resettingButtons = pendingButtons.has("ksnake-button-reset");
+  // Drivers that publish their factory table get the generic restore button.
+  const canResetDefaults = status.defaultButtonMappings !== undefined && !selectedM2NexProfile;
+  const resettingDefaults = pendingButtons.has("button-defaults");
+  const showingDefaults = resettingButtons || resettingDefaults;
   // fixedButtons lands with mouse-protocol#68; read defensively so this
   // builds against the published protocol until then.
   const fixed = new Set((status as unknown as { fixedButtons?: readonly string[] }).fixedButtons ?? []);
@@ -2661,7 +3031,7 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
       <div className="setting-heading compact"><div><h2>{t(locale, "map.remap")}</h2></div></div>
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
-          const assigned = resettingButtons || pendingButtons.has(`button-${button}`)
+          const assigned = showingDefaults || pendingButtons.has(`button-${button}`)
             ? status.buttonMappings?.[button] ?? mappings[button] ?? deviceAssigned
             : mappings[button] ?? deviceAssigned;
           const selectId = `button-${button.toLowerCase()}-select`;
@@ -2697,14 +3067,24 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
           );
         })}
       </div>
-      {canResetKsnake ? (
+      {canResetKsnake || canResetDefaults ? (
         <div className="button-map-footer">
-          <button
-            type="button"
-            className="button-map-reset"
-            disabled={snapshot.settingInProgress || snapshot.pending.busy}
-            onClick={control.resetKsnakeButtonMappings}
-          > {displayText(locale, "Reset to default")} </button>
+          {canResetDefaults ? (
+            <button
+              type="button"
+              className="button-map-reset"
+              disabled={snapshot.settingInProgress || snapshot.pending.busy}
+              onClick={control.restoreDefaultButtonMappings}
+            > {displayText(locale, "Reset to default")} </button>
+          ) : null}
+          {canResetKsnake ? (
+            <button
+              type="button"
+              className="button-map-reset"
+              disabled={snapshot.settingInProgress || snapshot.pending.busy}
+              onClick={control.resetKsnakeButtonMappings}
+            > {displayText(locale, "Reset to default")} </button>
+          ) : null}
         </div>
       ) : null}
       {!selectedM2NexProfile ? (

@@ -1,7 +1,7 @@
 import { emptyKeyboardWorkspace } from "./keyboard-workspace.ts";
 import { track, deviceProps, scrubError } from "../platform/analytics";
 import type { KeyboardCommand } from "./keyboard-workspace.ts";
-import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../features/devices/battery-history";
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, HISTORY_ESTIMATE_MAX_AGE_MS, ratedBattery, recordBatterySample, type BatteryMode } from "../features/devices/battery-history";
 import { bridgeEmptyResultMessage, isBridgeHidActive } from "../features/bridge/bridge-hid";
 import { applyBridgeNativeSettings } from "../features/bridge/bridge";
 import { pollingRateText } from "../shared/polling-rate";
@@ -73,6 +73,7 @@ import type {
 import type { EggWeHidClient } from "@openmouse/protocol/drivers/endgame/egg-we-control";
 import type { AtkBitmouseHidClient } from "@openmouse/protocol/drivers/atk/bitmouse-hid";
 import type { AtkHidClient } from "@openmouse/protocol/drivers/atk/hid";
+import { ATK_R1_BUTTONS, atkButtonAction, type AtkR1MacroStepInput } from "@openmouse/protocol/atk";
 import type { LamzuAtlantisHidClient } from "@openmouse/protocol/drivers/lamzu-atlantis/hid";
 import type { LamzuHidClient } from "@openmouse/protocol/drivers/lamzu/hid";
 import type { LogitechHidppClient, OnboardProfile } from "@openmouse/protocol/drivers/logitech/hidpp";
@@ -93,6 +94,7 @@ import { ensureDriverModules, driverModules, type DriverModules } from "./driver
 import type { MagneticButtonStatus, MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import type { LeobogGm3MacroStep } from "@openmouse/protocol/leobog";
 import {
   cloneM2NexProfile,
   loadM2NexProfiles,
@@ -1332,6 +1334,29 @@ export function loadWallhackMacros(): void {
   })();
 }
 
+/**
+ * Stage one LEOBOG GM3 macro upload.
+ *
+ * The device answers no read for macros, so the editor is seeded from the last
+ * record this session uploaded rather than from the mouse — there is nothing
+ * to read back and confirm against.
+ */
+export function applyLeobogMacro(slot: number, name: string, steps: LeobogGm3MacroStep[]): void {
+  const snapshot = steps.map((step) => ({ ...step, event: { ...step.event } }));
+  stageChange({
+    key: `leobog-macro-${slot + 1}`,
+    label: `Macro ${slot + 1}`,
+    command: `Save GM3 macro ${slot + 1}`,
+    progress: `Saving GM3 macro ${slot + 1}…`,
+    apply: async () => {
+      const client = requireClientMethod("setMacro", "macro uploads") as unknown as {
+        setMacro(slot: number, name: string, steps: LeobogGm3MacroStep[]): Promise<unknown>;
+      };
+      await client.setMacro(slot, name, snapshot);
+    },
+  });
+}
+
 /** Stage one WALLHACK M-001 macro slot write (0-3). */
 export function applyWallhackMacroSlot(slot: number, steps: WallhackMacroStep[]): void {
   const client = wallhackMouseClient();
@@ -1444,9 +1469,10 @@ function stageChange(change: PendingChange): void {
     }
     for (const field of fields) gameProfileDraft.touched.add(field);
   }
-  // Reset repairs the profile cache too, so it must run even when the current
-  // hardware snapshot already appears to match the factory mapping.
-  if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
+  // Reset repairs the local copy and the profile cache, so it must run even
+  // when the current hardware snapshot already appears to match the mapping.
+  if (change.key !== "ksnake-button-reset" && change.key !== "button-defaults"
+    && matchesDeviceStatus(change)) {
     dropPendingChange(change.key);
     setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
     return;
@@ -2234,6 +2260,92 @@ export async function selectAtkR1Profile(profile: number): Promise<void> {
   }
 }
 
+export async function applyAtkR1ButtonAction(buttonId: string, actionId: string): Promise<void> {
+  const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (hasPendingChanges()) {
+    setReadStatus(st("ctl.atkPending"));
+    emit();
+    return;
+  }
+  const buttonIndex = ATK_R1_BUTTONS.findIndex((button) => button.id === buttonId);
+  const button = ATK_R1_BUTTONS[buttonIndex];
+  const action = atkButtonAction(actionId);
+  if (!button || !action) return;
+
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Setting ${button.label.toLowerCase()}…`);
+  emit();
+  recordDiagnosticCommand(`Set ${button.label} to ${action.label}`);
+  try {
+    await client.setR1ButtonAssignment(buttonIndex, actionId);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`${button.label} → ${action.label}`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, `Unable to update ${button.label.toLowerCase()}`);
+    const message = error instanceof Error ? error.message : "Unable to update the button assignment.";
+    setReadStatus(message);
+    pushToast("error", "Button update failed", message);
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+export async function applyAtkR1Macro(
+  buttonId: string,
+  steps: Array<{ kind: "key-down" | "key-up" | "wheel-up" | "wheel-down"; keyCode: number; holdTime: number }>,
+  options: { startType: number; runCount: number; macroId?: number },
+): Promise<void> {
+  const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (steps.length < 1) return;
+  const buttonIndex = ATK_R1_BUTTONS.findIndex((button) => button.id === buttonId);
+  const button = ATK_R1_BUTTONS[buttonIndex];
+  if (!button) return;
+
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Saving ${button.label.toLowerCase()} macro…`);
+  emit();
+  recordDiagnosticCommand(`Save ${button.label} macro with ${steps.length} steps`);
+  try {
+    await client.setR1ButtonMacro(buttonIndex, steps, options);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`${button.label} macro saved`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, `Unable to save ${button.label.toLowerCase()} macro`);
+    const message = error instanceof Error ? error.message : "Unable to save the macro.";
+    setReadStatus(message);
+    pushToast("error", "Macro save failed", message);
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+/** Read one ATK R1 macro slot for the macro editor. */
+export async function readAtkR1Macro(macroId: number): Promise<AtkR1MacroStepInput[]> {
+  const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
+  if (!client) throw new Error("Connect a supported ATK mouse before reading macros.");
+  recordDiagnosticCommand(`Read macro slot ${macroId + 1}`);
+  try {
+    return await client.readR1ButtonMacro(macroId);
+  } catch (error) {
+    recordDiagnosticError(error, `Unable to read macro slot ${macroId + 1}`);
+    throw error;
+  }
+}
+
 /**
  * ATK F1 Ultimate settings (sensor mode, anti-mistouch, dongle light) use the
  * shared staged flow: edits preview instantly and join the footer Apply bar
@@ -2551,7 +2663,8 @@ export function batteryEstimateParts(
   if (!mode) return null;
   const now = Date.now();
   const samples = cachedBatterySamples(localStorage, status.name, now);
-  const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now);
+  const estimate = estimateBatteryTime(samples, status.batteryPercent, mode, now)
+    ?? estimateBatteryTime(samples, status.batteryPercent, mode, now, HISTORY_ESTIMATE_MAX_AGE_MS);
   if (estimate) return { time: estimate, label: mode === "charging" ? t(locale, "bat.untilFull") : t(locale, "bat.remaining") };
   const ratedLife = mode === "discharging" ? ratedBattery(status.name) : null;
   const rated = ratedLife ? estimateFromRatedLife(status.batteryPercent, ratedLife, status.pollingRateHz) : null;
@@ -6715,6 +6828,42 @@ export function resetKsnakeButtonMappings(): void {
       // Firmware write acknowledgement is usable, but its map read-back is
       // not trustworthy; keep the selected local profile aligned with reset.
       syncActiveM2NexProfileButtonDefaults();
+    },
+  });
+}
+
+/**
+ * Restore the factory button assignments on any driver that publishes them
+ * (`status.defaultButtonMappings`) and implements `resetButtonMappings()`.
+ * Distinct from the K-snake reset above, which also repairs the local profile
+ * cache; a device with no readable table has nothing to cache.
+ */
+export function restoreDefaultButtonMappings(): void {
+  const defaults = latestDeviceStatus?.defaultButtonMappings;
+  if (!defaults) {
+    setReadStatus("Button defaults are not available on this firmware.");
+    emit();
+    return;
+  }
+  const client = active as unknown as Partial<{
+    resetButtonMappings(): Promise<unknown>;
+  }> | null;
+  if (typeof client?.resetButtonMappings !== "function") {
+    setReadStatus("Button defaults are not available on this firmware.");
+    emit();
+    return;
+  }
+  stageChange({
+    key: "button-defaults",
+    label: "Default button map",
+    command: "Restore default button mapping",
+    progress: "Restoring default button mapping…",
+    preview: (status) => {
+      if (!status.buttonMappings) return;
+      status.buttonMappings = { ...status.buttonMappings, ...defaults };
+    },
+    apply: async () => {
+      await client.resetButtonMappings!();
     },
   });
 }

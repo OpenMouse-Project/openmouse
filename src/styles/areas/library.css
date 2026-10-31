@@ -119,7 +119,7 @@
 #finalmouse-profiles .profile-rename { margin-top: 8px; }
 #finalmouse-profiles .profile-rename input { min-width: 0; flex: 1; }
 
-:is(#ksnake-macro-settings, #wallhack-macro-settings) { grid-column: 1 / -1; gap: 16px; }
+:is(#ksnake-macro-settings, #wallhack-macro-settings, #leobog-macro-settings) { grid-column: 1 / -1; gap: 16px; }
 .ksnake-macro-lead { margin-top: 4px; color: var(--text-3); font-size: var(--fs-meta); font-weight: 400; line-height: 1.5; }
 .ksnake-macro-notice { padding: 12px; background: var(--well); border-radius: var(--r-sm); color: var(--text-2); font-size: var(--fs-meta); line-height: 1.5; }
 .ksnake-macro-slot-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; color: var(--text-2); font-size: var(--fs-meta); }

@@ -273,6 +273,7 @@ test("angle tuning belongs to processing rather than creating a second power-mod
 test("ATK inspection cards require data actually read from the device", () => {
   const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
   assert.equal(empty.atkButtons, false);
+  assert.equal(empty.atkMacros, false);
   assert.equal(empty.atkProfile, false);
   assert.equal(empty.atkReceiver, false);
 
@@ -287,8 +288,19 @@ test("ATK inspection cards require data actually read from the device", () => {
     },
   }));
   assert.equal(inspected.atkButtons, true);
+  assert.equal(inspected.atkMacros, false);
   assert.equal(inspected.atkProfile, true);
   assert.equal(inspected.atkReceiver, true);
+
+  const r1Macro = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      name: "VXE R1 SE+",
+      ui: { family: "atk" },
+      atkButtonMappings: [{ id: "left" }] as never,
+    },
+  }));
+  assert.equal(r1Macro.atkMacros, true);
 });
 
 test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
@@ -738,4 +750,42 @@ test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profil
   assert.equal(cards.onboardProfiles, true);
   assert.equal(cards.sleep, false);
   assert.equal(cards.signal, false);
+});
+
+/**
+ * The GM3 publishes both settings from its vendor configuration block. Its
+ * advanced section comes from `ui.showAdvancedSection`, but the cards are
+ * gated on the traits table, so the family needs its own entry — without it
+ * the debounce card silently disappears even though the driver implements it.
+ */
+test("LEOBOG GM3 shows the debounce and auto-sleep cards", () => {
+  const status: Partial<MouseStatus> = {
+    brand: "LEOBOG",
+    ui: {
+      family: "leobog-gm3",
+      showAdvancedSection: true,
+      hideSignalCard: true,
+      hideProcessingCard: true,
+      hideLodLow: true,
+      hideSingleDpi: true,
+    },
+    debounceMs: 2,
+    sleepTimeout: 300,
+  };
+  const capabilities: Partial<DeviceCapabilities> = {
+    debounceOptions: [2, 4, 6, 8, 10, 12],
+    sleepOptions: [0, 60, 120, 180, 300, 600, 900, 1200],
+  };
+
+  const cards = cardAvailability(snapshot({ status, capabilities }));
+  assert.equal(cards.advancedHost, true);
+  assert.equal(cards.debounce, true);
+  assert.equal(cards.sleep, true);
+
+  // Regression guard: an unregistered family loses the debounce card.
+  const unregistered = cardAvailability(snapshot({
+    status: { ...status, ui: { ...status.ui, family: "unknown-family" } },
+    capabilities,
+  }));
+  assert.equal(unregistered.debounce, false);
 });

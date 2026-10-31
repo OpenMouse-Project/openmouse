@@ -166,6 +166,19 @@ previews, but it is deliberately not committed here. Before publishing the
 asset, Noir Gear must confirm redistribution rights or OpenMouse should use a
 maintainer-created silhouette instead.
 
+`leobog-gm3.png` — LEOBOG GM3, resolved by the reported name "LEOBOG GM3"
+(the wired `0x258a:0x0136` and the 2.4 GHz receiver `0x258a:0x0138` both report
+that name). Supplied by the device owner as a transparent 800×800 render; an
+earlier copy of the same file was a truncated q50 WebP whose right half was
+compression garbage and is not used. The render's own silhouette is hard-edged
+(no anti-aliasing, plus a few stray pixels along the outline), which reads as
+burrs on the dark device panel, so it was cleaned on import: largest connected
+blob, pinholes closed, alpha feathered, and the shell colour bled outward so
+the feathered edge cannot halo, then centred on a transparent 700×700 canvas
+like the other renders. **TEMPORARY checked-in copy**: served through the
+`LOCAL_OVERRIDES` map until a maintainer uploads it to R2. Vendor product
+art — request licensing review before publishing it.
+
 `noir-s1.png` is reserved for the NOIR S1 name-fallback mapping. The code PR
 does not include a vendor configurator render; request artwork separately via
 the Device artwork request template and confirm redistribution rights before

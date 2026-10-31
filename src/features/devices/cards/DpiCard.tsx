@@ -682,7 +682,10 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     || (Boolean(status?.ui?.dpiStageEditor)
       && Array.isArray(status?.dpiStages)
       && (status?.dpiStages?.length ?? 0) > 0);
-  const singleDpiAvailable = !isNoirS1Status(status) && !isNoirE1Status(status);
+  // A driver can say its DPI only exists as a stage table (LEOBOG GM3): then
+  // the Stages/Single pill and the custom-value box have nothing to edit.
+  const hideSingleDpi = status.ui?.hideSingleDpi === true;
+  const singleDpiAvailable = !hideSingleDpi && !isNoirS1Status(status) && !isNoirE1Status(status);
 
   const label = (source: typeof status): string => `${source.dpi.toLocaleString()} DPI`;
 
@@ -734,6 +737,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
               inputMode="numeric"
               value={snapshot.settingsPending ? "—" : snapshot.customDpiText}
               aria-label={t(locale, "dpi.value")}
+              hidden={hideSingleDpi}
               readOnly={!snapshot.customDpiEditing}
               onChange={(event) => control.setCustomDpiText(event.currentTarget.value)}
               onClick={() => {
@@ -753,7 +757,7 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
             <button
               id="custom-dpi"
               type="button"
-              hidden={slotsAvailable}
+              hidden={slotsAvailable || hideSingleDpi}
               disabled={snapshot.settingsPending || snapshot.dpiOptions.length === 0}
               onClick={() => (snapshot.customDpiEditing ? control.commitCustomDpi() : control.startCustomDpi())}
             >

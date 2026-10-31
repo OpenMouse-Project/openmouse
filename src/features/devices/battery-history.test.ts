@@ -37,6 +37,11 @@ test("battery estimate requires a recent continuous trend", () => {
 
   assert.equal(estimateBatteryTime(samples, 90, "discharging", 60 * 60 * 1000), "~9.0 hr");
   assert.equal(estimateBatteryTime(samples, 90, "discharging", 2 * 60 * 60 * 1000), null);
+  assert.equal(
+    estimateBatteryTime(samples, 90, "discharging", 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
+    "~9.0 hr",
+    "a reconnect gap must not discard the last complete trend",
+  );
 });
 
 test("cached battery samples serve renders without storage IO", () => {
@@ -54,6 +59,21 @@ test("cached battery samples load once from storage on cold start", () => {
   const samples = cachedBatterySamples(storage, "ColdMouse", 60_000);
   assert.equal(samples.length, 1);
   assert.equal(samples[0]?.percent, 75);
+});
+
+test("VXE R1 SE battery history follows its old receiver display name", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "ATK VXE Mouse 1K Dongle", 82, "discharging", 0);
+  saveBatterySample(storage, "ATK VXE Mouse 1K Dongle", 80, "discharging", 10 * 60 * 1000);
+
+  const samples = cachedBatterySamples(storage, "VXE R1 SE", 10 * 60 * 1000);
+  assert.deepEqual(samples.map((sample) => sample.percent), [82, 80]);
+  assert.equal(estimateBatteryTime(samples, 80, "discharging", 10 * 60 * 1000), "~6.7 hr");
+
+  recordBatterySample(storage, "VXE R1 SE", 79, "discharging", 20 * 60 * 1000);
+  const stored = JSON.parse(storage.getItem("openmouse-battery-history-v1") ?? "{}") as Record<string, unknown>;
+  assert.equal(stored["ATK VXE Mouse 1K Dongle"], undefined);
+  assert.equal((stored["VXE R1 SE"] as unknown[]).length, 3);
 });
 
 test("rated battery life is known for the Superstrike mice, whatever the spacing of the name", () => {
