@@ -1276,6 +1276,7 @@ export const vi: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "Phím bổ trợ",
   "kb.arbCatMedia": "Đa phương tiện",
   "kb.arbCatSpecial": "Đặc biệt",
+  "kb.arbCatOnboard": "Chức năng tích hợp",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap là tên Arbiter gọi cho xử lý SOCD: khi giữ cả hai phím của cặp, chỉ phím nhấn sau cùng được gửi. Chọn cặp phím bên dưới. Quy tắc chính xác, ví dụ khi nhả phím, chưa được xác nhận. Giá trị chế độ và cờ được ghi lại đúng như bàn phím đã báo.",
   "kb.arbSuperTapEnable": "Bật SuperTap",

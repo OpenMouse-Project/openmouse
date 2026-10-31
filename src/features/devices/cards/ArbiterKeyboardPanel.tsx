@@ -54,6 +54,7 @@ const CATEGORY_KEY: Record<ArbiterKeyCategory, Parameters<typeof t>[1]> = {
   modifiers: "kb.arbCatModifiers",
   media: "kb.arbCatMedia",
   special: "kb.arbCatSpecial",
+  onboard: "kb.arbCatOnboard",
 };
 
 function keyName(locale: InterfaceLocale, code: number): string {

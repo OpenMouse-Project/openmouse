@@ -1271,6 +1271,7 @@ export const ja: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "修飾キー",
   "kb.arbCatMedia": "メディア",
   "kb.arbCatSpecial": "特殊",
+  "kb.arbCatOnboard": "オンボード機能",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTapはArbiterによるSOCD処理の名称で、ペアの両方のキーを押している間は最後に押したキーだけが送信されます。ペアは下で選択します。離したときの動作など、正確なルールは未確認です。モードとフラグの値はキーボードが報告したままの値で書き戻します。",
   "kb.arbSuperTapEnable": "SuperTapを有効にする",

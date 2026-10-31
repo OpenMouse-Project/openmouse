@@ -1271,6 +1271,7 @@ export const es: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "Modificadoras",
   "kb.arbCatMedia": "Multimedia",
   "kb.arbCatSpecial": "Especiales",
+  "kb.arbCatOnboard": "Funciones integradas",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap es el nombre que da Arbiter al manejo de SOCD: mientras se mantienen las dos teclas del par, solo se envía la última pulsada. Elige el par abajo. La regla exacta, por ejemplo qué ocurre al soltar, no está confirmada. Los valores de modo e indicador se escriben tal como los informó el teclado.",
   "kb.arbSuperTapEnable": "Activar SuperTap",
