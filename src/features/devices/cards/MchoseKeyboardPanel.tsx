@@ -100,7 +100,7 @@ function IdentityCard({ snapshot, mchose, faulted, busy }: { snapshot: ControlSn
 
 /** The official setup whose key travel this profile holds exactly, or null when a key differs from every setup. */
 function matchingPreset(mchose: MchoseWorkspace): (typeof MCHOSE_TRAVEL_PRESETS)[number]["id"] | null {
-  if (mchose.travel.length === 0) return null;
+  if (mchose.travel.length === 0 || mchose.layout.length === 0) return null;
   const keys = mchose.layout.map((key) => [key.index, key.usage] as const);
   return MCHOSE_TRAVEL_PRESETS.find((entry) => mchoseTravelPresetUpdates(entry, keys).every((update) => {
     const key = mchose.travel[update.index];

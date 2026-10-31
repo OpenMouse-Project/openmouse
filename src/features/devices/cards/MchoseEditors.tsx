@@ -154,7 +154,9 @@ function slotLabel(mchose: MchoseWorkspace, layer: number, key: MchoseLayoutKey,
 
 /** A key's name in decks that are not about one layer: its Mac layer name while the keyboard uses the Mac layers. */
 export function deckLabel(mchose: MchoseWorkspace, key: MchoseLayoutKey): string {
-  return mchose.settings?.macMode ? slotLabel(mchose, 2, key, mchose.defaults[2]?.[key.index]) : key.label;
+  // Until the factory Mac layer is read there is no Mac name to give, so the key keeps its own.
+  const factory = mchose.settings?.macMode ? mchose.defaults[2]?.[key.index] : undefined;
+  return factory ? slotLabel(mchose, 2, key, factory) : key.label;
 }
 
 type Category = "none" | "key" | "shortcut" | "mouse" | "media" | "system" | "special" | "macro" | "disabled";
@@ -551,17 +553,28 @@ export function AdvancedCard({ locale, mchose, disabled }: { locale: InterfaceLo
  * Key test: lights up keys as the computer receives them, so a remapped key
  * shows what it sends. Runs only in the browser; nothing is written.
  */
+/** The HID usage a plain key action sends: its key, or the one modifier it holds. */
+function sentUsage(action: MchoseAction | undefined): number | null {
+  if (!action || action.type !== MCHOSE_ACTION_TYPE.key) return null;
+  if (action.code2) return action.code2;
+  const bit = MODIFIER_BITS_ALL.indexOf(action.code1);
+  return bit >= 0 ? 0xe0 + bit : null;
+}
+const MODIFIER_BITS_ALL = [1, 2, 4, 8, 16, 32, 64, 128];
+
 export function KeyTestCard({ locale, mchose }: { locale: InterfaceLocale; mchose: MchoseWorkspace; disabled: boolean }): ReactNode {
   const [down, setDown] = useState<ReadonlySet<number>>(new Set());
   const [log, setLog] = useState<readonly { label: string; down: boolean }[]>([]);
-  const byUsage = useMemo(() => new Map(mchose.layout.map((key) => [key.usage, key])), [mchose.layout]);
+  // Match what the computer receives to the key that sends it on the layer in use (Win and Alt swap on the Mac layers).
+  const layer = mchose.settings?.macMode ? 2 : 0;
+  const byUsage = useMemo(() => new Map(mchose.layout.map((key) => [sentUsage(mchose.keymap[layer]?.[key.index]) ?? key.usage, key])), [mchose.layout, mchose.keymap, layer]);
   useEffect(() => {
     const handle = (pressed: boolean) => (event: KeyboardEvent) => {
       // Typing in a field (a profile name, a macro delay) is not a key test.
       if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]")) return;
       const usage = MODIFIER_CODES[event.code] ?? hidKeyForCode(event.code);
       const key = usage === null || usage === undefined ? undefined : byUsage.get(usage);
-      const label = key?.label ?? event.code;
+      const label = key ? deckLabel(mchose, key) : event.code;
       if (event.repeat) return;
       setDown((current) => {
         const next = new Set(current);
@@ -577,7 +590,7 @@ export function KeyTestCard({ locale, mchose }: { locale: InterfaceLocale; mchos
     window.addEventListener("keyup", keyup);
     window.addEventListener("blur", clear);
     return () => { window.removeEventListener("keydown", keydown); window.removeEventListener("keyup", keyup); window.removeEventListener("blur", clear); };
-  }, [byUsage]);
+  }, [byUsage, mchose]);
   return (
     <article className="setting-card keyboard-workspace-card">
       <div className="setting-heading"><div>
