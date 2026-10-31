@@ -2,7 +2,7 @@ import { ARBITER_KEY_CODE, ARBITER_LIGHT_EFFECTS } from "@openmouse/keyboard-pro
 import { t, type I18nKey } from "../i18n/index.ts";
 import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 
-export type ArbiterKeyCategory = "letters" | "numbers" | "function" | "punctuation" | "navigation" | "modifiers" | "media" | "special";
+export type ArbiterKeyCategory = "letters" | "numbers" | "function" | "punctuation" | "navigation" | "modifiers" | "media" | "special" | "onboard";
 
 /** Vendor key codes are .NET `Keys` values; this names the ones a keyboard can carry. */
 const NAMED: Readonly<Record<number, string>> = {
@@ -13,9 +13,13 @@ const NAMED: Readonly<Record<number, string>> = {
   173: "Mute", 174: "Volume down", 175: "Volume up", 176: "Next track", 177: "Previous track", 179: "Play/pause",
   186: ";", 187: "=", 188: ",", 189: "-", 190: ".", 191: "/", 192: "`", 219: "[", 220: "\\", 221: "]", 222: "'", 226: "\\ (ISO)",
   [ARBITER_KEY_CODE.fnLayer]: "Fn", [ARBITER_KEY_CODE.fn]: "Fn", [ARBITER_KEY_CODE.superTap]: "SuperTap",
+  // Onboard Fn-layer functions of the PRO boards, decoded from the hardware:
+  // they drive keyboard features locally (lighting, game mode, reset).
+  148: "RGB mode", 202: "Color switch", 204: "Brightness up", 205: "Brightness down",
+  206: "Effect speed up", 207: "Effect speed down", 224: "Factory reset", 243: "Game mode",
 };
 
-/** Label for a key code, or null for a code the vendor gives no name (reserved FN codes). */
+/** Label for a key code, or null for a code no keyboard can carry. */
 export function arbiterKeyLabel(code: number): string | null {
   if (code === 0) return null;
   const named = NAMED[code];
@@ -36,6 +40,9 @@ export const ARBITER_KEY_CHOICES: Readonly<Record<ArbiterKeyCategory, readonly n
   modifiers: [160, 161, 162, 163, 164, 165, 91],
   media: [177, 179, 176, 173, 174, 175],
   special: [ARBITER_KEY_CODE.fn, ARBITER_KEY_CODE.superTap],
+  // Onboard Fn-layer functions (lighting, game mode, reset); assigning one
+  // maps the board's own function to the key.
+  onboard: [148, 202, 204, 205, 206, 207, 224, 243],
 };
 
 export const ARBITER_KEY_CATEGORIES = Object.keys(ARBITER_KEY_CHOICES) as ArbiterKeyCategory[];

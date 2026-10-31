@@ -1271,6 +1271,7 @@ export const zh: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "修饰键",
   "kb.arbCatMedia": "媒体",
   "kb.arbCatSpecial": "特殊",
+  "kb.arbCatOnboard": "板载功能",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap 是 Arbiter 对 SOCD 处理的称呼：一对按键同时按住时，只发送最后按下的那个键。请在下方选择按键对。松开时的具体行为等确切规则尚未确认。模式和标志值会按键盘报告的原值写回。",
   "kb.arbSuperTapEnable": "启用 SuperTap",

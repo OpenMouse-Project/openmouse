@@ -1269,6 +1269,7 @@ export const ar: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "مفاتيح التعديل",
   "kb.arbCatMedia": "الوسائط",
   "kb.arbCatSpecial": "خاصة",
+  "kb.arbCatOnboard": "وظائف مدمجة",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap هو اسم Arbiter لمعالجة SOCD: عند الضغط على مفتاحي الزوج معًا يُرسل آخر مفتاح تم الضغط عليه فقط. اختر الزوج أدناه. القاعدة الدقيقة، مثل ما يحدث عند الإفلات، غير مؤكدة. تُكتب قيم الوضع والعلم كما أبلغت بها لوحة المفاتيح.",
   "kb.arbSuperTapEnable": "تفعيل SuperTap",

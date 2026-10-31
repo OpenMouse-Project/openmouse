@@ -1379,6 +1379,7 @@ const en = {
   "kb.arbCatModifiers": "Modifiers",
   "kb.arbCatMedia": "Media",
   "kb.arbCatSpecial": "Special",
+  "kb.arbCatOnboard": "Onboard functions",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap is Arbiter's name for SOCD handling: while both keys of the pair are held, only the last one pressed is sent. Choose the pair below. The exact rule, such as what happens on release, is not confirmed. The mode and flag values are written back as the keyboard reported them.",
   "kb.arbSuperTapEnable": "Enable SuperTap",

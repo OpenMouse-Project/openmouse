@@ -1248,6 +1248,7 @@ export const tr: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "Değiştiriciler",
   "kb.arbCatMedia": "Medya",
   "kb.arbCatSpecial": "Özel",
+  "kb.arbCatOnboard": "Yerleşik işlevler",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap, Arbiter'ın SOCD işleme için kullandığı addır: çiftin iki tuşu da basılı tutulurken yalnızca en son basılan gönderilir. Çifti aşağıdan seçin. Bırakınca ne olduğu gibi kesin kural doğrulanmamıştır. Mod ve bayrak değerleri klavyenin bildirdiği gibi geri yazılır.",
   "kb.arbSuperTapEnable": "SuperTap'i etkinleştir",
