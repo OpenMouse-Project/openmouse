@@ -10,13 +10,13 @@ function device(usagePage = 0xffa0, usage = 1): HIDDevice {
   } as unknown as HIDDevice;
 }
 
-test("HB68 is discovered as a keyboard and only its command collection is offered", () => {
+test("HB68 is discovered as a keyboard and only its command collection is offered", async () => {
   const config = device(); const boot = device(1, 6); const stream = device(0xffa0, 2);
   assert.ok(createKeyboardClient(config) instanceof KochiKeyboardClient);
-  assert.equal(createSupportedClient(config), null);
+  assert.equal(await createSupportedClient(config), null);
   assert.equal(createKeyboardClient(boot), null);
   assert.equal(createKeyboardClient(stream), null);
-  assert.deepEqual(listLogicalDevices([boot, stream, config]), [config]);
+  assert.deepEqual(await listLogicalDevices([boot, stream, config]), [config]);
   assert.ok(HID_FILTERS.some(f => f.vendorId === 0x1ca2 && f.productId === 0x0901 && f.usagePage === 0xffa0 && f.usage === 1));
 });
 

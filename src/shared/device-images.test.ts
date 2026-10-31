@@ -347,3 +347,10 @@ test("Incott names do not collide with other brands' renders", () => {
   assert.equal(deviceImage(null, "G203 LIGHTSYNC"), CDN + "logitech-g203.png");
   assert.equal(deviceImage(null, "G303 SHROUD"), CDN + "logitech-g303.png");
 });
+
+test("Keychron Hall-effect keyboards get the local keyboard silhouette, not the mouse placeholder", () => {
+  for (const name of ["Keychron J3 HE ANSI", "Keychron Carbon 60 HE 8K", "Keychron J2 TMR", "Keychron J3 HE ANSI (preview)"]) {
+    assert.equal(deviceImage(null, name), "/devices/keychron-keyboard.svg", name);
+  }
+  assert.equal(deviceImage(null, "Keychron M6"), CDN + "keychron-m6.png");
+});

@@ -613,14 +613,15 @@ export function OverviewPage({
             tabs={status === null && snapshot.keyboard === null ? [] : visibleTabs}
             activeTab={workspaceTab}
             tabIcon={(tab) => <TabIcon tab={tab} />}
-          />
-          <div className="om-device-body" role="tabpanel" aria-labelledby={`workspace-tab-${workspaceTab}`}>
-            {status === null && snapshot.keyboard !== null ? (
-              <KeyboardPanel snapshot={workspaceSnapshot} />
-            ) : (
-              <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} onShareProfile={onShareProfile} />
-            )}
-          </div>
+          >
+            <div className="om-device-body" role="tabpanel" aria-labelledby={`workspace-tab-${workspaceTab}`}>
+              {status === null && snapshot.keyboard !== null ? (
+                <KeyboardPanel snapshot={workspaceSnapshot} />
+              ) : (
+                <Workspace snapshot={workspaceSnapshot} onOpenCapture={onOpenCapture} onShareProfile={onShareProfile} />
+              )}
+            </div>
+          </DeviceHero>
         </>
       ) : (
         <DevicesHome snapshot={snapshot} />

@@ -1,44 +1,71 @@
-import {
-  eggWeMergeLogicalDevices,
-} from "@openmouse/protocol/drivers/endgame/egg-we-control";
-import { collapseBoltPeers } from "@openmouse/protocol/drivers/logitech/bolt";
-import {
-  COBRA_PRODUCT_ID,
-  RazerCobraHidClient,
-} from "@openmouse/protocol/drivers/razer/cobra-hid";
-import { RazerHidClient, razerProbeControlInterface } from "@openmouse/protocol/drivers/razer/hid";
-import {
-  RazerViperHidClient,
-  VIPER_PRODUCT_ID,
-} from "@openmouse/protocol/drivers/razer/viper-hid";
-import {
-  RazerViperMiniHidClient,
-  VIPER_MINI_PRODUCT_ID,
-} from "@openmouse/protocol/drivers/razer/viper-mini-hid";
-import {
-  RazerViperV4ProHidClient,
-  VIPER_V4_PRO_PRODUCTS,
-} from "@openmouse/protocol/drivers/razer/viper-v4-pro-hid";
-import {
-  clientSupportScore as registryClientSupportScore,
-  createSupportedClient as registryCreateSupportedClient,
-  deviceBrand,
-  type PulsarClient,
-  type SupportedClient,
-} from "@openmouse/protocol/drivers/registry";
-import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
+import { ArbiterKeyboardClient } from "./arbiter-keyboard.ts";
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import type { KeyboardClient } from "./keyboard-client.ts";
 import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
+import { WootingKeyboardClient } from "./wooting-keyboard.ts";
+import { RazerKeyboardClient } from "./razer-keyboard.ts";
+import { LogitechKeyboardClient } from "./logitech-keyboard.ts";
+import { SteelSeriesKeyboardClient } from "./steelseries-keyboard.ts";
+import { KeychronKeyboardClient } from "./keychron-keyboard.ts";
+import { keychronHallEffectEnabled } from "./keychron-flag.ts";
+import { ViaKeyboardClient } from "./via-keyboard.ts";
+import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
-export { deviceBrand, type PulsarClient, type SupportedClient };
+export { type PulsarClient, type SupportedClient };
 
 type NativeBridgeDevice = HIDDevice & { openMouseTransport?: "bridge" };
 
+// The driver registry pulls in every vendor module (~1.2 MB minified) while a
+// session only ever talks to one of them. Loading it behind a dynamic import
+// keeps it out of the initial bundle; every caller here is already async, and
+// the promise is shared so parallel scans never double-fetch. Once loaded, the
+// registry's sync functions are used directly — no behavioural difference from
+// the old static wiring, only when the bytes arrive.
+type Registry = typeof import("@openmouse/protocol/drivers/registry");
 
-function bridgeRazerClient(device: HIDDevice): SupportedClient | null {
-  if ((device as NativeBridgeDevice).openMouseTransport !== "bridge"
-    || device.vendorId !== 0x1532) return null;
+let registryPromise: Promise<Registry> | null = null;
+
+function loadRegistry(): Promise<Registry> {
+  registryPromise ??= import("@openmouse/protocol/drivers/registry");
+  return registryPromise;
+}
+
+type RazerBridgeModules = typeof import("@openmouse/protocol/drivers/razer/hid")
+  & typeof import("@openmouse/protocol/drivers/razer/cobra-hid")
+  & typeof import("@openmouse/protocol/drivers/razer/viper-hid")
+  & typeof import("@openmouse/protocol/drivers/razer/viper-mini-hid")
+  & typeof import("@openmouse/protocol/drivers/razer/viper-v4-pro-hid")
+  & typeof import("@openmouse/protocol/razer-devices");
+
+let razerBridgePromise: Promise<RazerBridgeModules> | null = null;
+
+function loadRazerBridge(): Promise<RazerBridgeModules> {
+  razerBridgePromise ??= Promise.all([
+    import("@openmouse/protocol/drivers/razer/hid"),
+    import("@openmouse/protocol/drivers/razer/cobra-hid"),
+    import("@openmouse/protocol/drivers/razer/viper-hid"),
+    import("@openmouse/protocol/drivers/razer/viper-mini-hid"),
+    import("@openmouse/protocol/drivers/razer/viper-v4-pro-hid"),
+    import("@openmouse/protocol/razer-devices"),
+  ]).then(([hid, cobra, viper, viperMini, viperV4Pro, products]) => ({
+    ...hid, ...cobra, ...viper, ...viperMini, ...viperV4Pro, ...products,
+  }));
+  return razerBridgePromise;
+}
+
+function isBridgeRazer(device: HIDDevice): boolean {
+  return (device as NativeBridgeDevice).openMouseTransport === "bridge"
+    && device.vendorId === 0x1532;
+}
+
+function bridgeRazerClientFrom(device: HIDDevice, mods: RazerBridgeModules): SupportedClient | null {
+  const {
+    COBRA_PRODUCT_ID, RazerCobraHidClient,
+    RazerHidClient, RazerViperHidClient, VIPER_PRODUCT_ID,
+    RazerViperMiniHidClient, VIPER_MINI_PRODUCT_ID,
+    RazerViperV4ProHidClient, VIPER_V4_PRO_PRODUCTS,
+    RAZER_PRODUCTS,
+  } = mods;
   if (VIPER_V4_PRO_PRODUCTS.has(device.productId)) return new RazerViperV4ProHidClient(device);
   if (device.productId === COBRA_PRODUCT_ID) return new RazerCobraHidClient(device);
   if (device.productId === VIPER_PRODUCT_ID) return new RazerViperHidClient(device);
@@ -47,14 +74,26 @@ function bridgeRazerClient(device: HIDDevice): SupportedClient | null {
   return null;
 }
 
+async function bridgeRazerClient(device: HIDDevice): Promise<SupportedClient | null> {
+  if (!isBridgeRazer(device)) return null;
+  return bridgeRazerClientFrom(device, await loadRazerBridge());
+}
 
-export function createSupportedClient(device: HIDDevice): SupportedClient | null {
-  return registryCreateSupportedClient(device) ?? bridgeRazerClient(device);
+export async function createMouseClient(device: HIDDevice): Promise<SupportedClient | null> {
+  if (isBridgeRazer(device)) return bridgeRazerClient(device);
+  return (await loadRegistry()).createSupportedClient(device);
+}
+export async function createSupportedClient(device: HIDDevice): Promise<SupportedClient | null> {
+  if (createKeyboardClient(device)) return null;
+  return createMouseClient(device);
 }
 
 export async function prepareAutoConnectClient(client: SupportedClient): Promise<SupportedClient | null> {
-  if (!(client instanceof RazerHidClient)
-    || (client.device as NativeBridgeDevice).openMouseTransport !== "bridge") return client;
+  // Check the transport before loading the Razer modules: every non-bridge
+  // client takes this path on connect, and none of them is a Razer client.
+  if ((client.device as NativeBridgeDevice).openMouseTransport !== "bridge") return client;
+  const { RazerHidClient, razerProbeControlInterface } = await loadRazerBridge();
+  if (!(client instanceof RazerHidClient)) return client;
   // Bridge can expose a sibling with the same VID/PID that cannot answer commands.
   return razerProbeControlInterface([client.device]);
 }
@@ -62,7 +101,10 @@ export async function prepareAutoConnectClient(client: SupportedClient): Promise
 export type { KeyboardClient };
 
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
-  return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient;
+  return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
+    || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
+    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient
+    || client instanceof ViaKeyboardClient;
 }
 
 /**
@@ -71,24 +113,38 @@ export function isKeyboardClient(client: SupportedClient | KeyboardClient): clie
  * `MouseStatus` would surface mouse cards for a device that has none.
  */
 export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
+  if (WootingKeyboardClient.isSupported(device)) return new WootingKeyboardClient(device);
   if (KochiKeyboardClient.isSupported(device)) return new KochiKeyboardClient(device);
-  return WuqueKeyboardClient.isSupported(device) ? new WuqueKeyboardClient(device) : null;
+  if (WuqueKeyboardClient.isSupported(device)) return new WuqueKeyboardClient(device);
+  if (RazerKeyboardClient.isSupported(device)) return new RazerKeyboardClient(device);
+  if (LogitechKeyboardClient.isSupported(device)) return new LogitechKeyboardClient(device);
+  if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
+  if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
+  if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
+  if (ViaKeyboardClient.isSupported(device)) return new ViaKeyboardClient(device);
+  return null;
 }
 
-export function clientSupportScore(device: HIDDevice): number {
-  if (bridgeRazerClient(device) !== null) return 10_000;
-  // A Wuque board exposes a boot keyboard, a consumer-control and a mouse
-  // collection beside its vendor config interface. Only the vendor page answers
-  // commands, so it has to win the pick for the physical device.
-  if (createKeyboardClient(device) !== null) return 900;
-  return registryClientSupportScore(device);
+export async function clientSupportScore(device: HIDDevice): Promise<number> {
+  // Keyboard command interfaces win over generic mouse HID++/Razer registries.
+  if (createKeyboardClient(device)) return 900;
+  if (await bridgeRazerClient(device) !== null) return 10_000;
+  return (await loadRegistry()).clientSupportScore(device);
 }
 
-export function logicalDeviceGroups(devices: HIDDevice[] = []): HIDDevice[][] {
+export async function logicalDeviceGroups(devices: HIDDevice[] = []): Promise<HIDDevice[][]> {
+  const [registry, razer, { collapseBoltPeers }, { eggWeMergeLogicalDevices }] = await Promise.all([
+    loadRegistry(),
+    loadRazerBridge(),
+    import("@openmouse/protocol/drivers/logitech/bolt"),
+    import("@openmouse/protocol/drivers/endgame/egg-we-control"),
+  ]);
   const merged = collapseBoltPeers(
     eggWeMergeLogicalDevices(
       devices,
-      (device) => createSupportedClient(device) !== null || createKeyboardClient(device) !== null,
+      (device) => registry.createSupportedClient(device) !== null
+        || (isBridgeRazer(device) && bridgeRazerClientFrom(device, razer) !== null)
+        || createKeyboardClient(device) !== null,
     ),
   );
   const byPhysicalDevice = new Map<string, HIDDevice[]>();
@@ -120,11 +176,22 @@ function physicalDeviceKey(device: HIDDevice): string {
   return `${device.vendorId}:${device.productId}:${device.productName ?? ""}`;
 }
 
-export function pickLogicalDevice(group: HIDDevice[]): HIDDevice {
-  return group.reduce((best, device) => (clientSupportScore(device) > clientSupportScore(best) ? device : best));
+export async function pickLogicalDevice(group: HIDDevice[]): Promise<HIDDevice> {
+  const scores = await Promise.all(group.map((device) => clientSupportScore(device)));
+  let bestIndex = 0;
+  for (let index = 1; index < group.length; index += 1) {
+    if (scores[index]! > scores[bestIndex]!) bestIndex = index;
+  }
+  return group[bestIndex]!;
 }
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
-export function listLogicalDevices(devices: HIDDevice[] = []): HIDDevice[] {
-  return logicalDeviceGroups(devices).map(pickLogicalDevice);
+export async function listLogicalDevices(devices: HIDDevice[] = []): Promise<HIDDevice[]> {
+  const groups = await logicalDeviceGroups(devices);
+  return Promise.all(groups.map((group) => pickLogicalDevice(group)));
+}
+
+/** Brand label for a connected client; the registry answers once loaded. */
+export async function deviceBrand(client: SupportedClient): Promise<string> {
+  return (await loadRegistry()).deviceBrand(client);
 }

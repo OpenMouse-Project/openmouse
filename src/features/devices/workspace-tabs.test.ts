@@ -4,9 +4,16 @@ import test from "node:test";
 import type { CardAvailability } from "./cards/availability.ts";
 import { availableKeyboardWorkspaceTabs, availableWorkspaceTab, availableWorkspaceTabs } from "./workspace-tabs.ts";
 
-test("HB68 exposes only system mode; existing keyboard tabs remain available", () => {
+test("HB68 exposes only system mode; Wooting exposes key tuning and global settings", () => {
   assert.deepEqual(availableKeyboardWorkspaceTabs("kochi"), ["overview"]);
+  assert.deepEqual(availableKeyboardWorkspaceTabs("arbiter"), ["overview", "performance", "buttons", "lighting"]);
   assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("kochi")), "overview");
+  assert.deepEqual(availableKeyboardWorkspaceTabs("keychron"), ["overview", "performance", "buttons", "profiles", "advanced"]);
+  assert.equal(availableWorkspaceTab("lighting", availableKeyboardWorkspaceTabs("keychron")), "overview");
+  assert.equal(availableWorkspaceTab("advanced", availableKeyboardWorkspaceTabs("keychron")), "advanced");
+  assert.deepEqual(availableKeyboardWorkspaceTabs("wooting"), ["overview", "performance", "lighting", "profiles", "advanced"]);
+  assert.equal(availableWorkspaceTab("buttons", availableKeyboardWorkspaceTabs("wooting")), "overview");
+  assert.equal(availableWorkspaceTab("performance", availableKeyboardWorkspaceTabs("wooting")), "performance");
   assert.ok(availableKeyboardWorkspaceTabs("wuque").includes("performance"));
   assert.ok(availableKeyboardWorkspaceTabs().includes("lighting"));
 });

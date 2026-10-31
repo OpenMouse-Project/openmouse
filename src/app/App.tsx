@@ -1,25 +1,37 @@
 import { displayText } from "../i18n/index";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { ensureDisplayLocale } from "../i18n/index";
 import { interfaceThemeSlug } from "../features/settings/interface-preferences";
 import { AppSidebar, type DesktopPage } from "./AppSidebar";
 import { OverviewPage } from "../features/devices/OverviewPage";
-import { CaptureDialog } from "../features/capture/CaptureDialog";
-import { GamesPage } from "../features/games/GamesPage";
-import { HardwareTestPage } from "../features/hardware-test/HardwareTestPage";
-import { InterfaceSettings } from "../features/settings/InterfaceSettings";
 import { NewsBanner } from "../features/news/NewsBanner";
+import { BridgeManualUpdate } from "../features/bridge/BridgeManualUpdate";
 import { PendingBar } from "./PendingBar";
 import { HelpPanel } from "./HelpPanel";
-import { ShareProfileDialog } from "../features/profiles/ShareProfileDialog";
-import { WhatsNewDialog } from "../features/news/WhatsNewDialog";
 import { ToastHost } from "./Toasts";
 import { useBridgeBatteryReporter } from "../features/bridge/useBridgeBatteryReporter";
 import { useBridgeProfileApplier } from "../features/bridge/useBridgeProfileApplier";
 import { useControl } from "./useControl";
 import { setSoundsEnabled } from "../platform/sound-manager";
 import { UiLocaleContext } from "../shared/ui-locale";
+import { AsciiField } from "../shared/AsciiField";
+
+// Secondary pages and dialogs load on demand: the control panel's first paint
+// is the device view, so nothing behind a tab or a button belongs in the
+// initial bundle. Each boundary below removed its module from main.js.
+const InterfaceSettings = lazy(() =>
+  import("../features/settings/InterfaceSettings").then((m) => ({ default: m.InterfaceSettings })));
+const HardwareTestPage = lazy(() =>
+  import("../features/hardware-test/HardwareTestPage").then((m) => ({ default: m.HardwareTestPage })));
+const GamesPage = lazy(() =>
+  import("../features/games/GamesPage").then((m) => ({ default: m.GamesPage })));
+const CaptureDialog = lazy(() =>
+  import("../features/capture/CaptureDialog").then((m) => ({ default: m.CaptureDialog })));
+const ShareProfileDialog = lazy(() =>
+  import("../features/profiles/ShareProfileDialog").then((m) => ({ default: m.ShareProfileDialog })));
+const WhatsNewDialog = lazy(() =>
+  import("../features/news/WhatsNewDialog").then((m) => ({ default: m.WhatsNewDialog })));
 
 const SIDEBAR_KEY = "openmouse-sidebar-collapsed-v1";
 
@@ -159,6 +171,7 @@ export function App(): ReactNode {
       ].filter(Boolean).join(" ")}
       data-interface-theme={interfaceThemeSlug(preferences.theme)}
     >
+      <AsciiField theme={interfaceThemeSlug(preferences.theme)} reducedMotion={preferences.reducedMotion} />
       <AppSidebar
         snapshot={snapshot}
         page={resolvedPage}
@@ -170,21 +183,24 @@ export function App(): ReactNode {
       />
 
       <main className="om-main full-desktop-main">
+        <BridgeManualUpdate locale={locale} />
         <NewsBanner locale={locale} />
         <div className="om-content full-desktop-content" ref={panel}>
-          {showingSettings ? (
-            <InterfaceSettings snapshot={snapshot} />
-          ) : page === "hardware-test" ? (
-            <HardwareTestPage snapshot={snapshot} />
-          ) : showingGames ? (
-            <GamesPage snapshot={snapshot} />
-          ) : (
-            <OverviewPage
-              snapshot={snapshot}
-              onOpenCapture={() => setCaptureOpen(true)}
-              onShareProfile={() => setShareProfileOpen(true)}
-            />
-          )}
+          <Suspense fallback={null}>
+            {showingSettings ? (
+              <InterfaceSettings snapshot={snapshot} />
+            ) : page === "hardware-test" ? (
+              <HardwareTestPage snapshot={snapshot} />
+            ) : showingGames ? (
+              <GamesPage snapshot={snapshot} />
+            ) : (
+              <OverviewPage
+                snapshot={snapshot}
+                onOpenCapture={() => setCaptureOpen(true)}
+                onShareProfile={() => setShareProfileOpen(true)}
+              />
+            )}
+          </Suspense>
           <p className="app-live-region" role="status" aria-live="polite">
             {displayText(locale, snapshot.readStatus)}
           </p>
@@ -192,9 +208,21 @@ export function App(): ReactNode {
         <PendingBar snapshot={snapshot} />
       </main>
 
-      <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
-      <WhatsNewDialog open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} locale={locale} />
-      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
+      {captureOpen ? (
+        <Suspense fallback={null}>
+          <CaptureDialog open onClose={() => setCaptureOpen(false)} locale={locale} />
+        </Suspense>
+      ) : null}
+      {whatsNewOpen ? (
+        <Suspense fallback={null}>
+          <WhatsNewDialog open onClose={() => setWhatsNewOpen(false)} locale={locale} />
+        </Suspense>
+      ) : null}
+      {shareProfileOpen ? (
+        <Suspense fallback={null}>
+          <ShareProfileDialog open onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
+        </Suspense>
+      ) : null}
       <HelpPanel locale={locale} />
       <ToastHost toasts={snapshot.toasts} locale={locale} />
     </div>

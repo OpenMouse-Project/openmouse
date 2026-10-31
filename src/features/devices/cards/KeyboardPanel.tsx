@@ -1,11 +1,18 @@
 import { displayText } from "../../../i18n/index";
+import { ArbiterKeyboardPanel } from "./ArbiterKeyboardPanel";
 import { KochiKeyboardPanel } from "./KochiKeyboardPanel";
+import { WootingKeyboardPanel } from "./WootingKeyboardPanel";
 import { KeyboardWorkspaceCards } from "./KeyboardWorkspaceCards";
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import * as control from "../../../device/controller";
 import type { ControlSnapshot, KeyboardTriggerKey } from "../../../device/types";
 import { t, tp } from "../../../i18n/index";
 import { RateSlider, StepperSlider } from "../../../shared/ui";
+const KeychronKeyboardPanel = lazy(() => import("./KeychronKeyboardPanel").then(({ KeychronKeyboardPanel }) => ({ default: KeychronKeyboardPanel })));
+const RazerKeyboardPanel = lazy(() => import("./RazerKeyboardPanel").then(({ RazerKeyboardPanel }) => ({ default: RazerKeyboardPanel })));
+const LogitechKeyboardPanel = lazy(() => import("./LogitechKeyboardPanel").then(({ LogitechKeyboardPanel }) => ({ default: LogitechKeyboardPanel })));
+const ViaKeyboardPanel = lazy(() => import("./ViaKeyboardPanel").then(({ ViaKeyboardPanel }) => ({ default: ViaKeyboardPanel })));
+const SteelSeriesKeyboardPanel = lazy(() => import("./SteelSeriesKeyboardPanel").then(({ SteelSeriesKeyboardPanel }) => ({ default: SteelSeriesKeyboardPanel })));
 
 const TRAVEL = { min: 0.1, max: 4, step: 0.1, scale: ["0.1", "", "4.0"] as const };
 const RAPID_TRIGGER = { min: 0.1, max: 2, step: 0.1, scale: ["0.1", "", "2.0"] as const };
@@ -24,6 +31,13 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
   const keyboard = snapshot.keyboard;
   if (!keyboard) return null;
   if (keyboard.family === "kochi") return <KochiKeyboardPanel snapshot={snapshot} />;
+  if (keyboard.family === "keychron") return <Suspense fallback={null}><KeychronKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "wooting") return <WootingKeyboardPanel snapshot={snapshot} />;
+  if (keyboard.family === "razer") return <Suspense fallback={null}><RazerKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "logitech") return <Suspense fallback={null}><LogitechKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "steelseries") return <Suspense fallback={null}><SteelSeriesKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "arbiter") return <ArbiterKeyboardPanel snapshot={snapshot} />;
+  if (keyboard.family === "via") return <Suspense fallback={null}><ViaKeyboardPanel snapshot={snapshot} /></Suspense>;
   const locale = snapshot.preferences.locale;
   const { identity, polling, trigger } = keyboard;
   const busy = trigger.busy;

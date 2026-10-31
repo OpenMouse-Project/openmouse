@@ -23,7 +23,13 @@ export interface BridgeStatus {
   clientConnected: boolean;
 }
 
-export interface BridgeApplication {
+export interface BridgeTargetMetadata {
+  activation?: "running" | "focused";
+  bundlePath?: string;
+  bundleIdentifier?: string;
+}
+
+export interface BridgeApplication extends BridgeTargetMetadata {
   name: string;
   executable: string;
   path: string;
@@ -31,12 +37,16 @@ export interface BridgeApplication {
   iconId: string;
 }
 
+export function bridgeIconUrl(iconId: string): string {
+  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(iconId)}/icon`;
+}
+
 export function bridgeApplicationIconUrl(application: BridgeApplication): string {
-  return `${BRIDGE_URL}/v1/applications/${encodeURIComponent(application.iconId)}/icon`;
+  return bridgeIconUrl(application.iconId);
 }
 
 export interface BridgeProfile {
-  application: Pick<BridgeApplication, "name" | "executable" | "path">;
+  application: Pick<BridgeApplication, "name" | "executable" | "path"> & BridgeTargetMetadata & { localId?: string };
   device: { id: string; name: string };
   /**
    * False keeps the profile stored without Bridge ever matching it (the
@@ -56,9 +66,45 @@ export interface BridgeProfile {
   };
 }
 
-export interface BridgeGame {
+export interface BridgeGame extends BridgeTargetMetadata {
   name: string;
   executables: string[];
+  id?: string;
+  source?: "preset" | "local";
+  path?: string;
+  kind?: "game" | "app";
+  /** Bridge's icon for a local target; missing from older Bridge builds. */
+  iconId?: string;
+}
+
+export interface LocalApplication extends BridgeTargetMetadata {
+  id: string;
+  name: string;
+  executable: string;
+  path: string;
+  kind: "game" | "app";
+  /** Read-only: Bridge derives it from the path, so it is never sent back. */
+  iconId?: string;
+}
+
+export class BridgeHttpError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`Bridge returned HTTP ${status}.`);
+    this.status = status;
+  }
+}
+
+export async function bridgeLocalApplications(signal?: AbortSignal): Promise<LocalApplication[]> {
+  return bridgeRequest<LocalApplication[]>("/v1/local-applications", undefined, signal);
+}
+
+export async function saveBridgeLocalApplications(applications: LocalApplication[]): Promise<void> {
+  await bridgeRequest("/v1/local-applications", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ applications: applications.map(({ iconId: _iconId, ...application }) => application) }),
+  });
 }
 
 export async function bridgeStatus(signal?: AbortSignal): Promise<BridgeStatus> {
@@ -98,6 +144,11 @@ export async function saveBridgeProfiles(profiles: BridgeProfile[]): Promise<voi
   });
 }
 
+/** The profile Bridge uses whenever no game's is active, or null when none is saved. */
+export async function bridgeDefaultProfile(signal?: AbortSignal): Promise<BridgeProfile | null> {
+  return bridgeRequest<BridgeProfile | null>("/v1/default-profile", undefined, signal);
+}
+
 export async function saveBridgeDefaultProfile(profile: BridgeProfile): Promise<void> {
   await bridgeRequest("/v1/default-profile", {
     method: "PUT",
@@ -112,6 +163,11 @@ export interface BridgeBatteryReading {
   deviceName: string;
   percent: number;
   charging: boolean;
+  /** The settings currently in the mouse's onboard memory, when the panel
+   * can see them — Bridge's tray panel shows them next to the battery. */
+  dpi?: number;
+  pollingRateHz?: number;
+  switchMode?: string;
 }
 
 export async function saveBridgeBattery(
@@ -158,6 +214,6 @@ async function bridgeRequest<T>(
     ...init,
     signal: combined,
   });
-  if (!response.ok) throw new Error(`Bridge returned HTTP ${response.status}.`);
+  if (!response.ok) throw new BridgeHttpError(response.status);
   return await response.json() as T;
 }

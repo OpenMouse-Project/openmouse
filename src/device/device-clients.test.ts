@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { describeHidDevice } from "./hid-diagnostics.ts";
-import { createSupportedClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
+import { createKeyboardClient, createMouseClient, createSupportedClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
 
 function supportedWebHidDevice(options: {
   vendorId?: number;
@@ -54,7 +54,7 @@ test("HID diagnostics include device IDs and report collections", () => {
   );
 });
 
-test("native Bridge exposes Razer transports without widening WebHID", () => {
+test("native Bridge exposes Razer transports without widening WebHID", async () => {
   const products = [
     { productName: "Razer Viper Ultimate", productId: 0x007b },
     { productName: "Razer DeathAdder V3 HyperSpeed", productId: 0x00c5 },
@@ -73,40 +73,40 @@ test("native Bridge exposes Razer transports without widening WebHID", () => {
       openMouseTransport: "bridge",
     } as unknown as HIDDevice;
 
-    assert.equal(createSupportedClient(browserDevice), null);
-    assert.notEqual(createSupportedClient(bridgeDevice), null);
+    assert.equal(await createSupportedClient(browserDevice), null);
+    assert.notEqual(await createSupportedClient(bridgeDevice), null);
   }
 });
 
-test("WebHID top-level collections of one mouse collapse to a single card", () => {
+test("WebHID top-level collections of one mouse collapse to a single card", async () => {
   const devices = [
     supportedWebHidDevice(),
     supportedWebHidDevice(),
     supportedWebHidDevice(),
   ];
 
-  assert.equal(logicalDeviceGroups(devices).length, 1);
-  assert.equal(listLogicalDevices(devices).length, 1);
+  assert.equal((await logicalDeviceGroups(devices)).length, 1);
+  assert.equal((await listLogicalDevices(devices)).length, 1);
 });
 
-test("identical WebHID mice with distinct product names stay separate cards", () => {
+test("identical WebHID mice with distinct product names stay separate cards", async () => {
   const devices = [
     supportedWebHidDevice({ productName: "Mouse One" }),
     supportedWebHidDevice({ productName: "Mouse Two" }),
   ];
 
-  const groups = logicalDeviceGroups(devices);
+  const groups = await logicalDeviceGroups(devices);
   assert.equal(groups.length, 2);
-  assert.equal(listLogicalDevices(devices).length, 2);
+  assert.equal((await listLogicalDevices(devices)).length, 2);
 });
 
-test("Bridge devices keep their native per-physical-device identity", () => {
+test("Bridge devices keep their native per-physical-device identity", async () => {
   // Bridge already groups report paths on its side; two identical receivers
   // are still distinct physical devices and must not be merged again.
   const devices = [bridgeDevice("hid-1"), bridgeDevice("hid-2")];
 
-  assert.equal(logicalDeviceGroups(devices).length, 2);
-  assert.equal(listLogicalDevices(devices).length, 2);
+  assert.equal((await logicalDeviceGroups(devices)).length, 2);
+  assert.equal((await listLogicalDevices(devices)).length, 2);
 });
 
 function answeringBridgeRazer(key: string, answers: boolean, usages = [[0x01, 0x02]]): HIDDevice {
@@ -139,7 +139,7 @@ test("automatic Bridge selection rejects a dead Razer sibling without closing th
   const working = answeringBridgeRazer("working", true);
   await working.open();
   const sibling = answeringBridgeRazer("sibling", false, [[0x01, 0x80], [0x0c, 0x01]]);
-  const candidate = createSupportedClient(sibling);
+  const candidate = await createSupportedClient(sibling);
   assert.ok(candidate);
 
   assert.equal(await prepareAutoConnectClient(candidate), null);
@@ -152,7 +152,7 @@ test("automatic Bridge selection keeps answering Razer interfaces regardless of 
   t.after(() => Reflect.deleteProperty(globalThis, "window"));
   for (const usages of [[[0x01, 0x02]], [[0x0c, 0x01]], []]) {
     const device = answeringBridgeRazer("working", true, usages);
-    const candidate = createSupportedClient(device);
+    const candidate = await createSupportedClient(device);
     assert.ok(candidate);
     const prepared = await prepareAutoConnectClient(candidate);
     assert.ok(prepared);
@@ -167,8 +167,27 @@ test("automatic selection leaves specialized Razer and WebHID clients on their e
     { ...bridgeDevice("v4"), productId: 0x00e5 },
     supportedWebHidDevice(),
   ]) {
-    const client = createSupportedClient(device as HIDDevice);
+    const client = await createSupportedClient(device as HIDDevice);
     assert.ok(client);
     assert.equal(await prepareAutoConnectClient(client), client);
   }
+});
+
+test("a shared Logitech receiver routes keyboard-first with the mouse registry intact", async () => {
+  const receiver = {
+    productName: "LIGHTSPEED receiver",
+    vendorId: 0x046d,
+    productId: 0xc539,
+    collections: [{ usagePage: 0xff00, usage: 2, inputReports: [], outputReports: [], featureReports: [], children: [] }],
+    opened: false,
+  } as unknown as HIDDevice;
+  // The keyboard matcher claims every receiver interface by VID/PID + HID++
+  // collection, so sidebar/connect ordering stays keyboard-first for issue #1282.
+  assert.ok(createKeyboardClient(receiver));
+  assert.equal(await createSupportedClient(receiver), null);
+  // A mouse-only pairing has no keyboard behind the receiver: the activation
+  // fallback in activateKeyboardClientNow uses this to reconnect it as a mouse.
+  const mouse = await createMouseClient(receiver);
+  assert.ok(mouse);
+  assert.equal(mouse.device, receiver);
 });

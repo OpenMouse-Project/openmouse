@@ -224,7 +224,9 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "via";
+  /** True when the driver marked the session unusable; reconnect before retrying. */
+  faulted?: boolean;
   name: string;
   vendorId: number;
   productId: number;
@@ -331,6 +333,8 @@ export interface ControlSnapshot {
   pending: PendingView;
   /** True while the Games page is editing a game profile: edits are staged into a draft that is never flashed. */
   gameProfileDraft: boolean;
+  /** The report rate a game profile being edited keeps for each connection. */
+  gameProfileRates: { wireless?: number; wired?: number };
   diagnostics: DiagnosticsView;
   diagnosticsOpen: boolean;
   captureAvailable: boolean;

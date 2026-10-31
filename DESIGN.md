@@ -9,8 +9,9 @@ precise, instrument-like. Dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 ## Principles
 
-- **The device is the hero.** Product renders sit on a lit stage (a dark well with one soft
-  accent light behind the mouse). Everything else is quiet chrome.
+- **The device is the hero.** On its settings page, simple name and connection information sit
+  above the standalone contained mouse image, directly on the page canvas with no card or stage.
+  Device-shelf blocks retain their own existing artwork treatment.
 - **Numbers first.** Settings read as figures: label above, value, unit after, meta under. All
   numbers are tabular.
 - **Colour means something.** The accent (from the user's theme) marks the active place, the
@@ -25,9 +26,10 @@ precise, instrument-like. Dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 | Layer | Recipe |
 |---|---|
-| Ground | `--ground`: page ink plus one soft accent light from the top right. Painted once on the shell. |
+| Ground | `--ground`: flat page ink, matching Desktop. The shared ASCII is the single background identity motif. |
+| ASCII field | `shared/AsciiField.tsx`: the Desktop app's glow field, top right, under the sidebar and main column. Decorative (`aria-hidden`, no pointer events). |
 | Chrome | Sidebar on `--ink-0` with a hairline edge. |
-| Panel | `.om-panel` (or the legacy `.setting-card`): `--sheen` over `--surface-1`, `--lit` edge, `--r-md`. Featured panel: `.om-panel.is-lit` (one or two per page). |
+| Panel | `.om-panel` (or the legacy `.setting-card`): `--sheen` over `--surface-1` over `--ink-1` (opaque, so the ASCII field never shows through), `--lit` edge, `--r-md`. Featured panel: `.om-panel.is-lit` (one or two per page). |
 | Row | Inside a panel: hairline `--line-1` separators. Don't nest panels. |
 | Well | Inset areas (segmented controls, inputs, render stages): `--well` + `--inset-shadow`. |
 | Raised | Buttons, the selected segment key, switch thumb: `--btn` / `--key`. |
@@ -35,13 +37,13 @@ precise, instrument-like. Dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 ## App layout
 
-- **Sidebar** (`AppSidebar.tsx`, 248px, collapsible to a 68px icon rail, remembered):
+- **Sidebar** (`AppSidebar.tsx`, 248px, collapsible to a 68px icon rail, remembered; nav rows 36px, radius 6, 10px inline padding, 13/500):
   brand + build; Devices, Hardware test, Games (without Bridge it lists the supported games under a download-Bridge panel); "Your devices" switcher
   (thumbnail, name, battery icon + percent or "Not connected"); footer: Docs ↗, What's new,
   Help & feedback (Discord), Settings; Bridge status line, which opens a small card with Bridge's
   status, update notice and download link (`features/bridge/BridgeStatus.tsx`).
-- **Main column**: news strip on top, then the scrolling page (`.om-content` > `.om-page`, max
-  1160px). The pending-changes bar floats at the bottom of the main column. A help button floats
+- **Main column**: news strip on top, then the scrolling page (`.om-content` > `.om-page`: 28px
+  top and 32px side padding around a content box of at most 1160px). The pending-changes bar floats at the bottom of the main column. A help button floats
   bottom right and opens a small panel of common questions with instant answers, plus links to
   the site FAQ and Discord (`app/HelpPanel.tsx`).
 - **Devices home** (`features/devices/DevicesHome.tsx`): a swipeable shelf of device blocks, each
@@ -51,9 +53,12 @@ precise, instrument-like. Dial ENERGY 1 / RHYTHM 2 / MOTION 1.
   middle of the page and centres when it doesn't fill the width. No devices: the same shelf with
   only the Add device block, larger, in the middle of the page; its button becomes the primary
   action.
-- **Device page** (`features/devices/DeviceHero.tsx`): hero (render stage, breadcrumb, name, connection line, stats
-  with icons) with the section tabs bolted under it as one unit. Overview: Current setup figures +
-  DPI stage chips, Battery over time chart (recorded samples), Firmware.
+- **Device page** (`features/devices/DeviceHero.tsx`): the device rail on the left (breadcrumb, name,
+  "Connected" + connection type, then the contained render alone on the page, no stage), the
+  workspace beside it (tabs in a 40px well, then the panels). The rail is 280px when the page's
+  content box is at least 1000px wide, 220px from 760px, and stacks above the tabs below that
+  (container query on `.om-device-page`); 16px gap. Overview: Current setup figures + DPI stage
+  chips, Battery over time chart (recorded samples), Firmware.
 - **Setting cards** flow in a masonry column layout (`CardSlot`, `styles/instrument.css`) so there
   are no holes; every card heading carries a glyph, and feature switches are tiles
   (`SwitchRow` in `shared/ui.tsx`).
@@ -86,14 +91,23 @@ No component may fork on a theme name.
 
 ## Type
 
-- DM Sans for everything; JetBrains Mono only for raw identifiers, hex and HID logs.
-- Scale: page title 22, panel title 15, body 13, meta 12, small 11. Figures 28–30 at 650.
-- Sentence case everywhere. No uppercase tracked labels. Weights 400–650.
+- DM Sans for everything, self-hosted from `public/fonts/DMSans-Variable.ttf` (SIL OFL 1.1, licence
+  and source record beside it), pinned to optical size 14 (`--font-opsz`) so it renders the same
+  named instance as the Desktop app. JetBrains Mono only for raw identifiers, hex and HID logs.
+  The ASCII field uses Cascadia Mono 11/500 at a 15.4px line.
+- Scale: page title 22, panel title 15, body 13, meta 12, small 11. Figures 30 at 600.
+- Sentence case everywhere. No uppercase tracked labels. Weights 400–600 (the Desktop renderer
+  only has the 100-step named instances), no negative tracking on titles or figures.
 
 ## Shape and space
 
 - Radii: 3 (chips), 6 (controls, rows), 10 (panels, wells), 14 (hero, device blocks, dialogs).
-- Spacing on a 4px grid. Panel padding 16–18px; gaps between panels 16px; rows ≥ 40px.
+- Spacing on a 4px grid. Panel padding 16px; gaps between panels 16px; rows ≥ 40px; buttons 32px;
+  switches 36×20 with a 16px thumb. Tabs: a 40px well (4px padding and gap, radius 10) holding
+  32px keys (radius 6).
+- These numbers are shared with the Desktop app: `src/styles/visual-contract.json` is checked
+  against `tokens.css` by `visual-contract.test.ts`, and the same file is checked against the
+  Desktop constants.
 - Device renders: always `object-fit: contain`, absolutely positioned inside their stage, never
   cropped.
 
@@ -113,9 +127,18 @@ is the custom `BatteryIcon` (fill tracks the level; low and charging change its 
 
 ## Motion
 
-120–260ms washes and fades. The device page body fades in; panels and bars rise 8px once. No
-loops except the add-device crossfade, which stops with reduced motion. The Animations preference
-and `prefers-reduced-motion` both stop motion.
+120–260ms washes and fades. The device page body fades in; panels and bars rise 8px once. The
+ASCII field sweeps in once (520ms, rows staggered top-down) when the page loads and when the theme
+changes. No loops except the add-device crossfade, which stops with reduced motion. The Animations
+preference and `prefers-reduced-motion` both stop motion.
+
+## ASCII field
+
+The same field as the Desktop app, ported from its Rust source (`shared/ascii.ts`, checked line
+for line against a reference generated by the Rust code, `shared/ascii-golden.json`): ramp
+` .:-=+*#%@`, an accent glow from the top-right corner shaped by value noise, up to 42% of the
+window width (24 to 104 columns), 40 rows, alpha 0.24 fading out below the middle. The seed is
+chosen once per page session; rows are rebuilt only when the column count changes.
 
 ## Checklist before shipping a page
 

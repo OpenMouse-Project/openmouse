@@ -157,7 +157,15 @@ export function Profiles({
                 <div className="profile-row-rule">
                   <small> {displayText(locale, "STORED ON THE MOUSE")} </small>
                 </div>
-                <small className="profile-list-hint"> {displayText(locale, "Click a profile to edit it. Use the circle to switch the mouse to it.")} </small>
+                {profiles.length > 0 ? <small className="profile-list-hint"> {displayText(locale, "Click a profile to edit it. Use the circle to switch the mouse to it.")} </small> : null}
+
+                {profiles.length === 0 ? (
+                  <small className="setting-note profile-empty-note">
+                    {t(locale, "prof.noProfiles")}
+                    {" "}
+                    {t(locale, snapshot.setupProfilesAvailable ? "prof.noProfilesSetup" : "prof.noProfilesGhub")}
+                  </small>
+                ) : null}
 
                 {profiles.map((profile) => {
                   const dpi = profile.dpiStages.length > 0

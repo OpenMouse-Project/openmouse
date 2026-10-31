@@ -6,6 +6,15 @@ import { ALT, COMMAND_SECTIONS, CTRL, META, SHIFT, bindingFromKeyEvent, conflict
 
 const entries = COMMAND_SECTIONS.flatMap((section) => section.entries);
 
+test("F13 to F24 record and read back, so a rarely used key can be assigned", () => {
+  assert.equal(usageForCode("F13"), 0x68);
+  assert.equal(usageForCode("F24"), 0x73);
+  assert.equal(usageForCode("F25"), null);
+  assert.equal(keyName(0x68), "F13");
+  assert.equal(keyName(0x73), "F24");
+  assert.equal(shortcutText(0x68, CTRL), "Ctrl + F13");
+});
+
 test("every command has a unique id", () => {
   assert.equal(new Set(entries.map((entry) => entry.id)).size, entries.length);
 });
@@ -24,6 +33,36 @@ test("shortcut names read the way G HUB writes them", () => {
   assert.equal(keyName(0x1e), "1");
   assert.equal(keyName(0x3e), "F5");
   assert.equal(keyName(0xe0), "Key 0xe0");
+});
+
+test("F13-F24 map to the HID usages at the end of the keyboard table", () => {
+  assert.equal(usageForCode("F12"), 0x45);
+  assert.equal(usageForCode("F13"), 0x68);
+  assert.equal(usageForCode("F24"), 0x73);
+  assert.equal(keyName(0x68), "F13");
+  assert.equal(keyName(0x73), "F24");
+  assert.equal(shortcutText(0x68, 0), "F13");
+  // A keyboard that does have the keys records them like any other.
+  const binding = bindingFromKeyEvent({ code: "F13", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false });
+  assert.deepEqual(binding, { kind: "keyboard", key: 0x68, modifiers: 0 });
+});
+
+test("the virtual keyboard offers keys without needing a keypress", () => {
+  const keys = COMMAND_SECTIONS.find((section) => section.id === "keys");
+  assert.ok(keys);
+  for (let n = 13; n <= 24; n += 1) {
+    assert.ok(keys.entries.some((entry) => entry.label === `F${n}`), `F${n} is offered`);
+  }
+  for (const label of ["Enter", "Delete", "Page Up", "Scroll Lock"]) {
+    assert.ok(keys.entries.some((entry) => entry.label === label), `${label} is offered`);
+  }
+  // Bare keys bind with no modifiers.
+  const enter = keys.entries.find((entry) => entry.label === "Enter");
+  assert.deepEqual(enter?.target, { kind: "keyboard", key: 0x28, modifiers: 0 });
+  // No entry anywhere duplicates another command's binding: two identical
+  // bindings would highlight ambiguously in the picker.
+  const bindings = new Set(entries.map((entry) => JSON.stringify(entry.target)));
+  assert.equal(bindings.size, entries.length);
 });
 
 test("every command, written into a profile sector, reads back as that command and no other", () => {

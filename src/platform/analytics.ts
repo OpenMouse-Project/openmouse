@@ -1,16 +1,35 @@
-import posthogClient from "posthog-js/dist/module.no-external";
+type PosthogClient = typeof import("posthog-js/dist/module.no-external")["default"];
 
 const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
 const posthogHost = import.meta.env.VITE_POSTHOG_HOST;
 
-// Without both variables (local dev, forks, previews) analytics is a no-op.
-export const posthog = posthogKey && posthogHost ? posthogClient : undefined;
+// posthog-js is the single heaviest dependency (measured ~377 kB minified),
+// and it only matters once something worth counting happens. It loads in the
+// background; events and exceptions raised before it arrives are queued and
+// replayed, so the split changes when data starts flowing, never whether.
+let posthog: PosthogClient | null = null;
 
 // Analytics must never take the app down: a failed init just leaves it silent.
 let initialised = false;
-if (posthog) {
+
+const ANALYTICS_READY_EVENT = "openmouse-analytics-ready";
+
+type QueuedEvent =
+  | { kind: "event"; event: string; props?: Record<string, unknown> }
+  | { kind: "error"; error: unknown };
+
+const queue: QueuedEvent[] = [];
+
+if (posthogKey && posthogHost) {
+  void boot();
+} else {
+  // Without both variables (local dev, forks, previews) analytics is a no-op.
+}
+
+async function boot(): Promise<void> {
   try {
-    posthog.init(posthogKey!, {
+    const { default: client } = await import("posthog-js/dist/module.no-external");
+    client.init(posthogKey!, {
       api_host: posthogHost!,
       defaults: "2026-05-30",
       // Anonymous random id in localStorage only: counts users and return visits.
@@ -25,17 +44,40 @@ if (posthog) {
       capture_exceptions: false,
       before_send: scrubExceptionEvent,
     });
-    window.addEventListener("error", (event) => {
-      posthog.captureException(event.error ?? new Error(event.message));
-    });
-    window.addEventListener("unhandledrejection", (event) => {
-      posthog.captureException(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
-    });
+    posthog = client;
     initialised = true;
+    flushQueue();
+    try {
+      window.dispatchEvent(new Event(ANALYTICS_READY_EVENT));
+    } catch {
+    }
   } catch {
     /* analytics is optional */
   }
 }
+
+function forwardError(error: unknown): void {
+  if (initialised && posthog) {
+    posthog.captureException(error instanceof Error ? error : new Error(String(error)));
+  } else if (posthogKey && posthogHost) {
+    queue.push({ kind: "error", error });
+  }
+}
+
+function flushQueue(): void {
+  for (const item of queue) {
+    if (item.kind === "event") posthog?.capture(item.event, item.props);
+    else forwardError(item.error);
+  }
+  queue.length = 0;
+}
+
+window.addEventListener("error", (event) => {
+  forwardError(event.error ?? new Error(event.message));
+});
+window.addEventListener("unhandledrejection", (event) => {
+  forwardError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+});
 
 /** Whether anonymous diagnostics are being sent (on unless the user opted out). */
 export function analyticsEnabled(): boolean {
@@ -49,7 +91,10 @@ export function setAnalyticsEnabled(enabled: boolean): void {
 }
 
 /** Whether this build reports anything, so Settings can hide a dead switch. */
-export const analyticsAvailable = initialised;
+export function analyticsAvailable(): boolean {
+  return initialised;
+}
+export { ANALYTICS_READY_EVENT };
 
 /** Model-level device facts only: never serials, receiver ids or user text. */
 export interface DeviceFacts {
@@ -121,4 +166,5 @@ function scrubExceptionEvent<T extends OutgoingEvent | null>(event: T): T {
 
 export function track(event: string, props?: Record<string, unknown>): void {
   if (initialised) posthog?.capture(event, props);
+  else if (posthogKey && posthogHost) queue.push({ kind: "event", event, props });
 }

@@ -1,3 +1,4 @@
+@import "./fonts.css";
 @import "./tokens.css";
 @import "./base.css";
 @import "./controls.css";
@@ -10,6 +11,7 @@
 @import "./areas/buttons.css";
 @import "./areas/library.css";
 @import "./areas/advanced.css";
+@import "./areas/keychron.css";
 @import "./areas/pages.css";
 
 @import "./instrument.css";
