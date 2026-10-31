@@ -6292,6 +6292,17 @@ export function applyTeevolutionSensorMode(mode: NonNullable<MouseStatus["sensor
  * mode is a plain device setting rather than one the polling rate can lock.
  */
 /**
+ * The height a lift-off scale code stands for. A driver whose steps are uneven
+ * lists every code's height; otherwise the two ends are interpolated.
+ */
+export function liftOffScaleMillimetres(scale: NonNullable<MouseStatus["liftOffScale"]>, code: number): number {
+  const listed = scale.millimetresByCode?.[code - scale.min];
+  if (listed !== undefined) return listed;
+  return scale.minMillimetres
+    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / Math.max(1, scale.max - scale.min);
+}
+
+/**
  * Lift-off for mice that tune it continuously rather than in three stops. The
  * value is a raw device code; the driver owns what it means in millimetres.
  */
@@ -6299,8 +6310,7 @@ export function applyLiftOffScale(code: number): void {
   const scale = latestDeviceStatus?.liftOffScale;
   if (!hasActiveClient() || !scale) return;
   if (!Number.isInteger(code) || code < scale.min || code > scale.max) return;
-  const millimetres = scale.minMillimetres
-    + ((code - scale.min) * (scale.maxMillimetres - scale.minMillimetres)) / Math.max(1, scale.max - scale.min);
+  const millimetres = liftOffScaleMillimetres(scale, code);
   const label = `Lift-off ${millimetres.toFixed(1)} mm`;
   stageChange({
     key: "lift-off-scale",

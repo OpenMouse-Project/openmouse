@@ -402,6 +402,14 @@ test("debounce is offered only by the families that store it", () => {
   })).debounce, false);
 });
 
+test("the Atlantis family (Lamzu Atlantis, Scyrox V8S) gets debounce and sleep", () => {
+  const status = { brand: "Scyrox", ui: { family: "lamzu-atlantis" }, debounceMs: 0, sleepTimeout: 60 } as const;
+  const has = cardAvailability(snapshot({ status }));
+  assert.equal(has.debounce, true);
+  assert.equal(has.sleep, true);
+  assert.equal(traitsFor({ ...STATUS, ...status }).directMode, true, "the debounce ceiling comes from the driver");
+});
+
 test("the Hitscan family alone gives the advanced section and debounce, not sleep or signal", () => {
   // No ui flags beyond the family, so the result comes from the traits entry.
   const status = { brand: "Hitscan", ui: { family: "hitscan" }, debounceMs: 4, sleepTimeout: 60, signalStrength: 80 } as const;
