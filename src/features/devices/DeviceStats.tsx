@@ -41,6 +41,11 @@ export function DeviceStats({
           <b>{status.batteryPercent}%</b>
           {estimate && full ? <span className="om-muted">{estimate.time}</span> : null}
         </span>
+      ) : status.ui?.forceShowBattery === true ? (
+        <span className="om-stat">
+          <BatteryIcon percent={null} state={status.batteryState} />
+          <span className="om-muted">{"–"}</span>
+        </span>
       ) : null}
       {status.pollingRateHz > 0 ? (
         <span className="om-stat">

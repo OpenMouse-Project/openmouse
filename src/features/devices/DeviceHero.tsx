@@ -159,6 +159,8 @@ export function CurrentSetupPanel({ snapshot }: { snapshot: ControlSnapshot }): 
       unit: "%",
       sub: displayText(locale, status.batteryState),
     });
+  } else if (status.ui?.forceShowBattery === true) {
+    figures.push({ key: "battery", label: t(locale, "ov.batteryLabel"), value: "–" });
   }
   if (status.activeProfile != null) {
     figures.push({ key: "profile", label: t(locale, "ov.onboardProfile"), value: String(status.activeProfile) });

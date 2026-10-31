@@ -343,6 +343,37 @@ const ATTACKSHARK: MouseStatus = {
   firmware: ["Mouse 1.0.4", "Dongle 1.0.3"],
 };
 
+/**
+ * The Cosmic Byte Kilonova 3335IC through its receiver (SinoWealth
+ * `258a:002f`), browser transport: identity, battery, link, and read-only DPI.
+ * The driver refuses writes until the full bank is decoded, so the shell shows
+ * DPI read-out but no settings cards.
+ */
+const KILONOVA: MouseStatus = {
+  brand: "Cosmic Byte" as MouseStatus["brand"],
+  name: "Cosmic Byte Kilonova 3335IC",
+  ui: {
+    family: "sinowealth-kilonova-3335ic",
+    settingsReady: false,
+    valuesVerified: true,
+    forceShowBattery: true,
+    hideProcessingCard: true,
+    defaultDisplayName: "Cosmic Byte Kilonova 3335IC",
+    statusNote: "OpenMouse reads this Cosmic Byte Kilonova 3335IC's DPI from its onboard memory; other settings are not decoded and changes are refused. The battery and awake check need OpenMouse Bridge.",
+  },
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 1600,
+  dpiStages: [400, 800, 1600, 3200, 6400, 16000],
+  activeDpiStage: 2,
+  pollingRateHz: 0,
+  activeProfile: null,
+  connectionType: "Wireless",
+  connectionDetail: "2.4 GHz receiver",
+  liftOffDistance: null,
+  firmware: [],
+};
+
 const M3K: MouseStatus = {
   brand: "Zaunkoenig" as MouseStatus["brand"],
   name: "Zaunkoenig M3K",
@@ -1086,6 +1117,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
   "attack-shark": { label: "Attack Shark R5 Ultra", status: ATTACKSHARK },
+  kilonova: { label: "Cosmic Byte Kilonova 3335IC", status: KILONOVA },
   crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
   m3k: { label: "Zaunkoenig M3K", status: M3K },
   atk: { label: "ATK A9 Ultra", status: ATK },
