@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import type { ReactNode } from "react";
 import {
   MCHOSE_ACTUATION_RANGE,
@@ -134,7 +134,7 @@ function ProfileCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mc
   const applyPreset = async (): Promise<void> => {
     if (!window.confirm(tp(locale, "kb.mchPresetConfirm", { name: t(locale, PRESET_LABEL[preset][0]), profile: profileLabel(locale, mchose, mchose.profile) }))) return;
     const chosen = MCHOSE_TRAVEL_PRESETS.find((entry) => entry.id === preset)!;
-    await control.applyKeyboardCommand({ kind: "mchoseTravel", updates: mchoseTravelPresetUpdates(chosen, mchose.layout.map((key) => [key.index, key.usage] as const)) });
+    if (!(await control.runKeyboardCommand({ kind: "mchoseTravel", updates: mchoseTravelPresetUpdates(chosen, mchose.layout.map((key) => [key.index, key.usage] as const)) }))) return;
     // Setups turn Berserk mode off, like the vendor app.
     if (mchose.settings?.tachyonMode) await control.applyKeyboardCommand({ kind: "mchoseSettings", settings: { ...mchose.settings, tachyonMode: false } });
   };
@@ -195,8 +195,13 @@ function CalibrationCard({ locale, mchose, disabled }: { locale: InterfaceLocale
       setDown((current) => (current.has(index) === travel > 10 ? current : toggled(current, index, travel > 10)));
     });
   }, [running]);
+  // Leaving the tab mid-calibration ends it, so the keyboard is not left calibrating.
+  const runningNow = useRef(false);
+  runningNow.current = running;
+  useEffect(() => () => { if (runningNow.current) void control.applyKeyboardCommand({ kind: "mchoseCalibrate", step: "end" }); }, []);
   const run = async (step: "start" | "end" | "restart"): Promise<void> => {
-    await control.applyKeyboardCommand({ kind: "mchoseCalibrate", step });
+    const ok = await control.runKeyboardCommand({ kind: "mchoseCalibrate", step });
+    if (!ok && step !== "end") return;
     setRunning(step !== "end");
     if (step !== "end") { setDone(new Set()); setPending(new Set()); setDown(new Set()); }
   };

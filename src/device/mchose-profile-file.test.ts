@@ -58,3 +58,15 @@ test("restoring writes only what differs and every travel field", () => {
     releaseDeadzone: key.releaseDeadzone, switchType: key.switchType, priority: key.priority,
   });
 });
+
+test("only complete profiles are saved, and damaged entries are refused before writing", () => {
+  const short = workspace();
+  assert.equal(mchoseProfileFile({ ...short, travel: short.travel.slice(0, 64) }), null);
+  assert.equal(mchoseProfileFile({ ...short, keymap: short.keymap.map((layer) => layer.slice(0, 64)) }), null);
+  const file = mchoseProfileFile(workspace())!;
+  const damaged = (patch: (copy: any) => void): string => { const copy = JSON.parse(JSON.stringify(file)); patch(copy); return JSON.stringify(copy); };
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[1][3] = null; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][0] = { type: "16", code1: 0, code2: 4 }; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.travel[7] = null; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.colors[2] = null; }), file.productId), { message: "not-profile" });
+});

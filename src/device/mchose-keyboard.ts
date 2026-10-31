@@ -125,6 +125,11 @@ export class MchoseKeyboardClient implements KeyboardClient {
     };
   }
 
+  /** What the keyboard is known to hold after a command failed part-way (each write is recorded as it lands). */
+  recoveredWorkspace(): Partial<KeyboardWorkspace> | null {
+    return this.current ? { mchose: this.current } : null;
+  }
+
   async readIdentity(): Promise<KeyboardIdentityView> {
     const status = await this.guard(async () => (await this.driver()).readStatus());
     const state = status.mchose;
@@ -224,21 +229,21 @@ export class MchoseKeyboardClient implements KeyboardClient {
           const driver = await this.driver();
           if (file.productId !== state.product.productId) throw new RangeError("This profile file is for another keyboard.");
           // Settings and lighting first, then travel, then the advanced-key slots the new keymap points at, then the keymap.
-          const settings = await driver.setSettings(profile, file.settings);
-          if (file.pollingHz && state.product.pollingRatesHz.includes(file.pollingHz)) await driver.setPollingRate(profile, file.pollingHz);
-          const lighting = await driver.setLighting(profile, file.lighting);
-          const travel = await driver.setKeyTravel(profile, state.layout.map(({ index }) => mchoseTravelRestore(index, file.travel[index]!)));
+          // Each write is recorded as it lands, so a failure part-way leaves the panel showing what the keyboard holds.
+          this.patch({ settings: await driver.setSettings(profile, file.settings) });
+          if (file.pollingHz && state.product.pollingRatesHz.includes(file.pollingHz)) this.patch({ performance: await driver.setPollingRate(profile, file.pollingHz) });
+          this.patch({ lighting: await driver.setLighting(profile, file.lighting) });
+          this.patch({ travel: await driver.setKeyTravel(profile, state.layout.map(({ index }) => mchoseTravelRestore(index, file.travel[index]!))) });
           const slots = (types: readonly number[]): Set<number> => new Set(file.keymap.flat().filter((action) => types.includes(action.type)).map((action) => action.code1));
           for (const slot of slots(TABLE_TYPES.dks)) if (file.advanced.dks[slot]) await driver.setDks(profile, slot, file.advanced.dks[slot]!);
           for (const slot of slots(TABLE_TYPES.modTap)) if (file.advanced.modTap[slot]) await driver.setModTap(profile, slot, file.advanced.modTap[slot]!);
           for (const slot of slots(TABLE_TYPES.toggle)) if (file.advanced.toggle[slot]) await driver.setToggle(profile, slot, file.advanced.toggle[slot]!);
           const before = state.keymap;
           const changes = mchoseKeymapChanges(before, file.keymap);
-          const keymap: MchoseAction[][] = [];
           for (let layer = 0; layer < changes.length; layer += 1) {
-            keymap.push(changes[layer]!.length ? await driver.setKeymap(profile, layer, changes[layer]!) : [...(before[layer] ?? [])]);
+            if (changes[layer]!.length) this.patch({ keymap: this.withLayer(layer, await driver.setKeymap(profile, layer, changes[layer]!)) });
           }
-          this.patch({ settings, lighting, travel, keymap, performance: await driver.readPerformance(profile) });
+          this.patch({ performance: await driver.readPerformance(profile) });
           await this.releaseUnusedSlots(before);
           const colors = state.colors ?? [];
           const colorUpdates = file.colors.flatMap((color, index) => {
@@ -355,8 +360,12 @@ export class MchoseKeyboardClient implements KeyboardClient {
 
   /** What a key sends inside a pair: its own mapping when it is a plain action, else its factory action. */
   private sendAction(layer: number, index: number): MchoseAction {
-    const current = this.require().keymap[layer]?.[index];
+    const state = this.require();
+    const current = state.keymap[layer]?.[index];
     if (current && current.type !== 0 && current.type < 0x90) return current;
+    // A key already in a pair keeps the tap stored in its mod-tap slot.
+    const stored = current && PAIR_TYPES.includes(current.type) ? state.advanced?.modTap[current.code1]?.tap : undefined;
+    if (stored && stored.type !== 0) return stored;
     const factory = this.factoryAction(layer, index);
     return factory.type !== 0 ? factory : this.factoryAction(0, index);
   }

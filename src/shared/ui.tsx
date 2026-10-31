@@ -465,7 +465,8 @@ export function SliderField({ unit, value, ...props }: Omit<Parameters<typeof St
   }, [shown, focused]);
   const commitText = (): void => {
     const next = Number(text.replace(",", "."));
-    if (text.trim() === "" || !Number.isFinite(next) || next < min || next > max || next.toFixed(places) === shown) {
+    // The shown value is the first key's; with a Mixed badge, typing it again applies it to the rest.
+    if (text.trim() === "" || !Number.isFinite(next) || next < min || next > max || (next.toFixed(places) === shown && !props.badge)) {
       setText(shown);
       return;
     }

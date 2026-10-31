@@ -36,7 +36,9 @@ export const MCHOSE_PROFILE_FORMAT = "openmouse.mchose-profile";
 /** The file for the workspace's active profile, or null while part of it is still unread. */
 export function mchoseProfileFile(state: MchoseWorkspace): MchoseProfileFile | null {
   const { settings, lighting, advanced, colors } = state;
-  if (!settings || !lighting || !advanced || !colors || state.travel.length === 0 || state.keymap.length === 0) return null;
+  // The same table sizes the parser accepts, so a saved file always loads back.
+  const complete = state.travel.length === 128 && colors?.length === 128 && state.keymap.length === 4 && state.keymap.every((layer) => layer.length === 128);
+  if (!settings || !lighting || !advanced || !colors || !complete) return null;
   return {
     format: MCHOSE_PROFILE_FORMAT,
     version: 1,
@@ -69,12 +71,17 @@ export function parseMchoseProfileFile(text: string, productId: number): MchoseP
   if (!file || file.format !== MCHOSE_PROFILE_FORMAT || file.version !== 1) throw new RangeError("not-profile");
   if (file.productId !== productId) throw new RangeError("other-product");
   const isList = (value: unknown, length: number): boolean => Array.isArray(value) && value.length === length;
+  const isObject = (value: unknown): boolean => typeof value === "object" && value !== null;
+  const isAction = (value: unknown): boolean => isObject(value)
+    && ["type", "code1", "code2"].every((field) => typeof (value as Record<string, unknown>)[field] === "number");
   const tables = file.advanced;
   const complete = typeof file.settings === "object" && file.settings !== null
     && typeof file.lighting === "object" && file.lighting !== null
     && isList(file.travel, 128) && isList(file.colors, 128)
     && isList(file.keymap, 4) && file.keymap!.every((layer) => isList(layer, 128))
-    && !!tables && isList(tables.dks, 32) && isList(tables.modTap, 32) && isList(tables.toggle, 32);
+    && !!tables && isList(tables.dks, 32) && isList(tables.modTap, 32) && isList(tables.toggle, 32)
+    // Entries too, so a damaged file is refused before the first write rather than part-way through.
+    && file.keymap!.every((layer) => layer.every(isAction)) && file.travel!.every(isObject) && file.colors!.every(isObject);
   if (!complete) throw new RangeError("not-profile");
   return file as MchoseProfileFile;
 }

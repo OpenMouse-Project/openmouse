@@ -631,6 +631,8 @@ export function MacroCard({ locale, mchose, disabled }: { locale: InterfaceLocal
     last.current = 0;
     const key = (down: boolean) => (event: KeyboardEvent) => {
       if (event.repeat) return;
+      // Typing in a field (a delay, a name) is not part of the macro.
+      if ((event.target as Element | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
       const code = MODIFIER_CODES[event.code] ?? hidKeyForCode(event.code);
       if (code === null || code === undefined) return;
       event.preventDefault();
@@ -837,10 +839,10 @@ export function KeyColorCard({ locale, mchose, disabled }: { locale: InterfaceLo
   const chosen = useMemo(() => new Set(selected), [selected]);
   const toggle = (index: number): void => setSelected((current) => current.includes(index) ? current.filter((i) => i !== index) : [...current, index]);
   const custom = mchose.lighting?.main.effect === 0;
-  const setColors = (updates: { index: number; color: MchoseRgb }[]): Promise<void> => control.applyKeyboardCommand({ kind: "mchoseKeyColors", updates });
+  const setColors = (updates: { index: number; color: MchoseRgb }[]): Promise<boolean> => control.runKeyboardCommand({ kind: "mchoseKeyColors", updates });
   const paint = async (stops: readonly MchoseGradientStop[], angle: number): Promise<void> => {
     const keys = selected.length ? mchose.layout.filter((key) => chosen.has(key.index)) : mchose.layout;
-    await setColors(mchoseGradientKeys(keys, stops, angle));
+    if (!(await setColors(mchoseGradientKeys(keys, stops, angle)))) return;
     // Per-key colours only show with the Custom effect.
     const lighting = mchose.lighting;
     if (lighting && !custom) await control.applyKeyboardCommand({ kind: "mchoseLighting", lighting: { ...lighting, main: { ...lighting.main, effect: 0 } } });

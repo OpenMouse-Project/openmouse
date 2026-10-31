@@ -3260,20 +3260,25 @@ export function clearKeyboardSelection(): void {
 
 /** Serialize keyboard reads and writes and reject results after a device switch. */
 export async function applyKeyboardCommand(command: KeyboardCommand): Promise<void> {
+  await runKeyboardCommand(command);
+}
+
+/** Like applyKeyboardCommand, but true when the command went through and false when it failed or could not start (the status says why). */
+export async function runKeyboardCommand(command: KeyboardCommand): Promise<boolean> {
   const client = activeKeyboard;
-  if (!client || keyboardBusy) return;
+  if (!client || keyboardBusy) return false;
   const telemetry = command.kind === "keychronKeyTravel";
   keyboardBusy = true;
   if (!telemetry) keyboardStatusText = st("kb.applying");
   emit();
   try {
     const update = await client.command(command);
-    if (activeKeyboard !== client) return;
+    if (activeKeyboard !== client) return false;
     keyboardWorkspace = { ...keyboardWorkspace, ...update };
     if (command.kind === "slot" && client.readPolling && client.readTrigger) {
       keyboardPolling = await client.readPolling();
       const trigger = await client.readTrigger();
-      if (activeKeyboard !== client) return;
+      if (activeKeyboard !== client) return false;
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
       keyboardSelected = null;
@@ -3282,7 +3287,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     }
     if (command.kind === "keycode" && command.layer === 0 && client.readTrigger) {
       const trigger = await client.readTrigger();
-      if (activeKeyboard !== client) return;
+      if (activeKeyboard !== client) return false;
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
     }
@@ -3291,11 +3296,13 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
       : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
         ? st("kb.writeOnly")
         : st("kb.updated");
+    return true;
   } catch (error) {
-    if (activeKeyboard !== client) return;
+    if (activeKeyboard !== client) return false;
     const recovered = client.recoveredWorkspace?.();
     if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
     keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+    return false;
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
   }
@@ -3303,8 +3310,9 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
 
 /**
  * After a keyboard reboots itself (an MCHOSE factory reset), find it again and
- * switch to it. The reboot can finish before the reset call returns, so this
- * polls the authorized devices rather than waiting for a connect event.
+ * switch to it. The reboot can finish before the reset call returns, and the
+ * disconnect handler may clear the old session meanwhile, so this polls the
+ * authorized devices by the ids it kept rather than waiting for an event.
  */
 export async function reconnectAfterReboot(): Promise<void> {
   const previous = activeKeyboard;
@@ -3312,19 +3320,23 @@ export async function reconnectAfterReboot(): Promise<void> {
   const { vendorId, productId } = previous.device;
   for (let tries = 0; tries < 24; tries += 1) {
     await wait(500);
-    if (activeKeyboard !== previous) return;
-    const devices = (await navigator.hid?.getDevices()) ?? [];
+    // Stop once another keyboard is active; a cleared session is expected during the reboot.
+    if (activeKeyboard && activeKeyboard !== previous) return;
     // A rebooted keyboard normally comes back as a new device object; accept the old one too after a few tries.
-    for (const device of devices.filter((entry) => entry.vendorId === vendorId && entry.productId === productId && (entry !== previous.device || tries >= 6))) {
-      const next = createKeyboardClient(device);
-      if (!next) continue;
-      try {
-        await previous.close().catch(() => undefined);
-        if (activeKeyboard === previous) await activateClient(next, false, previous);
-        return;
-      } catch {
-        await next.close().catch(() => undefined);
-      }
+    const devices = ((await navigator.hid?.getDevices()) ?? [])
+      .filter((entry) => entry.vendorId === vendorId && entry.productId === productId && (entry !== previous.device || tries >= 6));
+    const candidates = devices.map((device) => createKeyboardClient(device)).filter((client): client is KeyboardClient => client !== null);
+    // Two identical keyboards: there is no telling which one rebooted, so leave the choice to the user.
+    if (candidates.length > 1) return;
+    const next = candidates[0];
+    if (!next) continue;
+    try {
+      await previous.close().catch(() => undefined);
+      if (activeKeyboard === previous) await activateClient(next, false, previous);
+      else if (!activeKeyboard) await activateClient(next);
+      return;
+    } catch {
+      await next.close().catch(() => undefined);
     }
   }
 }
