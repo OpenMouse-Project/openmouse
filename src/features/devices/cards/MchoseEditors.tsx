@@ -567,18 +567,31 @@ export function KeyTestCard({ locale, mchose }: { locale: InterfaceLocale; mchos
   const [log, setLog] = useState<readonly { label: string; down: boolean }[]>([]);
   // Match what the computer receives to the key that sends it on the layer in use (Win and Alt swap on the Mac layers).
   const layer = mchose.settings?.macMode ? 2 : 0;
-  const byUsage = useMemo(() => new Map(mchose.layout.map((key) => [sentUsage(mchose.keymap[layer]?.[key.index]) ?? key.usage, key])), [mchose.layout, mchose.keymap, layer]);
+  // Every key sending a usage lights for it; a key remapped to a macro or media action no longer answers for its own key.
+  const byUsage = useMemo(() => {
+    const keys = new Map<number, MchoseLayoutKey[]>();
+    for (const key of mchose.layout) {
+      const action = mchose.keymap[layer]?.[key.index];
+      const usage = !action || action.type === 0 ? key.usage : sentUsage(action);
+      if (usage !== null) keys.set(usage, [...(keys.get(usage) ?? []), key]);
+    }
+    return keys;
+  }, [mchose.layout, mchose.keymap, layer]);
   useEffect(() => {
+    // The keys each press lit, so its release clears the same ones even if the keymap changed in between.
+    const lit = new Map<string, number[]>();
     const handle = (pressed: boolean) => (event: KeyboardEvent) => {
       // Typing in a field (a profile name, a macro delay) is not a key test.
       if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]")) return;
       const usage = MODIFIER_CODES[event.code] ?? hidKeyForCode(event.code);
-      const key = usage === null || usage === undefined ? undefined : byUsage.get(usage);
-      const label = key ? deckLabel(mchose, key) : event.code;
+      const keys = usage === null || usage === undefined ? [] : byUsage.get(usage) ?? [];
+      const label = keys[0] ? deckLabel(mchose, keys[0]) : event.code;
       if (event.repeat) return;
+      const indexes = pressed ? keys.map((key) => key.index) : lit.get(event.code) ?? [];
+      if (pressed) lit.set(event.code, indexes); else lit.delete(event.code);
       setDown((current) => {
         const next = new Set(current);
-        if (key) { if (pressed) next.add(key.index); else next.delete(key.index); }
+        for (const index of indexes) { if (pressed) next.add(index); else next.delete(index); }
         return next;
       });
       setLog((current) => [{ label, down: pressed }, ...current].slice(0, 12));
@@ -665,7 +678,12 @@ export function MacroCard({ locale, mchose, disabled }: { locale: InterfaceLocal
     const keyup = key(false);
     window.addEventListener("keydown", keydown, true);
     window.addEventListener("keyup", keyup, true);
-    return () => { window.removeEventListener("keydown", keydown, true); window.removeEventListener("keyup", keyup, true); };
+    return () => {
+      window.removeEventListener("keydown", keydown, true);
+      window.removeEventListener("keyup", keyup, true);
+      // Keys still held when recording stops get their release, so no press is left open.
+      for (const code of held) push({ kind: "key", code, down: false }, performance.now());
+    };
   }, [recording, slot]);
   const changed = draft !== null && JSON.stringify(draft) !== confirmed;
   const setStep = (n: number, patch: Partial<MchoseMacroStep>): void => macro && edit({ ...macro, steps: macro.steps.map((step, i) => (i === n ? { ...step, ...patch } : step)) });

@@ -82,7 +82,12 @@ export function parseMchoseProfileFile(text: string, productId: number): MchoseP
   // Every advanced-key slot the keymap points at must be in the file, or the key would lose its binding.
   const bound = (action: MchoseAction): boolean => {
     const table = action.type === 0x90 ? tables?.dks : action.type === 0x91 ? tables?.toggle : action.type >= 0x92 && action.type <= 0x95 ? tables?.modTap : null;
-    return !table || isObject(table[action.code1]);
+    const entry = table?.[action.code1] as Record<string, unknown> | null | undefined;
+    if (!table) return true;
+    // The entry the key points at must be complete for its kind, not just present.
+    if (action.type === 0x90) return isObject(entry) && Array.isArray(entry!.points) && Array.isArray(entry!.actions);
+    if (action.type === 0x91) return isAction(entry);
+    return isObject(entry) && isAction(entry!.tap) && isAction(entry!.hold);
   };
   const complete = typeof file.settings === "object" && file.settings !== null
     && typeof file.lighting === "object" && file.lighting !== null
