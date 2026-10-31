@@ -131,7 +131,7 @@ aside.testing-note strong { display: none; }
 .keyboard-identity > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
 .keyboard-identity dt { color: var(--text-3); font-size: var(--fs-meta); }
 .keyboard-identity dd { text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
-#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.arbiter-deck), .keyboard-workspace-card:has(.keyboard-macro-events) { grid-column: 1 / -1; }
+#keyboard-trigger-card, .keyboard-workspace-card:has(.keyboard-matrix), .keyboard-workspace-card:has(.arbiter-deck), .keyboard-workspace-card:has(.keyboard-macro-events), .keyboard-workspace-card.is-wide { grid-column: 1 / -1; }
 .keyboard-key-deck { padding: 16px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); min-width: 0; }
 .keyboard-matrix { display: grid; gap: 6px; min-width: 0; overflow-x: auto; padding: 4px; }
 .keyboard-matrix-row { display: grid; grid-auto-columns: minmax(36px, 1fr); grid-auto-flow: column; gap: 6px; min-width: 680px; }

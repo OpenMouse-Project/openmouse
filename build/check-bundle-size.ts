@@ -26,9 +26,13 @@ import { join } from "node:path";
 // add two keyboard workspaces, layouts, localized strings and device artwork.
 // Measured after merging both: 168,860 bytes CSS, 3,652,136 bytes JS;
 // main is 1,288,217 bytes, below its existing cap.
+//
+// 2026-10-31: VIA keyboard support adds the keycode tables, the definition
+// parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
+// (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
 const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
-  ".js": 3_700_000,
+  ".js": 3_800_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
