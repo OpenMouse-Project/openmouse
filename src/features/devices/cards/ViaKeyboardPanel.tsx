@@ -111,7 +111,7 @@ function ViaControl({ item, value, disabled, locale, onWrite }: {
       disabled={disabled || number === null} onCommit={(next) => write(next, true, true)} />;
   }
   if (spec.type === "toggle") {
-    return <SwitchRow label={label} value={number === null ? null : number === spec.on} disabled={disabled} onChange={(on) => void write(on ? spec.on : spec.off)} />;
+    return <SwitchRow label={label} value={number === null ? null : spec.anyOn ? number !== spec.off : number === spec.on} disabled={disabled} onChange={(on) => void write(on ? spec.on : spec.off)} />;
   }
   if (spec.type === "dropdown") {
     return <div className="keyboard-field"><span>{label}</span>
