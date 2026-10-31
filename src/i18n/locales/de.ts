@@ -1350,6 +1350,7 @@ export const de: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "Rapid Trigger",
   "kb.mchSelectKeys": "Wähle eine oder mehrere Tasten zum Bearbeiten. Jede Taste zeigt ihren Auslösepunkt in Millimetern.",
   "kb.mchOutOfRange": "Diese Taste enthält einen Wert außerhalb des Bereichs der Hersteller-App. Er bleibt wie gelesen, bis du ihn änderst.",
+  "kb.mchPresetMatches": "Der Tastenweg dieses Profils entspricht dieser Einstellung.",
   "kb.mchResetTitle": "Werkseinstellungen",
   "kb.mchResetKeyboard": "Ganze Tastatur",
   "kb.mchResetStart": "Zurücksetzen…",

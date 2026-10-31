@@ -1322,6 +1322,7 @@ export const ja: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "ラピッドトリガー",
   "kb.mchSelectKeys": "編集するキーを 1 つ以上選択してください。各キーにはアクチュエーションポイントがミリ単位で表示されます。",
   "kb.mchOutOfRange": "このキーにはメーカーアプリの範囲外の値が設定されています。変更するまで読み取ったままの値が保持されます。",
+  "kb.mchPresetMatches": "このプロファイルのキーストロークはこの設定と一致しています。",
   "kb.mchResetTitle": "工場出荷時設定",
   "kb.mchResetKeyboard": "キーボード全体",
   "kb.mchResetStart": "リセット…",

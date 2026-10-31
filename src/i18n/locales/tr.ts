@@ -1299,6 +1299,7 @@ export const tr: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "Rapid trigger",
   "kb.mchSelectKeys": "Düzenlemek için bir veya daha fazla tuş seçin. Her tuş tetikleme noktasını milimetre olarak gösterir.",
   "kb.mchOutOfRange": "Bu tuş, üretici uygulamasının sunduğu aralığın dışında bir değer taşıyor. Siz değiştirene kadar okunduğu gibi kalır.",
+  "kb.mchPresetMatches": "Bu profilin tuş yolu bu ayarla aynı.",
   "kb.mchResetTitle": "Fabrika ayarları",
   "kb.mchResetKeyboard": "Tüm klavye",
   "kb.mchResetStart": "Sıfırla…",

@@ -1320,6 +1320,7 @@ export const ar: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "التشغيل السريع",
   "kb.mchSelectKeys": "اختر مفتاحًا واحدًا أو أكثر لتعديله. يعرض كل مفتاح نقطة التفعيل بالمليمتر.",
   "kb.mchOutOfRange": "يحمل هذا المفتاح قيمة خارج النطاق الذي يقدمه تطبيق الشركة المصنّعة. تبقى كما قُرئت حتى تغيّرها.",
+  "kb.mchPresetMatches": "مسافة الضغط في هذا الملف الشخصي تطابق هذا الإعداد.",
   "kb.mchResetTitle": "إعادة ضبط المصنع",
   "kb.mchResetKeyboard": "لوحة المفاتيح كاملة",
   "kb.mchResetStart": "إعادة الضبط…",

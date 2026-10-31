@@ -1430,6 +1430,7 @@ const en = {
   "kb.mchRapidEnable": "Rapid trigger",
   "kb.mchSelectKeys": "Select one or more keys to edit them. Each key shows its actuation point in millimetres.",
   "kb.mchOutOfRange": "This key holds a value outside the range the vendor app offers. It stays as read until you change it.",
+  "kb.mchPresetMatches": "This profile's key travel matches this setup.",
   "kb.mchResetTitle": "Factory reset",
   "kb.mchResetKeyboard": "Whole keyboard",
   "kb.mchResetStart": "Reset…",

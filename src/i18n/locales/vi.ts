@@ -1327,6 +1327,7 @@ export const vi: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "Rapid trigger",
   "kb.mchSelectKeys": "Chọn một hoặc nhiều phím để chỉnh. Mỗi phím hiển thị điểm kích hoạt tính bằng milimét.",
   "kb.mchOutOfRange": "Phím này có giá trị nằm ngoài phạm vi ứng dụng của nhà sản xuất. Giá trị được giữ như đã đọc cho đến khi bạn thay đổi.",
+  "kb.mchPresetMatches": "Hành trình phím của hồ sơ này khớp với thiết lập này.",
   "kb.mchResetTitle": "Khôi phục cài đặt gốc",
   "kb.mchResetKeyboard": "Toàn bộ bàn phím",
   "kb.mchResetStart": "Đặt lại…",

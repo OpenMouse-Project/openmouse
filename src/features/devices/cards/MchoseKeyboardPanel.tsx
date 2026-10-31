@@ -9,6 +9,7 @@ import {
   MCHOSE_TRAVEL_STEP_MM,
   mchoseModel,
   mchoseTravelPresetUpdates,
+  applyMchoseKeyTravelUpdate,
   mchoseDisplayProfileName,
   mchoseMmToSteps,
   mchoseRapidTriggerStep,
@@ -23,7 +24,7 @@ import type { ControlSnapshot } from "../../../device/types";
 import type { InterfaceLocale } from "../../settings/interface-preferences";
 import { displayText, t, tp } from "../../../i18n/index";
 import { OptionMenu, RateSlider, Segmented, SliderField, StepperSlider, SwitchRow } from "../../../shared/ui";
-import { AdvancedCard, KeyColorCard, KeyDeck, KeyTestCard, LightingCard, MacroCard, RemapCard } from "./MchoseEditors";
+import { AdvancedCard, KeyColorCard, KeyDeck, KeyTestCard, LightingCard, MacroCard, RemapCard, deckLabel } from "./MchoseEditors";
 
 type Range = { min: number; max: number };
 
@@ -97,6 +98,20 @@ function IdentityCard({ snapshot, mchose, faulted, busy }: { snapshot: ControlSn
   );
 }
 
+/** The official setup whose key travel this profile holds exactly, or null when a key differs from every setup. */
+function matchingPreset(mchose: MchoseWorkspace): (typeof MCHOSE_TRAVEL_PRESETS)[number]["id"] | null {
+  if (mchose.travel.length === 0) return null;
+  const keys = mchose.layout.map((key) => [key.index, key.usage] as const);
+  return MCHOSE_TRAVEL_PRESETS.find((entry) => mchoseTravelPresetUpdates(entry, keys).every((update) => {
+    const key = mchose.travel[update.index];
+    try {
+      return !!key && JSON.stringify(applyMchoseKeyTravelUpdate(key, update)) === JSON.stringify(key);
+    } catch {
+      return false;
+    }
+  }))?.id ?? null;
+}
+
 function profileLabel(locale: InterfaceLocale, mchose: MchoseWorkspace, profile: number): string {
   return mchoseDisplayProfileName(mchose.profileNames[profile] ?? null) ?? tp(locale, "kb.mchProfileN", { n: profile + 1 });
 }
@@ -130,7 +145,10 @@ function ProfileCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mc
     }
   };
   // The vendor's official setups; like dragging one onto an onboard slot, it replaces this profile's key travel.
-  const [preset, setPreset] = useState<(typeof MCHOSE_TRAVEL_PRESETS)[number]["id"]>("beginner");
+  // Start on the setup the profile's key travel matches, if any; the match is read from the keyboard, not remembered.
+  const matched = useMemo(() => matchingPreset(mchose), [mchose.travel, mchose.layout]);
+  const [preset, setPreset] = useState<(typeof MCHOSE_TRAVEL_PRESETS)[number]["id"]>(matched ?? "beginner");
+  useEffect(() => { if (matched) setPreset(matched); }, [matched]);
   const applyPreset = async (): Promise<void> => {
     if (!window.confirm(tp(locale, "kb.mchPresetConfirm", { name: t(locale, PRESET_LABEL[preset][0]), profile: profileLabel(locale, mchose, mchose.profile) }))) return;
     const chosen = MCHOSE_TRAVEL_PRESETS.find((entry) => entry.id === preset)!;
@@ -174,6 +192,7 @@ function ProfileCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mc
           options={MCHOSE_TRAVEL_PRESETS.map((entry) => ({ value: entry.id, label: t(locale, PRESET_LABEL[entry.id][0]) }))} onChange={setPreset} />
         <button type="button" className="om-btn" disabled={disabled || !mchose.layout.length} onClick={() => void applyPreset()}>{t(locale, "kb.mchPresetApply")}</button>
         <small className="setting-note">{t(locale, PRESET_LABEL[preset][1])}</small>
+        {matched === preset ? <small className="setting-note">{t(locale, "kb.mchPresetMatches")}</small> : null}
       </div>
     </article>
   );
@@ -216,7 +235,7 @@ function CalibrationCard({ locale, mchose, disabled }: { locale: InterfaceLocale
           <p className="setting-note">{t(locale, "kb.mchCalibrationRunning")}</p>
           <div className="mchose-calibration">
             <KeyDeck locale={locale} layout={mchose.layout} disabled={false} ariaLabel={t(locale, "kb.mchCalibrationTitle")}
-              label={(key) => key.label} selected={done} muted={(key) => down.has(key.index)}
+              label={(key) => deckLabel(mchose, key)} selected={done} muted={(key) => down.has(key.index)}
               swatch={(key) => (pending.has(key.index) ? MCHOSE_CALIBRATION_PENDING : null)} onToggle={() => undefined} />
           </div>
           <p className="setting-note" aria-live="polite">{tp(locale, "kb.mchCalibrationProgress", { done: String(done.size), total: String(mchose.layout.length) })}</p>
@@ -384,7 +403,7 @@ function TravelCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mch
           <Segmented id="mchose-travel-view" ariaLabel={t(locale, "kb.mchTravelView")} value={view} onChange={setView}
             options={[{ value: "actuation", label: t(locale, "kb.travel") }, { value: "rapid", label: t(locale, "kb.rapidGroup") }, { value: "dead", label: t(locale, "kb.deadGroup") }]} />
           <KeyDeck locale={locale} layout={layout} disabled={disabled} ariaLabel={t(locale, "kb.mchTravelTitle")}
-            label={(key) => key.label} sub={(key) => { const entry = travel[key.index]; return entry ? keySummary(entry, view) : null; }}
+            label={(key) => deckLabel(mchose, key)} sub={(key) => { const entry = travel[key.index]; return entry ? keySummary(entry, view) : null; }}
             depth={(key) => Math.min(1, (pressed.get(key.index) ?? 0) / mchoseModel(mchose.product.productId)!.fullTravel)} selected={chosen} onToggle={toggle} />
           <div className="keyboard-selection-actions">
             <span className="keyboard-selection-count">{tp(locale, "kb.selectedCount", { n: selected.length })}</span>

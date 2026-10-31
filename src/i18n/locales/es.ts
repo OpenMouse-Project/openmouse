@@ -1322,6 +1322,7 @@ export const es: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "Rapid trigger",
   "kb.mchSelectKeys": "Selecciona una o más teclas para editarlas. Cada tecla muestra su punto de activación en milímetros.",
   "kb.mchOutOfRange": "Esta tecla tiene un valor fuera del rango que ofrece la app del fabricante. Se mantiene tal como se leyó hasta que lo cambies.",
+  "kb.mchPresetMatches": "El recorrido de las teclas de este perfil coincide con esta configuración.",
   "kb.mchResetTitle": "Restablecer de fábrica",
   "kb.mchResetKeyboard": "Todo el teclado",
   "kb.mchResetStart": "Restablecer…",

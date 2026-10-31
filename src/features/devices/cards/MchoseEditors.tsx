@@ -152,6 +152,11 @@ function slotLabel(mchose: MchoseWorkspace, layer: number, key: MchoseLayoutKey,
   return layer > 1 ? macName(label) : label;
 }
 
+/** A key's name in decks that are not about one layer: its Mac layer name while the keyboard uses the Mac layers. */
+export function deckLabel(mchose: MchoseWorkspace, key: MchoseLayoutKey): string {
+  return mchose.settings?.macMode ? slotLabel(mchose, 2, key, mchose.defaults[2]?.[key.index]) : key.label;
+}
+
 type Category = "none" | "key" | "shortcut" | "mouse" | "media" | "system" | "special" | "macro" | "disabled";
 const CATEGORY_LABEL: Record<Category, Parameters<typeof t>[1]> = {
   none: "kb.mchCatNone", key: "kb.mchCatKey", shortcut: "kb.mchCatShortcut", mouse: "kb.mchCatMouse", media: "kb.mchCatMedia", system: "kb.mchCatSystem",
@@ -580,7 +585,7 @@ export function KeyTestCard({ locale, mchose }: { locale: InterfaceLocale; mchos
         <small className="setting-note">{t(locale, "kb.mchTesterNote")}</small>
       </div></div>
       <KeyDeck locale={locale} layout={mchose.layout} disabled={false} ariaLabel={t(locale, "kb.mchTesterTitle")}
-        label={(key) => key.label} selected={down} onToggle={() => undefined} />
+        label={(key) => deckLabel(mchose, key)} selected={down} onToggle={() => undefined} />
       <ol className="mchose-test-log" aria-live="polite">
         {log.length === 0 ? <li className="setting-note">{t(locale, "kb.mchTesterEmpty")}</li> : log.map((entry, n) => (
           <li key={n} className={entry.down ? "is-down" : ""}>
@@ -856,7 +861,7 @@ export function KeyColorCard({ locale, mchose, disabled }: { locale: InterfaceLo
       {!colors ? <p className="keyboard-empty">{t(locale, "kb.reading")}</p> : (
         <>
           <KeyDeck locale={locale} layout={mchose.layout} disabled={disabled} ariaLabel={t(locale, "kb.mchKeyColorsTitle")}
-            label={(key) => key.label} swatch={(key) => { const c = colors[key.index]; return c ? mchoseRgbToHex(c) : null; }}
+            label={(key) => deckLabel(mchose, key)} swatch={(key) => { const c = colors[key.index]; return c ? mchoseRgbToHex(c) : null; }}
             selected={chosen} onToggle={toggle} />
           <div className="keyboard-selection-actions">
             <span className="keyboard-selection-count">{tp(locale, "kb.selectedCount", { n: selected.length })}</span>

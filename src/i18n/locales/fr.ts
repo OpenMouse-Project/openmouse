@@ -1322,6 +1322,7 @@ export const fr: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "Rapid trigger",
   "kb.mchSelectKeys": "Sélectionnez une ou plusieurs touches pour les modifier. Chaque touche affiche son point d'activation en millimètres.",
   "kb.mchOutOfRange": "Cette touche contient une valeur hors de la plage proposée par l'application du fabricant. Elle reste telle quelle jusqu'à ce que vous la modifiiez.",
+  "kb.mchPresetMatches": "La course des touches de ce profil correspond à cette configuration.",
   "kb.mchResetTitle": "Réinitialisation d'usine",
   "kb.mchResetKeyboard": "Tout le clavier",
   "kb.mchResetStart": "Réinitialiser…",

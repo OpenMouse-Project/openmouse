@@ -1322,6 +1322,7 @@ export const zh: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "快速触发",
   "kb.mchSelectKeys": "选择一个或多个按键进行编辑。每个按键显示其触发点（毫米）。",
   "kb.mchOutOfRange": "此按键的数值超出厂商应用提供的范围。在您修改之前会保持读取到的值。",
+  "kb.mchPresetMatches": "此配置文件的键程与此配置一致。",
   "kb.mchResetTitle": "恢复出厂设置",
   "kb.mchResetKeyboard": "整个键盘",
   "kb.mchResetStart": "重置…",

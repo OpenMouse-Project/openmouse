@@ -1322,6 +1322,7 @@ export const ko: Record<I18nKey, string> = {
   "kb.mchRapidEnable": "래피드 트리거",
   "kb.mchSelectKeys": "편집할 키를 하나 이상 선택하세요. 각 키에 입력 지점이 밀리미터로 표시됩니다.",
   "kb.mchOutOfRange": "이 키에는 제조사 앱이 제공하는 범위를 벗어난 값이 있습니다. 변경하기 전까지 읽은 값이 유지됩니다.",
+  "kb.mchPresetMatches": "이 프로필의 키 트래블이 이 설정과 같습니다.",
   "kb.mchResetTitle": "공장 초기화",
   "kb.mchResetKeyboard": "키보드 전체",
   "kb.mchResetStart": "초기화…",
