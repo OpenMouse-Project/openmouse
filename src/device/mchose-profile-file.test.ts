@@ -73,6 +73,8 @@ test("only complete profiles are saved, and damaged entries are refused before w
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x90, code1: 2, code2: 0 }; copy.advanced.dks[2] = null; }), file.productId), { message: "not-profile" });
   assert.equal(parseMchoseProfileFile(damaged((copy) => { copy.advanced.dks[2] = null; }), file.productId).advanced.dks[2], null, "an empty slot nothing points at is fine");
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x92, code1: 1, code2: 20 }; copy.advanced.modTap[1] = {}; }), file.productId), { message: "not-profile" });
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x92, code1: 1, code2: 20 }; copy.advanced.modTap[1] = { tap: { type: 0x10, code1: 0, code2: 4 } }; }), file.productId), { message: "not-profile" }, "hold missing");
+  assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x92, code1: 1, code2: 20 }; copy.advanced.modTap[1] = { tap: { type: "16" }, hold: { type: 0x10, code1: 2, code2: 0 } }; }), file.productId), { message: "not-profile" }, "tap malformed");
   assert.throws(() => parseMchoseProfileFile(damaged((copy) => { copy.keymap[0][5] = { type: 0x91, code1: 0, code2: 0 }; copy.advanced.toggle[0] = {}; }), file.productId), { message: "not-profile" });
   assert.equal(mchoseProfileFile({ ...workspace(), advanced: { ...workspace().advanced!, dks: [] } }), null, "advanced tables must be complete to save");
 });

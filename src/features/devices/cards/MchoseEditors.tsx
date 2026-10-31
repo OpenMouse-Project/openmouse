@@ -577,9 +577,9 @@ export function KeyTestCard({ locale, mchose }: { locale: InterfaceLocale; mchos
     }
     return keys;
   }, [mchose.layout, mchose.keymap, layer]);
+  // The keys each press lit, kept across listener updates so a release clears the same ones even if the keymap changed.
+  const lit = useRef(new Map<string, number[]>()).current;
   useEffect(() => {
-    // The keys each press lit, so its release clears the same ones even if the keymap changed in between.
-    const lit = new Map<string, number[]>();
     const handle = (pressed: boolean) => (event: KeyboardEvent) => {
       // Typing in a field (a profile name, a macro delay) is not a key test.
       if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]")) return;
