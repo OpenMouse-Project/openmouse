@@ -501,6 +501,15 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     recordingLastRef.current = null;
     setRecording(true);
   };
+  const clearSlot = async (): Promise<void> => {
+    if (disabled || recording) return;
+    await control.clearAtkR1Macro(slot);
+    updateSteps([]);
+    // Reading the slot straight back is the point of the button: the device has
+    // no other way to say the macro is gone, and a slot it would not empty has
+    // to show its stored steps instead of an empty editor.
+    await readMacro();
+  };
 
   return (
     <article id="atk-macro-settings" className="setting-card">
@@ -645,6 +654,15 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
         >
           <RefreshCw size={16} strokeWidth={2.2} aria-hidden="true" />
           {macroReading ? t(locale, "macro.atkReading") : t(locale, "macro.atkRead")}
+        </button>
+        <button
+          type="button"
+          data-macro-recorder-control
+          disabled={disabled || recording || !snapshot.hasActiveDevice}
+          onClick={() => void clearSlot()}
+        >
+          <Trash2 size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.clearSlot")}
         </button>
         <button
           className="ksnake-macro-save"

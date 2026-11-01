@@ -2989,6 +2989,14 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
           {t(locale, "macro.whAdd")}
         </button>
         <button
+          type="button"
+          onClick={() => setSteps([])}
+          disabled={disabled || steps.length === 0}
+        >
+          <Trash2 size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.clearSlot")}
+        </button>
+        <button
           className="ksnake-macro-save"
           type="button"
           onClick={() => control.applyLeobogMacro(slot, name, steps)}

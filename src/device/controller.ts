@@ -2347,6 +2347,40 @@ export async function readAtkR1Macro(macroId: number): Promise<AtkR1MacroStepInp
 }
 
 /**
+ * Empty one ATK R1 macro slot. The slot's action count goes to zero, which is
+ * the empty state the vendor's own reset leaves behind; button bindings are not
+ * touched, so a button that pointed at the slot simply has nothing to play.
+ */
+export async function clearAtkR1Macro(macroId: number): Promise<void> {
+  const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
+  if (!client) throw new Error("Connect a supported ATK mouse before clearing macros.");
+  if (refreshInProgress || settingInProgress) return;
+
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Clearing macro slot ${macroId + 1}…`);
+  emit();
+  recordDiagnosticCommand(`Clear macro slot ${macroId + 1}`);
+  try {
+    await client.clearR1ButtonMacro(macroId);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`Macro slot ${macroId + 1} cleared`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, `Unable to clear macro slot ${macroId + 1}`);
+    const message = error instanceof Error ? error.message : "Unable to clear the macro slot.";
+    setReadStatus(message);
+    pushToast("error", "Macro clear failed", message);
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
+/**
  * ATK F1 Ultimate settings (sensor mode, anti-mistouch, dongle light) use the
  * shared staged flow: edits preview instantly and join the footer Apply bar
  * like every other control.
