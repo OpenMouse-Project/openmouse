@@ -2,6 +2,7 @@ import { displayText, t, tp } from "../../../i18n/index";
 import {
   ATK_R1_BUTTON_ACTIONS,
   ATK_BUTTON_CLASS,
+  ATK_R1_MACRO_MAX_ACTIONS,
   ATK_R1_MACRO_SLOT_COUNT,
   ATK_R1_MACRO_START_TYPES,
   atkButtonActionId,
@@ -15,7 +16,13 @@ import { Segmented } from "../../../shared/ui";
 import { atkSensorModes, atkVisibleButtons } from "./atk-capabilities";
 import { Circle, Plus, RefreshCw, Save, Square, Trash2 } from "lucide-react";
 
-const ATK_MACRO_MAX_STEPS = 60;
+/**
+ * Action records a step list costs. A wheel step is stored as a press and a
+ * release, so it spends two of the slot's records.
+ */
+function atkMacroActionCount(steps: readonly AtkR1MacroStepInput[]): number {
+  return steps.reduce((total, step) => total + (step.kind.startsWith("wheel") ? 2 : 1), 0);
+}
 
 type AtkMapping = NonNullable<NonNullable<ControlSnapshot["status"]>["atkButtonMappings"]>[number];
 
@@ -27,6 +34,7 @@ const ATK_MACRO_KEY_CHOICES: ReadonlyArray<{ label: string; usage: number }> = [
   { label: "Backspace", usage: 0x2a },
   { label: "Tab", usage: 0x2b },
   { label: "Space", usage: 0x2c },
+  ...Array.from({ length: 12 }, (_, index) => ({ label: `F${index + 1}`, usage: 0x3a + index })),
   { label: "Left Ctrl", usage: 0xe0 },
   { label: "Left Shift", usage: 0xe1 },
   { label: "Left Alt", usage: 0xe2 },
@@ -47,6 +55,18 @@ const ATK_MACRO_EVENT_CODE_USAGE: Readonly<Record<string, number>> = {
   Backspace: 0x2a,
   Tab: 0x2b,
   Space: 0x2c,
+  F1: 0x3a,
+  F2: 0x3b,
+  F3: 0x3c,
+  F4: 0x3d,
+  F5: 0x3e,
+  F6: 0x3f,
+  F7: 0x40,
+  F8: 0x41,
+  F9: 0x42,
+  F10: 0x43,
+  F11: 0x44,
+  F12: 0x45,
   Minus: 0x2d,
   Equal: 0x2e,
   BracketLeft: 0x2f,
@@ -399,13 +419,26 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     const append = (kind: AtkR1MacroStepInput["kind"], keyCode: number, at: number): void => {
       const previous = recordingLastRef.current;
       recordingLastRef.current = at;
-      const holdTime = previous === null
+      // The slot stores a wait *after* each record, so the time just measured
+      // belongs to the step that finished, not to the one being added: a press
+      // carries its own hold and the release after it carries the gap to the
+      // next press. Stamping the new step shifts every measurement by one
+      // place — the rule below is the one the GM3 recorder already follows,
+      // where it came from a vendor capture.
+      const elapsed = previous === null
         ? 0
         : Math.min(65535, Math.max(0, Math.round(at - previous)));
       setDrafts((current) => {
         const currentSteps = current[slot] ?? [];
-        if (currentSteps.length >= ATK_MACRO_MAX_STEPS) return current;
-        return { ...current, [slot]: [...currentSteps, { kind, keyCode, holdTime }] };
+        const stamped = currentSteps.length === 0
+          ? currentSteps
+          : currentSteps.map((step, index) => (index === currentSteps.length - 1
+            ? { ...step, holdTime: elapsed }
+            : step));
+        const next = [...stamped, { kind, keyCode, holdTime: 0 }];
+        return atkMacroActionCount(next) > ATK_R1_MACRO_MAX_ACTIONS
+          ? current
+          : { ...current, [slot]: next };
       });
     };
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -450,7 +483,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
   if (!selectedButton) return null;
 
   const addStep = (): void => {
-    updateSteps((current) => current.length + 2 <= ATK_MACRO_MAX_STEPS
+    updateSteps((current) => atkMacroActionCount(current) + 2 <= ATK_R1_MACRO_MAX_ACTIONS
       ? [
           ...current,
           { kind: "key-down", keyCode: 0x04, holdTime: 20 },
@@ -612,15 +645,6 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
         >
           <RefreshCw size={16} strokeWidth={2.2} aria-hidden="true" />
           {macroReading ? t(locale, "macro.atkReading") : t(locale, "macro.atkRead")}
-        </button>
-        <button
-          type="button"
-          data-macro-recorder-control
-          disabled={disabled || recording || steps.length === 0}
-          onClick={() => updateSteps([])}
-        >
-          <Trash2 size={16} strokeWidth={2.2} aria-hidden="true" />
-          {t(locale, "macro.clearSlot")}
         </button>
         <button
           className="ksnake-macro-save"

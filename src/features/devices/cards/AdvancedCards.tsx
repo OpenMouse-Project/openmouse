@@ -2655,6 +2655,9 @@ export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): 
  */
 const LEOBOG_MACRO_KEY_LABELS: Readonly<Record<number, string>> = {
   ...KSNAKE_KEY_LABELS,
+  // KSNAKE_KEY_LABELS carries no digits, but the recorder below does send
+  // them, so without these a recorded "3" would show up as a raw code.
+  30: "1", 31: "2", 32: "3", 33: "4", 34: "5", 35: "6", 36: "7", 37: "8", 38: "9", 39: "0",
   0xe0: "Left Ctrl",
   0xe1: "Left Shift",
   0xe2: "Left Alt",
