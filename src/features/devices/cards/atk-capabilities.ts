@@ -19,3 +19,11 @@ export function atkVisibleButtons<T extends { id: string }>(
     ? rows.filter((row) => row.id !== "bottom")
     : rows;
 }
+
+/** R1-family mice expose the shared button record format and macro slots. */
+export function atkSupportsMacroBindings(status: MouseStatus | null | undefined): boolean {
+  return status?.ui?.family === "atk"
+    && status.brand === "VXE"
+    && /^VXE R1(?:\s|$|SE)/i.test(status.name ?? "")
+    && (status.atkButtonMappings?.length ?? 0) > 0;
+}

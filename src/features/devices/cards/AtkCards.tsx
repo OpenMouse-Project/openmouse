@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../../../device/controller";
 import type { ControlSnapshot } from "../../../device/types";
 import { Segmented } from "../../../shared/ui";
-import { atkSensorModes, atkVisibleButtons } from "./atk-capabilities";
+import { atkSensorModes, atkSupportsMacroBindings, atkVisibleButtons } from "./atk-capabilities";
 import { Circle, Plus, RefreshCw, Save, Square, Trash2 } from "lucide-react";
 
 /**
@@ -168,6 +168,24 @@ function atkAssignmentLabel(
   return actionId
     ? atkButtonActionLabel(actionId, mapping.action, locale)
     : `${t(locale, "atk.action.unsupported")} (${mapping.raw})`;
+}
+
+function atkMacroSlotValue(macroId: number): string {
+  return `macro:${macroId}`;
+}
+
+function atkMappingSelectionValue(mapping: AtkMapping): string {
+  if (mapping.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 < ATK_R1_MACRO_SLOT_COUNT) {
+    return atkMacroSlotValue(mapping.value1);
+  }
+  return atkButtonActionId(mapping.keyClass, mapping.value1, mapping.value2) ?? "";
+}
+
+function atkMacroSlotFromValue(value: string): number | null {
+  const match = /^macro:(\d+)$/.exec(value);
+  if (!match) return null;
+  const macroId = Number(match[1]);
+  return macroId >= 0 && macroId < ATK_R1_MACRO_SLOT_COUNT ? macroId : null;
 }
 
 function AtkMacroStepRow({
@@ -336,6 +354,7 @@ export function AtkProfileCard({ snapshot }: { snapshot: ControlSnapshot }): Rea
 export function AtkButtonCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const __uiLocale = useUiLocale();
   const mappings = atkVisibleButtons(snapshot.status?.atkButtonMappings, snapshot.status?.atkCatalogFeatures);
+  const macroBindings = atkSupportsMacroBindings(snapshot.status);
   if (!mappings.length) return null;
   return (
     <article id="atk-button-status" className="setting-card">
@@ -344,18 +363,31 @@ export function AtkButtonCard({ snapshot }: { snapshot: ControlSnapshot }): Reac
         <output>{mappings.length}</output>
       </div>
       <div className="button-remap-list">
-        {mappings.map((mapping) => (
+        {mappings.map((mapping) => {
+          const selection = atkMappingSelectionValue(mapping);
+          return (
           <div className="button-remap-row" key={mapping.id}>
             <span>{atkButtonNameLabel(mapping, __uiLocale)}</span>
             <span className="button-map-select-wrap">
               <select
                 aria-label={atkButtonNameLabel(mapping, __uiLocale)}
-                value={atkButtonActionId(mapping.keyClass, mapping.value1, mapping.value2) ?? ""}
+                value={selection}
                 disabled={snapshot.settingInProgress || !mapping.checksumValid}
                 title={`EEPROM 0x${mapping.address.toString(16).padStart(4, "0")} · ${mapping.raw}`}
-                onChange={(event) => void control.applyAtkR1ButtonAction(mapping.id, event.currentTarget.value)}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  const macroId = atkMacroSlotFromValue(value);
+                  if (macroId !== null) {
+                    const startType = mapping.keyClass === ATK_BUTTON_CLASS.macro
+                      ? mapping.value2
+                      : ATK_R1_MACRO_START_TYPES.stopImmediately;
+                    void control.applyAtkR1ButtonMacroSlot(mapping.id, macroId, startType);
+                    return;
+                  }
+                  void control.applyAtkR1ButtonAction(mapping.id, value);
+                }}
               >
-                {atkButtonActionId(mapping.keyClass, mapping.value1, mapping.value2) === null ? (
+                {selection === "" ? (
                   <option value="" disabled>{atkAssignmentLabel(mapping, __uiLocale)}</option>
                 ) : null}
                 {ATK_R1_BUTTON_ACTIONS.map((action) => (
@@ -363,10 +395,20 @@ export function AtkButtonCard({ snapshot }: { snapshot: ControlSnapshot }): Reac
                     {atkButtonActionLabel(action.id, action.label, __uiLocale)}
                   </option>
                 ))}
+                {macroBindings ? (
+                  <optgroup label={t(__uiLocale, "macro.option")}>
+                    {Array.from({ length: ATK_R1_MACRO_SLOT_COUNT }, (_, index) => (
+                      <option key={index} value={atkMacroSlotValue(index)}>
+                        {t(__uiLocale, "macro.option")} {index + 1}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
             </span>
           </div>
-        ))}
+          );
+        })}
       </div>
       <small className="setting-note"> {displayText(__uiLocale, "Written to the active bank with readback and automatic rollback if the mouse rejects the assignment.")} </small>
     </article>

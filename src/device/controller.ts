@@ -2297,6 +2297,46 @@ export async function applyAtkR1ButtonAction(buttonId: string, actionId: string)
   }
 }
 
+export async function applyAtkR1ButtonMacroSlot(
+  buttonId: string,
+  macroId: number,
+  startType: number,
+): Promise<void> {
+  const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
+  if (!client || refreshInProgress || settingInProgress) return;
+  if (hasPendingChanges()) {
+    setReadStatus(st("ctl.atkPending"));
+    emit();
+    return;
+  }
+  const buttonIndex = ATK_R1_BUTTONS.findIndex((button) => button.id === buttonId);
+  const button = ATK_R1_BUTTONS[buttonIndex];
+  if (!button) return;
+
+  const device = activeDevice;
+  settingInProgress = true;
+  setReadStatus(`Binding ${button.label.toLowerCase()} to macro ${macroId + 1}…`);
+  emit();
+  recordDiagnosticCommand(`Bind ${button.label} to macro ${macroId + 1}`);
+  try {
+    await client.setR1ButtonMacroBinding(buttonIndex, macroId, startType);
+    if (active !== client || activeDevice !== device) return;
+    const status = await statusAfterWrite(client);
+    if (active !== client || activeDevice !== device) return;
+    applyStatus(status);
+    setReadStatus(`${button.label} → macro ${macroId + 1}`);
+  } catch (error) {
+    if (active !== client || activeDevice !== device) return;
+    recordDiagnosticError(error, `Unable to bind ${button.label.toLowerCase()} to macro ${macroId + 1}`);
+    const message = error instanceof Error ? error.message : "Unable to bind the macro.";
+    setReadStatus(message);
+    pushToast("error", "Macro binding failed", message);
+  } finally {
+    settingInProgress = false;
+    emit();
+  }
+}
+
 export async function applyAtkR1Macro(
   buttonId: string,
   steps: readonly AtkR1MacroStepInput[],

@@ -3,6 +3,7 @@ import { isPulsarProProtocol } from "../../../device/traits.ts";
 import { isSlxStatus, slxProfiles, slxTmr } from "../../../device/finalmouse-slx.ts";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import type { ControlSnapshot } from "../../../device/types";
+import { atkSupportsMacroBindings } from "./atk-capabilities.ts";
 
 export interface CardAvailability {
   dpi: boolean;
@@ -244,10 +245,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // it, and only for a product whose profile sets buttonMapping.
     razerButtons: status.razerButtonMappings != null,
     atkButtons: (status.atkButtonMappings?.length ?? 0) > 0,
-    atkMacros: (status.ui?.family === "atk"
-      && status.brand === "VXE"
-      && /^VXE R1(?:\s|$|SE)/i.test(status.name ?? "")
-      && (status.atkButtonMappings?.length ?? 0) > 0),
+    atkMacros: atkSupportsMacroBindings(status),
     atkProfile: status.atkProfileCount !== undefined && status.activeProfile !== null,
     atkReceiver: status.atkReceiver !== undefined,
     atkF1Sensor: status.atkSensorMode != null,
