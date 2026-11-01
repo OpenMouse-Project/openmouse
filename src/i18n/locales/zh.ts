@@ -1191,6 +1191,8 @@ export const zh: Record<I18nKey, string> = {
   "macro.nameLabel": "宏名称",
   "macro.stepDown": "按下",
   "macro.stepUp": "松开",
+  "macro.stepMouseDown": "鼠标按下",
+  "macro.stepMouseUp": "鼠标松开",
   "macro.keyLabel": "按键",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

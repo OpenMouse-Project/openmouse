@@ -1191,6 +1191,8 @@ export const ru: Record<I18nKey, string> = {
   "macro.nameLabel": "Имя макроса",
   "macro.stepDown": "Нажатие клавиши",
   "macro.stepUp": "Отпускание клавиши",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "Клавиша",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

@@ -3,6 +3,7 @@ import {
   ATK_R1_BUTTON_ACTIONS,
   ATK_BUTTON_CLASS,
   ATK_R1_MACRO_MAX_ACTIONS,
+  ATK_R1_MACRO_MOUSE_BUTTON,
   ATK_R1_MACRO_SLOT_COUNT,
   ATK_R1_MACRO_START_TYPES,
   atkButtonActionId,
@@ -48,6 +49,23 @@ const ATK_MACRO_KEY_CHOICES: ReadonlyArray<{ label: string; usage: number }> = [
   { label: "Arrow right", usage: 0x4f },
   { label: "Arrow up", usage: 0x52 },
 ];
+
+const ATK_MACRO_MOUSE_CHOICES: ReadonlyArray<{ label: Parameters<typeof t>[1]; usage: number }> = [
+  { label: "map.buttonLeft", usage: ATK_R1_MACRO_MOUSE_BUTTON.left },
+  { label: "map.buttonRight", usage: ATK_R1_MACRO_MOUSE_BUTTON.right },
+  { label: "map.buttonMiddle", usage: ATK_R1_MACRO_MOUSE_BUTTON.middle },
+  { label: "map.buttonBackward", usage: ATK_R1_MACRO_MOUSE_BUTTON.back },
+  { label: "map.buttonForward", usage: ATK_R1_MACRO_MOUSE_BUTTON.forward },
+];
+
+/** DOM `MouseEvent.button` values mapped to the R1 macro button masks. */
+const ATK_MACRO_DOM_BUTTON: Readonly<Record<number, number>> = {
+  0: ATK_R1_MACRO_MOUSE_BUTTON.left,
+  2: ATK_R1_MACRO_MOUSE_BUTTON.right,
+  1: ATK_R1_MACRO_MOUSE_BUTTON.middle,
+  3: ATK_R1_MACRO_MOUSE_BUTTON.back,
+  4: ATK_R1_MACRO_MOUSE_BUTTON.forward,
+};
 
 const ATK_MACRO_EVENT_CODE_USAGE: Readonly<Record<string, number>> = {
   Enter: 0x28,
@@ -168,7 +186,8 @@ function AtkMacroStepRow({
   onRemove: () => void;
 }): ReactNode {
   const isKeyStep = step.kind === "key-down" || step.kind === "key-up";
-  const knownKey = ATK_MACRO_KEY_CHOICES.some((choice) => choice.usage === step.keyCode);
+  const isMouseStep = step.kind === "mouse-down" || step.kind === "mouse-up";
+  const knownKey = isKeyStep && ATK_MACRO_KEY_CHOICES.some((choice) => choice.usage === step.keyCode);
   return (
     <div className="macro-step" data-macro-recorder-control>
       <span className="macro-step-index">{index + 1}</span>
@@ -188,6 +207,8 @@ function AtkMacroStepRow({
         >
           <option value="key-down">{t(locale, "macro.stepDown")}</option>
           <option value="key-up">{t(locale, "macro.stepUp")}</option>
+          <option value="mouse-down">{t(locale, "macro.stepMouseDown")}</option>
+          <option value="mouse-up">{t(locale, "macro.stepMouseUp")}</option>
           <option value="wheel-up">{t(locale, "macro.whUp")}</option>
           <option value="wheel-down">{t(locale, "macro.whDown")}</option>
         </select>
@@ -233,6 +254,23 @@ function AtkMacroStepRow({
             </label>
           ) : null}
         </>
+      ) : isMouseStep ? (
+        <label>
+          {t(locale, "macro.whButton")}
+          <select
+            value={step.keyCode}
+            disabled={disabled}
+            onChange={(event) => onChange({
+              kind: step.kind,
+              keyCode: Number(event.currentTarget.value),
+              holdTime: step.holdTime,
+            })}
+          >
+            {ATK_MACRO_MOUSE_CHOICES.map((choice) => (
+              <option key={choice.usage} value={choice.usage}>{t(locale, choice.label)}</option>
+            ))}
+          </select>
+        </label>
       ) : null}
       <label>
         {t(locale, "macro.colDelay")}
@@ -464,6 +502,26 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       event.stopPropagation();
       append("key-up", usage, event.timeStamp);
     };
+    const onMouseDown = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const button = ATK_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append("mouse-down", button, event.timeStamp);
+    };
+    const onMouseUp = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const button = ATK_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      append("mouse-up", button, event.timeStamp);
+    };
+    const onContextMenu = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      event.preventDefault();
+    };
     const onWheel = (event: WheelEvent): void => {
       if (isRecorderControl(event.target) || event.deltaY === 0) return;
       event.preventDefault();
@@ -472,10 +530,16 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     };
     window.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("mousedown", onMouseDown, true);
+    window.addEventListener("mouseup", onMouseUp, true);
+    window.addEventListener("contextmenu", onContextMenu, true);
     window.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => {
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("mousedown", onMouseDown, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+      window.removeEventListener("contextmenu", onContextMenu, true);
       window.removeEventListener("wheel", onWheel, true);
     };
   }, [recording, slot]);

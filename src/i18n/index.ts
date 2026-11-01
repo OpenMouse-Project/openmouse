@@ -1264,6 +1264,8 @@ const en = {
   "macro.nameLabel": "Macro name",
   "macro.stepDown": "Press",
   "macro.stepUp": "Release",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "Key",
   "macro.atkLead": "Choose a button and macro slot, add actions, then Save. Saving writes the macro to the mouse.",
   "macro.atkStartMode": "Start mode",

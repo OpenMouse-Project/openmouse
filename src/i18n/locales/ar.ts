@@ -1189,6 +1189,8 @@ export const ar: Record<I18nKey, string> = {
   "macro.nameLabel": "اسم الماكرو",
   "macro.stepDown": "ضغط مفتاح",
   "macro.stepUp": "تحرير مفتاح",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "مفتاح",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

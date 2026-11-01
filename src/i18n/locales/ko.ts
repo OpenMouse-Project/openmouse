@@ -1191,6 +1191,8 @@ export const ko: Record<I18nKey, string> = {
   "macro.nameLabel": "매크로 이름",
   "macro.stepDown": "키 누름",
   "macro.stepUp": "키 뗌",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "키",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

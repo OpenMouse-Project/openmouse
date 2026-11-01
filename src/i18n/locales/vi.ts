@@ -1196,6 +1196,8 @@ export const vi: Record<I18nKey, string> = {
   "macro.nameLabel": "Tên macro",
   "macro.stepDown": "Nhấn phím",
   "macro.stepUp": "Nhả phím",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "Phím",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

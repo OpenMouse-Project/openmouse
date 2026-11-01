@@ -2299,7 +2299,7 @@ export async function applyAtkR1ButtonAction(buttonId: string, actionId: string)
 
 export async function applyAtkR1Macro(
   buttonId: string,
-  steps: Array<{ kind: "key-down" | "key-up" | "wheel-up" | "wheel-down"; keyCode: number; holdTime: number }>,
+  steps: readonly AtkR1MacroStepInput[],
   options: { startType: number; runCount: number; macroId: number },
 ): Promise<void> {
   const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);

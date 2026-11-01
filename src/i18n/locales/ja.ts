@@ -1191,6 +1191,8 @@ export const ja: Record<I18nKey, string> = {
   "macro.nameLabel": "マクロ名",
   "macro.stepDown": "キーを押す",
   "macro.stepUp": "キーを離す",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "キー",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",

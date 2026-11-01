@@ -1185,6 +1185,8 @@ export const tr: Record<I18nKey, string> = {
   "macro.nameLabel": "Makro adı",
   "macro.stepDown": "Tuşa basma",
   "macro.stepUp": "Tuşu bırakma",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "Tuş",
   "m2nex.controls": "M2-NEX profil kontrolleri",
   "m2nex.overline": "PROFİL",

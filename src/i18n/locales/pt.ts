@@ -1191,6 +1191,8 @@ export const pt: Record<I18nKey, string> = {
   "macro.nameLabel": "Nome da macro",
   "macro.stepDown": "Tecla premida",
   "macro.stepUp": "Tecla solta",
+  "macro.stepMouseDown": "Mouse press",
+  "macro.stepMouseUp": "Mouse release",
   "macro.keyLabel": "Tecla",
   "m2nex.macrosUnavailable": "The connected M2-NEX driver does not expose onboard macro access yet.",
   "m2nex.saveDone": "{name} saved from the current mouse settings.",
