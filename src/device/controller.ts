@@ -2300,7 +2300,7 @@ export async function applyAtkR1ButtonAction(buttonId: string, actionId: string)
 export async function applyAtkR1Macro(
   buttonId: string,
   steps: Array<{ kind: "key-down" | "key-up" | "wheel-up" | "wheel-down"; keyCode: number; holdTime: number }>,
-  options: { startType: number; runCount: number; macroId?: number },
+  options: { startType: number; runCount: number; macroId: number },
 ): Promise<void> {
   const client = activeAs<AtkHidClient>(CM()?.AtkHidClient);
   if (!client || refreshInProgress || settingInProgress) return;
