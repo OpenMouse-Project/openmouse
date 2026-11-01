@@ -198,9 +198,16 @@ function AtkMacroStepRow({
           disabled={disabled}
           onChange={(event) => {
             const kind = event.currentTarget.value as AtkR1MacroStepInput["kind"];
+            const keyCode = kind.startsWith("wheel")
+              ? 0
+              : kind.startsWith("mouse")
+                ? ATK_R1_MACRO_MOUSE_BUTTON.left
+                : step.kind.startsWith("mouse")
+                  ? 0x04
+                  : step.keyCode || 0x04;
             onChange({
               kind,
-              keyCode: kind.startsWith("wheel") ? 0 : step.keyCode || 0x04,
+              keyCode,
               holdTime: step.holdTime,
             });
           }}
