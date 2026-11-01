@@ -246,7 +246,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     atkButtons: (status.atkButtonMappings?.length ?? 0) > 0,
     atkMacros: (status.ui?.family === "atk"
       && status.brand === "VXE"
-      && /^VXE R1(?: |$)/.test(status.name ?? "")
+      && /^VXE R1(?:\s|$|SE)/i.test(status.name ?? "")
       && (status.atkButtonMappings?.length ?? 0) > 0),
     atkProfile: status.atkProfileCount !== undefined && status.activeProfile !== null,
     atkReceiver: status.atkReceiver !== undefined,

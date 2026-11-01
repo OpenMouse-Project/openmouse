@@ -301,6 +301,16 @@ test("ATK inspection cards require data actually read from the device", () => {
     },
   }));
   assert.equal(r1Macro.atkMacros, true);
+
+  const catalogNamedR1 = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      name: "VXE R1SE",
+      ui: { family: "atk" },
+      atkButtonMappings: [{ id: "left" }] as never,
+    },
+  }));
+  assert.equal(catalogNamedR1.atkMacros, true);
 });
 
 test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
