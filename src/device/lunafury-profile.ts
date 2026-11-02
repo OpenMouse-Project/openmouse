@@ -1,7 +1,7 @@
-import type { LunaFuryButton, LunaFuryLightningMode, LunaFurySettings, LunaFuryWheelGuard } from "@openmouse/protocol/lamzu";
+import type { LunaFuryButton, LunaFuryButtonPollingRate, LunaFuryLightningMode, LunaFurySettings, LunaFuryWheelGuard } from "@openmouse/protocol/lamzu";
 
 export const LUNAFURY_PROFILE_FIELDS = [
-  "lightningMode", "leftDebounceMs", "rightDebounceMs", "middleDebounceMs", "wheelGuard",
+  "lightningMode", "leftDebounceMs", "rightDebounceMs", "middleDebounceMs", "wheelGuard", "buttonPollingRateHz",
 ] as const satisfies readonly (keyof LunaFurySettings)[];
 type Field = (typeof LUNAFURY_PROFILE_FIELDS)[number];
 
@@ -17,6 +17,9 @@ export function sanitizeLunaFurySettings(raw: unknown): LunaFurySettings {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const value = raw as Record<string, unknown>;
   const clean: LunaFurySettings = {};
+  if ([1000, 2000, 4000, 8000].includes(value.buttonPollingRateHz as number)) {
+    clean.buttonPollingRateHz = value.buttonPollingRateHz as LunaFuryButtonPollingRate;
+  }
   if (integer(value.lightningMode, 0, 2)) clean.lightningMode = value.lightningMode as LunaFuryLightningMode;
   if (integer(value.leftDebounceMs, 0, 15)) clean.leftDebounceMs = value.leftDebounceMs;
   if (integer(value.rightDebounceMs, 0, 15)) clean.rightDebounceMs = value.rightDebounceMs;
@@ -51,6 +54,7 @@ export function pickLunaFurySettings(current: LunaFurySettings | undefined, targ
 }
 
 export interface LunaFuryProfileActions {
+  buttonRate(hertz: LunaFuryButtonPollingRate): void;
   lightning(mode: LunaFuryLightningMode): void;
   button(button: LunaFuryButton, milliseconds: number): void;
   wheel(guard: LunaFuryWheelGuard): void;
@@ -64,6 +68,10 @@ export function lunaFuryLightningPriority(mode: LunaFuryLightningMode): number {
 export function stageLunaFuryProfile(raw: unknown, current: LunaFurySettings | undefined, actions: LunaFuryProfileActions): void {
   if (!current) return;
   const target = sanitizeLunaFurySettings(raw);
+  if (target.buttonPollingRateHz !== undefined && current.buttonPollingRateHz !== undefined
+    && current.supportedButtonPollingRates?.includes(target.buttonPollingRateHz)) {
+    actions.buttonRate(target.buttonPollingRateHz);
+  }
   if (target.lightningMode !== undefined && current.lightningMode !== undefined) actions.lightning(target.lightningMode);
   for (const button of ["left", "right", "middle"] as const) {
     const field = `${button}DebounceMs` as const;

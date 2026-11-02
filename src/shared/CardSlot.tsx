@@ -44,6 +44,8 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   incott: Cog,
   "lunafury-buttons": Mouse,
   "lunafury-wheel": ShieldCheck,
+  "lunafury-bottom-button": ToggleRight,
+  "lunafury-receiver-light": Usb,
   "dongle-led": Usb,
   "atk-profile": Layers,
   "atk-receiver": Usb,

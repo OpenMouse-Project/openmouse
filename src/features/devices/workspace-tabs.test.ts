@@ -23,7 +23,7 @@ function availability(enabled: Partial<CardAvailability>): CardAvailability {
 }
 
 test("LunaFury response and wheel guard retain the Buttons tab without global debounce", () => {
-  for (const field of ["lunafuryButtons", "lunafuryWheelGuard"] as const) {
+  for (const field of ["lunafuryButtons", "lunafuryWheelGuard", "lunafuryBottomButton"] as const) {
     assert.deepEqual(availableWorkspaceTabs(true, availability({ [field]: true })), [
       "overview", "performance", "buttons", "advanced",
     ]);
@@ -35,6 +35,17 @@ test("a connected mouse exposes only tabs backed by available controls", () => {
   assert.deepEqual(availableWorkspaceTabs(true, availability({ debounce: true })), [
     "overview", "performance", "buttons", "advanced",
   ]);
+});
+
+test("Games omits device-only bottom-button controls without hiding editable button settings", () => {
+  const deviceOnly = availability({ lunafuryBottomButton: true });
+  assert.equal(availableWorkspaceTabs(true, deviceOnly).includes("buttons"), true);
+  assert.equal(availableWorkspaceTabs(true, deviceOnly, { gameProfile: true }).includes("buttons"), false);
+  for (const field of ["lunafuryButtons", "lunafuryWheelGuard", "buttonMapping"] as const) {
+    assert.equal(availableWorkspaceTabs(true, availability({
+      lunafuryBottomButton: true, [field]: true,
+    }), { gameProfile: true }).includes("buttons"), true);
+  }
 });
 
 test("magnetic buttons put their settings under the buttons tab", () => {

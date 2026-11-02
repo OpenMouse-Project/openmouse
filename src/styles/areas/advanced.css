@@ -17,6 +17,11 @@
   align-items: center;
 }
 #sleep-settings > .setting-heading { min-width: 0; }
+#pulsar-advanced:has(#lunafury-receiver-light) #sleep-settings {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
 #sleep-settings:has(#sleep-toggle) > .setting-heading { grid-column: 1 / -1; }
 #sleep-settings > .option-menu, #sleep-settings > .sleep-time-picker { grid-column: 2; }
 #sleep-settings:has(#sleep-toggle) > .option-menu,
