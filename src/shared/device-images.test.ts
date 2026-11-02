@@ -125,12 +125,11 @@ test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", 
 });
 
 test("LEOBOG GM3 resolves by name on the wired and receiver connections", () => {
-  // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
-  // device-images.ts / public/devices/README.md) until a maintainer uploads
-  // leobog-gm3.png to R2; then it returns CDN + "leobog-gm3.png" again.
-  assert.equal(deviceImage(null, "LEOBOG GM3"), "/devices/leobog-gm3.png");
-  assert.equal(deviceImage(dev(0x258a, 0x0138), "LEOBOG GM3"), "/devices/leobog-gm3.png");
-  assert.equal(deviceImage(dev(0x258a, 0x0136), "LEOBOG GM3"), "/devices/leobog-gm3.png");
+  // The mapping is ready, but the vendor render remains unpublished until its
+  // redistribution terms are cleared.
+  assert.equal(deviceImage(null, "LEOBOG GM3"), "https://img.openmouse.app/leobog-gm3.png");
+  assert.equal(deviceImage(dev(0x258a, 0x0138), "LEOBOG GM3"), "https://img.openmouse.app/leobog-gm3.png");
+  assert.equal(deviceImage(dev(0x258a, 0x0136), "LEOBOG GM3"), "https://img.openmouse.app/leobog-gm3.png");
 });
 
 test("OP1we and OP1 8K resolve to distinct renders by name", () => {

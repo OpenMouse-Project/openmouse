@@ -2712,6 +2712,8 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<HTMLDivElement | null>(null);
   const recordingLastRef = useRef<number | null>(null);
+  const slotDraftsRef = useRef<Record<number, { name: string; steps: LeobogGm3MacroStep[] }>>({});
+  const activeSlotRef = useRef(slot);
   const staged = snapshot.pending.keys.includes(`leobog-macro-${slot + 1}`);
   const disabled = snapshot.settingInProgress || snapshot.pending.busy;
 
@@ -2721,8 +2723,25 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const storedSignature = JSON.stringify(macros?.[slot] ?? null);
   useEffect(() => {
     const record = macros?.[slot] ?? null;
-    setName(record?.name ?? `Macro ${slot + 1}`);
-    setSteps(record ? record.steps.map((step) => ({ ...step, event: { ...step.event } })) : []);
+    const stored = {
+      name: record?.name ?? `Macro ${slot + 1}`,
+      steps: record ? record.steps.map((step) => ({ ...step, event: { ...step.event } })) : [],
+    };
+    const previousSlot = activeSlotRef.current;
+    if (previousSlot !== slot) {
+      // Keep per-slot drafts so switching the picker cannot discard edits.
+      slotDraftsRef.current[previousSlot] = { name, steps };
+      activeSlotRef.current = slot;
+      const draft = slotDraftsRef.current[slot];
+      if (draft) {
+        setName(draft.name);
+        setSteps(draft.steps);
+        return;
+      }
+    }
+    setName(stored.name);
+    setSteps(stored.steps);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedSignature, slot]);
 
   // Recording appends to whatever is already in the slot so a mis-click cannot
@@ -2734,6 +2753,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     const isRecorderControl = (target: EventTarget | null): boolean => (
       target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
     );
+    const held = new Set<string>();
     // `at` comes from the event's own timestamp, so a stalled handler cannot
     // stretch the gap the way it could if we measured the handler time.
     const append = (event: LeobogGm3MacroStep["event"], at: number): void => {
@@ -2759,14 +2779,19 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       if (usage === null) return;
       event.preventDefault();
       event.stopPropagation();
+      held.add(`keyboard:${usage}`);
       append({ type: "keyDown", hidUsage: usage }, leobogMacroEventTime(event));
     };
     const onKeyUp = (event: KeyboardEvent): void => {
-      if (isRecorderControl(event.target)) return;
       const usage = leobogMacroUsageForEvent(event.code);
       if (usage === null) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const closesCapturedPress = held.delete(`keyboard:${usage}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       append({ type: "keyUp", hidUsage: usage }, leobogMacroEventTime(event));
     };
     const onMouseDown = (event: MouseEvent): void => {
@@ -2775,14 +2800,19 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       if (button === undefined) return;
       event.preventDefault();
       event.stopPropagation();
+      held.add(`mouse:${button}`);
       append({ type: "mouseDown", hidUsage: button }, leobogMacroEventTime(event));
     };
     const onMouseUp = (event: MouseEvent): void => {
-      if (isRecorderControl(event.target)) return;
       const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
       if (button === undefined) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const closesCapturedPress = held.delete(`mouse:${button}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       append({ type: "mouseUp", hidUsage: button }, leobogMacroEventTime(event));
     };
     // A recorded right button is a step, not a request for the browser menu.
@@ -2836,7 +2866,11 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       </div>
       <label className="ksnake-macro-slot-picker">
         <span>{t(locale, "macro.slotLabel")}</span>
-        <select value={slot} disabled={disabled} onChange={(event) => setSlot(Number(event.currentTarget.value))}>
+        <select
+          value={slot}
+          disabled={disabled || recording}
+          onChange={(event) => setSlot(Number(event.currentTarget.value))}
+        >
           {macros.map((record, index) => {
             const count = index === slot ? steps.length : record?.steps.length ?? 0;
             return (

@@ -72,8 +72,34 @@ test("VXE R1 SE battery history follows its old receiver display name", () => {
 
   recordBatterySample(storage, "VXE R1 SE", 79, "discharging", 20 * 60 * 1000);
   const stored = JSON.parse(storage.getItem("openmouse-battery-history-v1") ?? "{}") as Record<string, unknown>;
-  assert.equal(stored["ATK VXE Mouse 1K Dongle"], undefined);
+  assert.equal((stored["ATK VXE Mouse 1K Dongle"] as unknown[]).length, 2);
   assert.equal((stored["VXE R1 SE"] as unknown[]).length, 3);
+});
+
+test("a current model reading wins over its shared legacy bucket at the same timestamp", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({
+    "ATK VXE Mouse 1K Dongle": [
+      { timestamp: 600_000, percent: 79, mode: "discharging" },
+    ],
+    "VXE R1 SE": [
+      { timestamp: 600_000, percent: 78, mode: "discharging" },
+    ],
+  }));
+
+  const samples = saveBatterySample(storage, "VXE R1 SE", 77, "discharging", 700_000);
+  assert.deepEqual(samples.map((sample) => sample.percent), [78, 77]);
+});
+
+test("battery estimates do not borrow a rate from an earlier mode run", () => {
+  const samples = [
+    { timestamp: 0, percent: 100, mode: "discharging" as const },
+    { timestamp: 600_000, percent: 90, mode: "discharging" as const },
+    { timestamp: 700_000, percent: 95, mode: "charging" as const },
+    { timestamp: 800_000, percent: 88, mode: "discharging" as const },
+    { timestamp: 850_000, percent: 87, mode: "discharging" as const },
+  ];
+  assert.equal(estimateBatteryTime(samples, 87, "discharging", 850_000), null);
 });
 
 test("rated battery life is known for the Superstrike mice, whatever the spacing of the name", () => {

@@ -26,8 +26,15 @@ const HISTORY_ALIASES: Record<string, readonly string[]> = {
   "VXER1SE+": ["ATK VXE Mouse 1K Dongle"],
 };
 
+/** Aliases that predate model-specific names and cannot be assigned to one device. */
+const SHARED_HISTORY_ALIASES = new Set(["ATKVXEMOUSE1KDONGLE"]);
+
+function normalizedHistoryKey(deviceName: string): string {
+  return deviceName.replace(/\s+/g, "").toUpperCase();
+}
+
 function batteryHistoryKeys(deviceName: string): string[] {
-  const normalized = deviceName.replace(/\s+/g, "").toUpperCase();
+  const normalized = normalizedHistoryKey(deviceName);
   return [deviceName, ...(HISTORY_ALIASES[normalized] ?? [])];
 }
 
@@ -57,9 +64,11 @@ const memorySamples = new Map<string, BatterySample[]>();
 
 function mergedHistorySamples(history: BatteryHistory, deviceName: string, cutoff: number): BatterySample[] {
   const merged = new Map<string, BatterySample>();
-  for (const key of batteryHistoryKeys(deviceName)) {
+  // Apply aliases first, then the model-specific bucket, so a current reading
+  // wins when both buckets contain the same timestamp.
+  for (const key of batteryHistoryKeys(deviceName).reverse()) {
     for (const sample of pruneSamples(history[key], cutoff)) {
-      merged.set(`${sample.timestamp}:${sample.percent}:${sample.mode}`, sample);
+      merged.set(String(sample.timestamp), sample);
     }
   }
   return [...merged.values()].sort((left, right) => left.timestamp - right.timestamp);
@@ -88,7 +97,14 @@ export function saveBatterySample(
   const retainedSamples = samples.slice(-MAX_SAMPLES_PER_DEVICE);
   history[deviceName] = retainedSamples;
   for (const key of keys) {
-    if (key !== deviceName) delete history[key];
+    if (key === deviceName) continue;
+    if (SHARED_HISTORY_ALIASES.has(normalizedHistoryKey(key))) {
+      const retainedAlias = pruneSamples(history[key], cutoff);
+      if (retainedAlias.length) history[key] = retainedAlias;
+      else delete history[key];
+    } else {
+      delete history[key];
+    }
   }
   if (shouldSave || retainedSamples.length !== storedCount || migrated) {
     try {
@@ -147,10 +163,12 @@ export function estimateBatteryTime(
 ): string | null {
   const segments: BatterySample[][] = [];
   let segment: BatterySample[] = [];
+  let currentRunStart = 0;
   for (const sample of samples) {
     if (sample.mode !== mode) {
       if (segment.length) segments.push(segment);
       segment = [];
+      currentRunStart = segments.length;
       continue;
     }
     const previous = segment.at(-1);
@@ -162,7 +180,7 @@ export function estimateBatteryTime(
   }
   if (segment.length) segments.push(segment);
 
-  for (let index = segments.length - 1; index >= 0; index -= 1) {
+  for (let index = segments.length - 1; index >= currentRunStart; index -= 1) {
     const candidate = segments[index];
     const first = candidate[0];
     const last = candidate.at(-1);

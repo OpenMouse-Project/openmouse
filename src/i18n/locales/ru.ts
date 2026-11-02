@@ -872,7 +872,7 @@ export const ru: Record<I18nKey, string> = {
   "ctl.pairFailed": "Сопряжение не удалось",
   "ctl.pairModel": "Модель мыши",
   "ctl.pairVerified": "Сопряжение подтверждено для {name} (CID 02, MID 20).",
-  "ctl.pairReceiver": "Сопрязить приёмник {name}",
+  "ctl.pairReceiver": "Сопрячь приёмник {name}",
   "ctl.cmdPower": "Сменить режим производительности",
   "ctl.progPower": "Меняю режим…",
   "ctl.cmdRemap": "Переназначить кнопку {button}",

@@ -222,7 +222,6 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
   // A generic keyboard outline, not product art; it stays until Keychron renders are uploaded.
   "keychron-keyboard.svg": "/devices/keychron-keyboard.svg",
-  "leobog-gm3.png": "/devices/leobog-gm3.png",
   "vxe-r1-se.png": "/devices/vxe-r1-se.png",
 };
 

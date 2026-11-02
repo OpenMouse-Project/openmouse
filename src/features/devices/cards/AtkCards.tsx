@@ -25,6 +25,22 @@ function atkMacroActionCount(steps: readonly AtkR1MacroStepInput[]): number {
   return steps.reduce((total, step) => total + (step.kind.startsWith("wheel") ? 2 : 1), 0);
 }
 
+function atkMacroPressIdentity(kind: AtkR1MacroStepInput["kind"], keyCode: number): string | null {
+  if (kind.startsWith("wheel")) return null;
+  return `${kind.startsWith("mouse") ? "mouse" : "key"}:${keyCode}`;
+}
+
+function atkMacroOpenPresses(steps: readonly AtkR1MacroStepInput[]): Set<string> {
+  const open = new Set<string>();
+  for (const step of steps) {
+    const identity = atkMacroPressIdentity(step.kind, step.keyCode);
+    if (!identity) continue;
+    if (step.kind === "key-up" || step.kind === "mouse-up") open.delete(identity);
+    else open.add(identity);
+  }
+  return open;
+}
+
 type AtkMapping = NonNullable<NonNullable<ControlSnapshot["status"]>["atkButtonMappings"]>[number];
 
 const ATK_MACRO_KEY_CHOICES: ReadonlyArray<{ label: string; usage: number }> = [
@@ -503,6 +519,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     const isRecorderControl = (target: EventTarget | null): boolean => (
       target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
     );
+    const held = new Set<string>();
     const append = (kind: AtkR1MacroStepInput["kind"], keyCode: number, at: number): void => {
       const previous = recordingLastRef.current;
       recordingLastRef.current = at;
@@ -522,6 +539,16 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
           : currentSteps.map((step, index) => (index === currentSteps.length - 1
             ? { ...step, holdTime: elapsed }
             : step));
+        const release = kind === "key-up" || kind === "mouse-up";
+        const identity = atkMacroPressIdentity(kind, keyCode);
+        if (release) {
+          if (!identity || !atkMacroOpenPresses(stamped).has(identity)) return current;
+        } else {
+          const openPresses = atkMacroOpenPresses(stamped).size;
+          if (atkMacroActionCount(stamped) + openPresses + 2 > ATK_R1_MACRO_MAX_ACTIONS) {
+            return current;
+          }
+        }
         const next = [...stamped, { kind, keyCode, holdTime: 0 }];
         return atkMacroActionCount(next) > ATK_R1_MACRO_MAX_ACTIONS
           ? current
@@ -541,14 +568,19 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       if (usage === null) return;
       event.preventDefault();
       event.stopPropagation();
+      held.add(`key:${usage}`);
       append("key-down", usage, event.timeStamp);
     };
     const onKeyUp = (event: KeyboardEvent): void => {
-      if (isRecorderControl(event.target)) return;
       const usage = atkMacroUsageForCode(event.code);
       if (usage === null) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const closesCapturedPress = held.delete(`key:${usage}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       append("key-up", usage, event.timeStamp);
     };
     const onMouseDown = (event: MouseEvent): void => {
@@ -557,14 +589,19 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       if (button === undefined) return;
       event.preventDefault();
       event.stopPropagation();
+      held.add(`mouse:${button}`);
       append("mouse-down", button, event.timeStamp);
     };
     const onMouseUp = (event: MouseEvent): void => {
-      if (isRecorderControl(event.target)) return;
       const button = ATK_MACRO_DOM_BUTTON[event.button];
       if (button === undefined) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const closesCapturedPress = held.delete(`mouse:${button}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       append("mouse-up", button, event.timeStamp);
     };
     const onContextMenu = (event: MouseEvent): void => {
@@ -605,7 +642,10 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       : current);
   };
   const updateStep = (index: number, next: AtkR1MacroStepInput): void => {
-    updateSteps((current) => current.map((step, at) => (at === index ? next : step)));
+    updateSteps((current) => {
+      const replaced = current.map((step, at) => (at === index ? next : step));
+      return atkMacroActionCount(replaced) > ATK_R1_MACRO_MAX_ACTIONS ? current : replaced;
+    });
   };
   const removeStep = (index: number): void => {
     updateSteps((current) => current.filter((_, at) => at !== index));

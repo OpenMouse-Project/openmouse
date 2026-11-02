@@ -90,12 +90,28 @@ test("the first event of a recording starts immediately", () => {
   assert.deepEqual(steps, [{ delayMs: 0, event: { type: "keyDown", hidUsage: 0x04 } }]);
 });
 
-test("a full slot stops growing", () => {
-  const steps = record(
-    Array.from({ length: 5 }, () => ({ event: key("keyDown", 0x04), elapsedMs: 10 })),
-    3,
-  );
-  assert.equal(steps.length, 3);
+test("a full slot leaves room for an accepted press release", () => {
+  const steps = record([
+    { event: key("keyDown", 0x04), elapsedMs: 0 },
+    { event: key("keyDown", 0x05), elapsedMs: 10 },
+  ], 3);
+  assert.deepEqual(steps.map((step) => step.event.type), ["keyDown"]);
+  assert.deepEqual(steps[0]?.event, key("keyDown", 0x04));
+});
+
+test("recording reserves room for every accepted press release", () => {
+  const events = [
+    { event: key("keyDown", 0x04), elapsedMs: 0 },
+    { event: key("keyDown", 0x05), elapsedMs: 10 },
+    { event: key("keyUp", 0x04), elapsedMs: 20 },
+    { event: key("keyUp", 0x05), elapsedMs: 30 },
+  ];
+  const roomForBoth = record(events, 4);
+  assert.deepEqual(roomForBoth.map((step) => step.event.type), ["keyDown", "keyDown", "keyUp", "keyUp"]);
+
+  const limited = record(events, 3);
+  assert.deepEqual(limited.map((step) => step.event.type), ["keyDown", "keyUp"]);
+  assert.deepEqual(limited.at(-1)?.event, key("keyUp", 0x04));
 });
 
 test("a decoded mouse step survives the editor's input dropdown", () => {

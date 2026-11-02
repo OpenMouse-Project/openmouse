@@ -13,6 +13,20 @@ import {
  */
 export const LEOBOG_MACRO_RECORDING_MAX_MS = 2_000;
 
+function leobogMacroPressKey(event: LeobogGm3MacroStep["event"]): string {
+  return `${event.type.startsWith("mouse") ? "mouse" : "key"}:${event.hidUsage}`;
+}
+
+function leobogMacroOpenPresses(steps: readonly LeobogGm3MacroStep[]): Set<string> {
+  const open = new Set<string>();
+  for (const step of steps) {
+    const key = leobogMacroPressKey(step.event);
+    if (leobogMacroIsRelease(step)) open.delete(key);
+    else open.add(key);
+  }
+  return open;
+}
+
 /**
  * Append a recorded event, stamping the step that just ended with how long it
  * lasted.
@@ -33,7 +47,19 @@ export function leobogMacroAppendRecordedStep(
   elapsedMs: number,
   maxSteps: number,
 ): LeobogGm3MacroStep[] {
-  if (steps.length >= maxSteps) return [...steps];
+  const openPresses = leobogMacroOpenPresses(steps);
+  const release = event.type === "keyUp" || event.type === "mouseUp";
+  if (release) {
+    // A release only belongs in the macro when it closes a press the recording
+    // actually accepted. Otherwise a rejected press leaves a stray release.
+    if (!openPresses.has(leobogMacroPressKey(event)) || steps.length >= maxSteps) {
+      return [...steps];
+    }
+  } else if (steps.length + openPresses.size + 2 > maxSteps) {
+    // Reserve one record for each open press and one for the new press/release
+    // pair, so a full slot can never end with an unmatched press.
+    return [...steps];
+  }
   const hold = Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(LEOBOG_MACRO_RECORDING_MAX_MS, Math.round(elapsedMs)))
     : 0;
