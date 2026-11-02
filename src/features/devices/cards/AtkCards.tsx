@@ -717,7 +717,11 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
           disabled={disabled || recording}
           data-macro-recorder-control
           onChange={(event) => {
-            setSlot(Number(event.currentTarget.value));
+            const nextSlot = Number(event.currentTarget.value);
+            const binding = mappings.find((mapping) =>
+              mapping.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 === nextSlot);
+            setSlot(nextSlot);
+            setStartType(binding?.value2 ?? ATK_R1_MACRO_START_TYPES.stopImmediately);
             setRecording(false);
           }}
         >

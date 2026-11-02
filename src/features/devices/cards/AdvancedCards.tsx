@@ -2716,15 +2716,25 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const stopRecordingRef = useRef<(() => void) | null>(null);
   const slotDraftsRef = useRef<Record<number, { name: string; steps: LeobogGm3MacroStep[] }>>({});
   const activeSlotRef = useRef(slot);
+  const activeDeviceRef = useRef<string | null>(null);
   stepsRef.current = steps;
+  const selectedDevice = snapshot.devices.find((device) => device.selected);
+  const deviceKey = selectedDevice
+    ? `${selectedDevice.index}:${selectedDevice.vendorId}:${selectedDevice.productId}:${selectedDevice.transport}:${selectedDevice.kind}:${selectedDevice.name}`
+    : null;
   const staged = snapshot.pending.keys.includes(`leobog-macro-${slot + 1}`);
-  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy || recording;
 
   // Seed the editor from the last record uploaded for this slot. Keyed on the
   // stored value rather than on the status object, so a background refresh or
   // a toast cannot throw away unsaved step edits.
   const storedSignature = JSON.stringify(macros?.[slot] ?? null);
   useLayoutEffect(() => {
+    if (activeDeviceRef.current !== deviceKey) {
+      activeDeviceRef.current = deviceKey;
+      slotDraftsRef.current = {};
+      activeSlotRef.current = slot;
+    }
     const record = macros?.[slot] ?? null;
     const stored = {
       name: record?.name ?? `Macro ${slot + 1}`,
@@ -2745,7 +2755,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     setName(stored.name);
     setSteps(stored.steps);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedSignature, slot]);
+  }, [deviceKey, storedSignature, slot]);
 
   // Recording appends to whatever is already in the slot so a mis-click cannot
   // throw away hand-built steps, and timestamps each event against the one
