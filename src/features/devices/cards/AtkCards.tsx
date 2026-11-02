@@ -14,7 +14,12 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import * as control from "../../../device/controller";
 import type { ControlSnapshot } from "../../../device/types";
 import { Segmented } from "../../../shared/ui";
-import { atkSensorModes, atkSupportsMacroBindings, atkVisibleButtons } from "./atk-capabilities";
+import {
+  atkMacroBindingStartType,
+  atkSensorModes,
+  atkSupportsMacroBindings,
+  atkVisibleButtons,
+} from "./atk-capabilities";
 import { Circle, Plus, RefreshCw, Save, Square, Trash2 } from "lucide-react";
 
 /**
@@ -467,9 +472,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     try {
       const readSteps = await control.readAtkR1Macro(slot);
       setDrafts((current) => ({ ...current, [slot]: readSteps }));
-      const binding = mappings.find((mapping) =>
-        mapping.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 === slot);
-      if (binding) setStartType(binding.value2);
+      setStartType(atkMacroBindingStartType(selectedButton, slot));
       if (readSteps.length === 0) setMacroReadError(t(locale, "macro.atkReadEmpty"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
@@ -492,9 +495,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       .then((readSteps) => {
         if (cancelled) return;
         setDrafts((current) => ({ ...current, [slot]: readSteps }));
-        const binding = mappings.find((mapping) =>
-          mapping.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 === slot);
-        if (binding) setStartType(binding.value2);
+        setStartType(atkMacroBindingStartType(selectedButton, slot));
         if (readSteps.length === 0) setMacroReadError(t(locale, "macro.atkReadEmpty"));
       })
       .catch((error: unknown) => {
@@ -699,7 +700,10 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
               disabled={disabled || recording}
               data-macro-recorder-control
               onChange={(event) => {
-                setButtonId(event.currentTarget.value);
+                const nextButtonId = event.currentTarget.value;
+                const nextButton = mappings.find((mapping) => mapping.id === nextButtonId);
+                setButtonId(nextButtonId);
+                setStartType(atkMacroBindingStartType(nextButton, slot));
                 setRecording(false);
               }}
             >
@@ -718,10 +722,8 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
           data-macro-recorder-control
           onChange={(event) => {
             const nextSlot = Number(event.currentTarget.value);
-            const binding = mappings.find((mapping) =>
-              mapping.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 === nextSlot);
             setSlot(nextSlot);
-            setStartType(binding?.value2 ?? ATK_R1_MACRO_START_TYPES.stopImmediately);
+            setStartType(atkMacroBindingStartType(selectedButton, nextSlot));
             setRecording(false);
           }}
         >

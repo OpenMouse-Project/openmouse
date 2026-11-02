@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { atkSensorModes, atkVisibleButtons } from "./atk-capabilities.ts";
+import {
+  ATK_BUTTON_CLASS,
+  ATK_R1_MACRO_START_TYPES,
+} from "@openmouse/protocol/atk";
+import {
+  atkMacroBindingStartType,
+  atkSensorModes,
+  atkVisibleButtons,
+} from "./atk-capabilities.ts";
 
 test("sensor modes drop Shard MAX on noAthleticsMax models", () => {
   assert.deepEqual(atkSensorModes(undefined), [0, 1, 2]);
@@ -18,4 +26,28 @@ test("button rows drop the bottom row on noBottomButton models", () => {
     [{ id: "left" }, { id: "right" }],
   );
   assert.deepEqual(atkVisibleButtons(undefined, {}), []);
+});
+
+test("macro start mode follows the selected button's binding, not the slot's first binding", () => {
+  const back = {
+    keyClass: ATK_BUTTON_CLASS.macro,
+    value1: 2,
+    value2: ATK_R1_MACRO_START_TYPES.stopImmediately,
+  };
+  const forward = {
+    keyClass: ATK_BUTTON_CLASS.macro,
+    value1: 2,
+    value2: ATK_R1_MACRO_START_TYPES.repeatUntilTriggerPress,
+  };
+
+  assert.equal(atkMacroBindingStartType(back, 2), ATK_R1_MACRO_START_TYPES.stopImmediately);
+  assert.equal(
+    atkMacroBindingStartType(forward, 2),
+    ATK_R1_MACRO_START_TYPES.repeatUntilTriggerPress,
+  );
+  assert.equal(
+    atkMacroBindingStartType(forward, 3),
+    ATK_R1_MACRO_START_TYPES.stopImmediately,
+  );
+  assert.equal(atkMacroBindingStartType(undefined, 2), ATK_R1_MACRO_START_TYPES.stopImmediately);
 });
