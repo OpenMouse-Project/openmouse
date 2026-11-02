@@ -16,6 +16,7 @@ import type { ControlSnapshot } from "../../../device/types";
 import { Segmented } from "../../../shared/ui";
 import {
   atkMacroBindingStartType,
+  atkMacroSlotState,
   atkSensorModes,
   atkSupportsMacroBindings,
   atkVisibleButtons,
@@ -728,11 +729,16 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
           }}
         >
           {Array.from({ length: ATK_R1_MACRO_SLOT_COUNT }, (_, index) => {
-            const count = drafts[index]?.length ?? 0;
+            const count = drafts[index]?.length;
+            const state = atkMacroSlotState(drafts[index]);
             return (
               <option key={index} value={index}>
                 {t(locale, "macro.option")} {index + 1}
-                {count ? ` · ${tp(locale, "macro.steps", { n: count })}` : ` · ${t(locale, "macro.empty")}`}
+                {state === "unread"
+                  ? null
+                  : state === "empty"
+                    ? ` · ${t(locale, "macro.empty")}`
+                    : ` · ${tp(locale, "macro.steps", { n: count ?? 0 })}`}
               </option>
             );
           })}

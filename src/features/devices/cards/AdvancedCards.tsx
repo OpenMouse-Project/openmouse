@@ -2731,6 +2731,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const storedSignature = JSON.stringify(macros?.[slot] ?? null);
   useLayoutEffect(() => {
     if (activeDeviceRef.current !== deviceKey) {
+      stopRecordingRef.current?.();
       activeDeviceRef.current = deviceKey;
       slotDraftsRef.current = {};
       activeSlotRef.current = slot;

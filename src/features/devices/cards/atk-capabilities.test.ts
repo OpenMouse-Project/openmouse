@@ -7,6 +7,7 @@ import {
 } from "@openmouse/protocol/atk";
 import {
   atkMacroBindingStartType,
+  atkMacroSlotState,
   atkSensorModes,
   atkVisibleButtons,
 } from "./atk-capabilities.ts";
@@ -50,4 +51,10 @@ test("macro start mode follows the selected button's binding, not the slot's fir
     ATK_R1_MACRO_START_TYPES.stopImmediately,
   );
   assert.equal(atkMacroBindingStartType(undefined, 2), ATK_R1_MACRO_START_TYPES.stopImmediately);
+});
+
+test("macro slot summaries distinguish unread slots from confirmed-empty slots", () => {
+  assert.equal(atkMacroSlotState(undefined), "unread");
+  assert.equal(atkMacroSlotState([]), "empty");
+  assert.equal(atkMacroSlotState([{ kind: "key-down" }]), "steps");
 });

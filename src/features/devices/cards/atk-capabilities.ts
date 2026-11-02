@@ -9,6 +9,8 @@ type AtkMacroBinding = {
   value2: number;
 };
 
+export type AtkMacroSlotState = "unread" | "empty" | "steps";
+
 /**
  * Sensor sampling modes this mouse exposes: Basic (0) and Shard (1) on models
  * flagged noAthleticsMax, otherwise the full Basic/Shard/Shard MAX set.
@@ -43,4 +45,10 @@ export function atkMacroBindingStartType(
   return mapping?.keyClass === ATK_BUTTON_CLASS.macro && mapping.value1 === slot
     ? mapping.value2
     : ATK_R1_MACRO_START_TYPES.stopImmediately;
+}
+
+/** An undefined draft means the slot has not been read, not that it is empty. */
+export function atkMacroSlotState(steps: readonly unknown[] | undefined): AtkMacroSlotState {
+  if (steps === undefined) return "unread";
+  return steps.length === 0 ? "empty" : "steps";
 }
