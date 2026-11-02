@@ -71,6 +71,11 @@ test("the macro tab also follows the WALLHACK macro capability", () => {
   assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
 });
 
+test("VXE R1 macro support adds the macro tab", () => {
+  const tabs = availableWorkspaceTabs(true, availability({ atkButtons: true, atkMacros: true }));
+  assert.deepEqual(tabs, ["overview", "performance", "buttons", "macro", "advanced"]);
+});
+
 test("M2-NEX can hide the lighting tab without changing other capabilities", () => {
   const tabs = availableWorkspaceTabs(true, availability({
     lighting: true,

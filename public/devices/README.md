@@ -166,6 +166,10 @@ previews, but it is deliberately not committed here. Before publishing the
 asset, Noir Gear must confirm redistribution rights or OpenMouse should use a
 maintainer-created silhouette instead.
 
+`leobog-gm3.png` is reserved for the LEOBOG GM3 name-fallback mapping. The
+render must not be committed or uploaded to R2 until LEOBOG confirms
+redistribution rights or OpenMouse uses a maintainer-created replacement.
+
 `noir-s1.png` is reserved for the NOIR S1 name-fallback mapping. The code PR
 does not include a vendor configurator render; request artwork separately via
 the Device artwork request template and confirm redistribution rights before

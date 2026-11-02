@@ -3,6 +3,7 @@ import { isPulsarProProtocol } from "../../../device/traits.ts";
 import { isSlxStatus, slxProfiles, slxTmr } from "../../../device/finalmouse-slx.ts";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import type { ControlSnapshot } from "../../../device/types";
+import { atkSupportsMacroBindings } from "./atk-capabilities.ts";
 
 export interface CardAvailability {
   dpi: boolean;
@@ -39,6 +40,7 @@ export interface CardAvailability {
   eggHanded: boolean;
   razerButtons: boolean;
   atkButtons: boolean;
+  atkMacros: boolean;
   atkProfile: boolean;
   atkReceiver: boolean;
   atkF1Sensor: boolean;
@@ -48,6 +50,7 @@ export interface CardAvailability {
   onboardProfiles: boolean;
   buttonMapping: boolean;
   ksnakeMacros: boolean;
+  leobogMacros: boolean;
   wallhackScanning: boolean;
   wallhackCurves: boolean;
   wallhackMacros: boolean;
@@ -93,6 +96,7 @@ const NOTHING: CardAvailability = {
   eggHanded: false,
   razerButtons: false,
   atkButtons: false,
+  atkMacros: false,
   atkProfile: false,
   atkReceiver: false,
   atkF1Sensor: false,
@@ -102,6 +106,7 @@ const NOTHING: CardAvailability = {
   onboardProfiles: false,
   buttonMapping: false,
   ksnakeMacros: false,
+  leobogMacros: false,
   wallhackScanning: false,
   wallhackCurves: false,
   wallhackMacros: false,
@@ -178,6 +183,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     wallhackScanning: ui?.family === "wallhack-mouse" && status.sensorScanningMode != null,
     wallhackCurves: ui?.family === "wallhack-mouse" && status.dynamicSensitivityEnabled != null,
     wallhackMacros: ui?.family === "wallhack-mouse",
+    // The GM3 macro table is write-only, so the editor is always offered; it
+    // starts blank and holds whatever this session uploaded.
+    leobogMacros: ui?.family === "leobog-gm3",
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
@@ -237,6 +245,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // it, and only for a product whose profile sets buttonMapping.
     razerButtons: status.razerButtonMappings != null,
     atkButtons: (status.atkButtonMappings?.length ?? 0) > 0,
+    atkMacros: atkSupportsMacroBindings(status),
     atkProfile: status.atkProfileCount !== undefined && status.activeProfile !== null,
     atkReceiver: status.atkReceiver !== undefined,
     atkF1Sensor: status.atkSensorMode != null,
