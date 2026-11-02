@@ -443,9 +443,12 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<HTMLDivElement | null>(null);
   const recordingLastRef = useRef<number | null>(null);
+  const draftsRef = useRef<Record<number, AtkR1MacroStepInput[]>>({});
+  const stopRecordingRef = useRef<(() => void) | null>(null);
   const selectedButton = mappings.find((mapping) => mapping.id === buttonId) ?? mappings[0];
   const steps = drafts[slot] ?? [];
   const disabled = snapshot.settingInProgress || snapshot.pending.busy || macroReading;
+  draftsRef.current = drafts;
 
   const updateSteps = (
     update: AtkR1MacroStepInput[] | ((current: AtkR1MacroStepInput[]) => AtkR1MacroStepInput[]),
@@ -519,10 +522,9 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     const isRecorderControl = (target: EventTarget | null): boolean => (
       target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
     );
-    const held = new Set<string>();
-    const append = (kind: AtkR1MacroStepInput["kind"], keyCode: number, at: number): void => {
+    const held = new Map<string, { kind: "key-down" | "mouse-down"; keyCode: number }>();
+    const append = (kind: AtkR1MacroStepInput["kind"], keyCode: number, at: number): boolean => {
       const previous = recordingLastRef.current;
-      recordingLastRef.current = at;
       // The slot stores a wait *after* each record, so the time just measured
       // belongs to the step that finished, not to the one being added: a press
       // carries its own hold and the release after it carries the gap to the
@@ -532,35 +534,48 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       const elapsed = previous === null
         ? 0
         : Math.min(65535, Math.max(0, Math.round(at - previous)));
-      setDrafts((current) => {
-        const currentSteps = current[slot] ?? [];
-        const stamped = currentSteps.length === 0
-          ? currentSteps
-          : currentSteps.map((step, index) => (index === currentSteps.length - 1
-            ? { ...step, holdTime: elapsed }
-            : step));
-        const release = kind === "key-up" || kind === "mouse-up";
-        const identity = atkMacroPressIdentity(kind, keyCode);
-        if (release) {
-          if (!identity || !atkMacroOpenPresses(stamped).has(identity)) return current;
-        } else {
-          const openPresses = atkMacroOpenPresses(stamped).size;
-          if (atkMacroActionCount(stamped) + openPresses + 2 > ATK_R1_MACRO_MAX_ACTIONS) {
-            return current;
-          }
+      const current = draftsRef.current;
+      const currentSteps = current[slot] ?? [];
+      const stamped = currentSteps.length === 0
+        ? currentSteps
+        : currentSteps.map((step, index) => (index === currentSteps.length - 1
+          ? { ...step, holdTime: elapsed }
+          : step));
+      const release = kind === "key-up" || kind === "mouse-up";
+      const identity = atkMacroPressIdentity(kind, keyCode);
+      if (release) {
+        if (!identity || !atkMacroOpenPresses(stamped).has(identity)) return false;
+      } else {
+        const openPresses = atkMacroOpenPresses(stamped).size;
+        if (atkMacroActionCount(stamped) + openPresses + 2 > ATK_R1_MACRO_MAX_ACTIONS) {
+          return false;
         }
-        const next = [...stamped, { kind, keyCode, holdTime: 0 }];
-        return atkMacroActionCount(next) > ATK_R1_MACRO_MAX_ACTIONS
-          ? current
-          : { ...current, [slot]: next };
-      });
+      }
+      const next = [...stamped, { kind, keyCode, holdTime: 0 }];
+      if (atkMacroActionCount(next) > ATK_R1_MACRO_MAX_ACTIONS) return false;
+      const nextDrafts = { ...current, [slot]: next };
+      draftsRef.current = nextDrafts;
+      recordingLastRef.current = at;
+      setDrafts(nextDrafts);
+      return true;
     };
+    const releaseHeld = (at: number): void => {
+      for (const [identity, press] of held) {
+        append(press.kind === "key-down" ? "key-up" : "mouse-up", press.keyCode, at);
+        held.delete(identity);
+      }
+    };
+    const stop = (): void => {
+      releaseHeld(performance.now());
+      setRecording(false);
+    };
+    stopRecordingRef.current = stop;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isRecorderControl(event.target)) return;
       if (event.code === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        setRecording(false);
+        stop();
         return;
       }
       if (event.repeat) return;
@@ -568,8 +583,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       if (usage === null) return;
       event.preventDefault();
       event.stopPropagation();
-      held.add(`key:${usage}`);
-      append("key-down", usage, event.timeStamp);
+      if (append("key-down", usage, event.timeStamp)) held.set(`key:${usage}`, { kind: "key-down", keyCode: usage });
     };
     const onKeyUp = (event: KeyboardEvent): void => {
       const usage = atkMacroUsageForCode(event.code);
@@ -589,8 +603,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
       if (button === undefined) return;
       event.preventDefault();
       event.stopPropagation();
-      held.add(`mouse:${button}`);
-      append("mouse-down", button, event.timeStamp);
+      if (append("mouse-down", button, event.timeStamp)) held.set(`mouse:${button}`, { kind: "mouse-down", keyCode: button });
     };
     const onMouseUp = (event: MouseEvent): void => {
       const button = ATK_MACRO_DOM_BUTTON[event.button];
@@ -621,6 +634,8 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     window.addEventListener("contextmenu", onContextMenu, true);
     window.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => {
+      releaseHeld(performance.now());
+      stopRecordingRef.current = null;
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("mousedown", onMouseDown, true);
@@ -749,7 +764,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
               className="ksnake-macro-stop"
               type="button"
               data-macro-recorder-control
-              onClick={() => setRecording(false)}
+              onClick={() => stopRecordingRef.current?.()}
             >
               <Square size={14} strokeWidth={2.2} aria-hidden="true" />
               {t(locale, "macro.stopRecording")}

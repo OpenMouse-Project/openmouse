@@ -9,6 +9,7 @@ import {
   LEOBOG_MACRO_DOM_BUTTON,
   LEOBOG_MACRO_MOUSE_CHOICES,
   LEOBOG_MACRO_RECORDING_MAX_MS,
+  leobogMacroAcceptRecordedStep,
   leobogMacroAppendRecordedStep,
   leobogMacroEventFromInput,
   leobogMacroEventTime,
@@ -112,6 +113,33 @@ test("recording reserves room for every accepted press release", () => {
   const limited = record(events, 3);
   assert.deepEqual(limited.map((step) => step.event.type), ["keyDown", "keyUp"]);
   assert.deepEqual(limited.at(-1)?.event, key("keyUp", 0x04));
+});
+
+test("a rejected event does not shorten the next accepted hold", () => {
+  let steps: LeobogGm3MacroStep[] = [];
+  let acceptedAt = 0;
+  const feed = (event: LeobogGm3MacroStep["event"], at: number): void => {
+    const result = leobogMacroAcceptRecordedStep(steps, event, at - acceptedAt, 3);
+    if (!result.accepted) return;
+    steps = result.steps;
+    acceptedAt = at;
+  };
+
+  feed(key("keyDown", 0x04), 0);
+  feed(key("keyDown", 0x05), 100);
+  feed(key("keyUp", 0x04), 200);
+  assert.equal(steps[0]?.delayMs, 200);
+});
+
+test("a repeated down for an already held input is ignored", () => {
+  const result = leobogMacroAcceptRecordedStep(
+    [{ delayMs: 0, event: key("keyDown", 0x04) }],
+    key("keyDown", 0x04),
+    100,
+    60,
+  );
+  assert.equal(result.accepted, false);
+  assert.equal(result.steps.length, 1);
 });
 
 test("a decoded mouse step survives the editor's input dropdown", () => {

@@ -47,18 +47,44 @@ export function leobogMacroAppendRecordedStep(
   elapsedMs: number,
   maxSteps: number,
 ): LeobogGm3MacroStep[] {
+  return leobogMacroAcceptRecordedStep(steps, event, elapsedMs, maxSteps).steps;
+}
+
+export interface LeobogMacroAppendResult {
+  steps: LeobogGm3MacroStep[];
+  accepted: boolean;
+}
+
+/**
+ * Evaluate one recorded event against the capacity and press/release rules.
+ * The caller can advance its recording clock only when `accepted` is true.
+ */
+export function leobogMacroAcceptRecordedStep(
+  steps: readonly LeobogGm3MacroStep[],
+  event: LeobogGm3MacroStep["event"],
+  elapsedMs: number,
+  maxSteps: number,
+): LeobogMacroAppendResult {
   const openPresses = leobogMacroOpenPresses(steps);
+  const identity = leobogMacroPressKey(event);
   const release = event.type === "keyUp" || event.type === "mouseUp";
   if (release) {
     // A release only belongs in the macro when it closes a press the recording
     // actually accepted. Otherwise a rejected press leaves a stray release.
-    if (!openPresses.has(leobogMacroPressKey(event)) || steps.length >= maxSteps) {
-      return [...steps];
+    if (!openPresses.has(identity) || steps.length >= maxSteps) {
+      return { steps: [...steps], accepted: false };
     }
-  } else if (steps.length + openPresses.size + 2 > maxSteps) {
-    // Reserve one record for each open press and one for the new press/release
-    // pair, so a full slot can never end with an unmatched press.
-    return [...steps];
+  } else {
+    if (openPresses.has(identity)) {
+      // A second down for an already-held input would leave one unmatched
+      // press when the next release closes the set entry.
+      return { steps: [...steps], accepted: false };
+    }
+    if (steps.length + openPresses.size + 2 > maxSteps) {
+      // Reserve one record for each open press and one for the new press/release
+      // pair, so a full slot can never end with an unmatched press.
+      return { steps: [...steps], accepted: false };
+    }
   }
   const hold = Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(LEOBOG_MACRO_RECORDING_MAX_MS, Math.round(elapsedMs)))
@@ -66,7 +92,10 @@ export function leobogMacroAppendRecordedStep(
   const stamped = steps.length === 0
     ? [...steps]
     : steps.map((step, at) => (at === steps.length - 1 ? { ...step, delayMs: hold } : { ...step }));
-  return [...stamped, { delayMs: 0, event: { ...event } }];
+  return {
+    steps: [...stamped, { delayMs: 0, event: { ...event } }],
+    accepted: true,
+  };
 }
 
 /**

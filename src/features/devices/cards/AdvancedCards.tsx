@@ -46,7 +46,7 @@ import * as control from "../../../device/controller";
 import {
   LEOBOG_MACRO_DOM_BUTTON,
   LEOBOG_MACRO_MOUSE_CHOICES,
-  leobogMacroAppendRecordedStep,
+  leobogMacroAcceptRecordedStep,
   leobogMacroEventFromInput,
   leobogMacroEventTime,
   leobogMacroInputValue,
@@ -2712,8 +2712,11 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<HTMLDivElement | null>(null);
   const recordingLastRef = useRef<number | null>(null);
+  const stepsRef = useRef<LeobogGm3MacroStep[]>([]);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
   const slotDraftsRef = useRef<Record<number, { name: string; steps: LeobogGm3MacroStep[] }>>({});
   const activeSlotRef = useRef(slot);
+  stepsRef.current = steps;
   const staged = snapshot.pending.keys.includes(`leobog-macro-${slot + 1}`);
   const disabled = snapshot.settingInProgress || snapshot.pending.busy;
 
@@ -2753,25 +2756,45 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     const isRecorderControl = (target: EventTarget | null): boolean => (
       target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
     );
-    const held = new Set<string>();
+    const held = new Map<string, LeobogGm3MacroStep["event"]>();
     // `at` comes from the event's own timestamp, so a stalled handler cannot
     // stretch the gap the way it could if we measured the handler time.
-    const append = (event: LeobogGm3MacroStep["event"], at: number): void => {
+    const append = (event: LeobogGm3MacroStep["event"], at: number): boolean => {
       const previous = recordingLastRef.current;
-      recordingLastRef.current = at;
-      setSteps((current) => leobogMacroAppendRecordedStep(
-        current,
+      const result = leobogMacroAcceptRecordedStep(
+        stepsRef.current,
         event,
         previous === null ? 0 : at - previous,
         LEOBOG_GM3_MACRO_MAX_STEPS,
-      ));
+      );
+      if (!result.accepted) return false;
+      stepsRef.current = result.steps;
+      recordingLastRef.current = at;
+      setSteps(result.steps);
+      return true;
     };
+    const releaseHeld = (at: number): void => {
+      for (const [key, press] of held) {
+        append(
+          press.type === "keyDown"
+            ? { type: "keyUp", hidUsage: press.hidUsage }
+            : { type: "mouseUp", hidUsage: press.hidUsage },
+          at,
+        );
+        held.delete(key);
+      }
+    };
+    const stop = (): void => {
+      releaseHeld(performance.now());
+      setRecording(false);
+    };
+    stopRecordingRef.current = stop;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isRecorderControl(event.target)) return;
       if (event.code === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        setRecording(false);
+        stop();
         return;
       }
       if (event.repeat) return;
@@ -2779,8 +2802,8 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       if (usage === null) return;
       event.preventDefault();
       event.stopPropagation();
-      held.add(`keyboard:${usage}`);
-      append({ type: "keyDown", hidUsage: usage }, leobogMacroEventTime(event));
+      const press = { type: "keyDown" as const, hidUsage: usage };
+      if (append(press, leobogMacroEventTime(event))) held.set(`keyboard:${usage}`, press);
     };
     const onKeyUp = (event: KeyboardEvent): void => {
       const usage = leobogMacroUsageForEvent(event.code);
@@ -2800,8 +2823,8 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       if (button === undefined) return;
       event.preventDefault();
       event.stopPropagation();
-      held.add(`mouse:${button}`);
-      append({ type: "mouseDown", hidUsage: button }, leobogMacroEventTime(event));
+      const press = { type: "mouseDown" as const, hidUsage: button };
+      if (append(press, leobogMacroEventTime(event))) held.set(`mouse:${button}`, press);
     };
     const onMouseUp = (event: MouseEvent): void => {
       const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
@@ -2826,6 +2849,8 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     window.addEventListener("mouseup", onMouseUp, true);
     window.addEventListener("contextmenu", onContextMenu, true);
     return () => {
+      releaseHeld(performance.now());
+      stopRecordingRef.current = null;
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("mousedown", onMouseDown, true);
@@ -2916,7 +2941,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
                 className="ksnake-macro-stop"
                 type="button"
                 data-macro-recorder-control
-                onClick={() => setRecording(false)}
+                onClick={() => stopRecordingRef.current?.()}
               >
                 {t(locale, "macro.stopRecording")}
               </button>
@@ -3033,8 +3058,9 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         <button
           className="ksnake-macro-save"
           type="button"
+          data-macro-recorder-control
           onClick={() => control.applyLeobogMacro(slot, name, steps)}
-          disabled={disabled}
+          disabled={disabled || recording}
         >
           <Save size={16} strokeWidth={2.2} aria-hidden="true" />
           {t(locale, "macro.save")}
