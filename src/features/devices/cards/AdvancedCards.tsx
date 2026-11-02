@@ -1,6 +1,6 @@
 import { displayText } from "../../../i18n/index";
 import { useUiLocale } from "../../../shared/ui-locale";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import {
   EGG_BUTTON_MAPPINGS,
@@ -2724,7 +2724,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   // stored value rather than on the status object, so a background refresh or
   // a toast cannot throw away unsaved step edits.
   const storedSignature = JSON.stringify(macros?.[slot] ?? null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const record = macros?.[slot] ?? null;
     const stored = {
       name: record?.name ?? `Macro ${slot + 1}`,
@@ -2750,7 +2750,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   // Recording appends to whatever is already in the slot so a mis-click cannot
   // throw away hand-built steps, and timestamps each event against the one
   // before it — the same thing the vendor editor stores.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!recording) return undefined;
     recorderRef.current?.focus();
     const isRecorderControl = (target: EventTarget | null): boolean => (
@@ -2764,7 +2764,7 @@ export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       const result = leobogMacroAcceptRecordedStep(
         stepsRef.current,
         event,
-        previous === null ? 0 : at - previous,
+        previous === null ? null : at - previous,
         LEOBOG_GM3_MACRO_MAX_STEPS,
       );
       if (!result.accepted) return false;

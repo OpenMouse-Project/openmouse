@@ -91,6 +91,15 @@ test("the first event of a recording starts immediately", () => {
   assert.deepEqual(steps, [{ delayMs: 0, event: { type: "keyDown", hidUsage: 0x04 } }]);
 });
 
+test("the first recorded event preserves an existing hand-built delay", () => {
+  const existing: LeobogGm3MacroStep[] = [
+    { delayMs: 500, event: key("keyDown", 0x04) },
+  ];
+  const result = leobogMacroAcceptRecordedStep(existing, key("keyUp", 0x04), null, 60);
+  assert.equal(result.accepted, true);
+  assert.equal(result.steps[0]?.delayMs, 500);
+});
+
 test("a full slot leaves room for an accepted press release", () => {
   const steps = record([
     { event: key("keyDown", 0x04), elapsedMs: 0 },

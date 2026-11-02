@@ -10,7 +10,7 @@ import {
   type AtkR1MacroStepInput,
 } from "@openmouse/protocol/atk";
 import { useUiLocale } from "../../../shared/ui-locale";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../../../device/controller";
 import type { ControlSnapshot } from "../../../device/types";
 import { Segmented } from "../../../shared/ui";
@@ -483,7 +483,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!snapshot.hasActiveDevice || drafts[slot] !== undefined) return undefined;
     let cancelled = false;
     setMacroReading(true);
@@ -516,7 +516,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!recording) return undefined;
     recorderRef.current?.focus();
     const isRecorderControl = (target: EventTarget | null): boolean => (
@@ -536,7 +536,7 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
         : Math.min(65535, Math.max(0, Math.round(at - previous)));
       const current = draftsRef.current;
       const currentSteps = current[slot] ?? [];
-      const stamped = currentSteps.length === 0
+      const stamped = previous === null || currentSteps.length === 0
         ? currentSteps
         : currentSteps.map((step, index) => (index === currentSteps.length - 1
           ? { ...step, holdTime: elapsed }
@@ -671,8 +671,11 @@ export function AtkMacroCard({ snapshot }: { snapshot: ControlSnapshot }): React
   };
   const clearSlot = async (): Promise<void> => {
     if (disabled || recording) return;
-    await control.clearAtkR1Macro(slot);
-    updateSteps([]);
+    try {
+      await control.clearAtkR1Macro(slot);
+    } catch {
+      return;
+    }
     // Reading the slot straight back is the point of the button: the device has
     // no other way to say the macro is gone, and a slot it would not empty has
     // to show its stored steps instead of an empty editor.

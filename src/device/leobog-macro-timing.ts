@@ -44,7 +44,7 @@ function leobogMacroOpenPresses(steps: readonly LeobogGm3MacroStep[]): Set<strin
 export function leobogMacroAppendRecordedStep(
   steps: readonly LeobogGm3MacroStep[],
   event: LeobogGm3MacroStep["event"],
-  elapsedMs: number,
+  elapsedMs: number | null,
   maxSteps: number,
 ): LeobogGm3MacroStep[] {
   return leobogMacroAcceptRecordedStep(steps, event, elapsedMs, maxSteps).steps;
@@ -62,7 +62,7 @@ export interface LeobogMacroAppendResult {
 export function leobogMacroAcceptRecordedStep(
   steps: readonly LeobogGm3MacroStep[],
   event: LeobogGm3MacroStep["event"],
-  elapsedMs: number,
+  elapsedMs: number | null,
   maxSteps: number,
 ): LeobogMacroAppendResult {
   const openPresses = leobogMacroOpenPresses(steps);
@@ -86,10 +86,10 @@ export function leobogMacroAcceptRecordedStep(
       return { steps: [...steps], accepted: false };
     }
   }
-  const hold = Number.isFinite(elapsedMs)
+  const hold = elapsedMs !== null && Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(LEOBOG_MACRO_RECORDING_MAX_MS, Math.round(elapsedMs)))
-    : 0;
-  const stamped = steps.length === 0
+    : elapsedMs === null ? null : 0;
+  const stamped = hold === null || steps.length === 0
     ? [...steps]
     : steps.map((step, at) => (at === steps.length - 1 ? { ...step, delayMs: hold } : { ...step }));
   return {

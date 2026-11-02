@@ -2414,6 +2414,7 @@ export async function clearAtkR1Macro(macroId: number): Promise<void> {
     const message = error instanceof Error ? error.message : "Unable to clear the macro slot.";
     setReadStatus(message);
     pushToast("error", "Macro clear failed", message);
+    throw error;
   } finally {
     settingInProgress = false;
     emit();
