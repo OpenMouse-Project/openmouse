@@ -36,6 +36,7 @@ export function availableKeyboardWorkspaceTabs(family?: string): readonly Worksp
   if (family === "logitech") return ["overview", "performance", "lighting"];
   if (family === "steelseries") return ["overview", "performance", "lighting", "profiles"];
   if (family === "arbiter") return ["overview", "performance", "buttons", "lighting"];
+  if (family === "mchose") return ["overview", "performance", "buttons", "macro", "lighting", "advanced"];
   if (family === "via") return ["overview", "buttons", "macro", "lighting", "advanced"];
   return WORKSPACE_TAB_ORDER;
 }

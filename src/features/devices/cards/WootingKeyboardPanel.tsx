@@ -26,7 +26,7 @@ import {
   wootingRapidTriggerStrict,
   type WootingRapidTriggerState,
 } from "./wooting-rapid-trigger";
-import { OptionMenu, Segmented, StepperSlider } from "../../../shared/ui";
+import { OptionMenu, Segmented, SliderField, StepperSlider } from "../../../shared/ui";
 import { displayText, t, tp } from "../../../i18n/index";
 import type { InterfaceLocale } from "../../settings/interface-preferences";
 
@@ -256,11 +256,7 @@ function WootingAkcEditor({ locale, matrixKey, busy, canSave, onSave }: {
 const SELECTABLE_KEYS = WOOTING_60_LAYOUT.flat().filter((key) => WOOTING_KEY_MATRIX_INDEX.get(key.id) != null);
 
 
-/**
- * Millimetre slider plus a number field for fine tuning. Both commit through
- * the caller, so the device write and its read-back stay the only source of
- * truth; the field is never edited optimistically.
- */
+/** Millimetre slider plus a number field for fine tuning. */
 function WootingMmControl({ id, label, value, badge, disabled, onCommit }: {
   id: string;
   label: string;
@@ -269,67 +265,9 @@ function WootingMmControl({ id, label, value, badge, disabled, onCommit }: {
   disabled: boolean;
   onCommit: (mm: number) => void | Promise<void>;
 }): ReactNode {
-  const [text, setText] = useState(value == null ? "" : round2(value).toFixed(2));
-  const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    if (!focused) setText(value == null ? "" : round2(value).toFixed(2));
-  }, [value, focused]);
-  const commitText = (): void => {
-    const current = value == null ? null : round2(value);
-    if (text.trim() === "") {
-      setText(current == null ? "" : current.toFixed(2));
-      return;
-    }
-    const next = Number(text.replace(",", "."));
-    if (!Number.isFinite(next) || next < 0 || next > MAX_MM) {
-      setText(current == null ? "" : current.toFixed(2));
-      return;
-    }
-    const clamped = round2(Math.max(0, Math.min(MAX_MM, next)));
-    if (clamped === current) {
-      setText(current.toFixed(2));
-      return;
-    }
-    setText(clamped.toFixed(2));
-    void onCommit(clamped);
-  };
   return (
-    <div className="wooting-mm-control">
-      <StepperSlider
-        id={id}
-        label={label}
-        badge={badge}
-        value={value ?? 0}
-        min={0}
-        max={MAX_MM}
-        step={0.05}
-        scale={["0", "", "4.0"]}
-        formatValue={(mm) => `${mm.toFixed(2)} mm`}
-        disabled={disabled}
-        onCommit={onCommit}
-      />
-      <label className="wooting-mm-input">
-        <span>{"mm"}</span>
-        <input
-          type="number"
-          min={0}
-          max={MAX_MM}
-          step={0.05}
-          inputMode="decimal"
-          aria-label={label}
-          disabled={disabled}
-          value={text}
-          onFocus={() => setFocused(true)}
-          onChange={(event) => setText(event.currentTarget.value)}
-          onBlur={() => { setFocused(false); commitText(); }}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            event.currentTarget.blur();
-          }}
-        />
-      </label>
-    </div>
+    <SliderField id={id} label={label} badge={badge} value={value} min={0} max={MAX_MM} step={0.05} unit="mm"
+      scale={["0", "", "4.0"]} formatValue={(mm) => `${mm.toFixed(2)} mm`} disabled={disabled} onCommit={onCommit} />
   );
 }
 

@@ -305,6 +305,9 @@ input[type="range"]:disabled { opacity: 0.45; cursor: default; }
 .stepper-slider-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 550; }
 .stepper-slider-badge { padding: 2px 6px; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text-3); font-size: var(--fs-small); font-style: normal; font-weight: 600; }
 .stepper-slider-head output { color: var(--text-1); font-weight: 650; font-variant-numeric: tabular-nums; }
+.slider-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(72px, 96px); gap: 12px; align-items: end; }
+.slider-field-input { display: grid; gap: 6px; color: var(--text-3); font-size: var(--fs-meta); }
+.slider-field-input input { width: 100%; text-align: end; font-variant-numeric: tabular-nums; }
 .stepper-slider-inputs { display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; gap: 10px; }
 .stepper-slider-inputs > button {
   display: grid; place-items: center;
