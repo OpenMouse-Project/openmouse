@@ -346,4 +346,7 @@ export interface ControlSnapshot {
   previewEntries: Array<[string, string]>;
   previewListMessage: string | null;
   buildLabel: string;
+  /** Bumps each time a lazy locale table resolves, so memoized components
+      whose text depends on table contents (not just the locale code) refresh. */
+  localeTableRevision: number;
 }

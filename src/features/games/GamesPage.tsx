@@ -2,8 +2,8 @@ import { displayText, t, type I18nKey } from "../../i18n/index";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Download, Gamepad2, Plus } from "lucide-react";
 import { bridgeGames, bridgeLocalApplications, bridgeProfiles, BridgeHttpError, type BridgeGame, type BridgeStatus, type LocalApplication } from "../bridge/bridge";
-import { isBridgeHidActive, subscribeBridgeHidActive } from "../bridge/bridge-hid";
-import { subscribeBridgeStatus } from "../bridge/bridge-status-store";
+import { isBridgeHidActive, subscribeBridgeHidActive, tryInstallBridgeHid } from "../bridge/bridge-hid";
+import { currentBridgeStatus, subscribeBridgeStatus } from "../bridge/bridge-status-store";
 import type { ControlSnapshot } from "../../device/types";
 import { fetchGamesCatalog, gameArtwork } from "./games-catalog";
 import { GameProfilePanel } from "./GameProfilePanel";
@@ -46,12 +46,27 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const [applications, setApplications] = useState<LocalApplication[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error" | "unsupported">("loading");
   const [revision, setRevision] = useState(0);
-  const [status, setStatus] = useState<BridgeStatus | null>(null);
+  const [status, setStatus] = useState<BridgeStatus | null>(() => currentBridgeStatus());
   const [profiled, setProfiled] = useState<Set<string>>(new Set());
   const [selectedGame, setSelectedGame] = useState<BridgeGame | null>(null);
   const [dialog, setDialog] = useState<{ application?: LocalApplication; remove?: boolean } | null>(null);
   const presets = presetGames(active ? bridgeList : [], catalog.games);
 
+  useEffect(() => {
+    if (!isBridgeHidActive()) void tryInstallBridgeHid();
+    const retry = (): void => {
+      if (!isBridgeHidActive()) void tryInstallBridgeHid();
+    };
+    const onVisibility = (): void => {
+      if (!document.hidden) retry();
+    };
+    window.addEventListener("focus", retry);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", retry);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
   useEffect(() => subscribeBridgeStatus(setStatus), []);
 
   useEffect(() => {
@@ -149,7 +164,9 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
       </li>)}</ul>
     </section>
     {dialog ? <Suspense fallback={<p className="om-meta" role="status">{t(locale, "localApps.loading")}</p>}>
-      <LocalApplicationDialog locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
+      {/* Remount per target: dialog state (name, target, id) snapshots the
+          clicked row, so Edit/Remove on another row must not reuse it. */}
+      <LocalApplicationDialog key={dialog.application?.id ?? "new"} locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
         onSaved={(apps, created) => {
           setApplications(apps);
           setLoadState("ready");

@@ -6,7 +6,8 @@ import {
   PERMISSIONS_POLICY,
   SECURITY_HEADERS,
 } from "../functions/_lib/security-headers.js";
-import { TRUSTED_TYPES_POLICY, setSanitizedHtml } from "../src/platform/trusted-types.ts";
+import { TRUSTED_TYPES_POLICY, setTrustedHtml } from "../src/platform/trusted-types.ts";
+import { batteryIconMarkup } from "../src/shared/battery-icon.ts";
 
 const headersFile = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
 const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -111,10 +112,26 @@ test("the permissions policy keeps clipboard writes but drops sensors", () => {
   }
 });
 
-test("setSanitizedHtml writes markup when Trusted Types is unavailable", () => {
+test("setTrustedHtml writes markup when Trusted Types is unavailable", () => {
   const target = { innerHTML: "" };
-  setSanitizedHtml(target, '<svg class="battery-icon"></svg>');
+  setTrustedHtml(target, '<svg class="battery-icon"></svg>');
   assert.equal(target.innerHTML, '<svg class="battery-icon"></svg>');
+});
+
+test("battery-icon passes static-only markup to setTrustedHtml", () => {
+  const STATIC_ATTRS: Record<string, true> = { class: true, viewBox: true, "aria-hidden": true, focusable: true, mask: true, id: true, fill: true, d: true, "stroke-width": true, "stroke-linejoin": true };
+  for (const [percent, state] of [[87, "Discharging"], [null, "Charging"], [0, "Discharging"]] as const) {
+    const markup = batteryIconMarkup(percent, state as never);
+    // Fixed tokens (class names, mask id) are static source text; every other
+    // interpolated attribute value must be numeric — no device names or text.
+    for (const match of markup.matchAll(/([\w-]+)="([^"]*)"/g)) {
+      if (STATIC_ATTRS[match[1]]) continue;
+      assert.doesNotMatch(match[2], /[A-Za-z]/, `attribute value must be numeric: ${match[0]}`);
+    }
+    const target = { innerHTML: "" };
+    setTrustedHtml(target, markup);
+    assert.equal(target.innerHTML, markup);
+  }
 });
 
 test("the page ships no inline scripts for the CSP to block", () => {

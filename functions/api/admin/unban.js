@@ -28,16 +28,44 @@ export async function onRequest({ request, env }) {
     return json({ message: "Unauthorized." }, 401);
   }
 
+  // A JSON body here is one short string; cap the raw bytes before parsing so
+  // oversized or streaming bodies fail cheaply instead of buffering forever.
+  const MAX_BODY_BYTES = 1024;
+  let raw;
+  try {
+    raw = await request.text();
+  } catch {
+    return json({ message: "Expected a JSON body." }, 400);
+  }
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+    return json({ message: "Body too large." }, 413);
+  }
   let body;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return json({ message: "Expected a JSON body." }, 400);
   }
 
   const ip = typeof body?.ip === "string" ? body.ip.trim() : "";
-  if (!ip) return json({ message: "Missing ip." }, 400);
-
+  // Strict literal validation: unbanning keys KV deletes, so a weird value
+  // must not become a key prefix probe. IPv4 dotted quads and full/compact
+  // IPv6 only; hostnames, CIDR, and zone ids are rejected.
+  const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+  // String-split group counting: at most 7 explicit groups with "::", exactly
+  // 8 without. Rejects "1:2:3:4:5:6:7:8::" and other overlong literals.
+  const isIPv6Literal = (value) => {
+    const halves = value.split("::");
+    if (halves.length > 2) return false;
+    const groups = (part) => (part === "" ? [] : part.split(":"));
+    const head = groups(halves[0]);
+    const tail = halves.length === 2 ? groups(halves[1]) : [];
+    if (![...head, ...tail].every((group) => /^[0-9a-fA-F]{1,4}$/.test(group))) return false;
+    return halves.length === 2 ? head.length + tail.length <= 7 : head.length === 8;
+  };
+  if (!IPV4.test(ip) && !isIPv6Literal(ip)) {
+    return json({ message: "Missing ip." }, 400);
+  }
   const kv = env.SECURITY_KV;
   if (!kv) return json({ message: "Security storage is not configured." }, 503);
 

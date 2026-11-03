@@ -15,12 +15,19 @@ export function WhatsNewDialog({ open, onClose, locale = "en" }: {
     const element = dialog.current;
     if (!element) return;
     if (open) {
-      if (typeof element.showModal === "function") element.showModal();
-      else element.setAttribute("open", "");
-    } else if (typeof element.close === "function") {
-      if (element.open) element.close();
-    } else {
-      element.removeAttribute("open");
+      if (!element.open) {
+        try {
+          element.showModal();
+        } catch {
+          element.setAttribute("open", "");
+        }
+      }
+    } else if (element.open) {
+      try {
+        element.close();
+      } catch {
+        element.removeAttribute("open");
+      }
     }
   }, [open]);
 

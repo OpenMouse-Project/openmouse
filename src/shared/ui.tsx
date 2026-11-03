@@ -522,6 +522,7 @@ export function BatteryIcon({
 }): ReactNode {
   const kind = batteryIconState(percent, state);
   const level = batteryLevel(percent, state);
+  const maskId = useId();
   const TRACK = { x: 2.85, y: 2.85, width: 19.3, height: 9.3, radius: 2.1 };
   const BOLT = "M14.3 3.1 9.3 9.2h3.1l-.9 3.9 5.2-6.2h-3.1l.7-3.8Z";
   const DEAD_CROSS = "m9.9 5.7 5.2 3.9M15.1 5.7 9.9 9.6";
@@ -532,14 +533,14 @@ export function BatteryIcon({
       <rect className="battery-track" x={TRACK.x} y={TRACK.y} width={TRACK.width} height={TRACK.height} rx={TRACK.radius} />
       {kind === "charging" ? (
         <>
-          <mask id="battery-bolt-mask">
+          <mask id={maskId}>
             <rect x="0" y="0" width="30" height="15" fill="#fff" />
             <path d={BOLT} fill="#000" stroke="#000" strokeWidth="1.8" strokeLinejoin="round" />
           </mask>
           {level === null ? null : (
             <rect
               className="battery-fill"
-              mask="url(#battery-bolt-mask)"
+              mask={`url(#${maskId})`}
               x={TRACK.x}
               y={TRACK.y}
               width={batteryFillWidth(level).toFixed(2)}
