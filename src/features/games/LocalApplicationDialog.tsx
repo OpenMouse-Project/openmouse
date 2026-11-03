@@ -111,6 +111,11 @@ export function LocalApplicationDialog({ locale, application, remove = false, ac
       const current = await bridgeLocalApplications();
       if (!mounted.current) return;
       if (application && !current.some((app) => app.id === application.id)) throw new Error("Missing local target");
+      // The Math.random fallback can collide; regenerate until unused so a
+      // new entry never silently replaces a stored application.
+      if (!application) {
+        while (current.some((app) => app.id === id.current)) id.current = newLocalId();
+      }
       const next: LocalApplication | null = remove ? null : { id: id.current, name: name.trim(), ...parsed!, kind, activation };
       const remaining = current.filter((app) => app.id !== id.current);
       if (next && remaining.some((app) => localTargetIdentity(app) === localTargetIdentity(next))) {

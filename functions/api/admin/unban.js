@@ -52,14 +52,20 @@ export async function onRequest({ request, env }) {
   // must not become a key prefix probe. IPv4 dotted quads and full/compact
   // IPv6 only; hostnames, CIDR, and zone ids are rejected.
   const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
-  const IPV6_GROUP = "[0-9a-fA-F]{1,4}";
-  const IPV6 = new RegExp(
-    `^(?:${IPV6_GROUP}:){7}${IPV6_GROUP}$|^::(?:${IPV6_GROUP}(?::${IPV6_GROUP})*)?$|^(?:${IPV6_GROUP}:)+:(?:${IPV6_GROUP}(?::${IPV6_GROUP})*)?$`,
-  );
-  if (!IPV4.test(ip) && !IPV6.test(ip)) {
+  // String-split group counting: at most 7 explicit groups with "::", exactly
+  // 8 without. Rejects "1:2:3:4:5:6:7:8::" and other overlong literals.
+  const isIPv6Literal = (value) => {
+    const halves = value.split("::");
+    if (halves.length > 2) return false;
+    const groups = (part) => (part === "" ? [] : part.split(":"));
+    const head = groups(halves[0]);
+    const tail = halves.length === 2 ? groups(halves[1]) : [];
+    if (![...head, ...tail].every((group) => /^[0-9a-fA-F]{1,4}$/.test(group))) return false;
+    return halves.length === 2 ? head.length + tail.length <= 7 : head.length === 8;
+  };
+  if (!IPV4.test(ip) && !isIPv6Literal(ip)) {
     return json({ message: "Missing ip." }, 400);
   }
-
   const kv = env.SECURITY_KV;
   if (!kv) return json({ message: "Security storage is not configured." }, 503);
 

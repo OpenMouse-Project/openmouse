@@ -657,6 +657,7 @@ function buildSnapshot(): ControlSnapshot {
     previewEntries,
     previewListMessage,
     buildLabel: BUILD_LABEL,
+    localeTableRevision,
   };
 }
 
@@ -2477,9 +2478,16 @@ function endDeviceWrite(): void {
     if (retryProfiles) void reloadOnboardProfiles();
   });
 }
-
+let localeTableRevision = 0;
+let prefsSaveWarned = false;
 function saveInterfacePreferences(): void {
-  persistInterfacePreferences(localStorage, interfacePreferences);
+  const saved = persistInterfacePreferences(localStorage, interfacePreferences);
+  // The in-memory value still applies for this session; warn once that a
+  // reload will lose it. Hardcoded English like the other edge-path toasts.
+  if (!saved && !prefsSaveWarned) {
+    prefsSaveWarned = true;
+    pushToast("warning", "Settings will not be saved", "This browser blocked storage, so the change applies until reload.");
+  }
   emit();
 }
 
@@ -2490,8 +2498,14 @@ export function setPreference<K extends keyof InterfacePreferences>(
   interfacePreferences = { ...interfacePreferences, [key]: value };
   saveInterfacePreferences();
   // Locale tables load lazily; re-render once the table arrives so a switch
-  // never sticks on English fallback strings.
-  if (key === "locale" && value !== "en") void ensureDisplayLocale(value as InterfaceLocale).then(() => emit());
+  // never sticks on English fallback strings. The revision bump refreshes
+  // memoized components whose text depends on table contents.
+  if (key === "locale" && value !== "en") {
+    void ensureDisplayLocale(value as InterfaceLocale).then(() => {
+      localeTableRevision += 1;
+      emit();
+    });
+  }
 }
 
 /** Re-render subscribers without changing state (e.g. after a lazy asset

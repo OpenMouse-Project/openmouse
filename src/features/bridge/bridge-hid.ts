@@ -634,12 +634,14 @@ async function openSocket(url: string): Promise<BridgeTransport | null> {
 
 /**
  * Retries the Bridge HID install unless it is already active. Never throws;
- * safe to call from page mounts and focus/visibility handlers.
+ * safe to call from page mounts and focus/visibility handlers. Forces the
+ * socket attempt even where native WebHID exists, so a Bridge started after
+ * page load is picked up without a reload.
  */
 export async function tryInstallBridgeHid(): Promise<boolean> {
   if (isBridgeHidActive()) return true;
   try {
-    return await installBridgeHid();
+    return await installBridgeHid({ force: true });
   } catch {
     return Boolean(typeof navigator !== "undefined" && navigator.hid);
   }
@@ -661,10 +663,12 @@ export async function installBridgeHid(options: { force?: boolean } = {}): Promi
     setBridgeHidActive(false);
     return Boolean(navigator.hid);
   }
-  Object.defineProperty(navigator, "hid", {
-    value: bridgeHid(transport, () => setBridgeHidActive(false)),
-    configurable: true,
+  // Only a disconnect from the currently installed shim clears the flag, so
+  // a superseded socket closing late cannot deactivate its replacement.
+  const shim = bridgeHid(transport, () => {
+    if (typeof navigator !== "undefined" && navigator.hid === shim) setBridgeHidActive(false);
   });
+  Object.defineProperty(navigator, "hid", { value: shim, configurable: true });
   setBridgeHidActive(true);
   return true;
 }

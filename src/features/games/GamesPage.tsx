@@ -164,7 +164,9 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
       </li>)}</ul>
     </section>
     {dialog ? <Suspense fallback={<p className="om-meta" role="status">{t(locale, "localApps.loading")}</p>}>
-      <LocalApplicationDialog locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
+      {/* Remount per target: dialog state (name, target, id) snapshots the
+          clicked row, so Edit/Remove on another row must not reuse it. */}
+      <LocalApplicationDialog key={dialog.application?.id ?? "new"} locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
         onSaved={(apps, created) => {
           setApplications(apps);
           setLoadState("ready");

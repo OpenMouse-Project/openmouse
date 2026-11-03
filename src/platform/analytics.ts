@@ -122,8 +122,10 @@ export function analyticsEnabled(): boolean {
 
 export function setAnalyticsEnabled(enabled: boolean): void {
   if (!initialised || !posthog) return;
-  if (enabled) posthog.opt_in_capturing();
-  else posthog.opt_out_capturing();
+  if (enabled) {
+    posthog.opt_in_capturing();
+    installErrorHooks();
+  } else posthog.opt_out_capturing();
 }
 
 /** Whether this build reports anything, so Settings can hide a dead switch. */

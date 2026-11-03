@@ -99,5 +99,7 @@ const ToastList = memo(function ToastList({ toasts, locale }: { toasts: Toast[];
 export function ToastHost(): ReactNode {
   const toasts = useControlSelector((snapshot) => snapshot.toasts);
   const locale = useControlSelector((snapshot) => snapshot.preferences.locale);
+  // Toast titles resolve through the lazy locale table at render.
+  useControlSelector((snapshot) => snapshot.localeTableRevision);
   return <ToastList toasts={toasts} locale={locale} />;
 }

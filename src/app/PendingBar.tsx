@@ -11,6 +11,8 @@ export const PendingBar = memo(function PendingBar(): ReactNode {
   const busy = useControlSelector((snapshot) => snapshot.pending.busy);
   const labelsKey = useControlSelector((snapshot) => snapshot.pending.labels.join(" · "));
   const locale = useControlSelector((snapshot) => snapshot.preferences.locale);
+  // Text comes from the lazy locale table, not just the locale code.
+  useControlSelector((snapshot) => snapshot.localeTableRevision);
   if (suppressed || count === 0) return null;
   const label = count === 1
     ? t(locale, "pend.one")

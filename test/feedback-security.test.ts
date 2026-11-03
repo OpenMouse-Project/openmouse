@@ -54,10 +54,12 @@ test("feedback caps actual multipart bytes before form parsing", async () => {
 
 test("feedback maps a hung Discord webhook to the 502 path", async () => {
   const original = globalThis.fetch;
+  let receivedSignal = false;
   globalThis.fetch = async (_url, init) => {
     // Mirror AbortSignal.timeout: reject once the passed signal aborts.
     const { promise, reject } = Promise.withResolvers<never>();
     const signal = (init as { signal?: AbortSignal } | undefined)?.signal;
+    receivedSignal = signal !== undefined;
     if (!signal) reject(new Error("no signal"));
     else signal.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "TimeoutError")), { once: true });
     return promise;
@@ -66,6 +68,7 @@ test("feedback maps a hung Discord webhook to the 502 path", async () => {
     const started = Date.now();
     const request = new Request("https://example.test/api/feedback", { method: "POST", body: JSON.stringify({ content: "hi" }), headers: { "Content-Type": "application/json" } });
     assert.equal((await onRequest({ request, env })).status, 502);
+    assert.equal(receivedSignal, true, "webhook fetch must pass an abort signal");
     assert.ok(Date.now() - started < 30000, "must resolve via the abort, not hang");
   } finally { globalThis.fetch = original; }
 });
