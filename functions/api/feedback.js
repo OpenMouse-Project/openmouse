@@ -43,7 +43,9 @@ export async function onRequest({ request, env }) {
     return json({ message: error instanceof BodyTooLarge ? "Feedback too large." : "Invalid feedback." }, error instanceof BodyTooLarge ? 413 : 400);
   }
   try {
-    const response = await fetch(webhook.href, { method: "POST", headers, body });
+    // A hung Discord webhook must not hold the Worker: the existing 502 path
+    // covers the timeout abort below.
+    const response = await fetch(webhook.href, { method: "POST", headers, body, signal: AbortSignal.timeout(10000) });
     if (!response.ok) return json({ message: "Discord rejected the feedback." }, 502);
     return json({ ok: true });
   } catch {

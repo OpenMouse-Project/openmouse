@@ -129,7 +129,11 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
 }
 
 export function saveInterfacePreferences(storage: Storage, preferences: InterfacePreferences): void {
-  storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  } catch {
+    // Private-mode / quota-blocked storage: preferences simply don't persist.
+  }
 }
 
 /** Dataset value for the theme selector. Display names carry spaces, one

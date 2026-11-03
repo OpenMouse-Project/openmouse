@@ -205,7 +205,7 @@ export function App(): ReactNode {
             {displayText(locale, snapshot.readStatus)}
           </p>
         </div>
-        <PendingBar snapshot={snapshot} />
+        <PendingBar />
       </main>
 
       {captureOpen ? (
@@ -224,7 +224,7 @@ export function App(): ReactNode {
         </Suspense>
       ) : null}
       <HelpPanel locale={locale} />
-      <ToastHost toasts={snapshot.toasts} locale={locale} />
+      <ToastHost />
     </div>
     </UiLocaleContext.Provider>
   );

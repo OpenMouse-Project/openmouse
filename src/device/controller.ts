@@ -399,7 +399,7 @@ function st(key: I18nKey, vars?: Record<string, string | number>): string {
   return vars ? tp(interfacePreferences.locale, key, vars) : t(interfacePreferences.locale, key);
 }
 
-const toasts: Toast[] = [];
+let toasts: Toast[] = [];
 let nextToastId = 1;
 let diagnosticsOpen = false;
 let diagnosticDownloadStatus = "";
@@ -556,7 +556,9 @@ function buildSnapshot(): ControlSnapshot {
     deviceStatus,
     status,
     keyboard: buildKeyboardView(),
-    traits: traitsFor(status),
+    // Capability traits come from the real device status: previews mirror
+    // staged values onto a copy, which must never gate card visibility.
+    traits: traitsFor(deviceStatus),
     profile: buildProfileView(),
     capabilities,
     settingsPending: status?.ui?.settingsReady === false,
@@ -622,7 +624,9 @@ function buildSnapshot(): ControlSnapshot {
               : "keyboard",
       })),
     napeKeymap,
-    stagedNapeAssignments: [...stagedNapeAssignments.values()],
+    stagedNapeAssignments: [...stagedNapeAssignments.entries()]
+      .filter(([key]) => isPendingChange(key))
+      .map(([, staged]) => staged),
     editedNapeLayer,
     analogTuning,
     magneticCalibration,
@@ -676,12 +680,9 @@ type ToastOptions = Pick<Toast, "action" | "prominent" | "persistent">;
 class ChromeRazerAccessError extends Error {}
 
 export function pushToast(kind: ToastKind, title: string, detail?: string, options: ToastOptions = {}): void {
-  const duplicate = toasts.findIndex((entry) => entry.kind === kind && entry.title === title);
-  if (duplicate !== -1) toasts.splice(duplicate, 1);
-
   const id = nextToastId++;
-  toasts.unshift({ id, kind, title, detail, ...options });
-  if (toasts.length > TOAST_LIMIT) toasts.length = TOAST_LIMIT;
+  const rest = toasts.filter((entry) => !(entry.kind === kind && entry.title === title));
+  toasts = [{ id, kind, title, detail, ...options }, ...rest].slice(0, TOAST_LIMIT);
   if (!options.persistent) window.setTimeout(() => dismissToast(id), TOAST_TIMEOUT_MS[kind]);
   emit();
 }
@@ -689,12 +690,11 @@ export function pushToast(kind: ToastKind, title: string, detail?: string, optio
 export function dismissToast(id: number): void {
   const toast = toasts.find((entry) => entry.id === id);
   if (!toast || toast.leaving) return;
-  toast.leaving = true;
+  toasts = toasts.map((entry) => (entry.id === id ? { ...entry, leaving: true } : entry));
   emit();
   window.setTimeout(() => {
-    const index = toasts.findIndex((entry) => entry.id === id);
-    if (index === -1) return;
-    toasts.splice(index, 1);
+    if (!toasts.some((entry) => entry.id === id)) return;
+    toasts = toasts.filter((entry) => entry.id !== id);
     emit();
   }, TOAST_EXIT_MS);
 }
@@ -1132,11 +1132,15 @@ export async function applyM2NexProfile(index = activeM2NexProfile): Promise<voi
     }
 
     const status = await statusAfterWrite(active as SupportedClient);
-    applyStatus(status);
-    m2nexProfileDirty = false;
-    persistM2NexProfiles();
-    setReadStatus(st("m2nex.applyDone", { name: profile.name }));
-    pushToast("success", st("m2nex.applied", { name: profile.name }), st("m2nex.appliedDetail"));
+    // One render for the whole success tail: the status above already flushed
+    // through applyStatus, so hold the flag/toast/status-line updates together.
+    batch(() => {
+      applyStatus(status);
+      m2nexProfileDirty = false;
+      persistM2NexProfiles();
+      setReadStatus(st("m2nex.applyDone", { name: profile.name }));
+      pushToast("success", st("m2nex.applied", { name: profile.name }), st("m2nex.appliedDetail"));
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : st("m2nex.applyError");
     setReadStatus(message);
@@ -1431,37 +1435,41 @@ async function callClientMethod(method: string, setting: string, value: unknown)
 }
 
 function stageChange(change: PendingChange): void {
-  if (settingInProgress) {
-    setReadStatus(st("ctl.waitFlash"));
-    return;
-  }
-  if (gameProfileDraft) {
-    const fields = gameProfileFieldsOf(change);
-    if (!fields) {
-      pushToast("error", st("ctl.notInGameProfile"), change.label);
+  // stagePendingChange + onPendingChanges listener + setReadStatus each emit;
+  // hold them so one edit renders once.
+  batch(() => {
+    if (settingInProgress) {
+      setReadStatus(st("ctl.waitFlash"));
+      return;
+    }
+    if (gameProfileDraft) {
+      const fields = gameProfileFieldsOf(change);
+      if (!fields) {
+        pushToast("error", st("ctl.notInGameProfile"), change.label);
+        emit();
+        return;
+      }
+      for (const field of fields) gameProfileDraft.touched.add(field);
+    }
+    // Reset repairs the profile cache too, so it must run even when the current
+    // hardware snapshot already appears to match the factory mapping.
+    if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
+      dropPendingChange(change.key);
+      setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
+      return;
+    }
+    stagePendingChange(change);
+    if (gameProfileDraft) {
       emit();
       return;
     }
-    for (const field of fields) gameProfileDraft.touched.add(field);
-  }
-  // Reset repairs the profile cache too, so it must run even when the current
-  // hardware snapshot already appears to match the factory mapping.
-  if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
-    dropPendingChange(change.key);
-    setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
-    return;
-  }
-  stagePendingChange(change);
-  if (gameProfileDraft) {
-    emit();
-    return;
-  }
-  if (interfacePreferences.instantFlash) {
-    queueInstantFlash();
-    emit();
-    return;
-  }
-  setReadStatus(st("ctl.stagedFlash", { label: change.label }));
+    if (interfacePreferences.instantFlash) {
+      queueInstantFlash();
+      emit();
+      return;
+    }
+    setReadStatus(st("ctl.stagedFlash", { label: change.label }));
+  });
 }
 
 function queueInstantFlash(): void {
@@ -1493,8 +1501,14 @@ function matchesDeviceStatus(change: PendingChange): boolean {
 
 export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
-  clearPendingChanges();
-  setReadStatus(st("ctl.discarded"));
+  batch(() => {
+    clearPendingChanges();
+    // clearPendingChanges() notifies the onPendingChanges listener, which
+    // already drops stale nape assignments — but belt-and-braces here so a
+    // reverted select can never linger even if that listener ever moves.
+    dropStaleNapeAssignments();
+    setReadStatus(st("ctl.discarded"));
+  });
 }
 
 // A draft change is kept only if applyGameProfileSnapshot can reproduce it
@@ -2395,21 +2409,25 @@ async function flashStagedChanges(): Promise<FlashResult> {
     }
   }
   try {
-    for (const batch of batches) {
+    for (const group of batches) {
       if (failure) break;
-      const writer = batch[batch.length - 1];
+      const writer = group[group.length - 1];
       if (!writer) continue;
       pendingStatusText = `${writer.progress} (${written + 1} of ${batches.length})`;
       readStatus = writer.progress;
       emit();
       await flashPause();
       if (!isGameProfileOwner(owner)) break;
-      for (const change of batch) recordDiagnosticCommand(change.command);
+      batch(() => {
+        for (const change of group) recordDiagnosticCommand(change.command);
+      });
       if (!isGameProfileOwner(owner)) break;
       await writer.apply();
       if (!isGameProfileOwner(owner)) break;
-      for (const change of batch) dropPendingChange(change.key);
-      written += batch.length;
+      batch(() => {
+        for (const change of group) dropPendingChange(change.key);
+      });
+      written += group.length;
     }
   } catch (error) {
     recordDiagnosticError(error, st("ctl.unableFlash"));
@@ -2450,12 +2468,14 @@ async function flashStagedChanges(): Promise<FlashResult> {
 }
 
 function endDeviceWrite(): void {
-  settingInProgress = false;
-  const retryProfiles = onboardReloadDeferred && onboardProfiles === null && !onboardProfilesLoading;
-  onboardReloadDeferred = false;
-  syncProfileDerivedState();
-  emit();
-  if (retryProfiles) void reloadOnboardProfiles();
+  batch(() => {
+    settingInProgress = false;
+    const retryProfiles = onboardReloadDeferred && onboardProfiles === null && !onboardProfilesLoading;
+    onboardReloadDeferred = false;
+    syncProfileDerivedState();
+    emit();
+    if (retryProfiles) void reloadOnboardProfiles();
+  });
 }
 
 function saveInterfacePreferences(): void {
@@ -2574,10 +2594,10 @@ function recordDiagnosticCommand(command: string): void {
   renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
-/** Model-level facts about the active device for analytics: no serials or ids. */
-function activeDeviceFacts(): { vendorId: number; productId: number; productName: string } | undefined {
+/** Numeric ids plus driver brand for analytics: never free-text names or serials. */
+function activeDeviceFacts(): { vendorId: number; productId: number; brand: string } | undefined {
   return activeDevice
-    ? { vendorId: activeDevice.vendorId, productId: activeDevice.productId, productName: activeDevice.productName }
+    ? { vendorId: activeDevice.vendorId, productId: activeDevice.productId, brand: latestDeviceStatus?.brand ?? "Unknown" }
     : undefined;
 }
 
@@ -2887,9 +2907,12 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
   setPageTitle(battery === null ? status.name : `${charging}${battery}% - ${status.name}`);
 
+  // The sidebar lists devices, not live status: it refreshes on attach/detach
+  // paths (activation, connect/disconnect), not on every status poll.
+  // Refreshing it here would re-enumerate HID and rebuild entries on every
+  // status poll, racing the content above which just rendered from this status.
   if (activeDevice) {
     deviceStatuses.set(activeDevice, deviceStatus);
-    void refreshSidebar();
   }
   deviceStatusText = st("ctl.connected");
 
@@ -4086,10 +4109,10 @@ export async function connect(): Promise<void> {
   readStatus = st("ctl.choosePrompt");
   emit();
 
-  let attempted: { vendorId: number; productId: number; productName: string } | undefined;
+  let attempted: { vendorId: number; productId: number } | undefined;
   try {
     const client = await requestSupportedClient((device) => {
-      attempted = { vendorId: device.vendorId, productId: device.productId, productName: device.productName };
+      attempted = { vendorId: device.vendorId, productId: device.productId };
     });
     if (!client) {
       deviceStatusText = st("ctl.notConnected");

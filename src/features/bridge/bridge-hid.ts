@@ -633,6 +633,19 @@ async function openSocket(url: string): Promise<BridgeTransport | null> {
 }
 
 /**
+ * Retries the Bridge HID install unless it is already active. Never throws;
+ * safe to call from page mounts and focus/visibility handlers.
+ */
+export async function tryInstallBridgeHid(): Promise<boolean> {
+  if (isBridgeHidActive()) return true;
+  try {
+    return await installBridgeHid();
+  } catch {
+    return Boolean(typeof navigator !== "undefined" && navigator.hid);
+  }
+}
+
+/**
  * Installs Bridge as `navigator.hid` when the browser has no WebHID of its own.
  *
  * Resolves to whether the page can reach HID at all, so a caller can keep using

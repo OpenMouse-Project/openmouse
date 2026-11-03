@@ -28,15 +28,37 @@ export async function onRequest({ request, env }) {
     return json({ message: "Unauthorized." }, 401);
   }
 
+  // A JSON body here is one short string; cap the raw bytes before parsing so
+  // oversized or streaming bodies fail cheaply instead of buffering forever.
+  const MAX_BODY_BYTES = 1024;
+  let raw;
+  try {
+    raw = await request.text();
+  } catch {
+    return json({ message: "Expected a JSON body." }, 400);
+  }
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+    return json({ message: "Body too large." }, 413);
+  }
   let body;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return json({ message: "Expected a JSON body." }, 400);
   }
 
   const ip = typeof body?.ip === "string" ? body.ip.trim() : "";
-  if (!ip) return json({ message: "Missing ip." }, 400);
+  // Strict literal validation: unbanning keys KV deletes, so a weird value
+  // must not become a key prefix probe. IPv4 dotted quads and full/compact
+  // IPv6 only; hostnames, CIDR, and zone ids are rejected.
+  const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+  const IPV6_GROUP = "[0-9a-fA-F]{1,4}";
+  const IPV6 = new RegExp(
+    `^(?:${IPV6_GROUP}:){7}${IPV6_GROUP}$|^::(?:${IPV6_GROUP}(?::${IPV6_GROUP})*)?$|^(?:${IPV6_GROUP}:)+:(?:${IPV6_GROUP}(?::${IPV6_GROUP})*)?$`,
+  );
+  if (!IPV4.test(ip) && !IPV6.test(ip)) {
+    return json({ message: "Missing ip." }, 400);
+  }
 
   const kv = env.SECURITY_KV;
   if (!kv) return json({ message: "Security storage is not configured." }, 503);

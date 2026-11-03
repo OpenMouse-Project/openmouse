@@ -10,6 +10,19 @@ function RunningIcon({ app }: { app: BridgeApplication }): ReactNode {
   return failed ? <span className="local-app-icon" aria-hidden="true" /> : <img className="local-app-icon" src={bridgeApplicationIconUrl(app)} alt="" onError={() => setFailed(true)} />;
 }
 
+/** `crypto.randomUUID` is unavailable in insecure contexts; fall back to a local id. */
+function newLocalId(): string {
+  const random = globalThis.crypto as Crypto | undefined;
+  if (random && typeof random.randomUUID === "function") {
+    try {
+      return `local:${random.randomUUID()}`;
+    } catch {
+      // Fall through to the Math.random fallback below.
+    }
+  }
+  return `local:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function LocalApplicationDialog({ locale, application, remove = false, active, onClose, onSaved }: {
   locale: InterfaceLocale;
   application?: LocalApplication;
@@ -30,7 +43,7 @@ export function LocalApplicationDialog({ locale, application, remove = false, ac
   const [running, setRunning] = useState<BridgeApplication[] | null>(null);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<BridgeApplication | null>(null);
-  const id = useRef(application?.id ?? `local:${crypto.randomUUID()}`);
+  const id = useRef(application?.id ?? newLocalId());
   const parsed = parseLocalTarget(target);
   const valid = Boolean(supportedLocalTarget(target) && name.trim() && [...name.trim()].length <= 80 && !/[\x00-\x1f\x7f]/.test(name));
   // Only a new target is picked from what is running; an edit keeps its saved path.
@@ -62,12 +75,25 @@ export function LocalApplicationDialog({ locale, application, remove = false, ac
 
   useEffect(() => {
     const element = dialog.current;
+    if (!element) return;
     const previous = document.activeElement;
     mounted.current = true;
-    element?.showModal();
+    if (!element.open) {
+      try {
+        element.showModal();
+      } catch {
+        element.setAttribute("open", "");
+      }
+    }
     return () => {
       mounted.current = false;
-      element?.close();
+      if (element.open) {
+        try {
+          element.close();
+        } catch {
+          element.removeAttribute("open");
+        }
+      }
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
     };
   }, []);
