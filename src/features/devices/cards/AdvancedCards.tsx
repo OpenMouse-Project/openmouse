@@ -736,9 +736,6 @@ export function DpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   );
 }
 
-/** @deprecated Kept as an import alias for integrations built before generic DPI lighting. */
-export const TeevolutionDpiLightingCard = DpiLightingCard;
-
 export function NinjutsoSensorCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   if (!status) return null;

@@ -2,10 +2,10 @@ import { displayText } from "../i18n/index";
 import { memo, useEffect, useRef, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { Toast } from "../device/types";
-import type { InterfaceLocale } from "../features/settings/interface-preferences";
 import { t } from "../i18n/index";
 import { playToastSound } from "../platform/sound-manager";
 import { useControlSelector } from "./useControl";
+import { useUiLocale } from "../shared/ui-locale";
 
 const TOAST_ICON: Record<Toast["kind"], ReactNode> = {
   success: <path d="M20 6 9 17l-5-5" />,
@@ -43,7 +43,8 @@ function ToastIcon({ kind }: { kind: Toast["kind"] }): ReactNode {
   );
 }
 
-const ToastList = memo(function ToastList({ toasts, locale }: { toasts: Toast[]; locale: InterfaceLocale }): ReactNode {
+const ToastList = memo(function ToastList({ toasts }: { toasts: Toast[] }): ReactNode {
+  const locale = useUiLocale();
   const prev = useRef<Toast[]>([]);
   useEffect(() => {
     const seen = prev.current.map((toast) => toast.id);
@@ -98,8 +99,7 @@ const ToastList = memo(function ToastList({ toasts, locale }: { toasts: Toast[];
 
 export function ToastHost(): ReactNode {
   const toasts = useControlSelector((snapshot) => snapshot.toasts);
-  const locale = useControlSelector((snapshot) => snapshot.preferences.locale);
   // Toast titles resolve through the lazy locale table at render.
   useControlSelector((snapshot) => snapshot.localeTableRevision);
-  return <ToastList toasts={toasts} locale={locale} />;
+  return <ToastList toasts={toasts} />;
 }

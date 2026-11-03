@@ -49,7 +49,7 @@ export function SwitchButton({
   );
 }
 
-const FEATURE_ICONS: readonly [RegExp, LucideIcon][] = [
+export const FEATURE_ICONS: readonly [RegExp, LucideIcon][] = [
   [/motion-sync/, Activity],
   [/angle-snap/, Ruler],
   [/ripple/, Waves],

@@ -4,13 +4,14 @@ import { memo, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { t } from "../i18n/index";
 import { useControlSelector } from "./useControl";
+import { useUiLocale } from "../shared/ui-locale";
 
 export const PendingBar = memo(function PendingBar(): ReactNode {
   const count = useControlSelector((snapshot) => snapshot.pending.count);
   const suppressed = useControlSelector((snapshot) => snapshot.pending.suppressed);
   const busy = useControlSelector((snapshot) => snapshot.pending.busy);
   const labelsKey = useControlSelector((snapshot) => snapshot.pending.labels.join(" · "));
-  const locale = useControlSelector((snapshot) => snapshot.preferences.locale);
+  const locale = useUiLocale();
   // Text comes from the lazy locale table, not just the locale code.
   useControlSelector((snapshot) => snapshot.localeTableRevision);
   if (suppressed || count === 0) return null;

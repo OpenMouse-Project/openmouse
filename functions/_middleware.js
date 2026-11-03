@@ -181,8 +181,7 @@ export async function onRequest(context) {
 }
 
 async function handle({ request, env, next }) {
-  const pathname = new URL(request.url).pathname;
-  const limit = pathname === "/api/comments" ? 16 * 1024 : MAX_BODY_BYTES;
+  const limit = MAX_BODY_BYTES;
   try {
     request = await boundedRequest(request, limit);
   } catch (error) {

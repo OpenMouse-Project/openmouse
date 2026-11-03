@@ -30,7 +30,7 @@ import { join } from "node:path";
 // 2026-10-31: VIA keyboard support adds the keycode tables, the definition
 // parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
 // (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
-const BUDGET_BYTES: Record<string, number> = {
+export const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
   ".js": 3_800_000,
 };
@@ -41,67 +41,84 @@ const BUDGET_BYTES: Record<string, number> = {
 // (instanceof checks and NEEDS_OPEN) — that is the follow-up slice for this
 // issue. The budget keeps those honest: a driver that grows the initial load
 // fails the check instead of silently riding along.
-const MAIN_CHUNK_BUDGET_BYTES = 1_600_000;
+export const MAIN_CHUNK_BUDGET_BYTES = 1_600_000;
 
-const ASSETS = join("dist", "assets");
+export const ASSETS = join("dist", "assets");
 
-function bundles(): { name: string; ext: string; bytes: number }[] {
-  return readdirSync(ASSETS)
+// Preview-fixture chunks only exist in local verification builds; the slack
+// keeps the JS budget green for those runs without hiding real growth.
+export const PREVIEW_FIXTURES_SLACK_BYTES = 18_000;
+
+export interface BundleEntry {
+  name: string;
+  ext: string;
+  bytes: number;
+}
+
+export function bundles(assetsDir: string = ASSETS): BundleEntry[] {
+  return readdirSync(assetsDir)
     .filter((name) => name.endsWith(".css") || name.endsWith(".js"))
     .map((name) => ({
       name,
       ext: name.slice(name.lastIndexOf(".")),
-      bytes: statSync(join(ASSETS, name)).size,
+      bytes: statSync(join(assetsDir, name)).size,
     }));
 }
 
-const found = bundles();
-if (found.length === 0) {
-  console.error(`No bundles in ${ASSETS}. Run "npm run build" first.`);
-  process.exit(1);
-}
-
-const budgets = {
-  ...BUDGET_BYTES,
-  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 18_000 : 0),
-};
-
-const totals = new Map<string, number>();
-for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
-
-// The initial chunk is everything first paint waits on: main-*.js plus its
-// eager CSS. Lazy chunks (registry, posthog, secondary pages, locales) do not
-// count toward it.
-const mainBytes = found
-  .filter(({ name }) => /^main-.*\.js$/.test(name))
-  .reduce((sum, { bytes }) => sum + bytes, 0);
-
-let failed = false;
-{
-  const percent = Math.round((mainBytes / MAIN_CHUNK_BUDGET_BYTES) * 100);
-  const label = `MAIN ${String(mainBytes).padStart(7)} / ${MAIN_CHUNK_BUDGET_BYTES} bytes (${percent}%)`;
-  if (mainBytes > MAIN_CHUNK_BUDGET_BYTES) {
-    failed = true;
-    console.error(`over budget  ${label}`);
-  } else {
-    console.log(`ok           ${label}`);
+/** Check the bundles in assetsDir against the budgets. Returns true on failure. */
+export function checkBundles(assetsDir: string = ASSETS): boolean {
+  const found = bundles(assetsDir);
+  if (found.length === 0) {
+    console.error(`No bundles in ${assetsDir}. Run "npm run build" first.`);
+    return true;
   }
-}
-for (const [ext, budget] of Object.entries(budgets)) {
-  const bytes = totals.get(ext) ?? 0;
-  const percent = Math.round((bytes / budget) * 100);
-  const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
-  if (bytes > budget) {
-    failed = true;
-    console.error(`over budget  ${label}`);
-  } else {
-    console.log(`ok           ${label}`);
+
+  const budgets = {
+    ...BUDGET_BYTES,
+    ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? PREVIEW_FIXTURES_SLACK_BYTES : 0),
+  };
+
+  const totals = new Map<string, number>();
+  for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
+
+  // The initial chunk is everything first paint waits on: main-*.js plus its
+  // eager CSS. Lazy chunks (registry, posthog, secondary pages, locales) do not
+  // count toward it.
+  const mainBytes = found
+    .filter(({ name }) => /^main-.*\.js$/.test(name))
+    .reduce((sum, { bytes }) => sum + bytes, 0);
+
+  let failed = false;
+  {
+    const percent = Math.round((mainBytes / MAIN_CHUNK_BUDGET_BYTES) * 100);
+    const label = `MAIN ${String(mainBytes).padStart(7)} / ${MAIN_CHUNK_BUDGET_BYTES} bytes (${percent}%)`;
+    if (mainBytes > MAIN_CHUNK_BUDGET_BYTES) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
   }
+  for (const [ext, budget] of Object.entries(budgets)) {
+    const bytes = totals.get(ext) ?? 0;
+    const percent = Math.round((bytes / budget) * 100);
+    const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
+    if (bytes > budget) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
+  }
+
+  if (failed) {
+    console.error("");
+    console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
+    console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
+  }
+  return failed;
 }
 
-if (failed) {
-  console.error("");
-  console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
-  console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
-  process.exit(1);
+if (process.argv[1]?.endsWith("check-bundle-size.ts")) {
+  if (checkBundles()) process.exit(1);
 }
