@@ -571,7 +571,6 @@ function cachedSnapshotClone<Source, Output>(
 }
 
 const EMPTY_PENDING_LABELS: string[] = [];
-const EMPTY_PENDING_KEYS: readonly string[] = [];
 
 const wallhackMacrosCache: SnapshotCloneCache<typeof wallhackMacros, typeof wallhackMacros> = {
   source: undefined,
@@ -693,14 +692,14 @@ function buildSnapshot(): ControlSnapshot {
     eggPollingDivider,
     pending: {
       count: changes.length,
-      // The bar returns early while suppressed; during the instant-flash
-      // window nothing reads these, so reuse a shared empty ref instead of
-      // mapping every emit.
+      // Labels render only in the bar, which returns early while suppressed;
+      // keys stay live — GameProfilePanel and staged-state cards read them
+      // during instant-flash and game-draft windows.
       labels: suppressedPending ? EMPTY_PENDING_LABELS : changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
       suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,
-      keys: suppressedPending ? EMPTY_PENDING_KEYS : changes.map((change) => change.key),
+      keys: changes.map((change) => change.key),
     },
     gameProfileDraft: gameProfileDraft !== null,
     gameProfileRates: { ...gameProfileDraft?.rates },

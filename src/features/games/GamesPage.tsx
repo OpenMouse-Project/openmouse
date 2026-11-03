@@ -77,15 +77,36 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     if (!active) return;
     const controller = new AbortController();
     setLoadState("loading");
-    void Promise.all([bridgeGames(controller.signal), bridgeLocalApplications(controller.signal)]).then(([games, apps]) => {
+    // Settle independently: a games failure must not keep local apps (and
+    // Add/Edit/Remove) unusable. A games error sticks in loadState; local
+    // apps still populate underneath it.
+    let gamesDone = false;
+    let gamesOk = false;
+    let appsDone = false;
+    function maybeReady(): void {
+      if (gamesDone && appsDone && gamesOk && !controller.signal.aborted) setLoadState("ready");
+    }
+    void bridgeGames(controller.signal).then((games) => {
       if (controller.signal.aborted) return;
       setBridgeList(games);
-      setApplications(apps);
-      setLoadState("ready");
+      gamesDone = true;
+      gamesOk = true;
+      maybeReady();
     }).catch((cause: unknown) => {
       if (controller.signal.aborted) return;
+      gamesDone = true;
       if (cause instanceof BridgeHttpError && cause.status === 404) setLoadState("unsupported");
       else setLoadState("error");
+    });
+    void bridgeLocalApplications(controller.signal).then((apps) => {
+      if (controller.signal.aborted) return;
+      setApplications(apps);
+      appsDone = true;
+      maybeReady();
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      appsDone = true;
+      setLoadState("error");
     });
     return () => controller.abort();
   }, [active, revision]);

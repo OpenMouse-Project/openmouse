@@ -434,6 +434,12 @@ class BridgeHid implements HID {
         clearInterval(this.#poll);
         this.#poll = null;
       }
+      // Otherwise the handler restarts polling on a closed client and
+      // accumulates one listener per reconnect.
+      if (this.#visibilityHandler !== null) {
+        document.removeEventListener("visibilitychange", this.#visibilityHandler);
+        this.#visibilityHandler = null;
+      }
       for (const device of this.#client.devices.values()) this.#emit("disconnect", device);
       this.#client.devices.clear();
       onExternalDisconnect?.();

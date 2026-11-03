@@ -45,6 +45,9 @@ export function NewsBanner({ locale }: { locale: InterfaceLocale }): ReactNode {
   useEffect(() => {
     let mounted = true;
     let failures = 0;
+    // onVisible can start a load while one is in flight; only the latest
+    // may apply its result.
+    let requestGeneration = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const controller = new AbortController();
 
@@ -59,20 +62,25 @@ export function NewsBanner({ locale }: { locale: InterfaceLocale }): ReactNode {
         schedule(failures >= 3 ? BACKOFF_INTERVAL_MS : POLL_INTERVAL_MS);
         return;
       }
+      const generation = ++requestGeneration;
       const attempt = new AbortController();
       const onAbort = (): void => attempt.abort();
+      // A stalled request must not wedge polling: 15s cap, then the catch
+      // path schedules the next poll.
+      const timeout = setTimeout(() => attempt.abort(), 15_000);
       controller.signal.addEventListener("abort", onAbort, { once: true });
       try {
         const item = await fetchNews(attempt.signal);
-        if (!mounted || controller.signal.aborted) return;
+        if (!mounted || controller.signal.aborted || generation !== requestGeneration) return;
         failures = 0;
         setNews(item && item.id !== dismissedId(item.level) ? item : null);
         schedule(POLL_INTERVAL_MS);
       } catch {
-        if (!mounted || controller.signal.aborted) return;
+        if (!mounted || controller.signal.aborted || generation !== requestGeneration) return;
         failures += 1;
         schedule(failures >= 3 ? BACKOFF_INTERVAL_MS : POLL_INTERVAL_MS);
       } finally {
+        clearTimeout(timeout);
         controller.signal.removeEventListener("abort", onAbort);
       }
     }

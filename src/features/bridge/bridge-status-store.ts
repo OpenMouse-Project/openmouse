@@ -51,7 +51,9 @@ function startPolling(): void {
   consecutiveFailures = 0;
   if (typeof document !== "undefined" && visibilityHandler === null) {
     visibilityHandler = () => {
-      if (!document.hidden) tick();
+      // stopPolling clears the timer; without this gate a late visible
+      // event repopulates current after cleanup.
+      if (!document.hidden && timer !== null) tick();
     };
     document.addEventListener("visibilitychange", visibilityHandler);
   }

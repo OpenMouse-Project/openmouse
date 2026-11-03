@@ -1914,6 +1914,8 @@ export function ensureLocale(locale: InterfaceLocale): Promise<void> {
   if (locale === "en" || tables[locale]) return Promise.resolve();
   return LOCALE_LOADERS[locale]().then((table) => {
     tables[locale] = table;
+    // Entries cached before the table arrived hold English fallbacks.
+    displayMemo.clear();
   });
 }
 /** Load display copy without blocking startup on a missing/offline lazy chunk.

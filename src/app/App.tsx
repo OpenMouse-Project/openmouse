@@ -109,10 +109,10 @@ export function App(): ReactNode {
     }
   }, [themeSlug]);
 
-  const lastTab = useRef(snapshot.workspaceTab);
+  const lastTab = useRef({ page, workspaceTab: snapshot.workspaceTab });
   useEffect(() => {
-    if (lastTab.current === snapshot.workspaceTab) return;
-    lastTab.current = snapshot.workspaceTab;
+    if (lastTab.current.page === page && lastTab.current.workspaceTab === snapshot.workspaceTab) return;
+    lastTab.current = { page, workspaceTab: snapshot.workspaceTab };
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [page, snapshot.workspaceTab, preferences.reducedMotion]);
 

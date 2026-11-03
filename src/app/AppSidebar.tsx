@@ -79,6 +79,9 @@ const SidebarDeviceRow = memo(function SidebarDeviceRow({
   batteryState: MouseStatus["batteryState"];
   collapsed: boolean;
   open: (index: number) => void;
+  // Bumps when a lazy locale table resolves; row text otherwise keeps the
+  // English fallback because no other prop changes on table load.
+  localeTableRevision: number;
 }): ReactNode {
   const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
   const openDevice = useCallback(() => open(device.index), [open, device.index]);
@@ -146,6 +149,7 @@ function SidebarDeviceRowOutlet({
       batteryState={status?.batteryState ?? "Unknown"}
       collapsed={collapsed}
       open={open}
+      localeTableRevision={snapshot.localeTableRevision}
     />
   );
 }
