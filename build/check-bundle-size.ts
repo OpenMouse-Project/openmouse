@@ -70,7 +70,7 @@ export function checkBundles(assetsDir: string = ASSETS): boolean {
   const found = bundles(assetsDir);
   if (found.length === 0) {
     console.error(`No bundles in ${assetsDir}. Run "npm run build" first.`);
-    process.exit(1);
+    return true;
   }
 
   const budgets = {

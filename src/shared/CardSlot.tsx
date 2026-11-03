@@ -1,6 +1,6 @@
 import {
   Activity, BatteryLow, Cog, Command, Cpu, Crosshair, Disc3, FlaskConical, Gauge, Hand, Layers, Lightbulb, Magnet,
-  Moon, Mouse, MousePointerClick, Palette, Radar, Rocket, ScanEye, ShieldCheck, SlidersHorizontal,
+  Moon, Mouse, MousePointerClick, Palette, Radar, Rocket, ScanEye, ShieldCheck, SlidersHorizontal, Sparkles,
   Spline, Timer, ToggleRight, Usb, Wifi, Zap, type LucideIcon,
 } from "lucide-react";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
@@ -51,6 +51,7 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "atk-dongle": Usb,
   "onboard-profile": Layers,
   "dpi-indicator": Palette,
+  pulsarpro: Sparkles,
 };
 
 
