@@ -1,9 +1,3 @@
-// A single shared poll of Bridge's `/v1/status`, so BridgeCard (version/
-// connection display) and useBridgeProfileApplier (foreground-app profile
-// matching) aren't each running their own timer against the same loopback
-// endpoint. Starts polling on the first subscriber and stops on the last,
-// gated by bridge-hid.ts's own connection signal so nothing polls a Bridge
-// that isn't there.
 import { bridgeStatus, type BridgeStatus } from "./bridge";
 import { subscribeBridgeHidActive } from "./bridge-hid";
 
@@ -18,6 +12,8 @@ const listeners = new Set<Listener>();
 // Bumped whenever polling stops, so a status request already in flight cannot
 // repopulate `current` after the last subscriber went away.
 let generation = 0;
+let consecutiveFailures = 0;
+let visibilityHandler: (() => void) | null = null;
 
 function notify(): void {
   for (const listener of listeners) listener(current);
@@ -27,22 +23,45 @@ function poll(): void {
   const mine = generation;
   void bridgeStatus().then((next) => {
     if (mine !== generation) return;
+    consecutiveFailures = 0;
     current = next;
     notify();
   }).catch(() => {
+    if (mine !== generation) return;
+    consecutiveFailures += 1;
     // Bridge briefly not answering — bridge-hid.ts's own disconnect
     // handling is what actually stops polling; this just skips a beat.
+    // After 3 consecutive failures treat Bridge as gone so the UI stops
+    // showing a stale version.
+    if (consecutiveFailures >= 3) {
+      consecutiveFailures = 0;
+      current = null;
+      notify();
+    }
   });
+}
+
+function tick(): void {
+  if (typeof document !== "undefined" && document.hidden) return;
+  poll();
 }
 
 function startPolling(): void {
   if (timer !== null) return;
-  poll();
-  timer = setInterval(poll, POLL_MS);
+  consecutiveFailures = 0;
+  if (typeof document !== "undefined" && visibilityHandler === null) {
+    visibilityHandler = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+  }
+  tick();
+  timer = setInterval(tick, POLL_MS);
 }
 
 function stopPolling(): void {
   generation += 1;
+  consecutiveFailures = 0;
   if (timer !== null) clearInterval(timer);
   timer = null;
   current = null;

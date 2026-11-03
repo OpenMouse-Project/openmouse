@@ -57,6 +57,7 @@ async function playToast(kind: ToastKind): Promise<void> {
 }
 
 function unlock(): void {
+  if (!enabled) return;
   const ctx = getContext();
   if (ctx && ctx.state === "suspended") void ctx.resume();
   if (pendingToast !== null) {

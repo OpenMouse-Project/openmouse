@@ -1836,6 +1836,59 @@ let extraTurkish: Readonly<Record<string, string>> = {};
 type DisplayPattern = { pattern: RegExp; names: string[]; translation: string; preserveNames: boolean };
 let displayPatterns: DisplayPattern[] | undefined;
 
+/** Bounded memo of displayText results keyed by locale and source text.
+ * Locale tables load once and never change, so entries stay valid until the
+ * next table load clears the whole memo (see ensureLocale). */
+const DISPLAY_MEMO_LIMIT = 500;
+const displayMemo = new Map<string, string>();
+
+function displayMemoGet(locale: InterfaceLocale, value: string): string | undefined {
+  const key = `${locale} ${value}`;
+  const hit = displayMemo.get(key);
+  if (hit !== undefined) {
+    displayMemo.delete(key);
+    displayMemo.set(key, hit);
+  }
+  return hit;
+}
+
+function displayMemoSet(locale: InterfaceLocale, value: string, translated: string): void {
+  const key = `${locale} ${value}`;
+  if (displayMemo.has(key)) {
+    displayMemo.delete(key);
+  } else if (displayMemo.size >= DISPLAY_MEMO_LIMIT) {
+    const oldest = displayMemo.keys().next();
+    if (!oldest.done) displayMemo.delete(oldest.value);
+  }
+  displayMemo.set(key, translated);
+}
+
+/** Compile the template patterns translateDisplay matches against. Runs once
+ * when the Turkish table arrives (and again only if it ever reloads), not on
+ * the first render-time translation. */
+function buildDisplayPatterns(): DisplayPattern[] {
+  const templates = new Map<string, string>();
+  for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t("tr", key));
+  for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
+  const patterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
+    const names: string[] = [];
+    let pattern = "";
+    let end = 0;
+    for (const match of english.matchAll(/\{(\w+)\}/g)) {
+      pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      names.push(match[1]);
+      const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
+      pattern += pluralSuffix ? "(s?)" : "(.*?)";
+      end = match.index! + match[0].length;
+    }
+    pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return { pattern: new RegExp(`^${pattern}$`), names, translation,
+      preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
+  });
+  patterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  return patterns;
+}
+
 const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<LocaleTable>> = {
   pt: () => import("./locales/pt.ts").then((m) => m.pt),
   es: () => import("./locales/es.ts").then((m) => m.es),
@@ -1848,8 +1901,11 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   vi: () => import("./locales/vi.ts").then((m) => m.vi),
   ar: () => import("./locales/ar.ts").then((m) => m.ar),
   tr: () => Promise.all([import("./locales/tr.ts"), import("./locales/tr-extra.ts")]).then(([main, extra]) => {
+    tables.tr = main.tr;
     extraTurkish = extra.trExtra;
-    displayPatterns = undefined;
+    // The table this compiles from just changed: drop patterns and memo together.
+    displayPatterns = buildDisplayPatterns();
+    displayMemo.clear();
     return main.tr;
   }),
 };
@@ -1860,7 +1916,6 @@ export function ensureLocale(locale: InterfaceLocale): Promise<void> {
     tables[locale] = table;
   });
 }
-
 /** Load display copy without blocking startup on a missing/offline lazy chunk.
  * Failed loads do not populate the locale cache, so a later call can retry. */
 export async function ensureDisplayLocale(
@@ -1898,7 +1953,11 @@ const sourceTextKeys = new Map<string, I18nKey>(
  * Never use this for protocol commands, comparisons, identifiers or saved user data. */
 export function displayText<T extends string | number | null | undefined>(locale: InterfaceLocale, value: T): T {
   if (locale === "en" || typeof value !== "string") return value;
-  return translateDisplay(locale, value, 0) as T;
+  const hit = displayMemoGet(locale, value);
+  if (hit !== undefined) return hit as T;
+  const translated = translateDisplay(locale, value, 0);
+  displayMemoSet(locale, value, translated);
+  return translated as T;
 }
 
 /** Translate complete display copy before inserting values, preserving user data. */
@@ -1914,29 +1973,8 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   const padding = (text: string) => (value.match(/^\s*/)?.[0] ?? "") + text + (value.match(/\s*$/)?.[0] ?? "");
   if (translated !== undefined) return padding(translated);
   if (locale !== "tr") return value;
-  if (!displayPatterns) {
-    const templates = new Map<string, string>();
-    for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t(locale, key));
-    for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
-    displayPatterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
-      const names: string[] = [];
-      let pattern = "";
-      let end = 0;
-      for (const match of english.matchAll(/\{(\w+)\}/g)) {
-        pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        names.push(match[1]);
-        const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
-        pattern += pluralSuffix ? "(s?)" : "(.*?)";
-        end = match.index! + match[0].length;
-      }
-      pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return { pattern: new RegExp(`^${pattern}$`), names, translation,
-        preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
-    });
-    // Specific sentences must win over broad patterns such as "Mouse {0}".
-    displayPatterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
-  }
-  for (const { pattern, names, translation, preserveNames } of displayPatterns) {
+  const patterns = displayPatterns ??= buildDisplayPatterns();
+  for (const { pattern, names, translation, preserveNames } of patterns) {
     const match = pattern.exec(source);
     if (!match) continue;
     return padding(translation.replace(/\{(\w+)\}/g, (_, name: string) => {

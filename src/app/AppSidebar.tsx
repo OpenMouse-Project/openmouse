@@ -11,8 +11,10 @@ import {
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode } from "react";
-import type { ControlSnapshot } from "../device/types";
+import { memo, useCallback, type ReactNode } from "react";
+import type { ControlSnapshot, SidebarDevice } from "../device/types";
+import type { InterfaceLocale } from "../features/settings/interface-preferences";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { deviceImage } from "../shared/device-images";
 import { BridgeStatusButton } from "../features/bridge/BridgeStatus";
 import { BatteryIcon } from "../shared/ui";
@@ -21,7 +23,7 @@ export const OPENMOUSE_URL = "https://openmouse.app/";
 
 export type DesktopPage = "home" | "dashboard" | "hardware-test" | "games" | "settings";
 
-function NavItem({
+const NavItem = memo(function NavItem({
   icon: Icon,
   label,
   active = false,
@@ -59,32 +61,34 @@ function NavItem({
       {body}
     </button>
   );
-}
+});
 
-function SidebarDeviceRow({
-  snapshot,
-  index,
+const SidebarDeviceRow = memo(function SidebarDeviceRow({
+  locale,
+  device,
+  live,
+  batteryPercent,
+  batteryState,
   collapsed,
   open,
 }: {
-  snapshot: ControlSnapshot;
-  index: number;
+  locale: InterfaceLocale;
+  device: SidebarDevice;
+  live: boolean;
+  batteryPercent: number | null;
+  batteryState: MouseStatus["batteryState"];
   collapsed: boolean;
   open: (index: number) => void;
 }): ReactNode {
-  const locale = snapshot.preferences.locale;
-  const device = snapshot.devices.find((entry) => entry.index === index);
-  if (!device) return null;
-  const live = device.selected && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
-  const status = live ? snapshot.deviceStatus : null;
   const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
+  const openDevice = useCallback(() => open(device.index), [open, device.index]);
   return (
     <li>
       <button
         type="button"
         className={`om-side-device${live ? " is-active" : ""}`}
         title={collapsed ? device.name : undefined}
-        onClick={() => open(device.index)}
+        onClick={openDevice}
       >
         <span className="om-side-device-art" aria-hidden="true">
           <img
@@ -102,10 +106,10 @@ function SidebarDeviceRow({
         <span className="om-side-device-text">
           <span className="om-side-device-name">{device.name}</span>
           <span className="om-side-device-sub">
-            {status?.batteryPercent != null ? (
+            {batteryPercent != null ? (
               <>
-                <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
-                <span>{status.batteryPercent}%</span>
+                <BatteryIcon percent={batteryPercent} state={batteryState} />
+                <span>{batteryPercent}%</span>
               </>
             ) : (
               <span>{live ? t(locale, "side.connected") : t(locale, "home.notConnected")}</span>
@@ -114,6 +118,35 @@ function SidebarDeviceRow({
         </span>
       </button>
     </li>
+  );
+});
+
+function SidebarDeviceRowOutlet({
+  snapshot,
+  index,
+  collapsed,
+  open,
+}: {
+  snapshot: ControlSnapshot;
+  index: number;
+  collapsed: boolean;
+  open: (index: number) => void;
+}): ReactNode {
+  const locale = snapshot.preferences.locale;
+  const device = snapshot.devices.find((entry) => entry.index === index);
+  if (!device) return null;
+  const live = device.selected && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
+  const status = live ? snapshot.deviceStatus : null;
+  return (
+    <SidebarDeviceRow
+      locale={locale}
+      device={device}
+      live={live}
+      batteryPercent={status?.batteryPercent ?? null}
+      batteryState={status?.batteryState ?? "Unknown"}
+      collapsed={collapsed}
+      open={open}
+    />
   );
 }
 
@@ -136,6 +169,10 @@ export function AppSidebar({
 }): ReactNode {
   const locale = snapshot.preferences.locale;
   const devices = snapshot.devices;
+  const goHome = useCallback(() => onNavigate("home"), [onNavigate]);
+  const goHardwareTest = useCallback(() => onNavigate("hardware-test"), [onNavigate]);
+  const goGames = useCallback(() => onNavigate("games"), [onNavigate]);
+  const goSettings = useCallback(() => onNavigate("settings"), [onNavigate]);
 
   return (
     <aside className={`om-sidebar${collapsed ? " is-collapsed" : ""}`}>
@@ -164,21 +201,21 @@ export function AppSidebar({
           icon={LayoutGrid}
           label={t(locale, "nav.devices")}
           active={page === "home" || page === "dashboard"}
-          onClick={() => onNavigate("home")}
+          onClick={goHome}
           collapsed={collapsed}
         />
         <NavItem
           icon={Activity}
           label={t(locale, "nav.hardwareTest")}
           active={page === "hardware-test"}
-          onClick={() => onNavigate("hardware-test")}
+          onClick={goHardwareTest}
           collapsed={collapsed}
         />
         <NavItem
           icon={Gamepad2}
           label={t(locale, "nav.games")}
           active={page === "games"}
-          onClick={() => onNavigate("games")}
+          onClick={goGames}
           collapsed={collapsed}
         />
       </nav>
@@ -188,7 +225,7 @@ export function AppSidebar({
           <h2 id="om-side-devices-title" className="om-side-heading">{t(locale, "nav.yourDevices")}</h2>
           <ul>
             {devices.map((device) => (
-              <SidebarDeviceRow
+              <SidebarDeviceRowOutlet
                 key={device.index}
                 snapshot={snapshot}
                 index={device.index}
@@ -222,7 +259,7 @@ export function AppSidebar({
             icon={SettingsIcon}
             label={t(locale, "nav.settings")}
             active={page === "settings"}
-            onClick={() => onNavigate("settings")}
+            onClick={goSettings}
             collapsed={collapsed}
           />
         </nav>

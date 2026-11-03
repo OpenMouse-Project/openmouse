@@ -76,20 +76,16 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     setSelectedGame(null);
     if (!active) return;
     const controller = new AbortController();
-    void bridgeGames(controller.signal).then((games) => { if (!controller.signal.aborted) setBridgeList(games); }).catch(() => undefined);
-    return () => controller.abort();
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    const controller = new AbortController();
     setLoadState("loading");
-    void bridgeLocalApplications(controller.signal).then((apps) => {
+    void Promise.all([bridgeGames(controller.signal), bridgeLocalApplications(controller.signal)]).then(([games, apps]) => {
       if (controller.signal.aborted) return;
+      setBridgeList(games);
       setApplications(apps);
       setLoadState("ready");
-    }).catch((cause) => {
-      if (!controller.signal.aborted) setLoadState(cause instanceof BridgeHttpError && cause.status === 404 ? "unsupported" : "error");
+    }).catch((cause: unknown) => {
+      if (controller.signal.aborted) return;
+      if (cause instanceof BridgeHttpError && cause.status === 404) setLoadState("unsupported");
+      else setLoadState("error");
     });
     return () => controller.abort();
   }, [active, revision]);
@@ -98,11 +94,16 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     if (!active || selectedGame) return;
     const controller = new AbortController();
     void bridgeProfiles(controller.signal)
-      .then((profiles) => setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
-        .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`))))
-      .catch(() => setProfiled(new Set()));
+      .then((profiles) => {
+        if (controller.signal.aborted) return;
+        setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
+          .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`)));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProfiled(new Set());
+      });
     return () => controller.abort();
-  }, [active, selectedGame, applications]);
+  }, [active, selectedGame, revision]);
 
   if (selectedGame) return <GameProfilePanel snapshot={snapshot} game={selectedGame} onBack={() => setSelectedGame(null)} />;
 
