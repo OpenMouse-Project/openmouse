@@ -110,7 +110,7 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
     track("hardware_test_started");
 
     void (async () => {
-      let info = deviceInfoFromSnapshot(snapshot);
+      let info = deviceInfoFromSnapshot(control.getSnapshot());
       const results: HardwareTestResult[] = [];
       let aborted = false;
       const startedAt = performance.now();
@@ -175,7 +175,10 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           for (const ev of subs) {
             if (lastT > 0) {
               const delta = ev.timeStamp - lastT;
-              if (delta >= 0.05 && delta <= 1000) intervals.push(delta);
+              if (delta >= 0.05 && delta <= 1000) {
+                intervals.push(delta);
+                if (intervals.length > 20000) intervals.splice(0, intervals.length - 20000);
+              }
             }
             lastT = ev.timeStamp;
           }
@@ -273,7 +276,9 @@ export function HardwareTestPage({ snapshot }: { snapshot: ControlSnapshot }): R
           aborted = true;
           flashResult = flashWriteResult({ skipped: true, skippedReason: "stopped by user." });
         } else {
-          const live = control.getSnapshot();
+          const legLive = control.getSnapshot();
+          const legInfo = deviceInfoFromSnapshot(legLive);
+          const live = legInfo.present ? legLive : control.getSnapshot();
           if (!live.status) {
             flashResult = flashWriteResult({ skipped: true, skippedReason: "no live device status — cannot round-trip a write." });
           } else if (live.settingsPending) {

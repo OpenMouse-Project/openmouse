@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "node --test \"src/**/*.test.ts\" \"test/**/*.test.ts\" \"build/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
-    "check": "npm run build && npm test",
+    "check": "npm run build && npm run size && npm test",
     "preview": "vite preview"
   },
   "dependencies": {

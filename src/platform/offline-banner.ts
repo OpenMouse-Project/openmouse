@@ -8,14 +8,18 @@ import { ensureDisplayLocale, t } from "../i18n/index";
  * Announces a dropped connection. The banner stays empty while online so the
  * live region only speaks on an actual change.
  */
+let cachedLocale: InterfaceLocale | null = null;
+
+function readStoredLocale(): InterfaceLocale {
+  try {
+    return loadInterfacePreferences(window.localStorage).locale;
+  } catch {
+    return detectLocale();
+  }
+}
+
 export function mountOfflineBanner(locale?: InterfaceLocale): void {
-  const resolved = (): InterfaceLocale => locale ?? (() => {
-    try {
-      return loadInterfacePreferences(window.localStorage).locale;
-    } catch {
-      return detectLocale();
-    }
-  })();
+  cachedLocale = locale ?? readStoredLocale();
   const banner = document.createElement("div");
   banner.className = "offline-banner";
   banner.setAttribute("role", "status");
@@ -24,13 +28,18 @@ export function mountOfflineBanner(locale?: InterfaceLocale): void {
   const sync = (): void => {
     const offline = !navigator.onLine;
     banner.classList.toggle("is-visible", offline);
-    banner.textContent = offline ? t(resolved(), "off.banner") : "";
+    banner.textContent = offline ? t(cachedLocale ?? detectLocale(), "off.banner") : "";
   };
 
-  void ensureDisplayLocale(resolved()).then(sync);
+  const refresh = (): void => {
+    cachedLocale = locale ?? readStoredLocale();
+    void ensureDisplayLocale(cachedLocale).then(sync);
+  };
+
+  void ensureDisplayLocale(cachedLocale).then(sync);
   window.addEventListener("online", sync);
   window.addEventListener("offline", sync);
-  window.addEventListener("openmouse-localechange", sync);
-  window.addEventListener("storage", () => { void ensureDisplayLocale(resolved()).then(sync); });
+  window.addEventListener("openmouse-localechange", refresh);
+  window.addEventListener("storage", refresh);
   document.body.append(banner);
 }

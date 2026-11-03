@@ -13,6 +13,7 @@ const LEVEL_ICON: Record<NewsLevel, LucideIcon> = {
 
 const DISMISSED_STORAGE_KEY = "openmouse.news.dismissed";
 const POLL_INTERVAL_MS = 10 * 60 * 1000;
+const BACKOFF_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Warnings and critical notices (a known issue users keep hitting) are only
@@ -42,23 +43,59 @@ export function NewsBanner({ locale }: { locale: InterfaceLocale }): ReactNode {
   const [news, setNews] = useState<NewsItem | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
+    let failures = 0;
+    // onVisible can start a load while one is in flight; only the latest
+    // may apply its result.
+    let requestGeneration = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const controller = new AbortController();
 
+    function schedule(delay: number): void {
+      clearTimeout(timer as unknown as ReturnType<typeof setTimeout>);
+      timer = setTimeout(() => void load(), delay);
+    }
+
     async function load(): Promise<void> {
+      if (!mounted || controller.signal.aborted) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        schedule(failures >= 3 ? BACKOFF_INTERVAL_MS : POLL_INTERVAL_MS);
+        return;
+      }
+      const generation = ++requestGeneration;
+      const attempt = new AbortController();
+      const onAbort = (): void => attempt.abort();
+      // A stalled request must not wedge polling: 15s cap, then the catch
+      // path schedules the next poll.
+      const timeout = setTimeout(() => attempt.abort(), 15_000);
+      controller.signal.addEventListener("abort", onAbort, { once: true });
       try {
-        const item = await fetchNews(controller.signal);
-        if (!cancelled) setNews(item && item.id !== dismissedId(item.level) ? item : null);
+        const item = await fetchNews(attempt.signal);
+        if (!mounted || controller.signal.aborted || generation !== requestGeneration) return;
+        failures = 0;
+        setNews(item && item.id !== dismissedId(item.level) ? item : null);
+        schedule(POLL_INTERVAL_MS);
       } catch {
+        if (!mounted || controller.signal.aborted || generation !== requestGeneration) return;
+        failures += 1;
+        schedule(failures >= 3 ? BACKOFF_INTERVAL_MS : POLL_INTERVAL_MS);
+      } finally {
+        clearTimeout(timeout);
+        controller.signal.removeEventListener("abort", onAbort);
       }
     }
 
+    function onVisible(): void {
+      if (!document.hidden) load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
     void load();
-    const interval = window.setInterval(load, POLL_INTERVAL_MS);
     return () => {
-      cancelled = true;
+      mounted = false;
       controller.abort();
-      window.clearInterval(interval);
+      clearTimeout(timer as unknown as ReturnType<typeof setTimeout>);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

@@ -76,20 +76,37 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     setSelectedGame(null);
     if (!active) return;
     const controller = new AbortController();
-    void bridgeGames(controller.signal).then((games) => { if (!controller.signal.aborted) setBridgeList(games); }).catch(() => undefined);
-    return () => controller.abort();
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    const controller = new AbortController();
     setLoadState("loading");
+    // Settle independently: a games failure must not keep local apps (and
+    // Add/Edit/Remove) unusable. A games error sticks in loadState; local
+    // apps still populate underneath it.
+    let gamesDone = false;
+    let gamesOk = false;
+    let appsDone = false;
+    function maybeReady(): void {
+      if (gamesDone && appsDone && gamesOk && !controller.signal.aborted) setLoadState("ready");
+    }
+    void bridgeGames(controller.signal).then((games) => {
+      if (controller.signal.aborted) return;
+      setBridgeList(games);
+      gamesDone = true;
+      gamesOk = true;
+      maybeReady();
+    }).catch((cause: unknown) => {
+      if (controller.signal.aborted) return;
+      gamesDone = true;
+      if (cause instanceof BridgeHttpError && cause.status === 404) setLoadState("unsupported");
+      else setLoadState("error");
+    });
     void bridgeLocalApplications(controller.signal).then((apps) => {
       if (controller.signal.aborted) return;
       setApplications(apps);
-      setLoadState("ready");
-    }).catch((cause) => {
-      if (!controller.signal.aborted) setLoadState(cause instanceof BridgeHttpError && cause.status === 404 ? "unsupported" : "error");
+      appsDone = true;
+      maybeReady();
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      appsDone = true;
+      setLoadState("error");
     });
     return () => controller.abort();
   }, [active, revision]);
@@ -98,11 +115,16 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     if (!active || selectedGame) return;
     const controller = new AbortController();
     void bridgeProfiles(controller.signal)
-      .then((profiles) => setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
-        .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`))))
-      .catch(() => setProfiled(new Set()));
+      .then((profiles) => {
+        if (controller.signal.aborted) return;
+        setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
+          .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`)));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProfiled(new Set());
+      });
     return () => controller.abort();
-  }, [active, selectedGame, applications]);
+  }, [active, selectedGame, revision]);
 
   if (selectedGame) return <GameProfilePanel snapshot={snapshot} game={selectedGame} onBack={() => setSelectedGame(null)} />;
 

@@ -548,8 +548,71 @@ function buildKeyboardView(): KeyboardView | null {
   };
 }
 
+interface SnapshotCloneCache<Source, Output> {
+  source: Source | undefined;
+  output: Output | undefined;
+}
+
+/**
+ * Return the cached clone when the source reference is unchanged, so
+ * background emits that touch nothing relevant keep snapshot array identity
+ * (and memoized selectors below do not re-render).
+ */
+function cachedSnapshotClone<Source, Output>(
+  cache: SnapshotCloneCache<Source, Output>,
+  source: Source,
+  clone: (source: Source) => Output,
+): Output {
+  if (cache.source === source) return cache.output as Output;
+  const output = clone(source);
+  cache.source = source;
+  cache.output = output;
+  return output;
+}
+
+const EMPTY_PENDING_LABELS: string[] = [];
+
+const wallhackMacrosCache: SnapshotCloneCache<typeof wallhackMacros, typeof wallhackMacros> = {
+  source: undefined,
+  output: undefined,
+};
+const wallhackCurvesCache: SnapshotCloneCache<typeof wallhackCurves, typeof wallhackCurves> = {
+  source: undefined,
+  output: undefined,
+};
+const m2nexProfilesCache: SnapshotCloneCache<typeof m2nexProfiles, typeof m2nexProfiles> = {
+  source: undefined,
+  output: undefined,
+};
+
+function cloneWallhackMacrosSnapshot(
+  source: typeof wallhackMacros,
+): typeof wallhackMacros {
+  return source?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null;
+}
+
+function cloneWallhackCurvesSnapshot(
+  source: typeof wallhackCurves,
+): typeof wallhackCurves {
+  if (source === null) return null;
+  return Object.fromEntries(
+    Object.entries(source).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
+  ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>;
+}
+
+function cloneM2NexProfilesSnapshot(
+  source: typeof m2nexProfiles,
+): typeof m2nexProfiles {
+  return source?.map(cloneM2NexProfile) ?? null;
+}
+
 function buildSnapshot(): ControlSnapshot {
   const deviceStatus = latestDeviceStatus;
+  // Hoisted so the pending field misses no reads: every card and the Games
+  // page inspect keys/labels even while suppressed (pending bar hides, the
+  // staged state still shows). Instant-flash is the only window where they go
+  // unread, and then only until the deferred flash drains the queue.
+  const suppressedPending = interfacePreferences.instantFlash;
   const changes = pendingChanges();
   const status = deviceStatus ? withPendingChanges(deviceStatus) : null;
   return {
@@ -597,17 +660,13 @@ function buildSnapshot(): ControlSnapshot {
     ksnakeMacros: stagedKsnakeMacros ?? ksnakeMacros,
     ksnakeMacrosLoading,
     ksnakeMacrosError,
-    wallhackMacros: wallhackMacros?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null,
+    wallhackMacros: cachedSnapshotClone(wallhackMacrosCache, wallhackMacros, cloneWallhackMacrosSnapshot),
     wallhackMacrosLoading,
     wallhackMacrosError,
-    wallhackCurves: wallhackCurves
-      ? Object.fromEntries(
-        Object.entries(wallhackCurves).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
-      ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>
-      : null,
+    wallhackCurves: cachedSnapshotClone(wallhackCurvesCache, wallhackCurves, cloneWallhackCurvesSnapshot),
     wallhackCurvesLoading,
     wallhackCurvesError,
-    m2nexProfiles: m2nexProfiles?.map(cloneM2NexProfile) ?? null,
+    m2nexProfiles: cachedSnapshotClone(m2nexProfilesCache, m2nexProfiles, cloneM2NexProfilesSnapshot),
     activeM2NexProfile,
     m2nexProfileDirty,
     stagedProfileButtonAssignments: [...stagedProfileButtonEdits.entries()]
@@ -633,7 +692,10 @@ function buildSnapshot(): ControlSnapshot {
     eggPollingDivider,
     pending: {
       count: changes.length,
-      labels: changes.map((change) => change.label),
+      // Labels render only in the bar, which returns early while suppressed;
+      // keys stay live — GameProfilePanel and staged-state cards read them
+      // during instant-flash and game-draft windows.
+      labels: suppressedPending ? EMPTY_PENDING_LABELS : changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
       suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,

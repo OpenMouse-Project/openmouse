@@ -1,6 +1,6 @@
 import { displayText } from "../i18n/index";
 import { useUiLocale } from "./ui-locale";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity, ArrowUpFromLine, AudioWaveform, Check, ChevronDown, Combine, Crosshair, Gauge, Gem, Hand,
   LightbulbOff, Minus, MousePointerClick, Plus, Radar, Rocket, Ruler, ShieldCheck, Timer, Vibrate, Waves, Zap,
@@ -396,7 +396,11 @@ export function StepperSlider({
     };
   }, []);
   const span = Math.max(Number.EPSILON, max - min);
-
+  // The readout formats twice per render (visible text and the accessible
+  // value); compute once and reuse, and keep the fill style referentially
+  // stable so unchanged values skip style recalculation.
+  const shownText = useMemo(() => formatValue(shown), [formatValue, shown]);
+  const fillStyle = useMemo(() => ({ "--fill": `${((shown - min) / span) * 100}%` }), [shown, min, span]);
   return (
     <div className="stepper-slider" data-pending-key={pendingKey}>
       {toggle ? <div className="stepper-slider-toggle">{toggle}</div> : null}
@@ -405,7 +409,7 @@ export function StepperSlider({
           <span>{displayText(__uiLocale, label)}</span>
           {badge ? <em className="stepper-slider-badge">{displayText(__uiLocale, badge)}</em> : null}
         </span>
-        <output id={`${id}-value`} htmlFor={id}>{displayText(__uiLocale, formatValue(shown))}</output>
+        <output id={`${id}-value`} htmlFor={id}>{displayText(__uiLocale, shownText)}</output>
       </div>
       <div className="stepper-slider-inputs">
         <button
@@ -426,8 +430,8 @@ export function StepperSlider({
           value={shown}
           disabled={disabled}
           aria-label={displayText(__uiLocale, label)}
-          aria-valuetext={formatValue(shown)}
-          style={{ "--fill": `${((shown - min) / span) * 100}%` }}
+          aria-valuetext={shownText}
+          style={fillStyle}
           onInput={(event) => setDragging(Number(event.currentTarget.value))}
           onPointerCancel={() => { if (!pending.current) setDragging(null); }}
           onBlur={() => { if (!pending.current) setDragging(null); }}
