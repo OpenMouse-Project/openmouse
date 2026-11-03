@@ -1952,6 +1952,13 @@ const sourceTextKeys = new Map<string, I18nKey>(
 );
 
 /** Translate display strings from legacy UI and driver catalogs at the render boundary.
+ *
+ * tr-only scope: only the Turkish display path (tr-extra catalog, template
+ * patterns, separator splits) rewrites legacy English copy. Every other locale
+ * falls back to the keyed table via t() or passes the source through
+ * untouched — displayText never invents translations for locales without a
+ * catalog.
+ *
  * Never use this for protocol commands, comparisons, identifiers or saved user data. */
 export function displayText<T extends string | number | null | undefined>(locale: InterfaceLocale, value: T): T {
   if (locale === "en" || typeof value !== "string") return value;
@@ -1990,15 +1997,23 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   return value;
 }
 
-/** Translate a template with {placeholders}. */
+/** Translate a template with {placeholders}. A missing value keeps its
+ * {placeholder} verbatim in the rendered string (DEV still warns) instead of
+ * silently blanking user-visible copy. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
   return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = vars[name];
     if (value === undefined && import.meta.env?.DEV === true) {
       console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
     }
-    return String(value ?? "");
+    return value === undefined ? `{${name}}` : String(value);
   });
+}
+
+/** Looks up `value` in a display-text table, passing unknown values through untranslated. */
+function mapDisplayText(locale: InterfaceLocale, table: Readonly<Record<string, I18nKey>>, value: string): string {
+  const key = table[value];
+  return key ? t(locale, key) : value;
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */
@@ -2012,8 +2027,7 @@ const BATTERY_STATES: Readonly<Record<string, I18nKey>> = {
 };
 
 export function batteryStateText(locale: InterfaceLocale, state: string): string {
-  const key = BATTERY_STATES[state];
-  return key ? t(locale, key) : state;
+  return mapDisplayText(locale, BATTERY_STATES, state);
 }
 
 /** Known connect-button labels stored by the controller; dynamic labels
@@ -2025,8 +2039,7 @@ const CONNECT_LABELS: Readonly<Record<string, I18nKey>> = {
 };
 
 export function connectLabelText(locale: InterfaceLocale, label: string): string {
-  const key = CONNECT_LABELS[label];
-  return key ? t(locale, key) : label;
+  return mapDisplayText(locale, CONNECT_LABELS, label);
 }
 
 /** Display name for a device connection type; unknown values pass through. */
@@ -2041,8 +2054,7 @@ export function connectionText(
   fallback: I18nKey = "conn.wireless",
 ): string {
   if (!connection) return t(locale, fallback);
-  const key = CONNECTIONS[connection];
-  return key ? t(locale, key) : connection;
+  return mapDisplayText(locale, CONNECTIONS, connection);
 }
 
 /** Localize a "Layer N" label produced by the protocol library without

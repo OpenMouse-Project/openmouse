@@ -13,11 +13,11 @@ import {
 } from "lucide-react";
 import { memo, useCallback, type ReactNode } from "react";
 import type { ControlSnapshot, SidebarDevice } from "../device/types";
-import type { InterfaceLocale } from "../features/settings/interface-preferences";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import { deviceImage } from "../shared/device-images";
 import { BridgeStatusButton } from "../features/bridge/BridgeStatus";
 import { BatteryIcon } from "../shared/ui";
+import { useUiLocale } from "../shared/ui-locale";
 
 export const OPENMOUSE_URL = "https://openmouse.app/";
 
@@ -64,7 +64,6 @@ const NavItem = memo(function NavItem({
 });
 
 const SidebarDeviceRow = memo(function SidebarDeviceRow({
-  locale,
   device,
   live,
   batteryPercent,
@@ -72,7 +71,6 @@ const SidebarDeviceRow = memo(function SidebarDeviceRow({
   collapsed,
   open,
 }: {
-  locale: InterfaceLocale;
   device: SidebarDevice;
   live: boolean;
   batteryPercent: number | null;
@@ -83,6 +81,7 @@ const SidebarDeviceRow = memo(function SidebarDeviceRow({
   // English fallback because no other prop changes on table load.
   localeTableRevision: number;
 }): ReactNode {
+  const locale = useUiLocale();
   const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
   const openDevice = useCallback(() => open(device.index), [open, device.index]);
   return (
@@ -135,14 +134,12 @@ function SidebarDeviceRowOutlet({
   collapsed: boolean;
   open: (index: number) => void;
 }): ReactNode {
-  const locale = snapshot.preferences.locale;
   const device = snapshot.devices.find((entry) => entry.index === index);
   if (!device) return null;
   const live = device.selected && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
   const status = live ? snapshot.deviceStatus : null;
   return (
     <SidebarDeviceRow
-      locale={locale}
       device={device}
       live={live}
       batteryPercent={status?.batteryPercent ?? null}

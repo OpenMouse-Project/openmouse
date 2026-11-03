@@ -4,7 +4,7 @@ import * as control from "../../../../device/controller";
 import type { ControlSnapshot } from "../../../../device/types";
 import { t } from "../../../../i18n/index";
 import { profileLabel } from "../../../../shared/profile-label";
-import { IconActivate, IconRunning } from "../../../../shared/icons";
+import { Circle, CircleDot } from "lucide-react";
 import { OptionMenu } from "../../../../shared/ui";
 
 export function TeevolutionProfileCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
@@ -111,7 +111,7 @@ export function TeevolutionProfileCard({ snapshot }: { snapshot: ControlSnapshot
                     className={`icon-button${running ? " is-active" : ""}`}
                     onClick={() => void control.applyProfileSelection(value)}
                   >
-                    {running ? <IconRunning /> : <IconActivate />}
+                    {running ? <CircleDot size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" /> : <Circle size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />}
                   </button>
                 </div>
               );

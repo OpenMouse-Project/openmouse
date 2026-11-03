@@ -1,9 +1,10 @@
 import {
   Activity, BatteryLow, Cog, Command, Cpu, Crosshair, Disc3, FlaskConical, Gauge, Hand, Layers, Lightbulb, Magnet,
-  Moon, Mouse, MousePointerClick, Palette, Radar, Rocket, ScanEye, ShieldCheck, SlidersHorizontal, Sparkles,
+  Moon, Mouse, MousePointerClick, Palette, Radar, Rocket, ScanEye, ShieldCheck, SlidersHorizontal,
   Spline, Timer, ToggleRight, Usb, Wifi, Zap, type LucideIcon,
 } from "lucide-react";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import { FEATURE_ICONS } from "./ui";
 
 const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   dpi: Crosshair,
@@ -49,17 +50,23 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "atk-receiver": Usb,
   "atk-dongle": Usb,
   "onboard-profile": Layers,
-  pulsarpro: Sparkles,
   "dpi-indicator": Palette,
 };
 
+
+export function iconForCard(key: string): LucideIcon | null {
+  const exact = GLYPHS[key];
+  if (exact) return exact;
+  for (const [pattern, icon] of FEATURE_ICONS) if (pattern.test(key)) return icon;
+  return null;
+}
 const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "lighting-tab", "button-mapping"]);
 
 export function slotCards(cards: readonly ReactNode[]): ReactNode[] {
   return Children.toArray(cards).map((card) => {
     if (!isValidElement(card)) return card;
     const key = String((card as ReactElement).key ?? "").replace(/^\.\$/, "");
-    const Glyph = GLYPHS[key];
+    const Glyph = iconForCard(key);
     return (
       <div key={key} className={`card-slot${WIDE.has(key) ? " is-wide" : ""}`} data-card={key}>
         {card}

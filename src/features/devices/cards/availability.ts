@@ -121,9 +121,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
   const host = traits.advancedSection;
   const isNoirKsnake = isNoirKsnakeStatus(status);
 
-  const sensor = !(!status.gamingSurfaceMode
-    && Array.isArray(status.supportedLiftOffDistances)
-    && status.supportedLiftOffDistances.length === 0);
+  const sensor = Boolean(status.gamingSurfaceMode
+    || !Array.isArray(status.supportedLiftOffDistances)
+    || status.supportedLiftOffDistances.length > 0);
 
   const processing = ui?.hideProcessingCard !== true && (
     (status.motionSync != null && ui?.hideMotionSync !== true)
@@ -136,7 +136,6 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     || status.angleTuning != null
     || status.longRangeMode != null
     || status.sensorMode != null || status.performanceDuration != null
-    || status.longRangeMode != null
   );
 
   const eggs = host && traits.eggControls;
@@ -248,7 +247,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
   };
 }
 
-let lastAvailability: { snapshot: ControlSnapshot; value: CardAvailability } | null = null;
+const lastAvailability = new WeakMap<ControlSnapshot, CardAvailability>();
 
 /**
  * Availability of every card for this snapshot. Several components in one
@@ -257,8 +256,9 @@ let lastAvailability: { snapshot: ControlSnapshot; value: CardAvailability } | n
  * replaced wholesale on every emit, so a stale entry can never be reused.
  */
 export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
-  if (lastAvailability?.snapshot === snapshot) return lastAvailability.value;
+  const cached = lastAvailability.get(snapshot);
+  if (cached) return cached;
   const value = computeCardAvailability(snapshot);
-  lastAvailability = { snapshot, value };
+  lastAvailability.set(snapshot, value);
   return value;
 }
