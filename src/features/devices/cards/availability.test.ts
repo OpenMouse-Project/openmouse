@@ -715,6 +715,21 @@ test("the Incott card follows the fields the device reported, not a brand trait"
   assert.equal(silent.incott, false);
 });
 
+test("Model O Wireless exposes the classic driver's debounce control only when a value is available", () => {
+  for (const debounceMs of [0, 4, 16]) {
+    const cards = cardAvailability(snapshot({ status: {
+      brand: "Glorious", name: "Glorious Model O Wireless",
+      ui: { family: "glorious-classic" }, debounceMs,
+    } }));
+    assert.equal(cards.debounce, true);
+    assert.equal(cards.sleep, false);
+    assert.equal(cards.signal, false);
+  }
+  assert.equal(cardAvailability(snapshot({ status: {
+    brand: "Glorious", ui: { family: "glorious-classic" },
+  } })).debounce, false);
+});
+
 test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profile card, but not sleep or signal", () => {
   const cards = cardAvailability(snapshot({
     status: {
