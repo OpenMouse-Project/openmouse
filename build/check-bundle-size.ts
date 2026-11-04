@@ -30,9 +30,14 @@ import { join } from "node:path";
 // 2026-10-31: VIA keyboard support adds the keycode tables, the definition
 // parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
 // (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
+//
+// 2026-11-04: @openmouse/protocol 0.49.0 -> 0.51.x adds the Hitscan web
+// protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
+// L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
+// (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
 export const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
-  ".js": 3_800_000,
+  ".js": 3_850_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

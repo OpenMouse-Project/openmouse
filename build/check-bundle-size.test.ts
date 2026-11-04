@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { checkBundles } from "./check-bundle-size.ts";
+import { BUDGET_BYTES, checkBundles, PREVIEW_FIXTURES_SLACK_BYTES } from "./check-bundle-size.ts";
 
 const tempDirs: string[] = [];
 after(() => {
@@ -27,8 +27,9 @@ test("checkBundles passes on a small fixture", () => {
   assert.equal(checkBundles(assets), false);
 });
 test("checkBundles grants slack to preview-fixture builds", () => {
-  const under = fixture({ "main-abc.js": 100, "preview-fixtures-abc.js": 3_810_000 });
+  const cap = BUDGET_BYTES[".js"] + PREVIEW_FIXTURES_SLACK_BYTES;
+  const under = fixture({ "main-abc.js": 100, "preview-fixtures-abc.js": cap - 8_000 });
   assert.equal(checkBundles(under), false);
-  const over = fixture({ "main-abc.js": 100, "preview-fixtures-abc.js": 3_820_000 });
+  const over = fixture({ "main-abc.js": 100, "preview-fixtures-abc.js": cap + 2_000 });
   assert.equal(checkBundles(over), true);
 });
