@@ -87,6 +87,16 @@ test("Delux M800 Mini still resolves to its supported row on the shared PIDs", (
   assert.equal(result.matchedBy, "pid");
   assert.equal(result.status, "supported");
   assert.equal(result.pageModel, "M800 Mini");
+  for (const productId of [0xfa7e, 0xfab0]) {
+    const m719 = crosscheckSupportedDevices(
+      device({ brand: "Redragon", name: "Redragon M719RGB-PRO", vendorId: 0x25a7, productId }),
+      "pass",
+    );
+    assert.equal(m719.listed, true);
+    assert.equal(m719.matchedBy, "pid");
+    assert.equal(m719.status, "supported");
+    assert.equal(m719.pageModel, "M719RGB-PRO");
+  }
 });
 
 test("M2-NEX resolves by product name since its row pins no PIDs", () => {
