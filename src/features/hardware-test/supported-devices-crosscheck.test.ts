@@ -95,7 +95,7 @@ test("Delux M800 Mini still resolves to its supported row on the shared PIDs", (
     assert.equal(m719.listed, true);
     assert.equal(m719.matchedBy, "pid");
     assert.equal(m719.status, "supported");
-    assert.equal(m719.pageModel, "M719RGB-PRO");
+    assert.equal(m719.pageModel, "M719 Invader Pro");
   }
 });
 
