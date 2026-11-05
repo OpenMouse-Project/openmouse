@@ -13,15 +13,19 @@ import {
   describeHidDevice,
   deviceBrand,
   isKeyboardClient,
+  isSharedReceiver,
   type KeyboardClient,
+  listingClient,
   listLogicalDevices,
   logicalDeviceGroups,
   pickLogicalDevice,
+  siblingMouseClient,
   prepareAutoConnectClient,
   type PulsarClient,
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
+import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
@@ -3054,7 +3058,7 @@ async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
       ? "bridge"
       : "webhid";
     const selected = group.some((member) => member === activeDevice);
-    const client = await createSupportedClient(device);
+    const client = await listingClient(device, selected ? active : null);
     if (!client) {
       const keyboard = createKeyboardClient(device);
       if (!keyboard) continue;
@@ -3165,6 +3169,11 @@ async function waitForControllerIdle(): Promise<void> {
   while (settingInProgress || refreshInProgress || activationInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
+}
+
+/** The WebHID devices this origin may open, or none when WebHID is missing or refuses. */
+async function authorizedHidDevices(): Promise<HIDDevice[]> {
+  return await navigator.hid?.getDevices().catch(() => []) ?? [];
 }
 
 /** A wedged OpenMouse Bridge rejects getDevices(); toast it instead of failing silently. */
@@ -3717,7 +3726,13 @@ async function readReceiverRegisterF1(
 }
 
 /** Activate a mouse client and remember it as the preferred device. */
-async function activateClientNow(client: SupportedClient): Promise<void> {
+/**
+ * `rememberReceiver: false` connects a receiver's mouse without recording it:
+ * the sibling fallback after a failed keyboard read cannot tell "no keyboard
+ * paired" from a keyboard that failed to answer, so the record would push a
+ * real keyboard aside on every later connect.
+ */
+async function activateClientNow(client: SupportedClient, options: { rememberReceiver?: boolean } = {}): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
@@ -3768,6 +3783,11 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
         lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
       }
       deviceStatuses.set(client.device, status);
+      // A receiver the keyboard drivers claim just answered as a mouse: remember
+      // it so it lists and reconnects as one from now on (#1362).
+      if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
+        rememberMouseReceiver(client.device);
+      }
       // Optional setters/getters are runtime capabilities of the selected
       // client. Populate them before rendering so controls such as RAWM angle
       // tuning are editable on the first status snapshot.
@@ -3795,6 +3815,8 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     setConnectionButtons(false, "Add device");
     pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
   } catch (error) {
+    // The receiver may carry a keyboard now; let the next connect probe that first.
+    forgetMouseReceiver(client.device);
     // A failed activation must not leave the closed client as the active one:
     // that hides the empty state and blocks reconnectAuthorizedDevice.
     if (active === client) {
@@ -3828,9 +3850,13 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
     keyboardIdentity = await client.readIdentity();
     keyboardPolling = client.readPolling ? await client.readPolling() : null;
   } catch (error) {
-    const receiverMouse = (error instanceof Error && /no supported keyboard paired/i.test(error.message))
+    // A shared receiver with a mouse behind it: a Logitech receiver answers
+    // "no supported keyboard paired" and its own interface opens as the mouse;
+    // a Keychron Link-KM's mouse sits on another interface of the receiver.
+    const noKeyboardPaired = error instanceof Error && /no supported keyboard paired/i.test(error.message);
+    const receiverMouse = noKeyboardPaired
       ? await createMouseClient(client.device).catch(() => null)
-      : null;
+      : await siblingMouseClient(client.device, await authorizedHidDevices()).catch(() => null);
     if (receiverMouse) {
       await client.close().catch(() => undefined);
       keyboardBusy = false;
@@ -3840,7 +3866,8 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
       deviceStatusText = st("ctl.opening");
       readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
       emit();
-      await activateClientNow(receiverMouse);
+      // Only "no supported keyboard paired" proves there is no keyboard to find.
+      await activateClientNow(receiverMouse, { rememberReceiver: noKeyboardPaired });
       return;
     }
     await client.close().catch(() => undefined);

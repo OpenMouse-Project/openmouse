@@ -9,6 +9,7 @@ import { SteelSeriesKeyboardClient } from "./steelseries-keyboard.ts";
 import { KeychronKeyboardClient } from "./keychron-keyboard.ts";
 import { keychronHallEffectEnabled } from "./keychron-flag.ts";
 import { ViaKeyboardClient } from "./via-keyboard.ts";
+import { mouseReceiverRole, receiverKey } from "./mouse-receivers.ts";
 import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
 export { type PulsarClient, type SupportedClient };
@@ -84,8 +85,27 @@ export async function createMouseClient(device: HIDDevice): Promise<SupportedCli
   return (await loadRegistry()).createSupportedClient(device);
 }
 export async function createSupportedClient(device: HIDDevice): Promise<SupportedClient | null> {
+  // The interface of a receiver that already answered as a mouse is not a
+  // keyboard guess any more.
+  if (mouseReceiverRole(device) === "mouse") return createMouseClient(device);
   if (createKeyboardClient(device)) return null;
   return createMouseClient(device);
+}
+
+/**
+ * The client a listing entry should present for one device.
+ *
+ * `createSupportedClient` is only a descriptor-level guess: the Logitech
+ * keyboard driver claims every receiver PID that exposes a HID++ collection,
+ * so a receiver whose pairing slots have not been read yet lists keyboard-first
+ * (#1282). A mouse client that already owns the device is not a guess — the
+ * receiver answered with a sensor behind it — so it wins. Without that, a
+ * mouse on a LIGHTSPEED receiver keeps being listed as "USB Receiver ·
+ * Keyboard" with keyboard art even while its mouse page is open (#1362).
+ */
+export async function listingClient(device: HIDDevice, active: SupportedClient | null): Promise<SupportedClient | null> {
+  if (active !== null && active.device === device) return active;
+  return createSupportedClient(device);
 }
 
 export async function prepareAutoConnectClient(client: SupportedClient): Promise<SupportedClient | null> {
@@ -127,7 +147,13 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
 
 export async function clientSupportScore(device: HIDDevice): Promise<number> {
   // Keyboard command interfaces win over generic mouse HID++/Razer registries.
-  if (createKeyboardClient(device)) return 900;
+  // A remembered mouse receiver lists and connects through the interface that
+  // answered as a mouse; its keyboard-claimed siblings step aside.
+  const receiverRole = mouseReceiverRole(device);
+  // Keep the driver's own score on top, so its preference between interfaces
+  // (Bolt's long-report collection) still counts.
+  if (receiverRole === "mouse") return 20_000 + (await loadRegistry()).clientSupportScore(device);
+  if (createKeyboardClient(device)) return receiverRole === "sibling" ? 0 : 900;
   if (await bridgeRazerClient(device) !== null) return 10_000;
   return (await loadRegistry()).clientSupportScore(device);
 }
@@ -183,6 +209,37 @@ export async function pickLogicalDevice(group: HIDDevice[]): Promise<HIDDevice> 
     if (scores[index]! > scores[bestIndex]!) bestIndex = index;
   }
   return group[bestIndex]!;
+}
+
+/**
+ * Whether a keyboard claim on this device is a guess about a shared receiver:
+ * the device itself also matches a mouse driver (a Logitech receiver), or
+ * another interface of the same receiver does (a Keychron Link-KM).
+ */
+export async function isSharedReceiver(device: HIDDevice, devices: HIDDevice[]): Promise<boolean> {
+  const key = receiverKey(device);
+  const interfaces = [device, ...devices.filter((other) => other !== device && receiverKey(other) === key)];
+  if (!interfaces.some((member) => createKeyboardClient(member) !== null)) return false;
+  for (const member of interfaces) if (await createMouseClient(member) !== null) return true;
+  return false;
+}
+
+/**
+ * The best mouse client among another interface of a keyboard-claimed
+ * receiver, for when the keyboard read fails: a Link-KM exposes VIA on `ff60`
+ * and an M6 behind its `ffc1` interface.
+ */
+export async function siblingMouseClient(device: HIDDevice, devices: HIDDevice[]): Promise<SupportedClient | null> {
+  const key = receiverKey(device);
+  let best: { client: SupportedClient; score: number } | null = null;
+  for (const other of devices) {
+    if (other === device || receiverKey(other) !== key || createKeyboardClient(other)) continue;
+    const client = await createMouseClient(other);
+    if (!client) continue;
+    const score = await clientSupportScore(other);
+    if (!best || score > best.score) best = { client, score };
+  }
+  return best?.client ?? null;
 }
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
