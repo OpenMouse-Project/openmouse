@@ -274,3 +274,14 @@ package:
   **Needs a maintainer upload** to the `openmouse-devices` R2 bucket; the mapping in
   `src/ui/device-images.ts` is in place and falls back cleanly to the placeholder until then.
 
+
+`unknown-keyboard.png` is the keyboard placeholder, the keyboard twin of
+`unknown-device.png`: a flat black silhouette with a white Arial Bold question
+mark, on a transparent 1428×716 canvas. Every device labelled a keyboard that
+has no art of its own resolves to it, and keyboard images fall back to it on a
+load error. Only the outline derives from a source image, a transparent pngtree
+stock render of a 60% keyboard (`pngtree-compact-60-mechanical-gaming-keyboard-with-retro-carbon-pbt-keycaps-png-image_18714675.webp`);
+no colour, keycaps, legends or shading carried over. It is committed at
+`public/devices/unknown-keyboard.png` and served from the repo until a
+maintainer uploads it to the bucket; then drop its `LOCAL_OVERRIDES` entry in
+`src/shared/device-images.ts` and point the tests at `CDN + "unknown-keyboard.png"`.

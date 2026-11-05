@@ -14,7 +14,7 @@ import {
 import { memo, useCallback, type ReactNode } from "react";
 import type { ControlSnapshot, SidebarDevice } from "../device/types";
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
-import { deviceImage } from "../shared/device-images";
+import { deviceImage, placeholderImage } from "../shared/device-images";
 import { BridgeStatusButton } from "../features/bridge/BridgeStatus";
 import { BatteryIcon } from "../shared/ui";
 import { useUiLocale } from "../shared/ui-locale";
@@ -82,7 +82,7 @@ const SidebarDeviceRow = memo(function SidebarDeviceRow({
   localeTableRevision: number;
 }): ReactNode {
   const locale = useUiLocale();
-  const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
+  const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name, device.kind);
   const openDevice = useCallback(() => open(device.index), [open, device.index]);
   return (
     <li>
@@ -100,7 +100,7 @@ const SidebarDeviceRow = memo(function SidebarDeviceRow({
             draggable={false}
             onError={(event) => {
               event.currentTarget.onerror = null;
-              event.currentTarget.src = deviceImage(null);
+              event.currentTarget.src = placeholderImage(device.kind);
             }}
           />
           {live ? <span className="om-side-device-live" /> : null}
