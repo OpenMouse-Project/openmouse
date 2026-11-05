@@ -236,21 +236,34 @@ test("a receiver that answered as a mouse stays a mouse until it fails as one", 
   assert.equal(await clientSupportScore(longInterface), 900);
   assert.equal(await isSharedReceiver(longInterface, [shortInterface, longInterface]), true);
 
-  // Activation read a mouse behind one interface: every interface of that
-  // receiver now lists and connects as the mouse, with no live client needed.
-  rememberMouseReceiver(shortInterface);
+  // Activation read a mouse on the long interface: that interface now lists
+  // and connects as the mouse, with no live client needed, and represents the
+  // receiver. Both interfaces share page 0xff00, so the record must name the
+  // usage too, or they would tie.
+  rememberMouseReceiver(longInterface);
   try {
     const mouse = await createSupportedClient(longInterface);
     assert.ok(mouse);
     assert.equal(mouse.device, longInterface);
     assert.notEqual(await listingClient(longInterface, null), null);
-    assert.notEqual(await clientSupportScore(longInterface), 900);
+    assert.ok(await clientSupportScore(longInterface) > 20_000);
+    assert.equal(await clientSupportScore(shortInterface), 0);
+    const [group] = await logicalDeviceGroups([shortInterface, longInterface]);
+    assert.equal(await pickLogicalDevice(group), longInterface);
 
     // A different receiver model keeps the keyboard-first guess.
     const otherReceiver = { ...longInterface, productId: 0xc539 } as unknown as HIDDevice;
     assert.equal(await createSupportedClient(otherReceiver), null);
+
+    // Bridge keys each receiver by its own session key: a second receiver of
+    // the same model over Bridge is not the one that was read.
+    const bridgeReceiver = (key: string) => ({ ...longInterface, openMouseTransport: "bridge", key } as unknown as HIDDevice);
+    rememberMouseReceiver(bridgeReceiver("046d:c54d:A"));
+    assert.equal(await clientSupportScore(bridgeReceiver("046d:c54d:B")), 900);
+    assert.ok(await clientSupportScore(bridgeReceiver("046d:c54d:A")) > 20_000);
+    forgetMouseReceiver(bridgeReceiver("046d:c54d:A"));
   } finally {
-    forgetMouseReceiver(shortInterface);
+    forgetMouseReceiver(longInterface);
   }
 
   // A failed mouse activation forgets it, so a newly paired keyboard is found again.

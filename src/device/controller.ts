@@ -3726,7 +3726,13 @@ async function readReceiverRegisterF1(
 }
 
 /** Activate a mouse client and remember it as the preferred device. */
-async function activateClientNow(client: SupportedClient): Promise<void> {
+/**
+ * `rememberReceiver: false` connects a receiver's mouse without recording it:
+ * the sibling fallback after a failed keyboard read cannot tell "no keyboard
+ * paired" from a keyboard that failed to answer, so the record would push a
+ * real keyboard aside on every later connect.
+ */
+async function activateClientNow(client: SupportedClient, options: { rememberReceiver?: boolean } = {}): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
@@ -3779,7 +3785,9 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
       deviceStatuses.set(client.device, status);
       // A receiver the keyboard drivers claim just answered as a mouse: remember
       // it so it lists and reconnects as one from now on (#1362).
-      if (await isSharedReceiver(client.device, await authorizedHidDevices())) rememberMouseReceiver(client.device);
+      if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
+        rememberMouseReceiver(client.device);
+      }
       // Optional setters/getters are runtime capabilities of the selected
       // client. Populate them before rendering so controls such as RAWM angle
       // tuning are editable on the first status snapshot.
@@ -3845,7 +3853,8 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
     // A shared receiver with a mouse behind it: a Logitech receiver answers
     // "no supported keyboard paired" and its own interface opens as the mouse;
     // a Keychron Link-KM's mouse sits on another interface of the receiver.
-    const receiverMouse = (error instanceof Error && /no supported keyboard paired/i.test(error.message))
+    const noKeyboardPaired = error instanceof Error && /no supported keyboard paired/i.test(error.message);
+    const receiverMouse = noKeyboardPaired
       ? await createMouseClient(client.device).catch(() => null)
       : await siblingMouseClient(client.device, await authorizedHidDevices()).catch(() => null);
     if (receiverMouse) {
@@ -3857,7 +3866,8 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
       deviceStatusText = st("ctl.opening");
       readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
       emit();
-      await activateClientNow(receiverMouse);
+      // Only "no supported keyboard paired" proves there is no keyboard to find.
+      await activateClientNow(receiverMouse, { rememberReceiver: noKeyboardPaired });
       return;
     }
     await client.close().catch(() => undefined);

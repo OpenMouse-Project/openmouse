@@ -150,7 +150,9 @@ export async function clientSupportScore(device: HIDDevice): Promise<number> {
   // A remembered mouse receiver lists and connects through the interface that
   // answered as a mouse; its keyboard-claimed siblings step aside.
   const receiverRole = mouseReceiverRole(device);
-  if (receiverRole === "mouse") return 20_000;
+  // Keep the driver's own score on top, so its preference between interfaces
+  // (Bolt's long-report collection) still counts.
+  if (receiverRole === "mouse") return 20_000 + (await loadRegistry()).clientSupportScore(device);
   if (createKeyboardClient(device)) return receiverRole === "sibling" ? 0 : 900;
   if (await bridgeRazerClient(device) !== null) return 10_000;
   return (await loadRegistry()).clientSupportScore(device);

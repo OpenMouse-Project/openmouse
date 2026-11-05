@@ -11,16 +11,21 @@
  * mouse it is, instead of re-probing it as a keyboard on every connect and
  * drawing it as "USB Receiver · Keyboard" (#1362).
  *
- * Keyed by VID:PID:name, the same identity that groups a receiver's
- * interfaces, and kept in localStorage so the first listing after a reload is
- * right as well.
+ * Keyed by the same identity that groups a receiver's interfaces, and kept in
+ * localStorage so the first listing after a reload is right as well.
  */
 const STORAGE_KEY = "openmouse.mouse-receivers";
 
-/** Receiver key → usage pages of the interface that read as a mouse. */
-let known: Map<string, number[]> | null = null;
+/** Receiver key → signature of the interface that read as a mouse. */
+let known: Map<string, string> | null = null;
 
+/**
+ * One receiver, matching how logical device groups are keyed: Bridge's own
+ * session key (vendor/product[:serial]) or WebHID's vendor/product/name.
+ */
 export function receiverKey(device: HIDDevice): string {
+  const bridge = device as { openMouseTransport?: string; key?: string };
+  if (bridge.openMouseTransport === "bridge") return `bridge:${bridge.key ?? ""}`;
   return [device.vendorId, device.productId, device.productName ?? ""].join(":");
 }
 
@@ -32,14 +37,14 @@ function storage(): Storage | null {
   }
 }
 
-function load(): Map<string, number[]> {
+function load(): Map<string, string> {
   if (known) return known;
   known = new Map();
   try {
     const parsed: unknown = JSON.parse(storage()?.getItem(STORAGE_KEY) ?? "{}");
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      for (const [key, pages] of Object.entries(parsed)) {
-        if (Array.isArray(pages) && pages.every((page) => typeof page === "number")) known.set(key, pages);
+      for (const [key, signature] of Object.entries(parsed)) {
+        if (typeof signature === "string") known.set(key, signature);
       }
     }
   } catch {
@@ -48,7 +53,7 @@ function load(): Map<string, number[]> {
   return known;
 }
 
-function save(entries: Map<string, number[]>): void {
+function save(entries: Map<string, string>): void {
   try {
     storage()?.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
@@ -56,8 +61,13 @@ function save(entries: Map<string, number[]>): void {
   }
 }
 
-function usagePages(device: HIDDevice): number[] {
-  return [...new Set((device.collections ?? []).map((collection) => collection.usagePage))].sort((a, b) => a - b);
+/**
+ * The top-level collections (page/usage) of one interface. A Logitech
+ * receiver's short and long HID++ interfaces share page 0xff00 and differ only
+ * in usage, so the page alone cannot tell them apart.
+ */
+function interfaceSignature(device: HIDDevice): string {
+  return [...new Set((device.collections ?? []).map((collection) => `${collection.usagePage}/${collection.usage}`))].sort().join(",");
 }
 
 /**
@@ -66,18 +76,18 @@ function usagePages(device: HIDDevice): number[] {
  * same receiver, `null` when the receiver is not remembered.
  */
 export function mouseReceiverRole(device: HIDDevice): "mouse" | "sibling" | null {
-  const pages = load().get(receiverKey(device));
-  if (!pages) return null;
-  return usagePages(device).some((page) => pages.includes(page)) ? "mouse" : "sibling";
+  const signature = load().get(receiverKey(device));
+  if (signature === undefined) return null;
+  return interfaceSignature(device) === signature ? "mouse" : "sibling";
 }
 
 /** Record that a mouse client read this interface of a keyboard-claimed receiver. */
 export function rememberMouseReceiver(device: HIDDevice): void {
   const entries = load();
   const key = receiverKey(device);
-  const pages = usagePages(device);
-  if (entries.get(key)?.join() === pages.join()) return;
-  entries.set(key, pages);
+  const signature = interfaceSignature(device);
+  if (entries.get(key) === signature) return;
+  entries.set(key, signature);
   save(entries);
 }
 
