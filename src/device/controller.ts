@@ -14,6 +14,7 @@ import {
   deviceBrand,
   isKeyboardClient,
   type KeyboardClient,
+  listingClient,
   listLogicalDevices,
   logicalDeviceGroups,
   pickLogicalDevice,
@@ -3054,7 +3055,7 @@ async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
       ? "bridge"
       : "webhid";
     const selected = group.some((member) => member === activeDevice);
-    const client = await createSupportedClient(device);
+    const client = await listingClient(device, selected ? active : null);
     if (!client) {
       const keyboard = createKeyboardClient(device);
       if (!keyboard) continue;

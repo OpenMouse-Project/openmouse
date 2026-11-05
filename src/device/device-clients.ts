@@ -88,6 +88,22 @@ export async function createSupportedClient(device: HIDDevice): Promise<Supporte
   return createMouseClient(device);
 }
 
+/**
+ * The client a listing entry should present for one device.
+ *
+ * `createSupportedClient` is only a descriptor-level guess: the Logitech
+ * keyboard driver claims every receiver PID that exposes a HID++ collection,
+ * so a receiver whose pairing slots have not been read yet lists keyboard-first
+ * (#1282). A mouse client that already owns the device is not a guess — the
+ * receiver answered with a sensor behind it — so it wins. Without that, a
+ * mouse on a LIGHTSPEED receiver keeps being listed as "USB Receiver ·
+ * Keyboard" with keyboard art even while its mouse page is open (#1362).
+ */
+export async function listingClient(device: HIDDevice, active: SupportedClient | null): Promise<SupportedClient | null> {
+  if (active !== null && active.device === device) return active;
+  return createSupportedClient(device);
+}
+
 export async function prepareAutoConnectClient(client: SupportedClient): Promise<SupportedClient | null> {
   // Check the transport before loading the Razer modules: every non-bridge
   // client takes this path on connect, and none of them is a Razer client.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { describeHidDevice } from "./hid-diagnostics.ts";
-import { createKeyboardClient, createMouseClient, createSupportedClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
+import { createKeyboardClient, createMouseClient, createSupportedClient, listingClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
 
 function supportedWebHidDevice(options: {
   vendorId?: number;
@@ -190,4 +190,33 @@ test("a shared Logitech receiver routes keyboard-first with the mouse registry i
   const mouse = await createMouseClient(receiver);
   assert.ok(mouse);
   assert.equal(mouse.device, receiver);
+});
+
+test("a connected mouse is listed as a mouse despite its receiver's keyboard claim", async () => {
+  const receiver = {
+    productName: "USB Receiver",
+    vendorId: 0x046d,
+    productId: 0xc54d,
+    collections: [
+      { usagePage: 0xff00, usage: 1, inputReports: [], outputReports: [], featureReports: [], children: [] },
+      { usagePage: 0xff00, usage: 2, inputReports: [], outputReports: [], featureReports: [], children: [] },
+    ],
+    opened: false,
+  } as unknown as HIDDevice;
+
+  // Nothing has read the receiver's pairing slots, so the keyboard claim still
+  // owns the listing (#1282).
+  assert.ok(createKeyboardClient(receiver));
+  assert.equal(await listingClient(receiver, null), null);
+
+  // A mouse client has opened this receiver and found a sensor behind it; the
+  // listing must show that mouse, not a "USB Receiver · Keyboard" card (#1362).
+  const mouse = await createMouseClient(receiver);
+  assert.ok(mouse);
+  assert.equal(await listingClient(receiver, mouse), mouse);
+
+  // Another device's live client does not reclassify this receiver.
+  const other = await createMouseClient(supportedWebHidDevice());
+  assert.ok(other);
+  assert.equal(await listingClient(receiver, other), null);
 });
