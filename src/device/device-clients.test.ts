@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { describeHidDevice } from "./hid-diagnostics.ts";
-import { createKeyboardClient, createMouseClient, createSupportedClient, listingClient, listLogicalDevices, logicalDeviceGroups, prepareAutoConnectClient } from "./device-clients.ts";
+import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers.ts";
+import { clientSupportScore, createKeyboardClient, createMouseClient, createSupportedClient, isSharedReceiver, listingClient, listLogicalDevices, logicalDeviceGroups, pickLogicalDevice, prepareAutoConnectClient, siblingMouseClient } from "./device-clients.ts";
 
 function supportedWebHidDevice(options: {
   vendorId?: number;
@@ -219,4 +220,83 @@ test("a connected mouse is listed as a mouse despite its receiver's keyboard cla
   const other = await createMouseClient(supportedWebHidDevice());
   assert.ok(other);
   assert.equal(await listingClient(receiver, other), null);
+});
+
+test("a receiver that answered as a mouse stays a mouse until it fails as one", async () => {
+  const receiverInterface = (usage: number) => ({
+    productName: "USB Receiver",
+    vendorId: 0x046d,
+    productId: 0xc54d,
+    collections: [{ usagePage: 0xff00, usage, inputReports: [], outputReports: [], featureReports: [], children: [] }],
+    opened: false,
+  } as unknown as HIDDevice);
+  const shortInterface = receiverInterface(1);
+  const longInterface = receiverInterface(2);
+  assert.equal(await createSupportedClient(longInterface), null);
+  assert.equal(await clientSupportScore(longInterface), 900);
+  assert.equal(await isSharedReceiver(longInterface, [shortInterface, longInterface]), true);
+
+  // Activation read a mouse behind one interface: every interface of that
+  // receiver now lists and connects as the mouse, with no live client needed.
+  rememberMouseReceiver(shortInterface);
+  try {
+    const mouse = await createSupportedClient(longInterface);
+    assert.ok(mouse);
+    assert.equal(mouse.device, longInterface);
+    assert.notEqual(await listingClient(longInterface, null), null);
+    assert.notEqual(await clientSupportScore(longInterface), 900);
+
+    // A different receiver model keeps the keyboard-first guess.
+    const otherReceiver = { ...longInterface, productId: 0xc539 } as unknown as HIDDevice;
+    assert.equal(await createSupportedClient(otherReceiver), null);
+  } finally {
+    forgetMouseReceiver(shortInterface);
+  }
+
+  // A failed mouse activation forgets it, so a newly paired keyboard is found again.
+  assert.equal(await createSupportedClient(longInterface), null);
+});
+
+test("a Keychron Link-KM lists its mouse interface once that interface answered", async () => {
+  const linkInterface = (usagePage: number, usage: number, reports: { input: number; output: number } | null) => ({
+    productName: "Keychron Link-KM Type C",
+    vendorId: 0x3434,
+    productId: 0xd029,
+    collections: [{
+      usagePage,
+      usage,
+      inputReports: reports ? [{ reportId: reports.input }] : [],
+      outputReports: reports ? [{ reportId: reports.output }] : [],
+      featureReports: [],
+      children: [],
+    }],
+    opened: false,
+  } as unknown as HIDDevice);
+  // VIA raw HID, which the VIA keyboard driver claims, and the M6 command interface.
+  const via = linkInterface(0xff60, 0x61, null);
+  const m6 = linkInterface(0xffc1, 0x01, { input: 0xb4, output: 0xb3 });
+  const devices = [via, m6];
+  const [group] = await logicalDeviceGroups(devices);
+  assert.equal(group.length, 2);
+
+  // Unread, the VIA claim outranks the mouse interface (#1282 ordering).
+  assert.ok(createKeyboardClient(via));
+  assert.equal(await pickLogicalDevice(group), via);
+  assert.equal(await isSharedReceiver(m6, devices), true);
+  // A failed VIA read falls back to the receiver's mouse interface.
+  const fallback = await siblingMouseClient(via, devices);
+  assert.ok(fallback);
+  assert.equal(fallback.device, m6);
+
+  rememberMouseReceiver(m6);
+  try {
+    // The listing and reconnect pick the M6 interface; VIA keeps its claim on
+    // its own interface but no longer represents the receiver.
+    assert.equal(await pickLogicalDevice(group), m6);
+    assert.equal(await clientSupportScore(via), 0);
+    assert.ok(await createSupportedClient(m6));
+  } finally {
+    forgetMouseReceiver(m6);
+  }
+  assert.equal(await pickLogicalDevice(group), via);
 });
