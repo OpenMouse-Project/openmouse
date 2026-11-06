@@ -84,3 +84,8 @@ test("a K-snake scroll control is placed behind the Buttons tab", () => {
   const tabs = availableWorkspaceTabs(true, availability({ ksnakeScroll: true }));
   assert.deepEqual(tabs, ["overview", "performance", "buttons", "advanced"]);
 });
+
+test("the macro tab also follows the Incott macro capability", () => {
+  const tabs = availableWorkspaceTabs(true, availability({ incottMacros: true }));
+  assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
+});

@@ -35,9 +35,15 @@ import { join } from "node:path";
 // protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
 // L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
 // (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
+//
+// 2026-11-06: Incott macro card (library, recorder, step editor, button
+// assignment) and its strings in every locale add about 33 kB of JS, measured
+// against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
+// of that build's growth is protocol drivers released since 0.52.0). Main is
+// 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
 export const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
-  ".js": 3_850_000,
+  ".js": 3_950_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
