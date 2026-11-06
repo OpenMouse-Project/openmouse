@@ -1,5 +1,5 @@
 import { displayText } from "../i18n/index";
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { ensureDisplayLocale } from "../i18n/index";
 import { interfaceThemeSlug } from "../features/settings/interface-preferences";
@@ -55,10 +55,9 @@ export function App(): ReactNode {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
   const { preferences, status } = snapshot;
   const locale = preferences.locale;
+  const themeSlug = useMemo(() => interfaceThemeSlug(preferences.theme), [preferences.theme]);
   const showingGames = page === "games";
-
   const showingSettings = page === "settings" || snapshot.interfaceSettingsOpen;
-
   const resolvedPage: DesktopPage = showingSettings
     ? "settings"
     : page === "hardware-test"
@@ -105,12 +104,15 @@ export function App(): ReactNode {
 
   useEffect(() => {
     try {
-      document.documentElement.dataset.interfaceTheme = interfaceThemeSlug(preferences.theme);
+      document.documentElement.dataset.interfaceTheme = themeSlug;
     } catch {
     }
-  }, [preferences.theme]);
+  }, [themeSlug]);
 
+  const lastTab = useRef({ page, workspaceTab: snapshot.workspaceTab });
   useEffect(() => {
+    if (lastTab.current.page === page && lastTab.current.workspaceTab === snapshot.workspaceTab) return;
+    lastTab.current = { page, workspaceTab: snapshot.workspaceTab };
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [page, snapshot.workspaceTab, preferences.reducedMotion]);
 
@@ -118,7 +120,7 @@ export function App(): ReactNode {
     setSoundsEnabled(preferences.enabledSounds);
   }, [preferences.enabledSounds]);
 
-  const toggleSidebar = (): void => {
+  const toggleSidebar = useCallback((): void => {
     setSidebarCollapsed((current) => {
       const next = !current;
       try {
@@ -127,9 +129,9 @@ export function App(): ReactNode {
       }
       return next;
     });
-  };
+  }, []);
 
-  function navigate(next: DesktopPage): void {
+  const navigate = useCallback((next: DesktopPage): void => {
     if (next === "settings") {
       control.openInterfaceSettings();
       setPage("settings");
@@ -149,14 +151,17 @@ export function App(): ReactNode {
       control.showDeviceList();
       setPage("home");
     }
-  }
+  }, []);
 
-  const openDevice = (index: number): void => {
+  const openDevice = useCallback((index: number): void => {
     control.closeInterfaceSettings();
     setPage("home");
     void control.openDeviceOverview(index);
-  };
+  }, []);
 
+  const openWhatsNew = useCallback((): void => {
+    setWhatsNewOpen(true);
+  }, []);
 
   return (
     <UiLocaleContext.Provider value={locale}>
@@ -169,16 +174,16 @@ export function App(): ReactNode {
         preferences.reducedMotion ? "reduce-interface-motion" : "",
         snapshot.pending.count > 0 ? "has-pending-changes" : "",
       ].filter(Boolean).join(" ")}
-      data-interface-theme={interfaceThemeSlug(preferences.theme)}
+      data-interface-theme={themeSlug}
     >
-      <AsciiField theme={interfaceThemeSlug(preferences.theme)} reducedMotion={preferences.reducedMotion} />
+      <AsciiField theme={themeSlug} reducedMotion={preferences.reducedMotion} />
       <AppSidebar
         snapshot={snapshot}
         page={resolvedPage}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
         onNavigate={navigate}
-        onOpenWhatsNew={() => setWhatsNewOpen(true)}
+        onOpenWhatsNew={openWhatsNew}
         onOpenDevice={openDevice}
       />
 
@@ -205,7 +210,7 @@ export function App(): ReactNode {
             {displayText(locale, snapshot.readStatus)}
           </p>
         </div>
-        <PendingBar snapshot={snapshot} />
+        <PendingBar />
       </main>
 
       {captureOpen ? (
@@ -224,7 +229,7 @@ export function App(): ReactNode {
         </Suspense>
       ) : null}
       <HelpPanel locale={locale} />
-      <ToastHost toasts={snapshot.toasts} locale={locale} />
+      <ToastHost />
     </div>
     </UiLocaleContext.Provider>
   );

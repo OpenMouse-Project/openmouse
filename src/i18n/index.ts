@@ -1346,6 +1346,75 @@ const en = {
   "kb.wootingRgbDim": "RGB dim after",
   "kb.wootingRgbOff": "RGB off after",
   "kb.kochiModeNote": "Choose Windows mode for Windows or Linux, or Mac mode for macOS. Changes are confirmed by reading the keyboard back.",
+  "kb.arbUnverified": "Arbiter support is built from the vendor's web configurator and this model has not been tested on a real keyboard. Changes, except profile switches, are confirmed by reading the keyboard back.",
+  "kb.arbFaulted": "The keyboard stopped answering correctly. Reconnect it before making more changes.",
+  "kb.arbReconnect": "Reconnect",
+  "kb.arbReading": "Reading the keyboard…",
+  "kb.arbRaw": "Raw {n}",
+  "kb.arbCode": "Code {n}",
+  "kb.arbTravelTitle": "Actuation and rapid trigger",
+  "kb.arbTravelNote": "Values are shown in millimetres, the unit the vendor's own app labels them with. It has not been measured on hardware. Each key shows its actuation and rapid trigger.",
+  "kb.arbTravelMissing": "The keyboard did not report its key travel.",
+  "kb.arbSelectKeys": "Select one or more keys to edit them.",
+  "kb.arbActuation": "Actuation",
+  "kb.arbActuationHint": "Actuation distance for the selected keys.",
+  "kb.arbRapid": "Rapid trigger",
+  "kb.arbRapidHint": "Rapid trigger distance for the selected keys.",
+  "kb.arbRemapTitle": "Key remapping",
+  "kb.arbRemapNote": "Keys are set with the vendor's key codes. Reserved codes on the FN layer are not documented and show as numbers.",
+  "kb.arbLayer": "Layer",
+  "kb.arbLayerMain": "Main layer",
+  "kb.arbLayerFn": "FN layer",
+  "kb.arbBindingsMissing": "The keyboard did not report its key bindings.",
+  "kb.arbAssigned": "Assigned key: {key}",
+  "kb.arbCategory": "Key group",
+  "kb.arbBinding": "Assigned key",
+  "kb.arbRestoreKey": "Restore factory key",
+  "kb.arbSelectKey": "Select a key to remap it.",
+  "kb.arbCatLetters": "Letters",
+  "kb.arbCatNumbers": "Numbers",
+  "kb.arbCatFunction": "Function keys",
+  "kb.arbCatPunctuation": "Punctuation",
+  "kb.arbCatNavigation": "Navigation",
+  "kb.arbCatModifiers": "Modifiers",
+  "kb.arbCatMedia": "Media",
+  "kb.arbCatSpecial": "Special",
+  "kb.arbSuperTapTitle": "SuperTap",
+  "kb.arbSuperTapNote": "SuperTap is Arbiter's name for SOCD handling: while both keys of the pair are held, only the last one pressed is sent. Choose the pair below. The exact rule, such as what happens on release, is not confirmed. The mode and flag values are written back as the keyboard reported them.",
+  "kb.arbSuperTapEnable": "Enable SuperTap",
+  "kb.arbProfileTitle": "Board profile",
+  "kb.arbProfileNote": "The keyboard cannot report which profile is active, so choosing one only sends the switch.",
+  "kb.arbProfileN": "Profile {n}",
+  "kb.arbLightTitle": "Lighting effect",
+  "kb.arbLightNote": "Brightness and speed are raw numbers from 0 to 255. Changes are written when you apply them.",
+  "kb.arbLightMissing": "The keyboard did not report its lighting.",
+  "kb.arbLightOn": "Lighting",
+  "kb.arbEffect": "Effect",
+  "kb.arbEffect0": "Spectral cycle",
+  "kb.arbEffect1": "Static",
+  "kb.arbEffect2": "Left to right wave",
+  "kb.arbEffect3": "Breathing",
+  "kb.arbEffect4": "Snake",
+  "kb.arbEffect5": "Magnetic",
+  "kb.arbEffect6": "Rotate",
+  "kb.arbEffect7": "Wave",
+  "kb.arbEffect8": "Colourful fountain",
+  "kb.arbEffect9": "Laser",
+  "kb.arbEffect10": "Cross wave",
+  "kb.arbEffect11": "Traffic",
+  "kb.arbEffect12": "Rippling",
+  "kb.arbEffect13": "Dance macabre",
+  "kb.arbEffect14": "Random fountain",
+  "kb.arbEffect15": "Love",
+  "kb.arbBrightness": "Brightness",
+  "kb.arbSpeed": "Speed",
+  "kb.arbColors": "Colours",
+  "kb.arbColorSlot": "Colour {n}",
+  "kb.arbApply": "Apply",
+  "kb.arbOutOfRange": "This key reports a value outside the range the vendor app offers. It stays as read until you change it.",
+  "kb.arbSuperTapKeyN": "Key {n}",
+  "kb.arbSuperTapArm": "Select a key tile, then a key on the keyboard.",
+  "kb.arbSuperTapPick": "Select the key for key {n} on the keyboard.",
   "kb.brand": "Wuque Studio",
   "kb.available": "Available",
   "kb.keyboardLabel": "KEYBOARD",
@@ -1408,6 +1477,123 @@ const en = {
   "kb.shake": "Shake optimization",
   "kb.slot": "Configuration slot",
   "kb.refresh": "Refresh from keyboard",
+  "kb.keychronCaveatUnverified": "Experimental. Built from Keychron Launcher and not yet verified on hardware: every write is unverified.",
+  "kb.keychronCaveatConnection": "The keyboard does not report whether it is connected over USB, 2.4 GHz or Bluetooth.",
+  "kb.keychronCaveatRaw": "Work mode and key mode names come from reading Keychron Launcher, not from a keyboard. Rapid trigger sliders use the board's minimum travel, because boards do not declare a separate one.",
+  "kb.keychronIdCommand": "Hall-effect command version",
+  "kb.keychronIdMatrix": "Key matrix",
+  "kb.keychronIdMatrixValue": "{rows} rows, {cols} columns",
+  "kb.keychronIdStep": "Travel step",
+  "kb.keychronIdProfiles": "Profiles",
+  "kb.keychronLoading": "Reading the keyboard.",
+  "kb.keychronNoData": "Nothing has been read from the keyboard yet. Use refresh to try again.",
+  "kb.keychronKeys": "Keys",
+  "kb.keychronKeysHint": "Select a key to see its settings. Hold Shift, Ctrl or Command to select several.",
+  "kb.keychronKeysLegends": "Legends come from the board's current keymap.",
+  "kb.keychronKeysNoKeymap": "The keymap could not be read, so keys show their row and column.",
+  "kb.keychronKeysGrid": "No physical layout is known for this board, so keys are drawn as its matrix grid.",
+  "kb.keychronLegendLabel": "Key colours",
+  "kb.keychronLegendStatic": "Actuation point only",
+  "kb.keychronLegendRapid": "Rapid trigger",
+  "kb.keychronLegendAdvanced": "Advanced key",
+  "kb.keychronLegendUnit": "Values are actuation in mm",
+  "kb.keychronSelectAll": "Select all keys",
+  "kb.keychronClearSelection": "Clear selection",
+  "kb.keychronSelectedCount": "{n} selected",
+  "kb.keychronKeyLabel": "Row {row}, column {col}",
+  "kb.keychronProfile": "Profile",
+  "kb.keychronProfileSlot": "Profile {n}",
+  "kb.keychronProfileActive": "Active profile",
+  "kb.keychronClear": "Clear profile",
+  "kb.keychronClearConfirm": "Clear profile {n}? Its stored settings are erased.",
+  "kb.keychronClearYes": "Clear profile",
+  "kb.keychronCancel": "Cancel",
+  "kb.keychronRenameLabel": "Profile name",
+  "kb.keychronRename": "Rename profile",
+  "kb.keychronUnsavedBlock": "Save the written travel before switching or renaming a profile.",
+  "kb.keychronTravel": "Actuation and rapid trigger",
+  "kb.keychronActuation": "Actuation point",
+  "kb.keychronRtPress": "Rapid trigger press",
+  "kb.keychronRtRelease": "Rapid trigger release",
+  "kb.keychronRapidTrigger": "Rapid trigger",
+  "kb.keychronRange": "Allowed range {min} to {max} mm in steps of {step} mm.",
+  "kb.keychronRangeUnknown": "This board declares no travel range, so values are limited to what a profile can store: {max} mm in steps of {step} mm.",
+  "kb.keychronDeadzone": "The board declares a dead zone of {value} mm, which extends the top of the range.",
+  "kb.keychronTargetLabel": "Apply to",
+  "kb.keychronTargetAll": "All keys",
+  "kb.keychronTargetSelected": "Selected keys ({n})",
+  "kb.keychronWrite": "Write to keyboard",
+  "kb.keychronSave": "Save profile",
+  "kb.keychronUnsaved": "Written but not saved: actuation {press} mm, press {rtPress} mm, release {rtRelease} mm. The keyboard is not read back after this step.",
+  "kb.keychronAdvanceMode": "Advanced mode",
+  "kb.keychronAdvanceNone": "None",
+  "kb.keychronAdvanceDks": "Dynamic keystroke",
+  "kb.keychronAdvanceAnalog": "Analog",
+  "kb.keychronAdvanceToggle": "Toggle",
+  "kb.keychronAdvanceDkr": "Dynamic key rapid trigger",
+  "kb.keychronAdvanceTurbo": "Turbo",
+  "kb.keychronAdvanceRaw": "Mode {n}",
+  "kb.keychronLive": "Live key travel",
+  "kb.keychronLiveRead": "Read travel",
+  "kb.keychronLiveFollow": "Follow",
+  "kb.keychronLiveValue": "{mm} mm ({steps} steps)",
+  "kb.keychronLiveNone": "Select a key on the Keys card, then read its travel.",
+  "kb.keychronCalibration": "Calibration",
+  "kb.keychronCalIntro": "Calibration runs on the keyboard. This app can start it, read the state the board reports and stop it.",
+  "kb.keychronCalPhaseIdle": "Not started",
+  "kb.keychronCalPhaseStarted": "Started",
+  "kb.keychronCalPhaseStopped": "Stopped",
+  "kb.keychronCalPhaseNote": "The label shows what this app last asked for. The board's own state byte is not documented.",
+  "kb.keychronCalRaw": "Board state byte {n}, keys flagged {keys}",
+  "kb.keychronCalStart": "Start calibration",
+  "kb.keychronCalStartConfirm": "Start calibration on the keyboard? This has not been verified on hardware.",
+  "kb.keychronCalStartYes": "Start",
+  "kb.keychronCalStop": "Stop calibration",
+  "kb.keychronCalRead": "Read state",
+  "kb.keychronAxis": "Switch axis",
+  "kb.keychronAxisMax": "Maximum travel reported by the board",
+  "kb.keychronAxisMaxValue": "{mm} mm",
+  "kb.keychronAxisRaw": "Axis type: raw byte {n}, meaning not documented",
+  "kb.keychronAxisNone": "This board does not report an axis type.",
+  "kb.keychronCurve": "Response curve",
+  "kb.keychronCurveIntro": "Shapes the analog output of keys set to the analog mode. It does not change normal typing or where a key actuates.",
+  "kb.keychronCurveAnalogNone": "No key in this profile uses the analog mode, so the curve has no effect here and is read only.",
+  "kb.keychronCurveAnalogSome": "{n} keys in this profile use the analog mode.",
+  "kb.keychronCurveUnverified": "Read from Keychron Launcher's own curve editor, not verified on hardware.",
+  "kb.keychronCurveV5": "This board uses a different travel step (command v5), so the travel scale on the horizontal axis is unverified.",
+  "kb.keychronCurveNoRange": "The board declares no travel range, so the horizontal axis uses the largest byte value.",
+  "kb.keychronCurveAxisX": "Key travel (mm)",
+  "kb.keychronCurveAxisY": "Output (0 to 127)",
+  "kb.keychronCurveGraph": "Response curve graph, key travel up to {max} mm",
+  "kb.keychronCurveReadout": "Point {n}: {mm} mm travel, output {out} (raw bytes {x}, {y})",
+  "kb.keychronCurveColPoint": "Point",
+  "kb.keychronCurveColTravel": "Travel (mm)",
+  "kb.keychronCurveColOutput": "Output",
+  "kb.keychronCurveColRaw": "Raw bytes",
+  "kb.keychronCurvePoint": "Point {n}",
+  "kb.keychronCurveLinear": "Linear",
+  "kb.keychronCurveReset": "Reset to the board's curve",
+  "kb.keychronCurveWrite": "Write curve",
+  "kb.keychronCurveNone": "The keyboard did not report a response curve.",
+  "kb.keychronRemap": "Remap keys",
+  "kb.keychronRemapPersist": "Changes are written to the keyboard's own memory and stay there, on every computer you plug it into, until you change them again.",
+  "kb.keychronRemapScope": "This page remaps single keys. Macros, tap dance, encoder actions and resetting the whole keymap are not part of it.",
+  "kb.keychronRemapUnavailable": "{name} did not answer the keymap commands, so remapping is turned off. The Hall-effect settings still work.",
+  "kb.keychronRemapLegends": "Legends come from the keyboard's current keymap for layer {layer}.",
+  "kb.keychronRemapPick": "Select a key, then choose what it should send.",
+  "kb.keychronRemapUnknown": "Unrecognised key",
+  "kb.keychronRemapUnknownBody": "This code is not one the app can name, so it shows as its hex value and is not offered in the picker.",
+  "kb.keychronRemapWarningTitle": "Check before replacing this key",
+  "kb.keychronOnlyLayerWarning": "This is the only layer key on this layer; replacing it removes the way to reach other layers from here.",
+  "kb.keychronRemapReplaceAnyway": "Replace anyway",
+  "kb.keychronRemapDone": "{key} on layer {layer} is now {legend}. The keyboard confirmed it by reading the key back.",
+  "kb.keychronRemapFailed": "{key} was not changed to {legend}: {message} The map shows what the keyboard holds.",
+  "kb.keychronRemapRestore": "Restore previous ({legend})",
+  "kb.keychronLayer": "Layer",
+  "kb.keychronLayerN": "Layer {n}",
+  "kb.keychronPickerSearch": "Search keys by name",
+  "kb.keychronPickerCategories": "Key categories",
+  "kb.keychronPickerNone": "No key matches that search.",
   "kb.razerUnverified": "Protocol support for this model has not been verified on hardware.",
   "kb.razerEffectNote": "Effects are write-only. The keyboard does not report which effect is active.",
   "kb.razerGameLed": "Game mode indicator",
@@ -1433,6 +1619,101 @@ const en = {
   "kb.logitechblue": "Blue",
   "kb.logitechColorNoReadback": "The keyboard acknowledges the color write but does not report its current color.",
   "kb.steelseriesUnverified": "These controls have not been tested on a SteelSeries keyboard through OpenMouse.",
+  "kb.viaUnverified": "VIA support is written from the public protocol. Remapping has not been tested on every board.",
+  "kb.viaProtocol": "VIA protocol",
+  "kb.viaLayers": "Layers",
+  "kb.viaMatrix": "Matrix",
+  "kb.viaKeyCount": "Keys",
+  "kb.viaMacroSlots": "Macro slots",
+  "kb.viaDefinition": "Layout definition",
+  "kb.viaDefinitionFound": "Loaded from VIA",
+  "kb.viaDefinitionMissing": "VIA has no definition for this board ({id}), so its layout cannot be drawn.",
+  "kb.viaDefinitionOffline": "The VIA layout definition could not be downloaded. Check the connection and refresh.",
+  "kb.viaKeymapTitle": "Keymap",
+  "kb.viaKeymapNote": "Choose a key, then what it should do. Each change is written to the keyboard and read back.",
+  "kb.viaLayer": "Layer {n}",
+  "kb.viaLayerPicker": "Keymap layer",
+  "kb.viaSelectKey": "Select a key on the layout to change it.",
+  "kb.viaKeyPosition": "Row {row}, column {col}",
+  "kb.viaKeyNow": "Currently",
+  "kb.viaCustomKeycode": "Custom keycode",
+  "kb.viaCustomHint": "Hex, 0000 to FFFF",
+  "kb.viaNoKeymap": "The keymap could not be read.",
+  "kb.viaKeycodeGroups": "Keycode group",
+  "kb.viaGroupLetters": "Letters",
+  "kb.viaGroupNumbers": "Numbers",
+  "kb.viaGroupSymbols": "Symbols",
+  "kb.viaGroupFunction": "Function keys",
+  "kb.viaGroupNavigation": "Navigation",
+  "kb.viaGroupKeypad": "Keypad",
+  "kb.viaGroupModifiers": "Modifiers",
+  "kb.viaGroupMedia": "Media",
+  "kb.viaGroupSpecial": "Special",
+  "kb.viaGroupLayers": "Layers",
+  "kb.viaLightingTitle": "Lighting and settings",
+  "kb.viaLightingNote": "These controls come from the board's VIA definition. Each change is written to the keyboard, read back and saved.",
+  "kb.viaNoMenus": "This board's VIA definition has no extra controls.",
+  "kb.viaGroupMacros": "Macros",
+  "kb.viaEncoderSlot": "Encoder {n}, {dir}",
+  "kb.viaEncoderLeft": "turn left",
+  "kb.viaEncoderRight": "turn right",
+  "kb.viaTesterTitle": "Key tester",
+  "kb.viaTesterNote": "Press keys on the keyboard and they light up here. Keys are read from the switch matrix, so this works for keys that send nothing to the computer.",
+  "kb.viaMacroRecord": "Record",
+  "kb.viaMacroStop": "Stop recording",
+  "kb.viaMacroRecording": "Recording. Press the keys for this macro, then stop. Only keys with a QMK keycode are captured.",
+  "kb.viaLayoutSave": "Save as VIA layout",
+  "kb.viaGroupLighting": "Lighting",
+  "kb.viaGroupCustom": "Keyboard keys",
+  "kb.viaCompose": "Combine keys",
+  "kb.viaComposeLayerTap": "Layer on hold, key on tap",
+  "kb.viaComposeModTap": "Modifier on hold, key on tap",
+  "kb.viaComposeMods": "Modifier plus key",
+  "kb.viaComposeLayer": "Layer",
+  "kb.viaComposeKey": "Key (for example A or SPACE)",
+  "kb.viaMacroTitle": "Macros",
+  "kb.viaMacroNote": "Edit a macro, then save. To run it, set a key to its macro keycode on the Buttons tab. Saving rewrites all of the keyboard's macro memory and reads it back.",
+  "kb.viaMacroUnavailable": "This keyboard has no macro memory.",
+  "kb.viaMacroSlotPicker": "Macro",
+  "kb.viaMacroEmpty": "This macro has no actions yet.",
+  "kb.viaMacroActionType": "Action",
+  "kb.viaMacroTypeText": "Type text",
+  "kb.viaMacroTypeTap": "Press key",
+  "kb.viaMacroTypeDown": "Hold key",
+  "kb.viaMacroTypeUp": "Release key",
+  "kb.viaMacroTypeDelay": "Wait",
+  "kb.viaMacroRaw": "{n} bytes this editor does not understand, kept as they are",
+  "kb.viaMacroText": "Text",
+  "kb.viaMacroKey": "Key",
+  "kb.viaMacroMs": "Milliseconds",
+  "kb.viaMacroAdd": "Add macro",
+  "kb.viaMacroRemove": "Remove",
+  "kb.viaMacroMoveUp": "Move up",
+  "kb.viaMacroMoveDown": "Move down",
+  "kb.viaMacroUsage": "{used} of {size} bytes used",
+  "kb.viaMacroTooLong": "These macros do not fit in the keyboard's macro memory.",
+  "kb.viaMacroSave": "Save macros",
+  "kb.viaMacroDiscard": "Discard changes",
+  "kb.viaMacroNoDelays": "Waits need VIA protocol 11 or newer.",
+  "kb.viaMacroModePicker": "Editor",
+  "kb.viaMacroModeCode": "Code",
+  "kb.viaMacroModeList": "List",
+  "kb.viaMacroCodeLabel": "Macro code",
+  "kb.viaMacroCodeHelp": "Type text as it should be typed. {KC_A} presses a key, {KC_LCTL,KC_C} presses a chord, {+KC_LSFT} holds a key and {-KC_LSFT} releases it, and {500} waits 500 ms. Write \\{ to type a brace. Key names are QMK's, for example KC_ENT.",
+  "kb.viaMacroCodeDocs": "QMK keycode names",
+  "kb.viaBackupTitle": "Backup and restore",
+  "kb.viaBackupNote": "Save this keyboard's keymap, macros, encoders and layout options to a file, or restore them from one. A layout file saved by the VIA app also loads here. Lighting settings are not included.",
+  "kb.viaBackupSave": "Save to file",
+  "kb.viaBackupLoad": "Load from file",
+  "kb.viaBackupSummary": "{name}: {layers} layers, saved {date}",
+  "kb.viaBackupConfirm": "Restoring replaces this keyboard's keymap, macros and layout options with the file's contents.",
+  "kb.viaBackupRestore": "Restore",
+  "kb.viaBackupCancel": "Cancel",
+  "kb.viaBackupInvalid": "That file is not a keymap backup from OpenMouse.",
+  "kb.viaBackupWrongBoard": "This backup is from a different keyboard.",
+  "kb.viaBackupWrongSize": "This backup does not match this keyboard's key matrix.",
+  "kb.viaBackupTooManyLayers": "This backup has more layers than the keyboard.",
+  "kb.viaBackupWrongMacros": "This backup's macro slots do not match the keyboard's.",
   "kb.steelseriesNoProfile": "The on-board profile could not be read. Per-key settings are unavailable.",
   "kb.steelseriesProfileSlot": "Profile slot",
   "kb.steelseriesLive": "Live changes are not saved to the on-board profile.",
@@ -1555,6 +1836,59 @@ let extraTurkish: Readonly<Record<string, string>> = {};
 type DisplayPattern = { pattern: RegExp; names: string[]; translation: string; preserveNames: boolean };
 let displayPatterns: DisplayPattern[] | undefined;
 
+/** Bounded memo of displayText results keyed by locale and source text.
+ * Locale tables load once and never change, so entries stay valid until the
+ * next table load clears the whole memo (see ensureLocale). */
+const DISPLAY_MEMO_LIMIT = 500;
+const displayMemo = new Map<string, string>();
+
+function displayMemoGet(locale: InterfaceLocale, value: string): string | undefined {
+  const key = `${locale} ${value}`;
+  const hit = displayMemo.get(key);
+  if (hit !== undefined) {
+    displayMemo.delete(key);
+    displayMemo.set(key, hit);
+  }
+  return hit;
+}
+
+function displayMemoSet(locale: InterfaceLocale, value: string, translated: string): void {
+  const key = `${locale} ${value}`;
+  if (displayMemo.has(key)) {
+    displayMemo.delete(key);
+  } else if (displayMemo.size >= DISPLAY_MEMO_LIMIT) {
+    const oldest = displayMemo.keys().next();
+    if (!oldest.done) displayMemo.delete(oldest.value);
+  }
+  displayMemo.set(key, translated);
+}
+
+/** Compile the template patterns translateDisplay matches against. Runs once
+ * when the Turkish table arrives (and again only if it ever reloads), not on
+ * the first render-time translation. */
+function buildDisplayPatterns(): DisplayPattern[] {
+  const templates = new Map<string, string>();
+  for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t("tr", key));
+  for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
+  const patterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
+    const names: string[] = [];
+    let pattern = "";
+    let end = 0;
+    for (const match of english.matchAll(/\{(\w+)\}/g)) {
+      pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      names.push(match[1]);
+      const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
+      pattern += pluralSuffix ? "(s?)" : "(.*?)";
+      end = match.index! + match[0].length;
+    }
+    pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return { pattern: new RegExp(`^${pattern}$`), names, translation,
+      preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
+  });
+  patterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  return patterns;
+}
+
 const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<LocaleTable>> = {
   pt: () => import("./locales/pt.ts").then((m) => m.pt),
   es: () => import("./locales/es.ts").then((m) => m.es),
@@ -1567,8 +1901,11 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   vi: () => import("./locales/vi.ts").then((m) => m.vi),
   ar: () => import("./locales/ar.ts").then((m) => m.ar),
   tr: () => Promise.all([import("./locales/tr.ts"), import("./locales/tr-extra.ts")]).then(([main, extra]) => {
+    tables.tr = main.tr;
     extraTurkish = extra.trExtra;
-    displayPatterns = undefined;
+    // The table this compiles from just changed: drop patterns and memo together.
+    displayPatterns = buildDisplayPatterns();
+    displayMemo.clear();
     return main.tr;
   }),
 };
@@ -1577,9 +1914,10 @@ export function ensureLocale(locale: InterfaceLocale): Promise<void> {
   if (locale === "en" || tables[locale]) return Promise.resolve();
   return LOCALE_LOADERS[locale]().then((table) => {
     tables[locale] = table;
+    // Entries cached before the table arrived hold English fallbacks.
+    displayMemo.clear();
   });
 }
-
 /** Load display copy without blocking startup on a missing/offline lazy chunk.
  * Failed loads do not populate the locale cache, so a later call can retry. */
 export async function ensureDisplayLocale(
@@ -1614,10 +1952,21 @@ const sourceTextKeys = new Map<string, I18nKey>(
 );
 
 /** Translate display strings from legacy UI and driver catalogs at the render boundary.
+ *
+ * tr-only scope: only the Turkish display path (tr-extra catalog, template
+ * patterns, separator splits) rewrites legacy English copy. Every other locale
+ * falls back to the keyed table via t() or passes the source through
+ * untouched — displayText never invents translations for locales without a
+ * catalog.
+ *
  * Never use this for protocol commands, comparisons, identifiers or saved user data. */
 export function displayText<T extends string | number | null | undefined>(locale: InterfaceLocale, value: T): T {
   if (locale === "en" || typeof value !== "string") return value;
-  return translateDisplay(locale, value, 0) as T;
+  const hit = displayMemoGet(locale, value);
+  if (hit !== undefined) return hit as T;
+  const translated = translateDisplay(locale, value, 0);
+  displayMemoSet(locale, value, translated);
+  return translated as T;
 }
 
 /** Translate complete display copy before inserting values, preserving user data. */
@@ -1633,29 +1982,8 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   const padding = (text: string) => (value.match(/^\s*/)?.[0] ?? "") + text + (value.match(/\s*$/)?.[0] ?? "");
   if (translated !== undefined) return padding(translated);
   if (locale !== "tr") return value;
-  if (!displayPatterns) {
-    const templates = new Map<string, string>();
-    for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t(locale, key));
-    for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
-    displayPatterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
-      const names: string[] = [];
-      let pattern = "";
-      let end = 0;
-      for (const match of english.matchAll(/\{(\w+)\}/g)) {
-        pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        names.push(match[1]);
-        const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
-        pattern += pluralSuffix ? "(s?)" : "(.*?)";
-        end = match.index! + match[0].length;
-      }
-      pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return { pattern: new RegExp(`^${pattern}$`), names, translation,
-        preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
-    });
-    // Specific sentences must win over broad patterns such as "Mouse {0}".
-    displayPatterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
-  }
-  for (const { pattern, names, translation, preserveNames } of displayPatterns) {
+  const patterns = displayPatterns ??= buildDisplayPatterns();
+  for (const { pattern, names, translation, preserveNames } of patterns) {
     const match = pattern.exec(source);
     if (!match) continue;
     return padding(translation.replace(/\{(\w+)\}/g, (_, name: string) => {
@@ -1669,15 +1997,23 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   return value;
 }
 
-/** Translate a template with {placeholders}. */
+/** Translate a template with {placeholders}. A missing value keeps its
+ * {placeholder} verbatim in the rendered string (DEV still warns) instead of
+ * silently blanking user-visible copy. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
   return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = vars[name];
     if (value === undefined && import.meta.env?.DEV === true) {
       console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
     }
-    return String(value ?? "");
+    return value === undefined ? `{${name}}` : String(value);
   });
+}
+
+/** Looks up `value` in a display-text table, passing unknown values through untranslated. */
+function mapDisplayText(locale: InterfaceLocale, table: Readonly<Record<string, I18nKey>>, value: string): string {
+  const key = table[value];
+  return key ? t(locale, key) : value;
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */
@@ -1691,8 +2027,7 @@ const BATTERY_STATES: Readonly<Record<string, I18nKey>> = {
 };
 
 export function batteryStateText(locale: InterfaceLocale, state: string): string {
-  const key = BATTERY_STATES[state];
-  return key ? t(locale, key) : state;
+  return mapDisplayText(locale, BATTERY_STATES, state);
 }
 
 /** Known connect-button labels stored by the controller; dynamic labels
@@ -1704,8 +2039,7 @@ const CONNECT_LABELS: Readonly<Record<string, I18nKey>> = {
 };
 
 export function connectLabelText(locale: InterfaceLocale, label: string): string {
-  const key = CONNECT_LABELS[label];
-  return key ? t(locale, key) : label;
+  return mapDisplayText(locale, CONNECT_LABELS, label);
 }
 
 /** Display name for a device connection type; unknown values pass through. */
@@ -1720,8 +2054,7 @@ export function connectionText(
   fallback: I18nKey = "conn.wireless",
 ): string {
   if (!connection) return t(locale, fallback);
-  const key = CONNECTIONS[connection];
-  return key ? t(locale, key) : connection;
+  return mapDisplayText(locale, CONNECTIONS, connection);
 }
 
 /** Localize a "Layer N" label produced by the protocol library without

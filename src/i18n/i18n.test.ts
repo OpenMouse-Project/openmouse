@@ -29,9 +29,9 @@ test("every locale translates every key", async () => {
   assert.deepEqual(await missingTranslations(), []);
 });
 
-test("tp renders provided placeholders and blanks missing ones", () => {
+test("tp renders provided placeholders and keeps missing ones verbatim", () => {
   assert.equal(tp("en", "dpi.slotX", { n: 2 }), "Slot 2 X DPI");
-  assert.equal(tp("en", "dpi.slotX", {}), "Slot  X DPI");
+  assert.equal(tp("en", "dpi.slotX", {}), "Slot {n} X DPI");
 });
 
 test("Turkish loads on demand and renders localized labels and templates", async () => {

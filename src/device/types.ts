@@ -224,7 +224,9 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "via";
+  /** True when the driver marked the session unusable; reconnect before retrying. */
+  faulted?: boolean;
   name: string;
   vendorId: number;
   productId: number;
@@ -344,4 +346,7 @@ export interface ControlSnapshot {
   previewEntries: Array<[string, string]>;
   previewListMessage: string | null;
   buildLabel: string;
+  /** Bumps each time a lazy locale table resolves, so memoized components
+      whose text depends on table contents (not just the locale code) refresh. */
+  localeTableRevision: number;
 }

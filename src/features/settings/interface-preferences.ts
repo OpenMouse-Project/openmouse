@@ -128,8 +128,14 @@ export function loadInterfacePreferences(storage: Storage): InterfacePreferences
   }
 }
 
-export function saveInterfacePreferences(storage: Storage, preferences: InterfacePreferences): void {
-  storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+export function saveInterfacePreferences(storage: Storage, preferences: InterfacePreferences): boolean {
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    return true;
+  } catch {
+    // Private-mode / quota-blocked storage: preferences simply don't persist.
+    return false;
+  }
 }
 
 /** Dataset value for the theme selector. Display names carry spaces, one

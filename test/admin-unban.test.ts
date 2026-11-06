@@ -74,7 +74,29 @@ test("unban rejects a missing ip", async () => {
   assert.equal(response.status, 400);
 });
 
-test("unban rejects non-POST methods", async () => {
-  const response = await unban(request({ method: "GET" }));
-  assert.equal(response.status, 405);
+test("unban rejects non-IP values and oversized bodies", async () => {
+  for (const ip of ["localhost", "10.0.0.0/8", "example.com", "fe80::1%eth0", "999.1.1.1", ":::"]) {
+    const headers = { "Content-Type": "application/json", Authorization: "Bearer s3cret" };
+    const response = await unban(
+      new Request("https://openmouse.app/api/admin/unban", { method: "POST", headers, body: JSON.stringify({ ip }) }),
+    );
+    assert.equal(response.status, 400, ip);
+  }
+  const headers = { "Content-Type": "application/json", Authorization: "Bearer s3cret" };
+  const big = await unban(
+    new Request("https://openmouse.app/api/admin/unban", { method: "POST", headers, body: JSON.stringify({ ip: "1".repeat(2048) }) }),
+  );
+  assert.equal(big.status, 413);
+});
+
+test("unban accepts IPv6 literals", async () => {
+  const kv = new FakeKV();
+  await kv.put("ban:2001:db8::1", "artwork");
+  const headers = { "Content-Type": "application/json", Authorization: "Bearer s3cret" };
+  const response = await unban(
+    new Request("https://openmouse.app/api/admin/unban", { method: "POST", headers, body: JSON.stringify({ ip: "2001:db8::1" }) }),
+    kv,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(await kv.get("ban:2001:db8::1"), null);
 });

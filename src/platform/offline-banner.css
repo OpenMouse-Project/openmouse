@@ -2,7 +2,7 @@
   position: fixed;
   inset-inline: 0;
   bottom: 20px;
-  z-index: 2147483000;
+  z-index: 200;
   width: fit-content;
   max-width: calc(100vw - 40px);
   margin-inline: auto;

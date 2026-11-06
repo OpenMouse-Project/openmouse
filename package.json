@@ -9,12 +9,13 @@
     "build": "tsc --noEmit && vite build",
     "test": "node --test \"src/**/*.test.ts\" \"test/**/*.test.ts\" \"build/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
-    "check": "npm run build && npm test",
+    "sync:devices": "node scripts/sync-supported-devices.mjs",
+    "check": "npm run build && npm run size && npm test",
     "preview": "vite preview"
   },
   "dependencies": {
     "@openmouse/keyboard-protocol": "1.6.1",
-    "@openmouse/protocol": "0.49.0",
+    "@openmouse/protocol": "0.52.0",
     "lucide-react": "^1.43.0",
     "posthog-js": "^1.438.17",
     "preact": "^10.29.8"

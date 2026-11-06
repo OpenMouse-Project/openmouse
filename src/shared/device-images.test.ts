@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deviceImage, isUnknownDevice } from "./device-images.ts";
+import { deviceImage, isUnknownDevice, placeholderImage } from "./device-images.ts";
 
 const CDN = "https://img.openmouse.app/";
 
@@ -346,4 +346,30 @@ test("Incott names do not collide with other brands' renders", () => {
   assert.equal(deviceImage(null, "G PRO WIRELESS"), CDN + "logitech-gpro-wireless.png");
   assert.equal(deviceImage(null, "G203 LIGHTSYNC"), CDN + "logitech-g203.png");
   assert.equal(deviceImage(null, "G303 SHROUD"), CDN + "logitech-g303.png");
+});
+
+test("Keychron Hall-effect keyboards get the keyboard placeholder, not the mouse one", () => {
+  for (const name of ["Keychron J3 HE ANSI", "Keychron Carbon 60 HE 8K", "Keychron J2 TMR", "Keychron J3 HE ANSI (preview)"]) {
+    assert.equal(deviceImage(null, name), "/devices/unknown-keyboard.png", name);
+  }
+  assert.equal(deviceImage(null, "Keychron M6"), CDN + "keychron-m6.png");
+});
+
+test("anything labelled a keyboard falls back to the keyboard placeholder", () => {
+  assert.equal(deviceImage(null, "Arbiter Polar 65", "keyboard"), "/devices/unknown-keyboard.png");
+  assert.equal(deviceImage(null, "Some Unknown Board", "keyboard"), "/devices/unknown-keyboard.png");
+  assert.equal(deviceImage(null, "Generic Gaming Keyboard"), "/devices/unknown-keyboard.png");
+  // A mouse with no art keeps the mouse placeholder.
+  assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "Razer Basilisk V3", "mouse"), CDN + "unknown-device.png");
+});
+
+test("a keyboard with its own art keeps it", () => {
+  assert.equal(deviceImage(null, "Keychron M6", "keyboard"), CDN + "keychron-m6.png");
+});
+
+test("the load-error placeholder follows the device kind", () => {
+  assert.equal(placeholderImage(), CDN + "unknown-device.png");
+  assert.equal(placeholderImage("mouse"), CDN + "unknown-device.png");
+  assert.equal(placeholderImage("keyboard"), "/devices/unknown-keyboard.png");
 });

@@ -8,8 +8,15 @@
 //
 // Usage:
 //   node scripts/sync-supported-devices.mjs
+//   npm run sync:devices
 // (Requires Node ≥ 23.6 so the landing page's .ts table can be imported
 // directly with type stripping. Run from the openmouse repo root.)
+//
+// Sibling-repo layout: this script expects the landing-page repo checked out
+// next to this one, so that ../openmouse-landing-page resolves:
+//   <parent>/
+//     openmouse/                  ← this repo (run the script here)
+//     openmouse-landing-page/     ← source of truth (src/data/supported-mice.ts)
 //
 // The mirror keeps only the fields the crosscheck needs (brand, model, status,
 // pids) and drops votes/notes, so the generated file is a compact snapshot.

@@ -22,18 +22,39 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
   const [selectedActions, setSelectedActions] = useState<ReadonlySet<string>>(new Set());
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-
+  // Single gate covering snapshot+compare+verify+probe; run-id ignores stale completions.
+  const [busyOp, setBusyOp] = useState<string | null>(null);
+  const busyOpRef = useRef<string | null>(null);
+  const runRef = useRef(0);
+  function beginOp(name: string): number {
+    runRef.current += 1;
+    busyOpRef.current = name;
+    setBusyOp(name);
+    return runRef.current;
+  }
+  function endOp(run: number): boolean {
+    if (run !== runRef.current) return false;
+    busyOpRef.current = null;
+    setBusyOp(null);
+    return true;
+  }
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
     if (open) {
-      if (typeof element.showModal === "function") element.showModal();
-      else element.setAttribute("open", "");
-    } else if (typeof element.close === "function") {
-      if (element.open) element.close();
-    } else {
-      element.removeAttribute("open");
+      if (!element.open) {
+        try {
+          element.showModal();
+        } catch {
+          element.setAttribute("open", "");
+        }
+      }
+    } else if (element.open) {
+      try {
+        element.close();
+      } catch {
+        element.removeAttribute("open");
+      }
     }
   }, [open]);
 
@@ -41,30 +62,39 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
   const probe = context.writeProbe;
 
   async function takeSnapshot(): Promise<void> {
+    if (busyOpRef.current !== null) return;
     if (!context.profiles) {
       setMessage("Connect a Logitech mouse with onboard profiles first.");
       return;
     }
+    const run = beginOp("snapshot");
     setMessage("Reading profiles…");
     try {
       const read = await context.profiles.read();
+      if (run !== runRef.current) return;
       const next = new Map(read.map((entry) => [entry.sector, entry.bytes]));
       setSnapshot(next);
       setDiffs([]);
       setMessage(`Snapshot taken (${next.size} profiles). Change one setting in G HUB or Onboard Memory Manager, then press Compare.`);
     } catch (error) {
+      if (run !== runRef.current) return;
       setMessage(error instanceof Error ? error.message : "Could not read profiles.");
+    } finally {
+      endOp(run);
     }
   }
 
   async function compareSnapshot(): Promise<void> {
+    if (busyOpRef.current !== null) return;
     if (!context.profiles || !snapshot) {
       setMessage("Take a snapshot first.");
       return;
     }
+    const run = beginOp("compare");
     setMessage("Re-reading profiles…");
     try {
       const sectorsNow = await context.profiles.read();
+      if (run !== runRef.current) return;
       setSectors(sectorsNow.map((entry) => ({
         sector: entry.sector,
         before: snapshot.get(entry.sector) ?? entry.bytes,
@@ -89,7 +119,10 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
           ? `${total} byte(s) changed — write path verified, OpenMouse reproduces this exactly.`
           : `${total} byte(s) changed, ${failed} not reproducible by OpenMouse yet.`);
     } catch (error) {
+      if (run !== runRef.current) return;
       setMessage(error instanceof Error ? error.message : "Could not read profiles.");
+    } finally {
+      endOp(run);
     }
   }
 
@@ -120,15 +153,17 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
             id="capture-verification"
             type="button"
             className="om-btn is-primary"
-            disabled={busy}
+            disabled={busyOp !== null}
             onClick={() => {
+              if (busyOpRef.current !== null) return;
               if (!context.profiles) {
                 setMessage("Connect a Logitech mouse with onboard profiles first.");
                 return;
               }
-              setBusy(true);
+              const run = beginOp("verify");
               setMessage("Reading the directory and every profile sector…");
               void context.profiles.readVerification().then(async (verification) => {
+                if (run !== runRef.current) return;
                 await navigator.clipboard.writeText(formatProfileVerificationMarkdown({
                   ...verification,
                   device: context.device,
@@ -136,8 +171,9 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                 }));
                 setMessage(`Verification data copied (${verification.profiles.length} profiles, format ${verification.info.profileFormatId}).`);
               }).catch((error: unknown) => {
+                if (run !== runRef.current) return;
                 setMessage(error instanceof Error ? error.message : "Could not collect profile verification data.");
-              }).finally(() => setBusy(false));
+              }).finally(() => { endOp(run); });
             }}
           >
             {t(locale, "cap.copyVerification")}
@@ -147,14 +183,16 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
             <button
               id="capture-write-probe"
               type="button"
-              disabled={busy || probe.supported !== true}
+              disabled={busyOp !== null || probe.supported !== true}
               title={displayText(locale, probe.reason)}
               className="om-btn is-danger"
               onClick={() => {
+                if (busyOpRef.current !== null) return;
                 if (!probe.supported || !probe.prepare || !probe.run) return;
-                setBusy(true);
+                const run = beginOp("probe");
                 setMessage("Reading and copying the recovery backup…");
                 void probe.prepare().then(async (backup) => {
+                  if (run !== runRef.current) return;
                   await navigator.clipboard.writeText(formatProfileWriteProbeBackupMarkdown(backup));
                   const approved = window.confirm(
                     displayText(locale, "Recovery backup copied. This test performs six profile-sector erase/write cycles, temporarily changes the profile name, DPI, and polling rate, then restores the exact original after every step. Do not disconnect or power off the mouse. Run the probe now?"),
@@ -165,25 +203,28 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
                   }
                   setMessage("Running write probe. Do not disconnect or power off the mouse…");
                   const report = await probe.run!(backup);
+                  if (run !== runRef.current) return;
                   await navigator.clipboard.writeText(formatProfileWriteProbeReportMarkdown(report));
                   setMessage(report.ok
                     ? "Write probe passed and the original profile was restored. Report copied."
                     : `Write probe failed. Recovery report copied; profile restored: ${report.restored}, mode restored: ${report.modeRestored}.`);
                 }).catch((error: unknown) => {
+                  if (run !== runRef.current) return;
                   setMessage(error instanceof Error ? error.message : "Could not run the profile write probe.");
-                }).finally(() => setBusy(false));
+                }).finally(() => { endOp(run); });
               }}
             >
               {t(locale, "cap.verifyWrites")}
             </button>
           ) : null}
 
-          <button id="capture-snapshot" className="om-btn" type="button" onClick={() => void takeSnapshot()}>{t(locale, "cap.snapshot")}</button>
-          <button id="capture-compare" className="om-btn" type="button" onClick={() => void compareSnapshot()}>{t(locale, "cap.compare")}</button>
+          <button id="capture-snapshot" className="om-btn" type="button" disabled={busyOp !== null} onClick={() => void takeSnapshot()}>{t(locale, "cap.snapshot")}</button>
+          <button id="capture-compare" className="om-btn" type="button" disabled={busyOp !== null} onClick={() => void compareSnapshot()}>{t(locale, "cap.compare")}</button>
           <button
             id="capture-reset"
             className="om-btn"
             type="button"
+            disabled={busyOp !== null}
             onClick={() => {
               setSnapshot(null);
               setDiffs([]);
@@ -198,6 +239,7 @@ export function CaptureDialog({ open, onClose, locale = "en" }: { open: boolean;
             id="capture-copy"
             className="om-btn"
             type="button"
+            disabled={busyOp !== null}
             onClick={() => {
               const markdown = formatCaptureMarkdown({
                 device: context.device,

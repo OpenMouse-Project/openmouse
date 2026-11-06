@@ -13,15 +13,19 @@ import {
   describeHidDevice,
   deviceBrand,
   isKeyboardClient,
+  isSharedReceiver,
   type KeyboardClient,
+  listingClient,
   listLogicalDevices,
   logicalDeviceGroups,
   pickLogicalDevice,
+  siblingMouseClient,
   prepareAutoConnectClient,
   type PulsarClient,
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
+import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
@@ -141,7 +145,7 @@ import type { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
-import { parsePreviewMode, previewsEnabled, type FixturePreviewMode, type PreviewMode } from "./preview/preview-modes";
+import { parsePreviewMode, previewsEnabled, type FixturePreviewMode, type KeyboardPreviewMode, type PreviewMode } from "./preview/preview-modes";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
 import type { SlxStatus } from "./finalmouse-slx.ts";
@@ -399,7 +403,7 @@ function st(key: I18nKey, vars?: Record<string, string | number>): string {
   return vars ? tp(interfacePreferences.locale, key, vars) : t(interfacePreferences.locale, key);
 }
 
-const toasts: Toast[] = [];
+let toasts: Toast[] = [];
 let nextToastId = 1;
 let diagnosticsOpen = false;
 let diagnosticDownloadStatus = "";
@@ -530,6 +534,7 @@ function buildKeyboardView(): KeyboardView | null {
   if (!activeKeyboard || !keyboardIdentity) return null;
   return {
     family: activeKeyboard.family,
+    faulted: activeKeyboard.faulted === true,
     name: keyboardIdentity.name,
     vendorId: activeKeyboard.device.vendorId,
     productId: activeKeyboard.device.productId,
@@ -547,15 +552,80 @@ function buildKeyboardView(): KeyboardView | null {
   };
 }
 
+interface SnapshotCloneCache<Source, Output> {
+  source: Source | undefined;
+  output: Output | undefined;
+}
+
+/**
+ * Return the cached clone when the source reference is unchanged, so
+ * background emits that touch nothing relevant keep snapshot array identity
+ * (and memoized selectors below do not re-render).
+ */
+function cachedSnapshotClone<Source, Output>(
+  cache: SnapshotCloneCache<Source, Output>,
+  source: Source,
+  clone: (source: Source) => Output,
+): Output {
+  if (cache.source === source) return cache.output as Output;
+  const output = clone(source);
+  cache.source = source;
+  cache.output = output;
+  return output;
+}
+
+const EMPTY_PENDING_LABELS: string[] = [];
+
+const wallhackMacrosCache: SnapshotCloneCache<typeof wallhackMacros, typeof wallhackMacros> = {
+  source: undefined,
+  output: undefined,
+};
+const wallhackCurvesCache: SnapshotCloneCache<typeof wallhackCurves, typeof wallhackCurves> = {
+  source: undefined,
+  output: undefined,
+};
+const m2nexProfilesCache: SnapshotCloneCache<typeof m2nexProfiles, typeof m2nexProfiles> = {
+  source: undefined,
+  output: undefined,
+};
+
+function cloneWallhackMacrosSnapshot(
+  source: typeof wallhackMacros,
+): typeof wallhackMacros {
+  return source?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null;
+}
+
+function cloneWallhackCurvesSnapshot(
+  source: typeof wallhackCurves,
+): typeof wallhackCurves {
+  if (source === null) return null;
+  return Object.fromEntries(
+    Object.entries(source).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
+  ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>;
+}
+
+function cloneM2NexProfilesSnapshot(
+  source: typeof m2nexProfiles,
+): typeof m2nexProfiles {
+  return source?.map(cloneM2NexProfile) ?? null;
+}
+
 function buildSnapshot(): ControlSnapshot {
   const deviceStatus = latestDeviceStatus;
+  // Hoisted so the pending field misses no reads: every card and the Games
+  // page inspect keys/labels even while suppressed (pending bar hides, the
+  // staged state still shows). Instant-flash is the only window where they go
+  // unread, and then only until the deferred flash drains the queue.
+  const suppressedPending = interfacePreferences.instantFlash;
   const changes = pendingChanges();
   const status = deviceStatus ? withPendingChanges(deviceStatus) : null;
   return {
     deviceStatus,
     status,
     keyboard: buildKeyboardView(),
-    traits: traitsFor(status),
+    // Capability traits come from the real device status: previews mirror
+    // staged values onto a copy, which must never gate card visibility.
+    traits: traitsFor(deviceStatus),
     profile: buildProfileView(),
     capabilities,
     settingsPending: status?.ui?.settingsReady === false,
@@ -594,17 +664,13 @@ function buildSnapshot(): ControlSnapshot {
     ksnakeMacros: stagedKsnakeMacros ?? ksnakeMacros,
     ksnakeMacrosLoading,
     ksnakeMacrosError,
-    wallhackMacros: wallhackMacros?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null,
+    wallhackMacros: cachedSnapshotClone(wallhackMacrosCache, wallhackMacros, cloneWallhackMacrosSnapshot),
     wallhackMacrosLoading,
     wallhackMacrosError,
-    wallhackCurves: wallhackCurves
-      ? Object.fromEntries(
-        Object.entries(wallhackCurves).map(([mode, points]) => [mode, points.map((p) => ({ ...p }))]),
-      ) as Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]>
-      : null,
+    wallhackCurves: cachedSnapshotClone(wallhackCurvesCache, wallhackCurves, cloneWallhackCurvesSnapshot),
     wallhackCurvesLoading,
     wallhackCurvesError,
-    m2nexProfiles: m2nexProfiles?.map(cloneM2NexProfile) ?? null,
+    m2nexProfiles: cachedSnapshotClone(m2nexProfilesCache, m2nexProfiles, cloneM2NexProfilesSnapshot),
     activeM2NexProfile,
     m2nexProfileDirty,
     stagedProfileButtonAssignments: [...stagedProfileButtonEdits.entries()]
@@ -621,14 +687,19 @@ function buildSnapshot(): ControlSnapshot {
               : "keyboard",
       })),
     napeKeymap,
-    stagedNapeAssignments: [...stagedNapeAssignments.values()],
+    stagedNapeAssignments: [...stagedNapeAssignments.entries()]
+      .filter(([key]) => isPendingChange(key))
+      .map(([, staged]) => staged),
     editedNapeLayer,
     analogTuning,
     magneticCalibration,
     eggPollingDivider,
     pending: {
       count: changes.length,
-      labels: changes.map((change) => change.label),
+      // Labels render only in the bar, which returns early while suppressed;
+      // keys stay live — GameProfilePanel and staged-state cards read them
+      // during instant-flash and game-draft windows.
+      labels: suppressedPending ? EMPTY_PENDING_LABELS : changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
       suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,
@@ -652,6 +723,7 @@ function buildSnapshot(): ControlSnapshot {
     previewEntries,
     previewListMessage,
     buildLabel: BUILD_LABEL,
+    localeTableRevision,
   };
 }
 
@@ -675,12 +747,9 @@ type ToastOptions = Pick<Toast, "action" | "prominent" | "persistent">;
 class ChromeRazerAccessError extends Error {}
 
 export function pushToast(kind: ToastKind, title: string, detail?: string, options: ToastOptions = {}): void {
-  const duplicate = toasts.findIndex((entry) => entry.kind === kind && entry.title === title);
-  if (duplicate !== -1) toasts.splice(duplicate, 1);
-
   const id = nextToastId++;
-  toasts.unshift({ id, kind, title, detail, ...options });
-  if (toasts.length > TOAST_LIMIT) toasts.length = TOAST_LIMIT;
+  const rest = toasts.filter((entry) => !(entry.kind === kind && entry.title === title));
+  toasts = [{ id, kind, title, detail, ...options }, ...rest].slice(0, TOAST_LIMIT);
   if (!options.persistent) window.setTimeout(() => dismissToast(id), TOAST_TIMEOUT_MS[kind]);
   emit();
 }
@@ -688,12 +757,11 @@ export function pushToast(kind: ToastKind, title: string, detail?: string, optio
 export function dismissToast(id: number): void {
   const toast = toasts.find((entry) => entry.id === id);
   if (!toast || toast.leaving) return;
-  toast.leaving = true;
+  toasts = toasts.map((entry) => (entry.id === id ? { ...entry, leaving: true } : entry));
   emit();
   window.setTimeout(() => {
-    const index = toasts.findIndex((entry) => entry.id === id);
-    if (index === -1) return;
-    toasts.splice(index, 1);
+    if (!toasts.some((entry) => entry.id === id)) return;
+    toasts = toasts.filter((entry) => entry.id !== id);
     emit();
   }, TOAST_EXIT_MS);
 }
@@ -1131,11 +1199,15 @@ export async function applyM2NexProfile(index = activeM2NexProfile): Promise<voi
     }
 
     const status = await statusAfterWrite(active as SupportedClient);
-    applyStatus(status);
-    m2nexProfileDirty = false;
-    persistM2NexProfiles();
-    setReadStatus(st("m2nex.applyDone", { name: profile.name }));
-    pushToast("success", st("m2nex.applied", { name: profile.name }), st("m2nex.appliedDetail"));
+    // One render for the whole success tail: the status above already flushed
+    // through applyStatus, so hold the flag/toast/status-line updates together.
+    batch(() => {
+      applyStatus(status);
+      m2nexProfileDirty = false;
+      persistM2NexProfiles();
+      setReadStatus(st("m2nex.applyDone", { name: profile.name }));
+      pushToast("success", st("m2nex.applied", { name: profile.name }), st("m2nex.appliedDetail"));
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : st("m2nex.applyError");
     setReadStatus(message);
@@ -1430,37 +1502,41 @@ async function callClientMethod(method: string, setting: string, value: unknown)
 }
 
 function stageChange(change: PendingChange): void {
-  if (settingInProgress) {
-    setReadStatus(st("ctl.waitFlash"));
-    return;
-  }
-  if (gameProfileDraft) {
-    const fields = gameProfileFieldsOf(change);
-    if (!fields) {
-      pushToast("error", st("ctl.notInGameProfile"), change.label);
+  // stagePendingChange + onPendingChanges listener + setReadStatus each emit;
+  // hold them so one edit renders once.
+  batch(() => {
+    if (settingInProgress) {
+      setReadStatus(st("ctl.waitFlash"));
+      return;
+    }
+    if (gameProfileDraft) {
+      const fields = gameProfileFieldsOf(change);
+      if (!fields) {
+        pushToast("error", st("ctl.notInGameProfile"), change.label);
+        emit();
+        return;
+      }
+      for (const field of fields) gameProfileDraft.touched.add(field);
+    }
+    // Reset repairs the profile cache too, so it must run even when the current
+    // hardware snapshot already appears to match the factory mapping.
+    if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
+      dropPendingChange(change.key);
+      setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
+      return;
+    }
+    stagePendingChange(change);
+    if (gameProfileDraft) {
       emit();
       return;
     }
-    for (const field of fields) gameProfileDraft.touched.add(field);
-  }
-  // Reset repairs the profile cache too, so it must run even when the current
-  // hardware snapshot already appears to match the factory mapping.
-  if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
-    dropPendingChange(change.key);
-    setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
-    return;
-  }
-  stagePendingChange(change);
-  if (gameProfileDraft) {
-    emit();
-    return;
-  }
-  if (interfacePreferences.instantFlash) {
-    queueInstantFlash();
-    emit();
-    return;
-  }
-  setReadStatus(st("ctl.stagedFlash", { label: change.label }));
+    if (interfacePreferences.instantFlash) {
+      queueInstantFlash();
+      emit();
+      return;
+    }
+    setReadStatus(st("ctl.stagedFlash", { label: change.label }));
+  });
 }
 
 function queueInstantFlash(): void {
@@ -1492,8 +1568,14 @@ function matchesDeviceStatus(change: PendingChange): boolean {
 
 export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
-  clearPendingChanges();
-  setReadStatus(st("ctl.discarded"));
+  batch(() => {
+    clearPendingChanges();
+    // clearPendingChanges() notifies the onPendingChanges listener, which
+    // already drops stale nape assignments — but belt-and-braces here so a
+    // reverted select can never linger even if that listener ever moves.
+    dropStaleNapeAssignments();
+    setReadStatus(st("ctl.discarded"));
+  });
 }
 
 // A draft change is kept only if applyGameProfileSnapshot can reproduce it
@@ -2394,21 +2476,25 @@ async function flashStagedChanges(): Promise<FlashResult> {
     }
   }
   try {
-    for (const batch of batches) {
+    for (const group of batches) {
       if (failure) break;
-      const writer = batch[batch.length - 1];
+      const writer = group[group.length - 1];
       if (!writer) continue;
       pendingStatusText = `${writer.progress} (${written + 1} of ${batches.length})`;
       readStatus = writer.progress;
       emit();
       await flashPause();
       if (!isGameProfileOwner(owner)) break;
-      for (const change of batch) recordDiagnosticCommand(change.command);
+      batch(() => {
+        for (const change of group) recordDiagnosticCommand(change.command);
+      });
       if (!isGameProfileOwner(owner)) break;
       await writer.apply();
       if (!isGameProfileOwner(owner)) break;
-      for (const change of batch) dropPendingChange(change.key);
-      written += batch.length;
+      batch(() => {
+        for (const change of group) dropPendingChange(change.key);
+      });
+      written += group.length;
     }
   } catch (error) {
     recordDiagnosticError(error, st("ctl.unableFlash"));
@@ -2449,16 +2535,25 @@ async function flashStagedChanges(): Promise<FlashResult> {
 }
 
 function endDeviceWrite(): void {
-  settingInProgress = false;
-  const retryProfiles = onboardReloadDeferred && onboardProfiles === null && !onboardProfilesLoading;
-  onboardReloadDeferred = false;
-  syncProfileDerivedState();
-  emit();
-  if (retryProfiles) void reloadOnboardProfiles();
+  batch(() => {
+    settingInProgress = false;
+    const retryProfiles = onboardReloadDeferred && onboardProfiles === null && !onboardProfilesLoading;
+    onboardReloadDeferred = false;
+    syncProfileDerivedState();
+    emit();
+    if (retryProfiles) void reloadOnboardProfiles();
+  });
 }
-
+let localeTableRevision = 0;
+let prefsSaveWarned = false;
 function saveInterfacePreferences(): void {
-  persistInterfacePreferences(localStorage, interfacePreferences);
+  const saved = persistInterfacePreferences(localStorage, interfacePreferences);
+  // The in-memory value still applies for this session; warn once that a
+  // reload will lose it. Hardcoded English like the other edge-path toasts.
+  if (!saved && !prefsSaveWarned) {
+    prefsSaveWarned = true;
+    pushToast("warning", "Settings will not be saved", "This browser blocked storage, so the change applies until reload.");
+  }
   emit();
 }
 
@@ -2469,8 +2564,14 @@ export function setPreference<K extends keyof InterfacePreferences>(
   interfacePreferences = { ...interfacePreferences, [key]: value };
   saveInterfacePreferences();
   // Locale tables load lazily; re-render once the table arrives so a switch
-  // never sticks on English fallback strings.
-  if (key === "locale" && value !== "en") void ensureDisplayLocale(value as InterfaceLocale).then(() => emit());
+  // never sticks on English fallback strings. The revision bump refreshes
+  // memoized components whose text depends on table contents.
+  if (key === "locale" && value !== "en") {
+    void ensureDisplayLocale(value as InterfaceLocale).then(() => {
+      localeTableRevision += 1;
+      emit();
+    });
+  }
 }
 
 /** Re-render subscribers without changing state (e.g. after a lazy asset
@@ -2506,6 +2607,8 @@ export function closeInterfaceSettings(): void {
 
 export function setWorkspaceTab(tab: WorkspaceTab): void {
   activeWorkspaceTab = tab;
+  // A command confirmation belongs to the tab it was made on; an error stays until the next command.
+  if (keyboardStatusText && [st("kb.updated"), st("kb.sent"), st("kb.writeOnly")].includes(keyboardStatusText)) keyboardStatusText = null;
   emit();
 }
 
@@ -2571,10 +2674,10 @@ function recordDiagnosticCommand(command: string): void {
   renderDeviceDiagnostics(latestDiagnosticStatus);
 }
 
-/** Model-level facts about the active device for analytics: no serials or ids. */
-function activeDeviceFacts(): { vendorId: number; productId: number; productName: string } | undefined {
+/** Numeric ids plus driver brand for analytics: never free-text names or serials. */
+function activeDeviceFacts(): { vendorId: number; productId: number; brand: string } | undefined {
   return activeDevice
-    ? { vendorId: activeDevice.vendorId, productId: activeDevice.productId, productName: activeDevice.productName }
+    ? { vendorId: activeDevice.vendorId, productId: activeDevice.productId, brand: latestDeviceStatus?.brand ?? "Unknown" }
     : undefined;
 }
 
@@ -2884,9 +2987,12 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   const charging = batteryMode(status.batteryState) === "charging" ? "⚡" : "";
   setPageTitle(battery === null ? status.name : `${charging}${battery}% - ${status.name}`);
 
+  // The sidebar lists devices, not live status: it refreshes on attach/detach
+  // paths (activation, connect/disconnect), not on every status poll.
+  // Refreshing it here would re-enumerate HID and rebuild entries on every
+  // status poll, racing the content above which just rendered from this status.
   if (activeDevice) {
     deviceStatuses.set(activeDevice, deviceStatus);
-    void refreshSidebar();
   }
   deviceStatusText = st("ctl.connected");
 
@@ -2952,7 +3058,7 @@ async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
       ? "bridge"
       : "webhid";
     const selected = group.some((member) => member === activeDevice);
-    const client = await createSupportedClient(device);
+    const client = await listingClient(device, selected ? active : null);
     if (!client) {
       const keyboard = createKeyboardClient(device);
       if (!keyboard) continue;
@@ -3063,6 +3169,11 @@ async function waitForControllerIdle(): Promise<void> {
   while (settingInProgress || refreshInProgress || activationInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
+}
+
+/** The WebHID devices this origin may open, or none when WebHID is missing or refuses. */
+async function authorizedHidDevices(): Promise<HIDDevice[]> {
+  return await navigator.hid?.getDevices().catch(() => []) ?? [];
 }
 
 /** A wedged OpenMouse Bridge rejects getDevices(); toast it instead of failing silently. */
@@ -3258,8 +3369,9 @@ export function clearKeyboardSelection(): void {
 export async function applyKeyboardCommand(command: KeyboardCommand): Promise<void> {
   const client = activeKeyboard;
   if (!client || keyboardBusy) return;
+  const telemetry = command.kind === "keychronKeyTravel";
   keyboardBusy = true;
-  keyboardStatusText = st("kb.applying");
+  if (!telemetry) keyboardStatusText = st("kb.applying");
   emit();
   try {
     const update = await client.command(command);
@@ -3281,16 +3393,47 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
     }
-    keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
+    if (!telemetry) keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
       ? st("kb.sent")
       : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
         ? st("kb.writeOnly")
         : st("kb.updated");
   } catch (error) {
     if (activeKeyboard !== client) return;
+    const recovered = client.recoveredWorkspace?.();
+    if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
     keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
+  }
+}
+
+/** Reopen the active keyboard after its driver marked the session unusable. */
+export async function reconnectKeyboard(): Promise<void> {
+  const previous = activeKeyboard;
+  if (!previous || keyboardBusy) return;
+  const next = createKeyboardClient(previous.device);
+  if (!next) return;
+  keyboardBusy = true;
+  keyboardStatusText = st("kb.applying");
+  emit();
+  try {
+    await previous.close().catch(() => undefined);
+    if (activeKeyboard === previous) await activateClient(next, false, previous);
+  } finally {
+    if (activeKeyboard === previous) { keyboardBusy = false; emit(); }
+  }
+}
+
+/** The keys held down right now, or null when nothing can be read. Deliberately silent: no busy flag, status text or redraw. */
+export async function probeKeyboardKeys(): Promise<readonly number[] | null> {
+  const client = activeKeyboard;
+  if (!client?.probeKeys || keyboardBusy) return null;
+  try {
+    const keys = await client.probeKeys();
+    return activeKeyboard === client ? keys : null;
+  } catch {
+    return null;
   }
 }
 
@@ -3583,7 +3726,13 @@ async function readReceiverRegisterF1(
 }
 
 /** Activate a mouse client and remember it as the preferred device. */
-async function activateClientNow(client: SupportedClient): Promise<void> {
+/**
+ * `rememberReceiver: false` connects a receiver's mouse without recording it:
+ * the sibling fallback after a failed keyboard read cannot tell "no keyboard
+ * paired" from a keyboard that failed to answer, so the record would push a
+ * real keyboard aside on every later connect.
+ */
+async function activateClientNow(client: SupportedClient, options: { rememberReceiver?: boolean } = {}): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
@@ -3634,6 +3783,11 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
         lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
       }
       deviceStatuses.set(client.device, status);
+      // A receiver the keyboard drivers claim just answered as a mouse: remember
+      // it so it lists and reconnects as one from now on (#1362).
+      if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
+        rememberMouseReceiver(client.device);
+      }
       // Optional setters/getters are runtime capabilities of the selected
       // client. Populate them before rendering so controls such as RAWM angle
       // tuning are editable on the first status snapshot.
@@ -3661,6 +3815,8 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     setConnectionButtons(false, "Add device");
     pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
   } catch (error) {
+    // The receiver may carry a keyboard now; let the next connect probe that first.
+    forgetMouseReceiver(client.device);
     // A failed activation must not leave the closed client as the active one:
     // that hides the empty state and blocks reconnectAuthorizedDevice.
     if (active === client) {
@@ -3694,9 +3850,13 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
     keyboardIdentity = await client.readIdentity();
     keyboardPolling = client.readPolling ? await client.readPolling() : null;
   } catch (error) {
-    const receiverMouse = (error instanceof Error && /no supported keyboard paired/i.test(error.message))
+    // A shared receiver with a mouse behind it: a Logitech receiver answers
+    // "no supported keyboard paired" and its own interface opens as the mouse;
+    // a Keychron Link-KM's mouse sits on another interface of the receiver.
+    const noKeyboardPaired = error instanceof Error && /no supported keyboard paired/i.test(error.message);
+    const receiverMouse = noKeyboardPaired
       ? await createMouseClient(client.device).catch(() => null)
-      : null;
+      : await siblingMouseClient(client.device, await authorizedHidDevices()).catch(() => null);
     if (receiverMouse) {
       await client.close().catch(() => undefined);
       keyboardBusy = false;
@@ -3706,7 +3866,8 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
       deviceStatusText = st("ctl.opening");
       readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
       emit();
-      await activateClientNow(receiverMouse);
+      // Only "no supported keyboard paired" proves there is no keyboard to find.
+      await activateClientNow(receiverMouse, { rememberReceiver: noKeyboardPaired });
       return;
     }
     await client.close().catch(() => undefined);
@@ -3760,11 +3921,12 @@ async function loadKeyboardTrigger(client: KeyboardClient): Promise<void> {
 }
 
 /** Queue a device activation so only one keyboard/mouse switch runs at a time. */
-function activateClient(target: SupportedClient | KeyboardClient, autoConnect = false): Promise<void> {
+function activateClient(target: SupportedClient | KeyboardClient, autoConnect = false, expectedKeyboard?: KeyboardClient): Promise<void> {
   const run = activationQueue.then(async () => {
     // The queued body reads the lazy driver tables (accessors, preview
     // stand-ins); nothing may set `active` before they exist.
     await ensureDriverModules();
+    if (expectedKeyboard && activeKeyboard !== expectedKeyboard) return;
     activationInProgress = true;
     try {
       if (autoConnect && !isKeyboardClient(target)) {
@@ -4050,10 +4212,10 @@ export async function connect(): Promise<void> {
   readStatus = st("ctl.choosePrompt");
   emit();
 
-  let attempted: { vendorId: number; productId: number; productName: string } | undefined;
+  let attempted: { vendorId: number; productId: number } | undefined;
   try {
     const client = await requestSupportedClient((device) => {
-      attempted = { vendorId: device.vendorId, productId: device.productId, productName: device.productName };
+      attempted = { vendorId: device.vendorId, productId: device.productId };
     });
     if (!client) {
       deviceStatusText = st("ctl.notConnected");
@@ -7505,7 +7667,22 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
   return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
 }
 
-async function showFixturePreview(name: PreviewMode): Promise<void> {
+/** Show an Arbiter keyboard from invented data; nothing is read from or written to a device. */
+async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
+  const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
+  const client = new ArbiterPreviewClient(name);
+  activeDevice = client.device;
+  activeKeyboard = client;
+  keyboardIdentity = await client.readIdentity();
+  keyboardWorkspace = { ...keyboardWorkspace, ...await client.command({ kind: "refresh" }) };
+  sidebarDevices = [{ index: 0, name: client.name, detail: "", selected: true, vendorId: client.device.vendorId, productId: client.device.productId, kind: "keyboard", transport: "webhid" }];
+  setConnectionButtons(true, "Preview mode");
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, arbiterPreviewLabel(name)) }));
+  deviceListView = "device";
+  emit();
+}
+
+async function showFixturePreview(name: Exclude<PreviewMode, KeyboardPreviewMode>): Promise<void> {
   // Fixture previews build stand-in clients from the real driver prototypes;
   // the module has to be here before the fixture activates.
   await ensureDriverModules();
@@ -7580,6 +7757,8 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65") {
+    void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {
     void showFixturePreview(previewMode).then(() => {
       if (latestDeviceStatus !== null) deviceListView = "device";
