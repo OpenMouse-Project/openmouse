@@ -406,7 +406,7 @@ export const ar: Record<I18nKey, string> = {
   "perf.wired": "سلكي",
   "perf.wireless": "لاسلكي",
   "perf.gamingSurface": "سطح الألعاب",
-  "perf.surfaceNote": "يضبط المستشعر للماوس باد المخصصة للألعاب. خيار «تلقائي» يترك التعين للماوس؛ أوقفه إذا واجهت مشاكل في التتبع على سطوح أخرى.",
+  "perf.surfaceNote": "يضبط المستشعر للماوس باد المخصصة للألعاب. خيار «تلقائي» يترك التعيين للماوس؛ أوقفه إذا واجهت مشاكل في التتبع على سطوح أخرى.",
   "perf.scanningMode": "Sensor scanning mode",
   "perf.scanningNote": "HIGH is the default sensor frame rate. ACCEL pins the sensor to high performance and uses more battery.",
   "perf.dynSens": "DPI acceleration",
