@@ -1299,6 +1299,7 @@ export const de: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "Modifikatoren",
   "kb.arbCatMedia": "Medien",
   "kb.arbCatSpecial": "Spezial",
+  "kb.arbCatOnboard": "Onboard-Funktionen",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap ist Arbiters Name für SOCD-Behandlung: Solange beide Tasten des Paares gehalten werden, wird nur die zuletzt gedrückte gesendet. Wähle das Paar unten. Die genaue Regel, etwa beim Loslassen, ist nicht bestätigt. Modus- und Flag-Wert werden so zurückgeschrieben, wie die Tastatur sie gemeldet hat.",
   "kb.arbSuperTapEnable": "SuperTap aktivieren",

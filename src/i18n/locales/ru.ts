@@ -1271,6 +1271,7 @@ export const ru: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "Модификаторы",
   "kb.arbCatMedia": "Медиа",
   "kb.arbCatSpecial": "Специальные",
+  "kb.arbCatOnboard": "Встроенные функции",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap это название Arbiter для обработки SOCD: пока удерживаются обе клавиши пары, передаётся только последняя нажатая. Выберите пару ниже. Точное правило, например при отпускании, не подтверждено. Значения режима и флага записываются так, как их сообщила клавиатура.",
   "kb.arbSuperTapEnable": "Включить SuperTap",

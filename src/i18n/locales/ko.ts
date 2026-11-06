@@ -1271,6 +1271,7 @@ export const ko: Record<I18nKey, string> = {
   "kb.arbCatModifiers": "보조 키",
   "kb.arbCatMedia": "미디어",
   "kb.arbCatSpecial": "특수",
+  "kb.arbCatOnboard": "온보드 기능",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap은 Arbiter가 SOCD 처리에 붙인 이름으로, 한 쌍의 두 키를 동시에 누르고 있으면 마지막에 누른 키만 전송됩니다. 아래에서 쌍을 선택하세요. 키를 뗄 때의 동작 등 정확한 규칙은 확인되지 않았습니다. 모드와 플래그 값은 키보드가 보고한 값 그대로 다시 씁니다.",
   "kb.arbSuperTapEnable": "SuperTap 사용",
