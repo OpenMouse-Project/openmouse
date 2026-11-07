@@ -43,6 +43,7 @@ export const PREVIEW_KEYS = [
   "terra-pro",
   "logitech-legacy",
   "steelseries-gen2",
+  "incott",
   "arbiter-polar-65-pro",
   "arbiter-polar-65",
 ] as const;
@@ -99,6 +100,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "rawm-v4-gt": return "rawm-v4-gt";
     case "logitech-legacy": return "logitech-legacy";
     case "steelseries-gen2": return "steelseries-gen2";
+    case "incott": return "incott";
     case "arbiter-polar-65-pro": return "arbiter-polar-65-pro";
     case "arbiter-polar-65": return "arbiter-polar-65";
     default: return null;
