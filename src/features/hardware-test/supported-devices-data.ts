@@ -92,6 +92,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Redragon", model: "M696 Pro", status: "driver" },
   { brand: "Redragon", model: "M721 Pro", status: "driver" },
   { brand: "Redragon", model: "M724 K1NG 1K", status: "supported", pids: [0xfc7a] },
+  { brand: "Redragon", model: "M719 Invader Pro", status: "supported", pids: [0xfa7e, 0xfab0] },
   { brand: "Fater", model: "MCR-9000B", status: "pr", pids: [0xa09f] },
   { brand: "AJAZZ", model: "NJ07 MC", status: "pr", pids: [0x2167] },
   { brand: "AJAZZ", model: "NJ08 MC", status: "pr", pids: [0x2168] },
