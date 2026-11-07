@@ -35,9 +35,15 @@ import { join } from "node:path";
 // protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
 // L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
 // (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
+//
+// 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 adds the Redgear X13 Pro,
+// AJAZZ AJ200 AI, Redragon M719RGB-PRO, ROCCAT Kone Pro Air and Tt eSPORTS
+// Iris drivers and Incott macro bindings, about 78 kB of JS (3,816,915 ->
+// 3,894,419 bytes measured); wiring the Iris into the panel adds 379 bytes.
+// main is 1,414,077 bytes, below its cap.
 export const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
-  ".js": 3_850_000,
+  ".js": 3_930_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
