@@ -138,6 +138,7 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\ba7\s*v2\b/i.test(displayName)) return "mchose-a7-v2.png";
   if (/\ba950\s*pro\s*mg\b/i.test(displayName)) return "dareu-a950-pro-mg.png";
   if (/\bmm711\b/i.test(displayName)) return "coolermaster-mm711.png";
+  if (/\baula\s+sc380\s*pro\b/i.test(displayName)) return "aula-sc380-pro.png";
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";

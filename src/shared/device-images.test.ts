@@ -373,3 +373,9 @@ test("the load-error placeholder follows the device kind", () => {
   assert.equal(placeholderImage("mouse"), CDN + "unknown-device.png");
   assert.equal(placeholderImage("keyboard"), "/devices/unknown-keyboard.png");
 });
+
+test("AULA SC380 Pro resolves its own artwork by name", () => {
+  assert.equal(deviceImage(null, "AULA SC380 Pro"), CDN + "aula-sc380-pro.png");
+  assert.equal(deviceImage(null, "Aula SC380Pro"), CDN + "aula-sc380-pro.png");
+  assert.equal(isUnknownDevice(null, "AULA SC380"), true);
+});
