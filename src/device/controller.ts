@@ -26,6 +26,7 @@ import {
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
 import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
+import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
@@ -367,6 +368,12 @@ let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+
+/** Store a device's status, and remember its mouse's name for the next visit. */
+function recordDeviceStatus(device: HIDDevice, status: MouseStatus): void {
+  deviceStatuses.set(device, status);
+  rememberDeviceName(device, status.name);
+}
 
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
@@ -2992,7 +2999,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   // Refreshing it here would re-enumerate HID and rebuild entries on every
   // status poll, racing the content above which just rendered from this status.
   if (activeDevice) {
-    deviceStatuses.set(activeDevice, deviceStatus);
+    recordDeviceStatus(activeDevice, deviceStatus);
   }
   deviceStatusText = st("ctl.connected");
 
@@ -3078,8 +3085,11 @@ async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
       continue;
     }
     const status = deviceStatuses.get(device);
+    // A mouse not opened since the reload keeps the name it last reported,
+    // rather than its receiver's ("SCYROX 8K Dongle", "USB Receiver").
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
+      ?? rememberedDeviceName(device)
       ?? (C().isEggWeClient(client)
         ? C().EGG_WE_DISPLAY_NAME
         : isA(client, CM()?.FinalmouseHidClient)
@@ -3782,7 +3792,7 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
       else if (keychron) {
         lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
       }
-      deviceStatuses.set(client.device, status);
+      recordDeviceStatus(client.device, status);
       // A receiver the keyboard drivers claim just answered as a mouse: remember
       // it so it lists and reconnects as one from now on (#1362).
       if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
@@ -3971,7 +3981,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   await client.readDeviceInfo();
   const status = await client.readStatus();
   dpiOptions = client.getDpiOptions();
-  deviceStatuses.set(client.device, status);
+  recordDeviceStatus(client.device, status);
   capabilities = readCapabilities();
   applyStatus(status);
   startAutomaticRefresh();
@@ -4035,7 +4045,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       if (result.action === "refresh") {
         try {
           const status = await result.client.readStatus();
-          deviceStatuses.set(result.client.device, status);
+          recordDeviceStatus(result.client.device, status);
           applyStatus(status);
           startAutomaticRefresh();
         } catch {
@@ -5746,7 +5756,7 @@ export async function resetLogitechProfiles(): Promise<void> {
     editedProfile = onboardProfiles[0]?.sector ?? "host";
     lastDeviceMode = "Onboard";
     const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
+    recordDeviceStatus(client.device, status);
     applyStatus(status);
     readStatus = st("ctl.resetDone");
     onboardStatus = st("ctl.resetComplete");
@@ -5791,7 +5801,7 @@ export async function setUpLogitechProfiles(): Promise<void> {
     editedProfile = onboardProfiles[0]?.sector ?? "host";
     lastDeviceMode = "Onboard";
     const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
+    recordDeviceStatus(client.device, status);
     applyStatus(status);
     readStatus = st("ctl.resetDone");
     onboardStatus = st("ctl.resetComplete");
