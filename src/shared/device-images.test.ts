@@ -105,6 +105,14 @@ test("Delux M800 Mini and M800 family resolve by name", () => {
   assert.equal(deviceImage(null, "Delux M800 Pro"), "/devices/delux-m800-mini.png");
 });
 
+test("Scyrox V8, V6 and V8S resolve by the name read from the mouse", () => {
+  assert.equal(deviceImage(null, "Scyrox V8"), CDN + "scyrox-v8.png");
+  assert.equal(deviceImage(null, "Scyrox V6"), CDN + "scyrox-v6.png");
+  assert.equal(deviceImage(null, "Scyrox V8S"), CDN + "scyrox-v8s.png");
+  // The dongle's own name is not a model name, so it keeps the placeholder.
+  assert.notEqual(deviceImage(null, "SCYROX 8K Dongle"), CDN + "scyrox-v8.png");
+});
+
 test("ROG Harpe Ace Aim Lab Edition resolves by name on every connection", () => {
   assert.equal(deviceImage(null, "ROG Harpe Ace Aim Lab Edition"), "/devices/asus-rog-harpe-ace-aim-lab.png");
   assert.equal(deviceImage(null, "ROG Omni receiver"), CDN + "unknown-device.png");
