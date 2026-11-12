@@ -22,6 +22,7 @@ export interface SupportedDeviceEntry {
   brand: string;
   model: string;
   status: SupportedDevicesStatus;
+  /** Known product ids from the page table (hex), when the driver pins them. */
   pids?: readonly number[];
 }
 
@@ -420,6 +421,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Angry Miao", model: "Infinity .97", status: "unknown" },
   { brand: "Dark Project", model: "Novus SE", status: "unknown" },
   { brand: "Scyrox", model: "V8", status: "unknown" },
+  { brand: "Scyrox", model: "V8S", status: "supported", pids: [0xf515, 0xf517] },
   { brand: "Mchose", model: "AX5", status: "unknown" },
   { brand: "AJAZZ", model: "AJ139 Pro", status: "unknown" },
   { brand: "AJAZZ", model: "AJ199", status: "unknown" },

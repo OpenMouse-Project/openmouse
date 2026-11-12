@@ -45,6 +45,11 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   vgn: SHARED_ADVANCED,
   wlmouse: DIRECT_MODE,
   lamzu: DIRECT_MODE,
+  // The Atlantis client (Lamzu Atlantis, Scyrox V8S) stores debounce and sleep
+  // in flash and publishes its own debounce ceiling (15 ms), which only the
+  // direct-mode path reads. Without the entry the sleep card still appeared
+  // through its option list, but the debounce card never did.
+  "lamzu-atlantis": DIRECT_MODE,
   lunafury: DIRECT_MODE,
   "attack-shark": DIRECT_MODE,
   bytech: DIRECT_MODE,
