@@ -61,6 +61,7 @@ import {
   DpiLightingCard,
   TmrDsCard,
 } from "./cards/AdvancedCards";
+import { IncottMacroCard } from "./cards/IncottMacroCard";
 import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage } from "../../shared/device-images";
@@ -399,6 +400,7 @@ export function Workspace({
   const macro = [
     show(has.ksnakeMacros, ["macro"]) ? <KsnakeMacroCard key="ksnake-macros" snapshot={snapshot} /> : null,
     show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
+    show(has.incottMacros, ["macro"]) ? <IncottMacroCard key="incott-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [

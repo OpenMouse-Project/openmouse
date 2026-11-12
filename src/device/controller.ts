@@ -25,7 +25,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
-import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
+import { forgetMouseReceiver, receiverKey, rememberMouseReceiver } from "./mouse-receivers";
 import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
@@ -143,6 +143,7 @@ import type { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import type { WLMouseBeastX4kHidClient } from "@openmouse/protocol/drivers/wlmouse/beast-x-4k-hid";
 import type { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import type { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
+import type { IncottMacro } from "@openmouse/protocol/incott";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
@@ -6792,6 +6793,10 @@ export function applyPowerMode(mode: string): void {
  * above, which reassigns a Logitech control by id.
  */
 export function applyDeviceButtonMapping(button: string, action: string): void {
+  // A staged Incott macro upload ends by binding the button to Macro. A later
+  // remap to anything else supersedes it, and must do so even when stageChange
+  // drops the remap as "already matches", or Apply would still bind Macro.
+  if (action !== "Macro") dropPendingChange(`incott-macro-${button}`);
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
@@ -7201,6 +7206,53 @@ export function applyFinalmouseProfileName(index: number, name: string): void {
       await requireSlxWrite("setProfileName", "profile name").setProfileName(index, trimmed);
     },
   });
+}
+
+/**
+ * Uploads one Incott macro into the buffer belonging to its button.
+ *
+ * The buffer is not a free choice: a button runs the buffer carrying its own
+ * index and no other, so the caller passes the button and `uploadMacro` is
+ * given the matching `bufferId` (see `incottMacroSlotForButton`).
+ *
+ * The device accepts a macro buffer and offers no command to return one, so
+ * this stages and applies like the rest but carries no preview. A macro is not
+ * part of MouseStatus, and matchesDeviceStatus treats a preview that changes
+ * nothing as "already matches" and drops the change, which silently discarded
+ * every upload before it reached the mouse. Without a preview it also cannot
+ * join a game profile draft, which is right: a profile cannot restore a macro.
+ *
+ * The button is re-bound after every upload, even when it already runs its
+ * macro. HARDWARE-CONFIRMED 2026-11-06: the loop mode takes effect when the
+ * binding is written, and the separate binding change is dropped as "already
+ * matches" once a button is on Macro, so without this new steps played under
+ * the OLD loop mode. The vendor writes the binding after every upload too
+ * (`captures/incott-8k-wireless/macro-loop-modes-2026-09-14.hex`).
+ */
+export function applyIncottMacro(button: string, macro: IncottMacro, onApplied?: () => void): void {
+  stageChange({
+    key: `incott-macro-${button}`,
+    label: `${button} macro: ${macro.steps.length} steps`,
+    command: `Save the ${button} button's macro to the mouse`,
+    progress: `Saving the ${button} macro…`,
+    apply: async () => {
+      const client = incottClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.uploadMacro(macro);
+      await client.setButtonMapping(button, "Macro");
+      // The caller records "this button runs this macro" only once the mouse
+      // has it, so a discarded or failed change leaves nothing stale behind.
+      onApplied?.();
+    },
+  });
+}
+
+/**
+ * The key a saved macro assignment is filed under: the connected mouse, so one
+ * Incott mouse's assignments are never read as another's. Null with no device.
+ */
+export function incottMacroDeviceKey(): string | null {
+  return activeDevice ? receiverKey(activeDevice) : null;
 }
 
 /**

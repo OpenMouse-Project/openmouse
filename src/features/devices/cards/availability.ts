@@ -27,6 +27,7 @@ export interface CardAvailability {
   perfectPolling: boolean;
   finalmouseProfiles: boolean;
   incott: boolean;
+  incottMacros: boolean;
   lunafuryButtons: boolean;
   lunafuryWheelGuard: boolean;
   dongleLed: boolean;
@@ -81,6 +82,7 @@ const NOTHING: CardAvailability = {
   perfectPolling: false,
   finalmouseProfiles: false,
   incott: false,
+  incottMacros: false,
   lunafuryButtons: false,
   lunafuryWheelGuard: false,
   dongleLed: false,
@@ -208,6 +210,11 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // actually reported.
     incott: host
       && (status.incottFireKeyTimes != null || status.incottReceiverLedMode != null),
+    // Macros are authored here and uploaded; the mouse cannot report one back.
+    // A driver that offers the per-button "Macro" action is the one that can
+    // bind a button to its own buffer, so that option is the gate.
+    incottMacros: ui?.family === "incott" && Boolean(status.buttonMappings)
+      && Boolean(status.buttonOptions?.includes("Macro")),
     lunafuryButtons: host && status.brand === "LunaFury" && (
       status.lunafury?.lightningMode != null || status.lunafury?.leftDebounceMs != null
       || status.lunafury?.rightDebounceMs != null || status.lunafury?.middleDebounceMs != null

@@ -739,3 +739,19 @@ test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profil
   assert.equal(cards.sleep, false);
   assert.equal(cards.signal, false);
 });
+
+test("Incott macros follow a driver that can bind a button to its own macro", () => {
+  const incott = (buttonOptions: string[]) => cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      name: "G23V2 Pro",
+      ui: { family: "incott", showAdvancedSection: true },
+      buttonMappings: { Left: "Left click" },
+      buttonOptions,
+    },
+  }));
+  assert.equal(incott(["Left click", "Macro"]).incottMacros, true);
+  // An older driver has no per-button "Macro" action, and a macro uploaded
+  // without one cannot be bound to the buffer it went into.
+  assert.equal(incott(["Left click"]).incottMacros, false);
+});

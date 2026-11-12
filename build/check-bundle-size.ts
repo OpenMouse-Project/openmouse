@@ -36,6 +36,12 @@ import { join } from "node:path";
 // L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
 // (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
 //
+// 2026-11-06: Incott macro card (library, recorder, step editor, button
+// assignment) and its strings in every locale add about 33 kB of JS, measured
+// against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
+// of that build's growth is protocol drivers released since 0.52.0). Main is
+// 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
+//
 // 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 (six releases of new and
 // extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
 // measured in the Update Mouse Protocol workflow); main grew 27.7 kB to

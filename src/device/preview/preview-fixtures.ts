@@ -1070,6 +1070,65 @@ const STEELSERIES_GEN2: MouseStatus = {
 };
 
 /**
+ * Incott G23 Pro on the 8K dongle, from a real read (the hardware test in
+ * mouse-protocol `captures/incott-g23-pro/`). The button options are trimmed
+ * and Back is shown running a macro; the trailing "Macro" option is what turns
+ * on the macro card.
+ */
+const INCOTT: MouseStatus = {
+  brand: "Incott",
+  name: "G23 Pro",
+  ui: {
+    family: "incott",
+    showAdvancedSection: true,
+    hideSignalCard: true,
+    defaultDisplayName: "G23 Pro",
+    settingsReady: true,
+    valuesVerified: true,
+    forceShowBattery: true,
+    hideUnsupportedPollingRates: true,
+    pollingNote: "Up to 8,000 Hz wireless; 1,000 Hz over the cable.",
+    dpiStageEditor: { maxStages: 6, countEditable: true, minDpi: 50, maxDpi: 45000, stepDpi: 50 },
+  },
+  dpi: 1600,
+  dpiY: 1600,
+  supportsSeparateDpiAxes: true,
+  incottReceiverLedMode: 1,
+  incottFireKeyTimes: 3,
+  incottFireKeyIntervalMs: 10,
+  dpiStages: [400, 800, 1600, 2400, 3200, 6400],
+  activeDpiStage: 2,
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  connectionType: "Wireless",
+  batteryPercent: 82,
+  batteryState: "Discharging",
+  liftOffDistance: "Low",
+  supportedLiftOffDistances: ["Low", "Medium", "High"],
+  buttonMappings: {
+    Left: "Left click",
+    Right: "Right click",
+    Middle: "Middle click",
+    Forward: "Forward",
+    Back: "Macro",
+    DPI: "DPI cycle",
+  },
+  buttonOptions: [
+    "Left click", "Right click", "Middle click", "Forward", "Back", "DPI cycle", "DPI +", "DPI -",
+    "Rapid fire", "Play/Pause", "Volume up", "Volume down", "Macro",
+  ],
+  motionSync: true,
+  rippleControl: true,
+  angleSnapping: false,
+  debounceMs: 8,
+  sleepTimeout: 30,
+  powerMode: "Corded",
+  powerModes: ["HP", "Corded", "LP"],
+  firmware: ["Identity 01 02 02 f0 f1 00 02"],
+};
+
+/**
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
  */
@@ -1109,4 +1168,5 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "rawm-v4-gt": { label: "RAWM Leviathan V4 GT", status: RAWM_V4_GT },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
   "steelseries-gen2": { label: "SteelSeries Rival 3 Wireless Gen 2", status: STEELSERIES_GEN2 },
+  incott: { label: "Incott G23 Pro", status: INCOTT },
 };

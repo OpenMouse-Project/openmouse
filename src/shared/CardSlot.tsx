@@ -34,6 +34,7 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "ksnake-scroll": Disc3,
   "ksnake-macros": Command,
   "wallhack-macros": Command,
+  "incott-macros": Command,
   signal: Wifi,
   sleep: Moon,
   lighting: Lightbulb,
@@ -61,7 +62,7 @@ export function iconForCard(key: string): LucideIcon | null {
   for (const [pattern, icon] of FEATURE_ICONS) if (pattern.test(key)) return icon;
   return null;
 }
-const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "lighting-tab", "button-mapping"]);
+const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "incott-macros", "lighting-tab", "button-mapping"]);
 
 export function slotCards(cards: readonly ReactNode[]): ReactNode[] {
   return Children.toArray(cards).map((card) => {
