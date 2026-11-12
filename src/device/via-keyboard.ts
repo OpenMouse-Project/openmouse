@@ -284,9 +284,9 @@ export type ViaKeyboardCommand =
 
 export const viaValueKey = (ids: readonly number[]): string => ids.join(":");
 
-/** The one-id address old firmware (protocol 10 and older) uses for the lighting a v2 definition names; null when `ids` apply. */
+/** The one-id address old firmware (protocol 10 and older) uses for the lighting a v2 definition names, plus any slot after `[channel, id]`; null when `ids` apply. */
 const legacyWire = (item: ViaMenuItem, protocol: number): readonly number[] | null =>
-  protocol < 11 && item.legacyId !== undefined ? [item.legacyId] : null;
+  protocol < 11 && item.legacyId !== undefined ? [item.legacyId, ...item.ids.slice(2)] : null;
 /** A colour is two bytes (hue, saturation) whatever the definition says. */
 export const viaItemLength = (item: ViaMenuItem): number => (item.control.type === "color" ? 2 : item.bytes);
 
