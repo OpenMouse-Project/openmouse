@@ -7241,6 +7241,16 @@ export function applyIncottMacro(button: string, macro: IncottMacro): void {
 }
 
 /**
+ * Drops a button's staged macro upload. Unassigning a macro before Apply
+ * reverts the button's mapping, which stageChange sees as "already matches"
+ * and drops, but the upload entry also re-binds the button to Macro, so it has
+ * to go too or Apply would activate a macro the card shows as removed.
+ */
+export function cancelIncottMacro(button: string): void {
+  dropPendingChange(`incott-macro-${button}`);
+}
+
+/**
  * Incott's 2.4 GHz receiver LED (0 connect & polling rate, 1 battery status,
  * 2 battery warning). Wireless only — the driver omits the field entirely
  * over the cable, so the card that calls this is not rendered there.

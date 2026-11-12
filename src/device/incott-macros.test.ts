@@ -83,8 +83,22 @@ test("recording stops growing at the buffer's step limit and clamps long gaps", 
   for (let index = 1; index < INCOTT_MACRO_MAX_STEPS + 5; index += 1) {
     steps = appendRecordedStep(steps, 0x04, index % 2 === 0, 70000);
   }
-  assert.equal(steps.length, INCOTT_MACRO_MAX_STEPS);
+  assert.ok(steps.length <= INCOTT_MACRO_MAX_STEPS);
   assert.equal(steps[0]!.delayMs, 0xffff, "an LE16 field cannot hold more");
+});
+
+test("at the step limit a held key still gets its release", () => {
+  let steps = appendRecordedStep([], 0x04, true, 0);
+  // Fill with taps of another key until the next press would not leave room.
+  for (let index = 0; index < INCOTT_MACRO_MAX_STEPS; index += 1) {
+    steps = appendRecordedStep(steps, 0x05, true, 1);
+    steps = appendRecordedStep(steps, 0x05, false, 1);
+  }
+  assert.ok(steps.length < INCOTT_MACRO_MAX_STEPS, "room is held back for the key still down");
+  steps = appendRecordedStep(steps, 0x04, false, 1);
+  assert.equal(steps.at(-1)!.key, 0x04);
+  assert.equal(steps.at(-1)!.press, false);
+  assert.ok(steps.length <= INCOTT_MACRO_MAX_STEPS);
 });
 
 test("the store survives garbage and drops assignments to missing macros", () => {

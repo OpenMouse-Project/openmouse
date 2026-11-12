@@ -188,7 +188,9 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
 
   const unbind = (button: IncottButtonName): void => {
     // There is no command to empty a buffer; re-pointing the button is all
-    // unassigning can do.
+    // unassigning can do. An upload still waiting for Apply must not survive,
+    // or it would bind the button to Macro again.
+    control.cancelIncottMacro(button);
     if (assignment(button) !== null) control.applyDeviceButtonMapping(button, INCOTT_MACRO_DEFAULT_ACTION[button]);
   };
 

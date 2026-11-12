@@ -107,6 +107,17 @@ export function appendRecordedStep(
   gapMs: number,
 ): IncottMacroStep[] {
   if (steps.length >= INCOTT_MACRO_MAX_STEPS) return steps.slice();
+  // Keep room for the release of every key still down, so a macro cut off at
+  // the limit never leaves a key stuck: a new press is taken only if it and
+  // its own release still fit beside the releases already owed. A release for
+  // a key that was never recorded as pressed (its press was refused) is noise.
+  const down = new Set<number>();
+  for (const step of steps) {
+    if (step.press) down.add(step.key);
+    else down.delete(step.key);
+  }
+  if (press && steps.length + down.size + 2 > INCOTT_MACRO_MAX_STEPS) return steps.slice();
+  if (!press && !down.has(key)) return steps.slice();
   const closed = steps.map((step, index) =>
     index === steps.length - 1 ? { ...step, delayMs: clampU16(gapMs) } : step,
   );
