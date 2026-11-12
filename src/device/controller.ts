@@ -25,7 +25,7 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
-import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
+import { forgetMouseReceiver, receiverKey, rememberMouseReceiver } from "./mouse-receivers";
 import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
@@ -6793,6 +6793,10 @@ export function applyPowerMode(mode: string): void {
  * above, which reassigns a Logitech control by id.
  */
 export function applyDeviceButtonMapping(button: string, action: string): void {
+  // A staged Incott macro upload ends by binding the button to Macro. A later
+  // remap to anything else supersedes it, and must do so even when stageChange
+  // drops the remap as "already matches", or Apply would still bind Macro.
+  if (action !== "Macro") dropPendingChange(`incott-macro-${button}`);
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
@@ -7225,7 +7229,7 @@ export function applyFinalmouseProfileName(index: number, name: string): void {
  * the OLD loop mode. The vendor writes the binding after every upload too
  * (`captures/incott-8k-wireless/macro-loop-modes-2026-09-14.hex`).
  */
-export function applyIncottMacro(button: string, macro: IncottMacro): void {
+export function applyIncottMacro(button: string, macro: IncottMacro, onApplied?: () => void): void {
   stageChange({
     key: `incott-macro-${button}`,
     label: `${button} macro: ${macro.steps.length} steps`,
@@ -7236,18 +7240,19 @@ export function applyIncottMacro(button: string, macro: IncottMacro): void {
       if (!client) throw new Error(st("ctl.gone"));
       await client.uploadMacro(macro);
       await client.setButtonMapping(button, "Macro");
+      // The caller records "this button runs this macro" only once the mouse
+      // has it, so a discarded or failed change leaves nothing stale behind.
+      onApplied?.();
     },
   });
 }
 
 /**
- * Drops a button's staged macro upload. Unassigning a macro before Apply
- * reverts the button's mapping, which stageChange sees as "already matches"
- * and drops, but the upload entry also re-binds the button to Macro, so it has
- * to go too or Apply would activate a macro the card shows as removed.
+ * The key a saved macro assignment is filed under: the connected mouse, so one
+ * Incott mouse's assignments are never read as another's. Null with no device.
  */
-export function cancelIncottMacro(button: string): void {
-  dropPendingChange(`incott-macro-${button}`);
+export function incottMacroDeviceKey(): string | null {
+  return activeDevice ? receiverKey(activeDevice) : null;
 }
 
 /**

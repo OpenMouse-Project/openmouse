@@ -53,7 +53,12 @@ export interface StoredMacro {
 
 export interface MacroStore {
   macros: StoredMacro[];
-  /** Button -> macro id. A button appears here only while it runs a macro. */
+  /**
+   * Button -> macro id, for ONE mouse (the one `loadStore` was given). A
+   * button appears here only while it runs a macro. Assignments are kept per
+   * device on disk: another Incott mouse can have its own `Back` button on
+   * Macro, and that must not read as this mouse's saved macro.
+   */
   assignments: Partial<Record<IncottButtonName, string>>;
 }
 
@@ -124,6 +129,30 @@ export function appendRecordedStep(
   return [...closed, { key, press, delayMs: 0 }];
 }
 
+/** Keys a macro presses and never releases, in the order they were pressed. */
+export function unreleasedKeys(steps: readonly IncottMacroStep[]): number[] {
+  const down = new Set<number>();
+  for (const step of steps) {
+    if (step.press) down.add(step.key);
+    else down.delete(step.key);
+  }
+  return [...down];
+}
+
+/**
+ * Releases every key still down when recording stops (Escape ends it before
+ * the keyup arrives), so the macro never leaves one held on the host.
+ * `appendRecordedStep` keeps room for exactly these releases.
+ */
+export function closeHeldKeys(steps: readonly IncottMacroStep[], gapMs: number): IncottMacroStep[] {
+  let closed = steps.slice();
+  for (const key of unreleasedKeys(steps)) {
+    closed = appendRecordedStep(closed, key, false, gapMs);
+    gapMs = 0;
+  }
+  return closed;
+}
+
 function isStep(value: unknown): value is IncottMacroStep {
   if (typeof value !== "object" || value === null) return false;
   const step = value as Record<string, unknown>;
@@ -161,8 +190,26 @@ function readMacro(entry: unknown, fallbackName: string): StoredMacro | null {
   };
 }
 
+function readAssignments(
+  devices: unknown,
+  deviceKey: string | null,
+  macros: readonly StoredMacro[],
+): MacroStore["assignments"] {
+  const assignments: MacroStore["assignments"] = {};
+  if (deviceKey === null || typeof devices !== "object" || devices === null) return assignments;
+  const entry = (devices as Record<string, unknown>)[deviceKey];
+  const stored = typeof entry === "object" && entry !== null ? entry as Record<string, unknown> : {};
+  for (const button of INCOTT_BUTTON_NAMES) {
+    const id = stored[button];
+    // Drop an assignment whose macro no longer exists, rather than leaving
+    // a button pointing at nothing.
+    if (typeof id === "string" && macros.some((macro) => macro.id === id)) assignments[button] = id;
+  }
+  return assignments;
+}
+
 /** Parses a stored value, discarding anything malformed rather than throwing. */
-export function parseStore(raw: string | null): MacroStore {
+export function parseStore(raw: string | null, deviceKey: string | null = null): MacroStore {
   const empty: MacroStore = { macros: [], assignments: {} };
   if (!raw) return empty;
   try {
@@ -175,39 +222,66 @@ export function parseStore(raw: string | null): MacroStore {
         .filter((macro): macro is StoredMacro => macro !== null)
       : [];
 
-    const assignments: MacroStore["assignments"] = {};
-    const stored = typeof source.assignments === "object" && source.assignments !== null
-      ? source.assignments as Record<string, unknown>
-      : {};
-    for (const button of INCOTT_BUTTON_NAMES) {
-      const id = stored[button];
-      // Drop an assignment whose macro no longer exists, rather than leaving
-      // a button pointing at nothing.
-      if (typeof id === "string" && macros.some((macro) => macro.id === id)) {
-        assignments[button] = id;
-      }
-    }
-    return { macros, assignments };
+    return { macros, assignments: readAssignments(source.devices, deviceKey, macros) };
   } catch {
     return empty;
   }
 }
 
-export function loadStore(): MacroStore {
+export function loadStore(deviceKey: string | null = null): MacroStore {
   try {
-    return parseStore(localStorage.getItem(KEY));
+    return parseStore(localStorage.getItem(KEY), deviceKey);
   } catch {
-    return parseStore(null);
+    return parseStore(null, deviceKey);
   }
 }
 
-export function saveStore(store: MacroStore): void {
+const storeListeners = new Set<() => void>();
+
+/** Calls `listener` after any write to the store, from any card instance. */
+export function onMacroStoreChange(listener: () => void): () => void {
+  storeListeners.add(listener);
+  return () => { storeListeners.delete(listener); };
+}
+
+/**
+ * Writes the library and `deviceKey`'s assignments, leaving every other
+ * mouse's assignments as they were. Returns false when the browser refuses the
+ * write (storage full or blocked): the upload still reached the mouse, but the
+ * definition is not kept, and the card has to say so.
+ */
+export function saveStore(store: MacroStore, deviceKey: string | null = null): boolean {
   try {
-    localStorage.setItem(KEY, JSON.stringify(store));
+    let devices: Record<string, unknown> = {};
+    try {
+      const existing: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      const kept = typeof existing === "object" && existing !== null
+        ? (existing as Record<string, unknown>).devices
+        : null;
+      if (typeof kept === "object" && kept !== null) devices = { ...kept as Record<string, unknown> };
+    } catch {
+      devices = {};
+    }
+    if (deviceKey !== null) devices[deviceKey] = store.assignments;
+    localStorage.setItem(KEY, JSON.stringify({ macros: store.macros, devices }));
   } catch {
-    // Storage full or blocked. The upload still reached the mouse; only the
-    // local copy of the definition is lost, so this must not throw.
+    return false;
   }
+  for (const listener of storeListeners) listener();
+  return true;
+}
+
+/**
+ * Records "this button runs this macro" for a mouse, read fresh from storage so
+ * a callback that fires after the card re-rendered (or unmounted) never writes
+ * back a stale library.
+ */
+export function recordAssignment(deviceKey: string | null, button: IncottButtonName, id: string | null): boolean {
+  const current = loadStore(deviceKey);
+  const assignments = { ...current.assignments };
+  if (id === null) delete assignments[button];
+  else assignments[button] = id;
+  return saveStore({ macros: current.macros, assignments }, deviceKey);
 }
 
 /**

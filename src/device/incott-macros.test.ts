@@ -6,6 +6,7 @@ import { INCOTT_MACRO_MAX_STEPS, INCOTT_MACRO_MOUSE_KEYS, incottMacroKeyLabel } 
 import {
   INCOTT_MACRO_KEY_CHOICES,
   appendRecordedStep,
+  closeHeldKeys,
   emptyMacro,
   incottMacroAssignment,
   incottMacroKeyForCode,
@@ -13,6 +14,7 @@ import {
   macroDurationMs,
   parseStore,
   stepsForDevice,
+  unreleasedKeys,
   type MacroStore,
 } from "./incott-macros.ts";
 
@@ -111,13 +113,35 @@ test("the store survives garbage and drops assignments to missing macros", () =>
       { id: "a", name: "Tap", loop: "bogus", cycles: -3, steps: [{ key: 4, press: true, delayMs: 90000 }] },
       { id: "b", name: "Empty", steps: [] },
     ],
-    assignments: { Forward: "a", Back: "b", Nonsense: "a" },
-  }));
+    devices: { "mouse-1": { Forward: "a", Back: "b", Nonsense: "a" }, "mouse-2": { Left: "a" } },
+  }), "mouse-1");
   assert.equal(store.macros.length, 1, "a macro with no steps is not kept");
   assert.equal(store.macros[0]!.loop, "cycle");
   assert.equal(store.macros[0]!.cycles, 1);
   assert.equal(store.macros[0]!.steps[0]!.delayMs, 0xffff);
   assert.deepEqual(store.assignments, { Forward: "a" });
+});
+
+test("assignments belong to one mouse, so another mouse's Macro button is not this one's", () => {
+  const raw = JSON.stringify({
+    macros: [{ id: "a", name: "Tap", steps: [{ key: 4, press: true, delayMs: 0 }] }],
+    devices: { "mouse-1": { Back: "a" } },
+  });
+  assert.deepEqual(parseStore(raw, "mouse-1").assignments, { Back: "a" });
+  assert.deepEqual(parseStore(raw, "mouse-2").assignments, {});
+  assert.deepEqual(parseStore(raw, null).assignments, {}, "no device, no assignments");
+  assert.equal(parseStore(raw, "mouse-1").macros.length, 1, "the library is shared");
+});
+
+test("a key still down when recording stops is released", () => {
+  const steps = appendRecordedStep([], 0x04, true, 0);
+  assert.deepEqual(unreleasedKeys(steps), [0x04]);
+  const closed = closeHeldKeys(steps, 120);
+  assert.deepEqual(closed, [
+    { key: 0x04, press: true, delayMs: 120 },
+    { key: 0x04, press: false, delayMs: 0 },
+  ]);
+  assert.deepEqual(unreleasedKeys(closed), []);
 });
 
 test("an assignment only counts while the mouse reports the button running a macro", () => {

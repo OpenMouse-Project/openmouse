@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
 import {
   INCOTT_BUTTON_NAMES,
+  INCOTT_MACRO_ACTION_LABEL,
   INCOTT_MACRO_MAX_STEPS,
   INCOTT_MACRO_MOUSE_KEYS,
   incottMacroSlotForButton,
@@ -16,6 +17,7 @@ import {
   INCOTT_MACRO_KEY_CHOICES,
   appendRecordedStep,
   clampU16,
+  closeHeldKeys,
   emptyMacro,
   incottMacroAssignment,
   incottMacroKeyForCode,
@@ -23,8 +25,11 @@ import {
   incottMacroKeyName,
   loadStore,
   macroDurationMs,
+  onMacroStoreChange,
+  recordAssignment,
   saveStore,
   stepsForDevice,
+  unreleasedKeys,
   type MacroDelay,
   type MacroStore,
   type StoredMacro,
@@ -58,7 +63,13 @@ const isRecorderControl = (target: EventTarget | null): boolean =>
 export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  const [store, setStore] = useState<MacroStore>(() => loadStore());
+  const deviceKey = control.incottMacroDeviceKey();
+  const [store, setStore] = useState<MacroStore>(() => loadStore(deviceKey));
+  // A button's assignment is saved once the mouse has the macro. Until then
+  // (staged, not yet applied) this is what the card shows for it, and a
+  // discarded change simply stops being shown.
+  const [pendingAssign, setPendingAssign] = useState<Partial<Record<IncottButtonName, string>>>({});
+  const [storageFailed, setStorageFailed] = useState(false);
   const [draft, setDraft] = useState<StoredMacro | null>(() => {
     const first = store.macros[0];
     return first ? { ...first, steps: first.steps.slice() } : null;
@@ -70,11 +81,18 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const heldRef = useRef<Set<number>>(new Set());
   const recorderFocusRef = useRef<HTMLElement | null>(null);
 
-  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+  // A game profile cannot restore a macro, and the button mapping is staged
+  // separately from the upload, so assigning here would leave the profile
+  // pointing a button at a buffer it never wrote. Lock the whole card.
+  const inGameProfile = snapshot.gameProfileDraft;
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy || inGameProfile;
   const controlsDisabled = disabled || isRecording;
 
   const finishRecording = (): void => {
-    const recorded = recordedRef.current;
+    // Escape ends recording before a held key's keyup arrives; release those
+    // keys so the macro never leaves one down on the host.
+    const gap = clockRef.current === null ? 0 : performance.now() - clockRef.current;
+    const recorded = closeHeldKeys(recordedRef.current, gap);
     setIsRecording(false);
     setDraft((current) => (current && recorded.length > 0 ? { ...current, steps: recorded } : current));
     setRecordedSteps([]);
@@ -154,17 +172,45 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     };
   }, [isRecording]);
 
+  // Assignments are filed per mouse and saved when an upload lands, so pick
+  // them up again when the connected mouse changes or a save completes.
+  useEffect(() => {
+    const reload = (): void => {
+      setStore((current) => ({ ...current, assignments: loadStore(deviceKey).assignments }));
+    };
+    reload();
+    return onMacroStoreChange(reload);
+  }, [deviceKey]);
+
+  const mappings = status?.buttonMappings;
+  const stagedKeys = snapshot.pending.keys.join(" ");
+
+  // Forget a saved assignment once the mouse reports the button on something
+  // else (and nothing for it is still waiting to be applied).
+  useEffect(() => {
+    if (!mappings) return;
+    const waiting = stagedKeys.split(" ");
+    for (const button of INCOTT_BUTTON_NAMES) {
+      if (store.assignments[button] === undefined) continue;
+      if (mappings[button] === INCOTT_MACRO_ACTION_LABEL) continue;
+      if (waiting.includes(`button-${button}`) || waiting.includes(`incott-macro-${button}`)) continue;
+      recordAssignment(deviceKey, button, null);
+    }
+  }, [mappings, stagedKeys, store.assignments, deviceKey]);
+
   if (!status) return null;
-  const mappings = status.buttonMappings;
 
   const persist = (next: MacroStore): void => {
     setStore(next);
-    saveStore(next);
+    setStorageFailed(!saveStore(next, deviceKey));
   };
 
   /** What each button runs, according to the mouse first and the store second. */
-  const assignment = (button: IncottButtonName): string | "elsewhere" | null =>
-    incottMacroAssignment(store, button, mappings);
+  const assignment = (button: IncottButtonName): string | "elsewhere" | null => {
+    const waiting = pendingAssign[button];
+    if (waiting && snapshot.pending.keys.includes(`incott-macro-${button}`)) return waiting;
+    return incottMacroAssignment(store, button, mappings);
+  };
 
   /**
    * Puts a macro into the buffer belonging to a button and points the button
@@ -182,29 +228,29 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       // own index is as good an identifier as any.
       uid: slot + 1,
       steps: stepsForDevice(macro),
+    }, () => {
+      if (!recordAssignment(deviceKey, button, macro.id)) setStorageFailed(true);
     });
     control.applyDeviceButtonMapping(button, "Macro");
   };
 
   const unbind = (button: IncottButtonName): void => {
     // There is no command to empty a buffer; re-pointing the button is all
-    // unassigning can do. An upload still waiting for Apply must not survive,
-    // or it would bind the button to Macro again.
-    control.cancelIncottMacro(button);
+    // unassigning can do. The remap also cancels an upload still waiting for
+    // Apply, so it cannot bind the button to Macro again. The saved assignment
+    // is dropped once the mouse reports the button off Macro.
     if (assignment(button) !== null) control.applyDeviceButtonMapping(button, INCOTT_MACRO_DEFAULT_ACTION[button]);
   };
 
   const assign = (button: IncottButtonName, id: string): void => {
-    const assignments = { ...store.assignments };
     if (id === "") {
-      delete assignments[button];
-      persist({ ...store, assignments });
       unbind(button);
+      setPendingAssign(({ [button]: _dropped, ...rest }) => rest);
       return;
     }
     const macro = store.macros.find((entry) => entry.id === id);
     if (!macro) return;
-    persist({ ...store, assignments: { ...assignments, [button]: id } });
+    setPendingAssign((current) => ({ ...current, [button]: id }));
     upload(button, macro);
   };
 
@@ -218,7 +264,7 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   };
 
   const saveDraft = (): void => {
-    if (!draft || draft.steps.length === 0) return;
+    if (!draft || draft.steps.length === 0 || unreleasedKeys(draft.steps).length > 0) return;
     const known = store.macros.some((macro) => macro.id === draft.id);
     const next: MacroStore = {
       ...store,
@@ -230,7 +276,7 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     // Re-upload to every button running this macro, so an edit takes effect
     // instead of leaving the old steps on the mouse.
     for (const button of INCOTT_BUTTON_NAMES) {
-      if (incottMacroAssignment(next, button, mappings) === draft.id) upload(button, draft);
+      if (assignment(button) === draft.id) upload(button, draft);
     }
   };
 
@@ -283,6 +329,7 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   };
 
   const saved = draft ? store.macros.find((macro) => macro.id === draft.id) ?? null : null;
+  const unbalanced = draft !== null && unreleasedKeys(draft.steps).length > 0;
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(saved);
   const onButtons = draft
     ? INCOTT_BUTTON_NAMES.some((button) => assignment(button) === draft.id)
@@ -306,6 +353,12 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
         </div>
       </div>
       <p className="ksnake-macro-notice">{t(locale, "macro.incottNotice")}</p>
+      {inGameProfile ? (
+        <p className="ksnake-macro-notice" role="status">{t(locale, "macro.incottGameProfile")}</p>
+      ) : null}
+      {storageFailed ? (
+        <p className="ksnake-macro-notice" role="alert">{t(locale, "macro.incottStoreFailed")}</p>
+      ) : null}
 
       <div className="ksnake-macro-slot-picker incott-macro-library">
         {store.macros.length > 0 ? (
@@ -582,8 +635,12 @@ export function IncottMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
             {saved && !dirty && !onButtons ? ` · ${t(locale, "macro.incottOffDevice")}` : null}
           </p>
 
+          {unbalanced ? (
+            <p className="ksnake-macro-notice" role="alert">{t(locale, "macro.incottUnreleased")}</p>
+          ) : null}
+
           <div className="setting-action ksnake-macro-actions">
-            <button className="ksnake-macro-save" type="button" disabled={controlsDisabled || !dirty || draft.steps.length === 0} onClick={saveDraft}>
+            <button className="ksnake-macro-save" type="button" disabled={controlsDisabled || !dirty || draft.steps.length === 0 || unbalanced} onClick={saveDraft}>
               <Save size={16} strokeWidth={2.2} aria-hidden="true" />
               {t(locale, "macro.save")}
             </button>
