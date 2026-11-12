@@ -73,6 +73,7 @@ function DpiStageEditor({
     : null;
   const showStageColors = mode === "stage"
     && (stageColors?.length ?? 0) >= (status?.dpiStages?.length ?? 0);
+  const stageColorsEditable = showStageColors && snapshot.capabilities?.dpiStageColorWritable === true;
   const limits = snapshot.profile.slotLimits;
   // The single-DPI (generic) view writes the live DPI, not the profile, so it
   // must not be gated behind the profile's slot-write lock.
@@ -451,7 +452,7 @@ function DpiStageEditor({
   const enabledCount = rows.filter((row) => row.enabled).length;
 
   return (
-    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${axesLinkable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${showAxes ? " has-stage-axes" : ""}`}>
+    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${axesLinkable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${stageColorsEditable ? " has-stage-color-edit" : ""}${showAxes ? " has-stage-axes" : ""}`}>
       <div className="dpi-editor-bar">
         <span className="dpi-editor-bar-label">
           {t(locale, mode === "logitech" ? "dpi.slotsInUse" : mode === "stage" ? "dpi.stagesInUse" : "dpi.presetsInUse")}
@@ -492,17 +493,38 @@ function DpiStageEditor({
                 />
                 <span className="dpi-editor-box" aria-hidden="true"><Check size={12} strokeWidth={3.2} /></span>
               </label>
-              <button
-                type="button"
-                className="dpi-editor-index"
-                disabled={locked || (mode !== "generic" && !row.enabled) || (mode === "stage" && !activeWritable)}
-                title={displayText(locale, rowTitle)}
-                aria-pressed={highlighted}
-                onClick={() => setActive(index)}
-              >
-                {showStageColors ? <span className="dpi-editor-stage-swatch" aria-hidden="true" /> : null}
-                <span>{index + 1}</span>
-              </button>
+              {stageColorsEditable ? (
+                <span className="dpi-editor-index-cell">
+                  <StageColorPicker
+                    color={stageColor ?? "#ffffff"}
+                    label={tp(locale, "dpi.stageColor", { n: index + 1 })}
+                    disabled={snapshot.settingsPending}
+                    onCommit={(next) => control.applyDpiStageColor(index, next)}
+                  />
+                  <button
+                    type="button"
+                    className="dpi-editor-index"
+                    disabled={locked || !row.enabled || !activeWritable}
+                    title={displayText(locale, rowTitle)}
+                    aria-pressed={highlighted}
+                    onClick={() => setActive(index)}
+                  >
+                    <span>{index + 1}</span>
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="dpi-editor-index"
+                  disabled={locked || (mode !== "generic" && !row.enabled) || (mode === "stage" && !activeWritable)}
+                  title={displayText(locale, rowTitle)}
+                  aria-pressed={highlighted}
+                  onClick={() => setActive(index)}
+                >
+                  {showStageColors ? <span className="dpi-editor-stage-swatch" aria-hidden="true" /> : null}
+                  <span>{index + 1}</span>
+                </button>
+              )}
               <input
                 type="number"
                 className="dpi-editor-value"
@@ -781,5 +803,45 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
       ) : null}
     </article>
+  );
+}
+
+/**
+ * A stage's colour chip that opens the system colour picker. The picker fires
+ * input events continuously while dragging, so the mouse is only written once
+ * the choice is committed (the native `change` event), not on every step.
+ */
+function StageColorPicker({ color, label, disabled, onCommit }: {
+  color: string;
+  label: string;
+  disabled: boolean;
+  onCommit: (color: string) => void;
+}): ReactNode {
+  const ref = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState(color);
+  const commit = useRef(onCommit);
+  commit.current = onCommit;
+
+  useEffect(() => setPreview(color), [color]);
+  useEffect(() => {
+    const input = ref.current;
+    if (!input) return;
+    const onChange = () => commit.current(input.value);
+    input.addEventListener("change", onChange);
+    return () => input.removeEventListener("change", onChange);
+  }, []);
+
+  return (
+    <label className="dpi-editor-color" title={label} style={{ "--dpi-stage-color": preview } as CSSProperties}>
+      <input
+        ref={ref}
+        type="color"
+        aria-label={label}
+        value={preview}
+        disabled={disabled}
+        onInput={(event) => setPreview((event.currentTarget as HTMLInputElement).value)}
+      />
+      <span className="dpi-editor-color-chip" aria-hidden="true" />
+    </label>
   );
 }

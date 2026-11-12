@@ -1484,6 +1484,7 @@ function readCapabilities(): DeviceCapabilities {
     // Luna spells it `setLunaFuryDpiStageAxes`, the SteelSeries Gen 2 families
     // take the generic name.
     dpiStageAxesWritable: dpiStageAxesWriterName() !== null,
+    dpiStageColorWritable: clientHasMethod("setDpiStageColor"),
     // Any client may publish these; the two named drivers are just the ones
     // that predate the generic lookup below.
     sleepOptions: dm

@@ -131,6 +131,12 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bsword\s*x\b/i.test(displayName)) return "wlmouse-sword-x.png";
   if (/\bdragonfly\s*f2\b/i.test(displayName)) return "vgn-dragonfly-f2.png";
   if (/\bmaya\s*x\b/i.test(displayName)) return "lamzu-maya-x.png";
+  // Scyrox shares CompX's vendor id and product ids across models (a V6 sits
+  // on the V8's ids), so only the name read back from the mouse tells them
+  // apart. V8S before V8, so "V8S" never lands on the V8's render.
+  if (/\bscyrox\s*v8s\b/i.test(displayName)) return "scyrox-v8s.png";
+  if (/\bscyrox\s*v8\b/i.test(displayName)) return "scyrox-v8.png";
+  if (/\bscyrox\s*v6\b/i.test(displayName)) return "scyrox-v6.png";
   if (/\bnoir\s*s1\b/i.test(displayName)) return "noir-s1.png";
   if (/k[\s-]*snake/i.test(displayName)) return "ksnake-x11.png";
   if (/\bf1\s*v2\b/i.test(displayName)) return "atk-f1-v2-ultra-max.png";
@@ -215,6 +221,9 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
+  "scyrox-v8.png": "/devices/scyrox-v8.png",
+  "scyrox-v6.png": "/devices/scyrox-v6.png",
+  "scyrox-v8s.png": "/devices/scyrox-v8s.png",
   // The keyboard placeholder: a black keyboard silhouette with a question mark,
   // the keyboard twin of unknown-device.png. Served locally until it is in the bucket.
   "unknown-keyboard.png": "/devices/unknown-keyboard.png",

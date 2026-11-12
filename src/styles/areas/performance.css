@@ -193,6 +193,24 @@
 .dpi-editor-index:hover:not(:disabled) { background: var(--surface-2); color: var(--text-1); }
 .dpi-editor-row.is-active .dpi-editor-index { color: var(--accent); background: var(--accent-soft); }
 .dpi-editor-stage-swatch { width: 4px; height: 12px; border-radius: var(--r-xs); background: var(--dpi-stage-color); }
+/* Editable stage colours: a chip before the stage number opens the picker. */
+.dpi-editor.has-stage-color-edit .dpi-editor-row { grid-template-columns: 32px 58px 92px minmax(0, 1fr); }
+.dpi-editor.has-stage-color-edit.has-stage-axes .dpi-editor-row { grid-template-columns: 32px 58px 84px 84px minmax(0, 1fr); }
+.dpi-editor-index-cell { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.dpi-editor-index-cell > .dpi-editor-index { flex: 1; }
+.dpi-editor-color { position: relative; display: grid; place-items: center; width: 18px; height: 18px; flex: none; cursor: pointer; }
+.dpi-editor-color > input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.dpi-editor-color > input:disabled { cursor: default; }
+.dpi-editor-color-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dpi-stage-color);
+  box-shadow: 0 0 0 1px var(--line-2, rgb(255 255 255 / 0.18));
+  pointer-events: none;
+}
+.dpi-editor-color:hover .dpi-editor-color-chip { box-shadow: 0 0 0 2px var(--accent); }
+.dpi-editor-color:has(> input:focus-visible) .dpi-editor-color-chip { box-shadow: 0 0 0 2px var(--accent); }
 .dpi-editor-row > .dpi-editor-value {
   width: 100%;
   min-width: 0;
