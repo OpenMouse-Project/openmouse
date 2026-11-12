@@ -782,6 +782,7 @@ export const de: Record<I18nKey, string> = {
   "ctl.noSelection": "In der Browseraufforderung wurde kein Gerät ausgewählt.",
   "ctl.opening": "Gerät wird geöffnet",
   "ctl.notMouse": "Keine Maus",
+  "ctl.receiverSilent": "Über diesen Empfänger hat nichts geantwortet. Wecke das Gerät auf oder schließe es per Kabel an und versuche es erneut.",
   "ctl.reconnecting": "Wird wiederverbunden",
   "ctl.readingPrev": "Das zuvor autorisierte Gerät wird gelesen.",
   "ctl.useAdd": "Nutze Gerät hinzufügen, falls sich die Maus nicht automatisch neu verbindet.",

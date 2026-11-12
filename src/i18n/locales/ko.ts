@@ -782,6 +782,7 @@ export const ko: Record<I18nKey, string> = {
   "ctl.noSelection": "브라우저 프롬프트에서 장치가 선택되지 않았습니다.",
   "ctl.opening": "장치 여는 중",
   "ctl.notMouse": "마우스가 아님",
+  "ctl.receiverSilent": "이 리시버를 통해 응답한 장치가 없습니다. 장치를 깨우거나 케이블로 연결한 뒤 다시 시도하세요.",
   "ctl.reconnecting": "재연결 중",
   "ctl.readingPrev": "이전에 승인된 장치를 읽는 중입니다.",
   "ctl.useAdd": "마우스가 자동으로 재연결되지 않으면 \"장치 추가\"를 사용하세요.",

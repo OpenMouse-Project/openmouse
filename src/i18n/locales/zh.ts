@@ -782,6 +782,7 @@ export const zh: Record<I18nKey, string> = {
   "ctl.noSelection": "未在浏览器提示中选择任何设备。",
   "ctl.opening": "正在打开设备",
   "ctl.notMouse": "不是鼠标",
+  "ctl.receiverSilent": "此接收器没有任何响应。请唤醒设备或使用数据线连接，然后重试。",
   "ctl.reconnecting": "重新连接中",
   "ctl.readingPrev": "正在读取此前已授权的设备。",
   "ctl.useAdd": "如果鼠标未能自动重连，请使用“添加设备”。",

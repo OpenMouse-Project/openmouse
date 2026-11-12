@@ -782,6 +782,7 @@ export const fr: Record<I18nKey, string> = {
   "ctl.noSelection": "Aucun appareil n'a été sélectionné dans la fenêtre du navigateur.",
   "ctl.opening": "Ouverture de l'appareil",
   "ctl.notMouse": "Ce n'est pas une souris",
+  "ctl.receiverSilent": "Rien n'a répondu via ce récepteur. Réveillez l'appareil ou branchez-le avec un câble, puis réessayez.",
   "ctl.reconnecting": "Reconnexion",
   "ctl.readingPrev": "Lecture de l'appareil précédemment autorisé.",
   "ctl.useAdd": "Utilisez Ajouter un appareil si la souris ne se reconnecte pas automatiquement.",

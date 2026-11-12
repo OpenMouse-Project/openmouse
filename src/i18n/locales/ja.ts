@@ -782,6 +782,7 @@ export const ja: Record<I18nKey, string> = {
   "ctl.noSelection": "ブラウザのプロンプトでデバイスが選択されませんでした。",
   "ctl.opening": "デバイスを開いています",
   "ctl.notMouse": "マウスではありません",
+  "ctl.receiverSilent": "このレシーバー経由で応答がありませんでした。デバイスをスリープから復帰させるか、ケーブルで接続してから再試行してください。",
   "ctl.reconnecting": "再接続中",
   "ctl.readingPrev": "以前に許可されたデバイスを読み取り中です。",
   "ctl.useAdd": "マウスが自動的に再接続しない場合は「デバイスを追加」を使用してください。",

@@ -782,6 +782,7 @@ export const es: Record<I18nKey, string> = {
   "ctl.noSelection": "No se seleccionó ningún dispositivo en el mensaje del navegador.",
   "ctl.opening": "Abriendo dispositivo",
   "ctl.notMouse": "No es un mouse",
+  "ctl.receiverSilent": "Nada respondió a través de este receptor. Activa el dispositivo o conéctalo con un cable y vuelve a intentarlo.",
   "ctl.reconnecting": "Reconectando",
   "ctl.readingPrev": "Leyendo el dispositivo previamente autorizado.",
   "ctl.useAdd": "Usa Agregar dispositivo si el mouse no se reconecta automáticamente.",

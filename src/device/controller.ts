@@ -19,6 +19,7 @@ import {
   listLogicalDevices,
   logicalDeviceGroups,
   pickLogicalDevice,
+  siblingKeyboardClient,
   siblingMouseClient,
   prepareAutoConnectClient,
   type PulsarClient,
@@ -3743,7 +3744,10 @@ async function readReceiverRegisterF1(
  * paired" from a keyboard that failed to answer, so the record would push a
  * real keyboard aside on every later connect.
  */
-async function activateClientNow(client: SupportedClient, options: { rememberReceiver?: boolean } = {}): Promise<void> {
+async function activateClientNow(
+  client: SupportedClient,
+  options: { rememberReceiver?: boolean; silentReceiver?: "keyboard" | "show" | "fail" } = {},
+): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
@@ -3786,6 +3790,28 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
       await showPulsarExplorer(client as PulsarClient);
     } else {
       const status = await client.readStatus();
+      // A receiver that also carries a keyboard interface answered without a
+      // mouse behind it: it is a keyboard dongle (a Keychron Link exposes
+      // Launcher's mouse collection next to VIA), or its mouse is asleep. That
+      // is not proof of a mouse, so drop any record of one and try the
+      // keyboard. When the keyboard already failed, nothing on the receiver
+      // answered: fail the connect instead of opening an empty mouse page.
+      const silentReceiver = options.silentReceiver ?? "keyboard";
+      if (status.ui?.settingsReady === false && silentReceiver !== "show") {
+        const devices = await authorizedHidDevices();
+        if (await isSharedReceiver(client.device, devices)) {
+          forgetMouseReceiver(client.device);
+          if (silentReceiver === "fail") {
+            await client.close().catch(() => undefined);
+            throw new Error(st("ctl.receiverSilent"));
+          }
+          const keyboard = siblingKeyboardClient(client.device, devices);
+          if (keyboard) {
+            await activateKeyboardClientNow(keyboard);
+            return;
+          }
+        }
+      }
       dpiOptions = await client.getDpiOptions();
       const dm = dmClient();
       const keychron = keychronNapeClient();
@@ -3796,7 +3822,8 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
       recordDeviceStatus(client.device, status);
       // A receiver the keyboard drivers claim just answered as a mouse: remember
       // it so it lists and reconnects as one from now on (#1362).
-      if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
+      if (options.rememberReceiver !== false && status.ui?.settingsReady !== false
+        && await isSharedReceiver(client.device, await authorizedHidDevices())) {
         rememberMouseReceiver(client.device);
       }
       // Optional setters/getters are runtime capabilities of the selected
@@ -3878,7 +3905,14 @@ async function activateKeyboardClientNow(client: KeyboardClient): Promise<void> 
       readStatus = st("ctl.reading", { name: statusNameForClient(receiverMouse) });
       emit();
       // Only "no supported keyboard paired" proves there is no keyboard to find.
-      await activateClientNow(receiverMouse, { rememberReceiver: noKeyboardPaired });
+      // The keyboard just failed, so a silent mouse must not bounce back to it.
+      // A Logitech receiver that says no keyboard is paired has a mouse behind
+      // it (maybe asleep); a sibling interface that stays silent too means
+      // nothing on the receiver can be read.
+      await activateClientNow(receiverMouse, {
+        rememberReceiver: noKeyboardPaired,
+        silentReceiver: noKeyboardPaired ? "show" : "fail",
+      });
       return;
     }
     await client.close().catch(() => undefined);
