@@ -41,6 +41,11 @@ import { join } from "node:path";
 // against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
 // of that build's growth is protocol drivers released since 0.52.0). Main is
 // 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
+//
+// 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 (six releases of new and
+// extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
+// measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
+// 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
 export const BUDGET_BYTES: Record<string, number> = {
   ".css": 170_000,
   ".js": 3_950_000,
