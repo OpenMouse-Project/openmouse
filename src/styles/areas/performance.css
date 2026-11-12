@@ -206,7 +206,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--dpi-stage-color);
-  box-shadow: 0 0 0 1px var(--line-2, rgb(255 255 255 / 0.18));
+  box-shadow: 0 0 0 1px var(--line-2);
   pointer-events: none;
 }
 .dpi-editor-color:hover .dpi-editor-color-chip { box-shadow: 0 0 0 2px var(--accent); }

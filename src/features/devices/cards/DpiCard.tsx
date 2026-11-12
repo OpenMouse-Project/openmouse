@@ -476,6 +476,12 @@ function DpiStageEditor({
           const highlighted = mode === "generic" ? row.enabled : mode === "stage" ? isActive === true : isStarting;
           const stageColorClass = showStageColors ? ` m2nex-stage-${index + 1}` : "";
           const stageColor = showStageColors ? stageColors?.[index] : undefined;
+          // Only a stage the mouse published a colour for can be recoloured: a
+          // padded row past the colour array would show a pick that is never
+          // written, and the native input needs the device's own #rrggbb value.
+          const editableColor = stageColorsEditable && stageColor !== undefined && STAGE_COLOR_HEX.test(stageColor)
+            ? stageColor
+            : null;
           return (
             <div
               key={index}
@@ -493,10 +499,10 @@ function DpiStageEditor({
                 />
                 <span className="dpi-editor-box" aria-hidden="true"><Check size={12} strokeWidth={3.2} /></span>
               </label>
-              {stageColorsEditable ? (
+              {editableColor !== null ? (
                 <span className="dpi-editor-index-cell">
                   <StageColorPicker
-                    color={stageColor ?? "#ffffff"}
+                    color={editableColor}
                     label={tp(locale, "dpi.stageColor", { n: index + 1 })}
                     disabled={snapshot.settingsPending}
                     onCommit={(next) => control.applyDpiStageColor(index, next)}
@@ -805,6 +811,9 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
     </article>
   );
 }
+
+/** The only value a native colour input takes: `#rrggbb`. */
+const STAGE_COLOR_HEX = /^#[0-9a-f]{6}$/i;
 
 /**
  * A stage's colour chip that opens the system colour picker. The picker fires
