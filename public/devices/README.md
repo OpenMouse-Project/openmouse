@@ -285,3 +285,14 @@ no colour, keycaps, legends or shading carried over. It is committed at
 `public/devices/unknown-keyboard.png` and served from the repo until a
 maintainer uploads it to the bucket; then drop its `LOCAL_OVERRIDES` entry in
 `src/shared/device-images.ts` and point the tests at `CDN + "unknown-keyboard.png"`.
+
+`scyrox-v8.png`, `scyrox-v6.png` and `scyrox-v8s.png` come from Scyrox's own
+web configurator (S-center 3.1.0, `www.scyrox.net/img/devices/mouse/<CID><MID>.png`:
+`3E01` V8, `3E02` V6, `3E05` V8S). Each source is an 800×500 transparent PNG
+showing the top and the underside side by side; the top view was cut out
+(its right edge mirrored from the left where the two views overlap, without
+the left-only side buttons) and centred at ~600 px on a 700×700 transparent
+canvas. They are matched by the name the mouse reports ("Scyrox V8",
+"Scyrox V6", "Scyrox V8S") and served from the repo through
+`LOCAL_OVERRIDES` until a maintainer uploads them. Vendor product art, not yet
+cleared for licensing, so treat it as a request rather than an approved asset.

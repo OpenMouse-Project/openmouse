@@ -73,6 +73,7 @@ function DpiStageEditor({
     : null;
   const showStageColors = mode === "stage"
     && (stageColors?.length ?? 0) >= (status?.dpiStages?.length ?? 0);
+  const stageColorsEditable = showStageColors && snapshot.capabilities?.dpiStageColorWritable === true;
   const limits = snapshot.profile.slotLimits;
   // The single-DPI (generic) view writes the live DPI, not the profile, so it
   // must not be gated behind the profile's slot-write lock.
@@ -451,7 +452,7 @@ function DpiStageEditor({
   const enabledCount = rows.filter((row) => row.enabled).length;
 
   return (
-    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${axesLinkable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${showAxes ? " has-stage-axes" : ""}`}>
+    <div id="dpi-stage-editor" className={`dpi-editor mode-${mode}${axesLinkable ? " has-slot-axes" : ""}${showStageColors ? " has-m2nex-stage-colors" : ""}${stageColorsEditable ? " has-stage-color-edit" : ""}${showAxes ? " has-stage-axes" : ""}`}>
       <div className="dpi-editor-bar">
         <span className="dpi-editor-bar-label">
           {t(locale, mode === "logitech" ? "dpi.slotsInUse" : mode === "stage" ? "dpi.stagesInUse" : "dpi.presetsInUse")}
@@ -475,6 +476,12 @@ function DpiStageEditor({
           const highlighted = mode === "generic" ? row.enabled : mode === "stage" ? isActive === true : isStarting;
           const stageColorClass = showStageColors ? ` m2nex-stage-${index + 1}` : "";
           const stageColor = showStageColors ? stageColors?.[index] : undefined;
+          // Only a stage the mouse published a colour for can be recoloured: a
+          // padded row past the colour array would show a pick that is never
+          // written, and the native input needs the device's own #rrggbb value.
+          const editableColor = stageColorsEditable && stageColor !== undefined && STAGE_COLOR_HEX.test(stageColor)
+            ? stageColor
+            : null;
           return (
             <div
               key={index}
@@ -492,17 +499,38 @@ function DpiStageEditor({
                 />
                 <span className="dpi-editor-box" aria-hidden="true"><Check size={12} strokeWidth={3.2} /></span>
               </label>
-              <button
-                type="button"
-                className="dpi-editor-index"
-                disabled={locked || (mode !== "generic" && !row.enabled) || (mode === "stage" && !activeWritable)}
-                title={displayText(locale, rowTitle)}
-                aria-pressed={highlighted}
-                onClick={() => setActive(index)}
-              >
-                {showStageColors ? <span className="dpi-editor-stage-swatch" aria-hidden="true" /> : null}
-                <span>{index + 1}</span>
-              </button>
+              {editableColor !== null ? (
+                <span className="dpi-editor-index-cell">
+                  <StageColorPicker
+                    color={editableColor}
+                    label={tp(locale, "dpi.stageColor", { n: index + 1 })}
+                    disabled={snapshot.settingsPending}
+                    onCommit={(next) => control.applyDpiStageColor(index, next)}
+                  />
+                  <button
+                    type="button"
+                    className="dpi-editor-index"
+                    disabled={locked || !row.enabled || !activeWritable}
+                    title={displayText(locale, rowTitle)}
+                    aria-pressed={highlighted}
+                    onClick={() => setActive(index)}
+                  >
+                    <span>{index + 1}</span>
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="dpi-editor-index"
+                  disabled={locked || (mode !== "generic" && !row.enabled) || (mode === "stage" && !activeWritable)}
+                  title={displayText(locale, rowTitle)}
+                  aria-pressed={highlighted}
+                  onClick={() => setActive(index)}
+                >
+                  {showStageColors ? <span className="dpi-editor-stage-swatch" aria-hidden="true" /> : null}
+                  <span>{index + 1}</span>
+                </button>
+              )}
               <input
                 type="number"
                 className="dpi-editor-value"
@@ -781,5 +809,48 @@ export function DpiCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode 
         </div>
       ) : null}
     </article>
+  );
+}
+
+/** The only value a native colour input takes: `#rrggbb`. */
+const STAGE_COLOR_HEX = /^#[0-9a-f]{6}$/i;
+
+/**
+ * A stage's colour chip that opens the system colour picker. The picker fires
+ * input events continuously while dragging, so the mouse is only written once
+ * the choice is committed (the native `change` event), not on every step.
+ */
+function StageColorPicker({ color, label, disabled, onCommit }: {
+  color: string;
+  label: string;
+  disabled: boolean;
+  onCommit: (color: string) => void;
+}): ReactNode {
+  const ref = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState(color);
+  const commit = useRef(onCommit);
+  commit.current = onCommit;
+
+  useEffect(() => setPreview(color), [color]);
+  useEffect(() => {
+    const input = ref.current;
+    if (!input) return;
+    const onChange = () => commit.current(input.value);
+    input.addEventListener("change", onChange);
+    return () => input.removeEventListener("change", onChange);
+  }, []);
+
+  return (
+    <label className="dpi-editor-color" title={label} style={{ "--dpi-stage-color": preview } as CSSProperties}>
+      <input
+        ref={ref}
+        type="color"
+        aria-label={label}
+        value={preview}
+        disabled={disabled}
+        onInput={(event) => setPreview((event.currentTarget as HTMLInputElement).value)}
+      />
+      <span className="dpi-editor-color-chip" aria-hidden="true" />
+    </label>
   );
 }
