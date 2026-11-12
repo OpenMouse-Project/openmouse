@@ -242,6 +242,22 @@ export async function siblingMouseClient(device: HIDDevice, devices: HIDDevice[]
   return best?.client ?? null;
 }
 
+/**
+ * A keyboard client on another interface of a receiver whose mouse interface
+ * opened but had no mouse behind it. A Keychron Link keyboard dongle exposes
+ * Launcher's 0x8c mouse collection next to VIA, and only the VIA side has
+ * anything paired to it.
+ */
+export function siblingKeyboardClient(device: HIDDevice, devices: HIDDevice[]): KeyboardClient | null {
+  const key = receiverKey(device);
+  for (const other of devices) {
+    if (other === device || receiverKey(other) !== key) continue;
+    const keyboard = createKeyboardClient(other);
+    if (keyboard) return keyboard;
+  }
+  return null;
+}
+
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */
 export async function listLogicalDevices(devices: HIDDevice[] = []): Promise<HIDDevice[]> {
   const groups = await logicalDeviceGroups(devices);

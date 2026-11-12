@@ -770,6 +770,7 @@ export const tr: Record<I18nKey, string> = {
   "ctl.noSelection": "Tarayıcı penceresinde cihaz seçilmedi.",
   "ctl.opening": "Cihaz açılıyor",
   "ctl.notMouse": "Fare değil",
+  "ctl.receiverSilent": "Bu alıcı üzerinden hiçbir şey yanıt vermedi. Cihazı uyandırın veya kabloyla bağlayıp tekrar deneyin.",
   "ctl.reconnecting": "Yeniden bağlanıyor",
   "ctl.readingPrev": "Daha önce izin verilen cihaz okunuyor.",
   "ctl.useAdd": "Fare otomatik bağlanmazsa Cihaz ekle'yi kullanın.",

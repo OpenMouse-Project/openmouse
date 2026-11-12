@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { describeHidDevice } from "./hid-diagnostics.ts";
 import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers.ts";
-import { clientSupportScore, createKeyboardClient, createMouseClient, createSupportedClient, isSharedReceiver, listingClient, listLogicalDevices, logicalDeviceGroups, pickLogicalDevice, prepareAutoConnectClient, siblingMouseClient } from "./device-clients.ts";
+import { clientSupportScore, createKeyboardClient, createMouseClient, createSupportedClient, isSharedReceiver, listingClient, listLogicalDevices, logicalDeviceGroups, pickLogicalDevice, prepareAutoConnectClient, siblingKeyboardClient, siblingMouseClient } from "./device-clients.ts";
 
 function supportedWebHidDevice(options: {
   vendorId?: number;
@@ -312,4 +312,81 @@ test("a Keychron Link-KM lists its mouse interface once that interface answered"
     forgetMouseReceiver(m6);
   }
   assert.equal(await pickLogicalDevice(group), via);
+});
+
+test("a Keychron Link keyboard dongle opens its VIA keyboard, not a mouse", async () => {
+  // Keychron Link Type A paired with a K10 Max, as WebHID reports it: Launcher's
+  // "1k" mouse collection next to a keyboard collection, and VIA on its own interface.
+  const linkInterface = (collections: HIDCollectionInfo[]) => ({
+    productName: "Keychron Link ",
+    vendorId: 0x3434,
+    productId: 0xd030,
+    collections,
+    opened: false,
+  } as unknown as HIDDevice);
+  const collection = (usagePage: number, usage: number, reports: { input?: number[]; output?: number[]; feature?: number[] } = {}) => ({
+    usagePage,
+    usage,
+    inputReports: (reports.input ?? []).map((reportId) => ({ reportId })),
+    outputReports: (reports.output ?? []).map((reportId) => ({ reportId })),
+    featureReports: (reports.feature ?? []).map((reportId) => ({ reportId })),
+    children: [],
+  } as unknown as HIDCollectionInfo);
+  const launcher = linkInterface([
+    collection(0x8c, 0x01, { input: [0x54, 0xb1], output: [0xb2], feature: [0x51, 0x52, 0x53] }),
+    collection(0x01, 0x04, { input: [0x04] }),
+  ]);
+  const via = linkInterface([collection(0xff60, 0x61)]);
+  const devices = [launcher, via];
+
+  // The Launcher collection matches a mouse driver, so the dongle counts as a
+  // shared receiver; the keyboard sits on the VIA interface.
+  assert.ok(await createMouseClient(launcher));
+  assert.equal(createKeyboardClient(launcher), null);
+  assert.equal(await isSharedReceiver(launcher, devices), true);
+
+  const keyboard = siblingKeyboardClient(launcher, devices);
+  assert.ok(keyboard);
+  assert.equal(keyboard.device, via);
+  // Only another interface of the same receiver counts.
+  assert.equal(siblingKeyboardClient(via, devices), null);
+  assert.equal(siblingKeyboardClient(launcher, [launcher, supportedWebHidDevice()]), null);
+  // VIA does not answer through the dongle; its fallback is the silent Launcher
+  // interface, which the controller then refuses to show as a mouse.
+  const fallback = await siblingMouseClient(via, devices);
+  assert.ok(fallback);
+  assert.equal(fallback.device, launcher);
+
+  // Unread, the dongle lists as its VIA keyboard.
+  const [group] = await logicalDeviceGroups(devices);
+  assert.equal(await pickLogicalDevice(group), via);
+});
+
+test("the Keychron 1k driver reads a Link with no mouse behind it as settings not ready", async () => {
+  // What the dongle answers in the field: SET 0x51 succeeds, every GET 0x51 fails.
+  const launcher = {
+    productName: "Keychron Link ",
+    vendorId: 0x3434,
+    productId: 0xd030,
+    collections: [{
+      usagePage: 0x8c,
+      usage: 0x01,
+      inputReports: [{ reportId: 0x54 }, { reportId: 0xb1 }],
+      outputReports: [{ reportId: 0xb2 }],
+      featureReports: [{ reportId: 0x51 }, { reportId: 0x52 }, { reportId: 0x53 }],
+      children: [],
+    }],
+    opened: true,
+    open: async () => undefined,
+    close: async () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    sendReport: async () => undefined,
+    sendFeatureReport: async () => undefined,
+    receiveFeatureReport: async () => { throw new Error("Failed to receive the feature report."); },
+  } as unknown as HIDDevice;
+  const client = await createMouseClient(launcher);
+  assert.ok(client);
+  const status = await client.readStatus();
+  assert.equal(status.ui?.settingsReady, false);
 });

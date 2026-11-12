@@ -732,6 +732,7 @@ export const vi: Record<I18nKey, string> = {
   "ctl.noSelection": "Không có thiết bị nào được chọn trong hộp thoại của trình duyệt.",
   "ctl.opening": "Đang mở thiết bị",
   "ctl.notMouse": "Không phải chuột",
+  "ctl.receiverSilent": "Không có thiết bị nào phản hồi qua bộ thu này. Hãy đánh thức thiết bị hoặc kết nối bằng cáp rồi thử lại.",
   "ctl.reconnecting": "Đang kết nối lại",
   "ctl.readingPrev": "Đang đọc thiết bị đã được cấp quyền trước đó.",
   "ctl.useAdd": "Dùng Thêm thiết bị nếu chuột không tự động kết nối lại.",

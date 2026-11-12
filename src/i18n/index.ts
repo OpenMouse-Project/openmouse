@@ -839,6 +839,7 @@ const en = {
   "ctl.noSelection": "No device was selected in the browser prompt.",
   "ctl.opening": "Opening device",
   "ctl.notMouse": "Not a mouse",
+  "ctl.receiverSilent": "Nothing answered through this receiver. Wake the device or connect it with a cable, then try again.",
   "ctl.reconnecting": "Reconnecting",
   "ctl.readingPrev": "Reading the previously authorized device.",
   "ctl.useAdd": "Use Add device if the mouse does not reconnect automatically.",
