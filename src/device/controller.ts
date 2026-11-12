@@ -3797,14 +3797,18 @@ async function activateClientNow(
       // keyboard. When the keyboard already failed, nothing on the receiver
       // answered: fail the connect instead of opening an empty mouse page.
       const silentReceiver = options.silentReceiver ?? "keyboard";
-      if (status.ui?.settingsReady === false && silentReceiver !== "show") {
+      if (status.ui?.settingsReady === false && silentReceiver === "fail") {
+        // The keyboard fallback already found this interface as a sibling of
+        // the receiver's keyboard; don't re-check it against an enumeration
+        // that may come back empty.
+        forgetMouseReceiver(client.device);
+        await client.close().catch(() => undefined);
+        throw new Error(st("ctl.receiverSilent"));
+      }
+      if (status.ui?.settingsReady === false && silentReceiver === "keyboard") {
         const devices = await authorizedHidDevices();
         if (await isSharedReceiver(client.device, devices)) {
           forgetMouseReceiver(client.device);
-          if (silentReceiver === "fail") {
-            await client.close().catch(() => undefined);
-            throw new Error(st("ctl.receiverSilent"));
-          }
           const keyboard = siblingKeyboardClient(client.device, devices);
           if (keyboard) {
             await activateKeyboardClientNow(keyboard);
