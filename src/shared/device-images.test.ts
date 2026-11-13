@@ -40,6 +40,16 @@ test("PRO X3 SUPERSTRIKE gets its own render, not the X2's", () => {
   assert.equal(deviceImage(null, "Attack Shark X3"), CDN + "attackshark-x3.png");
 });
 
+test("Amkette XS Flow 2 Speed resolves by model name, never from the shared ids", () => {
+  assert.equal(deviceImage(dev(0x04f3, 0x026e), "XS Flow 2 Speed"), CDN + "amkette-xs-flow-2-speed.png");
+  assert.equal(deviceImage(dev(0x04f3, 0x026d), "XS Flow 2 Speed"), CDN + "amkette-xs-flow-2-speed.png");
+  assert.equal(deviceImage(null, "Amkette XS Flow 2 Speed"), CDN + "amkette-xs-flow-2-speed.png");
+  // Without a model name the mouse could be any XS model, or share ids with a
+  // Ryunix Kyu Pro MX1, so it keeps the placeholder.
+  assert.equal(deviceImage(dev(0x04f3, 0x026e), "XS series"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(dev(0x04f3, 0x026e), "Kyu Pro MX1"), CDN + "unknown-device.png");
+});
+
 test("Razer Orochi V2 resolves by name", () => {
   assert.equal(deviceImage(dev(0x1532, 0x0094), "Razer Orochi V2"), CDN + "razer-orochi-v2.png");
 });

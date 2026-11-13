@@ -65,6 +65,11 @@ function computeDeviceImageFilename(displayName: string): string {
   }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
+  // Amkette XS Flow 2 Speed: the driver reports this model name only once the
+  // mouse names itself ("XS Speed" over USB, "XS speed N" over Bluetooth). Its
+  // nameless fallback, "XS series", could be any XS model, so it keeps the
+  // placeholder rather than guess.
+  if (/\bxs\s*flow\s*2\s*speed\b/i.test(displayName)) return "amkette-xs-flow-2-speed.png";
   if (/\batk\s*zero\b/i.test(displayName)) return "atk-zero.png";
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
