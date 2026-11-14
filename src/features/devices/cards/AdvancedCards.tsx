@@ -649,6 +649,9 @@ export function DpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const speedMax = hint?.speed.at(-1) ?? profile!.dpiLighting.speed.max;
   const locale = snapshot.preferences.locale;
   const lightMode = status.dpiLedMode ?? 0;
+  // Some mice only take a brightness in certain modes (ATK R1: steady only).
+  const brightnessModes: readonly number[] | undefined = hint?.brightnessModes;
+  const brightnessLocked = lightMode === 0 || (brightnessModes != null && !brightnessModes.includes(lightMode));
 
   const staged = snapshot.pending.keys.some((key) => key.startsWith("teevolution-dpi-light-") || key === "dpi-light-sleep");
   return (
@@ -684,7 +687,7 @@ export function DpiLightingCard({ snapshot }: { snapshot: ControlSnapshot }): Re
               max={brightnessMax}
               step={1}
               value={status.dpiLedBrightness ?? brightnessMin}
-              disabled={lightMode === 0 || status.dpiLedBrightness == null}
+              disabled={brightnessLocked || status.dpiLedBrightness == null}
               style={{
                 "--fill": `${((status.dpiLedBrightness ?? brightnessMin) - brightnessMin)
                   / Math.max(1, brightnessMax - brightnessMin) * 100}%`,
