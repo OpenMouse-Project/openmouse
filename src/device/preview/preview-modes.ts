@@ -36,6 +36,7 @@ export const PREVIEW_KEYS = [
   "finalmouse-slx",
   "ninjutso",
   "nape-pro",
+  "keychron-g6-he",
   "mx-master-3s",
   "g703",
   "gwolves-pro",
@@ -91,6 +92,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "finalmouse": return "finalmouse";
     case "finalmouse-slx": return "finalmouse-slx";
     case "ninjutso": return "ninjutso";
+    case "keychron-g6-he": return "keychron-g6-he";
     case "keychron":
     case "keychron-nape":
     case "nape-pro": return "nape-pro";

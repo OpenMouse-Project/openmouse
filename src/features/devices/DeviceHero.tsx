@@ -208,6 +208,7 @@ function sparkPath(samples: readonly BatterySample[], width: number, height: num
 }
 
 export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
   const samples = useMemo(() => {
@@ -225,6 +226,9 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
   const path = sparkPath(samples, width, height);
   const estimate = control.batteryEstimateParts(status, locale);
   const format = new Intl.DateTimeFormat(locale, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const tooltipFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+  const hovered = hoveredIndex === null ? null : samples[hoveredIndex] ?? null;
+  const hoverX = hovered && path ? (hovered.timestamp - path.start) / Math.max(1, path.end - path.start) * width : 0;
   return (
     <section className="om-panel om-battery" aria-labelledby="om-battery-title">
       <header className="om-panel-head">
@@ -239,12 +243,42 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
       </header>
       {path ? (
         <figure className="om-battery-chart">
-          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t(locale, "ov.historyTitle")}>
+            <div className="om-battery-plot">
+            <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={t(locale, "ov.historyTitle")}
+              onPointerMove={event => {
+                const box = event.currentTarget.getBoundingClientRect();
+                const time = path.start + Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * (path.end - path.start);
+                let closest = 0;
+                samples.forEach((sample, index) => {
+                  if (Math.abs(sample.timestamp - time) < Math.abs(samples[closest]!.timestamp - time)) closest = index;
+                });
+                setHoveredIndex(closest);
+              }}
+              onPointerLeave={() => setHoveredIndex(null)}
+              onFocus={() => setHoveredIndex(samples.length - 1)}
+              onBlur={() => setHoveredIndex(null)}
+              onKeyDown={event => {
+                if (event.key === "Escape") { setHoveredIndex(null); return; }
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                setHoveredIndex(previous => event.key === "Home" ? 0 : event.key === "End" ? samples.length - 1
+                  : Math.max(0, Math.min(samples.length - 1, (previous ?? samples.length - 1) + (event.key === "ArrowLeft" ? -1 : 1))));
+              }}>
             <line className="om-chart-guide" x1="0" x2={width} y1={height / 2} y2={height / 2} />
             <line className="om-chart-guide" x1="0" x2={width} y1={height * 0.8} y2={height * 0.8} />
             <path className="om-chart-area" d={path.area} />
             <path className="om-chart-line" d={path.line} vectorEffect="non-scaling-stroke" />
+              {hovered ? <g aria-hidden="true">
+                <line className="om-battery-cursor" x1={hoverX} x2={hoverX} y1={0} y2={height} />
+                <circle className="om-battery-point" cx={hoverX} cy={height - hovered.percent / 100 * height} r={4} />
+              </g> : null}
           </svg>
+            {hovered ? <div className="om-battery-tooltip" role="status"
+              style={{ left: `clamp(84px, ${hoverX / width * 100}%, calc(100% - 84px))` }}>
+              <strong>{hovered.percent}%</strong>
+              <time dateTime={new Date(hovered.timestamp).toISOString()}>{tooltipFormat.format(hovered.timestamp)}</time>
+            </div> : null}
+            </div>
           <figcaption className="om-battery-axis">
             <span>{format.format(path.start)}</span>
             <span>{format.format(path.end)}</span>

@@ -60,3 +60,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { box-shadow: 
     scroll-behavior: auto !important;
   }
 }
+/* Keep control-panel labels from highlighting while dragging controls. */
+body { user-select: none; }
+input, textarea, [contenteditable="true"] { user-select: text; }

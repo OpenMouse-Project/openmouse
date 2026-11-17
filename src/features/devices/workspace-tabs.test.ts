@@ -37,6 +37,12 @@ test("a connected mouse exposes only tabs backed by available controls", () => {
   ]);
 });
 
+test("receiver controls get a tab inside the mouse without requiring mouse lighting", () => {
+  assert.ok(availableWorkspaceTabs(true, availability({ keychronReceiver: true })).includes("receiver"));
+  assert.ok(!availableWorkspaceTabs(true, availability({})).includes("receiver"));
+  assert.equal(availableWorkspaceTab("receiver", availableWorkspaceTabs(true, availability({}))), "overview");
+});
+
 test("magnetic buttons put their settings under the buttons tab", () => {
   assert.deepEqual(availableWorkspaceTabs(true, availability({ magnetic: true })), [
     "overview", "performance", "buttons", "advanced",

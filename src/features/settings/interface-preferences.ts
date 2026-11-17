@@ -5,6 +5,7 @@ export type InterfaceTheme =
   | "Ice"
   | "Ember"
   | "Mono"
+  | "OLED"
   | "Miku"
   | "Catppuccin Mocha"
   | "Catppuccin Macchiato"
@@ -53,6 +54,7 @@ const THEMES: readonly InterfaceTheme[] = [
   "Ice",
   "Ember",
   "Mono",
+  "OLED",
   "Miku",
   "Catppuccin Mocha",
   "Catppuccin Macchiato",

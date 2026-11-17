@@ -309,7 +309,7 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
 export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  if (status?.ui?.family !== "ksnake" || status.scrollDirection == null) return null;
+  if (status?.scrollDirection == null || !["ksnake", "keychron-8k"].includes(status.ui?.family ?? "") && !isNoirKsnakeStatus(status)) return null;
   const staged = snapshot.pending.keys.includes("ksnake-scroll-direction");
   return (
     <article id="ksnake-scroll-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
@@ -338,7 +338,12 @@ export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): R
           </span>
         </label>
       </div>
-      <small className="setting-note">{t(locale, "adv.scrollStored")}</small>
+      {status.brand === "Keychron" && /Windows|Macintosh|Mac OS X/.test(navigator.userAgent) ?
+        <a className="om-btn" href={/Macintosh|Mac OS X/.test(navigator.userAgent)
+          ? "x-apple.systempreferences:com.apple.Mouse-Settings.extension" : "ms-settings:mousetouchpad"}>
+          {t(locale, "magnetic.openSystem")}
+        </a> : null}
+      <small className="setting-note">{status.ui?.family === "keychron-8k" ? t(locale, "magnetic.scrollStored") : t(locale, "adv.scrollStored")}</small>
     </article>
   );
 }
@@ -2637,6 +2642,7 @@ export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): 
  * so nothing here knows what a given mouse can do.
  */
 export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [leftLocked, setLeftLocked] = useState(true);
   const status = snapshot.status;
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
@@ -2656,13 +2662,14 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   return (
     <article id="button-mapping-settings" className="setting-card">
       <div className="setting-heading compact"><div><h2>{t(locale, "map.remap")}</h2></div></div>
+      {status.brand === "Keychron" ? <SwitchRow id="keychron-left-lock" label={t(locale, "magnetic.leftLock")} value={leftLocked} onChange={setLeftLocked} /> : null}
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
           const assigned = resettingButtons || pendingButtons.has(`button-${button}`)
             ? status.buttonMappings?.[button] ?? mappings[button] ?? deviceAssigned
             : mappings[button] ?? deviceAssigned;
           const selectId = `button-${button.toLowerCase()}-select`;
-          const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left");
+          const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left") || (status.brand === "Keychron" && leftLocked && button === "Left");
           return (
             <label key={button} className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
               <span className="button-map-control">

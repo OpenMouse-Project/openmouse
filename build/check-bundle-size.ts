@@ -47,8 +47,11 @@ import { join } from "node:path";
 // measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
 // 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
 export const BUDGET_BYTES: Record<string, number> = {
-  ".css": 170_000,
-  ".js": 3_950_000,
+  // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
+  // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
+  // Main stays at 1,459,853 bytes, below its existing separate cap.
+  ".css": 178_000,
+  ".js": 4_000_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

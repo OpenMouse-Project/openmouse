@@ -1,6 +1,9 @@
+import { MousePointer2 } from "lucide-react";
+import { MagneticTravel } from "./MagneticTravel";
+import { ActuationGauge } from "./ActuationGauge";
 import { displayText } from "../../i18n/index";
 import { useUiLocale } from "../../shared/ui-locale";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import { t } from "../../i18n/index";
 import type { InterfaceLocale } from "../settings/interface-preferences";
@@ -81,40 +84,6 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
-/** Press depth runs 0 to 100; the bar has ten segments and marks where the click registers. */
-function DepthMeter({ magnetic }: { magnetic: MagneticButtonsStatus }): ReactNode {
-  const __uiLocale = useUiLocale();
-  const [depth, setDepth] = useState<[number, number]>([0, 0]);
-  useEffect(() => {
-    const stop = control.subscribeButtonDepth((left, right) => setDepth([left, right]));
-    const suppressContextMenu = (event: MouseEvent) => event.preventDefault();
-    window.addEventListener("contextmenu", suppressContextMenu);
-    return () => {
-      stop();
-      window.removeEventListener("contextmenu", suppressContextMenu);
-    };
-  }, []);
-  const span = magnetic.triggerPointRange.max;
-  return (
-    <div className="superstrike-press-meters">
-      {(["Left", "Right"] as const).map((side, index) => {
-        const trigger = magnetic.buttons[index]?.triggerPoint;
-        const mark = trigger ? Math.max(0, Math.min(9, Math.round((trigger / span) * 10) - 1)) : -1;
-        return (
-          <div key={side} className="superstrike-press-meter" role="meter" aria-label={displayText(__uiLocale, `${side} press depth`)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={depth[index]}>
-            <span>{displayText(__uiLocale, side)}</span>
-            <div>
-              {Array.from({ length: 10 }, (_, step) => (
-                <i key={step} data-on={step * 10 < depth[index]!} data-actuation={step === mark} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function ButtonControls({
   group,
   magnetic,
@@ -133,7 +102,8 @@ function ButtonControls({
   const { triggerPointRange: trigger, releasePointRange: release, rapidTriggerRange: rapid } = magnetic;
   const optical = state.switchType === "optical";
   const separateRelease = state.releasePoint != null;
-  const rapidLevel = state.rapidTrigger ?? rapid?.min ?? 1;
+  const rapidMax = brand === "Keychron" ? Math.max(0, 12 - (state.triggerPoint ?? 12)) : rapid?.max ?? 0;
+  const rapidLevel = Math.min(state.rapidTrigger ?? rapid?.min ?? 1, Math.max(1, rapidMax));
   const unit = magnetic.rapidTriggerUnit === "ms" ? " ms" : "";
   const calibrated = magnetic.calibration !== "needed";
   // Release 9 is how the mouse says "follows the trigger point", so a separate release starts beside it.
@@ -160,6 +130,7 @@ function ButtonControls({
         </Row>
       ) : null}
       <Row label={t(locale, "super.actuation")} hint={`${trigger.min}–${trigger.max}`}>
+        <div className="actuation-editor">
         <Steps
           id={`magnetic-${slug}-trigger`}
           label={displayText(locale, "actuation point")}
@@ -169,6 +140,9 @@ function ButtonControls({
           disabled={optical}
           onChange={(next) => targets.forEach((button) => control.applyMagneticTriggerPoint(button, next))}
         />
+        {brand === "Keychron" ? <ActuationGauge value={state.triggerPoint} min={trigger.min} max={trigger.max}
+          disabled={optical} locale={locale} /> : null}
+        </div>
       </Row>
       {release ? (
         <Row label={displayText(locale, "Release Point")} hint={separateRelease ? `${release.min}–${release.max}` : "Follows the actuation point"}>
@@ -196,7 +170,7 @@ function ButtonControls({
         </Row>
       ) : null}
       {rapid ? (
-        <Row label={displayText(locale, "Rapid Trigger")} hint={magnetic.rapidTriggerUnit === "ms" ? `${rapid.min}–${rapid.max} ms` : `${rapid.min}–${rapid.max}`}>
+        <Row label={displayText(locale, "Rapid Trigger")} hint={magnetic.rapidTriggerUnit === "ms" ? `${rapid.min}–${rapid.max} ms` : rapidMax === 0 ? t(locale, "common.off") : `${rapid.min}–${rapidMax}`}>
           <div className="superstrike-rapid-controls">
             <Toggle
               id={`magnetic-${slug}-rapid-enabled`}
@@ -210,9 +184,9 @@ function ButtonControls({
               id={`magnetic-${slug}-rapid`}
               label={displayText(locale, "rapid trigger")}
               min={rapid.min}
-              max={rapid.max}
+              max={Math.max(rapid.min, rapidMax)}
               value={state.rapidTrigger}
-              disabled={optical || state.rapidTriggerEnabled === false}
+              disabled={optical || rapidMax === 0 || state.rapidTriggerEnabled === false}
               onChange={(next) => targets.forEach((button) => control.applyMagneticRapidTrigger(button, true, next, unit))}
             />
           </div>
@@ -305,8 +279,7 @@ export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): Re
       aria-label={displayText(locale, "Magnetic button settings")}
     >
       <article className="setting-card superstrike-tuning-card">
-        <div className="setting-heading superstrike-tuning-heading"><div><h2>{displayText(locale, "Magnetic Buttons")}</h2></div></div>
-        {magnetic.liveDepth ? <DepthMeter magnetic={magnetic} /> : null}
+        <div className="setting-heading superstrike-tuning-heading"><div className="magnetic-heading-label"><MousePointer2 aria-hidden="true" /><h2>{t(locale, "magnetic.title")}</h2></div>
         <div className="superstrike-tabs" role="tablist" aria-label={displayText(locale, "Magnetic button mode")}>
           {(["both", "independent"] as const).map((value) => (
             <button key={value} type="button" role="tab" aria-selected={shown === value} onClick={() => setMode(value)}>
@@ -314,6 +287,8 @@ export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): Re
             </button>
           ))}
         </div>
+        </div>
+        {magnetic.liveDepth ? <MagneticTravel magnetic={magnetic} locale={locale} brand={brand} /> : null}
         <div className="superstrike-tuning-panels" data-superstrike-mode={shown}>
           <div className="superstrike-tuning-grid superstrike-independent-panel">
             {([0, 1] as const).map((side) => (
@@ -331,7 +306,7 @@ export function MagneticButtons({ snapshot }: { snapshot: ControlSnapshot }): Re
             <ButtonControls group="both" magnetic={magnetic} state={magnetic.buttons[0]!} locale={locale} brand={brand} />
           </fieldset>
         </div>
-        <Calibration snapshot={snapshot} />
+        {brand !== "Keychron" || magnetic.calibration !== null ? <Calibration snapshot={snapshot} /> : null}
       </article>
     </section>
   );
