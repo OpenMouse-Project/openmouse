@@ -16,10 +16,26 @@ export const TRUSTED_TYPES_POLICY = "openmouse";
 
 interface TrustedHtmlPolicy {
   createHTML(input: string): string;
+  createScriptURL(input: string): string;
 }
 
 interface TrustedTypePolicyFactoryLike {
-  createPolicy(name: string, rules: { createHTML(input: string): string }): TrustedHtmlPolicy;
+  createPolicy(
+    name: string,
+    rules: { createHTML(input: string): string; createScriptURL(input: string): string },
+  ): TrustedHtmlPolicy;
+}
+
+function isSameOriginUrl(input: string): boolean {
+  try {
+    return new URL(input, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function rejectScriptUrl(input: string): never {
+  throw new TypeError(`Refusing non-same-origin script URL: ${input}`);
 }
 
 let policy: TrustedHtmlPolicy | null = null;
@@ -32,7 +48,10 @@ function htmlPolicy(): TrustedHtmlPolicy | null {
   const factory = (window as unknown as { trustedTypes?: TrustedTypePolicyFactoryLike }).trustedTypes;
   if (!factory) return policy;
   try {
-    policy = factory.createPolicy(TRUSTED_TYPES_POLICY, { createHTML: (input) => input });
+    policy = factory.createPolicy(TRUSTED_TYPES_POLICY, {
+      createHTML: (input) => input,
+      createScriptURL: (input) => (isSameOriginUrl(input) ? input : rejectScriptUrl(input)),
+    });
   } catch {
     // A duplicate or disallowed policy name must not take down the UI.
     policy = null;
@@ -50,4 +69,14 @@ function htmlPolicy(): TrustedHtmlPolicy | null {
 export function setTrustedHtml(target: { innerHTML: string }, markup: string): void {
   const trusted = htmlPolicy()?.createHTML(markup);
   target.innerHTML = trusted ?? markup;
+}
+
+/**
+ * Wraps a same-origin script URL (service worker, worker) for APIs that
+ * require a `TrustedScriptURL` under `require-trusted-types-for 'script'`.
+ * Cross-origin URLs are rejected by the policy. Without Trusted Types the
+ * plain string is returned unchanged.
+ */
+export function trustedScriptUrl(url: string): string {
+  return htmlPolicy()?.createScriptURL(url) ?? url;
 }
