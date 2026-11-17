@@ -5,6 +5,7 @@ import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import type { XiaomiBinding, XiaomiMacroEvent } from "@openmouse/protocol/xiaomi";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../features/settings/interface-preferences";
 import type { PreviewMode } from "./preview/preview-modes";
@@ -315,6 +316,16 @@ export interface ControlSnapshot {
   wallhackMacros: (WallhackMacroStep[] | null)[] | null;
   wallhackMacrosLoading: boolean;
   wallhackMacrosError: string | null;
+  /**
+   * Xiaomi Mi Gaming Mouse per-button macro slots (8), read from the device.
+   * A slot is null when the button is not bound to a macro mode. Macros are
+   * saved per button through applyXiaomiMacro.
+   */
+  xiaomiMacros: (XiaomiMacroEvent[] | null)[] | null;
+  /** Per-button binding state (mode/modifiers/key) for the eight Xiaomi buttons. */
+  xiaomiBindings: (XiaomiBinding | null)[] | null;
+  xiaomiMacrosLoading: boolean;
+  xiaomiMacrosError: string | null;
   wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null;
   wallhackCurvesLoading: boolean;
   wallhackCurvesError: string | null;
