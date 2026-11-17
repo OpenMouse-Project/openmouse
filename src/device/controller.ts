@@ -4754,6 +4754,7 @@ function stageMagneticButton(
   const name = `${MAGNETIC_SIDE[button]} click ${label}`;
   stageChange({
     key: `magnetic-${setting}-${button}`,
+    priority: latestDeviceStatus?.brand === "Keychron" && setting === "trigger" ? -1 : 0,
     label: name,
     command: `Set the ${name.toLowerCase()}`,
     progress: `Setting the ${name.toLowerCase()}…`,
@@ -6280,9 +6281,18 @@ export function applyKeychronReceiverButton(button: string, action: string): voi
 export async function refreshKeychronReceiver(): Promise<void> {
   await waitForControllerIdle();
   const client = keychron8kClient();
-  if (!client) return;
-  try { applyStatus(await client.readStatus()); }
-  catch (error) { toastForError("Receiver", error); }
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
+  const device = activeDevice;
+  refreshInProgress = true;
+  try {
+    const status = await client.readStatus();
+    if (activeSettingsClient() !== client || activeDevice !== device) return;
+    applyStatus(status);
+  }
+  catch (error) {
+    if (activeSettingsClient() === client && activeDevice === device) toastForError("Receiver", error);
+  }
+  finally { refreshInProgress = false; }
 }
 
 export function applyKeychronReceiverLighting(value: MouseLighting): void {
@@ -6309,7 +6319,6 @@ export function stageKeychronReset(): void {
   if (!window.confirm(t(interfacePreferences.locale, "magnetic.factoryHint"))) return;
   stageChange({ key: "keychron-reset", label: t(interfacePreferences.locale, "magnetic.factoryReset"),
     command: "Reset Keychron mouse", progress: "Resetting Keychron mouse...",
-    preview: () => {},
     apply: async () => { await requireClientMethod("resetKeychronMouse", "factory reset").resetKeychronMouse(); },
   });
 }

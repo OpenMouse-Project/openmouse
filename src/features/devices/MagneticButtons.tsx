@@ -46,6 +46,7 @@ function Toggle({
   on,
   onChange,
   disabled = false,
+  enableDisabled = false,
   label,
   locale,
 }: {
@@ -53,6 +54,7 @@ function Toggle({
   on: boolean | null;
   onChange: (next: boolean) => void;
   disabled?: boolean;
+  enableDisabled?: boolean;
   label: string;
   locale: InterfaceLocale;
 }): ReactNode {
@@ -60,7 +62,7 @@ function Toggle({
     <div id={id} className="superstrike-steps superstrike-switch" role="group" aria-label={displayText(locale, label)}>
       <div>
         {([false, true] as const).map((value) => (
-          <button key={String(value)} type="button" aria-pressed={on === value} disabled={disabled} onClick={() => onChange(value)}>
+          <button key={String(value)} type="button" aria-pressed={on === value} disabled={disabled || (value && enableDisabled)} onClick={() => onChange(value)}>
             {t(locale, value ? "common.on" : "common.off")}
           </button>
         ))}
@@ -102,7 +104,8 @@ function ButtonControls({
   const { triggerPointRange: trigger, releasePointRange: release, rapidTriggerRange: rapid } = magnetic;
   const optical = state.switchType === "optical";
   const separateRelease = state.releasePoint != null;
-  const rapidMax = brand === "Keychron" ? Math.max(0, 12 - (state.triggerPoint ?? 12)) : rapid?.max ?? 0;
+  const rapidMax = brand === "Keychron" ? Math.min(rapid?.max ?? 0,
+    ...targets.map(button => Math.max(0, 12 - (magnetic.buttons[button]?.triggerPoint ?? 12)))) : rapid?.max ?? 0;
   const rapidLevel = Math.min(state.rapidTrigger ?? rapid?.min ?? 1, Math.max(1, rapidMax));
   const unit = magnetic.rapidTriggerUnit === "ms" ? " ms" : "";
   const calibrated = magnetic.calibration !== "needed";
@@ -178,6 +181,7 @@ function ButtonControls({
               locale={locale}
               on={state.rapidTriggerEnabled}
               disabled={optical}
+              enableDisabled={rapidMax === 0}
               onChange={(on) => targets.forEach((button) => control.applyMagneticRapidTrigger(button, on, rapidLevel, unit))}
             />
             <Steps

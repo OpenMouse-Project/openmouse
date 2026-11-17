@@ -33,6 +33,7 @@ export function KeychronDynamicDpiCard({ snapshot }: { snapshot: ControlSnapshot
       {(["perf.custom", "perf.classic", "perf.natural", "perf.jump"] as const).map((key, mode) =>
         <button type="button" key={key} aria-pressed={draft.mode === mode} disabled={snapshot.settingsPending}
           onClick={() => {
+            if (draft.mode === mode) return;
             if (draft.mode === 0) setCustom(structuredClone(draft.points));
             setDraft({ ...draft, mode, points: structuredClone(mode === 0 ? custom.length ? custom : draft.points : PRESETS[mode - 1]!) });
           }}>{t(locale, key)}</button>)}

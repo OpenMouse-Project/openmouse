@@ -322,7 +322,7 @@ aside.testing-note strong { display: none; }
 .magnetic-travel-gridline { stroke: var(--line-1); stroke-width: 1; }
 .magnetic-travel-threshold { stroke: var(--accent); stroke-dasharray: 5 4; stroke-width: 1; }
 .magnetic-travel-line { fill: none; stroke: var(--text-1); stroke-width: 2; stroke-linejoin: round; }
-.magnetic-travel-active-area { fill: color-mix(in srgb, var(--accent) 20%, transparent); }
+.magnetic-travel-active-area { fill: rgb(var(--accent-rgb) / 0.2); }
 .magnetic-travel-active-line { stroke: var(--accent); }
 .magnetic-travel output[data-actuated="true"] { color: var(--accent); }
 .magnetic-travel small { color: var(--text-3); }

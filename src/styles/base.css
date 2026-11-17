@@ -62,4 +62,4 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { box-shadow: 
 }
 /* Keep control-panel labels from highlighting while dragging controls. */
 body { user-select: none; }
-input, textarea, [contenteditable="true"] { user-select: text; }
+input, textarea, [contenteditable="true"], [role="alert"], [role="status"] { user-select: text; }
