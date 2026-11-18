@@ -86,6 +86,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // The Model O2 Pro 4K/8K writes a debounce block and a motion sync flag; it
   // has no sleep command wired in, so no sleep flag.
   "glorious-core2": { advancedSection: true, debounce: true },
+  // Model O/D Wireless: the protocol driver already implements MXW's
+  // per-profile debounce command through setDebounceTime.
+  "glorious-classic": { advancedSection: true, debounce: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
   // plain flags rather than DIRECT_MODE (its advancedSection already comes
