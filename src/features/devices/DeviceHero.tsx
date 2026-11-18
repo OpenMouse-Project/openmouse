@@ -208,7 +208,7 @@ function sparkPath(samples: readonly BatterySample[], width: number, height: num
 }
 
 export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const [selection, setSelection] = useState<{ device: string; timestamp: number } | null>(null);
+  const [selection, setSelection] = useState<{ device: string; id: string } | null>(null);
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
   const samples = useMemo(() => {
@@ -222,7 +222,7 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
   }, [status?.name, status?.batteryPercent]);
   useEffect(() => {
     setSelection(previous => previous && (previous.device !== status?.name
-      || !samples.some(sample => sample.timestamp === previous.timestamp)) ? null : previous);
+      || !samples.some(sample => sample.id === previous.id)) ? null : previous);
   }, [samples, status?.name]);
   if (!status || status.batteryPercent === null) return null;
   const width = 600;
@@ -231,7 +231,7 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
   const estimate = control.batteryEstimateParts(status, locale);
   const format = new Intl.DateTimeFormat(locale, { weekday: "short", hour: "numeric", minute: "2-digit" });
   const tooltipFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
-  const hovered = selection?.device === status.name ? samples.find(sample => sample.timestamp === selection.timestamp) ?? null : null;
+  const hovered = selection?.device === status.name ? samples.find(sample => sample.id === selection.id) ?? null : null;
   const hoverX = hovered && path ? (hovered.timestamp - path.start) / Math.max(1, path.end - path.start) * width : 0;
   return (
     <section className="om-panel om-battery" aria-labelledby="om-battery-title">
@@ -256,20 +256,20 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
                 samples.forEach((sample, index) => {
                   if (Math.abs(sample.timestamp - time) < Math.abs(samples[closest]!.timestamp - time)) closest = index;
                 });
-                setSelection({ device: status.name, timestamp: samples[closest]!.timestamp });
+                setSelection({ device: status.name, id: samples[closest]!.id! });
               }}
               onPointerLeave={() => setSelection(null)}
-              onFocus={() => setSelection({ device: status.name, timestamp: samples.at(-1)!.timestamp })}
+              onFocus={() => setSelection({ device: status.name, id: samples.at(-1)!.id! })}
               onBlur={() => setSelection(null)}
               onKeyDown={event => {
                 if (event.key === "Escape") { setSelection(null); return; }
                 if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
                 event.preventDefault();
                 setSelection(previous => {
-                  const index = previous?.device === status.name ? samples.findIndex(sample => sample.timestamp === previous.timestamp) : -1;
+                  const index = previous?.device === status.name ? samples.findIndex(sample => sample.id === previous.id) : -1;
                   const next = event.key === "Home" ? 0 : event.key === "End" ? samples.length - 1
                     : Math.max(0, Math.min(samples.length - 1, (index < 0 ? samples.length - 1 : index) + (event.key === "ArrowLeft" ? -1 : 1)));
-                  return { device: status.name, timestamp: samples[next]!.timestamp };
+                  return { device: status.name, id: samples[next]!.id! };
                 });
               }}>
             <line className="om-chart-guide" x1="0" x2={width} y1={height / 2} y2={height / 2} />

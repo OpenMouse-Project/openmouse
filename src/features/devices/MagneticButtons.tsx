@@ -182,7 +182,8 @@ function ButtonControls({
               on={state.rapidTriggerEnabled}
               disabled={optical}
               enableDisabled={rapidMax === 0}
-              onChange={(on) => targets.forEach((button) => control.applyMagneticRapidTrigger(button, on, rapidLevel, unit))}
+              onChange={(on) => targets.forEach((button) => control.applyMagneticRapidTrigger(button, on,
+                on ? rapidLevel : magnetic.buttons[button]?.rapidTrigger ?? rapid?.min ?? 1, unit))}
             />
             <Steps
               id={`magnetic-${slug}-rapid`}

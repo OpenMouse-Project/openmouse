@@ -24,6 +24,32 @@ test("battery history keeps only meaningful checkpoints", () => {
   assert.equal(changed.length, 2);
 });
 
+test("battery samples in the same millisecond retain unique identities across writes and rollover", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "SameTime", 90, "discharging", 1000);
+  saveBatterySample(storage, "SameTime", 89, "discharging", 1000);
+  const samples = saveBatterySample(storage, "SameTime", 90, "discharging", 1000);
+  assert.equal(new Set(samples.map(sample => sample.id)).size, 3);
+  const retained = samples[2]!.id;
+  let next = samples;
+  for (let index = 0; index < 498; index++) next = saveBatterySample(storage, "SameTime", 80, "discharging", 2000 + index * 300000);
+  assert.equal(next.length, 500);
+  assert.equal(next[1]!.id, retained);
+});
+
+test("legacy sample identities survive migration when a new checkpoint is stored", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({ LegacyIds: [
+    { timestamp: 1000, percent: 90, mode: "discharging" },
+    { timestamp: 1000, percent: 89, mode: "discharging" },
+  ] }));
+  const original = cachedBatterySamples(storage, "LegacyIds", 2000);
+  const next = saveBatterySample(storage, "LegacyIds", 88, "discharging", 2000);
+  assert.equal(new Set(original.map(sample => sample.id)).size, 2);
+  assert.equal(next[0]!.id, original[0]!.id);
+  assert.equal(next[1]!.id, original[1]!.id);
+});
+
 test("battery estimate requires a recent continuous trend", () => {
   const samples = [
     { timestamp: 0, percent: 100, mode: "discharging" as const },
