@@ -21,6 +21,7 @@ function snapshot(overrides: {
   settingsPending?: boolean;
   showExperimental?: boolean;
   buttons?: ControlSnapshot["buttons"];
+  devices?: ControlSnapshot["devices"];
 }): ControlSnapshot {
   const status = overrides.status === null ? null : { ...STATUS, ...overrides.status };
   return {
@@ -29,6 +30,7 @@ function snapshot(overrides: {
     capabilities: overrides.capabilities ?? null,
     settingsPending: overrides.settingsPending ?? false,
     buttons: overrides.buttons ?? null,
+    devices: overrides.devices ?? [],
     preferences: { showExperimental: overrides.showExperimental ?? true },
   } as unknown as ControlSnapshot;
 }
@@ -38,6 +40,16 @@ const CONTROL = {
   name: "Gesture button", taskName: "Gesture button", reprogrammable: true,
   mappedTo: 0x00c3, diverted: false, remappableTo: [0x0052], remapFlags: 0,
 } as unknown as NonNullable<ControlSnapshot["buttons"]>[number];
+
+test("the selected TurboLink keeps its receiver tab available when optional reads fail", () => {
+  const receiver = { index: 0, name: "Keychron G6 HE 8K", detail: "", selected: true,
+    vendorId: 0x3434, productId: 0xd05a, kind: "mouse" as const, transport: "webhid" as const };
+  const status = { brand: "Keychron" as const, ui: { family: "keychron-8k" } };
+  assert.equal(cardAvailability(snapshot({ status, devices: [receiver] })).keychronReceiver, true);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, selected: false }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, productId: 0xd086 }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status: { ...status, ui: { ...status.ui, receiverControls: true } } })).keychronReceiver, true);
+});
 
 test("LunaFury exposes only successfully read controls and replaces global debounce", () => {
   const has = cardAvailability(snapshot({ status: {

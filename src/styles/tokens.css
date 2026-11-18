@@ -113,6 +113,16 @@
   --ok: #7fd49a; --bad: #ff6f6b; --warn: #f2c14b; --info: #7cc8f0;
 }
 
+[data-interface-theme="oled"] {
+  --ink-0: #000000; --ink-1: #000000; --solid-1: #090909; --solid-2: #141414;
+  --tint-rgb: 255 255 255;
+  --text-1: #f2f2f2; --text-2: #b8b8b8; --text-3: #929292; --text-4: #666666;
+  --accent: #eeeeee; --accent-rgb: 238 238 238; --on-accent: #000000;
+  --ok: #5dde89; --bad: #ff6b6b; --warn: #f2b84b; --info: #67d8ff;
+  --shade-rgb: 0 0 0; --surface-1: #000000; --surface-2: #0b0b0b; --surface-3: #151515;
+  --sheen: none; --glint: transparent; --ground: #000000;
+}
+
 [data-interface-theme="violet"] {
   --ink-0: #09080c; --ink-1: #0e0c13; --solid-1: #16141d; --solid-2: #1f1c28;
   --tint-rgb: 222 214 255;

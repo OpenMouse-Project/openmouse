@@ -28,6 +28,11 @@ image file — it has nowhere to go. Instead:
 
 ## Maintainer upload steps
 
+For the G6 HE use `keychron-g6-he.png`; for a separate TurboLink receiver render
+use `keychron-turbolink-8k.png`. Upload at the bucket root. Both name mappings are
+in `src/shared/device-images.ts`; the G6 mapping precedes the generic HE keyboard
+fallback. These mappings are ready for upload and do not imply the files exist.
+
 1. Save a **transparent** PNG or WebP named after the model in kebab-case,
    e.g. `razer-viper-v3-pro.png`. The panel sits on a dark background, so an
    image with a white backdrop shows as a white block.

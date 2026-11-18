@@ -4754,6 +4754,7 @@ function stageMagneticButton(
   const name = `${MAGNETIC_SIDE[button]} click ${label}`;
   stageChange({
     key: `magnetic-${setting}-${button}`,
+    priority: latestDeviceStatus?.brand === "Keychron" && setting === "trigger" ? -1 : 0,
     label: name,
     command: `Set the ${name.toLowerCase()}`,
     progress: `Setting the ${name.toLowerCase()}…`,
@@ -4815,7 +4816,19 @@ export function applyMagneticSwitchType(button: 0 | 1, type: "magnetic" | "optic
 }
 
 export function subscribeButtonDepth(listener: (left: number, right: number) => void): () => void {
-  return magneticClient()?.onButtonDepth?.(listener) ?? (() => {});
+  let current: MagneticButtonClient | null = null;
+  let stop = () => {};
+  const bind = () => {
+    const next = magneticClient();
+    if (next === current) return;
+    stop();
+    current = next;
+    listener(NaN, NaN);
+    stop = next?.onButtonDepth?.(listener) ?? (() => {});
+  };
+  bind();
+  const unsubscribe = subscribe(bind);
+  return () => { unsubscribe(); stop(); };
 }
 
 export async function startMagneticCalibration(): Promise<void> {
@@ -6246,6 +6259,70 @@ export function toggleSleep(enabled: boolean): void {
   applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
 }
 
+export function applyKeychronDynamicDpi(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.dynamicDpi) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-dynamic-dpi", label: t(interfacePreferences.locale, "perf.dynSens"),
+    command: "Set Keychron dynamic DPI", progress: "Setting Keychron dynamic DPI...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronDynamicDpi", "dynamic DPI", next),
+  });
+}
+
+export function applyKeychronReceiverButton(button: string, action: string): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  stageChange({ key: `keychron-receiver-${button}`, label: `${button}: ${action}`,
+    command: `Set receiver ${button}`, progress: `Setting receiver ${button}...`,
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    apply: () => callClientMethod("setKeychronReceiverButton", "receiver button", { button, action }),
+  });
+}
+
+export async function refreshKeychronReceiver(): Promise<void> {
+  await waitForControllerIdle();
+  const client = keychron8kClient();
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
+  const device = activeDevice;
+  refreshInProgress = true;
+  try {
+    const status = await client.readStatus();
+    if (activeSettingsClient() !== client || activeDevice !== device) return;
+    applyStatus(status);
+  }
+  catch (error) {
+    if (activeSettingsClient() === client && activeDevice === device) toastForError("Receiver", error);
+  }
+  finally { refreshInProgress = false; }
+}
+
+export function applyKeychronReceiverLighting(value: MouseLighting): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-receiver-lighting", label: t(interfacePreferences.locale, "light.receiverTitle"),
+    command: "Set receiver lighting", progress: "Setting receiver lighting...",
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronReceiverLighting", "receiver lighting", next),
+  });
+}
+
+export function applyKeychronPairing(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["pairing"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.pairing) return;
+  stageChange({ key: "keychron-pairing", label: t(interfacePreferences.locale, "magnetic.pairing"),
+    command: "Set Keychron pairing shortcut", progress: "Setting Keychron pairing shortcut...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    apply: () => callClientMethod("setKeychronPairingShortcut", "pairing shortcut", value),
+  });
+}
+
+export function stageKeychronReset(): void {
+  if (!latestDeviceStatus?.keychronMouse?.factoryReset) return;
+  if (!window.confirm(t(interfacePreferences.locale, "magnetic.factoryHint"))) return;
+  stageChange({ key: "keychron-reset", label: t(interfacePreferences.locale, "magnetic.factoryReset"),
+    command: "Reset Keychron mouse", progress: "Resetting Keychron mouse...",
+    apply: async () => { await requireClientMethod("resetKeychronMouse", "factory reset").resetKeychronMouse(); },
+  });
+}
+
 export function applyKsnakeScrollDirection(
   direction: NonNullable<MouseStatus["scrollDirection"]>,
 ): void {
@@ -7397,6 +7474,13 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
     open: async () => undefined,
     close: async () => undefined,
     readStatus: async () => structuredClone(status),
+    setScrollDirection: async (direction: "Forward" | "Reverse") => { status.scrollDirection = direction; },
+    setKeychronReceiverButton: async ({ button, action }: { button: string; action: string }) => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    setKeychronReceiverLighting: async (value: MouseLighting) => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(value); },
+    setKeychronPairingShortcut: async (value: { mask: number; holdTime: number }) => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    setKeychronDynamicDpi: async (value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>) => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(value); },
+    resetKeychronMouse: async () => undefined,
+    setButtonMapping: async (button: string, action: string) => { if (status.buttonMappings) status.buttonMappings[button] = action; },
     setMagneticTriggerPoint: async (button: 0 | 1, point: number) => { buttons()[button]!.triggerPoint = point; return point; },
     setMagneticReleasePoint: async (button: 0 | 1, point: number | null) => { buttons()[button]!.releasePoint = point; return point; },
     setMagneticRapidTrigger: async (button: 0 | 1, enabled: boolean, level: number) => {

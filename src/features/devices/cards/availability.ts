@@ -5,6 +5,7 @@ import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import type { ControlSnapshot } from "../../../device/types";
 
 export interface CardAvailability {
+  keychronReceiver: boolean;
   dpi: boolean;
   polling: boolean;
   sensor: boolean;
@@ -60,6 +61,7 @@ export interface CardAvailability {
 }
 
 const NOTHING: CardAvailability = {
+  keychronReceiver: false,
   dpi: false,
   polling: false,
   sensor: false,
@@ -149,6 +151,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     && selectableValues(capabilities.razerLowPowerOptions, status.lowBatteryWarning) !== null;
 
   return {
+    keychronReceiver: Boolean(status.keychronReceiver || ui?.receiverControls
+      || snapshot.devices?.some(device => device.selected
+        && device.vendorId === 0x3434 && device.productId === 0xd05a)),
     dpi: ready,
     // The Attack Shark X11's settings channel is native-only (settingsReady
     // stays false), but its polling rate is still controllable through
@@ -192,7 +197,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
       && status.debounceMs !== null && status.debounceMs !== undefined,
     sleep: host && (traits.sleep || capabilities?.sleepOptions != null || razerSleep)
       && ui?.hideSleepCard !== true,
-    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake) && status.scrollDirection != null,
+    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake || ui?.family === "keychron-8k") && status.scrollDirection != null,
     lowPower: host && razerLowPower,
     processing: host && processing,
     ninjutsoSensor: host && traits.ninjutso

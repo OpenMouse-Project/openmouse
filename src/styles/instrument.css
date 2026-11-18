@@ -24,6 +24,8 @@
 #pulsar-advanced.card-flow > * { margin: 0; }
 #pulsar-advanced.card-flow > :is(.is-wide, details, .egg-collapsible, .egg-experimental) { grid-column: 1 / -1; align-self: start; }
 #pulsar-advanced.card-flow > .card-slot > .setting-card { height: 100%; }
+#pulsar-advanced:has([data-card="keychron-reset"]) { display: block; }
+#pulsar-advanced:has([data-card="keychron-reset"]) > * { margin-block-end: 16px; }
 
 .card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { column-span: all; }
 #pulsar-advanced.card-flow:not(:has(> .card-slot:not(.is-wide) ~ .card-slot:not(.is-wide))) > .card-slot:not(.is-wide) { grid-column: 1 / -1; }
@@ -31,6 +33,11 @@
 .card-slot:empty, .card-slot:has(> [hidden]:first-child) { display: none; }
 .card-slot { position: relative; }
 .card-slot > .setting-card { height: auto; }
+.keychron-performance.card-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: stretch; }
+.keychron-performance.card-flow > .card-slot { margin: 0; }
+.keychron-performance > .card-slot:not(:has(> :not(.card-glyph))) { display: none; }
+.keychron-performance.card-flow > .is-wide { grid-column: 1 / -1; }
+.keychron-performance > :is([data-card="polling"], [data-card="debounce"]) > .setting-card { height: 100%; }
 
 .card-glyph {
   position: absolute;

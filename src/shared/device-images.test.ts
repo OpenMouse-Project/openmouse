@@ -349,6 +349,8 @@ test("Incott names do not collide with other brands' renders", () => {
 });
 
 test("Keychron Hall-effect keyboards get the keyboard placeholder, not the mouse one", () => {
+  assert.equal(deviceImage(null, "Keychron G6 HE 8K"), CDN + "keychron-g6-he.png");
+  assert.equal(deviceImage(null, "Keychron TurboLink 8K"), CDN + "keychron-turbolink-8k.png");
   for (const name of ["Keychron J3 HE ANSI", "Keychron Carbon 60 HE 8K", "Keychron J2 TMR", "Keychron J3 HE ANSI (preview)"]) {
     assert.equal(deviceImage(null, name), "/devices/unknown-keyboard.png", name);
   }
