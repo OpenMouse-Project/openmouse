@@ -46,12 +46,16 @@ import { join } from "node:path";
 // extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
 // measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
 // 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
+//
+// 2026-11-18: the Instant A825 read-only driver (Sades Kaze) adds about 8 kB
+// of JS. Measured with the local @openmouse/protocol build: 4,000,437 bytes
+// JS; main is 1,463,361 bytes, below its cap.
 export const BUDGET_BYTES: Record<string, number> = {
   // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
   ".css": 178_000,
-  ".js": 4_000_000,
+  ".js": 4_010_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
