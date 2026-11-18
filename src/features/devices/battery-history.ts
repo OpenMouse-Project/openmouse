@@ -28,9 +28,10 @@ function loadHistory(storage: Storage): BatteryHistory {
 
 function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
   if (!Array.isArray(stored)) return [];
-  return stored.map((sample, index) => sample && typeof sample === "object" ? {
-    ...sample, id: typeof sample.id === "string" && sample.id ? sample.id : `legacy:${sample.timestamp}:${index}`,
-  } : sample).filter((sample): sample is BatterySample =>
+  return stored.map((sample, index) => {
+    if (!sample || typeof sample !== "object" || !Number.isFinite(sample.timestamp)) return sample;
+    return { ...sample, id: typeof sample.id === "string" && sample.id ? sample.id : `legacy:${sample.timestamp}:${index}` };
+  }).filter((sample): sample is BatterySample =>
     typeof sample === "object"
     && sample !== null
     && Number.isFinite((sample as BatterySample).timestamp)

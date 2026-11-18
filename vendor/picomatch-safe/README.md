@@ -13,9 +13,11 @@ repeated wildcard extglobs such as `+(*a)` and `+(*)`. At the time this fork was
 added, no fixed upstream release existed. An older Vite introduces other
 security advisories, so downgrading is not a safe solution.
 
-The patch at the start of `analyzeRepeatedExtglob` detects unescaped wildcard
-stars inside repeated extglob bodies, including nested groups, and routes them
-through upstream's existing risky-pattern literalization. Quoted, escaped and
+The patch at the start of `analyzeRepeatedExtglob` detects wildcard-star tokens
+inside repeated extglob bodies, including nested groups, and routes them
+through upstream's existing risky-pattern literalization. It uses the parser's
+actual tokens rather than a second character-class parser, so malformed
+brackets and `nobracket` cannot hide wildcards. Quoted, escaped and genuine
 character-class stars remain literals. Ordinary globs and literal extglobs
 retain their behavior. This guard is enforced even when recursion-limit checks
 are explicitly disabled. It does not claim to make arbitrary regex safe.

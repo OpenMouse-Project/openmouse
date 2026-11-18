@@ -284,25 +284,13 @@ const repeatedExtglobRecursion = pattern => {
   return depth;
 };
 
-const analyzeRepeatedExtglob = (body, options) => {
+const analyzeRepeatedExtglob = (body, options, hasWildcardStar) => {
   // GHSA-fc5q-39xc-vjpf: a wildcard inside an unbounded extglob repeat
   // introduces nested quantifiers even when there is only one branch.
   // Treat these patterns literally, using the existing risky-pattern path.
-  // This also covers a wildcard nested inside an @(...) group. Escaped,
-  // quoted and character-class stars remain literals, not wildcards.
-  let escaped = false;
-  let quoted = false;
-  let bracket = false;
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\') { escaped = true; continue; }
-    if (ch === '"' && !bracket) { quoted = !quoted; continue; }
-    if (quoted) continue;
-    if (ch === '[') { bracket = true; continue; }
-    if (ch === ']' && bracket) { bracket = false; continue; }
-    if (!bracket && ch === '*' && body[i + 1] !== '(') return { risky: true };
-  }
+  // Use the parser's actual tokens, so malformed/disabled character classes,
+  // quoted strings and escaped stars have exactly the parser's semantics.
+  if (hasWildcardStar) return { risky: true };
 
   if (options.maxExtglobRecursion === false) {
     return { risky: false };
@@ -558,7 +546,17 @@ const parse = (input, options) => {
   const extglobClose = token => {
     const literal = input.slice(token.startIndex, state.index + 1);
     const body = input.slice(token.startIndex + 2, state.index);
-    const analysis = analyzeRepeatedExtglob(body, opts);
+    let hasWildcardStar = false;
+    for (let i = token.tokensIndex + 2; i < tokens.length; i++) {
+      const entry = tokens[i];
+      const next = tokens[i + 1];
+      const extglobOpener = next && next.type === 'paren' && next.extglob === true && next.value === '(';
+      if (entry.value && (entry.type === 'globstar' || (entry.type === 'star' && !extglobOpener))) {
+        hasWildcardStar = true;
+        break;
+      }
+    }
+    const analysis = analyzeRepeatedExtglob(body, opts, hasWildcardStar);
 
     if ((token.type === 'plus' || token.type === 'star') && analysis.risky) {
       const safeOutput = analysis.safeOutput

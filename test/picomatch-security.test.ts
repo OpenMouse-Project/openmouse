@@ -10,10 +10,12 @@ test("repeated wildcard extglobs cannot block the build process", () => {
   const script = `
     const assert = require('node:assert/strict');
     const pm = require(${JSON.stringify(require.resolve("picomatch"))});
-    for (const pattern of ['+(*)', '+(*a)', '*(a*)', '+(@(*a))', 'prefix+(*a)suffix', '+(*[ab])', '+(a*|b)']) {
-      for (const options of [{}, { maxExtglobRecursion: false }, { capture: true }]) {
+    for (const pattern of ['+(*)', '+(*a)', '*(a*)', '+(@(*a))', 'prefix+(*a)suffix', '+(*[ab])', '+(a*|b)', '+([*a)', '+([*])']) {
+      for (const options of [{}, { maxExtglobRecursion: false }, { capture: true }, { nobracket: true }, { nobracket: true, maxExtglobRecursion: false }]) {
+        if (pattern === '+([*])' && !options.nobracket) continue;
         const match = pm(pattern, options);
         assert.equal(match('a'.repeat(80) + '!'), false);
+        assert.equal(match('[a'.repeat(40) + '!'), false);
         assert.equal(match(pattern), true);
       }
     }
@@ -30,6 +32,7 @@ test("normal file globs and safe extglobs keep matching", () => {
   assert.equal(picomatch("**/!(*.test).ts")("src/main.ts"), true);
   assert.equal(picomatch("+(foo|bar)")("foobarfoo"), true);
   assert.equal(picomatch("+([a*])")("a*a"), true);
+  assert.equal(picomatch("+([*])")("***"), true);
   assert.equal(picomatch("+(\\*)")("***"), true);
   assert.equal(typeof picomatch.scan("src/**/*.tsx").base, "string");
 });

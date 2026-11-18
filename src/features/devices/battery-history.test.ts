@@ -50,6 +50,17 @@ test("legacy sample identities survive migration when a new checkpoint is stored
   assert.equal(next[1]!.id, original[1]!.id);
 });
 
+test("malformed stored timestamps are discarded before legacy IDs are constructed", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({ BadTimestamp: [
+    { timestamp: { toString: null }, percent: 90, mode: "discharging" },
+    { timestamp: 1000, percent: 89, mode: "discharging" },
+  ] }));
+  const samples = saveBatterySample(storage, "BadTimestamp", 88, "discharging", 2000);
+  assert.equal(samples.length, 2);
+  assert.equal(samples[0]!.id, "legacy:1000:1");
+});
+
 test("battery estimate requires a recent continuous trend", () => {
   const samples = [
     { timestamp: 0, percent: 100, mode: "discharging" as const },
