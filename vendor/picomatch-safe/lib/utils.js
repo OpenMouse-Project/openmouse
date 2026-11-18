@@ -3,7 +3,6 @@
 
 const {
   REGEX_BACKSLASH,
-  REGEX_REMOVE_BACKSLASH,
   REGEX_SPECIAL_CHARS,
   REGEX_SPECIAL_CHARS_GLOBAL
 } = require('./constants');
@@ -28,9 +27,35 @@ exports.isWindows = () => {
 };
 
 exports.removeBackslashes = str => {
-  return str.replace(REGEX_REMOVE_BACKSLASH, match => {
-    return match === '\\' ? '' : match;
-  });
+  // Find eligible closing brackets once, rather than repeatedly rescanning
+  // an unterminated bracket prefix with a backtracking regular expression.
+  const lineBreak = code => code === 10 || code === 13 || code === 8232 || code === 8233;
+  const closes = new Int32Array(str.length + 1).fill(-1);
+  for (let i = str.length - 1; i >= 0; i--) {
+    if (lineBreak(str.charCodeAt(i))) {
+      closes[i] = str[i + 1] === ']' ? i + 1 : -1;
+    } else if (str[i] === ']' && str[i - 1] !== '\\') {
+      closes[i] = i;
+    } else {
+      closes[i] = closes[i + 1];
+    }
+  }
+  const output = [];
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '[') {
+      let end = closes[i + 1];
+      // The original bracket group requires at least one character inside.
+      if (end === i + 1) end = closes[i + 2];
+      if (end >= i + 2) {
+        output.push(str.slice(i, end + 1));
+        i = end;
+        continue;
+      }
+    }
+    if (str[i] === '\\' && i + 1 < str.length && !lineBreak(str.charCodeAt(i + 1))) continue;
+    output.push(str[i]);
+  }
+  return output.join('');
 };
 
 exports.escapeLast = (input, char, lastIdx) => {

@@ -34,6 +34,29 @@ test("normal file globs and safe extglobs keep matching", () => {
   assert.equal(typeof picomatch.scan("src/**/*.tsx").base, "string");
 });
 
+test("backslash removal handles unterminated bracket input in linear time", () => {
+  const script = `
+    const assert = require('node:assert/strict');
+    const utils = require(${JSON.stringify(require.resolve("picomatch/lib/utils.js"))});
+    for (const value of ['[' + ';'.repeat(200000), '['.repeat(50000) + ';'.repeat(50000)]) {
+      assert.equal(utils.removeBackslashes(value), value);
+    }
+  `;
+  const child = spawnSync(process.execPath, ["-e", script], { timeout: 2000, encoding: "utf8" });
+  assert.ifError(child.error);
+  assert.equal(child.status, 0, child.stderr);
+});
+
+test("backslash removal preserves bracket, escape and newline behavior", () => {
+  const { removeBackslashes } = require("picomatch/lib/utils.js");
+  for (const [input, expected] of [
+    ["a\\b", "ab"], ["a\\", "a\\"], ["a\\\nb", "a\\\nb"],
+    ["[a\\b]", "[a\\b]"], ["[a\\]b]", "[a\\]b]"], ["[]]\\x", "[]]x"],
+    ["[\\a", "[a"], ["[a\\\n]", "[a\\\n]"], ["[a\n\\b]", "[a\nb]"],
+    ["\\[a\\b]", "[a\\b]"], ["[a\u2028\\b]", "[a\u2028b]"],
+  ]) assert.equal(removeBackslashes(input), expected, JSON.stringify(input));
+});
+
 test("all build-tool consumers resolve the patched local fork", () => {
   const manifest = require("picomatch/package.json");
   assert.equal(manifest.name, "@openmouse/picomatch-safe");

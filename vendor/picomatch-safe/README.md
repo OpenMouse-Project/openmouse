@@ -4,7 +4,9 @@ This is a build-only fork of the MIT-licensed `picomatch@4.0.7`, fetched from
 the npm registry. Upstream's license is retained in `LICENSE`. The original
 `lib/parse.js` SHA-256 is
 `4e1e05447668aa1e94366c5516a2bcd8f5fff800cc92b1d0cd7d77703b8618c4`.
-The other JavaScript files are unchanged.
+`lib/utils.js` is also patched as described below. The other JavaScript files are unchanged.
+The original `lib/utils.js` SHA-256 is
+`f04604f70cd1a3f6ace80b84766468674ff38b4bb83818d2ef1d81fc6355f935`.
 
 GHSA-fc5q-39xc-vjpf describes catastrophic regex backtracking in single-branch
 repeated wildcard extglobs such as `+(*a)` and `+(*)`. At the time this fork was
@@ -17,6 +19,13 @@ through upstream's existing risky-pattern literalization. Quoted, escaped and
 character-class stars remain literals. Ordinary globs and literal extglobs
 retain their behavior. This guard is enforced even when recursion-limit checks
 are explicitly disabled. It does not claim to make arbitrary regex safe.
+
+CodeQL additionally identified polynomial backtracking in upstream's
+`removeBackslashes` regex on unterminated bracket input. That helper now uses
+two linear scans: one indexes eligible closing brackets, and the second copies
+protected bracket groups while removing other backslashes. Newline and escaped
+bracket behavior is preserved. Tests cover adversarial input with a hard
+timeout and representative compatibility cases.
 
 The package has its own local name, `@openmouse/picomatch-safe`; its version
 identifies the upstream base, not an unpublished upstream security release.
