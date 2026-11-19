@@ -2464,10 +2464,11 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const recordedEventsRef = useRef<XiaomiMacroEvent[]>([]);
   const recordingClockRef = useRef<number | null>(null);
   const recorderFocusRef = useRef<HTMLElement | null>(null);
-  // Tracks the last (button, content) pair the sync effect applied, so a
-  // snapshot rebuild that leaves the selected button's binding/macro
-  // unchanged does not clobber an in-progress draft.
-  const syncedSelectionRef = useRef<{ button: number; signature: string } | null>(null);
+  // Tracks the last (device, button, content) triple the sync effect applied,
+  // so a snapshot rebuild that leaves the selected button's binding/macro
+  // unchanged does not clobber an in-progress draft. The device key resets
+  // the sync state when the active device changes, discarding any draft.
+  const syncedSelectionRef = useRef<{ device: string | null; button: number; signature: string } | null>(null);
 
   const staged = snapshot.pending.keys.includes(`xiaomi-combo-${button}`)
     || snapshot.pending.keys.includes(`xiaomi-macro-${button}`);
@@ -2484,9 +2485,10 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     // buttons), so re-syncing on every rebuild would clobber an in-progress
     // draft; only re-sync when the selected button's own content changed.
     const signature = JSON.stringify([binding, macros[button] ?? null]);
+    const deviceKey = snapshot.activeDeviceKey;
     const synced = syncedSelectionRef.current;
-    if (synced && synced.button === button && synced.signature === signature) return;
-    syncedSelectionRef.current = { button, signature };
+    if (synced && synced.device === deviceKey && synced.button === button && synced.signature === signature) return;
+    syncedSelectionRef.current = { device: deviceKey, button, signature };
     if (binding.mode === XIAOMI_KEY_COMBOS.MACROS_NO_DELAY || binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY) {
       setMode("macro");
       setTiming(binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY ? "with-delay" : "no-delay");
@@ -2502,7 +2504,7 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       setKey(XIAOMI_KEY_CODES.A);
       setEvents([]);
     }
-  }, [bindings, macros, button]);
+  }, [bindings, macros, button, snapshot.activeDeviceKey]);
 
   useEffect(() => {
     if (macroCapable

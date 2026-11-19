@@ -256,6 +256,8 @@ export interface ControlSnapshot {
 
   devices: SidebarDevice[];
   hasActiveDevice: boolean;
+  /** Identity of the active device (vendorId:productId:name), or null. */
+  activeDeviceKey: string | null;
   deviceArtwork: string | null;
   settingInProgress: boolean;
   atkR1SePlusPairingAvailable: boolean;

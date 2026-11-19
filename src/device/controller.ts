@@ -673,6 +673,7 @@ function buildSnapshot(): ControlSnapshot {
     toasts,
     devices: sidebarDevices,
     hasActiveDevice: activeDevice !== null,
+    activeDeviceKey: activeDeviceKey(),
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
     atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
