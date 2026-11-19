@@ -2469,11 +2469,27 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   // unchanged does not clobber an in-progress draft. The device key resets
   // the sync state when the active device changes, discarding any draft.
   const syncedSelectionRef = useRef<{ device: string | null; button: number; signature: string } | null>(null);
+  const lastDeviceKeyRef = useRef<string | null>(null);
 
   const staged = snapshot.pending.keys.includes(`xiaomi-combo-${button}`)
     || snapshot.pending.keys.includes(`xiaomi-macro-${button}`);
   const disabled = snapshot.settingInProgress || snapshot.pending.busy;
   const controlsDisabled = disabled || isRecording;
+
+  // Cancel any in-progress recording when the active device changes, so keys
+  // pressed during the switch cannot be recorded into the new device's draft.
+  useEffect(() => {
+    const deviceKey = snapshot.activeDeviceKey;
+    if (lastDeviceKeyRef.current === null || lastDeviceKeyRef.current === deviceKey) {
+      lastDeviceKeyRef.current = deviceKey;
+      return;
+    }
+    lastDeviceKeyRef.current = deviceKey;
+    setIsRecording(false);
+    setRecordedEvents([]);
+    recordedEventsRef.current = [];
+    recordingClockRef.current = null;
+  }, [snapshot.activeDeviceKey]);
 
   // Prepare the editor from the device snapshot whenever the selected button
   // changes or a read/apply completes.
