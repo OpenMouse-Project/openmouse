@@ -98,6 +98,8 @@ import { ensureDriverModules, driverModules, type DriverModules } from "./driver
 import type { MagneticButtonStatus, MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import type { XiaomiBinding, XiaomiMacroEvent } from "@openmouse/protocol/xiaomi";
+import { XIAOMI_BUTTON_NAMES, XIAOMI_KEY_COMBOS, XIAOMI_MACRO_EVENT_SIZE } from "@openmouse/protocol/xiaomi";
 import {
   cloneM2NexProfile,
   loadM2NexProfiles,
@@ -143,6 +145,7 @@ import type { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import type { WLMouseBeastX4kHidClient } from "@openmouse/protocol/drivers/wlmouse/beast-x-4k-hid";
 import type { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import type { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
+import type { XiaomiHidClient } from "@openmouse/protocol/drivers/xiaomi/hid";
 import type { IncottMacro } from "@openmouse/protocol/incott";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
@@ -272,7 +275,7 @@ const needsOpenClasses = (): Array<ClientClass<SupportedClient> | undefined> => 
   CM()?.MchoseHidClient, CM()?.MchoseDockHidClient, CM()?.MchoseA5ProMaxHidClient, CM()?.MchoseV3HidClient,
   CM()?.MicrosoftHidClient, CM()?.DareuHidClient, CM()?.IncottHidClient, CM()?.BytechHidClient, CM()?.RapooHidClient,
   CM()?.FaterHidClient, CM()?.CoolerMasterHidClient, CM()?.RedragonM690ProHidClient, CM()?.AjazzHidClient,
-  CM()?.HitscanHidClient,
+  CM()?.HitscanHidClient, CM()?.XiaomiHidClient,
 ];
 const pulsarClasses = (): Array<ClientClass<PulsarClient> | undefined> =>
   [CM()?.PulsarHidClient, CM()?.PulsarProHidClient, CM()?.PulsarXs1HidClient];
@@ -300,6 +303,7 @@ const keychron4kClient = (): Keychron4kHidClient | null => activeAs(CM()?.Keychr
 const wlmouse4kClient = (): WLMouseBeastX4kHidClient | null => activeAs(CM()?.WLMouseBeastX4kHidClient);
 const wallhackMouseClient = (): WallhackMouseHidClient | null => activeAs(CM()?.WallhackMouseHidClient);
 const incottClient = (): IncottHidClient | null => activeAs(CM()?.IncottHidClient);
+const xiaomiMacroClient = (): XiaomiHidClient | null => activeAs(CM()?.XiaomiHidClient);
 /** Pulsar is the only family with the collection-explorer onboarding path. */
 const pulsarClient = (): PulsarClient | null =>
   active !== null ? activeAs<PulsarClient>(...pulsarClasses()) : null;
@@ -329,6 +333,10 @@ let ksnakeMacrosError: string | null = null;
 let wallhackMacros: (WallhackMacroStep[] | null)[] | null = null;
 let wallhackMacrosLoading = false;
 let wallhackMacrosError: string | null = null;
+let xiaomiMacros: (XiaomiMacroEvent[] | null)[] | null = null;
+let xiaomiBindings: (XiaomiBinding | null)[] | null = null;
+let xiaomiMacrosLoading = false;
+let xiaomiMacrosError: string | null = null;
 let wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null = null;
 let wallhackCurvesLoading = false;
 let wallhackCurvesError: string | null = null;
@@ -588,6 +596,14 @@ const wallhackMacrosCache: SnapshotCloneCache<typeof wallhackMacros, typeof wall
   source: undefined,
   output: undefined,
 };
+const xiaomiMacrosCache: SnapshotCloneCache<typeof xiaomiMacros, typeof xiaomiMacros> = {
+  source: undefined,
+  output: undefined,
+};
+const xiaomiBindingsCache: SnapshotCloneCache<typeof xiaomiBindings, typeof xiaomiBindings> = {
+  source: undefined,
+  output: undefined,
+};
 const wallhackCurvesCache: SnapshotCloneCache<typeof wallhackCurves, typeof wallhackCurves> = {
   source: undefined,
   output: undefined,
@@ -601,6 +617,18 @@ function cloneWallhackMacrosSnapshot(
   source: typeof wallhackMacros,
 ): typeof wallhackMacros {
   return source?.map((steps) => steps?.map((step) => ({ ...step, event: { ...step.event } })) ?? null) ?? null;
+}
+
+function cloneXiaomiMacrosSnapshot(
+  source: typeof xiaomiMacros,
+): typeof xiaomiMacros {
+  return source?.map((events) => events?.map((event) => ({ ...event })) ?? null) ?? null;
+}
+
+function cloneXiaomiBindingsSnapshot(
+  source: typeof xiaomiBindings,
+): typeof xiaomiBindings {
+  return source?.map((binding) => (binding ? { ...binding } : null)) ?? null;
 }
 
 function cloneWallhackCurvesSnapshot(
@@ -645,6 +673,7 @@ function buildSnapshot(): ControlSnapshot {
     toasts,
     devices: sidebarDevices,
     hasActiveDevice: activeDevice !== null,
+    activeDeviceKey: activeDeviceKey(),
     deviceArtwork: deviceArtwork(status),
     settingInProgress,
     atkR1SePlusPairingAvailable: isVxeR1SePlusReceiver(activeDevice),
@@ -675,6 +704,10 @@ function buildSnapshot(): ControlSnapshot {
     wallhackMacros: cachedSnapshotClone(wallhackMacrosCache, wallhackMacros, cloneWallhackMacrosSnapshot),
     wallhackMacrosLoading,
     wallhackMacrosError,
+    xiaomiMacros: cachedSnapshotClone(xiaomiMacrosCache, xiaomiMacros, cloneXiaomiMacrosSnapshot),
+    xiaomiBindings: cachedSnapshotClone(xiaomiBindingsCache, xiaomiBindings, cloneXiaomiBindingsSnapshot),
+    xiaomiMacrosLoading,
+    xiaomiMacrosError,
     wallhackCurves: cachedSnapshotClone(wallhackCurvesCache, wallhackCurves, cloneWallhackCurvesSnapshot),
     wallhackCurvesLoading,
     wallhackCurvesError,
@@ -1460,6 +1493,136 @@ export function clearWallhackMacroSlot(slot: number): void {
         wallhackMacros = (wallhackMacros ?? [null, null, null, null]).map((entry, index) =>
           index === slot ? null : entry,
         );
+        emit();
+      }
+    },
+  });
+}
+
+/** Read the eight Xiaomi Mi Gaming Mouse button bindings and macro bodies. */
+export function loadXiaomiMacros(): void {
+  if (xiaomiMacrosLoading || xiaomiMacros !== null) return;
+  const client = xiaomiMacroClient();
+  if (!client) {
+    xiaomiMacrosError = st("macro.notReady");
+    emit();
+    return;
+  }
+  xiaomiMacrosLoading = true;
+  xiaomiMacrosError = null;
+  emit();
+  void (async () => {
+    try {
+      const macros: (XiaomiMacroEvent[] | null)[] = [];
+      const bindings: (XiaomiBinding | null)[] = [];
+      for (let button = 0; button < 8; button++) {
+        const binding = await client.readBinding(button);
+        bindings.push({ ...binding });
+        if (binding.mode === XIAOMI_KEY_COMBOS.MACROS_NO_DELAY || binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY) {
+          macros.push((await client.readMacro(button)).map((event) => ({ ...event })));
+        } else {
+          macros.push(null);
+        }
+      }
+      if (xiaomiMacroClient() !== client) return;
+      xiaomiMacros = macros;
+      xiaomiBindings = bindings;
+      xiaomiMacrosError = null;
+    } catch (error) {
+      // A departed client must not write its error into the current device's
+      // snapshot; the new device's own load will set its state.
+      if (xiaomiMacroClient() !== client) return;
+      xiaomiMacrosError = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (xiaomiMacroClient() !== client) return;
+      xiaomiMacrosLoading = false;
+      emit();
+    }
+  })();
+}
+
+function setXiaomiBinding(button: number, binding: XiaomiBinding): void {
+  xiaomiBindings = (xiaomiBindings ?? [null, null, null, null, null, null, null, null]).map(
+    (entry, index) => (index === button ? { ...binding } : entry),
+  );
+}
+
+/** Stage a custom key-combo write for one Xiaomi button (0-7). */
+export function applyXiaomiCustomCombo(button: number, modifiers: number, key: number): void {
+  const client = xiaomiMacroClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  stageChange({
+    key: `xiaomi-combo-${button}`,
+    label: `Button ${button + 1} combo`,
+    command: `Save Xiaomi button ${button + 1} combo`,
+    progress: `Saving Xiaomi button ${button + 1} combo…`,
+    apply: async () => {
+      const live = xiaomiMacroClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.setBinding(button, XIAOMI_KEY_COMBOS.CUSTOM_KEY_COMBO, modifiers, key);
+      if (xiaomiMacroClient() === live) {
+        setXiaomiBinding(button, { mode: XIAOMI_KEY_COMBOS.CUSTOM_KEY_COMBO, modifiers, key });
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage a macro write for one Xiaomi button (0-7). */
+export function applyXiaomiMacro(button: number, mode: number, events: readonly XiaomiMacroEvent[]): void {
+  const client = xiaomiMacroClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  const snapshot = events.map((event) => ({ ...event }));
+  stageChange({
+    key: `xiaomi-macro-${button}`,
+    label: `Button ${button + 1} macro`,
+    command: `Save Xiaomi button ${button + 1} macro`,
+    progress: `Saving Xiaomi button ${button + 1} macro…`,
+    apply: async () => {
+      const live = xiaomiMacroClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.setMacro(button, mode, snapshot);
+      if (xiaomiMacroClient() === live) {
+        xiaomiMacros = (xiaomiMacros ?? [null, null, null, null, null, null, null, null]).map((entry, index) =>
+          index === button ? snapshot.map((event) => ({ ...event })) : entry,
+        );
+        setXiaomiBinding(button, { mode, macroSize: snapshot.length * XIAOMI_MACRO_EVENT_SIZE });
+        emit();
+      }
+    },
+  });
+}
+
+/** Stage clearing the macro bound to one Xiaomi button (0-7). */
+export function clearXiaomiMacro(button: number): void {
+  const client = xiaomiMacroClient();
+  if (!client) {
+    setReadStatus(st("macro.notReady"));
+    emit();
+    return;
+  }
+  stageChange({
+    key: `xiaomi-macro-${button}`,
+    label: `Clear button ${button + 1} macro`,
+    command: `Clear Xiaomi button ${button + 1} macro`,
+    progress: `Clearing Xiaomi button ${button + 1} macro…`,
+    apply: async () => {
+      const live = xiaomiMacroClient();
+      if (!live) throw new Error(st("ctl.gone"));
+      await live.setMacro(button, XIAOMI_KEY_COMBOS.MACROS_NO_DELAY, []);
+      if (xiaomiMacroClient() === live) {
+        xiaomiMacros = (xiaomiMacros ?? [null, null, null, null, null, null, null, null]).map((entry, index) =>
+          index === button ? null : entry,
+        );
+        setXiaomiBinding(button, { mode: XIAOMI_KEY_COMBOS.MACROS_NO_DELAY, macroSize: 0 });
         emit();
       }
     },
@@ -3766,6 +3929,9 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
     wallhackCurves = null;
     wallhackCurvesLoading = false;
     wallhackCurvesError = null;
+    xiaomiMacros = null;
+    xiaomiMacrosLoading = false;
+    xiaomiMacrosError = null;
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -4009,6 +4175,9 @@ function showDisconnectedState(): void {
   wallhackCurves = null;
   wallhackCurvesLoading = false;
   wallhackCurvesError = null;
+  xiaomiMacros = null;
+  xiaomiMacrosLoading = false;
+  xiaomiMacrosError = null;
   m2nexProfiles = null;
   activeM2NexProfile = 0;
   m2nexProfileDirty = false;
@@ -6874,6 +7043,13 @@ export function applyDeviceButtonMapping(button: string, action: string): void {
   // remap to anything else supersedes it, and must do so even when stageChange
   // drops the remap as "already matches", or Apply would still bind Macro.
   if (action !== "Macro") dropPendingChange(`incott-macro-${button}`);
+  // A staged Xiaomi combo/macro write is superseded by any preset remap. The
+  // combo/macro keys use the wire button index, not the display name.
+  const xiaomiButtonIndex = XIAOMI_BUTTON_NAMES.indexOf(button as (typeof XIAOMI_BUTTON_NAMES)[number]);
+  if (xiaomiButtonIndex !== -1) {
+    dropPendingChange(`xiaomi-combo-${xiaomiButtonIndex}`);
+    dropPendingChange(`xiaomi-macro-${xiaomiButtonIndex}`);
+  }
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
