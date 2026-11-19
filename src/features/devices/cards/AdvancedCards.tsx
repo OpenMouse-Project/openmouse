@@ -2464,6 +2464,10 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
   const recordedEventsRef = useRef<XiaomiMacroEvent[]>([]);
   const recordingClockRef = useRef<number | null>(null);
   const recorderFocusRef = useRef<HTMLElement | null>(null);
+  // Tracks the last (button, content) pair the sync effect applied, so a
+  // snapshot rebuild that leaves the selected button's binding/macro
+  // unchanged does not clobber an in-progress draft.
+  const syncedSelectionRef = useRef<{ button: number; signature: string } | null>(null);
 
   const staged = snapshot.pending.keys.includes(`xiaomi-combo-${button}`)
     || snapshot.pending.keys.includes(`xiaomi-macro-${button}`);
@@ -2476,6 +2480,13 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
     if (!bindings || !macros) return;
     const binding = bindings[button];
     if (!binding) return;
+    // The snapshot arrays get new identity on every write (even for other
+    // buttons), so re-syncing on every rebuild would clobber an in-progress
+    // draft; only re-sync when the selected button's own content changed.
+    const signature = JSON.stringify([binding, macros[button] ?? null]);
+    const synced = syncedSelectionRef.current;
+    if (synced && synced.button === button && synced.signature === signature) return;
+    syncedSelectionRef.current = { button, signature };
     if (binding.mode === XIAOMI_KEY_COMBOS.MACROS_NO_DELAY || binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY) {
       setMode("macro");
       setTiming(binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY ? "with-delay" : "no-delay");
@@ -2484,10 +2495,12 @@ export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
       setMode("combo");
       setModifiers(binding.modifiers ?? 0);
       setKey(binding.key ?? XIAOMI_KEY_CODES.A);
+      setEvents([]);
     } else {
       setMode("combo");
       setModifiers(0);
       setKey(XIAOMI_KEY_CODES.A);
+      setEvents([]);
     }
   }, [bindings, macros, button]);
 

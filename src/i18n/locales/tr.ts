@@ -1187,7 +1187,7 @@ export const tr: Record<I18nKey, string> = {
   "macro.whAdd": "Adım ekle",
   "macro.whMaxSteps": "Bir yuva 30 adım alır.",
   "macro.xmLead": "Bir düğme seçin, ardından özel tuş kombinasyonu veya makro oluşturun. Kaydetme doğrudan fareye yazar.",
-  "macro.xmLoading": "Reading the eight button bindings…",
+  "macro.xmLoading": "Sekiz düğmenin atamaları okunuyor…",
   "macro.xmButton": "Düğme",
   "macro.xmCombo": "Özel kombinasyon",
   "macro.xmMacro": "Makro",

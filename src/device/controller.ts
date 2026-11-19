@@ -1528,8 +1528,12 @@ export function loadXiaomiMacros(): void {
       xiaomiBindings = bindings;
       xiaomiMacrosError = null;
     } catch (error) {
+      // A departed client must not write its error into the current device's
+      // snapshot; the new device's own load will set its state.
+      if (xiaomiMacroClient() !== client) return;
       xiaomiMacrosError = error instanceof Error ? error.message : String(error);
     } finally {
+      if (xiaomiMacroClient() !== client) return;
       xiaomiMacrosLoading = false;
       emit();
     }
@@ -3924,6 +3928,9 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
     wallhackCurves = null;
     wallhackCurvesLoading = false;
     wallhackCurvesError = null;
+    xiaomiMacros = null;
+    xiaomiMacrosLoading = false;
+    xiaomiMacrosError = null;
     m2nexProfiles = null;
     activeM2NexProfile = 0;
     m2nexProfileDirty = false;
@@ -4167,6 +4174,9 @@ function showDisconnectedState(): void {
   wallhackCurves = null;
   wallhackCurvesLoading = false;
   wallhackCurvesError = null;
+  xiaomiMacros = null;
+  xiaomiMacrosLoading = false;
+  xiaomiMacrosError = null;
   m2nexProfiles = null;
   activeM2NexProfile = 0;
   m2nexProfileDirty = false;
