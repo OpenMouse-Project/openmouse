@@ -104,6 +104,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // Hitscan stores a 0-8 ms debounce in flash and publishes its own ceiling.
   // Its sleep units are unresolved, so the driver hides the sleep card.
   hitscan: { advancedSection: true, debounce: true },
+  // The Iris stores an 8-32 ms button response in each onboard profile and
+  // publishes that list; it has no sleep timer.
+  thermaltake: { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
