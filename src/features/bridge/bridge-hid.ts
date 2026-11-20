@@ -81,7 +81,7 @@ interface Reply {
 }
 
 type Command =
-  | { type: "list"; vendorIds: number[] }
+  | { type: "list"; vendorIds: number[]; usages?: { usagePage: number; usage?: number }[] }
   | { type: "open"; device: string }
   | { type: "close"; device: string }
   | { type: "listen"; device: string }
@@ -139,6 +139,19 @@ function vendorIdsFor(filters: HIDDeviceFilter[]): number[] {
     if (filter.vendorId !== undefined) ids.add(filter.vendorId);
   }
   return [...ids];
+}
+
+const VENDOR_DEFINED_USAGE_PAGE = 0xff00;
+
+function listCommand(filters: HIDDeviceFilter[]): Command {
+  const usages = new Map<string, { usagePage: number; usage?: number }>();
+  for (const filter of filters) {
+    if (filter.vendorId !== undefined || filter.productId !== undefined) continue;
+    if (filter.usagePage === undefined || filter.usagePage < VENDOR_DEFINED_USAGE_PAGE) continue;
+    usages.set(`${filter.usagePage}:${filter.usage ?? ""}`, { usagePage: filter.usagePage, usage: filter.usage });
+  }
+  const vendorIds = vendorIdsFor(filters);
+  return usages.size > 0 ? { type: "list", vendorIds, usages: [...usages.values()] } : { type: "list", vendorIds };
 }
 
 // Listeners are kept in a set rather than by extending EventTarget: WebHID
@@ -467,7 +480,7 @@ class BridgeHid implements HID {
   }
 
   async #listDevices(): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(HID_FILTERS) });
+    const reply = await this.#client.request(listCommand(HID_FILTERS));
     const { devices, added, removed } = this.#client.reconcile(reply.devices ?? []);
     if (this.#enumerated) {
       for (const device of added) this.#emit("connect", device);
@@ -479,7 +492,7 @@ class BridgeHid implements HID {
   }
 
   async requestDevice(options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(options.filters) });
+    const reply = await this.#client.request(listCommand(options.filters));
     const { devices } = this.#client.reconcile(reply.devices ?? []);
     this.#enumerated = true;
     this.#startPolling();

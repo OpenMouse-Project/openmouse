@@ -84,6 +84,25 @@ test("drives a device end to end over the socket", async () => {
   fake.transport.onClose?.();
 });
 
+test("a vendor-less filter on a vendor-defined page is sent as a usage, never a standard one", async () => {
+  const fake = fakeTransport();
+  const hid = bridgeHid(fake.transport);
+
+  const scan = hid.requestDevice({
+    filters: [{ usagePage: 0xff60, usage: 0x61 }, { usagePage: 0xff60, usage: 0x61 }, { usagePage: 0x01, usage: 0x06 }, { vendorId: 0x3554, usagePage: 0xff02 }],
+  });
+  assert.deepEqual(fake.sent[0].usages, [{ usagePage: 0xff60, usage: 0x61 }]);
+  assert.deepEqual(fake.sent[0].vendorIds, [0x3554]);
+  fake.reply({ id: fake.sent[0].id, ok: true, devices: [] });
+  await scan;
+
+  const plain = hid.requestDevice({ filters: [{ vendorId: 0x3554 }] });
+  assert.equal("usages" in fake.sent[1], false);
+  fake.reply({ id: fake.sent[1].id, ok: true, devices: [] });
+  await plain;
+  fake.transport.onClose?.();
+});
+
 test("a rejected request surfaces the reason Bridge gave", async () => {
   const fake = fakeTransport();
   const hid = bridgeHid(fake.transport);
