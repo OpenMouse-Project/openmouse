@@ -19,6 +19,7 @@
 // Bridge to serve the app itself over loopback, which is a separate change.
 
 import { HID_FILTERS } from "../../device/hid-filters.ts";
+import { refreshLocalNetworkPermission } from "./local-network-permission.ts";
 import { describeHidDevice, markHidActivity } from "../../device/hid-diagnostics.ts";
 
 
@@ -677,6 +678,8 @@ export async function installBridgeHid(options: { force?: boolean } = {}): Promi
   if (navigator.hid && !options.force) return true;
   const transport = await openSocket(BRIDGE_SOCKET_URL);
   if (!transport) {
+    const permission = await refreshLocalNetworkPermission();
+    bridgeLog("warn", "bridge unreachable", { detail: { permission } });
     setBridgeHidActive(false);
     return Boolean(navigator.hid);
   }
