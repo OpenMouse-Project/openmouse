@@ -531,6 +531,7 @@ export function bridgeHid(transport: BridgeTransport, onDisconnect?: () => void)
 // "disconnected" the instant Bridge's process goes away, without polling
 // bridgeStatus() itself just to answer "is it there".
 let bridgeHidActive = false;
+let installedShim: HID | null = null;
 const bridgeHidActiveListeners = new Set<(active: boolean) => void>();
 
 function setBridgeHidActive(active: boolean): void {
@@ -680,15 +681,21 @@ export async function installBridgeHid(options: { force?: boolean } = {}): Promi
   if (!transport) {
     const permission = await refreshLocalNetworkPermission();
     bridgeLog("warn", "bridge unreachable", { detail: { permission } });
-    setBridgeHidActive(false);
+    // A newer attempt can install its shim while the permission query is in
+    // flight. This attempt owns nothing then, so it must not report Bridge off.
+    if (!installedShim) setBridgeHidActive(false);
     return Boolean(navigator.hid);
   }
-  // Only a disconnect from the currently installed shim clears the flag, so
-  // a superseded socket closing late cannot deactivate its replacement.
+  // Only the shim that is still `navigator.hid` clears the flag, so a
+  // superseded socket closing late cannot deactivate its replacement.
   const shim = bridgeHid(transport, () => {
-    if (typeof navigator !== "undefined" && navigator.hid === shim) setBridgeHidActive(false);
+    if (typeof navigator !== "undefined" && navigator.hid === shim) {
+      installedShim = null;
+      setBridgeHidActive(false);
+    }
   });
   Object.defineProperty(navigator, "hid", { value: shim, configurable: true });
+  installedShim = shim;
   setBridgeHidActive(true);
   return true;
 }

@@ -7,19 +7,27 @@ let current: LocalNetworkPermission = "unknown";
 let watched: PermissionStatus | null = null;
 const grantedListeners = new Set<() => void>();
 
+/**
+ * Records an observation, from either the query or the change event, so both
+ * paths agree on when a grant is new. Only `prompt` or `denied` becoming
+ * `granted` counts: the page's first look at an already granted site is
+ * `unknown` → `granted` and must stay silent, and seeing `granted` again is
+ * not a new grant. The change event can arrive after a refresh already
+ * recorded the same result, so both go through here.
+ */
+function transition(next: LocalNetworkPermission): void {
+  const before = current;
+  current = next;
+  if (next === "granted" && (before === "prompt" || before === "denied")) {
+    for (const listener of grantedListeners) listener();
+  }
+}
+
 function watch(status: PermissionStatus): void {
   if (watched === status) return;
   if (watched) watched.onchange = null;
   watched = status;
-  status.onchange = () => {
-    const before = current;
-    const after = status.state as LocalNetworkPermission;
-    if (after === before) return;
-    current = after;
-    if (after === "granted" && (before === "prompt" || before === "denied")) {
-      for (const listener of grantedListeners) listener();
-    }
-  };
+  status.onchange = () => transition(status.state as LocalNetworkPermission);
 }
 
 export function onLocalNetworkPermissionGranted(listener: () => void): () => void {
@@ -51,6 +59,6 @@ export async function refreshLocalNetworkPermission(): Promise<LocalNetworkPermi
       }
     }
   }
-  current = next;
+  transition(next);
   return current;
 }

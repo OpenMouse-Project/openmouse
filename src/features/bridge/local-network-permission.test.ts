@@ -67,6 +67,20 @@ test("allowing the prompt fires the granted callback once, an already allowed pa
   stop();
 });
 
+test("a refresh that observes the grant fires the callback once", async () => {
+  const status = { state: "prompt", onchange: null as null | (() => void) };
+  stubNavigator({ permissions: { query: async () => status } });
+  await refreshLocalNetworkPermission();
+  let granted = 0;
+  const stop = onLocalNetworkPermissionGranted(() => void (granted += 1));
+  status.state = "granted";
+  await refreshLocalNetworkPermission();
+  assert.equal(granted, 1);
+  await refreshLocalNetworkPermission();
+  assert.equal(granted, 1, "seeing granted again is not a new grant");
+  stop();
+});
+
 test("reloads for Bridge only once per session", () => {
   const session = new Map<string, string>();
   let reloads = 0;
