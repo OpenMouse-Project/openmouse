@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bridgeEmptyResultMessage, bridgeHid, type BridgeTransport } from "./bridge-hid.ts";
+import { bridgeEmptyResultMessage, bridgeHid, installBridgeHid, isBridgeHidActive, type BridgeTransport } from "./bridge-hid.ts";
 
 interface Fake {
   transport: BridgeTransport;
@@ -201,4 +201,55 @@ test("an empty Bridge result with known devices names the VID/PID", () => {
   assert.match(message, /none matches a supported control interface/);
   assert.match(message, /Pulsar X2/);
   assert.match(message, /VID/);
+});
+
+test("a failed install does not clear the flag of a newer install", async () => {
+  const sockets: FakeSocket[] = [];
+  class FakeSocket extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send(): void {}
+    close(): void {}
+    emit(type: string, props: Record<string, unknown> = {}): void {
+      this.dispatchEvent(Object.assign(new Event(type), props));
+    }
+  }
+  const originalWebSocket = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const queried = Promise.withResolvers<void>();
+  const permission = Promise.withResolvers<{ state: string }>();
+  const nav = {
+    permissions: {
+      query: () => {
+        queried.resolve();
+        return permission.promise;
+      },
+    },
+  };
+  Object.defineProperty(globalThis, "WebSocket", { value: FakeSocket, configurable: true, writable: true });
+  Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+  try {
+    const failing = installBridgeHid({ force: true });
+    sockets[0].emit("error");
+    await queried.promise;
+
+    const succeeding = installBridgeHid({ force: true });
+    sockets[1].emit("open");
+    assert.equal(await succeeding, true);
+    assert.equal(isBridgeHidActive(), true);
+
+    permission.resolve({ state: "prompt" });
+    assert.equal(await failing, true);
+    assert.equal(isBridgeHidActive(), true, "the earlier failure must not report the newer shim off");
+
+    sockets[1].emit("close", { code: 1000, reason: "" });
+    assert.equal(isBridgeHidActive(), false);
+  } finally {
+    if (originalWebSocket) Object.defineProperty(globalThis, "WebSocket", originalWebSocket);
+    else Reflect.deleteProperty(globalThis, "WebSocket");
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
 });
