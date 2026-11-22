@@ -37,6 +37,12 @@ test("a connected mouse exposes only tabs backed by available controls", () => {
   ]);
 });
 
+test("receiver controls get a tab inside the mouse without requiring mouse lighting", () => {
+  assert.ok(availableWorkspaceTabs(true, availability({ keychronReceiver: true })).includes("receiver"));
+  assert.ok(!availableWorkspaceTabs(true, availability({})).includes("receiver"));
+  assert.equal(availableWorkspaceTab("receiver", availableWorkspaceTabs(true, availability({}))), "overview");
+});
+
 test("magnetic buttons put their settings under the buttons tab", () => {
   assert.deepEqual(availableWorkspaceTabs(true, availability({ magnetic: true })), [
     "overview", "performance", "buttons", "advanced",
@@ -83,4 +89,9 @@ test("M2-NEX can hide the lighting tab without changing other capabilities", () 
 test("a K-snake scroll control is placed behind the Buttons tab", () => {
   const tabs = availableWorkspaceTabs(true, availability({ ksnakeScroll: true }));
   assert.deepEqual(tabs, ["overview", "performance", "buttons", "advanced"]);
+});
+
+test("the macro tab also follows the Incott macro capability", () => {
+  const tabs = availableWorkspaceTabs(true, availability({ incottMacros: true }));
+  assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
 });

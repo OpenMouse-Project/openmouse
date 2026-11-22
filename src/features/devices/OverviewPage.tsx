@@ -1,3 +1,5 @@
+import { KeychronDynamicDpiCard, KeychronPairingCard, KeychronResetCard } from "./cards/KeychronMouseCards";
+import { KeychronReceiverButtonsCard, KeychronReceiverLightingCard } from "./cards/KeychronReceiverCards";
 import { slotCards } from "../../shared/CardSlot";
 import { displayText } from "../../i18n/index";
 import { useUiLocale } from "../../shared/ui-locale";
@@ -9,6 +11,7 @@ import {
   Lightbulb,
   MousePointerClick,
   Settings2,
+  Usb,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -61,6 +64,7 @@ import {
   DpiLightingCard,
   TmrDsCard,
 } from "./cards/AdvancedCards";
+import { IncottMacroCard } from "./cards/IncottMacroCard";
 import { cardAvailability } from "./cards/availability";
 import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
 import { deviceImage } from "../../shared/device-images";
@@ -81,6 +85,7 @@ const TAB_ICON: Record<WorkspaceTab, LucideIcon> = {
   macro: Keyboard,
   profiles: Layers,
   advanced: Settings2,
+  receiver: Usb,
 };
 
 export function TabIcon({ tab }: { tab: WorkspaceTab }): ReactNode {
@@ -355,6 +360,14 @@ export function Workspace({
 }): ReactNode {
   const status = snapshot.status;
   const tab = snapshot.workspaceTab;
+  useEffect(() => {
+    if (tab !== "buttons") return;
+    const suppress = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest("#magnetic-button-settings, #performance-settings")) event.preventDefault();
+    };
+    window.addEventListener("contextmenu", suppress);
+    return () => window.removeEventListener("contextmenu", suppress);
+  }, [tab]);
   if (!status) return null;
   const locale = snapshot.preferences.locale;
   const has = cardAvailability(snapshot);
@@ -382,7 +395,6 @@ export function Workspace({
     show(has.eggCpi, ["performance"]) ? <EggCpiCard key="eggcpi" snapshot={snapshot} /> : null,
     show(has.powerMode, ["performance"])
       ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
-    show(has.debounce, ["buttons"]) ? <DebounceCard key="debounce" snapshot={snapshot} /> : null,
     show(has.eggSpdt, ["buttons"]) ? <EggSpdtCard key="eggspdt" snapshot={snapshot} /> : null,
     show(has.eggHanded, ["buttons"]) ? <EggHandedCard key="egghanded" snapshot={snapshot} /> : null,
     show(has.eggButtons, ["buttons"]) ? <EggButtonCard key="eggbuttons" snapshot={snapshot} /> : null,
@@ -392,13 +404,16 @@ export function Workspace({
     show(has.atkButtons, ["buttons"]) ? <AtkButtonCard key="atk-buttons" snapshot={snapshot} /> : null,
     show(has.buttonMapping && !snapshot.traits.teevolution, ["buttons"])
       ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
+    show(has.debounce, ["buttons"]) ? <DebounceCard key="debounce" snapshot={snapshot} /> : null,
     show(has.ksnakeScroll, ["buttons"])
       ? <KsnakeScrollCard key="ksnake-scroll" snapshot={snapshot} /> : null,
+    show(status.keychronMouse?.dynamicDpi != null, ["performance"]) ? <KeychronDynamicDpiCard key="keychron-dynamic" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const macro = [
     show(has.ksnakeMacros, ["macro"]) ? <KsnakeMacroCard key="ksnake-macros" snapshot={snapshot} /> : null,
     show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
+    show(has.incottMacros, ["macro"]) ? <IncottMacroCard key="incott-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [
@@ -406,6 +421,8 @@ export function Workspace({
     !powerOverview && show(has.sleep, ["advanced"]) ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
     show(has.lightingAdvanced, ["advanced"])
       ? <LightingCard key="lighting" snapshot={snapshot} variant="advanced" /> : null,
+    device && show(status.keychronMouse?.factoryReset === true, ["advanced"]) ? <KeychronResetCard key="keychron-reset" snapshot={snapshot} /> : null,
+    device && show(status.keychronMouse?.pairing != null, ["advanced"]) ? <KeychronPairingCard key="keychron-pairing" snapshot={snapshot} /> : null,
     show(has.lowPower, ["advanced"]) ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
     show(has.perfectPolling, ["advanced"]) ? <PerfectPollingCard key="finalmouse-pp" snapshot={snapshot} /> : null,
     show(has.finalmouse, ["advanced"]) ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
@@ -441,6 +458,7 @@ export function Workspace({
     && (status.hapticIntensity != null || status.wheelMode != null || status.friendlyName != null || status.hostCount != null);
   const showDiagnostics = device && on(tab, ["advanced"]);
   const showOverview = on(tab, ["overview"]);
+  const showReceiver = device && show(has.keychronReceiver, ["receiver"]);
   const showButtonMarkers = on(tab, ["buttons"]) && isNoirKsnakeStatus(status) && status.buttonMappings != null;
 
   const anyPanel = performance.length > 0 || macro.length > 0 || advanced.length > 0 || lighting.length > 0
@@ -457,7 +475,7 @@ export function Workspace({
     <>
       {showOverview ? <OverviewContent snapshot={snapshot} /> : null}
 
-      {!anyPanel ? (
+      {!anyPanel && !showReceiver ? (
         <section id="workspace-tab-empty" className="workspace-tab-empty device-data" role="tabpanel">
           <p id="workspace-tab-empty-title">
             {tp(locale, "tab.unavailable", {
@@ -471,6 +489,15 @@ export function Workspace({
       {showProfiles ? <Profiles snapshot={snapshot} onShareProfile={onShareProfile} /> : null}
       {showTeevolutionProfiles ? <TeevolutionProfileCard snapshot={snapshot} /> : null}
       {showNapeLayers ? <KeychronNapeLayers snapshot={snapshot} /> : null}
+      {showReceiver ? <section className="settings-grid receiver-settings device-data" role="tabpanel" aria-labelledby="workspace-tab-receiver">
+        {status.keychronReceiver ? slotCards([
+          <KeychronReceiverButtonsCard key="keychron-receiver-buttons" snapshot={snapshot} />,
+          <KeychronReceiverLightingCard key="keychron-receiver-lighting" snapshot={snapshot} />,
+        ]) : <article className="setting-card"><div className="setting-heading"><div><h2>{t(locale, "tab.receiver")}</h2></div></div><p>{t(locale, "diag.notReported")}</p></article>}
+        <button type="button" className="om-btn" disabled={snapshot.settingInProgress}
+          onClick={() => void control.refreshKeychronReceiver()}>{t(locale, "magnetic.refreshReceiver")}</button>
+      </section> : null}
+      {showMagnetic ? <MagneticButtons snapshot={snapshot} /> : null}
 
       {performance.length > 0 || showSuperstrike || showButtonMap ? (
         <section
@@ -495,7 +522,7 @@ export function Workspace({
             {showSuperstrike ? <Superstrike snapshot={snapshot} /> : null}
             {showButtonMap ? <ButtonMap snapshot={snapshot} /> : null}
             {performance.length > 0 ? (
-              <div className="performance-controls card-flow">
+              <div className={`performance-controls card-flow${status.keychronMouse ? " keychron-performance" : ""}`}>
                 {slotCards(performance)}
               </div>
             ) : null}
@@ -534,7 +561,6 @@ export function Workspace({
           <MxMasterCards snapshot={snapshot} />
         </section>
       ) : null}
-      {showMagnetic ? <MagneticButtons snapshot={snapshot} /> : null}
 
       {advanced.length > 0 ? (
         <section

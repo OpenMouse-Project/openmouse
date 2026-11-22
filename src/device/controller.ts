@@ -25,7 +25,8 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
-import { forgetMouseReceiver, rememberMouseReceiver } from "./mouse-receivers";
+import { forgetMouseReceiver, receiverKey, rememberMouseReceiver } from "./mouse-receivers";
+import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
 import { lunaFuryLightningPriority, stageLunaFuryProfile } from "./lunafury-profile.ts";
 import { formatHex, hidTraffic, isMark, markHidActivity, startHidCapture, type HidTrafficEntry } from "./hid-diagnostics";
@@ -142,6 +143,7 @@ import type { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import type { WLMouseBeastX4kHidClient } from "@openmouse/protocol/drivers/wlmouse/beast-x-4k-hid";
 import type { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import type { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
+import type { IncottMacro } from "@openmouse/protocol/incott";
 import { BASILISK_V3_PRO_BLUETOOTH, HID_FILTERS } from "./hid-filters";
 import { VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
 import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
@@ -367,6 +369,12 @@ let lastRenderedStatusKey: string | null = null;
 let activeDevice: HIDDevice | null = null;
 let latestReceiverFirmware: { interfaceId: string; mcus: Array<{ mcu: number; version: string | null; raw: number[] }> } | null = null;
 const deviceStatuses = new Map<HIDDevice, MouseStatus>();
+
+/** Store a device's status, and remember its mouse's name for the next visit. */
+function recordDeviceStatus(device: HIDDevice, status: MouseStatus): void {
+  deviceStatuses.set(device, status);
+  rememberDeviceName(device, status.name);
+}
 
 let latestDiagnosticsSnapshot: Record<string, unknown> | null = null;
 let latestDiagnosticStatus: MouseStatus | null = null;
@@ -2992,7 +3000,7 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   // Refreshing it here would re-enumerate HID and rebuild entries on every
   // status poll, racing the content above which just rendered from this status.
   if (activeDevice) {
-    deviceStatuses.set(activeDevice, deviceStatus);
+    recordDeviceStatus(activeDevice, deviceStatus);
   }
   deviceStatusText = st("ctl.connected");
 
@@ -3078,8 +3086,11 @@ async function sidebarEntries(devices: HIDDevice[]): Promise<SidebarDevice[]> {
       continue;
     }
     const status = deviceStatuses.get(device);
+    // A mouse not opened since the reload keeps the name it last reported,
+    // rather than its receiver's ("SCYROX 8K Dongle", "USB Receiver").
     const name = status?.name
       ?? status?.ui?.defaultDisplayName
+      ?? rememberedDeviceName(device)
       ?? (C().isEggWeClient(client)
         ? C().EGG_WE_DISPLAY_NAME
         : isA(client, CM()?.FinalmouseHidClient)
@@ -3782,7 +3793,7 @@ async function activateClientNow(client: SupportedClient, options: { rememberRec
       else if (keychron) {
         lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
       }
-      deviceStatuses.set(client.device, status);
+      recordDeviceStatus(client.device, status);
       // A receiver the keyboard drivers claim just answered as a mouse: remember
       // it so it lists and reconnects as one from now on (#1362).
       if (options.rememberReceiver !== false && await isSharedReceiver(client.device, await authorizedHidDevices())) {
@@ -3971,7 +3982,7 @@ async function showPulsarExplorer(client: PulsarClient): Promise<void> {
   await client.readDeviceInfo();
   const status = await client.readStatus();
   dpiOptions = client.getDpiOptions();
-  deviceStatuses.set(client.device, status);
+  recordDeviceStatus(client.device, status);
   capabilities = readCapabilities();
   applyStatus(status);
   startAutomaticRefresh();
@@ -4035,7 +4046,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       if (result.action === "refresh") {
         try {
           const status = await result.client.readStatus();
-          deviceStatuses.set(result.client.device, status);
+          recordDeviceStatus(result.client.device, status);
           applyStatus(status);
           startAutomaticRefresh();
         } catch {
@@ -4743,6 +4754,7 @@ function stageMagneticButton(
   const name = `${MAGNETIC_SIDE[button]} click ${label}`;
   stageChange({
     key: `magnetic-${setting}-${button}`,
+    priority: latestDeviceStatus?.brand === "Keychron" && setting === "trigger" ? -1 : 0,
     label: name,
     command: `Set the ${name.toLowerCase()}`,
     progress: `Setting the ${name.toLowerCase()}…`,
@@ -4804,7 +4816,19 @@ export function applyMagneticSwitchType(button: 0 | 1, type: "magnetic" | "optic
 }
 
 export function subscribeButtonDepth(listener: (left: number, right: number) => void): () => void {
-  return magneticClient()?.onButtonDepth?.(listener) ?? (() => {});
+  let current: MagneticButtonClient | null = null;
+  let stop = () => {};
+  const bind = () => {
+    const next = magneticClient();
+    if (next === current) return;
+    stop();
+    current = next;
+    listener(NaN, NaN);
+    stop = next?.onButtonDepth?.(listener) ?? (() => {});
+  };
+  bind();
+  const unsubscribe = subscribe(bind);
+  return () => { unsubscribe(); stop(); };
 }
 
 export async function startMagneticCalibration(): Promise<void> {
@@ -5746,7 +5770,7 @@ export async function resetLogitechProfiles(): Promise<void> {
     editedProfile = onboardProfiles[0]?.sector ?? "host";
     lastDeviceMode = "Onboard";
     const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
+    recordDeviceStatus(client.device, status);
     applyStatus(status);
     readStatus = st("ctl.resetDone");
     onboardStatus = st("ctl.resetComplete");
@@ -5791,7 +5815,7 @@ export async function setUpLogitechProfiles(): Promise<void> {
     editedProfile = onboardProfiles[0]?.sector ?? "host";
     lastDeviceMode = "Onboard";
     const status = await client.readStatus();
-    deviceStatuses.set(client.device, status);
+    recordDeviceStatus(client.device, status);
     applyStatus(status);
     readStatus = st("ctl.resetDone");
     onboardStatus = st("ctl.resetComplete");
@@ -6233,6 +6257,70 @@ export function applyPulsarValue(setting: "debounce" | "sleep", value: number): 
 
 export function toggleSleep(enabled: boolean): void {
   applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
+}
+
+export function applyKeychronDynamicDpi(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.dynamicDpi) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-dynamic-dpi", label: t(interfacePreferences.locale, "perf.dynSens"),
+    command: "Set Keychron dynamic DPI", progress: "Setting Keychron dynamic DPI...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronDynamicDpi", "dynamic DPI", next),
+  });
+}
+
+export function applyKeychronReceiverButton(button: string, action: string): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  stageChange({ key: `keychron-receiver-${button}`, label: `${button}: ${action}`,
+    command: `Set receiver ${button}`, progress: `Setting receiver ${button}...`,
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    apply: () => callClientMethod("setKeychronReceiverButton", "receiver button", { button, action }),
+  });
+}
+
+export async function refreshKeychronReceiver(): Promise<void> {
+  await waitForControllerIdle();
+  const client = keychron8kClient();
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
+  const device = activeDevice;
+  refreshInProgress = true;
+  try {
+    const status = await client.readStatus();
+    if (activeSettingsClient() !== client || activeDevice !== device) return;
+    applyStatus(status);
+  }
+  catch (error) {
+    if (activeSettingsClient() === client && activeDevice === device) toastForError("Receiver", error);
+  }
+  finally { refreshInProgress = false; }
+}
+
+export function applyKeychronReceiverLighting(value: MouseLighting): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-receiver-lighting", label: t(interfacePreferences.locale, "light.receiverTitle"),
+    command: "Set receiver lighting", progress: "Setting receiver lighting...",
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronReceiverLighting", "receiver lighting", next),
+  });
+}
+
+export function applyKeychronPairing(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["pairing"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.pairing) return;
+  stageChange({ key: "keychron-pairing", label: t(interfacePreferences.locale, "magnetic.pairing"),
+    command: "Set Keychron pairing shortcut", progress: "Setting Keychron pairing shortcut...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    apply: () => callClientMethod("setKeychronPairingShortcut", "pairing shortcut", value),
+  });
+}
+
+export function stageKeychronReset(): void {
+  if (!latestDeviceStatus?.keychronMouse?.factoryReset) return;
+  if (!window.confirm(t(interfacePreferences.locale, "magnetic.factoryHint"))) return;
+  stageChange({ key: "keychron-reset", label: t(interfacePreferences.locale, "magnetic.factoryReset"),
+    command: "Reset Keychron mouse", progress: "Resetting Keychron mouse...",
+    apply: async () => { await requireClientMethod("resetKeychronMouse", "factory reset").resetKeychronMouse(); },
+  });
 }
 
 export function applyKsnakeScrollDirection(
@@ -6782,6 +6870,10 @@ export function applyPowerMode(mode: string): void {
  * above, which reassigns a Logitech control by id.
  */
 export function applyDeviceButtonMapping(button: string, action: string): void {
+  // A staged Incott macro upload ends by binding the button to Macro. A later
+  // remap to anything else supersedes it, and must do so even when stageChange
+  // drops the remap as "already matches", or Apply would still bind Macro.
+  if (action !== "Macro") dropPendingChange(`incott-macro-${button}`);
   stageChange({
     key: `button-${button}`,
     label: `${button}: ${action}`,
@@ -7194,6 +7286,53 @@ export function applyFinalmouseProfileName(index: number, name: string): void {
 }
 
 /**
+ * Uploads one Incott macro into the buffer belonging to its button.
+ *
+ * The buffer is not a free choice: a button runs the buffer carrying its own
+ * index and no other, so the caller passes the button and `uploadMacro` is
+ * given the matching `bufferId` (see `incottMacroSlotForButton`).
+ *
+ * The device accepts a macro buffer and offers no command to return one, so
+ * this stages and applies like the rest but carries no preview. A macro is not
+ * part of MouseStatus, and matchesDeviceStatus treats a preview that changes
+ * nothing as "already matches" and drops the change, which silently discarded
+ * every upload before it reached the mouse. Without a preview it also cannot
+ * join a game profile draft, which is right: a profile cannot restore a macro.
+ *
+ * The button is re-bound after every upload, even when it already runs its
+ * macro. HARDWARE-CONFIRMED 2026-11-06: the loop mode takes effect when the
+ * binding is written, and the separate binding change is dropped as "already
+ * matches" once a button is on Macro, so without this new steps played under
+ * the OLD loop mode. The vendor writes the binding after every upload too
+ * (`captures/incott-8k-wireless/macro-loop-modes-2026-09-14.hex`).
+ */
+export function applyIncottMacro(button: string, macro: IncottMacro, onApplied?: () => void): void {
+  stageChange({
+    key: `incott-macro-${button}`,
+    label: `${button} macro: ${macro.steps.length} steps`,
+    command: `Save the ${button} button's macro to the mouse`,
+    progress: `Saving the ${button} macro…`,
+    apply: async () => {
+      const client = incottClient();
+      if (!client) throw new Error(st("ctl.gone"));
+      await client.uploadMacro(macro);
+      await client.setButtonMapping(button, "Macro");
+      // The caller records "this button runs this macro" only once the mouse
+      // has it, so a discarded or failed change leaves nothing stale behind.
+      onApplied?.();
+    },
+  });
+}
+
+/**
+ * The key a saved macro assignment is filed under: the connected mouse, so one
+ * Incott mouse's assignments are never read as another's. Null with no device.
+ */
+export function incottMacroDeviceKey(): string | null {
+  return activeDevice ? receiverKey(activeDevice) : null;
+}
+
+/**
  * Incott's 2.4 GHz receiver LED (0 connect & polling rate, 1 battery status,
  * 2 battery warning). Wireless only — the driver omits the field entirely
  * over the cable, so the card that calls this is not rendered there.
@@ -7335,6 +7474,13 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
     open: async () => undefined,
     close: async () => undefined,
     readStatus: async () => structuredClone(status),
+    setScrollDirection: async (direction: "Forward" | "Reverse") => { status.scrollDirection = direction; },
+    setKeychronReceiverButton: async ({ button, action }: { button: string; action: string }) => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    setKeychronReceiverLighting: async (value: MouseLighting) => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(value); },
+    setKeychronPairingShortcut: async (value: { mask: number; holdTime: number }) => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    setKeychronDynamicDpi: async (value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>) => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(value); },
+    resetKeychronMouse: async () => undefined,
+    setButtonMapping: async (button: string, action: string) => { if (status.buttonMappings) status.buttonMappings[button] = action; },
     setMagneticTriggerPoint: async (button: 0 | 1, point: number) => { buttons()[button]!.triggerPoint = point; return point; },
     setMagneticReleasePoint: async (button: 0 | 1, point: number | null) => { buttons()[button]!.releasePoint = point; return point; },
     setMagneticRapidTrigger: async (button: 0 | 1, enabled: boolean, level: number) => {

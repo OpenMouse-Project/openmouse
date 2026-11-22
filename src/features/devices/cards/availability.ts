@@ -5,6 +5,7 @@ import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import type { ControlSnapshot } from "../../../device/types";
 
 export interface CardAvailability {
+  keychronReceiver: boolean;
   dpi: boolean;
   polling: boolean;
   sensor: boolean;
@@ -27,6 +28,7 @@ export interface CardAvailability {
   perfectPolling: boolean;
   finalmouseProfiles: boolean;
   incott: boolean;
+  incottMacros: boolean;
   lunafuryButtons: boolean;
   lunafuryWheelGuard: boolean;
   dongleLed: boolean;
@@ -59,6 +61,7 @@ export interface CardAvailability {
 }
 
 const NOTHING: CardAvailability = {
+  keychronReceiver: false,
   dpi: false,
   polling: false,
   sensor: false,
@@ -81,6 +84,7 @@ const NOTHING: CardAvailability = {
   perfectPolling: false,
   finalmouseProfiles: false,
   incott: false,
+  incottMacros: false,
   lunafuryButtons: false,
   lunafuryWheelGuard: false,
   dongleLed: false,
@@ -147,6 +151,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     && selectableValues(capabilities.razerLowPowerOptions, status.lowBatteryWarning) !== null;
 
   return {
+    keychronReceiver: Boolean(status.keychronReceiver || ui?.receiverControls
+      || snapshot.devices?.some(device => device.selected
+        && device.vendorId === 0x3434 && device.productId === 0xd05a)),
     dpi: ready,
     // The Attack Shark X11's settings channel is native-only (settingsReady
     // stays false), but its polling rate is still controllable through
@@ -190,7 +197,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
       && status.debounceMs !== null && status.debounceMs !== undefined,
     sleep: host && (traits.sleep || capabilities?.sleepOptions != null || razerSleep)
       && ui?.hideSleepCard !== true,
-    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake) && status.scrollDirection != null,
+    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake || ui?.family === "keychron-8k") && status.scrollDirection != null,
     lowPower: host && razerLowPower,
     processing: host && processing,
     ninjutsoSensor: host && traits.ninjutso
@@ -208,6 +215,11 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // actually reported.
     incott: host
       && (status.incottFireKeyTimes != null || status.incottReceiverLedMode != null),
+    // Macros are authored here and uploaded; the mouse cannot report one back.
+    // A driver that offers the per-button "Macro" action is the one that can
+    // bind a button to its own buffer, so that option is the gate.
+    incottMacros: ui?.family === "incott" && Boolean(status.buttonMappings)
+      && Boolean(status.buttonOptions?.includes("Macro")),
     lunafuryButtons: host && status.brand === "LunaFury" && (
       status.lunafury?.lightningMode != null || status.lunafury?.leftDebounceMs != null
       || status.lunafury?.rightDebounceMs != null || status.lunafury?.middleDebounceMs != null

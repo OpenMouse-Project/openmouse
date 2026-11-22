@@ -110,6 +110,18 @@
 #firmware-update .setting-action { padding: 12px 18px 16px; border-top: 1px solid var(--line-1); }
 #firmware-update .setting-action > span { display: flex; flex-wrap: wrap; gap: 8px; }
 .om-overview-grid #firmware-update { height: 100%; }
+.beast-g-fw-summary { display: flex; flex-wrap: wrap; gap: 6px 18px; padding-top: 12px; color: var(--text-3); font-size: var(--fs-meta); }
+.beast-g-fw-summary bdi { color: var(--text-2); margin-inline-start: 4px; font-variant-numeric: tabular-nums; }
+.beast-g-fw-body { border-top: 1px solid var(--line-1); }
+.beast-g-fw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; }
+.beast-g-fw-row + .beast-g-fw-row { border-top: 1px solid var(--line-1); }
+.beast-g-fw-label { color: var(--text-2); font-weight: 550; }
+.beast-g-fw-version { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-top: 5px; color: var(--text-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.beast-g-fw-version strong { color: var(--text-1); font-weight: 600; }
+.beast-g-fw-row > button { flex: none; }
+.beast-g-fw-note { padding: 0 18px 12px; }
+.beast-g-fw-body > .fw-details { margin: 0; padding: 8px 18px 12px; border-top: 1px solid var(--line-1); }
+.beast-g-fw-body > .fw-details ul { padding-inline-start: 18px; line-height: 1.5; }
 
 :is(#device-debug-details, #logitech-device-details) .setting-card { padding: 0; background: none; box-shadow: none; gap: 16px; }
 .device-debug-overview, #logitech-detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
@@ -299,3 +311,73 @@ aside.testing-note strong { display: none; }
 .wooting-identity { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 0 24px; }
 .wooting-identity > div { flex-direction: column; align-items: flex-start; gap: 4px; }
 .wooting-identity dd { text-align: start; }
+
+.magnetic-travel { margin-block: 16px; color: var(--text-2); }
+.magnetic-travel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+.magnetic-travel figure { margin: 12px 0 0; min-width: 0; }
+.magnetic-travel figcaption { display: flex; justify-content: space-between; gap: 12px; }
+.magnetic-travel output { font-variant-numeric: tabular-nums; }
+.magnetic-travel svg { display: block; width: 100%; height: auto; direction: ltr; }
+.magnetic-travel svg text { fill: var(--text-3); font-size: 12px; }
+.magnetic-travel-gridline { stroke: var(--line-1); stroke-width: 1; }
+.magnetic-travel-threshold { stroke: var(--accent); stroke-dasharray: 5 4; stroke-width: 1; }
+.magnetic-travel-line { fill: none; stroke: var(--text-1); stroke-width: 2; stroke-linejoin: round; }
+.magnetic-travel-active-area { fill: rgb(var(--accent-rgb) / 0.2); }
+.magnetic-travel-active-line { stroke: var(--accent); }
+.magnetic-travel output[data-actuated="true"] { color: var(--accent); }
+.magnetic-travel small { color: var(--text-3); }
+
+.keychron-curve-table { width: 100%; margin-block: 12px; border-collapse: collapse; text-align: start; }
+.keychron-curve-table input { width: 100%; min-width: 0; box-sizing: border-box; }
+.keychron-curve-table th, .keychron-curve-table td { padding: 4px; text-align: start; }
+
+.magnetic-travel-grid svg text { font-size: 20px; }
+.setting-heading.superstrike-tuning-heading > .magnetic-heading-label { display: flex; align-items: center; gap: 12px; }
+#magnetic-button-settings .setting-heading { flex-wrap: wrap; }
+.magnetic-heading-label svg { width: 20px; height: 20px; flex: none; color: var(--text-3); }
+.keychron-dynamic-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: center; gap: 24px; }
+.keychron-dynamic-layout > * { min-width: 0; margin: 0; }
+
+.actuation-editor { display: grid; gap: 8px; min-width: 0; }
+.actuation-gauge { display: grid; gap: 8px; padding-inline: 3px; }
+.actuation-ticks { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.actuation-ticks i { height: 3px; border-radius: var(--r-xs); background: var(--gauge-zone); opacity: .65; }
+.actuation-ticks i[data-current="true"] { opacity: 1; height: 5px; }
+.actuation-legend { display: grid; grid-template-columns: 3fr 4fr 5fr; gap: 8px; font-size: var(--fs-small); color: var(--text-3); }
+.actuation-legend span:nth-child(2) { text-align: center; }
+.actuation-legend span:last-child { text-align: end; }
+.actuation-gauge [data-zone="easy"] { --gauge-zone: var(--bad); }
+.actuation-gauge [data-zone="recommended"] { --gauge-zone: var(--ok); }
+.actuation-gauge [data-zone="hard"] { --gauge-zone: var(--warn); }
+.actuation-gauge[data-disabled="true"] { opacity: .5; }
+.keychron-receiver-lighting > label { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.keychron-receiver-lighting select { min-width: 140px; }
+.receiver-colour { display: grid; gap: 10px; margin-block: 16px; }
+.receiver-settings > .is-wide { grid-column: 1 / -1; }
+.receiver-settings > button { align-self: start; }
+.receiver-button-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 180px) minmax(0, 1fr); grid-template-rows: repeat(2, minmax(70px, auto)); align-items: center; gap: 10px 24px; margin-block: 24px; }
+.receiver-artwork { grid-column: 2; grid-row: 1 / 3; width: 100%; height: 210px; object-fit: contain; }
+.receiver-button:nth-of-type(1) { grid-column: 1; grid-row: 1; }
+.receiver-button:nth-of-type(2) { grid-column: 3; grid-row: 1; }
+.receiver-button:nth-of-type(3) { grid-column: 3; grid-row: 2; }
+.receiver-button:nth-of-type(4) { grid-column: 1; grid-row: 2; }
+.receiver-button, .receiver-action-grid button, .receiver-key-grid button, .receiver-categories button { min-width: 0; border: 1px solid var(--line-1); border-radius: var(--r-sm); background: var(--well); color: var(--text-2); cursor: pointer; }
+.receiver-button { position: relative; display: grid; gap: 8px; padding: 12px; text-align: start; }
+.receiver-button::after { content: ""; position: absolute; width: 24px; height: 1px; background: var(--line-3); top: 50%; inset-inline-start: 100%; }
+.receiver-button:nth-of-type(2)::after, .receiver-button:nth-of-type(3)::after { inset-inline-start: auto; inset-inline-end: 100%; }
+.receiver-button strong { color: var(--text-1); }
+.receiver-button span { overflow-wrap: anywhere; font-size: var(--fs-meta); }
+.receiver-assignment { display: grid; gap: 16px; padding-top: 16px; border-top: 1px solid var(--line-1); }
+.receiver-editor-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 8px 0; border: 0; background: none; color: var(--text-1); text-align: start; cursor: pointer; }
+.receiver-editor-toggle span { color: var(--accent); }
+.receiver-assignment-body { display: grid; gap: 16px; }
+.receiver-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.receiver-categories button { padding: 8px 12px; }
+.receiver-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr)); gap: 8px; }
+.receiver-action-grid button { min-height: 40px; padding: 8px; overflow-wrap: anywhere; }
+.receiver-combination { display: grid; gap: 12px; }
+.receiver-key-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; max-height: 240px; overflow-y: auto; padding: 3px; }
+.receiver-key-grid button { min-height: 36px; font-size: var(--fs-meta); }
+.receiver-assignment input { width: 100%; }
+:is(.receiver-button, .receiver-action-grid button, .receiver-key-grid button, .receiver-categories button)[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+:is(.receiver-button, .receiver-action-grid button, .receiver-key-grid button, .receiver-categories button):hover:not(:disabled) { border-color: var(--accent-line); color: var(--text-1); }

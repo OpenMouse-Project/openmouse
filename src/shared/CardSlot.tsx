@@ -1,7 +1,7 @@
 import {
   Activity, BatteryLow, Cog, Command, Cpu, Crosshair, Disc3, FlaskConical, Gauge, Hand, Layers, Lightbulb, Magnet,
   Moon, Mouse, MousePointerClick, Palette, Radar, Rocket, ScanEye, ShieldCheck, SlidersHorizontal, Sparkles,
-  Spline, Timer, ToggleRight, Usb, Wifi, Zap, type LucideIcon,
+  Spline, Timer, ToggleRight, Usb, Wifi, Zap, Link, RotateCcw, type LucideIcon,
 } from "lucide-react";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { FEATURE_ICONS } from "./ui";
@@ -34,6 +34,7 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "ksnake-scroll": Disc3,
   "ksnake-macros": Command,
   "wallhack-macros": Command,
+  "incott-macros": Command,
   signal: Wifi,
   sleep: Moon,
   lighting: Lightbulb,
@@ -52,6 +53,11 @@ const GLYPHS: Readonly<Record<string, LucideIcon>> = {
   "onboard-profile": Layers,
   "dpi-indicator": Palette,
   pulsarpro: Sparkles,
+  "keychron-dynamic": Activity,
+  "keychron-pairing": Link,
+  "keychron-reset": RotateCcw,
+  "keychron-receiver-buttons": Usb,
+  "keychron-receiver-lighting": Lightbulb,
 };
 
 
@@ -61,7 +67,7 @@ export function iconForCard(key: string): LucideIcon | null {
   for (const [pattern, icon] of FEATURE_ICONS) if (pattern.test(key)) return icon;
   return null;
 }
-const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "lighting-tab", "button-mapping"]);
+const WIDE = new Set(["dpi", "eggpolling", "eggcpi", "eggbuttons", "ksnake-macros", "wallhack-macros", "incott-macros", "lighting-tab", "button-mapping", "keychron-dynamic", "keychron-receiver-buttons"]);
 
 export function slotCards(cards: readonly ReactNode[]): ReactNode[] {
   return Children.toArray(cards).map((card) => {

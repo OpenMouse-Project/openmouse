@@ -1,0 +1,10 @@
+{
+  "name": "@openmouse/picomatch-safe",
+  "version": "4.0.7",
+  "private": true,
+  "description": "Local picomatch 4.0.7 security fork with repeated-wildcard extglobs rejected",
+  "main": "index.js",
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": { "node": ">=12" }
+}

@@ -35,9 +35,23 @@ import { join } from "node:path";
 // protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
 // L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
 // (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
+//
+// 2026-11-06: Incott macro card (library, recorder, step editor, button
+// assignment) and its strings in every locale add about 33 kB of JS, measured
+// against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
+// of that build's growth is protocol drivers released since 0.52.0). Main is
+// 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
+//
+// 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 (six releases of new and
+// extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
+// measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
+// 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
 export const BUDGET_BYTES: Record<string, number> = {
-  ".css": 170_000,
-  ".js": 3_850_000,
+  // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
+  // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
+  // Main stays at 1,459,853 bytes, below its existing separate cap.
+  ".css": 178_000,
+  ".js": 4_000_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
