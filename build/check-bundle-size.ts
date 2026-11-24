@@ -51,7 +51,10 @@ export const BUDGET_BYTES: Record<string, number> = {
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
   ".css": 178_000,
-  ".js": 4_000_000,
+  // Rival 650 button editor, localized labels and read-back: 3,994,659 -> 4,008,887 bytes of JS.
+  // Fresh read before applying edits and confirming sparse reports: 4,011,082 bytes.
+  // Localized Rival 650 wireless persistence note: 4,013,600 bytes total JS.
+  ".js": 4_014_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

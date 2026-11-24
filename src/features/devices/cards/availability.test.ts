@@ -20,6 +20,7 @@ function snapshot(overrides: {
   capabilities?: Partial<DeviceCapabilities>;
   settingsPending?: boolean;
   showExperimental?: boolean;
+  gameProfileDraft?: boolean;
   buttons?: ControlSnapshot["buttons"];
   devices?: ControlSnapshot["devices"];
 }): ControlSnapshot {
@@ -29,6 +30,7 @@ function snapshot(overrides: {
     traits: traitsFor(status),
     capabilities: overrides.capabilities ?? null,
     settingsPending: overrides.settingsPending ?? false,
+    gameProfileDraft: overrides.gameProfileDraft ?? false,
     buttons: overrides.buttons ?? null,
     devices: overrides.devices ?? [],
     preferences: { showExperimental: overrides.showExperimental ?? true },
@@ -766,4 +768,11 @@ test("Incott macros follow a driver that can bind a button to its own macro", ()
   // An older driver has no per-button "Macro" action, and a macro uploaded
   // without one cannot be bound to the buffer it went into.
   assert.equal(incott(["Left click"]).incottMacros, false);
+});
+
+test("Rival 650 shows the button editor only outside game profile drafts", () => {
+  const status = { brand: "SteelSeries" as const, ui: { family: "steelseries-rival650" },
+    buttonMappings: { button1: "adv.leftButton" }, buttonOptions: ["adv.leftButton"] };
+  assert.equal(cardAvailability(snapshot({ status })).buttonMapping, true);
+  assert.equal(cardAvailability(snapshot({ status, gameProfileDraft: true })).buttonMapping, false);
 });

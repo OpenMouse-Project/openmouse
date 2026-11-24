@@ -7,6 +7,14 @@ restricted to maintainers) and served from
 `DEVICE_IMAGE_BASE_URL` in `src/ui/device-images.ts`. This file stays as
 the provenance/licensing record for every image that's been uploaded.
 
+## Button layout diagrams
+
+`steelseries-rival-650-button-layout.svg` is used in the Buttons editor, not as a
+product render. It comes from the [Rivalcfg Rival 650 documentation](https://flozz.github.io/rivalcfg/devices/rival650.html#buttons),
+under the Rivalcfg project's [WTFPL v2 license](https://github.com/flozz/rivalcfg/blob/master/LICENSE).
+OpenMouse adds a high-contrast background and uses number-only labels to match
+the localized button rows.
+
 ## Contributing artwork (no bucket access needed)
 
 Only a maintainer can upload to the bucket, so don't open a PR with a binary
