@@ -50,8 +50,13 @@ export const BUDGET_BYTES: Record<string, number> = {
   // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
-  ".css": 178_000,
-  ".js": 4_000_000,
+  // 2026-11-25: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS and 62,223 bytes of JS (3,997,595 -> 4,059,818 measured against
+  // main); main grew 46,200 bytes to 1,511,041, below its cap.
+  ".css": 180_000,
+  ".js": 4_100_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
