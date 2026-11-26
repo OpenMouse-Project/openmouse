@@ -117,6 +117,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // advancedSection already comes from ui.showAdvancedSection, but the cards
   // never render without these flags, exactly like incott above.
   "leobog-gm3": { advancedSection: true, sleep: true, debounce: true },
+  // The Iris stores an 8-32 ms button response in each onboard profile and
+  // publishes that list; it has no sleep timer.
+  thermaltake: { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

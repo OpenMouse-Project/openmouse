@@ -287,7 +287,7 @@ const needsOpenClasses = (): Array<ClientClass<SupportedClient> | undefined> => 
   CM()?.MchoseHidClient, CM()?.MchoseDockHidClient, CM()?.MchoseA5ProMaxHidClient, CM()?.MchoseV3HidClient,
   CM()?.MicrosoftHidClient, CM()?.DareuHidClient, CM()?.IncottHidClient, CM()?.BytechHidClient, CM()?.RapooHidClient,
   CM()?.FaterHidClient, CM()?.CoolerMasterHidClient, CM()?.RedragonM690ProHidClient, CM()?.RedragonM719ProHidClient, CM()?.RedgearX13HidClient, CM()?.AjazzHidClient,
-  CM()?.HitscanHidClient, CM()?.XiaomiHidClient,
+  CM()?.HitscanHidClient, CM()?.XiaomiHidClient, CM()?.ThermaltakeHidClient,
 ];
 const pulsarClasses = (): Array<ClientClass<PulsarClient> | undefined> =>
   [CM()?.PulsarHidClient, CM()?.PulsarProHidClient, CM()?.PulsarXs1HidClient];
