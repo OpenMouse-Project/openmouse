@@ -62,6 +62,9 @@ export const BUDGET_BYTES: Record<string, number> = {
   // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
   // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
   // below its cap.
+  // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
+  // applying and the wireless persistence note add 135 bytes of CSS and 16,373
+  // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
   ".css": 180_000,
   ".js": 4_200_000,
 };

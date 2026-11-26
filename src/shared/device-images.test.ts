@@ -375,3 +375,11 @@ test("the load-error placeholder follows the device kind", () => {
   assert.equal(placeholderImage("mouse"), CDN + "unknown-device.png");
   assert.equal(placeholderImage("keyboard"), "/devices/unknown-keyboard.png");
 });
+
+test("Rival 650 diagram does not replace the generic product artwork", () => {
+  for (const productId of [0x172b, 0x1726]) {
+    const device = dev(0x1038, productId);
+    assert.equal(deviceImage(device, "SteelSeries Rival 650 Wireless"), placeholderImage());
+    assert.equal(isUnknownDevice(device, "SteelSeries Rival 650 Wireless"), true);
+  }
+});

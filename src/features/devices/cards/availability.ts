@@ -174,7 +174,8 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lighting: Boolean(status.lighting || status.lightingZones?.length),
     lightingAdvanced: host && !isNoirKsnake && Boolean(status.lighting || status.lightingZones?.length),
     onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
-    buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
+    buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length)
+      && !(snapshot.gameProfileDraft && ui?.family === "steelseries-rival650"),
     // K-snake/M2-NEX exposes the macro write/commit path. The editor starts
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.

@@ -25,6 +25,15 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
+import {
+  RIVAL650_FACTORY_MAPPING,
+  editRival650ButtonDraft,
+  mergeRival650ButtonEdits,
+  previewRival650Buttons,
+  rival650ButtonLocked,
+  rival650ButtonStatus,
+  type Rival650ButtonDraft,
+} from "./rival650-buttons.ts";
 import { forgetMouseReceiver, receiverKey, rememberMouseReceiver } from "./mouse-receivers";
 import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
@@ -390,6 +399,8 @@ let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
+let manualFlashBatch = false;
+const RIVAL650_BUTTON_MAP_KEY = "rival650-button-map";
 // Set when Apply is clicked while a flash is already writing: the running
 // flash performs one more pass at the end instead of swallowing the click.
 let flashQueued = false;
@@ -624,9 +635,12 @@ function buildSnapshot(): ControlSnapshot {
   // page inspect keys/labels even while suppressed (pending bar hides, the
   // staged state still shows). Instant-flash is the only window where they go
   // unread, and then only until the deferred flash drains the queue.
-  const suppressedPending = interfacePreferences.instantFlash;
+  const suppressedPending = interfacePreferences.instantFlash && !manualFlashBatch;
   const changes = pendingChanges();
-  const status = deviceStatus ? withPendingChanges(deviceStatus) : null;
+  const previewStatus = deviceStatus ? withPendingChanges(deviceStatus) : null;
+  const status = previewStatus?.ui?.family === "steelseries-rival650" && clientHasMethod("updateVerifiedButtonsMapping")
+    ? rival650ButtonStatus(previewStatus)
+    : previewStatus;
   return {
     deviceStatus,
     status,
@@ -710,7 +724,7 @@ function buildSnapshot(): ControlSnapshot {
       labels: suppressedPending ? EMPTY_PENDING_LABELS : changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
-      suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,
+      suppressed: suppressedPending || gameProfileDraft !== null,
       keys: changes.map((change) => change.key),
     },
     gameProfileDraft: gameProfileDraft !== null,
@@ -1509,7 +1523,7 @@ async function callClientMethod(method: string, setting: string, value: unknown)
   await client[method]!(value as never);
 }
 
-function stageChange(change: PendingChange): void {
+function stageChange(change: PendingChange, { force = false } = {}): void {
   // stagePendingChange + onPendingChanges listener + setReadStatus each emit;
   // hold them so one edit renders once.
   batch(() => {
@@ -1528,17 +1542,20 @@ function stageChange(change: PendingChange): void {
     }
     // Reset repairs the profile cache too, so it must run even when the current
     // hardware snapshot already appears to match the factory mapping.
-    if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
+    if (!force && change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
       dropPendingChange(change.key);
       setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
       return;
     }
+    // Once the batch requires Apply, keep it visible through a partial flash
+    // or the removal of a button edit until the entire batch is cleared.
+    if (change.key === RIVAL650_BUTTON_MAP_KEY) manualFlashBatch = true;
     stagePendingChange(change);
     if (gameProfileDraft) {
       emit();
       return;
     }
-    if (interfacePreferences.instantFlash) {
+    if (interfacePreferences.instantFlash && !manualFlashBatch) {
       queueInstantFlash();
       emit();
       return;
@@ -1554,7 +1571,8 @@ function queueInstantFlash(): void {
     instantFlashQueued = false;
     // The preference can be switched off before this deferred callback runs.
     // In that case leave the change staged for the Apply bar.
-    if (interfacePreferences.instantFlash) void flashPendingChanges();
+    // The Rival 650 writes a complete mapping and always requires Apply.
+    if (interfacePreferences.instantFlash && !manualFlashBatch) void flashPendingChanges();
   });
 }
 
@@ -1599,17 +1617,23 @@ function gameProfileFieldsOf(change: PendingChange): string[] | null {
   return editableProfileFields(base, preview);
 }
 
-type PendingStash = { changes: PendingChange[]; analog: Map<0 | 1, AnalogTuning> };
+type PendingStash = {
+  changes: PendingChange[];
+  analog: Map<0 | 1, AnalogTuning>;
+  manualFlashBatch: boolean;
+};
 
 // The HITS values waiting to be written sit in a map of their own, apart from
 // the pending changes that name them, so both are set aside together.
 function stashEverything(): PendingStash {
   const analog = new Map(stagedAnalogButtons);
   stagedAnalogButtons.clear();
-  return { changes: stashPendingChanges(), analog };
+  const manual = manualFlashBatch;
+  return { changes: stashPendingChanges(), analog, manualFlashBatch: manual };
 }
 
 function restoreEverything(stash: PendingStash): void {
+  manualFlashBatch = stash.manualFlashBatch;
   restorePendingChanges(stash.changes);
   stagedAnalogButtons.clear();
   for (const [button, tuning] of stash.analog) stagedAnalogButtons.set(button, tuning);
@@ -6865,6 +6889,47 @@ export function applyPowerMode(mode: string): void {
   });
 }
 
+export function stageRival650Button(button: string, action: string): void {
+  const status = getSnapshot().status;
+  if (status?.ui?.family !== "steelseries-rival650" || !status.buttonMappings
+    || !Object.hasOwn(status.buttonMappings, button) || !status.buttonMappings[button]
+    || rival650ButtonLocked(button, status.buttonMappings)
+    || !status.buttonOptions?.includes(action)) return;
+  if (!latestDeviceStatus) return;
+  const pending = pendingChanges().find((change): change is PendingChange & { buttonDraft: Rival650ButtonDraft } =>
+    change.key === RIVAL650_BUTTON_MAP_KEY && "buttonDraft" in change);
+  const draft = editRival650ButtonDraft(latestDeviceStatus, pending?.buttonDraft, button, action);
+  if (draft) stageRival650ButtonDraft(draft);
+}
+
+export function resetRival650ButtonMappings(): void {
+  stageRival650ButtonDraft({ kind: "replace", mapping: RIVAL650_FACTORY_MAPPING });
+}
+
+function stageRival650ButtonDraft(draft: Rival650ButtonDraft): void {
+  const client = activeSettingsClient();
+  if (!activeDevice || latestDeviceStatus?.ui?.family !== "steelseries-rival650" || gameProfileDraft
+    || !client || !("updateVerifiedButtonsMapping" in client) || typeof client.updateVerifiedButtonsMapping !== "function"
+    || !("setVerifiedButtonsMapping" in client) || typeof client.setVerifiedButtonsMapping !== "function") return;
+  const change: PendingChange & { buttonDraft: Rival650ButtonDraft } = {
+    key: RIVAL650_BUTTON_MAP_KEY,
+    buttonDraft: draft,
+    label: st("tab.buttons"),
+    command: st("map.remap"),
+    progress: st("ctl.progRemap"),
+    preview: status => previewRival650Buttons(status, draft),
+    apply: async () => {
+      if (draft.kind === "replace") await client.setVerifiedButtonsMapping(draft.mapping);
+      else await client.updateVerifiedButtonsMapping(current => mergeRival650ButtonEdits(
+        current, draft.edits, st("map.rival650KeepLeftClick"),
+      ));
+    },
+  };
+  // Loading factory defaults explicitly requests a full replacement, even
+  // when the settings currently displayed already match.
+  stageChange(change, { force: draft.kind === "replace" });
+}
+
 /**
  * Reassign a physical button on any driver that exposes `setButtonMapping`.
  * Named for the device-level map to keep it distinct from `applyButtonMapping`
@@ -7878,6 +7943,7 @@ async function showFixturePreview(name: Exclude<PreviewMode, KeyboardPreviewMode
 export function start(): void {
   startHidCapture();
   onPendingChanges(() => {
+    if (!hasPendingChanges()) manualFlashBatch = false;
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
     if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
