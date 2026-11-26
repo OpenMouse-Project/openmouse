@@ -286,7 +286,7 @@ const needsOpenClasses = (): Array<ClientClass<SupportedClient> | undefined> => 
   CM()?.WallhackKeyboardHidClient, CM()?.GloriousHidClient, CM()?.GloriousClassicHidClient, CM()?.GloriousCore2HidClient,
   CM()?.MchoseHidClient, CM()?.MchoseDockHidClient, CM()?.MchoseA5ProMaxHidClient, CM()?.MchoseV3HidClient,
   CM()?.MicrosoftHidClient, CM()?.DareuHidClient, CM()?.IncottHidClient, CM()?.BytechHidClient, CM()?.RapooHidClient,
-  CM()?.FaterHidClient, CM()?.CoolerMasterHidClient, CM()?.RedragonM690ProHidClient, CM()?.RedragonM719ProHidClient, CM()?.AjazzHidClient,
+  CM()?.FaterHidClient, CM()?.CoolerMasterHidClient, CM()?.RedragonM690ProHidClient, CM()?.RedragonM719ProHidClient, CM()?.RedgearX13HidClient, CM()?.AjazzHidClient,
   CM()?.HitscanHidClient, CM()?.XiaomiHidClient,
 ];
 const pulsarClasses = (): Array<ClientClass<PulsarClient> | undefined> =>
@@ -4954,6 +4954,10 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
     applyDpiStageAxes(stage, { x: rawDpi });
     return;
   }
+  // A mouse that reports its stages but cannot rewrite them (fixed stages, as
+  // on the Redgear X13 Pro) skips the value: a game profile or profile key
+  // then still applies the rest instead of failing at flash time.
+  if (!clientHasMethod("setDpiStageValue")) return;
   const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
   const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
   if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
