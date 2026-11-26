@@ -76,7 +76,10 @@ export type DriverModules = typeof import("@openmouse/protocol/drivers/endgame/e
   & typeof import("@openmouse/protocol/drivers/coolermaster/hid")
   & typeof import("@openmouse/protocol/drivers/ajazz/hid")
   & typeof import("@openmouse/protocol/drivers/redragon/m690-pro-hid")
-  & typeof import("@openmouse/protocol/drivers/hitscan/hid");
+  & typeof import("@openmouse/protocol/drivers/redragon/m719-pro-hid")
+  & typeof import("@openmouse/protocol/drivers/redgear/hid")
+  & typeof import("@openmouse/protocol/drivers/hitscan/hid")
+  & typeof import("@openmouse/protocol/drivers/xiaomi/hid");
 
 let loaded: DriverModules | null = null;
 let loading: Promise<DriverModules> | null = null;
@@ -142,7 +145,10 @@ export function ensureDriverModules(): Promise<DriverModules> {
     import("@openmouse/protocol/drivers/coolermaster/hid"),
     import("@openmouse/protocol/drivers/ajazz/hid"),
     import("@openmouse/protocol/drivers/redragon/m690-pro-hid"),
+    import("@openmouse/protocol/drivers/redragon/m719-pro-hid"),
+    import("@openmouse/protocol/drivers/redgear/hid"),
     import("@openmouse/protocol/drivers/hitscan/hid"),
+    import("@openmouse/protocol/drivers/xiaomi/hid"),
   ]).then((mods) => (loaded = Object.assign({}, ...mods) as DriverModules));
   return loading;
 }

@@ -13,7 +13,6 @@ const STATIC_PRECACHE = [
   "/apple-touch-icon.png",
   "/icon-512.png",
   "/icon-512-maskable.png",
-  "/favicon-dark.svg",
 ];
 
 /** Pages the build emits, mirroring the rollup inputs in vite.config.ts. */

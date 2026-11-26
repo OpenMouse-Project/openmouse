@@ -1,18 +1,23 @@
 import { displayText } from "../i18n/index";
 import { PenLine } from "lucide-react";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import * as control from "../device/controller";
-import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n/index";
+import { useControlSelector } from "./useControl";
+import { useUiLocale } from "../shared/ui-locale";
 
-export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const { pending } = snapshot;
-  if (pending.suppressed || pending.count === 0) return null;
-  const locale = snapshot.preferences.locale;
-  const busy = pending.busy;
-  const label = pending.count === 1
+export const PendingBar = memo(function PendingBar(): ReactNode {
+  const count = useControlSelector((snapshot) => snapshot.pending.count);
+  const suppressed = useControlSelector((snapshot) => snapshot.pending.suppressed);
+  const busy = useControlSelector((snapshot) => snapshot.pending.busy);
+  const labelsKey = useControlSelector((snapshot) => snapshot.pending.labels.join(" · "));
+  const locale = useUiLocale();
+  // Text comes from the lazy locale table, not just the locale code.
+  useControlSelector((snapshot) => snapshot.localeTableRevision);
+  if (suppressed || count === 0) return null;
+  const label = count === 1
     ? t(locale, "pend.one")
-    : `${pending.count} ${t(locale, "pend.many")}`;
+    : `${count} ${t(locale, "pend.many")}`;
   return (
     <div
       id="pending-changes-bar"
@@ -23,7 +28,7 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       <span className="apply-bar-label">
         <PenLine strokeWidth={1.8} aria-hidden="true" />
         {displayText(locale, label)}
-        {pending.labels.length > 0 ? <em className="apply-bar-summary">{displayText(locale, pending.labels.join(" · "))}</em> : null}
+        {labelsKey.length > 0 ? <em className="apply-bar-summary">{displayText(locale, labelsKey)}</em> : null}
       </span>
       <div className="apply-bar-actions">
         <button
@@ -47,4 +52,4 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       </div>
     </div>
   );
-}
+});

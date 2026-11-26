@@ -19,19 +19,23 @@ test("every wire entry of every Arbiter model is drawn once, inside its table", 
   }
 });
 
-test("key labels cover every factory code the layouts carry except the reserved FN codes", () => {
-  const reserved = new Set([224, 148, 202, 204, 205, 206, 207, 243]);
+test("key labels cover every factory code the layouts carry, including onboard FN codes", () => {
   for (const product of ARBITER_PRODUCTS) {
     for (const layer of arbiterLayout(product).layers) {
       for (const code of layer) {
-        if (code === 0 || reserved.has(code)) continue;
+        if (code === 0) continue;
         assert.notEqual(arbiterKeyLabel(code), null, `${product.name} has no label for code ${code}`);
       }
     }
   }
   assert.equal(arbiterKeyLabel(249), "SuperTap");
   assert.equal(arbiterKeyLabel(245), "Fn");
-  assert.equal(arbiterKeyLabel(204), null);
+  assert.equal(arbiterKeyLabel(148), "RGB mode");
+  assert.equal(arbiterKeyLabel(202), "Color switch");
+  assert.equal(arbiterKeyLabel(204), "Brightness up");
+  assert.equal(arbiterKeyLabel(207), "Effect speed down");
+  assert.equal(arbiterKeyLabel(224), "Factory reset");
+  assert.equal(arbiterKeyLabel(243), "Game mode");
 });
 
 test("the picker lists only codes that have a label, each in one category", () => {
@@ -44,7 +48,8 @@ test("the picker lists only codes that have a label, each in one category", () =
     }
   }
   assert.equal(arbiterKeyCategory(65), "letters");
-  assert.equal(arbiterKeyCategory(204), null);
+  assert.equal(arbiterKeyCategory(204), "onboard");
+  assert.equal(arbiterKeyCategory(224), "onboard");
 });
 
 test("effect names and colours round-trip", () => {

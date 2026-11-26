@@ -10,7 +10,7 @@ import * as control from "../../device/controller";
 import type { ControlSnapshot, NapeAssignmentControl, StagedNapeAssignment } from "../../device/types";
 import { layerLabel, t, tp } from "../../i18n/index";
 import type { InterfaceLocale } from "../settings/interface-preferences";
-import { IconActivate, IconRefresh, IconRunning } from "../../shared/icons";
+import { Circle, CircleDot, RefreshCw } from "lucide-react";
 
 const KEY_ROWS = [
   { col: 2, number: "1", name: "01" },
@@ -249,7 +249,7 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
           disabled={busy}
           onClick={() => void control.reloadNapeLayers()}
         >
-          <IconRefresh />
+          <RefreshCw size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />
         </button>
       </div>
 
@@ -293,7 +293,7 @@ export function KeychronNapeLayers({ snapshot }: { snapshot: ControlSnapshot }):
                     className={`icon-button${running ? " is-active" : ""}`}
                     onClick={() => void control.switchNapeLayer(layer)}
                   >
-                    {running ? <IconRunning /> : <IconActivate />}
+                    {running ? <CircleDot size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" /> : <Circle size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />}
                   </button>
                 </div>
               );

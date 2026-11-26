@@ -60,8 +60,10 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bcobra\b/i.test(displayName)) return "razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
+  // VXE R1 family: the series render was never uploaded to the bucket, so
+  // this returns the locally committed R1 SE art (the family shares the shell).
   if (/\bvxe\s+r1(?:\s+(?:se\+?|pro(?:\s+max)?))?\b/i.test(displayName)) {
-    return "vxe-r1-series.png";
+    return "vxe-r1-se.png";
   }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
@@ -146,6 +148,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";
+  // LEOBOG GM3: the driver reports "LEOBOG GM3" for both the wired and the
+  // 2.4 GHz receiver connection, so the name is enough to pick the render.
+  if (/\bleobog\s*gm3\b/i.test(displayName)) return "leobog-gm3.png";
   // Incott: six model families, each sold in a base and a Pro version with
   // a different shell finish, so all twelve get their own render. The driver
   // reads the model from the device and appends "Pro" when the PAW3950 is
@@ -169,8 +174,10 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
-  // Keychron Hall-effect keyboards share one neutral silhouette until real art exists.
-  if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return "keychron-keyboard.svg";
+  if (/\bkeychron\s*turbo\s*link\b/i.test(displayName)) return "keychron-turbolink-8k.png";
+  if (/\bkeychron\s*g6\s*he\b/i.test(displayName)) return "keychron-g6-he.png";
+  // Keychron Hall-effect keyboards share the keyboard placeholder until real art exists.
+  if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return UNKNOWN_KEYBOARD_FILENAME;
   // Starlight X is a different shell from the ULX/Starlight-12, so it gets its
   // own render instead of borrowing the ULX's. Until the file is uploaded the
   // panel falls back to the placeholder at image-load time.
@@ -192,6 +199,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bm1\s*[-_]?\s*nex\b/i.test(displayName)) return "noir-m1-nex.png";
   if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
   if (/fantech/i.test(displayName)) return "unknown-device.png";
+  // The driver reports the model as "Mi Gaming Mouse" for both the wired
+  // (0x5009) and wireless (0x500b) PIDs, so one name rule covers both.
+  if (/mi\s*gaming\s*mouse/i.test(displayName)) return "xiaomi-mi-gaming-mouse.png";
   return "unknown-device.png";
 }
 
@@ -220,13 +230,42 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
-  // A generic keyboard outline, not product art; it stays until Keychron renders are uploaded.
-  "keychron-keyboard.svg": "/devices/keychron-keyboard.svg",
+  // The keyboard placeholder: a black keyboard silhouette with a question mark,
+  // the keyboard twin of unknown-device.png. Served locally until it is in the bucket.
+  "unknown-keyboard.png": "/devices/unknown-keyboard.png",
+  // Rendered from the reference app's animation frames (black background
+  // removed); served locally until the R2 upload happens.
+  "xiaomi-mi-gaming-mouse.png": "/devices/xiaomi-mi-gaming-mouse.png",
+  "vxe-r1-se.png": "/devices/vxe-r1-se.png",
 };
 
-export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  const filename = resolveDeviceImageFilename(device, displayName);
+export type DeviceImageKind = "mouse" | "keyboard";
+
+/**
+ * A keyboard with no art of its own gets the keyboard placeholder, not the
+ * mouse one. That covers anything the app labels a keyboard, plus any device
+ * whose reported name says "keyboard".
+ */
+function withPlaceholder(filename: string, displayName: string, kind: DeviceImageKind): string {
+  if (filename !== UNKNOWN_DEVICE_FILENAME) return filename;
+  return kind === "keyboard" || /\bkeyboard\b/i.test(displayName) ? UNKNOWN_KEYBOARD_FILENAME : filename;
+}
+
+function imageUrl(filename: string): string {
   return LOCAL_OVERRIDES[filename] ?? DEVICE_IMAGE_BASE_URL + filename;
+}
+
+export function deviceImage(
+  device: HIDDevice | null | undefined,
+  displayName = "",
+  kind: DeviceImageKind = "mouse",
+): string {
+  return imageUrl(withPlaceholder(resolveDeviceImageFilename(device, displayName), displayName, kind));
+}
+
+/** The placeholder an image falls back to when its own art fails to load. */
+export function placeholderImage(kind: DeviceImageKind = "mouse"): string {
+  return imageUrl(kind === "keyboard" ? UNKNOWN_KEYBOARD_FILENAME : UNKNOWN_DEVICE_FILENAME);
 }
 
 export function deviceImageFilename(displayName = ""): string {
@@ -259,6 +298,7 @@ export function showcaseDeviceImageUrls(): readonly string[] {
 }
 
 export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
+export const UNKNOWN_KEYBOARD_FILENAME = "unknown-keyboard.png";
 
 export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
   return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;

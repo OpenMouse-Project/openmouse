@@ -1,6 +1,8 @@
 export type BatteryMode = "charging" | "discharging";
 
 export interface BatterySample {
+  /** Browser-owned identity; legacy histories are assigned deterministic IDs when read. */
+  id?: string;
   timestamp: number;
   percent: number;
   mode: BatteryMode;
@@ -13,7 +15,30 @@ const CHECKPOINT_MS = 5 * 60 * 1000;
 const MAX_SAMPLE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_CONTINUOUS_GAP_MS = 10 * 60 * 1000;
 const MIN_ESTIMATE_SPAN_MS = 10 * 60 * 1000;
+export const HISTORY_ESTIMATE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_SAMPLES_PER_DEVICE = 500;
+
+/**
+ * The ATK 1K receiver used to present the R1 SE family with its USB descriptor
+ * name. Battery history is keyed by the display name, so keep that old bucket
+ * connected after the driver learns the real model.
+ */
+const HISTORY_ALIASES: Record<string, readonly string[]> = {
+  VXER1SE: ["ATK VXE Mouse 1K Dongle"],
+  "VXER1SE+": ["ATK VXE Mouse 1K Dongle"],
+};
+
+/** Aliases that predate model-specific names and cannot be assigned to one device. */
+const SHARED_HISTORY_ALIASES = new Set(["ATKVXEMOUSE1KDONGLE"]);
+
+function normalizedHistoryKey(deviceName: string): string {
+  return deviceName.replace(/\s+/g, "").toUpperCase();
+}
+
+function batteryHistoryKeys(deviceName: string): string[] {
+  const normalized = normalizedHistoryKey(deviceName);
+  return [deviceName, ...(HISTORY_ALIASES[normalized] ?? [])];
+}
 
 function loadHistory(storage: Storage): BatteryHistory {
   try {
@@ -26,7 +51,10 @@ function loadHistory(storage: Storage): BatteryHistory {
 
 function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
   if (!Array.isArray(stored)) return [];
-  return stored.filter((sample): sample is BatterySample =>
+  return stored.map((sample, index) => {
+    if (!sample || typeof sample !== "object" || !Number.isFinite(sample.timestamp)) return sample;
+    return { ...sample, id: typeof sample.id === "string" && sample.id ? sample.id : `legacy:${sample.timestamp}:${index}` };
+  }).filter((sample): sample is BatterySample =>
     typeof sample === "object"
     && sample !== null
     && Number.isFinite((sample as BatterySample).timestamp)
@@ -39,6 +67,21 @@ function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
 
 const memorySamples = new Map<string, BatterySample[]>();
 
+function mergedHistorySamples(history: BatteryHistory, deviceName: string, cutoff: number): BatterySample[] {
+  // The model-specific bucket is kept whole (samples in the same millisecond
+  // are distinct, by id). A shared alias bucket only fills in timestamps the
+  // model has no reading for, so a current reading wins over a legacy one.
+  const own = pruneSamples(history[deviceName], cutoff);
+  const ownTimes = new Set(own.map((sample) => sample.timestamp));
+  const legacy = new Map<number, BatterySample>();
+  for (const key of batteryHistoryKeys(deviceName).slice(1)) {
+    for (const sample of pruneSamples(history[key], cutoff)) {
+      if (!ownTimes.has(sample.timestamp)) legacy.set(sample.timestamp, sample);
+    }
+  }
+  return [...legacy.values(), ...own].sort((left, right) => left.timestamp - right.timestamp);
+}
+
 export function saveBatterySample(
   storage: Storage,
   deviceName: string,
@@ -48,19 +91,30 @@ export function saveBatterySample(
 ): BatterySample[] {
   const history = loadHistory(storage);
   const cutoff = now - MAX_SAMPLE_AGE_MS;
-  const stored = history[deviceName];
-  const storedCount = Array.isArray(stored) ? stored.length : 0;
-  const samples = pruneSamples(stored, cutoff);
+  const keys = batteryHistoryKeys(deviceName);
+  const storedCount = Array.isArray(history[deviceName]) ? history[deviceName].length : 0;
+  const migrated = keys.some((key) => key !== deviceName && Array.isArray(history[key]));
+  const samples = mergedHistorySamples(history, deviceName, cutoff);
   const previous = samples.at(-1);
   const shouldSave = !previous
     || previous.mode !== mode
     || previous.percent !== percent
     || now - previous.timestamp >= CHECKPOINT_MS;
 
-  if (shouldSave) samples.push({ timestamp: now, percent, mode });
+  if (shouldSave) samples.push({ id: crypto.randomUUID(), timestamp: now, percent, mode });
   const retainedSamples = samples.slice(-MAX_SAMPLES_PER_DEVICE);
   history[deviceName] = retainedSamples;
-  if (shouldSave || retainedSamples.length !== storedCount) {
+  for (const key of keys) {
+    if (key === deviceName) continue;
+    if (SHARED_HISTORY_ALIASES.has(normalizedHistoryKey(key))) {
+      const retainedAlias = pruneSamples(history[key], cutoff);
+      if (retainedAlias.length) history[key] = retainedAlias;
+      else delete history[key];
+    } else {
+      delete history[key];
+    }
+  }
+  if (shouldSave || retainedSamples.length !== storedCount || migrated) {
     try {
       storage.setItem(STORAGE_KEY, JSON.stringify(history));
     } catch {
@@ -94,7 +148,7 @@ export function cachedBatterySamples(
 ): BatterySample[] {
   const hit = memorySamples.get(deviceName);
   if (hit) return hit;
-  const samples = pruneSamples(loadHistory(storage)[deviceName], now - MAX_SAMPLE_AGE_MS);
+  const samples = mergedHistorySamples(loadHistory(storage), deviceName, now - MAX_SAMPLE_AGE_MS);
   memorySamples.set(deviceName, samples);
   return samples;
 }
@@ -113,25 +167,41 @@ export function estimateBatteryTime(
   percent: number,
   mode: BatteryMode,
   now = Date.now(),
+  maxAgeMs = MAX_CONTINUOUS_GAP_MS,
 ): string | null {
-  const continuous: BatterySample[] = [];
-  for (let index = samples.length - 1; index >= 0; index -= 1) {
-    const sample = samples[index];
-    const newer = continuous[0];
-    if (sample.mode !== mode || (newer && newer.timestamp - sample.timestamp > MAX_CONTINUOUS_GAP_MS)) break;
-    continuous.unshift(sample);
+  const segments: BatterySample[][] = [];
+  let segment: BatterySample[] = [];
+  let currentRunStart = 0;
+  for (const sample of samples) {
+    if (sample.mode !== mode) {
+      if (segment.length) segments.push(segment);
+      segment = [];
+      currentRunStart = segments.length;
+      continue;
+    }
+    const previous = segment.at(-1);
+    if (previous && sample.timestamp - previous.timestamp > MAX_CONTINUOUS_GAP_MS) {
+      segments.push(segment);
+      segment = [];
+    }
+    segment.push(sample);
   }
+  if (segment.length) segments.push(segment);
 
-  const first = continuous[0];
-  const last = continuous.at(-1);
-  if (!first || !last || now - last.timestamp > MAX_CONTINUOUS_GAP_MS) return null;
-  const elapsed = last.timestamp - first.timestamp;
-  const change = mode === "charging" ? last.percent - first.percent : first.percent - last.percent;
-  if (elapsed < MIN_ESTIMATE_SPAN_MS || change < 1) return null;
+  for (let index = segments.length - 1; index >= currentRunStart; index -= 1) {
+    const candidate = segments[index];
+    const first = candidate[0];
+    const last = candidate.at(-1);
+    if (!first || !last || now - last.timestamp > maxAgeMs) continue;
+    const elapsed = last.timestamp - first.timestamp;
+    const change = mode === "charging" ? last.percent - first.percent : first.percent - last.percent;
+    if (elapsed < MIN_ESTIMATE_SPAN_MS || change < 1) continue;
 
-  const remainingPercent = mode === "charging" ? 100 - percent : percent;
-  if (remainingPercent <= 0) return null;
-  return formatEstimate(remainingPercent / (change / elapsed));
+    const remainingPercent = mode === "charging" ? 100 - percent : percent;
+    if (remainingPercent <= 0) return null;
+    return formatEstimate(remainingPercent / (change / elapsed));
+  }
+  return null;
 }
 
 /** Power draw in mW at one polling rate: the sensor and electronics, and the radio. */

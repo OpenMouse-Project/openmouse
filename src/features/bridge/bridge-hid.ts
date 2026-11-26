@@ -19,6 +19,7 @@
 // Bridge to serve the app itself over loopback, which is a separate change.
 
 import { HID_FILTERS } from "../../device/hid-filters.ts";
+import { refreshLocalNetworkPermission } from "./local-network-permission.ts";
 import { describeHidDevice, markHidActivity } from "../../device/hid-diagnostics.ts";
 
 
@@ -81,7 +82,7 @@ interface Reply {
 }
 
 type Command =
-  | { type: "list"; vendorIds: number[] }
+  | { type: "list"; vendorIds: number[]; usages?: { usagePage: number; usage?: number }[] }
   | { type: "open"; device: string }
   | { type: "close"; device: string }
   | { type: "listen"; device: string }
@@ -139,6 +140,19 @@ function vendorIdsFor(filters: HIDDeviceFilter[]): number[] {
     if (filter.vendorId !== undefined) ids.add(filter.vendorId);
   }
   return [...ids];
+}
+
+const VENDOR_DEFINED_USAGE_PAGE = 0xff00;
+
+function listCommand(filters: HIDDeviceFilter[]): Command {
+  const usages = new Map<string, { usagePage: number; usage?: number }>();
+  for (const filter of filters) {
+    if (filter.vendorId !== undefined || filter.productId !== undefined) continue;
+    if (filter.usagePage === undefined || filter.usagePage < VENDOR_DEFINED_USAGE_PAGE) continue;
+    usages.set(`${filter.usagePage}:${filter.usage ?? ""}`, { usagePage: filter.usagePage, usage: filter.usage });
+  }
+  const vendorIds = vendorIdsFor(filters);
+  return usages.size > 0 ? { type: "list", vendorIds, usages: [...usages.values()] } : { type: "list", vendorIds };
 }
 
 // Listeners are kept in a set rather than by extending EventTarget: WebHID
@@ -415,14 +429,13 @@ class BridgeClient {
   }
 }
 
+
 class BridgeHid implements HID {
   #client: BridgeClient;
   #poll: ReturnType<typeof setInterval> | null = null;
   #listing: Promise<HIDDevice[]> | null = null;
-  // Like WebHID, devices already present when the page first enumerates are
-  // not "connected" events; emitting them made the app activate each one in
-  // turn after reconnectAuthorizedDevice picked the remembered mouse.
   #enumerated = false;
+  #visibilityHandler = null as (() => void) | null;
   #listeners: Record<"connect" | "disconnect", Set<(event: HIDConnectionEvent) => void>> = {
     connect: new Set(),
     disconnect: new Set(),
@@ -431,8 +444,16 @@ class BridgeHid implements HID {
   constructor(transport: BridgeTransport, onExternalDisconnect?: () => void) {
     this.#client = new BridgeClient(transport);
     this.#client.onDisconnect = () => {
-      if (this.#poll !== null) clearInterval(this.#poll);
-      this.#poll = null;
+      if (this.#poll !== null) {
+        clearInterval(this.#poll);
+        this.#poll = null;
+      }
+      // Otherwise the handler restarts polling on a closed client and
+      // accumulates one listener per reconnect.
+      if (this.#visibilityHandler !== null) {
+        document.removeEventListener("visibilitychange", this.#visibilityHandler);
+        this.#visibilityHandler = null;
+      }
       for (const device of this.#client.devices.values()) this.#emit("disconnect", device);
       this.#client.devices.clear();
       onExternalDisconnect?.();
@@ -460,7 +481,7 @@ class BridgeHid implements HID {
   }
 
   async #listDevices(): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(HID_FILTERS) });
+    const reply = await this.#client.request(listCommand(HID_FILTERS));
     const { devices, added, removed } = this.#client.reconcile(reply.devices ?? []);
     if (this.#enumerated) {
       for (const device of added) this.#emit("connect", device);
@@ -472,7 +493,7 @@ class BridgeHid implements HID {
   }
 
   async requestDevice(options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(options.filters) });
+    const reply = await this.#client.request(listCommand(options.filters));
     const { devices } = this.#client.reconcile(reply.devices ?? []);
     this.#enumerated = true;
     this.#startPolling();
@@ -492,10 +513,20 @@ class BridgeHid implements HID {
     for (const listener of this.#listeners[type]) listener(event);
   }
 
-  /** Bridge sends no hot-plug events, so connect/disconnect come from re-enumerating. */
+  /** Bridge sends no hot-plug events, so connect/disconnect come from re-enumerating. Skipped while the tab is hidden. */
   #startPolling(): void {
+    if (typeof document !== "undefined" && this.#visibilityHandler === null) {
+      this.#visibilityHandler = () => {
+        if (typeof document !== "undefined" && !document.hidden) {
+          if (this.#poll === null) this.#startPolling();
+          else void this.getDevices().catch(() => undefined);
+        }
+      };
+      document.addEventListener("visibilitychange", this.#visibilityHandler);
+    }
     if (this.#poll !== null) return;
     this.#poll = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void this.getDevices().catch(() => undefined);
     }, POLL_INTERVAL_MS);
   }
@@ -513,6 +544,7 @@ export function bridgeHid(transport: BridgeTransport, onDisconnect?: () => void)
 // "disconnected" the instant Bridge's process goes away, without polling
 // bridgeStatus() itself just to answer "is it there".
 let bridgeHidActive = false;
+let installedShim: HID | null = null;
 const bridgeHidActiveListeners = new Set<(active: boolean) => void>();
 
 function setBridgeHidActive(active: boolean): void {
@@ -633,6 +665,21 @@ async function openSocket(url: string): Promise<BridgeTransport | null> {
 }
 
 /**
+ * Retries the Bridge HID install unless it is already active. Never throws;
+ * safe to call from page mounts and focus/visibility handlers. Forces the
+ * socket attempt even where native WebHID exists, so a Bridge started after
+ * page load is picked up without a reload.
+ */
+export async function tryInstallBridgeHid(): Promise<boolean> {
+  if (isBridgeHidActive()) return true;
+  try {
+    return await installBridgeHid({ force: true });
+  } catch {
+    return Boolean(typeof navigator !== "undefined" && navigator.hid);
+  }
+}
+
+/**
  * Installs Bridge as `navigator.hid` when the browser has no WebHID of its own.
  *
  * Resolves to whether the page can reach HID at all, so a caller can keep using
@@ -645,13 +692,23 @@ export async function installBridgeHid(options: { force?: boolean } = {}): Promi
   if (navigator.hid && !options.force) return true;
   const transport = await openSocket(BRIDGE_SOCKET_URL);
   if (!transport) {
-    setBridgeHidActive(false);
+    const permission = await refreshLocalNetworkPermission();
+    bridgeLog("warn", "bridge unreachable", { detail: { permission } });
+    // A newer attempt can install its shim while the permission query is in
+    // flight. This attempt owns nothing then, so it must not report Bridge off.
+    if (!installedShim) setBridgeHidActive(false);
     return Boolean(navigator.hid);
   }
-  Object.defineProperty(navigator, "hid", {
-    value: bridgeHid(transport, () => setBridgeHidActive(false)),
-    configurable: true,
+  // Only the shim that is still `navigator.hid` clears the flag, so a
+  // superseded socket closing late cannot deactivate its replacement.
+  const shim = bridgeHid(transport, () => {
+    if (typeof navigator !== "undefined" && navigator.hid === shim) {
+      installedShim = null;
+      setBridgeHidActive(false);
+    }
   });
+  Object.defineProperty(navigator, "hid", { value: shim, configurable: true });
+  installedShim = shim;
   setBridgeHidActive(true);
   return true;
 }

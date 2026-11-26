@@ -53,7 +53,7 @@ test("a change with no preview still stages", () => {
   clearPendingChanges();
 });
 
-test("changes sharing a group collapse into one write", () => {
+test("changes sharing a group collapse into one write", async () => {
   clearPendingChanges();
   const written: string[] = [];
   const stage = (key: string, group?: string) => stagePendingChange({
@@ -72,8 +72,11 @@ test("changes sharing a group collapse into one write", () => {
   assert.deepEqual(batches[0]?.map((change) => change.key), ["gaming-surface", "lightforce"]);
   assert.deepEqual(batches[1]?.map((change) => change.key), ["dpi"]);
 
-  // A batch is written by its last member, which carries the combined value.
+  // A batch is written by its last member, which carries the combined value:
+  // staging two same-group keys must cost one HID write, not two.
   assert.equal(batches[0]?.at(-1)?.key, "lightforce");
+  for (const batch of batches) await batch.at(-1)?.apply();
+  assert.deepEqual(written, ["lightforce", "dpi"]);
   clearPendingChanges();
 });
 

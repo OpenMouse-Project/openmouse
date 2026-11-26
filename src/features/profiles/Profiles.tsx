@@ -6,7 +6,7 @@ import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
 import { hidKeyForCode, shortcutLabel } from "./hid-keys";
 import { t, tp } from "../../i18n/index";
-import { IconActivate, IconDisabled, IconEnabled, IconRefresh, IconRename, IconRunning, IconShare, IconTrash } from "../../shared/icons";
+import { Circle, CircleDot, Eye, EyeOff, Pencil, RefreshCw, Share2, Trash2 } from "lucide-react";
 
 export function Profiles({
   snapshot,
@@ -86,7 +86,7 @@ export function Profiles({
           title={t(locale, "prof.reload")}
           onClick={() => control.rereadOnboardProfiles()}
         >
-          <IconRefresh />
+          <RefreshCw size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -95,7 +95,7 @@ export function Profiles({
           title={t(locale, "panel.shareProfile")}
           onClick={onShareProfile}
         >
-          <IconShare />
+          <Share2 size={13} strokeWidth={1.7} stroke="currentColor" aria-hidden="true" />
         </button>
         {snapshot.setupProfilesAvailable ? (
           <button
@@ -118,7 +118,7 @@ export function Profiles({
             disabled={snapshot.settingInProgress}
             onClick={() => void control.resetLogitechProfiles()}
           >
-            <IconTrash />
+            <Trash2 size={13} strokeWidth={1.7} stroke="currentColor" aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -150,7 +150,7 @@ export function Profiles({
                     className={`icon-button${hostRunning ? " is-active" : ""}`}
                     onClick={() => void control.applyOnboardMode("Host")}
                   >
-                    {hostRunning ? <IconRunning /> : <IconActivate />}
+                    {hostRunning ? <CircleDot size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" /> : <Circle size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />}
                   </button>
                 </div>
 
@@ -222,7 +222,7 @@ export function Profiles({
                         className="icon-button"
                         onClick={() => control.renameOnboardProfile(profile.sector)}
                       >
-                        <IconRename />
+                        <Pencil size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />
                       </button>
                       <button
                         type="button"
@@ -237,7 +237,7 @@ export function Profiles({
                         className={`icon-button${running ? " is-active" : ""}`}
                         onClick={() => void control.selectOnboardProfile(profile.sector)}
                       >
-                        {running ? <IconRunning /> : <IconActivate />}
+                        {running ? <CircleDot size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" /> : <Circle size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />}
                       </button>
                       <button
                         type="button"
@@ -249,7 +249,7 @@ export function Profiles({
                         className="icon-button"
                         onClick={() => void control.toggleOnboardProfileEnabled(profile.sector, !profile.enabled)}
                       >
-                        {profile.enabled ? <IconEnabled /> : <IconDisabled />}
+                        {profile.enabled ? <Eye size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" /> : <EyeOff size={13} strokeWidth={1.8} stroke="currentColor" aria-hidden="true" />}
                       </button>
                     </div>
                   );

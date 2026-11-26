@@ -31,8 +31,8 @@ export function useBridgeBatteryReporter(snapshot: ControlSnapshot): void {
       // The onboard-memory settings the panel is already reading; Bridge's
       // tray panel shows them next to the battery. Omitted when this
       // driver's status doesn't carry them.
-      dpi: Math.round(status.dpi),
-      pollingRateHz: Math.round(status.pollingRateHz),
+      dpi: status.dpi == null ? undefined : Math.round(status.dpi),
+      pollingRateHz: status.pollingRateHz == null ? undefined : Math.round(status.pollingRateHz),
       switchMode: status.lightforceSwitchMode ?? undefined,
     }
     : null;

@@ -22,7 +22,6 @@ export function feedbackRelayHint(webhook: string | undefined): string {
   return "[dev-feedback] relay up — DISCORD_FEEDBACK_WEBHOOK set; Share report delivers to Discord";
 }
 
-const MAX_DEV_BODY_BYTES = 1024 * 1024;
 
 export function validateFeedbackRequest(method: string | undefined, rawBody: string): FeedbackValidation {
   if (method !== "POST") {
@@ -61,6 +60,72 @@ export async function sendToDiscord(
   }
 }
 
+export const MAX_DEV_BODY_BYTES = 1024 * 1024;
+
+export interface FeedbackMiddlewareOptions {
+  webhook: string | undefined;
+  onInfo?: (message: string) => void;
+}
+
+/** Test seam for the dev-only /api/feedback middleware: enforces the 1MB cap,
+ * validates the JSON body, then relays to Discord. Every response carries
+ * Cache-Control: no-store so reports never linger in a cache. */
+export function feedbackMiddleware(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: FeedbackMiddlewareOptions,
+  fetchImpl: typeof fetch = fetch,
+): void {
+  const info = options.onInfo ?? (() => {});
+  const chunks: Buffer[] = [];
+  let size = 0;
+  let finished = false;
+  req.on("data", (chunk: Buffer) => {
+    if (finished) return;
+    size += chunk.length;
+    if (size <= MAX_DEV_BODY_BYTES) {
+      chunks.push(chunk);
+      return;
+    }
+    finished = true;
+    endJson(res, 413, JSON.stringify({ message: "Payload too large." }));
+  });
+  req.on("end", async () => {
+    if (finished) return;
+    const raw = Buffer.concat(chunks).toString("utf8");
+    const validation = validateFeedbackRequest(req.method, raw);
+    if (!validation.valid) {
+      endJson(res, validation.status, validation.body);
+      return;
+    }
+    const count = validation.embeds?.length ?? 0;
+    const titles = (validation.embeds ?? [])
+      .map((embed) => (embed as { title?: unknown })?.title ?? "untitled")
+      .join(" · ");
+    if (!options.webhook || !options.webhook.startsWith("https://discord")) {
+      info(
+        `[dev-feedback] received ${count} embed(s) (${titles}) but DISCORD_FEEDBACK_WEBHOOK is not set — add it to .env.local to deliver from dev`,
+      );
+      endJson(
+        res,
+        503,
+        JSON.stringify({
+          message: "Feedback is not configured — set DISCORD_FEEDBACK_WEBHOOK in .env.local to deliver locally.",
+        }),
+      );
+      return;
+    }
+    const delivery = await sendToDiscord(options.webhook, raw, fetchImpl);
+    if (!delivery.ok) {
+      info(`[dev-feedback] Discord rejected the delivery (${delivery.status}).`);
+      endJson(res, delivery.status, JSON.stringify({ message: "Discord rejected the feedback." }));
+      return;
+    }
+    info(`[dev-feedback] relayed ${count} embed(s) to Discord: ${titles}`);
+    endJson(res, 200, JSON.stringify({ ok: true }));
+  });
+}
+
 function endJson(res: ServerResponse, status: number, body: string): void {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -76,55 +141,10 @@ export function devFeedback(): Plugin {
       const env = loadEnv(server.config.mode, server.config.root, "");
       const webhook = env.DISCORD_FEEDBACK_WEBHOOK;
       server.config.logger.info(feedbackRelayHint(webhook));
-      server.middlewares.use("/api/feedback", (req: IncomingMessage, res: ServerResponse) => {
-        const chunks: Buffer[] = [];
-        let size = 0;
-        let finished = false;
-        req.on("data", (chunk: Buffer) => {
-          if (finished) return;
-          size += chunk.length;
-          if (size <= MAX_DEV_BODY_BYTES) {
-            chunks.push(chunk);
-            return;
-          }
-          finished = true;
-          endJson(res, 413, JSON.stringify({ message: "Payload too large." }));
-        });
-        req.on("end", async () => {
-          if (finished) return;
-          const raw = Buffer.concat(chunks).toString("utf8");
-          const validation = validateFeedbackRequest(req.method, raw);
-          if (!validation.valid) {
-            endJson(res, validation.status, validation.body);
-            return;
-          }
-          const count = validation.embeds?.length ?? 0;
-          const titles = (validation.embeds ?? [])
-            .map((embed) => (embed as { title?: unknown })?.title ?? "untitled")
-            .join(" · ");
-          if (!webhook || !webhook.startsWith("https://discord")) {
-            server.config.logger.info(
-              `[dev-feedback] received ${count} embed(s) (${titles}) but DISCORD_FEEDBACK_WEBHOOK is not set — add it to .env.local to deliver from dev`,
-            );
-            endJson(
-              res,
-              503,
-              JSON.stringify({
-                message: "Feedback is not configured — set DISCORD_FEEDBACK_WEBHOOK in .env.local to deliver locally.",
-              }),
-            );
-            return;
-          }
-          const delivery = await sendToDiscord(webhook, raw);
-          if (!delivery.ok) {
-            server.config.logger.info(`[dev-feedback] Discord rejected the delivery (${delivery.status}).`);
-            endJson(res, delivery.status, JSON.stringify({ message: "Discord rejected the feedback." }));
-            return;
-          }
-          server.config.logger.info(`[dev-feedback] relayed ${count} embed(s) to Discord: ${titles}`);
-          endJson(res, 200, JSON.stringify({ ok: true }));
-        });
-      });
+      const info = (message: string): void => server.config.logger.info(message);
+      server.middlewares.use("/api/feedback", (req: IncomingMessage, res: ServerResponse) =>
+        feedbackMiddleware(req, res, { webhook, onInfo: info }),
+      );
     },
   };
 }
