@@ -198,10 +198,14 @@ function ProfileCard({ locale, mchose, disabled }: { locale: InterfaceLocale; mc
   );
 }
 
-/** End calibration as soon as the keyboard is free; a command still running would otherwise drop the request. */
-async function endCalibration(): Promise<void> {
+/**
+ * End calibration as soon as the keyboard is free; a command still running would otherwise drop the request.
+ * Only the keyboard that started calibration gets the retries: another one connected meanwhile is left alone.
+ */
+async function endCalibration(session: unknown): Promise<void> {
   for (let tries = 0; tries < 20; tries += 1) {
-    if (await control.runKeyboardCommand({ kind: "mchoseCalibrate", step: "end" })) return;
+    if (control.keyboardSession() !== session) return;
+    if (await control.runKeyboardCommand({ kind: "mchoseCalibrate", step: "end" }, session)) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
@@ -226,12 +230,16 @@ function CalibrationCard({ locale, mchose, disabled }: { locale: InterfaceLocale
   // start still in flight when the card goes away.
   const runningNow = useRef(false);
   const mounted = useRef(true);
+  // The keyboard calibration was started on; a late end goes to that one only.
+  const calibrating = useRef<unknown>(null);
   runningNow.current = running;
-  useEffect(() => () => { mounted.current = false; if (runningNow.current) void endCalibration(); }, []);
+  useEffect(() => () => { mounted.current = false; if (runningNow.current) void endCalibration(calibrating.current); }, []);
   const run = async (step: "start" | "end" | "restart"): Promise<void> => {
-    const ok = await control.runKeyboardCommand({ kind: "mchoseCalibrate", step });
+    const session = control.keyboardSession();
+    const ok = await control.runKeyboardCommand({ kind: "mchoseCalibrate", step }, session);
     if (!ok) return;
-    if (!mounted.current) { if (step !== "end") void endCalibration(); return; }
+    if (step !== "end") calibrating.current = session;
+    if (!mounted.current) { if (step !== "end") void endCalibration(session); return; }
     setRunning(step !== "end");
     if (step !== "end") { setDone(new Set()); setPending(new Set()); setDown(new Set()); }
   };

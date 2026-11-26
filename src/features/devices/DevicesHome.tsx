@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Settings2, Trash2 } fr
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import type { ControlSnapshot, SidebarDevice } from "../../device/types";
-import { deviceImage, deviceImageFilename, showcaseDeviceImageUrls } from "../../shared/device-images";
+import { deviceImage, deviceImageFilename, placeholderImage, showcaseDeviceImageUrls } from "../../shared/device-images";
 import { DeviceStats } from "./DeviceStats";
 
 const SHOWCASE_IMAGES = showcaseDeviceImageUrls();
@@ -41,7 +41,7 @@ function useConnect(snapshot: ControlSnapshot): { busy: boolean; disabled: boole
 }
 
 function DeviceArt({ device }: { device: SidebarDevice }): ReactNode {
-  const src = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
+  const src = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name, device.kind);
   const file = deviceImageFilename(device.name);
   const portrait = file === "noir-m2-nex.png" || file === "noir-s1.png" || file === "noir-e1.png";
   return (
@@ -53,7 +53,7 @@ function DeviceArt({ device }: { device: SidebarDevice }): ReactNode {
       draggable={false}
       onError={(event) => {
         event.currentTarget.onerror = null;
-        event.currentTarget.src = deviceImage(null);
+        event.currentTarget.src = placeholderImage(device.kind);
       }}
     />
   );

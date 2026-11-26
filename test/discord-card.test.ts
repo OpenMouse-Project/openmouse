@@ -21,12 +21,14 @@ test("fetchDiscordCounts falls back to the shields.io relay when Discord refuses
   assert.deepEqual(counts, { members: 2140, online: 312, source: "shields" });
 });
 
-test("fetchDiscordCounts reports why every lookup failed", async () => {
-  const result = await fetchDiscordCounts(async (input: string | URL | Request) =>
-    String(input).startsWith("https://discord.com/") ? jsonResponse({}, 429) : jsonResponse({ message: "inaccessible" }));
-  assert.match(result.error ?? "", /discord 429; shields/);
-  const offline = await fetchDiscordCounts(async () => { throw new Error("offline"); });
-  assert.match(offline.error ?? "", /discord offline; shields offline/);
+test("fetchDiscordCounts reports hung lookups via the error string", async () => {
+  const result = await fetchDiscordCounts(async (_input: string | URL | Request, init?: { signal?: AbortSignal }) => {
+    // Simulate AbortSignal.timeout(10000): hang until the signal aborts.
+    const { promise, reject } = Promise.withResolvers<never>();
+    init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "TimeoutError")), { once: true });
+    return promise;
+  });
+  assert.match(result.error ?? "", /discord.*aborted.*shields.*aborted/);
 });
 
 test("renderDiscordCard shows formatted counts", () => {

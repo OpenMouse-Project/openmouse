@@ -18,7 +18,27 @@ type QueuedEvent =
   | { kind: "event"; event: string; props?: Record<string, unknown> }
   | { kind: "error"; error: unknown };
 
+// The queue only bridges the gap until the lazy client arrives: bounded and
+// drop-oldest so a slow network can never grow memory without limit.
+const MAX_QUEUE = 50;
 const queue: QueuedEvent[] = [];
+
+
+// Error hooks install once the client is ready (or the moment a first event is
+// queued, so early failures are captured) — never before opt-out is known, so
+// a persisted opt-out leaves no listeners and no queue behind.
+let errorHooksInstalled = false;
+
+function installErrorHooks(): void {
+  if (errorHooksInstalled) return;
+  errorHooksInstalled = true;
+  window.addEventListener("error", (event) => {
+    forwardError(event.error ?? new Error(event.message));
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    forwardError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+  });
+}
 
 if (posthogKey && posthogHost) {
   void boot();
@@ -46,6 +66,9 @@ async function boot(): Promise<void> {
     });
     posthog = client;
     initialised = true;
+    // Hooks only attach once the client exists, so has_opted_out_capturing()
+    // is meaningful; flushQueue drops the backlog when opted out.
+    if (!client.has_opted_out_capturing()) installErrorHooks();
     flushQueue();
     try {
       window.dispatchEvent(new Event(ANALYTICS_READY_EVENT));
@@ -56,28 +79,41 @@ async function boot(): Promise<void> {
   }
 }
 
+function enqueue(item: QueuedEvent): void {
+  if (queue.length >= MAX_QUEUE) queue.shift();
+  queue.push(item);
+}
+
 function forwardError(error: unknown): void {
-  if (initialised && posthog) {
+  if (initialised && posthog && !posthog.has_opted_out_capturing()) {
     posthog.captureException(error instanceof Error ? error : new Error(String(error)));
-  } else if (posthogKey && posthogHost) {
-    queue.push({ kind: "error", error });
+  } else if (!initialised && posthogKey && posthogHost) {
+    installErrorHooks();
+    enqueue({ kind: "error", error });
   }
 }
 
 function flushQueue(): void {
-  for (const item of queue) {
+  // The queued events predate any consent signal; a pre-existing opt-out
+  // (persisted from an earlier visit) must still be honoured, so the whole
+  // backlog is dropped instead of replayed.
+  if (posthog?.has_opted_out_capturing()) {
+    queue.length = 0;
+    return;
+  }
+  for (const item of queue.splice(0)) {
     if (item.kind === "event") posthog?.capture(item.event, item.props);
     else forwardError(item.error);
   }
-  queue.length = 0;
 }
 
-window.addEventListener("error", (event) => {
-  forwardError(event.error ?? new Error(event.message));
-});
-window.addEventListener("unhandledrejection", (event) => {
-  forwardError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
-});
+function trackInternal(event: string, props?: Record<string, unknown>): void {
+  if (initialised) posthog?.capture(event, props);
+  else if (posthogKey && posthogHost) {
+    installErrorHooks();
+    enqueue({ kind: "event", event, props });
+  }
+}
 
 /** Whether anonymous diagnostics are being sent (on unless the user opted out). */
 export function analyticsEnabled(): boolean {
@@ -86,8 +122,10 @@ export function analyticsEnabled(): boolean {
 
 export function setAnalyticsEnabled(enabled: boolean): void {
   if (!initialised || !posthog) return;
-  if (enabled) posthog.opt_in_capturing();
-  else posthog.opt_out_capturing();
+  if (enabled) {
+    posthog.opt_in_capturing();
+    installErrorHooks();
+  } else posthog.opt_out_capturing();
 }
 
 /** Whether this build reports anything, so Settings can hide a dead switch. */
@@ -96,11 +134,11 @@ export function analyticsAvailable(): boolean {
 }
 export { ANALYTICS_READY_EVENT };
 
-/** Model-level device facts only: never serials, receiver ids or user text. */
+/** Numeric/vendor device facts only: never serials, receiver ids or free-text names. */
 export interface DeviceFacts {
   vendorId?: number;
   productId?: number;
-  productName?: string;
+  vendor?: string;
   brand?: string;
 }
 
@@ -109,7 +147,7 @@ export function deviceProps(device: DeviceFacts | null | undefined): Record<stri
   if (!device) return props;
   if (device.vendorId !== undefined) props.vendor_id = device.vendorId;
   if (device.productId !== undefined) props.product_id = device.productId;
-  if (device.productName) props.product_name = device.productName.slice(0, 80);
+  if (device.vendor) props.vendor = device.vendor.slice(0, 40);
   if (device.brand) props.brand = device.brand.slice(0, 40);
   return props;
 }
@@ -165,6 +203,9 @@ function scrubExceptionEvent<T extends OutgoingEvent | null>(event: T): T {
 }
 
 export function track(event: string, props?: Record<string, unknown>): void {
-  if (initialised) posthog?.capture(event, props);
-  else if (posthogKey && posthogHost) queue.push({ kind: "event", event, props });
+  if (initialised) {
+    if (!posthog?.has_opted_out_capturing()) posthog?.capture(event, props);
+    return;
+  }
+  if (posthogKey && posthogHost) trackInternal(event, props);
 }

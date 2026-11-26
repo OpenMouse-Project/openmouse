@@ -303,6 +303,23 @@ describe("via-keyboard", () => {
     await assert.rejects(viaClient(async () => MENU_DEFINITION).command({ kind: "viaSetValue", ids: [3, 1], value: [1], verify: true }), /not loaded/);
   });
 
+  test("old firmware addresses a Wilba Tech custom colour by value id and slot", async () => {
+    const hid = new FakeHid();
+    hid.customValues.set("23:2", [30, 40]);
+    const wt = parseViaDefinition({
+      name: "Test Board", vendorProductId: 0x74700002, firmwareVersion: 0,
+      lighting: { extends: "wt_rgb_backlight", effects: [["Off", 0], ["Custom", 3]], supportedLightingValues: [10, 23] },
+      matrix: { rows: 1, cols: 2 },
+      layouts: { width: 2, height: 1, keys: [{ row: 0, col: 0, x: 0, y: 0, ...KEY }, { row: 0, col: 1, x: 1, y: 0, ...KEY }] },
+    });
+    const client = viaClient(async () => wt, hid);
+    const loaded = (await client.command({ kind: "refresh" })).via!;
+    assert.deepEqual(loaded.values["0:23:2"], [30, 40]);
+    const written = await client.command({ kind: "viaSetValue", ids: [0, 23, 2], value: [50, 60], verify: true });
+    assert.deepEqual(hid.sets.at(-1), { ids: [23, 2], value: [50, 60], verify: true });
+    assert.deepEqual(written.via?.values["0:23:2"], [50, 60]);
+  });
+
   test("a value the board clamps shows what the board holds, without an error", async () => {
     const hid = new FakeHid();
     hid.customMax = 150;

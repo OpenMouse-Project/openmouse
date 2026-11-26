@@ -11,7 +11,7 @@ export interface KeyboardKeyReport {
 
 export interface KeyboardClient {
   readonly device: HIDDevice;
-  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "mchose" | "via";
+  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "glorious" | "mchose" | "via";
   readonly brand: string;
   /** Set once the session needs a reconnect before it can be used again. */
   readonly faulted?: boolean;

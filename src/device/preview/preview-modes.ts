@@ -36,6 +36,7 @@ export const PREVIEW_KEYS = [
   "finalmouse-slx",
   "ninjutso",
   "nape-pro",
+  "keychron-g6-he",
   "mx-master-3s",
   "g703",
   "gwolves-pro",
@@ -43,14 +44,17 @@ export const PREVIEW_KEYS = [
   "terra-pro",
   "logitech-legacy",
   "steelseries-gen2",
+  "incott",
   "arbiter-polar-65-pro",
   "arbiter-polar-65",
+  "glorious-gmmk2-65-iso",
+  "glorious-gmmk3-he-75",
   "mchose-ace68-air",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
 /** Keyboard previews have no mouse status; they run a stand-in keyboard client instead. */
-export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65" | "mchose-ace68-air";
+export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65" | "glorious-gmmk2-65-iso" | "glorious-gmmk3-he-75" | "mchose-ace68-air";
 export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike" | KeyboardPreviewMode>;
 
 export function previewsEnabled(buildChannel: string, viteDev: boolean): boolean {
@@ -91,6 +95,7 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "finalmouse": return "finalmouse";
     case "finalmouse-slx": return "finalmouse-slx";
     case "ninjutso": return "ninjutso";
+    case "keychron-g6-he": return "keychron-g6-he";
     case "keychron":
     case "keychron-nape":
     case "nape-pro": return "nape-pro";
@@ -100,8 +105,11 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "rawm-v4-gt": return "rawm-v4-gt";
     case "logitech-legacy": return "logitech-legacy";
     case "steelseries-gen2": return "steelseries-gen2";
+    case "incott": return "incott";
     case "arbiter-polar-65-pro": return "arbiter-polar-65-pro";
     case "arbiter-polar-65": return "arbiter-polar-65";
+    case "glorious-gmmk2-65-iso": return "glorious-gmmk2-65-iso";
+    case "glorious-gmmk3-he-75": return "glorious-gmmk3-he-75";
     case "mchose-ace68-air": return "mchose-ace68-air";
     default: return null;
   }

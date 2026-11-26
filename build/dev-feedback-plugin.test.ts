@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
 
-import { feedbackRelayHint, sendToDiscord, validateFeedbackRequest } from "./dev-feedback-plugin.ts";
+import { feedbackMiddleware, feedbackRelayHint, sendToDiscord, validateFeedbackRequest } from "./dev-feedback-plugin.ts";
 
 test("validateFeedbackRequest accepts a POST carrying an embeds array", () => {
   const raw = JSON.stringify({ embeds: [{ title: "Hardware Test Report" }] });
@@ -68,4 +70,27 @@ test("feedbackRelayHint tells the developer to configure the webhook when it is 
     assert.match(hint, /503/);
     assert.match(hint, /restart the dev server/);
   }
+});
+
+test("feedbackMiddleware answers 413 with no-store for bodies over 1MB", async () => {
+  const req = new EventEmitter() as unknown as IncomingMessage;
+  (req as { method?: string }).method = "POST";
+  let resolveEnd: (() => void) | undefined;
+  const ended = new Promise<void>((resolve) => { resolveEnd = resolve; });
+  const headers: Record<string, string> = {};
+  const res = {
+    statusCode: 0,
+    setHeader: (name: string, value: string): void => { headers[name.toLowerCase()] = value; },
+    end: (body?: string): void => {
+      res.body = body;
+      resolveEnd?.();
+    },
+    body: undefined as string | undefined,
+  } as unknown as ServerResponse;
+  feedbackMiddleware(req, res, { webhook: "https://discord.com/api/webhooks/1/abc" });
+  req.emit("data", Buffer.alloc(1024 * 1024 + 1));
+  await ended;
+  assert.equal(res.statusCode, 413);
+  assert.equal(headers["cache-control"], "no-store");
+  assert.match(res.body ?? "", /Payload too large/);
 });

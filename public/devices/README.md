@@ -7,6 +7,14 @@ restricted to maintainers) and served from
 `DEVICE_IMAGE_BASE_URL` in `src/ui/device-images.ts`. This file stays as
 the provenance/licensing record for every image that's been uploaded.
 
+## Button layout diagrams
+
+`steelseries-rival-650-button-layout.svg` is used in the Buttons editor, not as a
+product render. It comes from the [Rivalcfg Rival 650 documentation](https://flozz.github.io/rivalcfg/devices/rival650.html#buttons),
+under the Rivalcfg project's [WTFPL v2 license](https://github.com/flozz/rivalcfg/blob/master/LICENSE).
+OpenMouse adds a high-contrast background and uses number-only labels to match
+the localized button rows.
+
 ## Contributing artwork (no bucket access needed)
 
 Only a maintainer can upload to the bucket, so don't open a PR with a binary
@@ -27,6 +35,11 @@ image file — it has nowhere to go. Instead:
    source/licensing note below.
 
 ## Maintainer upload steps
+
+For the G6 HE use `keychron-g6-he.png`; for a separate TurboLink receiver render
+use `keychron-turbolink-8k.png`. Upload at the bucket root. Both name mappings are
+in `src/shared/device-images.ts`; the G6 mapping precedes the generic HE keyboard
+fallback. These mappings are ready for upload and do not imply the files exist.
 
 1. Save a **transparent** PNG or WebP named after the model in kebab-case,
    e.g. `razer-viper-v3-pro.png`. The panel sits on a dark background, so an
@@ -274,3 +287,14 @@ package:
   **Needs a maintainer upload** to the `openmouse-devices` R2 bucket; the mapping in
   `src/ui/device-images.ts` is in place and falls back cleanly to the placeholder until then.
 
+
+`unknown-keyboard.png` is the keyboard placeholder, the keyboard twin of
+`unknown-device.png`: a flat black silhouette with a white Arial Bold question
+mark, on a transparent 1428×716 canvas. Every device labelled a keyboard that
+has no art of its own resolves to it, and keyboard images fall back to it on a
+load error. Only the outline derives from a source image, a transparent pngtree
+stock render of a 60% keyboard (`pngtree-compact-60-mechanical-gaming-keyboard-with-retro-carbon-pbt-keycaps-png-image_18714675.webp`);
+no colour, keycaps, legends or shading carried over. It is committed at
+`public/devices/unknown-keyboard.png` and served from the repo until a
+maintainer uploads it to the bucket; then drop its `LOCAL_OVERRIDES` entry in
+`src/shared/device-images.ts` and point the tests at `CDN + "unknown-keyboard.png"`.

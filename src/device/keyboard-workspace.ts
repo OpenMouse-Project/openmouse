@@ -1,4 +1,5 @@
 import type { ArbiterCommand, ArbiterWorkspace } from './arbiter-workspace.ts';
+import type { GloriousCommand, GloriousWorkspace } from './glorious-workspace.ts';
 import type { MchoseCommand, MchoseWorkspace } from './mchose-workspace.ts';
 import type { WuqueGlobalState, WuqueKeyState, WuqueLightingState } from '@openmouse/keyboard-protocol/drivers';
 import type { KeyboardStatus } from '@openmouse/keyboard-protocol/drivers';
@@ -40,6 +41,7 @@ export interface KeyboardWorkspace {
   higher: WuqueHigherKey | null;
   adc: WuqueAxisReading | null;
   arbiter?: ArbiterWorkspace | null;
+  glorious?: GloriousWorkspace | null;
   mchose?: MchoseWorkspace | null;
 }
 export const emptyKeyboardWorkspace = (): KeyboardWorkspace => ({ global: null, lighting: null, custom: [], shell: null, layer: null, styles: [], defaults: [], macro: null, higher: null, adc: null });
@@ -70,6 +72,7 @@ export type KeyboardCommand =
   | { kind: 'higherWrite'; write: WuqueHigherKeyWrite }
   | { kind: 'adc'; row: number }
   | ArbiterCommand
+  | GloriousCommand
   | MchoseCommand;
 
 function integer(value: number, max: number): void {
