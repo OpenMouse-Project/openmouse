@@ -4954,6 +4954,10 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
     applyDpiStageAxes(stage, { x: rawDpi });
     return;
   }
+  // A mouse that reports its stages but cannot rewrite them (fixed stages, as
+  // on the Redgear X13 Pro) skips the value: a game profile or profile key
+  // then still applies the rest instead of failing at flash time.
+  if (!clientHasMethod("setDpiStageValue")) return;
   const stagedStatus = latestDeviceStatus ? withPendingChanges(latestDeviceStatus) : null;
   const stages = stagedStatus?.dpiStages ?? latestDeviceStatus?.dpiStages;
   if (!stages || !Number.isInteger(stage) || stage < 0 || stage >= stages.length) return;
