@@ -11,17 +11,19 @@ import {
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode } from "react";
-import type { ControlSnapshot } from "../device/types";
-import { deviceImage } from "../shared/device-images";
+import { memo, useCallback, type ReactNode } from "react";
+import type { ControlSnapshot, SidebarDevice } from "../device/types";
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import { deviceImage, placeholderImage } from "../shared/device-images";
 import { BridgeStatusButton } from "../features/bridge/BridgeStatus";
 import { BatteryIcon } from "../shared/ui";
+import { useUiLocale } from "../shared/ui-locale";
 
 export const OPENMOUSE_URL = "https://openmouse.app/";
 
 export type DesktopPage = "home" | "dashboard" | "hardware-test" | "games" | "settings";
 
-function NavItem({
+const NavItem = memo(function NavItem({
   icon: Icon,
   label,
   active = false,
@@ -59,9 +61,69 @@ function NavItem({
       {body}
     </button>
   );
-}
+});
 
-function SidebarDeviceRow({
+const SidebarDeviceRow = memo(function SidebarDeviceRow({
+  device,
+  live,
+  batteryPercent,
+  batteryState,
+  collapsed,
+  open,
+}: {
+  device: SidebarDevice;
+  live: boolean;
+  batteryPercent: number | null;
+  batteryState: MouseStatus["batteryState"];
+  collapsed: boolean;
+  open: (index: number) => void;
+  // Bumps when a lazy locale table resolves; row text otherwise keeps the
+  // English fallback because no other prop changes on table load.
+  localeTableRevision: number;
+}): ReactNode {
+  const locale = useUiLocale();
+  const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name, device.kind);
+  const openDevice = useCallback(() => open(device.index), [open, device.index]);
+  return (
+    <li>
+      <button
+        type="button"
+        className={`om-side-device${live ? " is-active" : ""}`}
+        title={collapsed ? device.name : undefined}
+        onClick={openDevice}
+      >
+        <span className="om-side-device-art" aria-hidden="true">
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = placeholderImage(device.kind);
+            }}
+          />
+          {live ? <span className="om-side-device-live" /> : null}
+        </span>
+        <span className="om-side-device-text">
+          <span className="om-side-device-name">{device.name}</span>
+          <span className="om-side-device-sub">
+            {batteryPercent != null ? (
+              <>
+                <BatteryIcon percent={batteryPercent} state={batteryState} />
+                <span>{batteryPercent}%</span>
+              </>
+            ) : (
+              <span>{live ? t(locale, "side.connected") : t(locale, "home.notConnected")}</span>
+            )}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+});
+
+function SidebarDeviceRowOutlet({
   snapshot,
   index,
   collapsed,
@@ -72,48 +134,20 @@ function SidebarDeviceRow({
   collapsed: boolean;
   open: (index: number) => void;
 }): ReactNode {
-  const locale = snapshot.preferences.locale;
   const device = snapshot.devices.find((entry) => entry.index === index);
   if (!device) return null;
   const live = device.selected && (snapshot.deviceStatus !== null || snapshot.keyboard !== null);
   const status = live ? snapshot.deviceStatus : null;
-  const image = deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name);
   return (
-    <li>
-      <button
-        type="button"
-        className={`om-side-device${live ? " is-active" : ""}`}
-        title={collapsed ? device.name : undefined}
-        onClick={() => open(device.index)}
-      >
-        <span className="om-side-device-art" aria-hidden="true">
-          <img
-            src={image}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = deviceImage(null);
-            }}
-          />
-          {live ? <span className="om-side-device-live" /> : null}
-        </span>
-        <span className="om-side-device-text">
-          <span className="om-side-device-name">{device.name}</span>
-          <span className="om-side-device-sub">
-            {status?.batteryPercent != null ? (
-              <>
-                <BatteryIcon percent={status.batteryPercent} state={status.batteryState} />
-                <span>{status.batteryPercent}%</span>
-              </>
-            ) : (
-              <span>{live ? t(locale, "side.connected") : t(locale, "home.notConnected")}</span>
-            )}
-          </span>
-        </span>
-      </button>
-    </li>
+    <SidebarDeviceRow
+      device={device}
+      live={live}
+      batteryPercent={status?.batteryPercent ?? null}
+      batteryState={status?.batteryState ?? "Unknown"}
+      collapsed={collapsed}
+      open={open}
+      localeTableRevision={snapshot.localeTableRevision}
+    />
   );
 }
 
@@ -136,6 +170,10 @@ export function AppSidebar({
 }): ReactNode {
   const locale = snapshot.preferences.locale;
   const devices = snapshot.devices;
+  const goHome = useCallback(() => onNavigate("home"), [onNavigate]);
+  const goHardwareTest = useCallback(() => onNavigate("hardware-test"), [onNavigate]);
+  const goGames = useCallback(() => onNavigate("games"), [onNavigate]);
+  const goSettings = useCallback(() => onNavigate("settings"), [onNavigate]);
 
   return (
     <aside className={`om-sidebar${collapsed ? " is-collapsed" : ""}`}>
@@ -164,21 +202,21 @@ export function AppSidebar({
           icon={LayoutGrid}
           label={t(locale, "nav.devices")}
           active={page === "home" || page === "dashboard"}
-          onClick={() => onNavigate("home")}
+          onClick={goHome}
           collapsed={collapsed}
         />
         <NavItem
           icon={Activity}
           label={t(locale, "nav.hardwareTest")}
           active={page === "hardware-test"}
-          onClick={() => onNavigate("hardware-test")}
+          onClick={goHardwareTest}
           collapsed={collapsed}
         />
         <NavItem
           icon={Gamepad2}
           label={t(locale, "nav.games")}
           active={page === "games"}
-          onClick={() => onNavigate("games")}
+          onClick={goGames}
           collapsed={collapsed}
         />
       </nav>
@@ -188,7 +226,7 @@ export function AppSidebar({
           <h2 id="om-side-devices-title" className="om-side-heading">{t(locale, "nav.yourDevices")}</h2>
           <ul>
             {devices.map((device) => (
-              <SidebarDeviceRow
+              <SidebarDeviceRowOutlet
                 key={device.index}
                 snapshot={snapshot}
                 index={device.index}
@@ -222,7 +260,7 @@ export function AppSidebar({
             icon={SettingsIcon}
             label={t(locale, "nav.settings")}
             active={page === "settings"}
-            onClick={() => onNavigate("settings")}
+            onClick={goSettings}
             collapsed={collapsed}
           />
         </nav>

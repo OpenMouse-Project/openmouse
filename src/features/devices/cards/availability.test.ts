@@ -20,7 +20,9 @@ function snapshot(overrides: {
   capabilities?: Partial<DeviceCapabilities>;
   settingsPending?: boolean;
   showExperimental?: boolean;
+  gameProfileDraft?: boolean;
   buttons?: ControlSnapshot["buttons"];
+  devices?: ControlSnapshot["devices"];
 }): ControlSnapshot {
   const status = overrides.status === null ? null : { ...STATUS, ...overrides.status };
   return {
@@ -28,7 +30,9 @@ function snapshot(overrides: {
     traits: traitsFor(status),
     capabilities: overrides.capabilities ?? null,
     settingsPending: overrides.settingsPending ?? false,
+    gameProfileDraft: overrides.gameProfileDraft ?? false,
     buttons: overrides.buttons ?? null,
+    devices: overrides.devices ?? [],
     preferences: { showExperimental: overrides.showExperimental ?? true },
   } as unknown as ControlSnapshot;
 }
@@ -38,6 +42,16 @@ const CONTROL = {
   name: "Gesture button", taskName: "Gesture button", reprogrammable: true,
   mappedTo: 0x00c3, diverted: false, remappableTo: [0x0052], remapFlags: 0,
 } as unknown as NonNullable<ControlSnapshot["buttons"]>[number];
+
+test("the selected TurboLink keeps its receiver tab available when optional reads fail", () => {
+  const receiver = { index: 0, name: "Keychron G6 HE 8K", detail: "", selected: true,
+    vendorId: 0x3434, productId: 0xd05a, kind: "mouse" as const, transport: "webhid" as const };
+  const status = { brand: "Keychron" as const, ui: { family: "keychron-8k" } };
+  assert.equal(cardAvailability(snapshot({ status, devices: [receiver] })).keychronReceiver, true);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, selected: false }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, productId: 0xd086 }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status: { ...status, ui: { ...status.ui, receiverControls: true } } })).keychronReceiver, true);
+});
 
 test("LunaFury exposes only successfully read controls and replaces global debounce", () => {
   const has = cardAvailability(snapshot({ status: {
@@ -273,6 +287,7 @@ test("angle tuning belongs to processing rather than creating a second power-mod
 test("ATK inspection cards require data actually read from the device", () => {
   const empty = cardAvailability(snapshot({ status: { brand: "VXE", ui: { family: "atk" } } }));
   assert.equal(empty.atkButtons, false);
+  assert.equal(empty.atkMacros, false);
   assert.equal(empty.atkProfile, false);
   assert.equal(empty.atkReceiver, false);
 
@@ -287,8 +302,29 @@ test("ATK inspection cards require data actually read from the device", () => {
     },
   }));
   assert.equal(inspected.atkButtons, true);
+  assert.equal(inspected.atkMacros, false);
   assert.equal(inspected.atkProfile, true);
   assert.equal(inspected.atkReceiver, true);
+
+  const r1Macro = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      name: "VXE R1 SE+",
+      ui: { family: "atk" },
+      atkButtonMappings: [{ id: "left" }] as never,
+    },
+  }));
+  assert.equal(r1Macro.atkMacros, true);
+
+  const catalogNamedR1 = cardAvailability(snapshot({
+    status: {
+      brand: "VXE",
+      name: "VXE R1SE",
+      ui: { family: "atk" },
+      atkButtonMappings: [{ id: "left" }] as never,
+    },
+  }));
+  assert.equal(catalogNamedR1.atkMacros, true);
 });
 
 test("Keychron Nape Pro gets Auto sleep without debounce or signal", () => {
@@ -400,6 +436,14 @@ test("debounce is offered only by the families that store it", () => {
   assert.equal(cardAvailability(snapshot({
     status: { brand: "Pulsar", ui: { family: "pulsar" } },
   })).debounce, false);
+});
+
+test("the Atlantis family (Lamzu Atlantis, Scyrox V8S) gets debounce and sleep", () => {
+  const status = { brand: "Scyrox", ui: { family: "lamzu-atlantis" }, debounceMs: 0, sleepTimeout: 60 } as const;
+  const has = cardAvailability(snapshot({ status }));
+  assert.equal(has.debounce, true);
+  assert.equal(has.sleep, true);
+  assert.equal(traitsFor({ ...STATUS, ...status }).directMode, true, "the debounce ceiling comes from the driver");
 });
 
 test("the Hitscan family alone gives the advanced section and debounce, not sleep or signal", () => {
@@ -738,4 +782,65 @@ test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profil
   assert.equal(cards.onboardProfiles, true);
   assert.equal(cards.sleep, false);
   assert.equal(cards.signal, false);
+});
+
+/**
+ * The GM3 publishes both settings from its vendor configuration block. Its
+ * advanced section comes from `ui.showAdvancedSection`, but the cards are
+ * gated on the traits table, so the family needs its own entry — without it
+ * the debounce card silently disappears even though the driver implements it.
+ */
+test("LEOBOG GM3 shows the debounce and auto-sleep cards", () => {
+  const status: Partial<MouseStatus> = {
+    brand: "LEOBOG",
+    ui: {
+      family: "leobog-gm3",
+      showAdvancedSection: true,
+      hideSignalCard: true,
+      hideProcessingCard: true,
+      hideLodLow: true,
+      hideSingleDpi: true,
+    },
+    debounceMs: 2,
+    sleepTimeout: 300,
+  };
+  const capabilities: Partial<DeviceCapabilities> = {
+    debounceOptions: [2, 4, 6, 8, 10, 12],
+    sleepOptions: [0, 60, 120, 180, 300, 600, 900, 1200],
+  };
+
+  const cards = cardAvailability(snapshot({ status, capabilities }));
+  assert.equal(cards.advancedHost, true);
+  assert.equal(cards.debounce, true);
+  assert.equal(cards.sleep, true);
+
+  // Regression guard: an unregistered family loses the debounce card.
+  const unregistered = cardAvailability(snapshot({
+    status: { ...status, ui: { ...status.ui, family: "unknown-family" } },
+    capabilities,
+  }));
+  assert.equal(unregistered.debounce, false);
+});
+
+test("Incott macros follow a driver that can bind a button to its own macro", () => {
+  const incott = (buttonOptions: string[]) => cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      name: "G23V2 Pro",
+      ui: { family: "incott", showAdvancedSection: true },
+      buttonMappings: { Left: "Left click" },
+      buttonOptions,
+    },
+  }));
+  assert.equal(incott(["Left click", "Macro"]).incottMacros, true);
+  // An older driver has no per-button "Macro" action, and a macro uploaded
+  // without one cannot be bound to the buffer it went into.
+  assert.equal(incott(["Left click"]).incottMacros, false);
+});
+
+test("Rival 650 shows the button editor only outside game profile drafts", () => {
+  const status = { brand: "SteelSeries" as const, ui: { family: "steelseries-rival650" },
+    buttonMappings: { button1: "adv.leftButton" }, buttonOptions: ["adv.leftButton"] };
+  assert.equal(cardAvailability(snapshot({ status })).buttonMapping, true);
+  assert.equal(cardAvailability(snapshot({ status, gameProfileDraft: true })).buttonMapping, false);
 });

@@ -4,7 +4,12 @@ import "./platform/analytics";
 import "./styles/index.css";
 import { App } from "./app/App";
 import { UnsupportedNotice } from "./app/UnsupportedNotice";
-import { installBridgeHid } from "./features/bridge/bridge-hid";
+import { installBridgeHid, isBridgeHidActive } from "./features/bridge/bridge-hid";
+import {
+  onLocalNetworkPermissionGranted,
+  refreshLocalNetworkPermission,
+  reloadOnceForBridge,
+} from "./features/bridge/local-network-permission";
 import { unsupportedNotice } from "./platform/browser-support";
 import { start } from "./device/controller";
 import { mountOfflineBanner } from "./platform/offline-banner";
@@ -51,6 +56,12 @@ const root = createRoot(controlApp);
 // Prefer Bridge when it is installed: native HID can reach protected mouse
 // collections that Chrome 153+ correctly withholds from WebHID. If Bridge is
 // absent, installation falls back to the browser's own WebHID implementation.
+onLocalNetworkPermissionGranted(() => {
+  setTimeout(() => {
+    if (!isBridgeHidActive()) reloadOnceForBridge();
+  }, 2000);
+});
+void refreshLocalNetworkPermission();
 void installBridgeHid({ force: true }).then(async (hasHid) => {
   await ensureDisplayLocale(initialUiLocale());
   const notice = unsupportedNotice({

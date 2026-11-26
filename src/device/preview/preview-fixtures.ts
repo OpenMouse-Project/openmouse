@@ -1101,6 +1101,65 @@ const STEELSERIES_GEN2: MouseStatus = {
 };
 
 /**
+ * Incott G23 Pro on the 8K dongle, from a real read (the hardware test in
+ * mouse-protocol `captures/incott-g23-pro/`). The button options are trimmed
+ * and Back is shown running a macro; the trailing "Macro" option is what turns
+ * on the macro card.
+ */
+const INCOTT: MouseStatus = {
+  brand: "Incott",
+  name: "G23 Pro",
+  ui: {
+    family: "incott",
+    showAdvancedSection: true,
+    hideSignalCard: true,
+    defaultDisplayName: "G23 Pro",
+    settingsReady: true,
+    valuesVerified: true,
+    forceShowBattery: true,
+    hideUnsupportedPollingRates: true,
+    pollingNote: "Up to 8,000 Hz wireless; 1,000 Hz over the cable.",
+    dpiStageEditor: { maxStages: 6, countEditable: true, minDpi: 50, maxDpi: 45000, stepDpi: 50 },
+  },
+  dpi: 1600,
+  dpiY: 1600,
+  supportsSeparateDpiAxes: true,
+  incottReceiverLedMode: 1,
+  incottFireKeyTimes: 3,
+  incottFireKeyIntervalMs: 10,
+  dpiStages: [400, 800, 1600, 2400, 3200, 6400],
+  activeDpiStage: 2,
+  pollingRateHz: 8000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  connectionType: "Wireless",
+  batteryPercent: 82,
+  batteryState: "Discharging",
+  liftOffDistance: "Low",
+  supportedLiftOffDistances: ["Low", "Medium", "High"],
+  buttonMappings: {
+    Left: "Left click",
+    Right: "Right click",
+    Middle: "Middle click",
+    Forward: "Forward",
+    Back: "Macro",
+    DPI: "DPI cycle",
+  },
+  buttonOptions: [
+    "Left click", "Right click", "Middle click", "Forward", "Back", "DPI cycle", "DPI +", "DPI -",
+    "Rapid fire", "Play/Pause", "Volume up", "Volume down", "Macro",
+  ],
+  motionSync: true,
+  rippleControl: true,
+  angleSnapping: false,
+  debounceMs: 8,
+  sleepTimeout: 30,
+  powerMode: "Corded",
+  powerModes: ["HP", "Corded", "LP"],
+  firmware: ["Identity 01 02 02 f0 f1 00 02"],
+};
+
+/**
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
  */
@@ -1134,6 +1193,31 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   "finalmouse-slx": { label: "Finalmouse Starlight X", status: FINALMOUSE_SLX },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
+  "keychron-g6-he": { label: "Keychron G6 HE 8K", status: {
+    brand: "Keychron", name: "Keychron G6 HE 8K", batteryPercent: 82, batteryState: "Discharging",
+    dpi: 800, dpiStages: [400, 800, 1600, 3200, 5000], activeDpiStage: 1, pollingRateHz: 8000,
+    supportedPollingRates: [125, 500, 1000, 2000, 4000, 8000], activeProfile: 1, profileCount: 5,
+    connectionType: "Wired", liftOffDistance: null, motionSync: true, angleSnapping: false, rippleControl: false,
+    scrollDirection: "Forward", debounceMs: 8, sleepTimeout: 600, firmware: [],
+    ui: { family: "keychron-8k", dpiStageEditor: { maxStages: 5, countEditable: true, minDpi: 50, maxDpi: 40000, stepDpi: 50 } },
+    buttonMappings: { Left: "Left Click", Right: "Right Click", Middle: "Middle Click", Back: "Back", Forward: "Forward" },
+    buttonOptions: ["Default", "Left Click", "Right Click", "Middle Click", "Back", "Forward", "Disabled"],
+    keychronReceiver: {
+      name: "Keychron TurboLink 8K", firmware: "v1.2.3",
+      buttonMappings: { Polling: "Polling Loop", Lighting: "Lighting mode cycle", "Switch type": "Toggle optical / magnetic", DPI: "DPI Loop" },
+      buttonOptions: ["Default", "Polling Loop", "Lighting mode cycle", "Toggle optical / magnetic", "DPI Loop", "Disabled"],
+      lighting: { zone: "Receiver", modes: ["Off", "Static", "Breathing single", "Spectrum"], mode: "Static", color: "#20a080", color2: null,
+        colorModes: ["Static", "Breathing single"], dualColorModes: [], reactiveModes: ["Breathing single", "Spectrum"],
+        speeds: [1, 2, 3, 4, 5], speed: 3, brightness: 100, brightnessLevels: [25, 50, 75, 100] },
+    },
+    keychronMouse: { pairing: { mask: 9, holdTime: 4 }, factoryReset: true,
+      dynamicDpi: { profile: 0, enabled: false, mode: 0, points: [{ speed: 0, gain: 16 }, { speed: 40, gain: 24 }, { speed: 80, gain: 32 }, { speed: 140, gain: 44 }, { speed: 200, gain: 56 }] } },
+    magneticButtons: {
+      buttons: [0, 1].map(() => ({ switchType: "magnetic" as const, triggerPoint: 4, rapidTrigger: 1, rapidTriggerEnabled: false })),
+      triggerPointRange: { min: 1, max: 12 }, rapidTriggerRange: { min: 1, max: 11 }, rapidTriggerUnit: "level",
+      rapidTriggerSwitch: true, canChooseSwitchType: true, calibration: null, liveDepth: true,
+    },
+  } },
   "nape-pro": { label: "Keychron Nape Pro", status: KEYCHRON },
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
   g703: { label: "Logitech G703", status: LOGITECH_G703 },
@@ -1141,4 +1225,5 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "rawm-v4-gt": { label: "RAWM Leviathan V4 GT", status: RAWM_V4_GT },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
   "steelseries-gen2": { label: "SteelSeries Rival 3 Wireless Gen 2", status: STEELSERIES_GEN2 },
+  incott: { label: "Incott G23 Pro", status: INCOTT },
 };
