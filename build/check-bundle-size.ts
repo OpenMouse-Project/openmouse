@@ -50,13 +50,20 @@ export const BUDGET_BYTES: Record<string, number> = {
   // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
-  // 2026-11-25: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
   // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
   // maps, the key deck, macro recorder and their strings add 1,172 bytes of
-  // CSS and 62,223 bytes of JS (3,997,595 -> 4,059,818 measured against
-  // main); main grew 46,200 bytes to 1,511,041, below its cap.
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
   ".css": 180_000,
-  ".js": 4_100_000,
+  ".js": 4_200_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
