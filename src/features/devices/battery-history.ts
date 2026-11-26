@@ -68,15 +68,18 @@ function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
 const memorySamples = new Map<string, BatterySample[]>();
 
 function mergedHistorySamples(history: BatteryHistory, deviceName: string, cutoff: number): BatterySample[] {
-  const merged = new Map<string, BatterySample>();
-  // Apply aliases first, then the model-specific bucket, so a current reading
-  // wins when both buckets contain the same timestamp.
-  for (const key of batteryHistoryKeys(deviceName).reverse()) {
+  // The model-specific bucket is kept whole (samples in the same millisecond
+  // are distinct, by id). A shared alias bucket only fills in timestamps the
+  // model has no reading for, so a current reading wins over a legacy one.
+  const own = pruneSamples(history[deviceName], cutoff);
+  const ownTimes = new Set(own.map((sample) => sample.timestamp));
+  const legacy = new Map<number, BatterySample>();
+  for (const key of batteryHistoryKeys(deviceName).slice(1)) {
     for (const sample of pruneSamples(history[key], cutoff)) {
-      merged.set(String(sample.timestamp), sample);
+      if (!ownTimes.has(sample.timestamp)) legacy.set(sample.timestamp, sample);
     }
   }
-  return [...merged.values()].sort((left, right) => left.timestamp - right.timestamp);
+  return [...legacy.values(), ...own].sort((left, right) => left.timestamp - right.timestamp);
 }
 
 export function saveBatterySample(
