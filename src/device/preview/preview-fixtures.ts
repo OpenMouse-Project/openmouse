@@ -343,6 +343,39 @@ const ATTACKSHARK: MouseStatus = {
   firmware: ["Mouse 1.0.4", "Dongle 1.0.3"],
 };
 
+/**
+ * The Cosmic Byte Kilonova 3335IC through its receiver (SinoWealth
+ * `258a:002f`), browser transport: identity, DPI stages and polling rate,
+ * which the driver reads and writes; the battery needs OpenMouse Bridge, so
+ * the battery column shows as unknown (forceShowBattery).
+ */
+const KILONOVA: MouseStatus = {
+  brand: "Cosmic Byte" as MouseStatus["brand"],
+  name: "Cosmic Byte Kilonova 3335IC",
+  ui: {
+    family: "sinowealth-kilonova-3335ic",
+    settingsReady: true,
+    valuesVerified: true,
+    forceShowBattery: true,
+    hideProcessingCard: true,
+    defaultDisplayName: "Cosmic Byte Kilonova 3335IC",
+    statusNote: "OpenMouse reads and can change this Cosmic Byte Kilonova 3335IC's DPI and polling rate from its onboard memory; other settings are not decoded. The battery and awake check need OpenMouse Bridge.",
+    dpiStageEditor: { maxStages: 6, countEditable: false, minDpi: 400, maxDpi: 16000, stepDpi: 100 },
+  },
+  batteryPercent: null,
+  batteryState: "Unknown",
+  dpi: 1600,
+  dpiStages: [400, 800, 1600, 3200, 6400, 16000],
+  activeDpiStage: 2,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000],
+  activeProfile: null,
+  connectionType: "Wireless",
+  connectionDetail: "2.4 GHz receiver",
+  liftOffDistance: null,
+  firmware: [],
+};
+
 const M3K: MouseStatus = {
   brand: "Zaunkoenig" as MouseStatus["brand"],
   name: "Zaunkoenig M3K",
@@ -1145,6 +1178,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   wlmouse: { label: "WLMouse BEAST X", status: WLMOUSE },
   lamzu: { label: "Lamzu Atlantis OG V2", status: LAMZU },
   "attack-shark": { label: "Attack Shark R5 Ultra", status: ATTACKSHARK },
+  kilonova: { label: "Cosmic Byte Kilonova 3335IC", status: KILONOVA },
   crdrako: { label: "CRDRAKO KO-ONE", status: CRDRAKO },
   m3k: { label: "Zaunkoenig M3K", status: M3K },
   atk: { label: "ATK A9 Ultra", status: ATK },
