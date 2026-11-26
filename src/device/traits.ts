@@ -83,6 +83,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // it publishes its own sleep and debounce option lists.
   "mchose-v3": { advancedSection: true, sleep: true, debounce: true },
   dareu: { advancedSection: true, sleep: true },
+  // Amkette's XS firmware stores auto sleep as whole minutes and publishes its
+  // own list through getSleepOptions.
+  "amkette-xs": { advancedSection: true, sleep: true },
   // The Model O2 Pro 4K/8K writes a debounce block and a motion sync flag; it
   // has no sleep command wired in, so no sleep flag.
   "glorious-core2": { advancedSection: true, debounce: true },
