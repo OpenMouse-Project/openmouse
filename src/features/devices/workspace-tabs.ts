@@ -16,7 +16,7 @@ export function availableWorkspaceTabs(
     if (tab === "receiver") return has.keychronReceiver;
     if (tab === "lighting") return !options.hideLighting && (has.lighting || has.teevolutionDpiLighting);
     if (tab === "buttons") return hasButtons;
-    if (tab === "macro") return has.ksnakeMacros || has.wallhackMacros || has.incottMacros || has.xiaomiMacros;
+    if (tab === "macro") return has.ksnakeMacros || has.wallhackMacros || has.incottMacros || has.xiaomiMacros || has.leobogMacros || has.atkMacros;
     if (tab === "profiles") return hasProfiles;
     return true;
   });

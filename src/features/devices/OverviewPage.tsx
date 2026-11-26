@@ -32,7 +32,7 @@ import { DynamicSensitivityCard, LightforceCard, PollingCard, SensorCard, Sensor
 import { LightingCard } from "./cards/LightingCard";
 import { LunaFuryButtonsCard, LunaFuryWheelCard } from "./cards/LunaFuryCards";
 import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
-import { AtkButtonCard, AtkDongleCard, AtkProfileCard, AtkReceiverCard, AtkSensorCard } from "./cards/AtkCards";
+import { AtkButtonCard, AtkDongleCard, AtkMacroCard, AtkProfileCard, AtkReceiverCard, AtkSensorCard } from "./cards/AtkCards";
 import {
   DebounceCard,
   EggButtonCard,
@@ -53,6 +53,7 @@ import {
   RazerButtonCard,
   ButtonMappingCard,
   KsnakeMacroCard,
+  LeobogMacroCard,
   WallhackMacroCard,
   XiaomiMacroCard,
   PowerModeCard,
@@ -416,6 +417,8 @@ export function Workspace({
     show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
     show(has.incottMacros, ["macro"]) ? <IncottMacroCard key="incott-macros" snapshot={snapshot} /> : null,
     show(has.xiaomiMacros, ["macro"]) ? <XiaomiMacroCard key="xiaomi-macros" snapshot={snapshot} /> : null,
+    show(has.leobogMacros, ["macro"]) ? <LeobogMacroCard key="leobog-macros" snapshot={snapshot} /> : null,
+    show(has.atkMacros, ["macro"]) ? <AtkMacroCard key="atk-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [

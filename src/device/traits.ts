@@ -104,6 +104,11 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // Hitscan stores a 0-8 ms debounce in flash and publishes its own ceiling.
   // Its sleep units are unresolved, so the driver hides the sleep card.
   hitscan: { advancedSection: true, debounce: true },
+  // LEOBOG GM3 keeps both in its vendor configuration block: a six-step button
+  // debounce and a 1-20 minute auto-sleep timer (plus an off switch). Its
+  // advancedSection already comes from ui.showAdvancedSection, but the cards
+  // never render without these flags, exactly like incott above.
+  "leobog-gm3": { advancedSection: true, sleep: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
