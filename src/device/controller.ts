@@ -1,6 +1,7 @@
 import { emptyKeyboardWorkspace } from "./keyboard-workspace.ts";
 import { track, deviceProps, scrubError } from "../platform/analytics";
 import type { KeyboardCommand } from "./keyboard-workspace.ts";
+import type { KeyboardKeyReport } from "./keyboard-client.ts";
 import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, ratedBattery, recordBatterySample, type BatteryMode } from "../features/devices/battery-history";
 import { bridgeEmptyResultMessage, isBridgeHidActive } from "../features/bridge/bridge-hid";
 import { applyBridgeNativeSettings } from "../features/bridge/bridge";
@@ -3579,20 +3580,31 @@ export function clearKeyboardSelection(): void {
 
 /** Serialize keyboard reads and writes and reject results after a device switch. */
 export async function applyKeyboardCommand(command: KeyboardCommand): Promise<void> {
+  await runKeyboardCommand(command);
+}
+
+/** Like applyKeyboardCommand, but true when the command went through and false when it failed or could not start (the status says why). */
+/** The active keyboard as an opaque token, to tell whether it changed between two calls. */
+export function keyboardSession(): unknown {
+  return activeKeyboard;
+}
+
+/** Runs a command on the active keyboard; with `session`, only while that keyboard is still the active one. */
+export async function runKeyboardCommand(command: KeyboardCommand, session?: unknown): Promise<boolean> {
   const client = activeKeyboard;
-  if (!client || keyboardBusy) return;
+  if (!client || keyboardBusy || (session !== undefined && client !== session)) return false;
   const telemetry = command.kind === "keychronKeyTravel";
   keyboardBusy = true;
   if (!telemetry) keyboardStatusText = st("kb.applying");
   emit();
   try {
     const update = await client.command(command);
-    if (activeKeyboard !== client) return;
+    if (activeKeyboard !== client) return false;
     keyboardWorkspace = { ...keyboardWorkspace, ...update };
     if (command.kind === "slot" && client.readPolling && client.readTrigger) {
       keyboardPolling = await client.readPolling();
       const trigger = await client.readTrigger();
-      if (activeKeyboard !== client) return;
+      if (activeKeyboard !== client) return false;
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
       keyboardSelected = null;
@@ -3601,7 +3613,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     }
     if (command.kind === "keycode" && command.layer === 0 && client.readTrigger) {
       const trigger = await client.readTrigger();
-      if (activeKeyboard !== client) return;
+      if (activeKeyboard !== client) return false;
       keyboardMatrix = trigger.matrix;
       keyboardKeys = trigger.keys;
     }
@@ -3611,13 +3623,48 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
         || (command.kind.startsWith("glorious") && command.kind !== "gloriousUnlock")
         ? st("kb.writeOnly")
         : st("kb.updated");
+    return true;
   } catch (error) {
-    if (activeKeyboard !== client) return;
+    if (activeKeyboard !== client) return false;
     const recovered = client.recoveredWorkspace?.();
     if (recovered) keyboardWorkspace = { ...keyboardWorkspace, ...recovered };
     keyboardStatusText = error instanceof Error ? error.message : st("kb.readFailed");
+    return false;
   } finally {
     if (activeKeyboard === client) { keyboardBusy = false; emit(); }
+  }
+}
+
+/**
+ * After a keyboard reboots itself (an MCHOSE factory reset), find it again and
+ * switch to it. The reboot can finish before the reset call returns, and the
+ * disconnect handler may clear the old session meanwhile, so this polls the
+ * authorized devices by the ids it kept rather than waiting for an event.
+ */
+export async function reconnectAfterReboot(): Promise<void> {
+  const previous = activeKeyboard;
+  if (previewMode || !previous) return;
+  const { vendorId, productId } = previous.device;
+  for (let tries = 0; tries < 24; tries += 1) {
+    await wait(500);
+    // Stop once another keyboard is active; a cleared session is expected during the reboot.
+    if (activeKeyboard && activeKeyboard !== previous) return;
+    // A rebooted keyboard normally comes back as a new device object; accept the old one too after a few tries.
+    const devices = ((await navigator.hid?.getDevices()) ?? [])
+      .filter((entry) => entry.vendorId === vendorId && entry.productId === productId && (entry !== previous.device || tries >= 6));
+    const candidates = devices.map((device) => createKeyboardClient(device)).filter((client): client is KeyboardClient => client !== null);
+    // Two identical keyboards: there is no telling which one rebooted, so leave the choice to the user.
+    if (candidates.length > 1) return;
+    const next = candidates[0];
+    if (!next) continue;
+    try {
+      await previous.close().catch(() => undefined);
+      if (activeKeyboard === previous) await activateClient(next, false, previous);
+      else if (!activeKeyboard) await activateClient(next);
+      return;
+    } catch {
+      await next.close().catch(() => undefined);
+    }
   }
 }
 
@@ -3636,6 +3683,11 @@ export async function reconnectKeyboard(): Promise<void> {
   } finally {
     if (activeKeyboard === previous) { keyboardBusy = false; emit(); }
   }
+}
+
+/** Follow keys as the active keyboard reports them; a no-op where it cannot. Returns a function that stops. */
+export function watchKeyboardKeys(listener: (report: KeyboardKeyReport) => void, depth = false): () => void {
+  return activeKeyboard?.watchKeys?.(listener, depth) ?? (() => undefined);
 }
 
 /** The keys held down right now, or null when nothing can be read. Deliberately silent: no busy flag, status text or redraw. */
@@ -8079,7 +8131,11 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
 async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
   let client: KeyboardClient;
   let label: string;
-  if (name === "glorious-gmmk2-65-iso" || name === "glorious-gmmk3-he-75") {
+  if (name === "mchose-ace68-air") {
+    const { MchosePreviewClient, MCHOSE_PREVIEW_LABEL } = await import("./preview/mchose-preview");
+    client = new MchosePreviewClient();
+    label = MCHOSE_PREVIEW_LABEL;
+  } else if (name === "glorious-gmmk2-65-iso" || name === "glorious-gmmk3-he-75") {
     const { gloriousPreviewClient, gloriousPreviewLabel } = await import("./preview/glorious-preview");
     client = gloriousPreviewClient(name);
     label = gloriousPreviewLabel(name);
@@ -8175,7 +8231,7 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
-  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65"
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65" || previewMode === "mchose-ace68-air"
     || previewMode === "glorious-gmmk2-65-iso" || previewMode === "glorious-gmmk3-he-75") {
     void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {

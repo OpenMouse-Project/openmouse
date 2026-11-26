@@ -11,6 +11,7 @@ import { RateSlider, StepperSlider } from "../../../shared/ui";
 const KeychronKeyboardPanel = lazy(() => import("./KeychronKeyboardPanel").then(({ KeychronKeyboardPanel }) => ({ default: KeychronKeyboardPanel })));
 const RazerKeyboardPanel = lazy(() => import("./RazerKeyboardPanel").then(({ RazerKeyboardPanel }) => ({ default: RazerKeyboardPanel })));
 const LogitechKeyboardPanel = lazy(() => import("./LogitechKeyboardPanel").then(({ LogitechKeyboardPanel }) => ({ default: LogitechKeyboardPanel })));
+const MchoseKeyboardPanel = lazy(() => import("./MchoseKeyboardPanel").then(({ MchoseKeyboardPanel }) => ({ default: MchoseKeyboardPanel })));
 const ViaKeyboardPanel = lazy(() => import("./ViaKeyboardPanel").then(({ ViaKeyboardPanel }) => ({ default: ViaKeyboardPanel })));
 const GloriousKeyboardPanel = lazy(() => import("./GloriousKeyboardPanel").then(({ GloriousKeyboardPanel }) => ({ default: GloriousKeyboardPanel })));
 const SteelSeriesKeyboardPanel = lazy(() => import("./SteelSeriesKeyboardPanel").then(({ SteelSeriesKeyboardPanel }) => ({ default: SteelSeriesKeyboardPanel })));
@@ -39,6 +40,7 @@ export function KeyboardPanel({ snapshot }: { snapshot: ControlSnapshot }): Reac
   if (keyboard.family === "steelseries") return <Suspense fallback={null}><SteelSeriesKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "arbiter") return <ArbiterKeyboardPanel snapshot={snapshot} />;
   if (keyboard.family === "glorious") return <Suspense fallback={null}><GloriousKeyboardPanel snapshot={snapshot} /></Suspense>;
+  if (keyboard.family === "mchose") return <Suspense fallback={null}><MchoseKeyboardPanel snapshot={snapshot} /></Suspense>;
   if (keyboard.family === "via") return <Suspense fallback={null}><ViaKeyboardPanel snapshot={snapshot} /></Suspense>;
   const locale = snapshot.preferences.locale;
   const { identity, polling, trigger } = keyboard;

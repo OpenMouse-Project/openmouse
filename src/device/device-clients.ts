@@ -11,6 +11,7 @@ import { KeychronKeyboardClient } from "./keychron-keyboard.ts";
 import { keychronHallEffectEnabled } from "./keychron-flag.ts";
 import { ViaKeyboardClient } from "./via-keyboard.ts";
 import { mouseReceiverRole, receiverKey } from "./mouse-receivers.ts";
+import { MchoseKeyboardClient } from "./mchose-keyboard.ts";
 import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
 export { type PulsarClient, type SupportedClient };
@@ -124,7 +125,7 @@ export type { KeyboardClient };
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
     || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
-    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient
+    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient || client instanceof MchoseKeyboardClient
     || client instanceof GloriousKeyboardClient || client instanceof ViaKeyboardClient;
 }
 
@@ -141,6 +142,7 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
   if (LogitechKeyboardClient.isSupported(device)) return new LogitechKeyboardClient(device);
   if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
   if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
+  if (MchoseKeyboardClient.isSupported(device)) return new MchoseKeyboardClient(device);
   if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
   // Ahead of VIA: the GMMK Eternal's stock firmware uses QMK's raw HID page.
   if (GloriousKeyboardClient.isSupported(device)) return new GloriousKeyboardClient(device);

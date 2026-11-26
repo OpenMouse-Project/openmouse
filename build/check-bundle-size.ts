@@ -70,8 +70,14 @@ export const BUDGET_BYTES: Record<string, number> = {
   // (178,628 -> 180,252) and 55,745 bytes of JS (4,177,946 -> 4,233,691); main
   // grew to 1,568,467 bytes, below its cap. 4.3 MB also leaves room for the
   // Rival 650 button editor (#1589, about 16 kB).
-  ".css": 182_000,
-  ".js": 4_300_000,
+  // 2026-11-26: MCHOSE Ace 68 Air panel (per-key travel and live depth,
+  // keymap on four layers, macros, DKS/mod-tap/toggle/SOCD, lighting and
+  // per-key colours, calibration, profile files, preview fixture, strings in
+  // every locale). The panel and its driver are lazy-loaded; they add 270,881
+  // bytes of JS (4,233,784 -> 4,504,665) and 6,371 bytes of CSS (180,252 ->
+  // 186,623). Main grew 28,121 bytes to 1,596,681, just below its cap.
+  ".css": 188_000,
+  ".js": 4_600_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
