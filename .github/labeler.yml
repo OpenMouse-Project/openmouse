@@ -1,12 +1,12 @@
 "area: ui":
   - changed-files:
-      - any-glob-to-any-file: ['src/app/**', 'src/**/*.css', 'index.html']
+      - any-glob-to-any-file: ['src/app/**', 'src/features/**/*.tsx', 'src/shared/**', 'src/styles/**', 'index.html']
 "area: devices":
   - changed-files:
-      - any-glob-to-any-file: ['src/device/**', 'src/*hid*', 'src/*device*', 'src/logitech-*']
+      - any-glob-to-any-file: ['src/device/**', 'src/features/devices/**', 'src/features/buttons/**', 'src/features/bridge/**']
 "area: translations":
   - changed-files:
-      - any-glob-to-any-file: ['src/i18n*.ts']
+      - any-glob-to-any-file: ['src/i18n/**']
 "area: artwork":
   - changed-files:
       - any-glob-to-any-file: ['public/devices/**/*.{png,jpg,jpeg,webp,svg,avif}']

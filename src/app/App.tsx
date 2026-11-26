@@ -1,23 +1,47 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { displayText } from "../i18n/index";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
-import { ensureLocale } from "../i18n";
-import { interfaceThemeSlug } from "../interface-preferences";
+import { ensureDisplayLocale } from "../i18n/index";
+import { interfaceThemeSlug } from "../features/settings/interface-preferences";
 import { AppSidebar, type DesktopPage } from "./AppSidebar";
-import { OverviewPage } from "./OverviewPage";
-import { CaptureDialog } from "./CaptureDialog";
-import { GamesPage, useBridgeActive } from "./GamesPage";
-import { HardwareTestPage } from "./HardwareTestPage";
-import { InterfaceSettings } from "./InterfaceSettings";
-import { NewsBanner } from "./NewsBanner";
+import { OverviewPage } from "../features/devices/OverviewPage";
+import { NewsBanner } from "../features/news/NewsBanner";
+import { BridgeManualUpdate } from "../features/bridge/BridgeManualUpdate";
 import { PendingBar } from "./PendingBar";
-import { ShareProfileDialog } from "./ShareProfileDialog";
-import { WhatsNewDialog } from "./WhatsNewDialog";
-import { AiOverlay } from "./AiOverlay";
+import { HelpPanel } from "./HelpPanel";
 import { ToastHost } from "./Toasts";
-import { useBridgeBatteryReporter } from "./useBridgeBatteryReporter";
-import { useBridgeProfileApplier } from "./useBridgeProfileApplier";
+import { useBridgeBatteryReporter } from "../features/bridge/useBridgeBatteryReporter";
+import { useBridgeProfileApplier } from "../features/bridge/useBridgeProfileApplier";
 import { useControl } from "./useControl";
-import { setSoundsEnabled } from "../sound-manager";
+import { setSoundsEnabled } from "../platform/sound-manager";
+import { UiLocaleContext } from "../shared/ui-locale";
+import { AsciiField } from "../shared/AsciiField";
+
+// Secondary pages and dialogs load on demand: the control panel's first paint
+// is the device view, so nothing behind a tab or a button belongs in the
+// initial bundle. Each boundary below removed its module from main.js.
+const InterfaceSettings = lazy(() =>
+  import("../features/settings/InterfaceSettings").then((m) => ({ default: m.InterfaceSettings })));
+const HardwareTestPage = lazy(() =>
+  import("../features/hardware-test/HardwareTestPage").then((m) => ({ default: m.HardwareTestPage })));
+const GamesPage = lazy(() =>
+  import("../features/games/GamesPage").then((m) => ({ default: m.GamesPage })));
+const CaptureDialog = lazy(() =>
+  import("../features/capture/CaptureDialog").then((m) => ({ default: m.CaptureDialog })));
+const ShareProfileDialog = lazy(() =>
+  import("../features/profiles/ShareProfileDialog").then((m) => ({ default: m.ShareProfileDialog })));
+const WhatsNewDialog = lazy(() =>
+  import("../features/news/WhatsNewDialog").then((m) => ({ default: m.WhatsNewDialog })));
+
+const SIDEBAR_KEY = "openmouse-sidebar-collapsed-v1";
+
+function initialSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function App(): ReactNode {
   const snapshot = useControl();
@@ -28,22 +52,19 @@ export function App(): ReactNode {
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [page, setPage] = useState<DesktopPage>("home");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
   const { preferences, status } = snapshot;
   const locale = preferences.locale;
-  const bridgeActive = useBridgeActive();
-  // Games only exists while Bridge does — if it goes away, fall back to Home.
-  const showingGames = page === "games" && bridgeActive;
-
+  const themeSlug = useMemo(() => interfaceThemeSlug(preferences.theme), [preferences.theme]);
+  const showingGames = page === "games";
   const showingSettings = page === "settings" || snapshot.interfaceSettingsOpen;
-
   const resolvedPage: DesktopPage = showingSettings
     ? "settings"
     : page === "hardware-test"
       ? "hardware-test"
-        : showingGames
-          ? "games"
-          : (status !== null || snapshot.keyboard !== null) && snapshot.deviceView === "device"
+      : showingGames
+        ? "games"
+        : (status !== null || snapshot.keyboard !== null) && snapshot.deviceView === "device"
           ? "dashboard"
           : "home";
 
@@ -60,39 +81,57 @@ export function App(): ReactNode {
         ru: "ru",
         vi: "vi",
         ar: "ar",
+        tr: "tr",
         en: "en",
       };
       const nextLang = htmlLang[locale] ?? "en";
       if (document.documentElement.lang !== nextLang) {
         document.documentElement.lang = nextLang;
       }
-      // Arabic reads right-to-left; every other locale is left-to-right.
       const nextDir = locale === "ar" ? "rtl" : "ltr";
       if (document.documentElement.dir !== nextDir) {
         document.documentElement.dir = nextDir;
       }
     } catch {
-      /* non-DOM environment (tests) */
     }
     // A stored non-English locale resolves its table after first paint;
     // re-render once it arrives instead of sticking on fallback strings.
-    if (locale !== "en") void ensureLocale(locale).then(() => control.refreshInterface());
+    void ensureDisplayLocale(locale).then(() => {
+      control.refreshInterface();
+      window.dispatchEvent(new Event("openmouse-localechange"));
+    });
   }, [locale]);
 
-
   useEffect(() => {
+    try {
+      document.documentElement.dataset.interfaceTheme = themeSlug;
+    } catch {
+    }
+  }, [themeSlug]);
+
+  const lastTab = useRef({ page, workspaceTab: snapshot.workspaceTab });
+  useEffect(() => {
+    if (lastTab.current.page === page && lastTab.current.workspaceTab === snapshot.workspaceTab) return;
+    lastTab.current = { page, workspaceTab: snapshot.workspaceTab };
     panel.current?.scrollTo({ top: 0, behavior: preferences.reducedMotion ? "auto" : "smooth" });
   }, [page, snapshot.workspaceTab, preferences.reducedMotion]);
-
-  useEffect(() => {
-    setSidebarCollapsed(resolvedPage === "dashboard" || resolvedPage === "hardware-test");
-  }, [resolvedPage]);
 
   useEffect(() => {
     setSoundsEnabled(preferences.enabledSounds);
   }, [preferences.enabledSounds]);
 
-  function navigate(next: DesktopPage): void {
+  const toggleSidebar = useCallback((): void => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
+      } catch {
+      }
+      return next;
+    });
+  }, []);
+
+  const navigate = useCallback((next: DesktopPage): void => {
     if (next === "settings") {
       control.openInterfaceSettings();
       setPage("settings");
@@ -112,50 +151,86 @@ export function App(): ReactNode {
       control.showDeviceList();
       setPage("home");
     }
-  }
+  }, []);
+
+  const openDevice = useCallback((index: number): void => {
+    control.closeInterfaceSettings();
+    setPage("home");
+    void control.openDeviceOverview(index);
+  }, []);
+
+  const openWhatsNew = useCallback((): void => {
+    setWhatsNewOpen(true);
+  }, []);
 
   return (
+    <UiLocaleContext.Provider value={locale}>
     <div
       className={[
         "control-shell",
-        "full-desktop-shell",
+        "om-shell",
         status || snapshot.keyboard ? "" : "is-empty",
         sidebarCollapsed ? "sidebar-collapsed" : "",
         preferences.reducedMotion ? "reduce-interface-motion" : "",
         snapshot.pending.count > 0 ? "has-pending-changes" : "",
       ].filter(Boolean).join(" ")}
-      data-interface-theme={interfaceThemeSlug(preferences.theme)}
+      data-interface-theme={themeSlug}
     >
-      <NewsBanner locale={locale} />
-      <AppSidebar snapshot={snapshot} page={resolvedPage} collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed(!sidebarCollapsed)} onNavigate={navigate} onOpenWhatsNew={() => setWhatsNewOpen(true)} />
+      <AsciiField theme={themeSlug} reducedMotion={preferences.reducedMotion} />
+      <AppSidebar
+        snapshot={snapshot}
+        page={resolvedPage}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+        onNavigate={navigate}
+        onOpenWhatsNew={openWhatsNew}
+        onOpenDevice={openDevice}
+      />
 
-      <main className="full-desktop-main">
-        <div className="full-desktop-content" ref={panel}>
-          {showingSettings ? (
-            <InterfaceSettings snapshot={snapshot} />
-          ) : page === "hardware-test" ? (
-            <HardwareTestPage snapshot={snapshot} />
-          ) : showingGames ? (
-            <GamesPage snapshot={snapshot} />
-          ) : (
-            <OverviewPage
-              snapshot={snapshot}
-              onOpenCapture={() => setCaptureOpen(true)}
-              onShareProfile={() => setShareProfileOpen(true)}
-            />
-          )}
+      <main className="om-main full-desktop-main">
+        <BridgeManualUpdate locale={locale} />
+        <NewsBanner locale={locale} />
+        <div className="om-content full-desktop-content" ref={panel}>
+          <Suspense fallback={null}>
+            {showingSettings ? (
+              <InterfaceSettings snapshot={snapshot} />
+            ) : page === "hardware-test" ? (
+              <HardwareTestPage snapshot={snapshot} />
+            ) : showingGames ? (
+              <GamesPage snapshot={snapshot} />
+            ) : (
+              <OverviewPage
+                snapshot={snapshot}
+                onOpenCapture={() => setCaptureOpen(true)}
+                onShareProfile={() => setShareProfileOpen(true)}
+              />
+            )}
+          </Suspense>
           <p className="app-live-region" role="status" aria-live="polite">
-            {snapshot.readStatus}
+            {displayText(locale, snapshot.readStatus)}
           </p>
         </div>
-        <PendingBar snapshot={snapshot} />
+        <PendingBar />
       </main>
 
-      <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} locale={locale} />
-      <WhatsNewDialog open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} locale={locale} />
-      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
-      <AiOverlay locale={locale} />
-      <ToastHost toasts={snapshot.toasts} locale={locale} />
+      {captureOpen ? (
+        <Suspense fallback={null}>
+          <CaptureDialog open onClose={() => setCaptureOpen(false)} locale={locale} />
+        </Suspense>
+      ) : null}
+      {whatsNewOpen ? (
+        <Suspense fallback={null}>
+          <WhatsNewDialog open onClose={() => setWhatsNewOpen(false)} locale={locale} />
+        </Suspense>
+      ) : null}
+      {shareProfileOpen ? (
+        <Suspense fallback={null}>
+          <ShareProfileDialog open onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
+        </Suspense>
+      ) : null}
+      <HelpPanel locale={locale} />
+      <ToastHost />
     </div>
+    </UiLocaleContext.Provider>
   );
 }

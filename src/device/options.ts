@@ -1,5 +1,5 @@
-import { t, tp, type I18nKey } from "../i18n.ts";
-import type { InterfaceLocale } from "../interface-preferences.ts";
+import { t, tp, type I18nKey } from "../i18n/index.ts";
+import type { InterfaceLocale } from "../features/settings/interface-preferences.ts";
 export function sleepLabel(seconds: number, locale: InterfaceLocale = "en"): string {
   const unit = (n: number, one: I18nKey, many: I18nKey): string =>
     n === 1 ? t(locale, one) : tp(locale, many, { n });
@@ -51,4 +51,27 @@ export function selectableValues(offered: number[], current: number | null | und
 export function valuesWithCurrent(offered: number[], current: number | null | undefined): number[] {
   if (current === null || current === undefined || offered.includes(current)) return offered;
   return [...offered, current].sort((left, right) => left - right);
+}
+
+export interface CpiLimits {
+  min: number;
+  max: number;
+  stepLow: number;
+  stepHigh: number;
+}
+
+/**
+ * The value the mouse itself would store — the protocol's `eggClampCpi`: clamp,
+ * snap to the step at that end of the range, clamp again. The v2 generation
+ * takes 10-CPI steps below 10,000 CPI and 50 above; v1 uses 50 throughout.
+ *
+ * The panel's number fields cannot express a grid whose step changes partway up
+ * the range (HTML measures `step` from `min`), so they keep the fine step and
+ * snap through here on Apply rather than offering the driver values it refuses.
+ */
+export function snapCpiToDevice(value: number, limits: CpiLimits): number {
+  const clamped = Math.max(limits.min, Math.min(limits.max, Math.round(value)));
+  const step = clamped <= 10_000 ? limits.stepLow : limits.stepHigh;
+  const snapped = Math.floor((clamped + step / 2) / step) * step;
+  return Math.max(limits.min, Math.min(limits.max, snapped));
 }

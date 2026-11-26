@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { cachedBatterySamples, estimateBatteryTime, estimateFromRatedLife, fullChargeHoursAt, ratedBattery, ratedFullChargeHours, recordBatterySample, saveBatterySample } from "./battery-history.ts";
+
+class MemoryStorage implements Storage {
+  #values = new Map<string, string>();
+  get length(): number { return this.#values.size; }
+  clear(): void { this.#values.clear(); }
+  getItem(key: string): string | null { return this.#values.get(key) ?? null; }
+  key(index: number): string | null { return [...this.#values.keys()][index] ?? null; }
+  removeItem(key: string): void { this.#values.delete(key); }
+  setItem(key: string, value: string): void { this.#values.set(key, value); }
+}
+
+test("battery history keeps only meaningful checkpoints", () => {
+  const storage = new MemoryStorage();
+  const first = saveBatterySample(storage, "Mouse", 75, "discharging", 0);
+  const unchanged = saveBatterySample(storage, "Mouse", 75, "discharging", 60_000);
+  const changed = saveBatterySample(storage, "Mouse", 74, "discharging", 120_000);
+
+  assert.equal(first.length, 1);
+  assert.equal(unchanged.length, 1);
+  assert.equal(changed.length, 2);
+});
+
+test("battery samples in the same millisecond retain unique identities across writes and rollover", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "SameTime", 90, "discharging", 1000);
+  saveBatterySample(storage, "SameTime", 89, "discharging", 1000);
+  const samples = saveBatterySample(storage, "SameTime", 90, "discharging", 1000);
+  assert.equal(new Set(samples.map(sample => sample.id)).size, 3);
+  const retained = samples[2]!.id;
+  let next = samples;
+  for (let index = 0; index < 498; index++) next = saveBatterySample(storage, "SameTime", 80, "discharging", 2000 + index * 300000);
+  assert.equal(next.length, 500);
+  assert.equal(next[1]!.id, retained);
+});
+
+test("legacy sample identities survive migration when a new checkpoint is stored", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({ LegacyIds: [
+    { timestamp: 1000, percent: 90, mode: "discharging" },
+    { timestamp: 1000, percent: 89, mode: "discharging" },
+  ] }));
+  const original = cachedBatterySamples(storage, "LegacyIds", 2000);
+  const next = saveBatterySample(storage, "LegacyIds", 88, "discharging", 2000);
+  assert.equal(new Set(original.map(sample => sample.id)).size, 2);
+  assert.equal(next[0]!.id, original[0]!.id);
+  assert.equal(next[1]!.id, original[1]!.id);
+});
+
+test("malformed stored timestamps are discarded before legacy IDs are constructed", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({ BadTimestamp: [
+    { timestamp: { toString: null }, percent: 90, mode: "discharging" },
+    { timestamp: 1000, percent: 89, mode: "discharging" },
+  ] }));
+  const samples = saveBatterySample(storage, "BadTimestamp", 88, "discharging", 2000);
+  assert.equal(samples.length, 2);
+  assert.equal(samples[0]!.id, "legacy:1000:1");
+});
+
+test("battery estimate requires a recent continuous trend", () => {
+  const samples = [
+    { timestamp: 0, percent: 100, mode: "discharging" as const },
+    { timestamp: 10 * 60 * 1000, percent: 98, mode: "discharging" as const },
+    { timestamp: 20 * 60 * 1000, percent: 96, mode: "discharging" as const },
+    { timestamp: 30 * 60 * 1000, percent: 94, mode: "discharging" as const },
+    { timestamp: 40 * 60 * 1000, percent: 92, mode: "discharging" as const },
+    { timestamp: 50 * 60 * 1000, percent: 91, mode: "discharging" as const },
+    { timestamp: 60 * 60 * 1000, percent: 90, mode: "discharging" as const },
+  ];
+
+  assert.equal(estimateBatteryTime(samples, 90, "discharging", 60 * 60 * 1000), "~9.0 hr");
+  assert.equal(estimateBatteryTime(samples, 90, "discharging", 2 * 60 * 60 * 1000), null);
+  assert.equal(
+    estimateBatteryTime(samples, 90, "discharging", 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
+    "~9.0 hr",
+    "a reconnect gap must not discard the last complete trend",
+  );
+});
+
+test("cached battery samples serve renders without storage IO", () => {
+  const storage = new MemoryStorage();
+  recordBatterySample(storage, "RenderMouse", 75, "discharging", 0);
+  storage.getItem = () => { throw new Error("render path must not touch storage"); };
+  const samples = cachedBatterySamples(storage, "RenderMouse", 60_000);
+  assert.equal(samples.length, 1);
+  assert.equal(samples[0]?.percent, 75);
+});
+
+test("cached battery samples load once from storage on cold start", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "ColdMouse", 75, "discharging", 0);
+  const samples = cachedBatterySamples(storage, "ColdMouse", 60_000);
+  assert.equal(samples.length, 1);
+  assert.equal(samples[0]?.percent, 75);
+});
+
+test("VXE R1 SE battery history follows its old receiver display name", () => {
+  const storage = new MemoryStorage();
+  saveBatterySample(storage, "ATK VXE Mouse 1K Dongle", 82, "discharging", 0);
+  saveBatterySample(storage, "ATK VXE Mouse 1K Dongle", 80, "discharging", 10 * 60 * 1000);
+
+  const samples = cachedBatterySamples(storage, "VXE R1 SE", 10 * 60 * 1000);
+  assert.deepEqual(samples.map((sample) => sample.percent), [82, 80]);
+  assert.equal(estimateBatteryTime(samples, 80, "discharging", 10 * 60 * 1000), "~6.7 hr");
+
+  recordBatterySample(storage, "VXE R1 SE", 79, "discharging", 20 * 60 * 1000);
+  const stored = JSON.parse(storage.getItem("openmouse-battery-history-v1") ?? "{}") as Record<string, unknown>;
+  assert.equal((stored["ATK VXE Mouse 1K Dongle"] as unknown[]).length, 2);
+  assert.equal((stored["VXE R1 SE"] as unknown[]).length, 3);
+});
+
+test("a current model reading wins over its shared legacy bucket at the same timestamp", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("openmouse-battery-history-v1", JSON.stringify({
+    "ATK VXE Mouse 1K Dongle": [
+      { timestamp: 600_000, percent: 79, mode: "discharging" },
+    ],
+    "VXE R1 SE": [
+      { timestamp: 600_000, percent: 78, mode: "discharging" },
+    ],
+  }));
+
+  const samples = saveBatterySample(storage, "VXE R1 SE", 77, "discharging", 700_000);
+  assert.deepEqual(samples.map((sample) => sample.percent), [78, 77]);
+});
+
+test("battery estimates do not borrow a rate from an earlier mode run", () => {
+  const samples = [
+    { timestamp: 0, percent: 100, mode: "discharging" as const },
+    { timestamp: 600_000, percent: 90, mode: "discharging" as const },
+    { timestamp: 700_000, percent: 95, mode: "charging" as const },
+    { timestamp: 800_000, percent: 88, mode: "discharging" as const },
+    { timestamp: 850_000, percent: 87, mode: "discharging" as const },
+  ];
+  assert.equal(estimateBatteryTime(samples, 87, "discharging", 850_000), null);
+});
+
+test("rated battery life is known for the Superstrike mice, whatever the spacing of the name", () => {
+  assert.equal(ratedBattery("PRO X3 SUPERSTRIKE")?.hours, 135);
+  assert.equal(ratedBattery("PRO X 2 Superstrike")?.hours, 90);
+  assert.equal(ratedBattery("PRO X2 SUPERSTRIKE")?.hours, 90);
+  assert.equal(ratedBattery("Some other mouse"), null);
+});
+
+test("the PRO X 3's full-charge hours follow the polling rate by its power draw", () => {
+  const x3 = ratedBattery("PRO X3 SUPERSTRIKE")!;
+  // 135 h at 1000 Hz (4 + 4 mW) is 1080 mWh; 8000 Hz draws 12 + 20 = 32 mW.
+  assert.equal(ratedFullChargeHours(x3, 1000), 135);
+  assert.equal(ratedFullChargeHours(x3, 8000), 33.75);
+  assert.equal(ratedFullChargeHours(x3, 125), 216, "125 Hz draws 4 + 1 = 5 mW");
+  assert.equal(ratedFullChargeHours(x3, 3000), 135, "an unlisted rate falls back to the rated hours");
+  assert.equal(ratedFullChargeHours(x3, null), 135);
+  // The PRO X 2 has no power table, so the rate changes nothing.
+  assert.equal(ratedFullChargeHours(ratedBattery("PRO X2 SUPERSTRIKE")!, 8000), 90);
+});
+
+test("the rated-life estimate scales with the charge and the rate, in the usual format", () => {
+  const x3 = ratedBattery("PRO X3 SUPERSTRIKE")!;
+  assert.equal(estimateFromRatedLife(100, x3, 1000), "~5.6 days");
+  assert.equal(estimateFromRatedLife(51, x3, 1000), "~2.9 days");
+  assert.equal(estimateFromRatedLife(51, x3, 8000), "~17 hr", "51% of 33.75 h");
+  assert.equal(estimateFromRatedLife(10, ratedBattery("PRO X2 SUPERSTRIKE")!, 1000), "~9.0 hr");
+  assert.equal(estimateFromRatedLife(0, x3, 1000), null, "an empty battery has no time left to show");
+});
+
+test("full-charge hours follow the polling rate on a model with a power table, and are unknown otherwise", () => {
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 1000), 135);
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 8000), 33.75);
+  assert.equal(fullChargeHoursAt("PRO X3 SUPERSTRIKE", 3000), null);
+  assert.equal(fullChargeHoursAt("Some other mouse", 1000), null);
+});

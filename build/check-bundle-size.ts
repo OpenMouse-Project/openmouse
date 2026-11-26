@@ -1,273 +1,177 @@
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const BUDGET_BYTES: Record<string, number> = {
-  // Raised from 103 kB for the interface themes: NieR: Automata and Liquid
-  // Glass each ship their own token block, and the liquid-glass material
-  // layer (SVG displacement filters plus their component rules) added the
-  // largest share. Liquid Glass was removed in the theme sync (main CSS is
-  // ~104 kB again). The measured bundle is 153.7 kB; 175 kB adds headroom for
-  // the Developer Hall of Fame page (~15 kB of animated card and hero
-  // styles that load only on /donate.html). Raised to 180 kB in the
-  // same pass as the 175 kB target, then to 195 kB for the Minecraft Hall of
-  // Fame overhaul: the blocky token block (plank textures, bevels, item-frame
-  // avatars), the animated day/night scene (sun/moon/star/cloud/bonfire
-  // keyframes) and the credits-style quote widget push the measured CSS
-  // aggregate to 183.7 kB.
-  // Raised to 210 kB after the protocol 0.26.0 device batch left the measured
-  // CSS aggregate at 194.2 kB — 843 bytes under the old 195 kB — so the next
-  // card or theme change would have tripped the check for no reviewable reason.
-  // Raised to 225 kB for the Logitech Superstrike Buttons tab: the button map
-  // card (callouts, command list, scrollbar), the HITS presets/test/share dialogs
-  // and the Bunny Hop card add ~15 kB of scoped styles; the measured CSS is
-  // 210.6 kB, which was 631 bytes over the old 210 kB budget.
-  ".css": 225_000,
-  // Raised from 510 kB for Bridge discovery, profile editing, automatic
-  // reconnection, and recent device support, which have since grown further
-  // with the supported-device page and MX Master remap controls. Preview
-  // fixtures retain their separate allowance below; the measured aggregate
-  // is 573.4 kB with them, plus the ~11 kB Hall of Fame chunk. Raised again
-  // from 590 kB for the Razer button-mapping card and its codec: the measured
-  // aggregate is 588.2 kB, which left under 2 kB of headroom. Raised again to
-  // 610 kB for the Pulsar XS-1 feature-report driver and 4K receiver support
-  // (mouse-protocol 3c3a445): the X3 family codec plus the 4K DPI/polling work
-  // adds ~1.3 kB to the measured aggregate. Raised to 632 kB for the Attack
-  // Shark GearHub (0x25a7) protocol routed to 0x1d57 VID devices (+1.6 kB).
-  // Raised to 700 kB for four new drivers landing together: Keychron M6,
-  // Keychron Nape Pro (layer/keymap/orientation controls), Glorious Model O
-  // 2/I 2 lighting, and SteelSeries Rival 3 Gen 1. Measured aggregate is
-  // 689.0 kB, which leaves about 11 kB of headroom. Raised to 730 kB for the
-  // device artwork pass: ~20 new product models mapped to transparent top-view
-  // renders in device-images.ts (PID keys plus name fallbacks) add ~22 kB of
-  // mapping code to the measured aggregate (720.5 kB). Raised to 765 kB for
-  // the SteelSeries/device-support and Cloudflare R2 artwork-serve work merged
-  // on dev: those land with the measured aggregate already at ~750 kB. The
-  // donate page rebuild (Hall of Fame -> Support) does not drive this; its
-  // rebuilt donate chunk is lighter than the old Minecraft-themed hof chunk it
-  // replaced. 765 kB leaves ~15 kB of headroom over the measured aggregate.
-  // Raised to 790 kB for the MCHOSE A7 V2 mouse and MagDock driver support:
-  // the measured aggregate is 779.1 kB, leaving ~11 kB of headroom.
-  // Raised to 800 kB for the ATK ZERO driver (AtkCards.tsx, device/atk.ts)
-  // and the mouse-reported lift-off range plumbing: the measured aggregate is
-  // 790.6 kB, leaving ~9 kB of headroom.
-  // Raised to 895 kB for the Portuguese (pt) localization: the full
-  // en+pt UI dictionary adds ~85 kB of strings to the measured aggregate
-  // (883.2 kB, on top of the 800 kB budget's own ~790.8 kB baseline). The pt
-  // table ships as its own lazy chunk (i18n-pt-*.js, loaded only when a
-  // non-English locale is selected), so the initial load is unaffected — the
-  // aggregate counts it because the check sums every emitted chunk.
-  // Raised to 1,065 kB for Spanish, French, German, and Simplified Chinese:
-  // each ships as its own lazy chunk (i18n-es/fr/de/zh-*.js) at ~40-55 kB,
-  // loaded only when that locale is selected — none of them touch the
-  // initial (English) bundle. Measured aggregate is 1,061.8 kB.
-  // Raised to 1,165 kB for Japanese and Korean, same lazy-chunk pattern.
-  // Measured aggregate is 1,160.9 kB.
-  // Raised to 1,185 kB for Attack Shark R2 support (GearHub-V5 driver,
-  // traits.ts entry, device artwork name-fallback): the measured aggregate
-  // is 1,171.4 kB, leaving ~14 kB of headroom.
-  // Raised to 1,250 kB for the Russian (ru) interface locale: the new
-  // translation strings push the measured aggregate to 1,232.4 kB.
-  // Raised to 1,290 kB for the control-app support/UI work that landed
-  // together: the OpenMouse AI chat overlay (AiOverlay.tsx with its topic
-  // flow and Discord fallback), the Discord-embed FeedbackDialog, the
-  // What's New Desktop-app dialog, the desktop-style AppSidebar /
-  // OverviewPage shell, and the ai.* + wn.* keys added across all nine
-  // locale tables. Those add ~21 kB of strings and UI to the measured
-  // aggregate (1,271.9 kB), leaving ~18 kB of headroom.
-  // Raised to 1,300 kB for swapping hand-rolled icons for lucide-react,
-  // tree-shaken per icon: the profile-row icons in icons.tsx
-  // (enable/disable, link/unlink, rename, running/activate, refresh, trash),
-  // the AppSidebar nav icons (home, mouse config, docs, what's new,
-  // feedback, settings, chevron), the AiOverlay launcher/close/header
-  // icons, and the OverviewPage icons (workspace tabs, device-tile stats,
-  // back/share/plus controls, and the add-device mouse/keyboard glyphs,
-  // which replace their old hand-drawn illustrations). The measured
-  // aggregate is 1,290.4 kB, leaving ~10 kB of headroom.
-  // Raised to 1,310 kB for the crowd-sourced device artwork system:
-  // ArtworkUploadDialog.tsx (drag-drop upload UI with verification
-  // states), artwork-verification.ts (canvas-based heuristic analysis),
-  // artwork-storage.ts (R2 API fetch + localStorage cache), Cloudflare
-  // Functions for R2 list/upload endpoints, and artwork.* i18n keys
-  // across all nine locale tables. Measured aggregate is ~1,305.5 kB.
-  // That system was fully removed later (unmoderated anonymous uploads
-  // were abused to overwrite device art); the budget stays, and the
-  // aggregate only shrank.
-  // Raised to 1,345 kB for the in-app Mouse Test page: MouseTestPage.tsx
-  // (live polling-rate sampler, rolling chart canvas, DPI/battery device
-  // card, button tester), its Activity nav icon, and the test.* i18n keys
-  // across all nine locale tables. Measured aggregate is ~1,329.5 kB.
-  // Raised to 1,370 kB for the HyperX and Incott drivers: both register in
-  // registry.ts/vendors.ts, and the Incott one brings a full vendor codec
-  // plus applyPulsarValue/traits/device-images wiring. Measured aggregate
-  // is 1,351.0 kB, leaving ~19 kB of headroom.
-  // Raised to 1,410 kB for the @openmouse/protocol lockfile bump that picks
-  // up the VXE R1 Pro Max driver on the protocol side: bridge-hid.ts pulls
-  // in every registered vendor's HID filters via SUPPORTED_HID_FILTERS, so a
-  // new protocol-side driver grows this bundle even before any app code
-  // references it directly. Measured aggregate is 1,386.8 kB, leaving ~23 kB
-  // of headroom for the VXE app-side integration PR.
-  // Raised to 1,465 kB for the Vietnamese (vi) interface locale landing on
-  // top of that: same lazy-chunk pattern as the other non-English tables
-  // (i18n-vi-*.js, loaded only when selected), adding ~47 kB.
-  // Raised to 1,500 kB for the MCHOSE A5 Pro Max Gen 1 driver: it registers
-  // in controller.ts/traits.ts and pulls in its own protocol-side codec via
-  // bridge-hid's SUPPORTED_HID_FILTERS, same growth pattern as prior drivers.
-  // Measured aggregate is 1,482.3 kB, leaving ~18 kB of headroom.
-  // Raised to 1,530 kB for Incott's receiver-LED and rapid-fire card: a new
-  // AdvancedCards section plus its availability/control wiring. Measured
-  // aggregate is 1,508.0 kB, leaving ~22 kB of headroom.
-  // Raised to 1,570 kB for the @openmouse/protocol lockfile bump to ec90f61:
-  // attackshark X11 polling/DPI/battery, MCHOSE A7 V3 settings writes +
-  // product-string naming, and Windows read-restriction fixes all route
-  // through bridge-hid's SUPPORTED_HID_FILTERS, so this grows the bundle
-  // even before the A7 V3 traits work (PR #267) references the new codec
-  // directly. Measured aggregate is 1,545.7 kB, leaving ~24 kB of headroom.
-  // Raised to 1,600 kB for the strict artwork-submission flow: the expanded
-  // artreq.* dictionary (new rejection reasons, background/photo guidance, the
-  // failure lockout and Discord-ticket strings) ships in all ten locale
-  // tables, and ArtworkRequestDialog.tsx gained the per-IP failure-lockout
-  // logic. Measured aggregate is 1,578.2 kB, leaving ~22 kB of headroom.
-  // Raised to 1,650 kB for the Bridge game-profile feature landing across
-  // three commits: BridgeCard.tsx (Home connection/games card),
-  // GameProfilePanel.tsx (per-game target-device/DPI/auto-apply editor),
-  // games-catalog.ts (CDN games.json fetch for cover art), bridge-status-
-  // store.ts (shared status poll), and useBridgeProfileApplier.ts (in-tab
-  // fallback apply + prior-settings restore for brands Bridge has no native
-  // driver for), plus the bridge.* i18n keys across all ten locale tables.
-  // Measured aggregate is 1,614.2 kB, leaving ~36 kB of headroom.
-  // Raised to 1,700 kB for the Games-page request flow shipping on top
-  // ("Let people request a game or app from the Games page"): the
-  // request-form dialog, game availability filtering, and submit wiring
-  // push the measured aggregate to 1,673.2 kB, already past the 1,650 kB
-  // budget. The read-only DPI stage editor (DpiCard disabled stage
-  // controls, DeviceCapabilities stage-write flags, and the RAZER preview
-  // fixture stage table) then adds ~1.7 kB more. Measured aggregate is
-  // 1,674.9 kB, leaving ~25 kB of headroom.
-  // Raised to 1,780 kB for the in-app Hardware Test certification suite:
-  // HardwareTestPage.tsx (verification runner with live polling-rate
-  // sampling, terminal, device card, and the share flow), the report model
-  // (automatic checks, verdict, Discord embed), hardware-brand-checks.ts
-  // (brand-depth checks), the supported-devices crosscheck, and the
-  // 238-row mirrored supported-devices table (src/supported-devices-data.ts,
-  // generated from the landing page's supported-mice.ts via
-  // scripts/sync-supported-devices.mjs), plus the hw.* and
-  // nav.hardwareTest strings in all ten locale tables. Measured aggregate
-  // is 1,748.7 kB, leaving ~31 kB of headroom.
-  // Raised to 1,845 kB for the Arabic (ar) interface locale: i18n-ar.ts is a
-  // full native translation of all ~1,050 keys and ships as its own lazy
-  // chunk (i18n-ar-*.js, ~69 kB, loaded only when Arabic is selected) — the
-  // initial (English) bundle is untouched. This is the same lazy-chunk pattern
-  // as the pt/es/fr/de/zh/ja/ko/ru/vi locales above, and the aggregate counts
-  // it only because the check sums every emitted chunk. Measured aggregate is
-  // 1,817.7 kB, leaving ~27 kB of headroom.
-  // The in-app Mouse Test page (MouseTestPage.tsx + MouseTestMouse.tsx, the
-  // test.* keys, and its chart/button-tester CSS) and the strict artwork-
-  // submission flow (ArtworkRequestDialog.tsx, /api/artwork + images.js, the
-  // artreq.* dictionary) were both removed; artwork requests now open the
-  // documented GitHub issue form instead. The budget stays — like the earlier
-  // crowd-sourced removal, the aggregate only shrank.
-  // Raised to 1,880 kB for a batch of feature PRs merged together: the unified
-  // mouse-option widgets (OptionMenu, StepperSlider, and the M3 controls in
-  // #288), the EGG 4K v2 sensor-glass-mode / polling-divider card (#352), the
-  // WLmouse Beast X 4K driver wiring (#287, which also pulls its protocol codec
-  // in through SUPPORTED_HID_FILTERS), and the Razer Bluetooth-mode notice
-  // (#357). Measured aggregate is 1,850.7 kB, leaving ~29 kB of headroom.
-  // Raised to 2,085 kB for protocol 0.22.0 and the four device PRs that land
-  // with it: the Noir Gear M2-NEX integration (#402, local profile slots and
-  // the macro editor), the Keychron G3 Air / Launcher 8k-1k panel wiring
-  // (#408, #426), and the Rapoo VT9 Pro client (#422). Their protocol codecs
-  // (Keychron Launcher mouse catalog, Rapoo register codec, K-snake macro
-  // store) are pulled in through SUPPORTED_HID_FILTERS and the controllers,
-  // and the shared UI gained the macro-card and profile-overview CSS. Measured
-  // aggregate is 1,995.2 kB, leaving ~90 kB of headroom.
-  // Raised to 2,150 kB for the protocol 0.26.0 device batch: AJAZZ AJ179 PRO
-  // (#169), Redragon M690 PRO (#163, wired into the panel by #617), Lamzu Paro
-  // Aurora (#172), plus the X11-on-Bridge (#174), PRO X Wireless format 4
-  // (#175) and Logitech onboard-profile (#166/#589) work. Their protocol codecs
-  // arrive through bridge-hid's SUPPORTED_HID_FILTERS as well as the
-  // controllers. The measured aggregate is 2,084.2 kB, which left only 801
-  // bytes of headroom under the old 2,085 kB.
-  // Raised to 2.2 MB for the Superstrike Buttons tab (button map, HITS presets,
-  // speed test, setup codes, bounce check) merged with protocol 0.28.0: the
-  // measured aggregate is 2,150.4 kB, 350 bytes over the old 2.15 MB budget.
-  // Raised to 2,350 kB for protocol 0.31.0 and the work that landed on 0.29-0.31:
-  // the Starlight X (Finalmouse) panel, the Wallhack M-001 scanning, DPI curve
-  // and macro cards, and the ATK per-model capability cards. The measured
-  // aggregate is 2,288.4 kB, 88 kB over the old 2.2 MB budget, leaving ~60 kB
-  // of headroom.
-  // Raised to 2,450 kB for keyboard protocol 1.0.0 and its control panel:
-  // Wuque codecs/client wiring, shared workspace cards, per-key trigger UI,
-  // and keyboard strings in all ten locale chunks. The measured aggregate
-  // is 2,419.9 kB, leaving ~30 kB of headroom.
-  // Raised to 2,470 kB for the @openmouse/protocol 0.38.0 bump: the AJAZZ
-  // NJ07/NJ08 key-map codec, the 49-entry vendor button-action catalog, and
-  // the marker/default client handling arrive through bridge-hid's
-  // SUPPORTED_HID_FILTERS. The measured aggregate is 2,454.4 kB, 4.4 kB over
-  // the old 2,450 kB budget, leaving ~15 kB of headroom.
-  // Raised to 2,472 kB for the @openmouse/protocol 0.40.0 bump: the G-Wolves
-  // XVI-new driver (profile-addressed sensor commands plus clicks-only
-  // remap), 16 more cataloged G-Wolves PIDs and their picker filters, and
-  // the Bridge empty-enumeration diagnostic. The measured aggregate is
-  // 2,470.9 kB, 0.9 kB over the old 2,470 kB budget, leaving ~1 kB of
-  // headroom — the next driver will need a real diet or a bigger bump.
-  // Raised to 2,474 kB for the @openmouse/protocol 0.40.1 bump: XVI-new
-  // button-slot fix plus the real DPI stage table and per-stage/active
-  // setters. The measured aggregate is 2,472.0 kB, under a kilobyte over
-  // the old 2,472 kB budget.
-  // Raised to 2,478 kB for the @openmouse/protocol 0.42.1 bump: LunaFury
-  // onboard, remapping, and power controls, Wallhack debounce, Attack Shark
-  // X11 SE battery, Superlight 2 Lightspeed polling above 1000 Hz, and the
-  // DeathAdder V3 polling commit. The measured aggregate is 2,476.0 kB,
-  // 2.0 kB over the old 2,474 kB budget, leaving ~2.0 kB of headroom.
-  // Raised to 2,490 kB for the Redgear X13 Pro driver and app wiring.
-  // On this app baseline, protocol 0.42.2 measures 2,476,093 bytes; the
-  // protocol #233 candidate with its codecs, validation and read-back checks
-  // measures 2,486,140 (+10,047 bytes), leaving 3,860 bytes of headroom.
-  ".js": 2_490_000,
+// JS raised from 2_800_000: posthog-js (anonymous analytics, src/platform/analytics.ts,
+// the no-external build so nothing is injected past Trusted Types) added about 385 kB;
+// measured 3_171_143 bytes with it.
+//
+// 2026-10-25 code split (issue #140): posthog, the driver registry and the
+// secondary pages (settings, hardware test, games, dialogs) moved behind
+// dynamic import() boundaries, so the .js total now spans the initial chunk
+// plus lazy chunks. MAIN_CHUNK_BUDGET_BYTES bounds main-*.js — the bytes the
+// first paint waits on — so new drivers landing in the registry grow the lazy
+// chunk, not the initial load. The total budget is unchanged: shipped bytes
+// still count, only later.
+// 2026-10-27: The locally linked keyboard-protocol Wooting driver and its
+// panel (default and per-key actuation save, keyboard map) take total JS past the old 3.2 MB cap. Measured: 3,408,090 bytes.
+// 2026-10-27: Descriptor-driven effect editors, chunked AKC editor, typed
+// RGB/profile surfaces and their strings. Measured: 3,474,377 bytes.
+// 2026-10-29: Razer, Logitech and SteelSeries keyboard HID clients and panels
+// add three real device protocols. Measured: 3,558,003 bytes across all
+// chunks, with the main chunk at 1,149,146 bytes (below its existing cap).
+// 2026-10-30: Keychron Hall-effect panel (key map, response curve graph) adds
+// styles/areas/keychron.css, about 3 kB. Measured: 164,771 bytes of CSS before the
+// bump; the lazy layout tables add a 251 kB chunk of JS (main grew 6.7 kB).
+// 2026-10-30: Arbiter Studio controls and Keychron Hall-effect controls together
+// add two keyboard workspaces, layouts, localized strings and device artwork.
+// Measured after merging both: 168,860 bytes CSS, 3,652,136 bytes JS;
+// main is 1,288,217 bytes, below its existing cap.
+//
+// 2026-10-31: VIA keyboard support adds the keycode tables, the definition
+// parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
+// (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
+//
+// 2026-11-04: @openmouse/protocol 0.49.0 -> 0.51.x adds the Hitscan web
+// protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
+// L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
+// (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
+//
+// 2026-11-06: Incott macro card (library, recorder, step editor, button
+// assignment) and its strings in every locale add about 33 kB of JS, measured
+// against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
+// of that build's growth is protocol drivers released since 0.52.0). Main is
+// 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
+//
+// 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 (six releases of new and
+// extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
+// measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
+// 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
+export const BUDGET_BYTES: Record<string, number> = {
+  // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
+  // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
+  // Main stays at 1,459,853 bytes, below its existing separate cap.
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
+  // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
+  // applying and the wireless persistence note add 135 bytes of CSS and 16,373
+  // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
+  // 2026-11-26: Xiaomi Mi Gaming Mouse (combo remapping, macro editor and tab,
+  // product photo, strings in every locale) adds 1,624 bytes of CSS
+  // (178,628 -> 180,252) and 55,745 bytes of JS (4,177,946 -> 4,233,691); main
+  // grew to 1,568,467 bytes, below its cap. 4.3 MB also leaves room for the
+  // Rival 650 button editor (#1589, about 16 kB).
+  // 2026-11-26: MCHOSE Ace 68 Air panel (per-key travel and live depth,
+  // keymap on four layers, macros, DKS/mod-tap/toggle/SOCD, lighting and
+  // per-key colours, calibration, profile files, preview fixture, strings in
+  // every locale). The panel and its driver are lazy-loaded; they add 270,881
+  // bytes of JS (4,233,784 -> 4,504,665) and 6,371 bytes of CSS (180,252 ->
+  // 186,623). Main grew 28,121 bytes to 1,596,681, just below its cap.
+  // 2026-11-26: LEOBOG GM3 and VXE R1 SE controls add 60,891 bytes of JS
+  // (4,505,286 -> 4,566,177) and 23 bytes of CSS; main grew past its cap, see
+  // MAIN_CHUNK_BUDGET_BYTES.
+  ".css": 188_000,
+  ".js": 4_600_000,
 };
 
-const ASSETS = join("dist", "assets");
+// main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
+// and the registry's 320 kB chunk are behind dynamic import() now). The
+// remainder still holds the driver classes controller.ts references directly
+// (instanceof checks and NEEDS_OPEN) — that is the follow-up slice for this
+// issue. The budget keeps those honest: a driver that grows the initial load
+// fails the check instead of silently riding along.
+//
+// 2026-11-26: LEOBOG GM3 and VXE R1 SE controls (GM3 button remapper and macro
+// recorder, R1 SE button assignment and macro editor, their strings) grow main
+// by 45,521 bytes to 1,642,508, past 1.6 MB: the cards and strings load with
+// the main chunk. 1.7 MB until the panels move behind dynamic import().
+export const MAIN_CHUNK_BUDGET_BYTES = 1_700_000;
 
-function bundles(): { name: string; ext: string; bytes: number }[] {
-  return readdirSync(ASSETS)
+export const ASSETS = join("dist", "assets");
+
+// Preview-fixture chunks only exist in local verification builds; the slack
+// keeps the JS budget green for those runs without hiding real growth.
+export const PREVIEW_FIXTURES_SLACK_BYTES = 18_000;
+
+export interface BundleEntry {
+  name: string;
+  ext: string;
+  bytes: number;
+}
+
+export function bundles(assetsDir: string = ASSETS): BundleEntry[] {
+  return readdirSync(assetsDir)
     .filter((name) => name.endsWith(".css") || name.endsWith(".js"))
     .map((name) => ({
       name,
       ext: name.slice(name.lastIndexOf(".")),
-      bytes: statSync(join(ASSETS, name)).size,
+      bytes: statSync(join(assetsDir, name)).size,
     }));
 }
 
-const found = bundles();
-if (found.length === 0) {
-  console.error(`No bundles in ${ASSETS}. Run "npm run build" first.`);
-  process.exit(1);
-}
-
-const budgets = {
-  ...BUDGET_BYTES,
-  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 18_000 : 0),
-};
-
-const totals = new Map<string, number>();
-for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
-
-let failed = false;
-for (const [ext, budget] of Object.entries(budgets)) {
-  const bytes = totals.get(ext) ?? 0;
-  const percent = Math.round((bytes / budget) * 100);
-  const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
-  if (bytes > budget) {
-    failed = true;
-    console.error(`over budget  ${label}`);
-  } else {
-    console.log(`ok           ${label}`);
+/** Check the bundles in assetsDir against the budgets. Returns true on failure. */
+export function checkBundles(assetsDir: string = ASSETS): boolean {
+  const found = bundles(assetsDir);
+  if (found.length === 0) {
+    console.error(`No bundles in ${assetsDir}. Run "npm run build" first.`);
+    return true;
   }
+
+  const budgets = {
+    ...BUDGET_BYTES,
+    ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? PREVIEW_FIXTURES_SLACK_BYTES : 0),
+  };
+
+  const totals = new Map<string, number>();
+  for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
+
+  // The initial chunk is everything first paint waits on: main-*.js plus its
+  // eager CSS. Lazy chunks (registry, posthog, secondary pages, locales) do not
+  // count toward it.
+  const mainBytes = found
+    .filter(({ name }) => /^main-.*\.js$/.test(name))
+    .reduce((sum, { bytes }) => sum + bytes, 0);
+
+  let failed = false;
+  {
+    const percent = Math.round((mainBytes / MAIN_CHUNK_BUDGET_BYTES) * 100);
+    const label = `MAIN ${String(mainBytes).padStart(7)} / ${MAIN_CHUNK_BUDGET_BYTES} bytes (${percent}%)`;
+    if (mainBytes > MAIN_CHUNK_BUDGET_BYTES) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
+  }
+  for (const [ext, budget] of Object.entries(budgets)) {
+    const bytes = totals.get(ext) ?? 0;
+    const percent = Math.round((bytes / budget) * 100);
+    const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
+    if (bytes > budget) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
+  }
+
+  if (failed) {
+    console.error("");
+    console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
+    console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
+  }
+  return failed;
 }
 
-if (failed) {
-  console.error("");
-  console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
-  console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
-  process.exit(1);
+if (process.argv[1]?.endsWith("check-bundle-size.ts")) {
+  if (checkBundles()) process.exit(1);
 }

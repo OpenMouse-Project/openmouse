@@ -1,16 +1,31 @@
 import type { KeyboardCommand, KeyboardWorkspace } from "./keyboard-workspace.ts";
 import type { KeyboardIdentityView, KeyboardPollingView, KeyboardTriggerKey, KeyboardTriggerPatch, KeyboardTriggerSettings } from "./types.ts";
 
-/** App keyboard contract: drivers expose only the settings they implement. */
+export interface KeyboardKeyReport {
+  index: number;
+  /** Raw travel units; the key is down above 10. */
+  travel: number;
+  /** A key needs two full presses; "pending" is after the first. */
+  calibration: "none" | "pending" | "done";
+}
+
 export interface KeyboardClient {
   readonly device: HIDDevice;
-  readonly family: "wuque" | "kochi";
+  readonly family: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "glorious" | "mchose" | "via";
   readonly brand: string;
+  /** Set once the session needs a reconnect before it can be used again. */
+  readonly faulted?: boolean;
   readonly name: string;
   open(): Promise<void>;
   close(): Promise<void>;
   readIdentity(): Promise<KeyboardIdentityView>;
   command(command: KeyboardCommand): Promise<Partial<KeyboardWorkspace>>;
+  /** State to merge after `command` threw, when the failure also changed what the board holds. */
+  recoveredWorkspace?(): Partial<KeyboardWorkspace> | null;
+  /** Live key state for a tester, read outside the busy/status flow: one bit mask per matrix row. */
+  probeKeys?(): Promise<readonly number[]>;
+  /** Keys reported as they move (MCHOSE debug mode), by matrix index. Returns a function that stops watching. */
+  watchKeys?(listener: (report: KeyboardKeyReport) => void, depth?: boolean): () => void;
   readPolling?(): Promise<KeyboardPollingView>;
   setPollingRate?(hz: number): Promise<KeyboardPollingView>;
   readTrigger?(): Promise<{ matrix: readonly (readonly number[])[]; keys: KeyboardTriggerKey[] }>;

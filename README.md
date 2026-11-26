@@ -1,6 +1,7 @@
 # OpenMouse
 
 <a href="https://trendshift.io/repositories/103495?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-103495" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/103495/daily?language=TypeScript" alt="OpenMouse-Project%2Fopenmouse | Trendshift" width="250" height="55"/></a>
+<a href="https://osscar.dev/org/openmouse-project" target="_blank" rel="noopener noreferrer"><img src="https://osscar.dev/api/badge?slug=openmouse-project" alt="Featured on OSSCAR" height="55"/></a>
 
 <p>
   <a href="https://github.com/OpenMouse-Project/openmouse/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/OpenMouse-Project/openmouse/ci.yml?branch=main&label=CI" alt="CI"/></a>
@@ -23,6 +24,22 @@ Works in Chromium-based browsers that support WebHID. Learn more at
 This branch is deployed as the public development control panel at
 [control.openmouse.app](https://control.openmouse.app/).
 
+## Keyboard controls
+
+OpenMouse also detects supported Wooting, Wuque, Kochi, Razer, Logitech and
+SteelSeries keyboard command interfaces through WebHID. The Razer, Logitech
+and SteelSeries panels expose only controls implemented by the corresponding
+keyboard-protocol driver; some settings are shown only when the keyboard
+advertises the feature. Razer effect writes and SteelSeries direct lighting
+have no active-state read-back. SteelSeries live analog changes require an
+explicit on-board profile save; use a disposable profile when testing.
+
+The new Razer, Logitech and SteelSeries paths have codec and simulated-HID
+coverage, but no physical keyboard was connected during integration. Model
+recognition is not hardware certification. See the [keyboard-protocol coverage
+ledgers](https://github.com/OpenMouse-Project/keyboard-protocol/tree/feat/keyboard-vendor-support/docs)
+for model-specific limits and capture requirements.
+
 ## Development
 
 ```bash
@@ -35,6 +52,11 @@ Run the full local check before pushing changes:
 ```bash
 npm run check
 ```
+
+### Bundle budget
+
+Production assets are limited to 3,600,000 JavaScript bytes and 165,000 CSS
+bytes. Run `npm run size` after a fresh build for current totals.
 
 ### Linux WebHID permissions
 
@@ -68,12 +90,37 @@ Grant access to every `hidraw` node for each product. Chromium opens the HID
 device before OpenMouse selects its vendor configuration collection, so access
 to only the `0xff02:0x0002` collection's node is insufficient.
 
+## Local game and app profiles
+
+Games & apps separates OpenMouse presets from Your apps. With the updated
+OpenMouse Bridge running, Add game or app lists the apps that are running to
+pick from, or takes the full path to an executable. Personal entries are saved in Bridge's
+local config, not sent to OpenMouse for approval. They survive catalog refreshes
+and Bridge restarts. Adding/editing/removing an entry does not require a mouse.
+
+Each entry is a Game or an App, and its profile is active While running (kept
+after alt-tabbing) or While focused (foreground-only switching). The path
+matches that installation only. Foreground matching on Linux requires X11. Local profiles retain the
+existing native/full-settings limits: Bridge can apply supported DPI/polling
+settings with the browser closed; the control panel must remain open to apply
+and restore full device-settings snapshots.
+
+Local targets use stable IDs, not display names, so a target can be renamed or
+share a name with an OpenMouse preset without losing or confusing its settings.
+Removing a local target also removes its linked mouse profiles; clearing its
+mouse settings leaves the target available. Older Bridges show update guidance
+rather than falling back to a public game request.
+
 ## Community
 
 Questions, device requests, bug reports, or just want to follow along? Come
 hang out on Discord.
 
 <a href="https://discord.gg/yxC9jzMdw6"><img src="https://control.openmouse.app/api/discord-card" width="520" alt="Join OpenMouse on Discord"/></a>
+
+## Sponsors
+
+OpenMouse is supported by [Macroscope](https://macroscope.com/), [Hypertune](https://hypertune.gg/), and [Hone](https://hone.gg/).
 
 ## Contributing
 
@@ -103,10 +150,29 @@ device inventory changes are written to the browser console with the
 downloadable diagnostics from a connected device's **Advanced** panel; HID
 report payloads are not written to the console.
 
-The control panel is organized by responsibility: `control.ts` coordinates the
-application, while the template, events, DOM helpers, persisted preferences,
-battery history, device selection, and rendering live in focused modules under
-`src/`.
+The control panel is organized by feature. Tests sit next to the code they cover.
+
+| Folder | What lives there |
+| --- | --- |
+| `src/main.tsx` | Entry point: guards, service worker, mounts the app |
+| `src/app/` | The shell: `App`, sidebar, pending-changes bar, toasts, AI overlay |
+| `src/features/devices/` | Device home, device page, hero, stats, and the setting `cards/` |
+| `src/features/buttons/` | Button mapping, setup codes, Logitech button commands |
+| `src/features/profiles/` | Onboard profiles and profile sharing |
+| `src/features/superstrike/` | Superstrike hit test and presets |
+| `src/features/bridge/` | OpenMouse Bridge client, status line, update checks |
+| `src/features/games/` | Games page and per-game profiles (Bridge only) |
+| `src/features/hardware-test/` | Hardware test page, report builder, supported-devices cross-check |
+| `src/features/capture/` | Report capture dialog and export formats |
+| `src/features/news/` | News banner and "What's new" |
+| `src/features/settings/` | Interface settings and stored preferences |
+| `src/device/` | Device controller, per-vendor glue, pending changes, preview fixtures |
+| `src/shared/` | UI primitives, icons, colour picker, formatting helpers |
+| `src/i18n/` | Strings: `index.ts` is English and the API, `locales/` has one file per language |
+| `src/platform/` | Service worker, offline banner, Trusted Types, browser support, sounds |
+| `src/styles/` | Design tokens, base styles, and one stylesheet per area |
+| `src/types/` | Global type declarations (Vite, WebHID) |
+| `test/` | Tests for the Cloudflare functions, security headers and the PWA build |
 
 Packet codecs and WebHID drivers live in the standalone
 [`@openmouse/protocol`](https://github.com/OpenMouse-Project/mouse-protocol)

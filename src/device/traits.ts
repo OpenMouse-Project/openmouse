@@ -95,15 +95,20 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // The G-Wolves XVI generation (HTX Mini 8K) publishes its own sleep list
   // and reads its before-press debounce; no signal-strength command exists.
   "gwolves-xvi": { advancedSection: true, sleep: true, debounce: true },
-  // HyperX publishes DPI, polling rate and lift-off in the settings grid only;
-  // no signal, sleep or debounce card exists, and the processing card is
-  // deliberately hidden, so no advanced-section flags are needed.
   hyperx: {},
   "cooler master": { advancedSection: true, debounce: true },
   "coolermaster-mm711": { advancedSection: true, debounce: true },
   // The NJ07/NJ08 family keeps the sleep timer in its config block and has no
   // debounce setting in the vendor panel, so only the sleep card.
   ajazz: { advancedSection: true, sleep: true },
+  // Hitscan stores a 0-8 ms debounce in flash and publishes its own ceiling.
+  // Its sleep units are unresolved, so the driver hides the sleep card.
+  hitscan: { advancedSection: true, debounce: true },
+  // LEOBOG GM3 keeps both in its vendor configuration block: a six-step button
+  // debounce and a 1-20 minute auto-sleep timer (plus an off switch). Its
+  // advancedSection already comes from ui.showAdvancedSection, but the cards
+  // never render without these flags, exactly like incott above.
+  "leobog-gm3": { advancedSection: true, sleep: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {
@@ -126,13 +131,22 @@ export function traitsFor(status: MouseStatus | null): DriverTraits {
   const family = familyOf(status);
   const ui = status.ui;
   const traits = { ...NONE, ...BY_FAMILY[family] };
+  // The OP1-8K driver is the only Endgame Gear driver reporting `eggCpiStages`
+  // (egg-we deliberately leaves it out — see egg-we-hid.ts), so the field is
+  // the family tag this brand actually gets from hardware: no EGG driver
+  // publishes a `ui.family`. Everything the "egg-op1" BY_FAMILY entry turns on
+  // has to hang off this flag, or the whole advanced section — filters, GX
+  // switch, CPI, per-button multiclick and mapping — stays off, because
+  // availability.ts gates those cards on `advancedSection`.
+  const egg = traits.eggControls
+    || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages));
   return {
     ...traits,
-    advancedSection: traits.advancedSection || ui?.showAdvancedSection === true,
+    advancedSection: traits.advancedSection || egg || ui?.showAdvancedSection === true,
     signal: traits.signal && ui?.hideSignalCard !== true,
     sleep: traits.sleep && ui?.hideSleepCard !== true,
-    eggControls: traits.eggControls
-      || (status.brand === "Endgame Gear" && Array.isArray(status.eggCpiStages)),
+    eggControls: egg,
+    eggFamily: traits.eggFamily || egg,
   };
 }
 

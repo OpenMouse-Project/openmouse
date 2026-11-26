@@ -1,8 +1,15 @@
+/**
+ * Cloudflare Pages serves this app's `functions/` directory (Pages Functions,
+ * not a standalone Worker — see `functions/_middleware.js` and
+ * `CF_PAGES_COMMIT_SHA` in vite.config.ts). Pages expects static output at
+ * the dist root, so this plugin only emits the `dist/server/index.js` ASSETS
+ * passthrough shim for tooling that probes a Worker-style entrypoint. It
+ * performs no routing and must stay dependency-free.
+ */
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
-/** Adds the Cloudflare Worker entry point required by the Sites host. */
 export function sites(): Plugin {
   let root = process.cwd();
   let outputDirectory = "dist";

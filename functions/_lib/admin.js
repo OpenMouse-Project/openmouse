@@ -22,7 +22,6 @@ export function tokenFrom(request) {
   return request.headers.get("x-admin-token") ?? "";
 }
 
-/** True only when ADMIN_TOKEN is configured and the request presents it. */
 export function isAdminRequest(request, env) {
   const expected = env.ADMIN_TOKEN;
   if (!expected) return false;

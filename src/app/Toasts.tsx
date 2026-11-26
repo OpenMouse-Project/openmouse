@@ -1,9 +1,11 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { displayText } from "../i18n/index";
+import { memo, useEffect, useRef, type ReactNode } from "react";
 import * as control from "../device/controller";
 import type { Toast } from "../device/types";
-import type { InterfaceLocale } from "../interface-preferences";
-import { t } from "../i18n";
-import { playToastSound } from "../sound-manager";
+import { t } from "../i18n/index";
+import { playToastSound } from "../platform/sound-manager";
+import { useControlSelector } from "./useControl";
+import { useUiLocale } from "../shared/ui-locale";
 
 const TOAST_ICON: Record<Toast["kind"], ReactNode> = {
   success: <path d="M20 6 9 17l-5-5" />,
@@ -41,26 +43,16 @@ function ToastIcon({ kind }: { kind: Toast["kind"] }): ReactNode {
   );
 }
 
-export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: InterfaceLocale }): ReactNode {
-  const sounded = useRef<Set<number>>(new Set());
-  /* The controller pushes toasts by mutating the SAME array in place, so the
-     prop reference never changes and a [toasts] dependency would only fire at
-     mount. Guard with a Set of already-played ids instead. */
+const ToastList = memo(function ToastList({ toasts }: { toasts: Toast[] }): ReactNode {
+  const locale = useUiLocale();
+  const prev = useRef<Toast[]>([]);
   useEffect(() => {
+    const seen = prev.current.map((toast) => toast.id);
     for (const toast of toasts) {
-      if (sounded.current.has(toast.id)) continue;
-      sounded.current.add(toast.id);
-      void playToastSound(toast.kind);
+      if (!seen.includes(toast.id)) void playToastSound(toast.kind);
     }
-    // Toast ids are monotonic, so an id that is no longer shown can be
-    // forgotten instead of being retained for the tab's whole lifetime.
-    if (sounded.current.size > toasts.length) {
-      const live = new Set(toasts.map((toast) => toast.id));
-      for (const id of sounded.current) {
-        if (!live.has(id)) sounded.current.delete(id);
-      }
-    }
-  });
+    prev.current = toasts;
+  }, [toasts]);
   if (toasts.length === 0) return null;
   return (
     <div className="toast-stack" role="status" aria-live="polite" aria-label={t(locale, "toast.region")}>
@@ -71,11 +63,11 @@ export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: Interfa
         >
           <ToastIcon kind={toast.kind} />
           <div className="toast-copy">
-            <strong>{toast.title}</strong>
-            {toast.detail ? <span>{toast.detail}</span> : null}
+            <strong>{displayText(locale, toast.title)}</strong>
+            {toast.detail ? <span>{displayText(locale, toast.detail)}</span> : null}
             {toast.action ? (
               <a className="toast-action" href={toast.action.href} target="_blank" rel="noreferrer">
-                {toast.action.label}
+                {displayText(locale, toast.action.label)}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
@@ -103,4 +95,11 @@ export function ToastHost({ toasts, locale }: { toasts: Toast[]; locale: Interfa
       ))}
     </div>
   );
+});
+
+export function ToastHost(): ReactNode {
+  const toasts = useControlSelector((snapshot) => snapshot.toasts);
+  // Toast titles resolve through the lazy locale table at render.
+  useControlSelector((snapshot) => snapshot.localeTableRevision);
+  return <ToastList toasts={toasts} />;
 }

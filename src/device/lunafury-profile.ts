@@ -13,7 +13,6 @@ function integer(value: unknown, min: number, max: number): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 }
 
-/** Imported profiles must not introduce unknown commands or invalid values. */
 export function sanitizeLunaFurySettings(raw: unknown): LunaFurySettings {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const value = raw as Record<string, unknown>;
@@ -43,7 +42,6 @@ export function diffLunaFurySettings(before: LunaFurySettings | undefined, after
   return sanitizeLunaFurySettings(diff);
 }
 
-/** Capture only the available controls this profile will actually write. */
 export function pickLunaFurySettings(current: LunaFurySettings | undefined, target: unknown): LunaFurySettings {
   const picked: Record<string, unknown> = {};
   for (const field of Object.keys(sanitizeLunaFurySettings(target))) {
@@ -63,7 +61,6 @@ export function lunaFuryLightningPriority(mode: LunaFuryLightningMode): number {
   return mode === 0 ? -10 : 10;
 }
 
-/** Use the ordinary staged setters for both applying and restoring profiles. */
 export function stageLunaFuryProfile(raw: unknown, current: LunaFurySettings | undefined, actions: LunaFuryProfileActions): void {
   if (!current) return;
   const target = sanitizeLunaFurySettings(raw);

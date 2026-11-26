@@ -1,0 +1,133 @@
+import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+
+export interface PendingChange {
+  // Dedupe key. Staging the same key again replaces the earlier entry.
+  key: string;
+  // Settings that land in the same byte, sector or transaction share a group.
+  // A group is written once, by the last change staged into it, so its apply
+  // has to write every staged value in the group rather than only its own.
+  // Without this, two changes to one byte cost two writes and the second is
+  // built from a device read the first has already invalidated.
+  group?: string;
+  label: string;
+  command: string;
+  progress: string;
+  // Lower priorities flash first when one setting must establish storage used by another.
+  priority?: number;
+  // Mirrors the staged value onto a status snapshot so the UI can render it.
+  // Omitted when the setting is not part of MouseStatus (a Logitech onboard
+  // profile value, say); such a change renders itself and cannot be compared
+  // against the device status.
+  preview?(status: MouseStatus): void;
+  apply(): Promise<void>;
+}
+
+const changes = new Map<string, PendingChange>();
+const listeners = new Set<() => void>();
+
+export function onPendingChanges(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
+export function stagePendingChange(change: PendingChange): void {
+  // Re-insert so the bar lists changes in the order they were last touched.
+  changes.delete(change.key);
+  changes.set(change.key, change);
+  notify();
+}
+
+export function pendingChanges(): PendingChange[] {
+  return [...changes.values()];
+}
+
+/**
+ * Staged changes split into the batches a flash should write, in staging order.
+ * Changes sharing a group collapse into one batch; an ungrouped change is a
+ * batch of its own. The last entry of a batch is the one that performs the
+ * write, so a batch is applied by calling `apply` on `batch.at(-1)`.
+ */
+export function pendingChangeBatches(): PendingChange[][] {
+  const batches: PendingChange[][] = [];
+  const byGroup = new Map<string, PendingChange[]>();
+  for (const change of changes.values()) {
+    if (change.group === undefined) {
+      batches.push([change]);
+      continue;
+    }
+    const existing = byGroup.get(change.group);
+    if (existing) {
+      existing.push(change);
+      continue;
+    }
+    // The batch keeps the position of its first member, so the bar and the
+    // flash order follow the order settings were touched.
+    const batch = [change];
+    byGroup.set(change.group, batch);
+    batches.push(batch);
+  }
+  return batches.sort((left, right) => (left[0]?.priority ?? 0) - (right[0]?.priority ?? 0));
+}
+
+export function pendingChangeCount(): number {
+  return changes.size;
+}
+
+export function hasPendingChanges(): boolean {
+  return changes.size > 0;
+}
+
+export function isPendingChange(key: string): boolean {
+  return changes.has(key);
+}
+
+export function dropPendingChange(key: string): void {
+  if (changes.delete(key)) notify();
+}
+
+export function clearPendingChanges(): void {
+  if (changes.size === 0) return;
+  changes.clear();
+  notify();
+}
+
+/**
+ * Returns `status` with every staged value mirrored onto a copy, so background
+ * refreshes cannot snap the controls back to the values still on the device.
+ */
+export function withPendingChanges(status: MouseStatus): MouseStatus {
+  if (changes.size === 0 && !overlay) return status;
+  const preview = structuredClone(status);
+  for (const change of changes.values()) change.preview?.(preview);
+  overlay?.(preview);
+  return preview;
+}
+
+let overlay: ((status: MouseStatus) => void) | null = null;
+
+/**
+ * Values the mouse cannot take right now (a game profile's side buttons, or a
+ * Host bunny hop while the mouse is on Onboard) still have to show as set, so a
+ * game profile draft puts them on top of every preview. `null` removes it.
+ */
+export function setStatusOverlay(next: ((status: MouseStatus) => void) | null): void {
+  overlay = next;
+}
+
+export function stashPendingChanges(): PendingChange[] {
+  const stashed = [...changes.values()];
+  clearPendingChanges();
+  return stashed;
+}
+
+export function restorePendingChanges(stashed: PendingChange[]): void {
+  changes.clear();
+  for (const change of stashed) changes.set(change.key, change);
+  notify();
+}

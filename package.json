@@ -7,19 +7,25 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test \"src/**/*.test.ts\" \"build/**/*.test.ts\"",
+    "test": "node --test \"src/**/*.test.ts\" \"test/**/*.test.ts\" \"build/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
-    "check": "npm run build && npm test",
+    "sync:devices": "node scripts/sync-supported-devices.mjs",
+    "check": "npm run build && npm run size && npm test",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/keyboard-protocol": "1.1.0",
-    "@openmouse/protocol": "0.42.2",
+    "@openmouse/keyboard-protocol": "1.8.0",
+    "@openmouse/protocol": "0.62.0",
     "lucide-react": "^1.43.0",
+    "posthog-js": "^1.438.17",
     "preact": "^10.29.8"
   },
   "devDependencies": {
+    "picomatch": "file:vendor/picomatch-safe",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
+  },
+  "overrides": {
+    "picomatch": "$picomatch"
   }
 }

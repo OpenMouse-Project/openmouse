@@ -1,0 +1,257 @@
+.hardware-test-header { align-items: center; }
+.hardware-test-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: none; }
+.hardware-test-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.hardware-test-device { min-width: 0; position: sticky; top: 18px; }
+.hardware-test-no-device { display: grid; justify-items: start; align-content: center; gap: 8px; min-height: 240px; padding: 24px; }
+.hardware-test-no-device-title { font-size: var(--fs-h2); font-weight: 600; }
+.hardware-test-no-device-detail { color: var(--text-2); font-size: var(--fs-meta); }
+.hardware-test-no-device .om-btn { margin-top: 12px; }
+.hardware-test-panel-wrap { display: grid; gap: 16px; min-width: 0; }
+.hardware-test-panel { min-width: 0; }
+.hardware-test-panel-head { padding-bottom: 14px; border-bottom: 1px solid var(--line-1); }
+.hardware-test-head-glyph { width: 17px; height: 17px; color: var(--text-3); }
+.hardware-test-panel-title, .hardware-test-status-title { font-size: var(--fs-h2); font-weight: 600; }
+.hardware-test-state-pill { margin-inline-start: auto; }
+.hardware-test-state-pill > i { display: none; }
+.hardware-test-state-pill.running { color: var(--accent); background: var(--accent-soft); }
+.hardware-test-state-pill.done { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.hardware-test-state-pill.failed { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.hardware-test-state-pill.stopped { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.hardware-test-stages { padding: 0 18px; }
+.hardware-test-ready { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 120px; padding-block: 20px; color: var(--text-2); }
+.hardware-test-ready p { max-width: 40ch; font-size: var(--fs-meta); }
+.hardware-test-ready-glyph { width: 28px; height: 28px; color: var(--text-3); }
+.hardware-test-stage { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 44px; padding-block: 10px; border-bottom: 1px solid var(--line-1); }
+.hardware-test-stage:last-child { border-bottom: 0; }
+.hardware-test-stage-icon { display: grid; place-items: center; width: 18px; height: 18px; color: var(--text-3); }
+.hardware-test-stage-icon svg { width: 16px; height: 16px; }
+.hardware-test-stage.pass .hardware-test-stage-icon, .hardware-test-stage.pass .hardware-test-stage-result { color: var(--ok); }
+.hardware-test-stage.fail .hardware-test-stage-icon, .hardware-test-stage.fail .hardware-test-stage-result { color: var(--bad); }
+.hardware-test-stage.running .hardware-test-stage-icon { color: var(--accent); }
+.hardware-test-stage-spin { width: 12px; height: 12px; border: 1.5px solid var(--line-3); border-top-color: var(--accent); border-radius: 50%; animation: hardware-test-spin 900ms linear infinite; }
+.hardware-test-stage-skip { width: 10px; height: 1.5px; background: currentColor; }
+.hardware-test-stage-main { display: grid; gap: 3px; min-width: 0; }
+.hardware-test-stage-label { font-weight: 550; overflow-wrap: anywhere; }
+.hardware-test-stage-detail, .hardware-test-stage-hint { color: var(--text-2); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.hardware-test-stage-hint { color: var(--accent); }
+.hardware-test-stage-result { padding: 3px 7px; border-radius: var(--r-xs); font-size: var(--fs-small); font-weight: 600; text-transform: lowercase; color: var(--text-2); background: var(--glint); }
+.hardware-test-stage-result::first-letter { text-transform: uppercase; }
+.hardware-test-stage.pass .hardware-test-stage-result { background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.hardware-test-stage.fail .hardware-test-stage-result { background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.hardware-test-live { min-width: 88px; max-width: 180px; text-align: end; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--accent); }
+.hardware-test-live.empty { color: var(--text-3); }
+.hardware-test-progress { position: relative; height: 3px; margin-top: 9px; border-radius: var(--r-xs); background: var(--well); overflow: hidden; }
+.hardware-test-progress > i { display: block; height: 100%; background: var(--accent); transition: width var(--t-fast) linear; }
+.hardware-test-progress-wave::after { content: ""; display: block; width: 30%; height: 100%; background: var(--accent); animation: hardware-test-writing 1400ms var(--ease) infinite; }
+.hardware-test-banner { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-top: 1px solid var(--line-1); background: color-mix(in srgb, var(--warn) 5%, transparent); }
+.hardware-test-banner.pass { background: color-mix(in srgb, var(--ok) 5%, transparent); }
+.hardware-test-banner.fail { background: color-mix(in srgb, var(--bad) 5%, transparent); }
+.hardware-test-banner-glyph { width: 20px; height: 20px; color: var(--warn); }
+.hardware-test-banner.pass .hardware-test-banner-glyph { color: var(--ok); }
+.hardware-test-banner.fail .hardware-test-banner-glyph { color: var(--bad); }
+.hardware-test-banner-text { display: grid; gap: 2px; }
+.hardware-test-banner-text strong { font-size: var(--fs-h2); font-weight: 600; }
+.hardware-test-banner-text > span { color: var(--text-2); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.hardware-test-banner-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-inline-start: auto; color: var(--text-2); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.hardware-test-banner-counts .ok { color: var(--ok); }
+.hardware-test-banner-counts .fail { color: var(--bad); }
+.hardware-test-banner-counts .skip { text-transform: lowercase; }
+.hardware-test-panel-bar { display: flex; justify-content: flex-end; padding: 8px 12px; border-top: 1px solid var(--line-1); }
+.hardware-test-status-head { padding: 16px 18px 6px; }
+.hardware-test-status .mouse-test-device-rows { padding: 0 18px 8px; }
+.hardware-test-status .mouse-test-device-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; min-height: 40px; padding-block: 10px; border-top: 1px solid var(--line-1); }
+.hardware-test-status .mouse-test-device-row:first-child { border-top: 0; }
+.hardware-test-status .mouse-test-device-key { color: var(--text-2); font-size: var(--fs-meta); flex: none; }
+.hardware-test-status .mouse-test-device-val { min-width: 0; text-align: end; font-size: var(--fs-meta); font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hardware-test-status .mouse-test-dpi-stages { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.hardware-test-status .mouse-test-dpi-chip { padding: 2px 7px; border-radius: var(--r-xs); background: var(--well); color: var(--text-2); }
+.hardware-test-status .mouse-test-dpi-chip.active { background: var(--accent-soft); color: var(--accent); }
+.hardware-test-status-note { padding: 12px 18px 16px; border-top: 1px solid var(--line-1); color: var(--text-3); font-size: var(--fs-small); line-height: 1.5; }
+.hardware-test-footer { color: var(--text-3); font-size: var(--fs-meta); }
+.hardware-test-footer-link { color: var(--text-2); text-decoration: underline; text-decoration-color: var(--line-3); text-underline-offset: 3px; }
+.hardware-test-footer-link:hover { color: var(--text-1); }
+@keyframes hardware-test-spin { to { transform: rotate(360deg); } }
+@keyframes hardware-test-writing { from { transform: translateX(-100%); } to { transform: translateX(440%); } }
+
+.games-section { display: grid; gap: 16px; min-width: 0; }
+.games-section h2 { font-size: var(--fs-h2); font-weight: 600; }
+.games-section-head, .games-local-guidance { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.games-local-target { display: flex; flex-direction: column; min-width: 0; border-radius: var(--r-md); background: var(--sheen), var(--surface-1); box-shadow: var(--lit); }
+.games-local-target .games-tile { height: auto; background: transparent; box-shadow: none; }
+.games-local-target .games-tile:hover { background: var(--glint); }
+.games-local-target .games-tile:focus-visible { box-shadow: var(--focus); }
+.games-local-meta, .games-local-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 14px; }
+.games-local-meta { font-size: var(--fs-small); color: var(--text-2); }
+.games-local-path { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-small); color: var(--text-3); }
+.games-local-target > .games-local-path { padding: 4px 14px 12px; }
+.games-local-actions { margin-top: auto; padding: 8px; border-top: 1px solid var(--line-1); }
+.local-app-dialog .om-dialog-head h2 { min-width: 0; }
+.game-profile-actions { display: flex; gap: 8px; align-items: center; }
+.local-app-running { gap: 8px; }
+.local-app-running-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.local-app-running input[type="search"] { width: 100%; height: 36px; }
+.local-app-running .gamereq-apps button[aria-pressed="true"] { background: rgb(var(--accent-rgb) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35); }
+.local-app-running .gamereq-apps button > .local-app-icon { display: block; width: 24px; height: 24px; object-fit: contain; flex: none; }
+.games-header { align-items: flex-start; }
+.games-subtitle { max-width: 65ch; }
+.games-bridge-status { flex: none; height: auto; min-height: 26px; padding-block: 4px; margin-top: 4px; }
+.games-bridge-dot { display: inline-flex; }
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 16px; list-style: none; }
+.games-grid > li { min-width: 0; }
+.games-tile { display: flex; flex-direction: column; height: 100%; width: 100%; padding: 8px; gap: 0; text-align: start; border-radius: var(--r-md); background: var(--sheen), var(--surface-1); box-shadow: var(--lit); transition: background var(--t-fast) var(--ease); }
+.games-tile:hover { background: var(--surface-3); }
+.games-tile:focus-visible { box-shadow: var(--focus); }
+.games-tile-art { position: relative; display: grid; place-content: center; justify-items: center; gap: 12px; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); color: var(--text-3); overflow: hidden; }
+.games-tile-art > img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
+.games-tile-art > img.games-tile-icon { position: static; width: 48px; height: 48px; object-fit: contain; }
+.games-tile-badge { position: absolute; inset-inline-start: 8px; bottom: 8px; background: var(--solid-2); color: var(--text-1); box-shadow: var(--lit); }
+.games-tile-name { padding: 12px 6px 6px; color: var(--text-1); font-size: var(--fs-body); font-weight: 600; overflow-wrap: anywhere; }
+.games-tile-request { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
+.games-tile-request .games-tile-art { box-shadow: none; background: transparent; padding: 16px; }
+.games-tile-request-copy { font-size: var(--fs-meta); color: var(--text-2); text-align: center; }
+.games-tile-request:hover .games-tile-art > svg { color: var(--accent); }
+.games-grid.is-locked div.games-tile { cursor: default; }
+.games-grid.is-locked div.games-tile:hover { background: inherit; }
+.games-grid.is-locked div.games-tile .games-tile-art > img { filter: saturate(0.7) brightness(0.8); }
+.games-needs-bridge {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: radial-gradient(60% 120% at 0% 50%, rgb(var(--accent-rgb) / 0.12), transparent 70%), var(--sheen), var(--surface-1);
+  box-shadow: var(--lit), inset 0 0 0 1px rgb(var(--accent-rgb) / 0.2);
+}
+.games-needs-bridge-icon {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.games-needs-bridge-icon svg { width: 20px; height: 20px; }
+.games-needs-bridge h2 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+.games-needs-bridge p { margin-top: 3px; color: var(--text-2); font-size: var(--fs-meta); line-height: 1.5; max-width: 72ch; }
+.games-needs-bridge .om-btn svg { width: 15px; height: 15px; }
+
+.game-profile-back { justify-self: start; margin-inline-start: -10px; }
+[dir="rtl"] .game-profile-back svg { transform: scaleX(-1); }
+.game-profile-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; padding: 18px; align-items: start; }
+.game-profile-side { min-width: 0; }
+.game-profile-art { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); color: var(--text-3); overflow: hidden; }
+.game-profile-art img { width: 100%; height: 100%; object-fit: cover; }
+.game-profile-art > img.game-profile-icon { width: 64px; height: 64px; object-fit: contain; }
+.game-profile-settings { min-width: 0; display: grid; gap: 16px; }
+.game-profile-name-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.game-profile-name-card > div { display: grid; gap: 5px; min-width: 0; }
+.game-profile-name { font-size: var(--fs-title); font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.game-profile-changed { font-size: var(--fs-meta); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.game-profile-section { border-top: 1px solid var(--line-1); padding-top: 14px; }
+.game-profile-section-label { font-size: var(--fs-body); font-weight: 600; margin-bottom: 6px; }
+.game-profile-devices { list-style: none; }
+.game-profile-device-row { display: flex; align-items: center; gap: 10px; padding-block: 8px; min-height: 52px; border-top: 1px solid var(--line-1); }
+.game-profile-device-row:first-child { border-top: 0; }
+.game-profile-device-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-sm); background: var(--well); color: var(--text-3); }
+.game-profile-device-text { display: grid; flex: 1; min-width: 0; gap: 1px; }
+.game-profile-device-name { font-weight: 550; overflow-wrap: anywhere; }
+.game-profile-device-brand { color: var(--text-3); font-size: var(--fs-small); }
+.game-profile-select.is-selected { color: var(--accent); background: var(--accent-soft); box-shadow: none; }
+.game-profile-auto-apply { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.game-profile-auto-apply-text { display: grid; gap: 3px; }
+.game-profile-auto-apply-title { font-weight: 600; }
+.game-profile-auto-apply-body { color: var(--text-2); font-size: var(--fs-meta); }
+.game-profile-workspace { display: grid; gap: 16px; min-width: 0; }
+.game-profile-workspace-head { display: grid; gap: 4px; padding-inline: 2px; max-width: 80ch; }
+.game-profile-section-title { font-size: var(--fs-h2); font-weight: 600; }
+.game-profile-tabs { border-top: 0; padding: 6px; background: var(--surface-1); border-radius: var(--r-md); box-shadow: var(--lit); }
+.game-profile-empty { padding-block: 12px; color: var(--text-2); font-size: var(--fs-meta); }
+.game-profile-workspace > .game-profile-empty { padding: 22px; border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--lit); }
+
+.gamereq-dialog { width: 560px; }
+.gamereq-dialog .feedback-dialog-inner { display: grid; gap: 14px; padding: 20px; }
+.gamereq-dialog .om-dialog-head { padding: 0 0 2px; justify-content: space-between; gap: 16px; }
+.gamereq-dialog .om-dialog-head > div { min-width: 0; }
+.gamereq-dialog .om-dialog-head .om-icon-btn { flex: none; font-size: 20px; }
+.gamereq-dialog .feedback-description { color: var(--text-2); font-size: var(--fs-meta); line-height: 1.6; }
+.gamereq-kind, .gamereq-os { justify-self: start; }
+.gamereq-dialog .feedback-handle { display: grid; gap: 6px; min-width: 0; }
+.gamereq-dialog .feedback-handle > span { font-size: var(--fs-meta); color: var(--text-2); font-weight: 550; }
+.gamereq-dialog .feedback-handle input { width: 100%; height: 36px; }
+.gamereq-exe { display: grid; gap: 12px; min-width: 0; }
+.gamereq-finder { display: grid; gap: 10px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); }
+.gamereq-finder-title { font-size: var(--fs-meta); font-weight: 600; }
+.gamereq-hint { color: var(--text-2); font-size: var(--fs-meta); line-height: 1.5; }
+.gamereq-mono { font-family: var(--font-mono); font-size: var(--fs-small); }
+.gamereq-running { display: grid; gap: 8px; }
+.gamereq-chip { justify-self: start; }
+.gamereq-apps { display: grid; list-style: none; max-height: 200px; overflow-y: auto; }
+.gamereq-apps button { display: flex; align-items: center; gap: 10px; text-align: start; width: 100%; min-height: 44px; padding: 8px; border-radius: var(--r-sm); }
+.gamereq-apps button:hover { background: var(--glint); }
+.gamereq-apps button > img, .gamereq-apps button > svg { width: 24px; height: 24px; object-fit: contain; flex: none; color: var(--text-3); }
+.gamereq-apps button > span { display: grid; min-width: 0; gap: 2px; }
+.gamereq-apps strong { font-size: var(--fs-meta); font-weight: 550; overflow-wrap: anywhere; }
+.gamereq-apps small { color: var(--text-3); overflow-wrap: anywhere; }
+.gamereq-command { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: var(--r-sm); background: var(--well); box-shadow: var(--inset-shadow); }
+.gamereq-command code { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--text-2); line-height: 1.65; }
+.gamereq-command button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--btn); box-shadow: var(--btn-shadow); color: var(--text-2); }
+.gamereq-command button:hover { background: var(--btn-hover); color: var(--text-1); }
+.gamereq-dialog .om-dialog-foot { padding: 14px 0 0; margin-top: 2px; }
+.gamereq-dialog .feedback-error { padding: 10px 12px; border-radius: var(--r-sm); color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); font-size: var(--fs-meta); }
+.gamereq-embed { display: grid; gap: 16px; padding: 18px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); }
+.gamereq-embed-title { font-size: var(--fs-h2); font-weight: 600; }
+.gamereq-embed-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.gamereq-embed-fields > div { display: grid; align-content: start; gap: 5px; min-width: 0; }
+.gamereq-embed-fields .is-wide { grid-column: 1 / -1; }
+.gamereq-embed-fields span { color: var(--text-3); font-size: var(--fs-meta); }
+.gamereq-embed-fields strong { font-weight: 550; }
+.gamereq-embed-fields code, .gamereq-embed-fields p, .gamereq-embed-fields strong { overflow-wrap: anywhere; }
+.gamereq-embed-footer { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--text-3); }
+.gamereq-notice { padding: 12px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn) 8%, transparent); color: var(--warn); font-size: var(--fs-meta); }
+.whatsnew-dialog { width: 480px; }
+.whatsnew-dialog .om-dialog-head { justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid var(--line-1); }
+.whatsnew-dialog .om-dialog-head > div { min-width: 0; }
+.whatsnew-dialog .om-icon-btn { flex: none; font-size: 20px; }
+.whatsnew-dialog .om-dialog-body { justify-items: center; gap: 24px; padding: 28px 28px 32px; }
+.whatsnew-body { font-size: var(--fs-body); line-height: 1.75; text-align: center; text-wrap: pretty; }
+.whatsnew-dialog .om-dialog-foot { padding: 14px 18px 18px; }
+.standalone-brand { width: 28px; height: 42px; object-fit: contain; }
+
+.small-screen-blocker { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 100vh; min-height: 100dvh; width: 100%; padding: 40px 24px; background: var(--ground); color: var(--text-1); text-align: center; }
+.small-screen-blocker .standalone-brand { margin-bottom: 12px; }
+.small-screen-blocker h1 { max-width: 28ch; font-size: clamp(22px, 3vw, 28px); font-weight: 600; line-height: 1.25; letter-spacing: -0.02em; text-wrap: balance; }
+.small-screen-blocker p { max-width: 48ch; font-size: var(--fs-body); color: var(--text-2); line-height: 1.65; text-wrap: pretty; }
+
+@media (max-width: 1280px) {
+  .hardware-test-layout { grid-template-columns: 220px minmax(0, 1fr); }
+  .hardware-test-header { flex-wrap: wrap; align-items: flex-start; }
+  .hardware-test-actions { justify-content: flex-start; }
+  .games-header { flex-wrap: wrap; }
+  .game-profile-layout { grid-template-columns: 160px minmax(0, 1fr); gap: 18px; }
+}
+@media (max-width: 1050px) {
+  .hardware-test-layout { grid-template-columns: minmax(0, 1fr); }
+  .hardware-test-device { position: static; }
+  .hardware-test-device .showcase-sidebar { grid-template-columns: 120px minmax(0, 1fr); align-items: center; }
+  .hardware-test-device .showcase-sidebar-visual { grid-row: span 3; }
+  .hardware-test-no-device { min-height: 160px; }
+  .game-profile-layout { grid-template-columns: 120px minmax(0, 1fr); }
+  .game-profile-art { aspect-ratio: 1 / 1; }
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+}
+@media (max-width: 720px) {
+  .hardware-test-page, .games-page, .game-profile-page { padding: 20px 18px 80px; }
+  .hardware-test-actions { width: 100%; }
+  .hardware-test-actions .om-btn { flex: 1; min-height: 44px; }
+  .hardware-test-stage { grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
+  .hardware-test-stage-result, .hardware-test-live { grid-column: 2; justify-self: start; text-align: start; }
+  .hardware-test-banner { flex-wrap: wrap; }
+  .hardware-test-banner-counts { width: 100%; justify-content: flex-start; margin-inline-start: 32px; }
+  .game-profile-layout { grid-template-columns: minmax(0, 1fr); }
+  .game-profile-side { max-width: 160px; }
+  .game-profile-device-row { flex-wrap: wrap; }
+  .games-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .games-bridge-status { white-space: normal; }
+  .gamereq-embed-fields { grid-template-columns: minmax(0, 1fr); }
+  .gamereq-dialog .feedback-dialog-inner { padding: 18px; }
+  .gamereq-dialog .om-btn, .gamereq-dialog .segmented > button { min-height: 44px; }
+  .gamereq-command button, .gamereq-dialog .om-icon-btn { min-width: 44px; min-height: 44px; }
+  .whatsnew-dialog .om-dialog-foot { flex-wrap: wrap; }
+}

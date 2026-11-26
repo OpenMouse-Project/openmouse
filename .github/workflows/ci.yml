@@ -51,6 +51,7 @@ jobs:
             "@openmouse/keyboard-protocol": keyboardProtocolVersion,
             "@openmouse/protocol": protocolVersion,
             "lucide-react": "^1.43.0",
+            "posthog-js": "^1.438.17",
             "preact": "^10.29.8",
           };
 

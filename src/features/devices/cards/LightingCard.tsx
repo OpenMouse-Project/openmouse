@@ -1,0 +1,216 @@
+import { displayText } from "../../../i18n/index";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import type { MouseLighting } from "@openmouse/protocol/drivers/mouse-types";
+import * as control from "../../../device/controller";
+import type { ControlSnapshot } from "../../../device/types";
+import { t, tp } from "../../../i18n/index";
+import { ColorPicker } from "../../../shared/ColorPicker";
+import { Segmented } from "../../../shared/ui";
+
+export function LightingCard({
+  snapshot,
+  variant,
+  lighting: suppliedLighting,
+  zones,
+  zoneIndex = 0,
+}: {
+  snapshot: ControlSnapshot;
+  variant: "advanced" | "tab";
+  lighting?: MouseLighting;
+  zones?: MouseLighting[];
+  zoneIndex?: number;
+}): ReactNode {
+  const hasLightstrip = Boolean(zones?.some((zone) => zone.hardwareZoneId != null));
+  const locale = snapshot.preferences.locale;
+  const [selectedZone, setSelectedZone] = useState(
+    hasLightstrip && zones && zones.length > 1 ? 1 : zoneIndex,
+  );
+  const activeZoneIndex = zones ? Math.min(selectedZone, zones.length - 1) : zoneIndex;
+  const lighting = zones?.[activeZoneIndex] ?? suppliedLighting ?? snapshot.status?.lighting;
+  if (!lighting) return null;
+  const prefix = `${variant === "advanced" ? "lighting" : "lighting-tab"}-${activeZoneIndex}`;
+  const disabled = snapshot.settingsPending;
+  const mode = lighting.mode;
+  const usesColor = mode !== null && lighting.colorModes.includes(mode);
+  const usesColor2 = mode !== null && lighting.dualColorModes.includes(mode);
+  const usesSpeed = mode !== null && lighting.reactiveModes.includes(mode);
+  const brightnessLevels = lighting.brightnessLevels ?? [];
+  const pendingKey = `lighting-${activeZoneIndex}`;
+  const staged = snapshot.pending.keys.includes(pendingKey);
+  const sliderSpeeds = lighting.speeds.length > 8;
+
+  return (
+    <article
+      id={`${prefix}-card`}
+      className={`setting-card library-lighting${staged ? " is-staged" : ""}`}
+      data-pending-key={pendingKey}
+    >
+      <div className="setting-heading">
+        <div>
+          <h2 id={`${prefix}-title`}>
+            {displayText(locale, lighting.zone === "Receiver" ? t(locale, "light.receiverTitle") : tp(locale, "light.zoneTitle", { zone: lighting.zone }))}
+            {lighting.writeOnly ? (
+              <span className="setting-scope" id={`${prefix}-write-only-badge`}>{t(locale, "light.writeOnly")}</span>
+            ) : null}
+          </h2>
+        </div>
+      </div>
+
+      {zones && zones.length > 1 ? (
+        <div className="lighting-zone-picker" aria-label={t(locale, "light.rgbPart")}>
+          <div className="lighting-zone-copy">
+            <span>{t(locale, "light.rgbParts")}</span>
+            <strong>{displayText(locale, lighting.group ? `${lighting.group} · ${lighting.zone}` : lighting.zone)}</strong>
+          </div>
+          <div
+            className={`lighting-strip${hasLightstrip ? " is-lightstrip" : ""}`}
+            role="list"
+            aria-label={displayText(locale, hasLightstrip ? t(locale, "light.stripLeds") : t(locale, "light.rgbZones"))}
+          >
+            {zones.map((zone, index) => (
+              <button
+                key={`${zone.zone}-${index}`}
+                type="button"
+                role="listitem"
+                className={index === activeZoneIndex ? "is-selected" : ""}
+                style={{ "--zone-color": zone.mode === "Off" ? "var(--well)" : zone.color ?? "var(--well)" } as CSSProperties}
+                title={displayText(locale, zone.group ? `${zone.group} ${zone.zone}` : `${zone.zone} effects`)}
+                aria-label={displayText(locale, zone.group ? `${zone.group} ${zone.zone}` : zone.zone)}
+                aria-pressed={index === activeZoneIndex}
+                onClick={() => setSelectedZone(index)}
+              >{displayText(locale, zone.hardwareZoneId ?? "FX")}</button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <Segmented
+        id={`${prefix}-modes`}
+        className="lighting-modes"
+        ariaLabel={t(locale, "light.effect")}
+        options={lighting.modes.map((candidate) => ({ value: candidate, label: candidate }))}
+        value={mode}
+        disabled={disabled}
+        onChange={(next) => control.applyLighting({ mode: next as typeof mode }, activeZoneIndex)}
+      />
+
+      {brightnessLevels.length > 0 ? (
+        <div id={`${prefix}-brightness-row`} className="lighting-speed-row">
+          <div className="setting-heading tight"><div><h2>{t(locale, "light.brightness")}</h2></div></div>
+          <Segmented
+            id={`${prefix}-brightness-levels`}
+            ariaLabel={t(locale, "light.brightnessAria")}
+            options={brightnessLevels.map((level) => ({ value: level, label: `${level}%` }))}
+            value={lighting.brightness}
+            disabled={disabled}
+            onChange={(brightness) => control.applyLighting({ brightness }, activeZoneIndex)}
+          />
+        </div>
+      ) : null}
+
+      {usesColor ? (
+        <div id={`${prefix}-color-row`} className="lighting-color-row">
+          {variant === "advanced" ? (
+            <>
+              <label className="lighting-color-field">
+                <span>{t(locale, "light.colour")}</span>
+                <input
+                  id="lighting-color"
+                  type="color"
+                  value={lighting.color ?? "#00ff00"}
+                  disabled={disabled}
+                  aria-label={t(locale, "light.colourAria")}
+                  onChange={(event) => control.applyLighting({ color: event.currentTarget.value }, activeZoneIndex)}
+                />
+              </label>
+              {usesColor2 ? (
+                <label id="lighting-color2-field" className="lighting-color-field">
+                  <span>{t(locale, "light.colour2")}</span>
+                  <input
+                    id="lighting-color2"
+                    type="color"
+                    value={lighting.color2 ?? "#ff0000"}
+                    disabled={disabled}
+                    aria-label={t(locale, "light.colour2Aria")}
+                    onChange={(event) => control.applyLighting({ color2: event.currentTarget.value }, activeZoneIndex)}
+                  />
+                </label>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <div className="lighting-color-field">
+                <span>{t(locale, "light.colour")}</span>
+                <ColorPicker
+                  id="lighting-tab-color"
+                  value={lighting.color ?? "#00ff00"}
+                  disabled={disabled}
+                  ariaLabel={t(locale, "light.colourAria")}
+                  onChange={(color) => control.applyLighting({ color }, activeZoneIndex)}
+                />
+              </div>
+              {usesColor2 ? (
+                <div id="lighting-tab-color2-field" className="lighting-color-field">
+                  <span>{t(locale, "light.colour2")}</span>
+                  <ColorPicker
+                    id="lighting-tab-color2"
+                    value={lighting.color2 ?? "#ff0000"}
+                    disabled={disabled}
+                    ariaLabel={t(locale, "light.colour2Aria")}
+                    onChange={(color2) => control.applyLighting({ color2 }, activeZoneIndex)}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {usesSpeed ? (
+        <div id={`${prefix}-speed-row`} className="lighting-speed-row">
+          <div className="setting-heading tight"><div><h2>{t(locale, "light.speed")}</h2></div></div>
+          {sliderSpeeds ? (
+            <span className="glass-slider-rail">
+              <input
+                id={`${prefix}-speed-slider`}
+                type="range"
+                min={Math.min(...lighting.speeds)}
+                max={Math.max(...lighting.speeds)}
+                step={1}
+                defaultValue={lighting.speed ?? lighting.speeds[0] ?? 0}
+                key={`speed-${lighting.speed}`}
+                disabled={disabled}
+                aria-label={t(locale, "light.speed")}
+                style={{
+                  "--fill": `${(((lighting.speed ?? lighting.speeds[0] ?? 0) - Math.min(...lighting.speeds))
+                    / Math.max(1, Math.max(...lighting.speeds) - Math.min(...lighting.speeds))) * 100}%`,
+                }}
+                onChange={(event) => control.applyLighting({ speed: Number(event.currentTarget.value) }, activeZoneIndex)}
+              />
+            </span>
+          ) : (
+            <Segmented
+              id={`${prefix}-speeds`}
+              ariaLabel={t(locale, "light.speed")}
+              options={lighting.speeds.map((speed) => ({ value: speed, label: String(speed) }))}
+              value={lighting.speed}
+              disabled={disabled}
+              onChange={(speed) => control.applyLighting({ speed }, activeZoneIndex)}
+            />
+          )}
+        </div>
+      ) : null}
+
+      <div className="setting-action">
+        <span id={`${prefix}-pending`}>
+          {displayText(locale, staged ? tp(locale, "common.staged", { v: control.describeLighting(lighting, locale) }) : t(locale, "light.choose"))}
+        </span>
+      </div>
+      <small id={`${prefix}-note`} className="setting-note">
+        {displayText(locale, lighting.writeOnly
+          ? t(locale, "light.writeOnlyNote")
+          : tp(locale, "light.zoneNote", { zone: lighting.zone }))}
+      </small>
+    </article>
+  );
+}

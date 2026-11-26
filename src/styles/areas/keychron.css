@@ -1,0 +1,56 @@
+/* Keychron Hall-effect panel: key map and response curve. Tokens only. */
+.keychron-notice { grid-column: 1 / -1; margin: 0; }
+.keyboard-panel > .keyboard-workspace-card { min-width: 0; }
+.keyboard-workspace-card:has(.keychron-map) { grid-column: 1 / -1; }
+.keychron-map { overflow-x: auto; padding: 12px; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); direction: ltr; }
+.keychron-board { position: relative; min-width: 600px; container-type: inline-size; --u: calc(100cqw / var(--kw)); }
+.keychron-key { position: absolute; padding: 2px; border: 0; background: none; color: var(--text-2); font: inherit; cursor: pointer; }
+.keychron-key:disabled { cursor: default; opacity: 0.5; }
+.keychron-face { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; min-width: 0; padding: 2px; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); font-size: calc(var(--u) * 0.3); font-weight: 550; line-height: 1.15; text-align: center; overflow-wrap: anywhere; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.keychron-face small { color: var(--text-3); font-size: calc(var(--u) * 0.24); font-weight: 400; font-variant-numeric: tabular-nums; }
+.keychron-key:hover:not(:disabled) .keychron-face { background: var(--btn-hover); color: var(--text-1); }
+.keychron-key.is-rapid .keychron-face, .keychron-swatch.is-rapid { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.keychron-key.is-advanced .keychron-face, .keychron-swatch.is-advanced { outline: 1px dashed var(--line-3); outline-offset: -3px; }
+.keychron-key.is-selected .keychron-face { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.keychron-key.is-selected .keychron-face small { color: inherit; opacity: 0.8; }
+.keychron-key.is-knob .keychron-face { border-radius: 50%; }
+.keychron-key:focus-visible { outline: none; }
+.keychron-key:focus-visible .keychron-face { box-shadow: var(--focus); }
+.keychron-keys-legend, .keychron-keys-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: var(--text-3); font-size: var(--fs-meta); }
+.keychron-keys-actions { justify-content: space-between; }
+.keychron-keys-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.keychron-swatch { display: inline-block; width: 16px; height: 12px; border-radius: var(--r-xs); background: var(--key); box-shadow: var(--key-shadow); }
+.keychron-curve-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: start; min-width: 0; }
+.keychron-curve-body > * { min-width: 0; }
+.keychron-curve-body > div:first-child { max-width: 360px; }
+.keychron-curve { display: block; width: 100%; height: auto; border-radius: var(--r-md); background: var(--well); box-shadow: var(--inset-shadow); touch-action: none; }
+.keychron-curve-grid { stroke: var(--line-1); stroke-width: 1; fill: none; }
+.keychron-curve-tick { fill: var(--text-3); font-size: 10px; font-variant-numeric: tabular-nums; }
+.keychron-curve-line { stroke: var(--accent); stroke-width: 2; fill: none; stroke-linejoin: round; }
+.keychron-curve-point { fill: var(--solid-2); stroke: var(--accent); stroke-width: 2; cursor: grab; }
+.keychron-curve-point.is-active, .keychron-curve-point:focus-visible { fill: var(--accent); outline: none; }
+.keychron-curve-point[aria-disabled="true"] { cursor: default; stroke: var(--line-3); }
+.keychron-curve-xaxis { display: block; text-align: center; }
+.keychron-curve-side { display: grid; gap: 12px; min-width: 0; }
+.keychron-curve-readout { display: block; color: var(--text-1); font-size: var(--fs-body); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.keychron-curve-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-meta); }
+.keychron-curve-table col.is-point { width: 44px; }
+.keychron-curve-table :is(th, td) { padding: 6px 8px 6px 0; border-top: 1px solid var(--line-1); text-align: start; vertical-align: middle; font-weight: 400; }
+.keychron-curve-table thead th { border-top: 0; color: var(--text-3); }
+.keychron-curve-table tbody th { color: var(--text-2); }
+.keychron-curve-table tr.is-active :is(th, td) { color: var(--text-1); }
+.keychron-curve-table input { width: 100%; min-width: 0; }
+.keychron-curve-raw { color: var(--text-3); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.keychron-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.keychron-figure { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.keychron-key.is-unknown .keychron-face { font-family: var(--font-mono, monospace); font-size: calc(var(--u) * 0.24); }
+.keychron-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.keychron-picker-head input { width: 100%; }
+.keychron-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.keychron-pick { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 4px; border: 0; border-radius: var(--r-sm); background: var(--key); box-shadow: var(--key-shadow); color: var(--text-2); font: inherit; font-size: var(--fs-meta); font-weight: 550; text-align: center; cursor: pointer; overflow-wrap: anywhere; }
+.keychron-pick small { color: var(--text-3); font-size: var(--fs-small); font-weight: 400; }
+.keychron-pick:hover:not(:disabled) { background: var(--btn-hover); color: var(--text-1); }
+.keychron-pick[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); color: var(--accent); }
+.keychron-pick:disabled { opacity: 0.5; cursor: default; }
+.keychron-pick:focus-visible { outline: none; box-shadow: var(--focus); }
+

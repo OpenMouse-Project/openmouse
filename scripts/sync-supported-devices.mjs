@@ -1,4 +1,4 @@
-// Mirrors the supported-devices table into src/supported-devices-data.ts.
+// Mirrors the supported-devices table into src/features/hardware-test/supported-devices-data.ts.
 //
 // The source of truth is the landing page's `supported-mice.ts` (the table the
 // openmouse.app/supported page renders; itself re-checked against the
@@ -8,8 +8,15 @@
 //
 // Usage:
 //   node scripts/sync-supported-devices.mjs
+//   npm run sync:devices
 // (Requires Node ≥ 23.6 so the landing page's .ts table can be imported
 // directly with type stripping. Run from the openmouse repo root.)
+//
+// Sibling-repo layout: this script expects the landing-page repo checked out
+// next to this one, so that ../openmouse-landing-page resolves:
+//   <parent>/
+//     openmouse/                  ← this repo (run the script here)
+//     openmouse-landing-page/     ← source of truth (src/data/supported-mice.ts)
 //
 // The mirror keeps only the fields the crosscheck needs (brand, model, status,
 // pids) and drops votes/notes, so the generated file is a compact snapshot.
@@ -19,7 +26,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-const source = join(root, "..", "openmouse-landing-page", "src", "supported-mice.ts");
+const source = join(root, "..", "openmouse-landing-page", "src", "data", "supported-mice.ts");
 
 const { MICE } = await import(pathToFileURL(source).href);
 
@@ -31,7 +38,7 @@ const rows = MICE.map((entry) => {
 const out = `// Supported-devices table, mirrored from the landing page.
 //
 // AUTO-GENERATED — do not edit by hand. Source of truth:
-//   openmouse-landing-page/src/supported-mice.ts
+//   openmouse-landing-page/src/data/supported-mice.ts
 // (the table behind openmouse.app/supported, re-checked against the
 // @openmouse/protocol driver registry every time the landing page builds).
 //
@@ -61,5 +68,5 @@ ${rows.join("\n")}
 ];
 `;
 
-writeFileSync(join(root, "src", "supported-devices-data.ts"), out);
-console.log(`Wrote src/supported-devices-data.ts with ${MICE.length} entries from ${source}`);
+writeFileSync(join(root, "src", "features", "hardware-test", "supported-devices-data.ts"), out);
+console.log(`Wrote src/features/hardware-test/supported-devices-data.ts with ${MICE.length} entries from ${source}`);

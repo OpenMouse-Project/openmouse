@@ -1,16 +1,23 @@
-import type { ReactNode } from "react";
+import { displayText } from "../i18n/index";
+import { PenLine } from "lucide-react";
+import { memo, type ReactNode } from "react";
 import * as control from "../device/controller";
-import type { ControlSnapshot } from "../device/types";
-import { t } from "../i18n";
+import { t } from "../i18n/index";
+import { useControlSelector } from "./useControl";
+import { useUiLocale } from "../shared/ui-locale";
 
-export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const { pending } = snapshot;
-  if (pending.suppressed || pending.count === 0) return null;
-  const locale = snapshot.preferences.locale;
-  const busy = pending.busy;
-  const label = pending.count === 1
+export const PendingBar = memo(function PendingBar(): ReactNode {
+  const count = useControlSelector((snapshot) => snapshot.pending.count);
+  const suppressed = useControlSelector((snapshot) => snapshot.pending.suppressed);
+  const busy = useControlSelector((snapshot) => snapshot.pending.busy);
+  const labelsKey = useControlSelector((snapshot) => snapshot.pending.labels.join(" · "));
+  const locale = useUiLocale();
+  // Text comes from the lazy locale table, not just the locale code.
+  useControlSelector((snapshot) => snapshot.localeTableRevision);
+  if (suppressed || count === 0) return null;
+  const label = count === 1
     ? t(locale, "pend.one")
-    : `${pending.count} ${t(locale, "pend.many")}`;
+    : `${count} ${t(locale, "pend.many")}`;
   return (
     <div
       id="pending-changes-bar"
@@ -19,12 +26,9 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
       aria-label={t(locale, "pend.region")}
     >
       <span className="apply-bar-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3 2.5 20h19L12 3Z" />
-          <path d="M12 9.5v4M12 16.8v.2" />
-        </svg>
-        {label}
-        {pending.labels.length > 0 ? <em className="apply-bar-summary">{pending.labels.join(" · ")}</em> : null}
+        <PenLine strokeWidth={1.8} aria-hidden="true" />
+        {displayText(locale, label)}
+        {labelsKey.length > 0 ? <em className="apply-bar-summary">{displayText(locale, labelsKey)}</em> : null}
       </span>
       <div className="apply-bar-actions">
         <button
@@ -43,9 +47,9 @@ export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNo
           disabled={busy}
           onClick={() => void control.flashPendingChanges()}
         >
-          {busy ? t(locale, "pend.applying") : t(locale, "pend.apply")}
+          {displayText(locale, busy ? t(locale, "pend.applying") : t(locale, "pend.apply"))}
         </button>
       </div>
     </div>
   );
-}
+});
