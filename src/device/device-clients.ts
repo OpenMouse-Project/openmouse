@@ -1,4 +1,5 @@
 import { ArbiterKeyboardClient } from "./arbiter-keyboard.ts";
+import { GloriousKeyboardClient } from "./glorious-keyboard.ts";
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import type { KeyboardClient } from "./keyboard-client.ts";
 import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
@@ -10,6 +11,7 @@ import { KeychronKeyboardClient } from "./keychron-keyboard.ts";
 import { keychronHallEffectEnabled } from "./keychron-flag.ts";
 import { ViaKeyboardClient } from "./via-keyboard.ts";
 import { mouseReceiverRole, receiverKey } from "./mouse-receivers.ts";
+import { MchoseKeyboardClient } from "./mchose-keyboard.ts";
 import type { PulsarClient, SupportedClient } from "@openmouse/protocol/drivers/registry";
 export { describeHidDevice } from "./hid-diagnostics.ts";
 export { type PulsarClient, type SupportedClient };
@@ -123,8 +125,8 @@ export type { KeyboardClient };
 export function isKeyboardClient(client: SupportedClient | KeyboardClient): client is KeyboardClient {
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
     || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
-    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient
-    || client instanceof ViaKeyboardClient;
+    || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient || client instanceof MchoseKeyboardClient
+    || client instanceof GloriousKeyboardClient || client instanceof ViaKeyboardClient;
 }
 
 /**
@@ -140,7 +142,10 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
   if (LogitechKeyboardClient.isSupported(device)) return new LogitechKeyboardClient(device);
   if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
   if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
+  if (MchoseKeyboardClient.isSupported(device)) return new MchoseKeyboardClient(device);
   if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
+  // Ahead of VIA: the GMMK Eternal's stock firmware uses QMK's raw HID page.
+  if (GloriousKeyboardClient.isSupported(device)) return new GloriousKeyboardClient(device);
   if (ViaKeyboardClient.isSupported(device)) return new ViaKeyboardClient(device);
   return null;
 }
@@ -240,6 +245,22 @@ export async function siblingMouseClient(device: HIDDevice, devices: HIDDevice[]
     if (!best || score > best.score) best = { client, score };
   }
   return best?.client ?? null;
+}
+
+/**
+ * A keyboard client on another interface of a receiver whose mouse interface
+ * opened but had no mouse behind it. A Keychron Link keyboard dongle exposes
+ * Launcher's 0x8c mouse collection next to VIA, and only the VIA side has
+ * anything paired to it.
+ */
+export function siblingKeyboardClient(device: HIDDevice, devices: HIDDevice[]): KeyboardClient | null {
+  const key = receiverKey(device);
+  for (const other of devices) {
+    if (other === device || receiverKey(other) !== key) continue;
+    const keyboard = createKeyboardClient(other);
+    if (keyboard) return keyboard;
+  }
+  return null;
 }
 
 /** Supported devices for the sidebar; multi-path drivers collapse via their module. */

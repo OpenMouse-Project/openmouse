@@ -22,6 +22,7 @@ export interface SupportedDeviceEntry {
   brand: string;
   model: string;
   status: SupportedDevicesStatus;
+  /** Known product ids from the page table (hex), when the driver pins them. */
   pids?: readonly number[];
 }
 
@@ -92,6 +93,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Redragon", model: "M696 Pro", status: "driver" },
   { brand: "Redragon", model: "M721 Pro", status: "driver" },
   { brand: "Redragon", model: "M724 K1NG 1K", status: "supported", pids: [0xfc7a] },
+  { brand: "Redragon", model: "M719 Invader Pro", status: "supported", pids: [0xfa7e, 0xfab0] },
   { brand: "Fater", model: "MCR-9000B", status: "pr", pids: [0xa09f] },
   { brand: "AJAZZ", model: "NJ07 MC", status: "pr", pids: [0x2167] },
   { brand: "AJAZZ", model: "NJ08 MC", status: "pr", pids: [0x2168] },
@@ -420,6 +422,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Angry Miao", model: "Infinity .97", status: "unknown" },
   { brand: "Dark Project", model: "Novus SE", status: "unknown" },
   { brand: "Scyrox", model: "V8", status: "unknown" },
+  { brand: "Scyrox", model: "V8S", status: "supported", pids: [0xf515, 0xf517] },
   { brand: "Mchose", model: "AX5", status: "unknown" },
   { brand: "AJAZZ", model: "AJ139 Pro", status: "unknown" },
   { brand: "AJAZZ", model: "AJ199", status: "unknown" },
@@ -670,6 +673,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Razer", model: "DeathAdder Essential (2021)", status: "pending" },
   { brand: "Razer", model: "RC30-030501", status: "pending" },
   { brand: "Razer", model: "RZ01-0385", status: "pending" },
+  { brand: "Redgear", model: "X13 Pro", status: "supported", pids: [0xb412] },
   { brand: "Redgear", model: "A10", status: "pending" },
   { brand: "Redgear", model: "X12 V2", status: "pending" },
   { brand: "Redgear", model: "A20", status: "pending" },

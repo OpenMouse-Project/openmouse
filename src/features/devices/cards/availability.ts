@@ -3,8 +3,10 @@ import { isPulsarProProtocol } from "../../../device/traits.ts";
 import { isSlxStatus, slxProfiles, slxTmr } from "../../../device/finalmouse-slx.ts";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import type { ControlSnapshot } from "../../../device/types";
+import { atkSupportsMacroBindings } from "./atk-capabilities.ts";
 
 export interface CardAvailability {
+  keychronReceiver: boolean;
   dpi: boolean;
   polling: boolean;
   sensor: boolean;
@@ -40,6 +42,7 @@ export interface CardAvailability {
   eggHanded: boolean;
   razerButtons: boolean;
   atkButtons: boolean;
+  atkMacros: boolean;
   atkProfile: boolean;
   atkReceiver: boolean;
   atkF1Sensor: boolean;
@@ -49,6 +52,8 @@ export interface CardAvailability {
   onboardProfiles: boolean;
   buttonMapping: boolean;
   ksnakeMacros: boolean;
+  xiaomiMacros: boolean;
+  leobogMacros: boolean;
   wallhackScanning: boolean;
   wallhackCurves: boolean;
   wallhackMacros: boolean;
@@ -60,6 +65,7 @@ export interface CardAvailability {
 }
 
 const NOTHING: CardAvailability = {
+  keychronReceiver: false,
   dpi: false,
   polling: false,
   sensor: false,
@@ -95,6 +101,7 @@ const NOTHING: CardAvailability = {
   eggHanded: false,
   razerButtons: false,
   atkButtons: false,
+  atkMacros: false,
   atkProfile: false,
   atkReceiver: false,
   atkF1Sensor: false,
@@ -104,6 +111,8 @@ const NOTHING: CardAvailability = {
   onboardProfiles: false,
   buttonMapping: false,
   ksnakeMacros: false,
+  xiaomiMacros: false,
+  leobogMacros: false,
   wallhackScanning: false,
   wallhackCurves: false,
   wallhackMacros: false,
@@ -149,6 +158,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     && selectableValues(capabilities.razerLowPowerOptions, status.lowBatteryWarning) !== null;
 
   return {
+    keychronReceiver: Boolean(status.keychronReceiver || ui?.receiverControls
+      || snapshot.devices?.some(device => device.selected
+        && device.vendorId === 0x3434 && device.productId === 0xd05a)),
     dpi: ready,
     // The Attack Shark X11's settings channel is native-only (settingsReady
     // stays false), but its polling rate is still controllable through
@@ -169,16 +181,23 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     lighting: Boolean(status.lighting || status.lightingZones?.length),
     lightingAdvanced: host && !isNoirKsnake && Boolean(status.lighting || status.lightingZones?.length),
     onboardProfiles: (status.profileCount ?? 0) > 1 && status.activeProfile != null,
-    buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length),
+    buttonMapping: Boolean(status.buttonMappings) && Boolean(status.buttonOptions?.length)
+      && !(snapshot.gameProfileDraft && ui?.family === "steelseries-rival650"),
     // K-snake/M2-NEX exposes the macro write/commit path. The editor starts
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
     ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
+    // The Xiaomi Mi Gaming Mouse exposes per-button custom combos and macros
+    // through the vendor control interface.
+    xiaomiMacros: ui?.family === "xiaomi",
     // WALLHACK M-001 extras. Curves and macros need mouse firmware 57+; the
     // cards surface the device error when an older board refuses the read.
     wallhackScanning: ui?.family === "wallhack-mouse" && status.sensorScanningMode != null,
     wallhackCurves: ui?.family === "wallhack-mouse" && status.dynamicSensitivityEnabled != null,
     wallhackMacros: ui?.family === "wallhack-mouse",
+    // The GM3 macro table is write-only, so the editor is always offered; it
+    // starts blank and holds whatever this session uploaded.
+    leobogMacros: ui?.family === "leobog-gm3",
     powerMode: host && Boolean(status.powerModes?.length),
     profiles: traits.logitech
       && status.deviceMode !== undefined && status.deviceMode !== "Unknown",
@@ -192,7 +211,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
       && status.debounceMs !== null && status.debounceMs !== undefined,
     sleep: host && (traits.sleep || capabilities?.sleepOptions != null || razerSleep)
       && ui?.hideSleepCard !== true,
-    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake) && status.scrollDirection != null,
+    ksnakeScroll: (ui?.family === "ksnake" || isNoirKsnake || ui?.family === "keychron-8k") && status.scrollDirection != null,
     lowPower: host && razerLowPower,
     processing: host && processing,
     ninjutsoSensor: host && traits.ninjutso
@@ -243,6 +262,7 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // it, and only for a product whose profile sets buttonMapping.
     razerButtons: status.razerButtonMappings != null,
     atkButtons: (status.atkButtonMappings?.length ?? 0) > 0,
+    atkMacros: atkSupportsMacroBindings(status),
     atkProfile: status.atkProfileCount !== undefined && status.activeProfile !== null,
     atkReceiver: status.atkReceiver !== undefined,
     atkF1Sensor: status.atkSensorMode != null,

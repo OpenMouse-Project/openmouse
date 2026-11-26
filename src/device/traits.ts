@@ -45,6 +45,11 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   vgn: SHARED_ADVANCED,
   wlmouse: DIRECT_MODE,
   lamzu: DIRECT_MODE,
+  // The Atlantis client (Lamzu Atlantis, Scyrox V8S) stores debounce and sleep
+  // in flash and publishes its own debounce ceiling (15 ms), which only the
+  // direct-mode path reads. Without the entry the sleep card still appeared
+  // through its option list, but the debounce card never did.
+  "lamzu-atlantis": DIRECT_MODE,
   lunafury: DIRECT_MODE,
   "attack-shark": DIRECT_MODE,
   bytech: DIRECT_MODE,
@@ -83,9 +88,15 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // it publishes its own sleep and debounce option lists.
   "mchose-v3": { advancedSection: true, sleep: true, debounce: true },
   dareu: { advancedSection: true, sleep: true },
+  // Amkette's XS firmware stores auto sleep as whole minutes and publishes its
+  // own list through getSleepOptions.
+  "amkette-xs": { advancedSection: true, sleep: true },
   // The Model O2 Pro 4K/8K writes a debounce block and a motion sync flag; it
   // has no sleep command wired in, so no sleep flag.
   "glorious-core2": { advancedSection: true, debounce: true },
+  // Model O/D Wireless: the protocol driver already implements MXW's
+  // per-profile debounce command through setDebounceTime.
+  "glorious-classic": { advancedSection: true, debounce: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the
   // plain flags rather than DIRECT_MODE (its advancedSection already comes
@@ -104,6 +115,14 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // Hitscan stores a 0-8 ms debounce in flash and publishes its own ceiling.
   // Its sleep units are unresolved, so the driver hides the sleep card.
   hitscan: { advancedSection: true, debounce: true },
+  // LEOBOG GM3 keeps both in its vendor configuration block: a six-step button
+  // debounce and a 1-20 minute auto-sleep timer (plus an off switch). Its
+  // advancedSection already comes from ui.showAdvancedSection, but the cards
+  // never render without these flags, exactly like incott above.
+  "leobog-gm3": { advancedSection: true, sleep: true, debounce: true },
+  // The Iris stores an 8-32 ms button response in each onboard profile and
+  // publishes that list; it has no sleep timer.
+  thermaltake: { advancedSection: true, debounce: true },
 };
 
 const BY_BRAND: Readonly<Record<string, string>> = {

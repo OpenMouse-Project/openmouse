@@ -5,13 +5,14 @@ import type { KsnakeMacroProfile } from "@openmouse/protocol/ksnake";
 import type { KeychronNapeLayerKeymap } from "@openmouse/protocol/keychron";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import type { WallhackCurvePoint, WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import type { XiaomiBinding, XiaomiMacroEvent } from "@openmouse/protocol/xiaomi";
 import type { DpiStageCapabilities, DpiStagePlan, OnboardProfile } from "@openmouse/protocol/drivers/logitech/onboard-profiles";
 import type { InterfacePreferences } from "../features/settings/interface-preferences";
 import type { PreviewMode } from "./preview/preview-modes";
 import type { DriverTraits } from "./traits";
 import type { M2NexProfile } from "./m2nex-profiles";
 
-export type WorkspaceTab = "overview" | "performance" | "buttons" | "macro" | "lighting" | "profiles" | "advanced";
+export type WorkspaceTab = "overview" | "performance" | "buttons" | "macro" | "lighting" | "receiver" | "profiles" | "advanced";
 
 export const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = [
   "overview",
@@ -19,6 +20,7 @@ export const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = [
   "buttons",
   "macro",
   "lighting",
+  "receiver",
   "profiles",
   "advanced",
 ];
@@ -52,6 +54,8 @@ export interface DeviceCapabilities {
   dpiStagesWritable: boolean;
   activeDpiStageWritable: boolean;
   dpiStageAxesWritable: boolean;
+  /** The client can recolour a DPI stage (`setDpiStageColor`). */
+  dpiStageColorWritable?: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
   debounceOptions?: number[] | null;
@@ -224,7 +228,7 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "via";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "glorious" | "mchose" | "via";
   /** True when the driver marked the session unusable; reconnect before retrying. */
   faulted?: boolean;
   name: string;
@@ -255,6 +259,8 @@ export interface ControlSnapshot {
 
   devices: SidebarDevice[];
   hasActiveDevice: boolean;
+  /** Identity of the active device (vendorId:productId:name), or null. */
+  activeDeviceKey: string | null;
   deviceArtwork: string | null;
   settingInProgress: boolean;
   atkR1SePlusPairingAvailable: boolean;
@@ -315,6 +321,16 @@ export interface ControlSnapshot {
   wallhackMacros: (WallhackMacroStep[] | null)[] | null;
   wallhackMacrosLoading: boolean;
   wallhackMacrosError: string | null;
+  /**
+   * Xiaomi Mi Gaming Mouse per-button macro slots (8), read from the device.
+   * A slot is null when the button is not bound to a macro mode. Macros are
+   * saved per button through applyXiaomiMacro.
+   */
+  xiaomiMacros: (XiaomiMacroEvent[] | null)[] | null;
+  /** Per-button binding state (mode/modifiers/key) for the eight Xiaomi buttons. */
+  xiaomiBindings: (XiaomiBinding | null)[] | null;
+  xiaomiMacrosLoading: boolean;
+  xiaomiMacrosError: string | null;
   wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null;
   wallhackCurvesLoading: boolean;
   wallhackCurvesError: string | null;

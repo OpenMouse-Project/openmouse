@@ -19,6 +19,7 @@
 // Bridge to serve the app itself over loopback, which is a separate change.
 
 import { HID_FILTERS } from "../../device/hid-filters.ts";
+import { refreshLocalNetworkPermission } from "./local-network-permission.ts";
 import { describeHidDevice, markHidActivity } from "../../device/hid-diagnostics.ts";
 
 
@@ -81,7 +82,7 @@ interface Reply {
 }
 
 type Command =
-  | { type: "list"; vendorIds: number[] }
+  | { type: "list"; vendorIds: number[]; usages?: { usagePage: number; usage?: number }[] }
   | { type: "open"; device: string }
   | { type: "close"; device: string }
   | { type: "listen"; device: string }
@@ -139,6 +140,19 @@ function vendorIdsFor(filters: HIDDeviceFilter[]): number[] {
     if (filter.vendorId !== undefined) ids.add(filter.vendorId);
   }
   return [...ids];
+}
+
+const VENDOR_DEFINED_USAGE_PAGE = 0xff00;
+
+function listCommand(filters: HIDDeviceFilter[]): Command {
+  const usages = new Map<string, { usagePage: number; usage?: number }>();
+  for (const filter of filters) {
+    if (filter.vendorId !== undefined || filter.productId !== undefined) continue;
+    if (filter.usagePage === undefined || filter.usagePage < VENDOR_DEFINED_USAGE_PAGE) continue;
+    usages.set(`${filter.usagePage}:${filter.usage ?? ""}`, { usagePage: filter.usagePage, usage: filter.usage });
+  }
+  const vendorIds = vendorIdsFor(filters);
+  return usages.size > 0 ? { type: "list", vendorIds, usages: [...usages.values()] } : { type: "list", vendorIds };
 }
 
 // Listeners are kept in a set rather than by extending EventTarget: WebHID
@@ -467,7 +481,7 @@ class BridgeHid implements HID {
   }
 
   async #listDevices(): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(HID_FILTERS) });
+    const reply = await this.#client.request(listCommand(HID_FILTERS));
     const { devices, added, removed } = this.#client.reconcile(reply.devices ?? []);
     if (this.#enumerated) {
       for (const device of added) this.#emit("connect", device);
@@ -479,7 +493,7 @@ class BridgeHid implements HID {
   }
 
   async requestDevice(options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> {
-    const reply = await this.#client.request({ type: "list", vendorIds: vendorIdsFor(options.filters) });
+    const reply = await this.#client.request(listCommand(options.filters));
     const { devices } = this.#client.reconcile(reply.devices ?? []);
     this.#enumerated = true;
     this.#startPolling();
@@ -530,6 +544,7 @@ export function bridgeHid(transport: BridgeTransport, onDisconnect?: () => void)
 // "disconnected" the instant Bridge's process goes away, without polling
 // bridgeStatus() itself just to answer "is it there".
 let bridgeHidActive = false;
+let installedShim: HID | null = null;
 const bridgeHidActiveListeners = new Set<(active: boolean) => void>();
 
 function setBridgeHidActive(active: boolean): void {
@@ -677,15 +692,23 @@ export async function installBridgeHid(options: { force?: boolean } = {}): Promi
   if (navigator.hid && !options.force) return true;
   const transport = await openSocket(BRIDGE_SOCKET_URL);
   if (!transport) {
-    setBridgeHidActive(false);
+    const permission = await refreshLocalNetworkPermission();
+    bridgeLog("warn", "bridge unreachable", { detail: { permission } });
+    // A newer attempt can install its shim while the permission query is in
+    // flight. This attempt owns nothing then, so it must not report Bridge off.
+    if (!installedShim) setBridgeHidActive(false);
     return Boolean(navigator.hid);
   }
-  // Only a disconnect from the currently installed shim clears the flag, so
-  // a superseded socket closing late cannot deactivate its replacement.
+  // Only the shim that is still `navigator.hid` clears the flag, so a
+  // superseded socket closing late cannot deactivate its replacement.
   const shim = bridgeHid(transport, () => {
-    if (typeof navigator !== "undefined" && navigator.hid === shim) setBridgeHidActive(false);
+    if (typeof navigator !== "undefined" && navigator.hid === shim) {
+      installedShim = null;
+      setBridgeHidActive(false);
+    }
   });
   Object.defineProperty(navigator, "hid", { value: shim, configurable: true });
+  installedShim = shim;
   setBridgeHidActive(true);
   return true;
 }

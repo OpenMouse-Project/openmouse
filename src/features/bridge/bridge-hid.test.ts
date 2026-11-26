@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bridgeEmptyResultMessage, bridgeHid, type BridgeTransport } from "./bridge-hid.ts";
+import { bridgeEmptyResultMessage, bridgeHid, installBridgeHid, isBridgeHidActive, type BridgeTransport } from "./bridge-hid.ts";
 
 interface Fake {
   transport: BridgeTransport;
@@ -81,6 +81,25 @@ test("drives a device end to end over the socket", async () => {
   fake.reply({ id: fake.sent[5].id, ok: true });
 
   // Stops the enumeration poll, which would otherwise hold the test open.
+  fake.transport.onClose?.();
+});
+
+test("a vendor-less filter on a vendor-defined page is sent as a usage, never a standard one", async () => {
+  const fake = fakeTransport();
+  const hid = bridgeHid(fake.transport);
+
+  const scan = hid.requestDevice({
+    filters: [{ usagePage: 0xff60, usage: 0x61 }, { usagePage: 0xff60, usage: 0x61 }, { usagePage: 0x01, usage: 0x06 }, { vendorId: 0x3554, usagePage: 0xff02 }],
+  });
+  assert.deepEqual(fake.sent[0].usages, [{ usagePage: 0xff60, usage: 0x61 }]);
+  assert.deepEqual(fake.sent[0].vendorIds, [0x3554]);
+  fake.reply({ id: fake.sent[0].id, ok: true, devices: [] });
+  await scan;
+
+  const plain = hid.requestDevice({ filters: [{ vendorId: 0x3554 }] });
+  assert.equal("usages" in fake.sent[1], false);
+  fake.reply({ id: fake.sent[1].id, ok: true, devices: [] });
+  await plain;
   fake.transport.onClose?.();
 });
 
@@ -182,4 +201,55 @@ test("an empty Bridge result with known devices names the VID/PID", () => {
   assert.match(message, /none matches a supported control interface/);
   assert.match(message, /Pulsar X2/);
   assert.match(message, /VID/);
+});
+
+test("a failed install does not clear the flag of a newer install", async () => {
+  const sockets: FakeSocket[] = [];
+  class FakeSocket extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send(): void {}
+    close(): void {}
+    emit(type: string, props: Record<string, unknown> = {}): void {
+      this.dispatchEvent(Object.assign(new Event(type), props));
+    }
+  }
+  const originalWebSocket = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const queried = Promise.withResolvers<void>();
+  const permission = Promise.withResolvers<{ state: string }>();
+  const nav = {
+    permissions: {
+      query: () => {
+        queried.resolve();
+        return permission.promise;
+      },
+    },
+  };
+  Object.defineProperty(globalThis, "WebSocket", { value: FakeSocket, configurable: true, writable: true });
+  Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+  try {
+    const failing = installBridgeHid({ force: true });
+    sockets[0].emit("error");
+    await queried.promise;
+
+    const succeeding = installBridgeHid({ force: true });
+    sockets[1].emit("open");
+    assert.equal(await succeeding, true);
+    assert.equal(isBridgeHidActive(), true);
+
+    permission.resolve({ state: "prompt" });
+    assert.equal(await failing, true);
+    assert.equal(isBridgeHidActive(), true, "the earlier failure must not report the newer shim off");
+
+    sockets[1].emit("close", { code: 1000, reason: "" });
+    assert.equal(isBridgeHidActive(), false);
+  } finally {
+    if (originalWebSocket) Object.defineProperty(globalThis, "WebSocket", originalWebSocket);
+    else Reflect.deleteProperty(globalThis, "WebSocket");
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
+  }
 });
