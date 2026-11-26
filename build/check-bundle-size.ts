@@ -50,11 +50,23 @@ export const BUDGET_BYTES: Record<string, number> = {
   // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
-  ".css": 178_000,
-  // Rival 650 button editor, localized labels and read-back: 3,994,659 -> 4,008,887 bytes of JS.
-  // Fresh read before applying edits and confirming sparse reports: 4,011,082 bytes.
-  // Localized Rival 650 wireless persistence note: 4,013,600 bytes total JS.
-  ".js": 4_014_000,
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
+  // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
+  // applying and the wireless persistence note add 135 bytes of CSS and 16,373
+  // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
+  ".css": 180_000,
+  ".js": 4_200_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

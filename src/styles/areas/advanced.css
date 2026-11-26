@@ -164,6 +164,20 @@ aside.testing-note strong { display: none; }
 .arbiter-supertap-tiles { display: flex; gap: 12px; flex-wrap: wrap; }
 .om-btn.arbiter-supertap-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 112px; min-width: 0; height: auto; min-height: 72px; padding: 12px; text-align: center; }
 .arbiter-supertap-tile small { color: var(--text-3); font-size: var(--fs-small); line-height: 1.2; }
+.glorious-wide { grid-column: 1 / -1; }
+.glorious-deck-scroll { overflow-x: auto; }
+.glorious-deck { position: relative; min-width: 640px; width: 100%; }
+.glorious-key { position: absolute; box-sizing: border-box; display: grid; align-content: center; gap: 2px; padding: 2px; border: 3px solid transparent; background-clip: padding-box; font-size: var(--fs-small); overflow: hidden; }
+.glorious-key small { color: var(--text-3); font-size: 10px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.glorious-key.is-mapped { box-shadow: inset 0 -2px 0 var(--accent); }
+.glorious-key.is-selected small { color: inherit; }
+.glorious-mods { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.glorious-recorder { display: flex; flex-wrap: wrap; gap: 6px; min-height: 48px; padding: 8px; border: 1px dashed var(--line-2); border-radius: 8px; }
+.glorious-recorder.is-recording { border-color: var(--accent); }
+.glorious-step { padding: 2px 6px; border-radius: 4px; background: var(--surface-2); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.glorious-macro-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.glorious-macro-list li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.glorious-macro-list small { color: var(--text-3); flex: 1; }
 .arbiter-supertap-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: 600; line-height: 1.2; }
 .om-btn.arbiter-supertap-tile.is-armed { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
 .arbiter-supertap-tile.is-armed small { color: inherit; }

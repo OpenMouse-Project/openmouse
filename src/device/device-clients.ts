@@ -1,4 +1,5 @@
 import { ArbiterKeyboardClient } from "./arbiter-keyboard.ts";
+import { GloriousKeyboardClient } from "./glorious-keyboard.ts";
 import { KochiKeyboardClient } from "./kochi-keyboard.ts";
 import type { KeyboardClient } from "./keyboard-client.ts";
 import { WuqueKeyboardClient } from "./wuque-keyboard.ts";
@@ -124,7 +125,7 @@ export function isKeyboardClient(client: SupportedClient | KeyboardClient): clie
   return client instanceof WuqueKeyboardClient || client instanceof KochiKeyboardClient || client instanceof WootingKeyboardClient
     || client instanceof RazerKeyboardClient || client instanceof LogitechKeyboardClient || client instanceof SteelSeriesKeyboardClient
     || client instanceof KeychronKeyboardClient || client instanceof ArbiterKeyboardClient
-    || client instanceof ViaKeyboardClient;
+    || client instanceof GloriousKeyboardClient || client instanceof ViaKeyboardClient;
 }
 
 /**
@@ -141,6 +142,8 @@ export function createKeyboardClient(device: HIDDevice): KeyboardClient | null {
   if (SteelSeriesKeyboardClient.isSupported(device)) return new SteelSeriesKeyboardClient(device);
   if (ArbiterKeyboardClient.isSupported(device)) return new ArbiterKeyboardClient(device);
   if (keychronHallEffectEnabled() && KeychronKeyboardClient.isSupported(device)) return new KeychronKeyboardClient(device);
+  // Ahead of VIA: the GMMK Eternal's stock firmware uses QMK's raw HID page.
+  if (GloriousKeyboardClient.isSupported(device)) return new GloriousKeyboardClient(device);
   if (ViaKeyboardClient.isSupported(device)) return new ViaKeyboardClient(device);
   return null;
 }

@@ -3431,6 +3431,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     if (!telemetry) keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
       ? st("kb.sent")
       : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
+        || (command.kind.startsWith("glorious") && command.kind !== "gloriousUnlock")
         ? st("kb.writeOnly")
         : st("kb.updated");
   } catch (error) {
@@ -7878,17 +7879,26 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
   return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
 }
 
-/** Show an Arbiter keyboard from invented data; nothing is read from or written to a device. */
+/** Show a keyboard from invented data; nothing is read from or written to a device. */
 async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
-  const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
-  const client = new ArbiterPreviewClient(name);
+  let client: KeyboardClient;
+  let label: string;
+  if (name === "glorious-gmmk2-65-iso" || name === "glorious-gmmk3-he-75") {
+    const { gloriousPreviewClient, gloriousPreviewLabel } = await import("./preview/glorious-preview");
+    client = gloriousPreviewClient(name);
+    label = gloriousPreviewLabel(name);
+  } else {
+    const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
+    client = new ArbiterPreviewClient(name);
+    label = arbiterPreviewLabel(name);
+  }
   activeDevice = client.device;
   activeKeyboard = client;
   keyboardIdentity = await client.readIdentity();
   keyboardWorkspace = { ...keyboardWorkspace, ...await client.command({ kind: "refresh" }) };
   sidebarDevices = [{ index: 0, name: client.name, detail: "", selected: true, vendorId: client.device.vendorId, productId: client.device.productId, kind: "keyboard", transport: "webhid" }];
   setConnectionButtons(true, "Preview mode");
-  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, arbiterPreviewLabel(name)) }));
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, label) }));
   deviceListView = "device";
   emit();
 }
@@ -7969,7 +7979,8 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
-  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65") {
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65"
+    || previewMode === "glorious-gmmk2-65-iso" || previewMode === "glorious-gmmk3-he-75") {
     void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {
     void showFixturePreview(previewMode).then(() => {
