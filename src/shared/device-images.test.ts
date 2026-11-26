@@ -90,6 +90,14 @@ test("ATK ZERO resolves by name", () => {
   assert.equal(deviceImage(null, "ATK ZERO"), CDN + "atk-zero.png");
 });
 
+test("Xiaomi Mi Gaming Mouse resolves by name (wired and wireless PIDs)", () => {
+  // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
+  // device-images.ts) until the render is uploaded to R2.
+  assert.equal(deviceImage(null, "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
+  assert.equal(deviceImage(dev(0x2717, 0x5009), "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
+  assert.equal(deviceImage(dev(0x2717, 0x500b), "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
+});
+
 test("Dareu A950 PRO Mg resolves by name", () => {
   assert.equal(deviceImage(null, "Dareu A950 PRO Mg"), CDN + "dareu-a950-pro-mg.png");
 });

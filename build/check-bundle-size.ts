@@ -65,8 +65,13 @@ export const BUDGET_BYTES: Record<string, number> = {
   // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
   // applying and the wireless persistence note add 135 bytes of CSS and 16,373
   // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
-  ".css": 180_000,
-  ".js": 4_200_000,
+  // 2026-11-26: Xiaomi Mi Gaming Mouse (combo remapping, macro editor and tab,
+  // product photo, strings in every locale) adds 1,624 bytes of CSS
+  // (178,628 -> 180,252) and 55,745 bytes of JS (4,177,946 -> 4,233,691); main
+  // grew to 1,568,467 bytes, below its cap. 4.3 MB also leaves room for the
+  // Rival 650 button editor (#1589, about 16 kB).
+  ".css": 182_000,
+  ".js": 4_300_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

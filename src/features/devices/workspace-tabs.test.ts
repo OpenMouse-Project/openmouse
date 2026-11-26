@@ -95,3 +95,8 @@ test("the macro tab also follows the Incott macro capability", () => {
   const tabs = availableWorkspaceTabs(true, availability({ incottMacros: true }));
   assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
 });
+
+test("the macro tab also follows the Xiaomi macro capability", () => {
+  const tabs = availableWorkspaceTabs(true, availability({ xiaomiMacros: true }));
+  assert.deepEqual(tabs, ["overview", "performance", "macro", "advanced"]);
+});

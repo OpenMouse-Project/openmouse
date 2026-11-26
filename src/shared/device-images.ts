@@ -189,6 +189,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bm1\s*[-_]?\s*nex\b/i.test(displayName)) return "noir-m1-nex.png";
   if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
   if (/fantech/i.test(displayName)) return "unknown-device.png";
+  // The driver reports the model as "Mi Gaming Mouse" for both the wired
+  // (0x5009) and wireless (0x500b) PIDs, so one name rule covers both.
+  if (/mi\s*gaming\s*mouse/i.test(displayName)) return "xiaomi-mi-gaming-mouse.png";
   return "unknown-device.png";
 }
 
@@ -220,6 +223,9 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   // The keyboard placeholder: a black keyboard silhouette with a question mark,
   // the keyboard twin of unknown-device.png. Served locally until it is in the bucket.
   "unknown-keyboard.png": "/devices/unknown-keyboard.png",
+  // Rendered from the reference app's animation frames (black background
+  // removed); served locally until the R2 upload happens.
+  "xiaomi-mi-gaming-mouse.png": "/devices/xiaomi-mi-gaming-mouse.png",
 };
 
 export type DeviceImageKind = "mouse" | "keyboard";

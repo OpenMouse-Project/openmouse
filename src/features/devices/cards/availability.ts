@@ -50,6 +50,7 @@ export interface CardAvailability {
   onboardProfiles: boolean;
   buttonMapping: boolean;
   ksnakeMacros: boolean;
+  xiaomiMacros: boolean;
   wallhackScanning: boolean;
   wallhackCurves: boolean;
   wallhackMacros: boolean;
@@ -106,6 +107,7 @@ const NOTHING: CardAvailability = {
   onboardProfiles: false,
   buttonMapping: false,
   ksnakeMacros: false,
+  xiaomiMacros: false,
   wallhackScanning: false,
   wallhackCurves: false,
   wallhackMacros: false,
@@ -180,6 +182,9 @@ function computeCardAvailability(snapshot: ControlSnapshot): CardAvailability {
     // with local slots because this firmware does not expose a reliable macro
     // read through the browser.
     ksnakeMacros: ui?.family === "ksnake" || isNoirKsnake,
+    // The Xiaomi Mi Gaming Mouse exposes per-button custom combos and macros
+    // through the vendor control interface.
+    xiaomiMacros: ui?.family === "xiaomi",
     // WALLHACK M-001 extras. Curves and macros need mouse firmware 57+; the
     // cards surface the device error when an older board refuses the read.
     wallhackScanning: ui?.family === "wallhack-mouse" && status.sensorScanningMode != null,

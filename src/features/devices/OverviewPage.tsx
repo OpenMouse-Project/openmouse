@@ -54,6 +54,7 @@ import {
   ButtonMappingCard,
   KsnakeMacroCard,
   WallhackMacroCard,
+  XiaomiMacroCard,
   PowerModeCard,
   OnboardProfileCard,
   PulsarProCard,
@@ -414,6 +415,7 @@ export function Workspace({
     show(has.ksnakeMacros, ["macro"]) ? <KsnakeMacroCard key="ksnake-macros" snapshot={snapshot} /> : null,
     show(has.wallhackMacros, ["macro"]) ? <WallhackMacroCard key="wallhack-macros" snapshot={snapshot} /> : null,
     show(has.incottMacros, ["macro"]) ? <IncottMacroCard key="incott-macros" snapshot={snapshot} /> : null,
+    show(has.xiaomiMacros, ["macro"]) ? <XiaomiMacroCard key="xiaomi-macros" snapshot={snapshot} /> : null,
   ].filter((node) => node !== null);
 
   const advanced = [
