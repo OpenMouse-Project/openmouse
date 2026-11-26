@@ -55,6 +55,15 @@ test("a different chunk failing later in the session still recovers", () => {
   assert.equal(reloads, 2);
 });
 
+test("an earlier chunk failing again after another one recovered is left to surface", () => {
+  const target = stubBrowser();
+  const other = new TypeError("Failed to fetch dynamically imported module: https://control.openmouse.app/assets/settings-Dk2pQx9a.js");
+  preloadError(target, stale);
+  preloadError(target, other);
+  assert.equal(preloadError(target, stale).defaultPrevented, false);
+  assert.equal(reloads, 2);
+});
+
 test("no reload when storage is unavailable, so it cannot loop", () => {
   const target = stubBrowser();
   define("sessionStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });

@@ -103,6 +103,12 @@ test("a pruned chunk that comes back as HTML is not cached", async () => {
   assert.equal(worker.stored.size, 0);
 });
 
+test("a mixed-case HTML content type is still recognised", async () => {
+  const worker = loadWorker([], () => new Response("<!doctype html>", { headers: { "Content-Type": "Text/HTML; charset=utf-8" } }));
+  await worker.request("/assets/registry-old.js");
+  assert.equal(worker.stored.size, 0);
+});
+
 test("a cached HTML copy of an asset is treated as a miss", async () => {
   const worker = loadWorker([], script);
   worker.stored.set(`${ORIGIN}/assets/registry-new.js`, html());

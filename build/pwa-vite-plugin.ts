@@ -104,7 +104,7 @@ function storable(response) {
  */
 function htmlForAsset(url, response) {
   return new URL(url, self.location.origin).pathname.startsWith("/assets/")
-    && (response.headers.get("Content-Type") ?? "").includes("text/html");
+    && (response.headers.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase() === "text/html";
 }
 
 /** Drops the oldest entries once a cache grows past its limit. */
