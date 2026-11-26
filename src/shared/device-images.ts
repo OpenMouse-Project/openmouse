@@ -164,6 +164,8 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
+  if (/\bkeychron\s*turbo\s*link\b/i.test(displayName)) return "keychron-turbolink-8k.png";
+  if (/\bkeychron\s*g6\s*he\b/i.test(displayName)) return "keychron-g6-he.png";
   // Keychron Hall-effect keyboards share the keyboard placeholder until real art exists.
   if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return UNKNOWN_KEYBOARD_FILENAME;
   // Starlight X is a different shell from the ULX/Starlight-12, so it gets its

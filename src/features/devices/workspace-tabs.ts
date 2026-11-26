@@ -6,13 +6,14 @@ export function availableWorkspaceTabs(
   has: CardAvailability,
   options: { hideLighting?: boolean } = {},
 ): readonly WorkspaceTab[] {
-  if (!connected) return WORKSPACE_TAB_ORDER;
+  if (!connected) return WORKSPACE_TAB_ORDER.filter(tab => tab !== "receiver");
   const hasButtons = has.eggButtons || has.eggHanded || has.razerButtons || has.mxMasterButtons || has.atkButtons
     || has.buttonMapping || has.debounce || has.lightforce || has.eggSpdt || has.superstrike || has.magnetic
     || has.ksnakeScroll || has.lunafuryButtons || has.lunafuryWheelGuard || has.tmrDs;
   const hasProfiles = has.profiles || has.keychronNapeLayers || has.atkProfile
     || has.onboardProfiles || has.pulsarPro;
   return WORKSPACE_TAB_ORDER.filter((tab) => {
+    if (tab === "receiver") return has.keychronReceiver;
     if (tab === "lighting") return !options.hideLighting && (has.lighting || has.teevolutionDpiLighting);
     if (tab === "buttons") return hasButtons;
     if (tab === "macro") return has.ksnakeMacros || has.wallhackMacros || has.incottMacros || has.xiaomiMacros;
@@ -36,6 +37,7 @@ export function availableKeyboardWorkspaceTabs(family?: string): readonly Worksp
   if (family === "logitech") return ["overview", "performance", "lighting"];
   if (family === "steelseries") return ["overview", "performance", "lighting", "profiles"];
   if (family === "arbiter") return ["overview", "performance", "buttons", "lighting"];
+  if (family === "glorious") return ["overview", "performance", "buttons", "macro"];
   if (family === "via") return ["overview", "buttons", "macro", "lighting", "advanced"];
   return WORKSPACE_TAB_ORDER;
 }

@@ -34,6 +34,15 @@ import {
 import { isPulsarProProtocol } from "../../../device/traits";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
 import {
+  RIVAL650_ACTION_LABELS,
+  RIVAL650_BUTTON_LABELS,
+  RIVAL650_KEY_LABELS,
+  RIVAL650_KEY_NAMES,
+  RIVAL650_CUSTOM_ASSIGNMENT,
+  rival650ButtonLocked,
+} from "../../../device/rival650-buttons.ts";
+import type { Rival650ButtonName } from "@openmouse/protocol/steelseries";
+import {
   SLX_CLICK_ANALOG,
   SLX_CLICK_MECHANICAL,
   SLX_RELEASE_EARLY,
@@ -317,7 +326,7 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
 export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  if (status?.ui?.family !== "ksnake" || status.scrollDirection == null) return null;
+  if (status?.scrollDirection == null || !["ksnake", "keychron-8k"].includes(status.ui?.family ?? "") && !isNoirKsnakeStatus(status)) return null;
   const staged = snapshot.pending.keys.includes("ksnake-scroll-direction");
   return (
     <article id="ksnake-scroll-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
@@ -346,7 +355,12 @@ export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): R
           </span>
         </label>
       </div>
-      <small className="setting-note">{t(locale, "adv.scrollStored")}</small>
+      {status.brand === "Keychron" && /Windows|Macintosh|Mac OS X/.test(navigator.userAgent) ?
+        <a className="om-btn" href={/Macintosh|Mac OS X/.test(navigator.userAgent)
+          ? "x-apple.systempreferences:com.apple.Mouse-Settings.extension" : "ms-settings:mousetouchpad"}>
+          {t(locale, "magnetic.openSystem")}
+        </a> : null}
+      <small className="setting-note">{status.ui?.family === "keychron-8k" ? t(locale, "magnetic.scrollStored") : t(locale, "adv.scrollStored")}</small>
     </article>
   );
 }
@@ -3141,10 +3155,12 @@ export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): 
  * so nothing here knows what a given mouse can do.
  */
 export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [leftLocked, setLeftLocked] = useState(true);
   const status = snapshot.status;
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
+  const isRival650 = status.ui?.family === "steelseries-rival650";
   const isNoirProfile = isNoirKsnakeStatus(status)
     && snapshot.m2nexProfiles !== null;
   const selectedM2NexProfile = isNoirProfile
@@ -3160,28 +3176,44 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   return (
     <article id="button-mapping-settings" className="setting-card">
       <div className="setting-heading compact"><div><h2>{t(locale, "map.remap")}</h2></div></div>
+      {isRival650 ? (
+        <>
+          <p className="field-note">{t(locale, "map.rival650Note")}</p>
+          <img className="rival650-button-diagram" src="/devices/steelseries-rival-650-button-layout.svg"
+            width={800} height={450} alt={t(locale, "adv.eggHandedTitle")} />
+        </>
+      ) : null}
+      {status.brand === "Keychron" ? <SwitchRow id="keychron-left-lock" label={t(locale, "magnetic.leftLock")} value={leftLocked} onChange={setLeftLocked} /> : null}
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
           const assigned = resettingButtons || pendingButtons.has(`button-${button}`)
             ? status.buttonMappings?.[button] ?? mappings[button] ?? deviceAssigned
             : mappings[button] ?? deviceAssigned;
           const selectId = `button-${button.toLowerCase()}-select`;
-          const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left");
+          const isFixed = fixed.has(button) || (isRival650 && rival650ButtonLocked(button, mappings))
+            || (isNoirKsnakeStatus(status) && button === "Left") || (status.brand === "Keychron" && leftLocked && button === "Left");
+          const buttonLabel = isRival650
+            ? t(locale, RIVAL650_BUTTON_LABELS[button as Rival650ButtonName])
+            : displayText(locale, button);
           return (
             <label key={button} className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
               <span className="button-map-control">
-                <span className="button-map-index" aria-hidden="true">{displayText(locale, String(index + 1).padStart(2, "0"))}</span>
-                <span className="button-map-name">{displayText(locale, button)}</span>
+                <span className="button-map-index" aria-hidden={!isRival650}>
+                  {displayText(locale, String(index + 1).padStart(isRival650 ? 1 : 2, "0"))}
+                </span>
+                <span className="button-map-name">{buttonLabel}</span>
               </span>
               <span className="button-map-connector" aria-hidden="true">{displayText(locale, "to")}</span>
               <span className="button-map-select-wrap">
                 <select
                   id={selectId}
                   value={options.includes(assigned) ? assigned : ""}
-                  disabled={isFixed}
+                  disabled={isFixed || (isRival650 && (!assigned || snapshot.settingInProgress))}
                   onChange={(event) => {
-                    // M2-NEX edits its selected local profile slot; every other
-                    // driver writes straight through to the device.
+                    if (isRival650) {
+                      control.stageRival650Button(button, event.currentTarget.value);
+                      return;
+                    }
                     if (selectedM2NexProfile) {
                       control.updateM2NexProfileButton(button, event.currentTarget.value);
                       return;
@@ -3190,25 +3222,44 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
                   }}
                 >
                   {/* A macro or an assignment this build cannot name still shows. */}
-                  {!options.includes(assigned) && <option value="">{displayText(locale, assigned)}</option>}
-                  {options.map((option) => <option key={option} value={option}>{displayText(locale, option)}</option>)}
+                  {!options.includes(assigned) && (
+                    <option value="">
+                      {isRival650 ? t(locale, assigned === RIVAL650_CUSTOM_ASSIGNMENT ? "common.custom" : "diag.unknown")
+                        : displayText(locale, assigned)}
+                    </option>
+                  )}
+                  {isRival650
+                    ? <>
+                      {[...RIVAL650_ACTION_LABELS].map(([option, label]) => (
+                        <option key={option} value={option}>{t(locale, label)}</option>
+                      ))}
+                      <optgroup label={t(locale, "map.keysSection")}>
+                        {Object.entries(RIVAL650_KEY_NAMES).map(([option, label]) => (
+                          <option key={option} value={option}>{t(locale, label)}</option>
+                        ))}
+                        {[...RIVAL650_KEY_LABELS].map(([option, label]) => (
+                          <option key={option} value={option}>{label}</option>
+                        ))}
+                      </optgroup>
+                    </>
+                    : options.map(option => <option key={option} value={option}>{displayText(locale, option)}</option>)}
                 </select>
               </span>
             </label>
           );
         })}
       </div>
-      {canResetKsnake ? (
+      {canResetKsnake || isRival650 ? (
         <div className="button-map-footer">
           <button
             type="button"
             className="button-map-reset"
             disabled={snapshot.settingInProgress || snapshot.pending.busy}
-            onClick={control.resetKsnakeButtonMappings}
-          > {displayText(locale, "Reset to default")} </button>
+            onClick={isRival650 ? control.resetRival650ButtonMappings : control.resetKsnakeButtonMappings}
+          > {isRival650 ? t(locale, "map.rival650Defaults") : displayText(locale, "Reset to default")} </button>
         </div>
       ) : null}
-      {!selectedM2NexProfile ? (
+      {!selectedM2NexProfile && !isRival650 ? (
         <p className="field-note">{t(locale, "map.defaultNote")}</p>
       ) : null}
     </article>

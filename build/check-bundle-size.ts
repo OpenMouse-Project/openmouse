@@ -47,8 +47,31 @@ import { join } from "node:path";
 // measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
 // 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
 export const BUDGET_BYTES: Record<string, number> = {
-  ".css": 170_000,
-  ".js": 3_950_000,
+  // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
+  // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
+  // Main stays at 1,459,853 bytes, below its existing separate cap.
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
+  // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
+  // applying and the wireless persistence note add 135 bytes of CSS and 16,373
+  // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
+  // 2026-11-26: Xiaomi Mi Gaming Mouse (combo remapping, macro editor and tab,
+  // product photo, strings in every locale) adds 1,624 bytes of CSS
+  // (178,628 -> 180,252) and 55,745 bytes of JS (4,177,946 -> 4,233,691); main
+  // grew to 1,568,467 bytes, below its cap. 4.3 MB also leaves room for the
+  // Rival 650 button editor (#1589, about 16 kB).
+  ".css": 182_000,
+  ".js": 4_300_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB

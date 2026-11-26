@@ -12,7 +12,7 @@ import type { PreviewMode } from "./preview/preview-modes";
 import type { DriverTraits } from "./traits";
 import type { M2NexProfile } from "./m2nex-profiles";
 
-export type WorkspaceTab = "overview" | "performance" | "buttons" | "macro" | "lighting" | "profiles" | "advanced";
+export type WorkspaceTab = "overview" | "performance" | "buttons" | "macro" | "lighting" | "receiver" | "profiles" | "advanced";
 
 export const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = [
   "overview",
@@ -20,6 +20,7 @@ export const WORKSPACE_TAB_ORDER: readonly WorkspaceTab[] = [
   "buttons",
   "macro",
   "lighting",
+  "receiver",
   "profiles",
   "advanced",
 ];
@@ -225,7 +226,7 @@ export interface KeyboardTriggerView {
 }
 
 export interface KeyboardView {
-  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "via";
+  family?: "wuque" | "kochi" | "wooting" | "razer" | "logitech" | "steelseries" | "keychron" | "arbiter" | "glorious" | "via";
   /** True when the driver marked the session unusable; reconnect before retrying. */
   faulted?: boolean;
   name: string;

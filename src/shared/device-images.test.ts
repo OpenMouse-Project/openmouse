@@ -357,6 +357,8 @@ test("Incott names do not collide with other brands' renders", () => {
 });
 
 test("Keychron Hall-effect keyboards get the keyboard placeholder, not the mouse one", () => {
+  assert.equal(deviceImage(null, "Keychron G6 HE 8K"), CDN + "keychron-g6-he.png");
+  assert.equal(deviceImage(null, "Keychron TurboLink 8K"), CDN + "keychron-turbolink-8k.png");
   for (const name of ["Keychron J3 HE ANSI", "Keychron Carbon 60 HE 8K", "Keychron J2 TMR", "Keychron J3 HE ANSI (preview)"]) {
     assert.equal(deviceImage(null, name), "/devices/unknown-keyboard.png", name);
   }
@@ -380,4 +382,12 @@ test("the load-error placeholder follows the device kind", () => {
   assert.equal(placeholderImage(), CDN + "unknown-device.png");
   assert.equal(placeholderImage("mouse"), CDN + "unknown-device.png");
   assert.equal(placeholderImage("keyboard"), "/devices/unknown-keyboard.png");
+});
+
+test("Rival 650 diagram does not replace the generic product artwork", () => {
+  for (const productId of [0x172b, 0x1726]) {
+    const device = dev(0x1038, productId);
+    assert.equal(deviceImage(device, "SteelSeries Rival 650 Wireless"), placeholderImage());
+    assert.equal(isUnknownDevice(device, "SteelSeries Rival 650 Wireless"), true);
+  }
 });

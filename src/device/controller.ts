@@ -25,6 +25,15 @@ import {
   type SupportedClient,
 } from "./device-clients";
 import { closestDpiOption } from "./dpi-presets";
+import {
+  RIVAL650_FACTORY_MAPPING,
+  editRival650ButtonDraft,
+  mergeRival650ButtonEdits,
+  previewRival650Buttons,
+  rival650ButtonLocked,
+  rival650ButtonStatus,
+  type Rival650ButtonDraft,
+} from "./rival650-buttons.ts";
 import { forgetMouseReceiver, receiverKey, rememberMouseReceiver } from "./mouse-receivers";
 import { rememberDeviceName, rememberedDeviceName } from "./device-names";
 import { lunafurySettingLabel, lunafurySettingPriority } from "./lunafury-labels.ts";
@@ -398,6 +407,8 @@ let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
 let instantFlashQueued = false;
+let manualFlashBatch = false;
+const RIVAL650_BUTTON_MAP_KEY = "rival650-button-map";
 // Set when Apply is clicked while a flash is already writing: the running
 // flash performs one more pass at the end instead of swallowing the click.
 let flashQueued = false;
@@ -652,9 +663,12 @@ function buildSnapshot(): ControlSnapshot {
   // page inspect keys/labels even while suppressed (pending bar hides, the
   // staged state still shows). Instant-flash is the only window where they go
   // unread, and then only until the deferred flash drains the queue.
-  const suppressedPending = interfacePreferences.instantFlash;
+  const suppressedPending = interfacePreferences.instantFlash && !manualFlashBatch;
   const changes = pendingChanges();
-  const status = deviceStatus ? withPendingChanges(deviceStatus) : null;
+  const previewStatus = deviceStatus ? withPendingChanges(deviceStatus) : null;
+  const status = previewStatus?.ui?.family === "steelseries-rival650" && clientHasMethod("updateVerifiedButtonsMapping")
+    ? rival650ButtonStatus(previewStatus)
+    : previewStatus;
   return {
     deviceStatus,
     status,
@@ -743,7 +757,7 @@ function buildSnapshot(): ControlSnapshot {
       labels: suppressedPending ? EMPTY_PENDING_LABELS : changes.map((change) => change.label),
       busy: pendingBusy,
       statusText: pendingStatusText,
-      suppressed: interfacePreferences.instantFlash || gameProfileDraft !== null,
+      suppressed: suppressedPending || gameProfileDraft !== null,
       keys: changes.map((change) => change.key),
     },
     gameProfileDraft: gameProfileDraft !== null,
@@ -1672,7 +1686,7 @@ async function callClientMethod(method: string, setting: string, value: unknown)
   await client[method]!(value as never);
 }
 
-function stageChange(change: PendingChange): void {
+function stageChange(change: PendingChange, { force = false } = {}): void {
   // stagePendingChange + onPendingChanges listener + setReadStatus each emit;
   // hold them so one edit renders once.
   batch(() => {
@@ -1691,17 +1705,20 @@ function stageChange(change: PendingChange): void {
     }
     // Reset repairs the profile cache too, so it must run even when the current
     // hardware snapshot already appears to match the factory mapping.
-    if (change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
+    if (!force && change.key !== "ksnake-button-reset" && matchesDeviceStatus(change)) {
       dropPendingChange(change.key);
       setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
       return;
     }
+    // Once the batch requires Apply, keep it visible through a partial flash
+    // or the removal of a button edit until the entire batch is cleared.
+    if (change.key === RIVAL650_BUTTON_MAP_KEY) manualFlashBatch = true;
     stagePendingChange(change);
     if (gameProfileDraft) {
       emit();
       return;
     }
-    if (interfacePreferences.instantFlash) {
+    if (interfacePreferences.instantFlash && !manualFlashBatch) {
       queueInstantFlash();
       emit();
       return;
@@ -1717,7 +1734,8 @@ function queueInstantFlash(): void {
     instantFlashQueued = false;
     // The preference can be switched off before this deferred callback runs.
     // In that case leave the change staged for the Apply bar.
-    if (interfacePreferences.instantFlash) void flashPendingChanges();
+    // The Rival 650 writes a complete mapping and always requires Apply.
+    if (interfacePreferences.instantFlash && !manualFlashBatch) void flashPendingChanges();
   });
 }
 
@@ -1762,17 +1780,23 @@ function gameProfileFieldsOf(change: PendingChange): string[] | null {
   return editableProfileFields(base, preview);
 }
 
-type PendingStash = { changes: PendingChange[]; analog: Map<0 | 1, AnalogTuning> };
+type PendingStash = {
+  changes: PendingChange[];
+  analog: Map<0 | 1, AnalogTuning>;
+  manualFlashBatch: boolean;
+};
 
 // The HITS values waiting to be written sit in a map of their own, apart from
 // the pending changes that name them, so both are set aside together.
 function stashEverything(): PendingStash {
   const analog = new Map(stagedAnalogButtons);
   stagedAnalogButtons.clear();
-  return { changes: stashPendingChanges(), analog };
+  const manual = manualFlashBatch;
+  return { changes: stashPendingChanges(), analog, manualFlashBatch: manual };
 }
 
 function restoreEverything(stash: PendingStash): void {
+  manualFlashBatch = stash.manualFlashBatch;
   restorePendingChanges(stash.changes);
   stagedAnalogButtons.clear();
   for (const [button, tuning] of stash.analog) stagedAnalogButtons.set(button, tuning);
@@ -3570,6 +3594,7 @@ export async function applyKeyboardCommand(command: KeyboardCommand): Promise<vo
     if (!telemetry) keyboardStatusText = command.kind === "caps" || command.kind === "direct" || command.kind === "steelseriesColor"
       ? st("kb.sent")
       : command.kind === "razerEffect" || command.kind === "logitechRgbEffect" || command.kind === "logitechSolidColor"
+        || (command.kind.startsWith("glorious") && command.kind !== "gloriousUnlock")
         ? st("kb.writeOnly")
         : st("kb.updated");
   } catch (error) {
@@ -4923,6 +4948,7 @@ function stageMagneticButton(
   const name = `${MAGNETIC_SIDE[button]} click ${label}`;
   stageChange({
     key: `magnetic-${setting}-${button}`,
+    priority: latestDeviceStatus?.brand === "Keychron" && setting === "trigger" ? -1 : 0,
     label: name,
     command: `Set the ${name.toLowerCase()}`,
     progress: `Setting the ${name.toLowerCase()}…`,
@@ -4984,7 +5010,19 @@ export function applyMagneticSwitchType(button: 0 | 1, type: "magnetic" | "optic
 }
 
 export function subscribeButtonDepth(listener: (left: number, right: number) => void): () => void {
-  return magneticClient()?.onButtonDepth?.(listener) ?? (() => {});
+  let current: MagneticButtonClient | null = null;
+  let stop = () => {};
+  const bind = () => {
+    const next = magneticClient();
+    if (next === current) return;
+    stop();
+    current = next;
+    listener(NaN, NaN);
+    stop = next?.onButtonDepth?.(listener) ?? (() => {});
+  };
+  bind();
+  const unsubscribe = subscribe(bind);
+  return () => { unsubscribe(); stop(); };
 }
 
 export async function startMagneticCalibration(): Promise<void> {
@@ -6415,6 +6453,70 @@ export function toggleSleep(enabled: boolean): void {
   applyPulsarValue("sleep", enabled ? lastSleepSeconds : WLMOUSE_SLEEP_NEVER);
 }
 
+export function applyKeychronDynamicDpi(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.dynamicDpi) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-dynamic-dpi", label: t(interfacePreferences.locale, "perf.dynSens"),
+    command: "Set Keychron dynamic DPI", progress: "Setting Keychron dynamic DPI...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronDynamicDpi", "dynamic DPI", next),
+  });
+}
+
+export function applyKeychronReceiverButton(button: string, action: string): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  stageChange({ key: `keychron-receiver-${button}`, label: `${button}: ${action}`,
+    command: `Set receiver ${button}`, progress: `Setting receiver ${button}...`,
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    apply: () => callClientMethod("setKeychronReceiverButton", "receiver button", { button, action }),
+  });
+}
+
+export async function refreshKeychronReceiver(): Promise<void> {
+  await waitForControllerIdle();
+  const client = keychron8kClient();
+  if (!client || refreshInProgress || settingInProgress || activationInProgress) return;
+  const device = activeDevice;
+  refreshInProgress = true;
+  try {
+    const status = await client.readStatus();
+    if (activeSettingsClient() !== client || activeDevice !== device) return;
+    applyStatus(status);
+  }
+  catch (error) {
+    if (activeSettingsClient() === client && activeDevice === device) toastForError("Receiver", error);
+  }
+  finally { refreshInProgress = false; }
+}
+
+export function applyKeychronReceiverLighting(value: MouseLighting): void {
+  if (!latestDeviceStatus?.keychronReceiver) return;
+  const next = structuredClone(value);
+  stageChange({ key: "keychron-receiver-lighting", label: t(interfacePreferences.locale, "light.receiverTitle"),
+    command: "Set receiver lighting", progress: "Setting receiver lighting...",
+    preview: status => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(next); },
+    apply: () => callClientMethod("setKeychronReceiverLighting", "receiver lighting", next),
+  });
+}
+
+export function applyKeychronPairing(value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["pairing"]>): void {
+  if (!latestDeviceStatus?.keychronMouse?.pairing) return;
+  stageChange({ key: "keychron-pairing", label: t(interfacePreferences.locale, "magnetic.pairing"),
+    command: "Set Keychron pairing shortcut", progress: "Setting Keychron pairing shortcut...",
+    preview: status => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    apply: () => callClientMethod("setKeychronPairingShortcut", "pairing shortcut", value),
+  });
+}
+
+export function stageKeychronReset(): void {
+  if (!latestDeviceStatus?.keychronMouse?.factoryReset) return;
+  if (!window.confirm(t(interfacePreferences.locale, "magnetic.factoryHint"))) return;
+  stageChange({ key: "keychron-reset", label: t(interfacePreferences.locale, "magnetic.factoryReset"),
+    command: "Reset Keychron mouse", progress: "Resetting Keychron mouse...",
+    apply: async () => { await requireClientMethod("resetKeychronMouse", "factory reset").resetKeychronMouse(); },
+  });
+}
+
 export function applyKsnakeScrollDirection(
   direction: NonNullable<MouseStatus["scrollDirection"]>,
 ): void {
@@ -6954,6 +7056,47 @@ export function applyPowerMode(mode: string): void {
       await requireClientMethod("setPowerMode", "the performance mode").setPowerMode(mode);
     },
   });
+}
+
+export function stageRival650Button(button: string, action: string): void {
+  const status = getSnapshot().status;
+  if (status?.ui?.family !== "steelseries-rival650" || !status.buttonMappings
+    || !Object.hasOwn(status.buttonMappings, button) || !status.buttonMappings[button]
+    || rival650ButtonLocked(button, status.buttonMappings)
+    || !status.buttonOptions?.includes(action)) return;
+  if (!latestDeviceStatus) return;
+  const pending = pendingChanges().find((change): change is PendingChange & { buttonDraft: Rival650ButtonDraft } =>
+    change.key === RIVAL650_BUTTON_MAP_KEY && "buttonDraft" in change);
+  const draft = editRival650ButtonDraft(latestDeviceStatus, pending?.buttonDraft, button, action);
+  if (draft) stageRival650ButtonDraft(draft);
+}
+
+export function resetRival650ButtonMappings(): void {
+  stageRival650ButtonDraft({ kind: "replace", mapping: RIVAL650_FACTORY_MAPPING });
+}
+
+function stageRival650ButtonDraft(draft: Rival650ButtonDraft): void {
+  const client = activeSettingsClient();
+  if (!activeDevice || latestDeviceStatus?.ui?.family !== "steelseries-rival650" || gameProfileDraft
+    || !client || !("updateVerifiedButtonsMapping" in client) || typeof client.updateVerifiedButtonsMapping !== "function"
+    || !("setVerifiedButtonsMapping" in client) || typeof client.setVerifiedButtonsMapping !== "function") return;
+  const change: PendingChange & { buttonDraft: Rival650ButtonDraft } = {
+    key: RIVAL650_BUTTON_MAP_KEY,
+    buttonDraft: draft,
+    label: st("tab.buttons"),
+    command: st("map.remap"),
+    progress: st("ctl.progRemap"),
+    preview: status => previewRival650Buttons(status, draft),
+    apply: async () => {
+      if (draft.kind === "replace") await client.setVerifiedButtonsMapping(draft.mapping);
+      else await client.updateVerifiedButtonsMapping(current => mergeRival650ButtonEdits(
+        current, draft.edits, st("map.rival650KeepLeftClick"),
+      ));
+    },
+  };
+  // Loading factory defaults explicitly requests a full replacement, even
+  // when the settings currently displayed already match.
+  stageChange(change, { force: draft.kind === "replace" });
 }
 
 /**
@@ -7573,6 +7716,13 @@ function magneticPreviewClient(initial: MouseStatus): SupportedClient {
     open: async () => undefined,
     close: async () => undefined,
     readStatus: async () => structuredClone(status),
+    setScrollDirection: async (direction: "Forward" | "Reverse") => { status.scrollDirection = direction; },
+    setKeychronReceiverButton: async ({ button, action }: { button: string; action: string }) => { if (status.keychronReceiver) status.keychronReceiver.buttonMappings[button] = action; },
+    setKeychronReceiverLighting: async (value: MouseLighting) => { if (status.keychronReceiver) status.keychronReceiver.lighting = structuredClone(value); },
+    setKeychronPairingShortcut: async (value: { mask: number; holdTime: number }) => { if (status.keychronMouse) status.keychronMouse.pairing = { ...value }; },
+    setKeychronDynamicDpi: async (value: NonNullable<NonNullable<MouseStatus["keychronMouse"]>["dynamicDpi"]>) => { if (status.keychronMouse) status.keychronMouse.dynamicDpi = structuredClone(value); },
+    resetKeychronMouse: async () => undefined,
+    setButtonMapping: async (button: string, action: string) => { if (status.buttonMappings) status.buttonMappings[button] = action; },
     setMagneticTriggerPoint: async (button: 0 | 1, point: number) => { buttons()[button]!.triggerPoint = point; return point; },
     setMagneticReleasePoint: async (button: 0 | 1, point: number | null) => { buttons()[button]!.releasePoint = point; return point; },
     setMagneticRapidTrigger: async (button: 0 | 1, enabled: boolean, level: number) => {
@@ -7905,17 +8055,26 @@ function previewShelfEntry(index: number, name: string, selected: boolean): Side
   return { index, name, detail: "", selected, vendorId: 0, productId: 0, kind: "mouse", transport: "webhid" };
 }
 
-/** Show an Arbiter keyboard from invented data; nothing is read from or written to a device. */
+/** Show a keyboard from invented data; nothing is read from or written to a device. */
 async function showKeyboardPreview(name: KeyboardPreviewMode): Promise<void> {
-  const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
-  const client = new ArbiterPreviewClient(name);
+  let client: KeyboardClient;
+  let label: string;
+  if (name === "glorious-gmmk2-65-iso" || name === "glorious-gmmk3-he-75") {
+    const { gloriousPreviewClient, gloriousPreviewLabel } = await import("./preview/glorious-preview");
+    client = gloriousPreviewClient(name);
+    label = gloriousPreviewLabel(name);
+  } else {
+    const { ArbiterPreviewClient, arbiterPreviewLabel } = await import("./preview/arbiter-preview");
+    client = new ArbiterPreviewClient(name);
+    label = arbiterPreviewLabel(name);
+  }
   activeDevice = client.device;
   activeKeyboard = client;
   keyboardIdentity = await client.readIdentity();
   keyboardWorkspace = { ...keyboardWorkspace, ...await client.command({ kind: "refresh" }) };
   sidebarDevices = [{ index: 0, name: client.name, detail: "", selected: true, vendorId: client.device.vendorId, productId: client.device.productId, kind: "keyboard", transport: "webhid" }];
   setConnectionButtons(true, "Preview mode");
-  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, arbiterPreviewLabel(name)) }));
+  setReadStatus(st("ctl.previewLabel", { label: displayText(interfacePreferences.locale, label) }));
   deviceListView = "device";
   emit();
 }
@@ -7960,6 +8119,7 @@ async function showFixturePreview(name: Exclude<PreviewMode, KeyboardPreviewMode
 export function start(): void {
   startHidCapture();
   onPendingChanges(() => {
+    if (!hasPendingChanges()) manualFlashBatch = false;
     if (!isPendingChange(BUNNY_HOP_KEY)) stagedBunnyHopMs = null;
     if (!isPendingChange(PROFILE_RATE_KEY)) stagedProfileRates = { wireless: null, wired: null };
     if (!isPendingChange(PROFILE_NAME_KEY)) stagedProfileName = null;
@@ -7995,7 +8155,8 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
-  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65") {
+  } else if (previewMode === "arbiter-polar-65-pro" || previewMode === "arbiter-polar-65"
+    || previewMode === "glorious-gmmk2-65-iso" || previewMode === "glorious-gmmk3-he-75") {
     void showKeyboardPreview(previewMode);
   } else if (previewMode !== null && previewMode !== "list") {
     void showFixturePreview(previewMode).then(() => {
