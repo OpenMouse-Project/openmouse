@@ -55,7 +55,12 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE)
       // Per entry, so one missing file cannot reject the whole install and
       // leave the app with no offline copy at all.
-      .then((cache) => Promise.allSettled(PRECACHE.map((url) => cache.add(url))))
+      .then((cache) => Promise.allSettled(PRECACHE.map(async (url) => {
+        const response = await fetch(url);
+        if (!response.ok) throw new TypeError(\`\${url} answered \${response.status}\`);
+        if (htmlForAsset(url, response)) throw new TypeError(\`\${url} is missing from this deploy\`);
+        await cache.put(url, response);
+      })))
       .then(() => self.skipWaiting()),
   );
 });
@@ -90,6 +95,16 @@ function storable(response) {
   if (response.redirected) return false;
   if ((response.headers.get("Cache-Control") ?? "").includes("no-store")) return false;
   return response.ok || response.type === "opaque";
+}
+
+/**
+ * Pages answers a missing file with index.html and a 200. A hashed chunk that
+ * a deploy pruned would otherwise be stored, and served from then on, as
+ * markup the browser refuses to run as a module or stylesheet.
+ */
+function htmlForAsset(url, response) {
+  return new URL(url, self.location.origin).pathname.startsWith("/assets/")
+    && (response.headers.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase() === "text/html";
 }
 
 /** Drops the oldest entries once a cache grows past its limit. */
@@ -139,10 +154,10 @@ async function networkFirst(request) {
  */
 async function cacheFirst(request) {
   const cached = await caches.match(request, MATCH);
-  if (cached) return cached;
+  if (cached && !htmlForAsset(request.url, cached)) return cached;
 
   const response = await fetch(request);
-  if (storable(response)) {
+  if (storable(response) && !htmlForAsset(request.url, response)) {
     const cache = await caches.open(CACHE);
     await cache.put(request, response.clone());
   }
