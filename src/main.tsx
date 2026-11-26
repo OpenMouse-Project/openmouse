@@ -13,6 +13,7 @@ import {
 import { unsupportedNotice } from "./platform/browser-support";
 import { start } from "./device/controller";
 import { mountOfflineBanner } from "./platform/offline-banner";
+import { installPreloadRecovery } from "./platform/preload-recovery";
 import { registerServiceWorker } from "./platform/register-sw";
 import { startSelfXssGuard } from "./platform/self-xss-guard";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
@@ -33,6 +34,7 @@ function isChromium(): boolean {
   return /Chrom(e|ium)\/|Edg\//.test(navigator.userAgent);
 }
 
+installPreloadRecovery();
 registerServiceWorker();
 mountOfflineBanner();
 if (import.meta.env.PROD) startSelfXssGuard();
