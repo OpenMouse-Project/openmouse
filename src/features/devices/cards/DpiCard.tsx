@@ -1,6 +1,6 @@
 import { displayText } from "../../../i18n/index";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Link2, Unlink2 } from "lucide-react";
 import {
   capabilitiesForFormat,
   stageLodLevel,
@@ -11,7 +11,6 @@ import { isNoirE1Status, isNoirKsnakeStatus, isNoirS1Status, NOIR_DPI_STAGE_COLO
 import { closestDpiOption, dpiPresetValues } from "../../../device/dpi-presets";
 import { t, tp } from "../../../i18n/index";
 import { LiftOffDistance, hasLiftOff } from "./PerformanceCards";
-import { IconLinked, IconUnlinked } from "../../../shared/icons";
 
 const MAX_EDITOR_ROWS = 4;
 /** G HUB's Host profile has five DPI slots. */
@@ -530,7 +529,7 @@ function DpiStageEditor({
                   aria-pressed={row.linked !== false}
                   onClick={() => toggleLink(index)}
                 >
-                  {row.linked === false ? <IconUnlinked /> : <IconLinked />}
+                  {row.linked === false ? <Unlink2 size={12} strokeWidth={2} stroke="currentColor" aria-hidden="true" /> : <Link2 size={12} strokeWidth={2} stroke="currentColor" aria-hidden="true" />}
                 </button>
               ) : null}
               {showAxes ? (

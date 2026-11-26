@@ -16,7 +16,9 @@ const toCount = (value) => {
 };
 
 async function fetchDirect(fetchImpl) {
-  const response = await fetchImpl(INVITE_API, { headers: REQUEST_HEADERS });
+  // Hung upstreams must not hold the Worker: aborts surface as exceptions
+  // and join the error string via the fetchDiscordCounts catch below.
+  const response = await fetchImpl(INVITE_API, { headers: REQUEST_HEADERS, signal: AbortSignal.timeout(10000) });
   if (!response.ok) return { error: `discord ${response.status}` };
   const data = await response.json();
   const members = toCount(data?.approximate_member_count);
@@ -26,7 +28,7 @@ async function fetchDirect(fetchImpl) {
 }
 
 async function fetchShieldsField(fetchImpl, field) {
-  const response = await fetchImpl(shieldsRelay(field), { headers: REQUEST_HEADERS });
+  const response = await fetchImpl(shieldsRelay(field), { headers: REQUEST_HEADERS, signal: AbortSignal.timeout(10000) });
   if (!response.ok) return null;
   const data = await response.json();
   return toCount(data?.message ?? data?.value);

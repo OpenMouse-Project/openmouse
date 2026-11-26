@@ -1,6 +1,8 @@
 export type BatteryMode = "charging" | "discharging";
 
 export interface BatterySample {
+  /** Browser-owned identity; legacy histories are assigned deterministic IDs when read. */
+  id?: string;
   timestamp: number;
   percent: number;
   mode: BatteryMode;
@@ -49,7 +51,10 @@ function loadHistory(storage: Storage): BatteryHistory {
 
 function pruneSamples(stored: unknown, cutoff: number): BatterySample[] {
   if (!Array.isArray(stored)) return [];
-  return stored.filter((sample): sample is BatterySample =>
+  return stored.map((sample, index) => {
+    if (!sample || typeof sample !== "object" || !Number.isFinite(sample.timestamp)) return sample;
+    return { ...sample, id: typeof sample.id === "string" && sample.id ? sample.id : `legacy:${sample.timestamp}:${index}` };
+  }).filter((sample): sample is BatterySample =>
     typeof sample === "object"
     && sample !== null
     && Number.isFinite((sample as BatterySample).timestamp)
@@ -93,7 +98,7 @@ export function saveBatterySample(
     || previous.percent !== percent
     || now - previous.timestamp >= CHECKPOINT_MS;
 
-  if (shouldSave) samples.push({ timestamp: now, percent, mode });
+  if (shouldSave) samples.push({ id: crypto.randomUUID(), timestamp: now, percent, mode });
   const retainedSamples = samples.slice(-MAX_SAMPLES_PER_DEVICE);
   history[deviceName] = retainedSamples;
   for (const key of keys) {

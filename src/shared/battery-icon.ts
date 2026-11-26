@@ -1,5 +1,5 @@
 import type { MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
-import { setSanitizedHtml } from "../platform/trusted-types.ts";
+import { setTrustedHtml } from "../platform/trusted-types.ts";
 
 export type BatteryIconState = "charging" | "dead" | "low" | "ok" | "unknown";
 
@@ -57,26 +57,27 @@ export function batteryFillWidth(percent: number): number {
 const BOLT = "M14.3 3.1 9.3 9.2h3.1l-.9 3.9 5.2-6.2h-3.1l.7-3.8Z";
 const DEAD_CROSS = "m9.9 5.7 5.2 3.9M15.1 5.7 9.9 9.6";
 
-function fillRect(width: number, masked: boolean): string {
-  return `<rect class="battery-fill"${masked ? ` mask="url(#battery-bolt-mask)"` : ""} x="${TRACK_X}" y="${TRACK_Y}" width="${width.toFixed(2)}" height="${TRACK_HEIGHT}" rx="${TRACK_RADIUS}"/>`;
+function fillRect(width: number, maskId: string | null): string {
+  return `<rect class="battery-fill"${maskId !== null ? ` mask="url(#${maskId})"` : ""} x="${TRACK_X}" y="${TRACK_Y}" width="${width.toFixed(2)}" height="${TRACK_HEIGHT}" rx="${TRACK_RADIUS}"/>`;
 }
 
 export function batteryIconMarkup(
   percent: number | null | undefined,
   state: MouseStatus["batteryState"],
+  maskId = "battery-bolt-mask",
 ): string {
   const kind = batteryIconState(percent, state);
   const level = batteryLevel(percent, state);
   let inner = "";
   if (kind === "charging") {
-    inner = `<mask id="battery-bolt-mask">
+    inner = `<mask id="${maskId}">
       <rect x="0" y="0" width="30" height="15" fill="#fff"/>
       <path d="${BOLT}" fill="#000" stroke="#000" stroke-width="1.8" stroke-linejoin="round"/>
-    </mask>${level === null ? "" : fillRect(batteryFillWidth(level), true)}<path class="battery-bolt" d="${BOLT}"/>`;
+    </mask>${level === null ? "" : fillRect(batteryFillWidth(level), maskId)}<path class="battery-bolt" d="${BOLT}"/>`;
   } else if (kind === "dead") {
     inner = `<path class="battery-dead" d="${DEAD_CROSS}"/>`;
   } else if (level !== null) {
-    inner = fillRect(batteryFillWidth(level), false);
+    inner = fillRect(batteryFillWidth(level), null);
   }
   return `<svg class="battery-icon is-${kind}" viewBox="0 0 30 15" aria-hidden="true" focusable="false">
     <rect class="battery-shell" x="0.85" y="0.85" width="23.3" height="13.3" rx="3.6"/>
@@ -97,7 +98,7 @@ export function renderBatteryIcon(
   const fill = svg?.querySelector<SVGRectElement>(".battery-fill");
   const sameShape = svg?.classList.contains(`is-${kind}`) === true && (level === null) === (fill === null);
   if (!sameShape) {
-    setSanitizedHtml(container, batteryIconMarkup(percent, state));
+    setTrustedHtml(container, batteryIconMarkup(percent, state));
     return;
   }
   if (fill && level !== null) fill.setAttribute("width", batteryFillWidth(level).toFixed(2));

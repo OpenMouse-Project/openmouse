@@ -30,13 +30,54 @@ import { join } from "node:path";
 // 2026-10-31: VIA keyboard support adds the keycode tables, the definition
 // parser, macro/encoder/lighting editors and their strings, about 82 kB of JS
 // (3,734,304 bytes measured); it is lazy-loaded, main stays under its cap.
-// 2026-11-01: LEOBOG GM3 and VXE R1 SE controls add two drivers, the R1 SE
-// button/macro editors, the GM3 button remapper plus macro recorder, and their
-// strings across twelve locales. Measured 3,817,628 bytes of JS; main is
-// 1,391,607 bytes, still below its cap.
-const BUDGET_BYTES: Record<string, number> = {
-  ".css": 170_000,
-  ".js": 3_850_000,
+//
+// 2026-11-04: @openmouse/protocol 0.49.0 -> 0.51.x adds the Hitscan web
+// protocol driver, Amkette XS, Attack Shark X3 Pro, MCHOSE A7 Ultra and
+// L7 Pro+, Paro Aurora and Corsair Scimitar RGB Elite, about 70 kB of JS
+// (3,743,762 -> 3,813,797 bytes measured); main is 1,384,701 bytes, below its cap.
+//
+// 2026-11-06: Incott macro card (library, recorder, step editor, button
+// assignment) and its strings in every locale add about 33 kB of JS, measured
+// against the protocol build it needs: 3,892,361 -> 3,925,511 bytes (the rest
+// of that build's growth is protocol drivers released since 0.52.0). Main is
+// 1,431,450 bytes, below its cap; CSS is 169,383 bytes, below its cap.
+//
+// 2026-11-07: @openmouse/protocol 0.52.0 -> 0.58.0 (six releases of new and
+// extended drivers) adds about 77.5 kB of JS (3,816,912 -> 3,894,416 bytes
+// measured in the Update Mouse Protocol workflow); main grew 27.7 kB to
+// 1,413,917 bytes, below its cap. 3.95 MB leaves room for one more release.
+export const BUDGET_BYTES: Record<string, number> = {
+  // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
+  // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
+  // Main stays at 1,459,853 bytes, below its existing separate cap.
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
+  // 2026-11-26: Rival 650 button editor, its localized labels, fresh read before
+  // applying and the wireless persistence note add 135 bytes of CSS and 16,373
+  // bytes of JS (4,177,946 -> 4,194,319); main grew to 1,543,844 bytes.
+  // 2026-11-26: Xiaomi Mi Gaming Mouse (combo remapping, macro editor and tab,
+  // product photo, strings in every locale) adds 1,624 bytes of CSS
+  // (178,628 -> 180,252) and 55,745 bytes of JS (4,177,946 -> 4,233,691); main
+  // grew to 1,568,467 bytes, below its cap. 4.3 MB also leaves room for the
+  // Rival 650 button editor (#1589, about 16 kB).
+  // 2026-11-26: MCHOSE Ace 68 Air panel (per-key travel and live depth,
+  // keymap on four layers, macros, DKS/mod-tap/toggle/SOCD, lighting and
+  // per-key colours, calibration, profile files, preview fixture, strings in
+  // every locale). The panel and its driver are lazy-loaded; they add 270,881
+  // bytes of JS (4,233,784 -> 4,504,665) and 6,371 bytes of CSS (180,252 ->
+  // 186,623). Main grew 28,121 bytes to 1,596,681, just below its cap.
+  ".css": 188_000,
+  ".js": 4_600_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
@@ -45,67 +86,84 @@ const BUDGET_BYTES: Record<string, number> = {
 // (instanceof checks and NEEDS_OPEN) — that is the follow-up slice for this
 // issue. The budget keeps those honest: a driver that grows the initial load
 // fails the check instead of silently riding along.
-const MAIN_CHUNK_BUDGET_BYTES = 1_600_000;
+export const MAIN_CHUNK_BUDGET_BYTES = 1_600_000;
 
-const ASSETS = join("dist", "assets");
+export const ASSETS = join("dist", "assets");
 
-function bundles(): { name: string; ext: string; bytes: number }[] {
-  return readdirSync(ASSETS)
+// Preview-fixture chunks only exist in local verification builds; the slack
+// keeps the JS budget green for those runs without hiding real growth.
+export const PREVIEW_FIXTURES_SLACK_BYTES = 18_000;
+
+export interface BundleEntry {
+  name: string;
+  ext: string;
+  bytes: number;
+}
+
+export function bundles(assetsDir: string = ASSETS): BundleEntry[] {
+  return readdirSync(assetsDir)
     .filter((name) => name.endsWith(".css") || name.endsWith(".js"))
     .map((name) => ({
       name,
       ext: name.slice(name.lastIndexOf(".")),
-      bytes: statSync(join(ASSETS, name)).size,
+      bytes: statSync(join(assetsDir, name)).size,
     }));
 }
 
-const found = bundles();
-if (found.length === 0) {
-  console.error(`No bundles in ${ASSETS}. Run "npm run build" first.`);
-  process.exit(1);
-}
-
-const budgets = {
-  ...BUDGET_BYTES,
-  ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? 18_000 : 0),
-};
-
-const totals = new Map<string, number>();
-for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
-
-// The initial chunk is everything first paint waits on: main-*.js plus its
-// eager CSS. Lazy chunks (registry, posthog, secondary pages, locales) do not
-// count toward it.
-const mainBytes = found
-  .filter(({ name }) => /^main-.*\.js$/.test(name))
-  .reduce((sum, { bytes }) => sum + bytes, 0);
-
-let failed = false;
-{
-  const percent = Math.round((mainBytes / MAIN_CHUNK_BUDGET_BYTES) * 100);
-  const label = `MAIN ${String(mainBytes).padStart(7)} / ${MAIN_CHUNK_BUDGET_BYTES} bytes (${percent}%)`;
-  if (mainBytes > MAIN_CHUNK_BUDGET_BYTES) {
-    failed = true;
-    console.error(`over budget  ${label}`);
-  } else {
-    console.log(`ok           ${label}`);
+/** Check the bundles in assetsDir against the budgets. Returns true on failure. */
+export function checkBundles(assetsDir: string = ASSETS): boolean {
+  const found = bundles(assetsDir);
+  if (found.length === 0) {
+    console.error(`No bundles in ${assetsDir}. Run "npm run build" first.`);
+    return true;
   }
-}
-for (const [ext, budget] of Object.entries(budgets)) {
-  const bytes = totals.get(ext) ?? 0;
-  const percent = Math.round((bytes / budget) * 100);
-  const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
-  if (bytes > budget) {
-    failed = true;
-    console.error(`over budget  ${label}`);
-  } else {
-    console.log(`ok           ${label}`);
+
+  const budgets = {
+    ...BUDGET_BYTES,
+    ".js": BUDGET_BYTES[".js"] + (found.some(({ name }) => name.startsWith("preview-fixtures-")) ? PREVIEW_FIXTURES_SLACK_BYTES : 0),
+  };
+
+  const totals = new Map<string, number>();
+  for (const { ext, bytes } of found) totals.set(ext, (totals.get(ext) ?? 0) + bytes);
+
+  // The initial chunk is everything first paint waits on: main-*.js plus its
+  // eager CSS. Lazy chunks (registry, posthog, secondary pages, locales) do not
+  // count toward it.
+  const mainBytes = found
+    .filter(({ name }) => /^main-.*\.js$/.test(name))
+    .reduce((sum, { bytes }) => sum + bytes, 0);
+
+  let failed = false;
+  {
+    const percent = Math.round((mainBytes / MAIN_CHUNK_BUDGET_BYTES) * 100);
+    const label = `MAIN ${String(mainBytes).padStart(7)} / ${MAIN_CHUNK_BUDGET_BYTES} bytes (${percent}%)`;
+    if (mainBytes > MAIN_CHUNK_BUDGET_BYTES) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
   }
+  for (const [ext, budget] of Object.entries(budgets)) {
+    const bytes = totals.get(ext) ?? 0;
+    const percent = Math.round((bytes / budget) * 100);
+    const label = `${ext.slice(1).toUpperCase().padEnd(3)} ${String(bytes).padStart(7)} / ${budget} bytes (${percent}%)`;
+    if (bytes > budget) {
+      failed = true;
+      console.error(`over budget  ${label}`);
+    } else {
+      console.log(`ok           ${label}`);
+    }
+  }
+
+  if (failed) {
+    console.error("");
+    console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
+    console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
+  }
+  return failed;
 }
 
-if (failed) {
-  console.error("");
-  console.error("A bundle grew past its budget. Justify the growth and raise BUDGET_BYTES,");
-  console.error("or find what was added. Adding a CSS framework once cost 19 kB unnoticed.");
-  process.exit(1);
+if (process.argv[1]?.endsWith("check-bundle-size.ts")) {
+  if (checkBundles()) process.exit(1);
 }

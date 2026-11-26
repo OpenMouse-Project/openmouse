@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deviceImage, isUnknownDevice } from "./device-images.ts";
+import { deviceImage, isUnknownDevice, placeholderImage } from "./device-images.ts";
 
 const CDN = "https://img.openmouse.app/";
 
@@ -90,6 +90,14 @@ test("IPI Float 88 resolves by name", () => {
 
 test("ATK ZERO resolves by name", () => {
   assert.equal(deviceImage(null, "ATK ZERO"), CDN + "atk-zero.png");
+});
+
+test("Xiaomi Mi Gaming Mouse resolves by name (wired and wireless PIDs)", () => {
+  // TEMPORARY: served from the repo override (see LOCAL_OVERRIDES in
+  // device-images.ts) until the render is uploaded to R2.
+  assert.equal(deviceImage(null, "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
+  assert.equal(deviceImage(dev(0x2717, 0x5009), "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
+  assert.equal(deviceImage(dev(0x2717, 0x500b), "Mi Gaming Mouse"), "/devices/xiaomi-mi-gaming-mouse.png");
 });
 
 test("Dareu A950 PRO Mg resolves by name", () => {
@@ -358,9 +366,38 @@ test("Incott names do not collide with other brands' renders", () => {
   assert.equal(deviceImage(null, "G303 SHROUD"), CDN + "logitech-g303.png");
 });
 
-test("Keychron Hall-effect keyboards get the local keyboard silhouette, not the mouse placeholder", () => {
+test("Keychron Hall-effect keyboards get the keyboard placeholder, not the mouse one", () => {
+  assert.equal(deviceImage(null, "Keychron G6 HE 8K"), CDN + "keychron-g6-he.png");
+  assert.equal(deviceImage(null, "Keychron TurboLink 8K"), CDN + "keychron-turbolink-8k.png");
   for (const name of ["Keychron J3 HE ANSI", "Keychron Carbon 60 HE 8K", "Keychron J2 TMR", "Keychron J3 HE ANSI (preview)"]) {
-    assert.equal(deviceImage(null, name), "/devices/keychron-keyboard.svg", name);
+    assert.equal(deviceImage(null, name), "/devices/unknown-keyboard.png", name);
   }
   assert.equal(deviceImage(null, "Keychron M6"), CDN + "keychron-m6.png");
+});
+
+test("anything labelled a keyboard falls back to the keyboard placeholder", () => {
+  assert.equal(deviceImage(null, "Arbiter Polar 65", "keyboard"), "/devices/unknown-keyboard.png");
+  assert.equal(deviceImage(null, "Some Unknown Board", "keyboard"), "/devices/unknown-keyboard.png");
+  assert.equal(deviceImage(null, "Generic Gaming Keyboard"), "/devices/unknown-keyboard.png");
+  // A mouse with no art keeps the mouse placeholder.
+  assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(null, "Razer Basilisk V3", "mouse"), CDN + "unknown-device.png");
+});
+
+test("a keyboard with its own art keeps it", () => {
+  assert.equal(deviceImage(null, "Keychron M6", "keyboard"), CDN + "keychron-m6.png");
+});
+
+test("the load-error placeholder follows the device kind", () => {
+  assert.equal(placeholderImage(), CDN + "unknown-device.png");
+  assert.equal(placeholderImage("mouse"), CDN + "unknown-device.png");
+  assert.equal(placeholderImage("keyboard"), "/devices/unknown-keyboard.png");
+});
+
+test("Rival 650 diagram does not replace the generic product artwork", () => {
+  for (const productId of [0x172b, 0x1726]) {
+    const device = dev(0x1038, productId);
+    assert.equal(deviceImage(device, "SteelSeries Rival 650 Wireless"), placeholderImage());
+    assert.equal(isUnknownDevice(device, "SteelSeries Rival 650 Wireless"), true);
+  }
 });

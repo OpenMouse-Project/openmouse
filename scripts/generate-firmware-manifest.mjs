@@ -118,6 +118,7 @@ async function fetchDepot(entry) {
 const devices = [];
 const warnings = [];
 const seen = new Set();
+let depotOkCount = 0;
 
 for (const entry of seed) {
   if (onlyFilter && !entry.name.toLowerCase().includes(onlyFilter.toLowerCase())) continue;
@@ -162,6 +163,7 @@ for (const entry of seed) {
         startWarnings: content.startWarnings ?? dfu.startWarnings ?? [],
       });
     }
+    depotOkCount += 1;
     console.log(`ok   ${entry.name} (${devices.length} entries so far)`);
   } catch (error) {
     warnings.push(`${entry.name}: skipped (${error instanceof Error ? error.message : String(error)})`);
@@ -204,6 +206,16 @@ try {
 }
 
 devices.sort((a, b) => a.id.localeCompare(b.id));
+
+// A run that resolved nothing must never overwrite a good manifest: exit
+// non-zero and leave the previous file (and its version history) in place.
+const okCount = depotOkCount;
+if (okCount <= 0) {
+  console.log(`\nwrote 0 entries to ${outputPath}`);
+  for (const warning of warnings) console.log(`warn: ${warning}`);
+  console.error("error: no depots resolved; refusing to overwrite the manifest");
+  process.exit(1);
+}
 
 const manifest = {
   _comment:

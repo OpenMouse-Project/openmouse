@@ -1,11 +1,10 @@
 import { connectionText, displayText, t, tp, type I18nKey } from "../../i18n/index";
 import { ChevronRight, ImageUp } from "lucide-react";
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import { cachedBatterySamples, type BatterySample } from "./battery-history";
 import type { ControlSnapshot, WorkspaceTab } from "../../device/types";
-import { deviceImage, isUnknownDevice } from "../../shared/device-images";
-import { KeyboardArt } from "../../shared/KeyboardArt";
+import { deviceImage, isUnknownDevice, placeholderImage } from "../../shared/device-images";
 import { ConnectionIcon } from "./DeviceStats";
 
 const ARTWORK_DISCUSSION_URL =
@@ -31,10 +30,9 @@ export function DeviceHero({
   const active = control.getActiveDevice();
   const activeEntry = snapshot.devices.find((device) => device.selected) ?? null;
   const name = status?.name ?? keyboard?.name ?? activeEntry?.name ?? "";
-  // Arbiter keyboards have no product render; draw a keyboard rather than the unknown-device mouse.
-  const keyboardArt = keyboard?.family === "arbiter" && !snapshot.deviceArtwork;
+  // A keyboard with no render of its own gets the keyboard placeholder, never the mouse one.
   const image = snapshot.deviceArtwork
-    ?? (keyboard && !keyboardArt ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name) : null);
+    ?? (keyboard ? deviceImage({ vendorId: keyboard.vendorId, productId: keyboard.productId } as HIDDevice, keyboard.name, "keyboard") : null);
   const needsArtwork = Boolean(status && active && (imageFailed || isUnknownDevice(
     { vendorId: active.vendorId, productId: active.productId } as HIDDevice,
     status.name,
@@ -84,13 +82,12 @@ export function DeviceHero({
               draggable={false}
               onError={(event) => {
                 event.currentTarget.onerror = null;
-                event.currentTarget.src = deviceImage(null);
+                event.currentTarget.src = placeholderImage(keyboard && !snapshot.deviceArtwork ? "keyboard" : "mouse");
                 setImageFailed(true);
               }}
             />
           </div>
         ) : null}
-        {keyboardArt ? <div className="om-device-art"><KeyboardArt label={name} /></div> : null}
         {needsArtwork ? (
           <a className="om-btn is-ghost is-sm om-device-artreq" href={artworkHref} target="_blank" rel="noopener noreferrer">
             <ImageUp strokeWidth={1.9} aria-hidden="true" />
@@ -211,6 +208,7 @@ function sparkPath(samples: readonly BatterySample[], width: number, height: num
 }
 
 export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [selection, setSelection] = useState<{ device: string; id: string } | null>(null);
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
   const samples = useMemo(() => {
@@ -222,12 +220,19 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
       return [];
     }
   }, [status?.name, status?.batteryPercent]);
+  useEffect(() => {
+    setSelection(previous => previous && (previous.device !== status?.name
+      || !samples.some(sample => sample.id === previous.id)) ? null : previous);
+  }, [samples, status?.name]);
   if (!status || status.batteryPercent === null) return null;
   const width = 600;
   const height = 120;
   const path = sparkPath(samples, width, height);
   const estimate = control.batteryEstimateParts(status, locale);
   const format = new Intl.DateTimeFormat(locale, { weekday: "short", hour: "numeric", minute: "2-digit" });
+  const tooltipFormat = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+  const hovered = selection?.device === status.name ? samples.find(sample => sample.id === selection.id) ?? null : null;
+  const hoverX = hovered && path ? (hovered.timestamp - path.start) / Math.max(1, path.end - path.start) * width : 0;
   return (
     <section className="om-panel om-battery" aria-labelledby="om-battery-title">
       <header className="om-panel-head">
@@ -242,12 +247,46 @@ export function BatteryHistoryPanel({ snapshot }: { snapshot: ControlSnapshot })
       </header>
       {path ? (
         <figure className="om-battery-chart">
-          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t(locale, "ov.historyTitle")}>
+            <div className="om-battery-plot">
+            <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={t(locale, "ov.historyTitle")}
+              onPointerMove={event => {
+                const box = event.currentTarget.getBoundingClientRect();
+                const time = path.start + Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * (path.end - path.start);
+                let closest = 0;
+                samples.forEach((sample, index) => {
+                  if (Math.abs(sample.timestamp - time) < Math.abs(samples[closest]!.timestamp - time)) closest = index;
+                });
+                setSelection({ device: status.name, id: samples[closest]!.id! });
+              }}
+              onPointerLeave={() => setSelection(null)}
+              onFocus={() => setSelection({ device: status.name, id: samples.at(-1)!.id! })}
+              onBlur={() => setSelection(null)}
+              onKeyDown={event => {
+                if (event.key === "Escape") { setSelection(null); return; }
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                setSelection(previous => {
+                  const index = previous?.device === status.name ? samples.findIndex(sample => sample.id === previous.id) : -1;
+                  const next = event.key === "Home" ? 0 : event.key === "End" ? samples.length - 1
+                    : Math.max(0, Math.min(samples.length - 1, (index < 0 ? samples.length - 1 : index) + (event.key === "ArrowLeft" ? -1 : 1)));
+                  return { device: status.name, id: samples[next]!.id! };
+                });
+              }}>
             <line className="om-chart-guide" x1="0" x2={width} y1={height / 2} y2={height / 2} />
             <line className="om-chart-guide" x1="0" x2={width} y1={height * 0.8} y2={height * 0.8} />
             <path className="om-chart-area" d={path.area} />
             <path className="om-chart-line" d={path.line} vectorEffect="non-scaling-stroke" />
+              {hovered ? <g aria-hidden="true">
+                <line className="om-battery-cursor" x1={hoverX} x2={hoverX} y1={0} y2={height} />
+                <circle className="om-battery-point" cx={hoverX} cy={height - hovered.percent / 100 * height} r={4} />
+              </g> : null}
           </svg>
+            {hovered ? <div className="om-battery-tooltip" role="status"
+              style={{ left: `clamp(84px, ${hoverX / width * 100}%, calc(100% - 84px))` }}>
+              <strong>{hovered.percent}%</strong>
+              <time dateTime={new Date(hovered.timestamp).toISOString()}>{tooltipFormat.format(hovered.timestamp)}</time>
+            </div> : null}
+            </div>
           <figcaption className="om-battery-axis">
             <span>{format.format(path.start)}</span>
             <span>{format.format(path.end)}</span>

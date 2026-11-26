@@ -293,7 +293,7 @@ a.news-banner-link:hover { text-decoration-color: var(--text-2); }
 .om-sidebar.is-collapsed .om-nav-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .om-sidebar.is-collapsed .om-nav-discord { min-height: 36px; padding-block: 0; }
 
-.om-ascii { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; user-select: none; }
+.om-ascii { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; user-select: none; content-visibility: auto; }
 .om-ascii-field { position: absolute; top: 0; right: 0; display: flex; flex-direction: column; direction: ltr; }
 [dir="rtl"] .om-ascii-field { right: auto; left: 0; transform: scaleX(-1); }
 .om-ascii-row {

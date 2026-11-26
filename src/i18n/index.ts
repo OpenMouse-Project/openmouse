@@ -1,6 +1,39 @@
 import type { InterfaceLocale } from "../features/settings/interface-preferences";
 
 const en = {
+  "receiver.assign": "Assign an action",
+  "receiver.search": "Search actions",
+  "receiver.all": "All",
+  "receiver.mouse": "Mouse buttons",
+  "receiver.shortcuts": "Keyboard shortcuts",
+  "receiver.media": "Media",
+  "receiver.rates": "DPI and polling",
+  "receiver.lighting": "Lighting and switches",
+  "receiver.empty": "No matching actions.",
+  "receiver.combos": "Key combinations",
+  "receiver.capture": "Press a key or choose below",
+  "receiver.apply": "Apply",
+  "receiver.disable": "Disable button",
+  "receiver.confirmDisable": "Confirm disable",
+  "tab.receiver": "Receiver",
+  "magnetic.refreshReceiver": "Refresh receiver",
+  "magnetic.receiverButtons": "Receiver buttons",
+  "magnetic.easy": "Easy to trigger",
+  "magnetic.recommended": "Recommended",
+  "magnetic.hard": "Hard to trigger",
+  "magnetic.title": "Magnetic buttons",
+  "magnetic.middleButton": "Middle button",
+  "magnetic.backButton": "Back button",
+  "magnetic.pairing": "Pairing shortcut",
+  "magnetic.pairingHint": "Choose one to three buttons to hold together for receiver pairing.",
+  "magnetic.factoryReset": "Factory reset",
+  "magnetic.factoryHint": "Reset all mouse settings to factory defaults? Your custom settings will be lost.",
+  "magnetic.liveTravel": "Live travel",
+  "magnetic.waitingTravel": "Waiting for travel data from the mouse.",
+  "magnetic.travelScale": "Travel (%) over the last 3 seconds. Dashed line: actuation.",
+  "magnetic.scrollStored": "Scroll direction is stored on the mouse.",
+  "magnetic.leftLock": "Lock left click remapping",
+  "magnetic.openSystem": "Open system mouse settings",
   "luna.angleSnap": "Angle Snap",
   "luna.competitiveMode": "Competitive Mode",
   "luna.trackingMode": "Tracking Mode",
@@ -688,7 +721,24 @@ const en = {
   "prof.activeProfile": "Active profile",
   "prof.profileStores": "Each profile stores its own DPI stages and polling rate, so those values change with the profile.",
   "map.remap": "Remap",
+  "map.rival650Note": "Assignments are read from the mouse when available. Applying a draft based on factory defaults replaces all seven assignments. On 2.4 GHz, the buttons may return to factory actions after reconnecting or restarting while the reported assignments stay the same.",
+  "map.rival650Defaults": "Load factory defaults",
+  "map.rival650KeepLeftClick": "Keep at least one left click assignment.",
+  "map.rival650FrontSide": "Front side button",
+  "map.rival650DpiButton": "DPI button",
+  "map.rival650SwitchDpi": "Switch DPI stage",
   "map.defaultNote": "“Default” restores a button’s factory function.",
+  "key.enter": "Enter",
+  "key.escape": "Esc",
+  "key.backspace": "Backspace",
+  "key.tab": "Tab",
+  "key.space": "Space",
+  "key.insert": "Insert",
+  "key.delete": "Delete",
+  "key.home": "Home",
+  "key.end": "End",
+  "key.pageUp": "Page up",
+  "key.pageDown": "Page down",
   "map.keysSection": "Keys",
   "map.middleClick": "Middle click",
   "map.doubleClick": "Double click",
@@ -1252,6 +1302,34 @@ const en = {
   "macro.whLoading": "Reading the 4 macro slots…",
   "macro.whStepType": "Step type",
   "macro.whKey": "HID usage",
+  "macro.incottLead": "Build a macro, then give it to a button. Each button runs only the macro it was given.",
+  "macro.incottNotice": "The mouse cannot report a macro back, so macros are kept in this browser. Clearing site data forgets them; the mouse keeps running them.",
+  "macro.incottGameProfile": "Macros can't be assigned while a game profile is being edited. Edit them on the device page.",
+  "macro.incottStoreFailed": "Couldn't save this macro in the browser. Storage is full or blocked, so it will be lost on reload.",
+  "macro.incottUnreleased": "A key is pressed and never released, so it would stay held down. Add its release step before saving.",
+  "macro.incottNew": "New macro",
+  "macro.incottName": "Name",
+  "macro.incottDefaultName": "Macro {n}",
+  "macro.incottNone": "No macros yet. Create one, then give it to a button.",
+  "macro.incottButtons": "Buttons",
+  "macro.incottUnassigned": "Not assigned",
+  "macro.incottElsewhere": "A macro from elsewhere",
+  "macro.incottOffDevice": "Not on any button yet, so the mouse does not have it.",
+  "macro.incottRepeat": "Repeat",
+  "macro.incottLoopHold": "While held",
+  "macro.incottLoopAny": "Until a key is pressed",
+  "macro.incottLoopCount": "A set number of times",
+  "macro.incottTimes": "Times",
+  "macro.incottPress": "Press",
+  "macro.incottRelease": "Release",
+  "macro.incottKey": "Key",
+  "macro.incottMouse": "Mouse",
+  "macro.incottKeyboard": "Keyboard",
+  "macro.incottMoveUp": "Move step {n} up",
+  "macro.incottMoveDown": "Move step {n} down",
+  "macro.incottClearSteps": "Clear steps",
+  "macro.incottDelete": "Delete macro",
+  "macro.incottSummary": "{n} of {max} steps · {s} s per pass",
   "macro.whButton": "Button",
   "macro.whDirection": "Direction",
   "macro.whUp": "Up",
@@ -1260,6 +1338,37 @@ const en = {
   "macro.whDelta": "Distance",
   "macro.whAdd": "Add step",
   "macro.whMaxSteps": "A slot holds 30 steps.",
+  "macro.xmLead": "Choose a button, then build a custom key combo or a macro. Saving writes it straight to the mouse.",
+  "macro.xmLoading": "Reading the eight button bindings…",
+  "macro.xmButton": "Button",
+  "macro.xmCombo": "Custom combo",
+  "macro.xmMacro": "Macro",
+  "macro.xmTiming": "Timing",
+  "macro.xmNoDelay": "No delay",
+  "macro.xmWithDelay": "With delay",
+  "macro.xmModifiers": "Modifiers",
+  "macro.xmKey": "Key",
+  "macro.xmSaveCombo": "Save combo",
+  "macro.xmClear": "Clear macro",
+  "macro.xmDelayBefore": "Delay before",
+  "macro.xmAddEvent": "Add event",
+  "macro.xmRemoveEvent": "Remove event {n}",
+  "macro.xmNoEvents": "No events in this macro",
+  "macro.xmNoEventsHint": "Record input or add an event manually to get started.",
+  "macro.xmRecord": "Record input",
+  "macro.xmStop": "Stop recording",
+  "macro.xmPress": "Press",
+  "macro.xmRelease": "Release",
+  "macro.xmEvents": "{n} events",
+  "macro.xmRecording": "Recording input",
+  "macro.xmRecorderHint": "Record keyboard input or add an event manually.",
+  "macro.xmEventsHint": "{n} events · Press Esc to stop",
+  "macro.xmLiveEvents": "Live event list",
+  "macro.xmRecordingEmpty": "Press a key to add the first event.",
+  "macro.xmHelpToggle": "Need help?",
+  "macro.xmHelpBody": "A custom combo sends a key plus up to eight modifiers when the button is pressed. A macro is a list of press and release events; in with-delay mode each event waits its delay before it fires. Keyboard codes use standard HID usage values.",
+  "macro.xmComboHint": "The key plus the selected modifiers is sent when the button is pressed.",
+  "macro.xmMacroHint": "Each event is a key press or release. In with-delay mode the delay before each event is honored.",
   "macro.leobogLead": "Choose a slot, name the macro, edit the steps, then Save. Assign the slot in Buttons.",
   "macro.nameLabel": "Macro name",
   "macro.stepDown": "Press",
@@ -1431,6 +1540,7 @@ const en = {
   "kb.arbCatModifiers": "Modifiers",
   "kb.arbCatMedia": "Media",
   "kb.arbCatSpecial": "Special",
+  "kb.arbCatOnboard": "Onboard functions",
   "kb.arbSuperTapTitle": "SuperTap",
   "kb.arbSuperTapNote": "SuperTap is Arbiter's name for SOCD handling: while both keys of the pair are held, only the last one pressed is sent. Choose the pair below. The exact rule, such as what happens on release, is not confirmed. The mode and flag values are written back as the keyboard reported them.",
   "kb.arbSuperTapEnable": "Enable SuperTap",
@@ -1467,6 +1577,208 @@ const en = {
   "kb.arbSuperTapKeyN": "Key {n}",
   "kb.arbSuperTapArm": "Select a key tile, then a key on the keyboard.",
   "kb.arbSuperTapPick": "Select the key for key {n} on the keyboard.",
+  "kb.mchUnverified": "MCHOSE support for this model comes from the vendor's web configurator and has not been tested on a real keyboard. Every change is confirmed by reading the keyboard back.",
+  "kb.mchFaulted": "The keyboard stopped answering correctly. Reconnect it before making more changes.",
+  "kb.mchReconnect": "Reconnect",
+  "kb.mchController": "Controller",
+  "kb.mchBuild": "Firmware build",
+  "kb.mchProfileTitle": "Active profile",
+  "kb.mchProfileNote": "Switching profile loads its polling rate and key travel.",
+  "kb.mchProfileN": "Profile {n}",
+  "kb.mchProfileScope": "Saved to profile {n}, the active one.",
+  "kb.mchWinLock": "Lock Windows key",
+  "kb.mchTravelTitle": "Key travel",
+  "kb.mchTravelMissing": "The keyboard did not report its key travel.",
+  "kb.mchRapidEnable": "Rapid trigger",
+  "kb.mchSelectKeys": "Select one or more keys to edit them. Each key shows its actuation point in millimetres.",
+  "kb.mchOutOfRange": "This key holds a value outside the range the vendor app offers. It stays as read until you change it.",
+  "kb.mchPresetMatches": "This profile's key travel matches this setup.",
+  "kb.mchResetTitle": "Factory reset",
+  "kb.mchResetKeyboard": "Whole keyboard",
+  "kb.mchResetStart": "Reset…",
+  "kb.mchResetConfirmProfile": "Reset {profile} to factory settings? Its key travel, keymap, advanced keys, lighting, settings and name go back to how the keyboard shipped. Save it to a file first if you may want it back.",
+  "kb.mchResetConfirmAll": "Reset the whole keyboard to factory settings? Every profile and all macros go back to how the keyboard shipped. Save your profiles to files first; macros are not part of those files.",
+  "kb.mchResetApply": "Reset now",
+  "kb.mchGradientTitle": "Gradient",
+  "kb.mchGradientNote": "Click the bar to add a colour stop and drag stops to move them. Paints the selected keys, or every key when none are selected, and switches the backlight to Custom.",
+  "kb.mchGradientStop": "Colour stop {n} at {at}%",
+  "kb.mchGradientDirection": "Direction",
+  "kb.mchGradientRemove": "Remove stop",
+  "kb.mchGradientPaint": "Paint keys",
+  "kb.mchResetSelected": "Reset selected",
+  "kb.mchResetAll": "Reset all",
+  "kb.mchResetAllConfirm": "Turn off the custom colour of every key?",
+  "kb.mchExport": "Save to file",
+  "kb.mchImport": "Load from file",
+  "kb.mchImportApply": "Replace profile",
+  "kb.mchImportConfirm": "Load {file} into {profile}? It replaces this profile's settings, lighting, key travel, key colours, keymap and advanced keys. Macros are shared and stay as they are.",
+  "kb.mchImportInvalid": "This file is not a saved OpenMouse profile for an MCHOSE keyboard.",
+  "kb.mchImportOtherKeyboard": "This profile was saved from a different keyboard model.",
+  "kb.mchPreset": "Official setup",
+  "kb.mchPresetApply": "Load into this profile",
+  "kb.mchPresetConfirm": "Load {name} into {profile}? It replaces the key travel of every key and turns Berserk mode off. Other settings stay as they are.",
+  "kb.mchPressPrecision": "RT press precision",
+  "kb.mchReleasePrecision": "RT release precision",
+  "kb.mchPrecisionBerserk": "Finer steps need Berserk mode, under Response.",
+  "kb.mchTravelView": "Show on keys",
+  "kb.mchSelectWasd": "Select WASD",
+  "kb.mchInvertSelection": "Invert selection",
+  "kb.mchRestoreTravel": "Restore defaults",
+  "kb.mchLowActuation": "Actuation below 0.5 mm may cause accidental presses.",
+  "kb.mchDeadzoneEnable": "Use dead zones",
+  "kb.mchCatShortcut": "Shortcuts",
+  "kb.mchRestoreLayer": "Restore this layer",
+  "kb.mchRestoreLayerConfirm": "Put every key on this layer back to its factory action? Advanced keys on this layer are removed.",
+  "kb.mchBindingsOnLayer": "Advanced keys on this layer: {n}",
+  "kb.mchRtExtreme": "Extreme",
+  "kb.mchRtBalanced": "Balanced",
+  "kb.mchRtStable": "Stable",
+  "kb.mchRtSmart": "RT stability",
+  "kb.mchRtSmartLevel": "RT stability level",
+  "kb.mchSlotsUsed": "In use on this profile: {dks} of 32 DKS, {toggle} of 32 toggle, {shared} of 32 mod-tap and pair slots.",
+  "kb.mchCalibrationProgress": "{done} of {total} keys calibrated. Press each key fully twice: a blue dot means press it again, green means done.",
+  "kb.mchAdvancedNote": "Give a key several actions by press depth (DKS), separate tap and hold actions (mod-tap) or a latching press (toggle), or pair two keys (rapid snap, SOCD). Each profile has 32 DKS slots, 32 toggle slots and 32 slots shared by mod-tap and pairs, which take two each.",
+  "kb.mchSnapTap": "Rapid snap",
+  "kb.mchSnapTapNote": "Pair two keys: while both are held, the one pressed deeper wins.",
+  "kb.mchSocdNote": "Pair two keys that cancel each other out, such as A and D, and choose which one wins when both are held.",
+  "kb.mchSocdRule": "When both keys are held",
+  "kb.mchSocdLast": "Last input wins",
+  "kb.mchSocdLastNote": "The key pressed last overrides the other.",
+  "kb.mchSocdFirst": "First key wins",
+  "kb.mchSocdFirstNote": "The first key always takes priority.",
+  "kb.mchSocdSecond": "Second key wins",
+  "kb.mchSocdSecondNote": "The second key always takes priority.",
+  "kb.mchSocdCancel": "Neither",
+  "kb.mchSocdCancelNote": "With both held, neither key is sent.",
+  "kb.mchPairFirst": "First key",
+  "kb.mchPairFirstValue": "First key: {key}",
+  "kb.mchPairSecond": "Second key",
+  "kb.mchPairSecondValue": "Second key: {key}",
+  "kb.mchLayerTapKept": "This key is half of a layer-tap pair with {key}, set in the vendor app. It is kept as is until you replace it.",
+  "kb.mchModTapModifierNote": "A modifier (Ctrl, Alt, Shift) as the hold action takes priority in key combinations.",
+  "kb.mchPresetBeginner": "Beginner",
+  "kb.mchPresetBeginnerNote": "Like a mechanical keyboard: 1.5 mm actuation, rapid trigger off.",
+  "kb.mchPresetFps": "FPS",
+  "kb.mchPresetFpsNote": "WASD at 0.1 mm with 0.1 mm rapid trigger; other keys 1.5 mm.",
+  "kb.mchPresetExtreme": "FPS extreme",
+  "kb.mchPresetExtremeNote": "WASD at 0.1 mm with 0.04 mm rapid trigger; other keys 1.5 mm.",
+  "kb.mchPresetOffice": "Office",
+  "kb.mchPresetOfficeNote": "2.0 mm actuation, Caps Lock 2.5 mm, rapid trigger off.",
+  "kb.mchPresetMoba": "MOBA",
+  "kb.mchPresetMobaNote": "1.2 mm actuation, Space 1.8 mm, rapid trigger 0.8 mm.",
+  "kb.mchPresetFpsBalanced": "FPS balanced",
+  "kb.mchPresetFpsBalancedNote": "WASD at 1.0 mm with 0.1 mm rapid trigger; other keys 1.5 mm with 0.5 mm.",
+  "kb.mchRapidNote": "On: the key can re-trigger without rising back to the actuation point. Off: it must return past the actuation point first.",
+  "kb.mchRapidLinked": "Same press and release",
+  "kb.mchRapidBoth": "Rapid trigger press and release",
+  "kb.mchTesterTitle": "Key test",
+  "kb.mchTesterNote": "Press keys to see what the computer receives. A remapped key lights up as the key it sends.",
+  "kb.mchTesterEmpty": "Press any key.",
+  "kb.mchCatNone": "Nothing",
+  "kb.mchModifiers": "Modifiers",
+  "kb.mchLocksTitle": "Key locks",
+  "kb.mchResponseTitle": "Response",
+  "kb.mchSleepTitle": "Sleep",
+  "kb.mchAction": "Action",
+  "kb.mchCategory": "Action type",
+  "kb.mchCatKey": "Key",
+  "kb.mchCatMouse": "Mouse",
+  "kb.mchCatMedia": "Media",
+  "kb.mchCatSystem": "System",
+  "kb.mchCatSpecial": "Keyboard functions",
+  "kb.mchCatMacro": "Macro",
+  "kb.mchCatDisabled": "Disabled",
+  "kb.mchApply": "Apply",
+  "kb.mchLayer": "Layer",
+  "kb.mchLayerWin": "Windows",
+  "kb.mchLayerWinFn": "Windows Fn",
+  "kb.mchLayerMac": "Mac",
+  "kb.mchLayerMacFn": "Mac Fn",
+  "kb.mchRemapTitle": "Key remapping",
+  "kb.mchAssigned": "Assigned: {action}",
+  "kb.mchAdvancedHere": "This key is an advanced key. Edit it under Advanced, or pick an action here to replace it.",
+  "kb.mchRestoreKey": "Restore factory key",
+  "kb.mchSelectKey": "Select a key to change it.",
+  "kb.mchAdvancedTitle": "Advanced keys",
+  "kb.mchAdvancedKind": "Advanced key type",
+  "kb.mchAdvancedRemove": "Remove advanced key",
+  "kb.mchDks": "DKS",
+  "kb.mchModTap": "Mod-tap",
+  "kb.mchToggle": "Toggle",
+  "kb.mchDksNote": "The key passes four points: press past point 1, reach point 2, release past point 3, release past point 4. Each action can be held from one point across the next ones.",
+  "kb.mchDksZone1": "Point 1 (press)",
+  "kb.mchDksZone2": "Point 2 (press)",
+  "kb.mchDksZone3": "Point 3 (release)",
+  "kb.mchDksZone4": "Point 4 (release)",
+  "kb.mchDksAction": "Action {n}",
+  "kb.mchDksSpan": "From {zone}",
+  "kb.mchDksOff": "Nothing at {zone}",
+  "kb.mchDksHold": "From {zone}, held for {n}",
+  "kb.mchModTapNote": "Tap the key for one action, hold it for another.",
+  "kb.mchTap": "Tap",
+  "kb.mchHold": "Hold",
+  "kb.mchHoldTime": "Hold time",
+  "kb.mchToggleNote": "Press once to hold the action down, press again to release it.",
+  "kb.mchMacroTitle": "Macros",
+  "kb.mchMacroNote": "16 macros shared by every profile. Assign one to a key under Buttons. Changes are written when you apply them.",
+  "kb.mchMacroSlot": "Macro",
+  "kb.mchMacroN": "Macro {n}",
+  "kb.mchMacroEmpty": "Macro {n} (empty)",
+  "kb.mchMacroMode": "Play mode",
+  "kb.mchMacroWhileHeld": "Repeat while held",
+  "kb.mchMacroOnce": "Play once",
+  "kb.mchMacroToggle": "Repeat until pressed again",
+  "kb.mchMacroDirection": "Press or release",
+  "kb.mchMacroDown": "Press",
+  "kb.mchMacroUp": "Release",
+  "kb.mchMacroDelay": "Then wait",
+  "kb.mchMacroWait": "Wait",
+  "kb.mchMacroRemoveStep": "Remove",
+  "kb.mchMacroNoSteps": "This macro is empty. Record keys or add steps.",
+  "kb.mchMacroRecord": "Record keys",
+  "kb.mchMacroStop": "Stop recording",
+  "kb.mchMacroRecording": "Recording: type on your keyboard. Timing between keys is kept.",
+  "kb.mchMacroAddDelay": "Add wait",
+  "kb.mchMacroClear": "Clear steps",
+  "kb.mchLightTitle": "Lighting",
+  "kb.mchBacklight": "Backlight",
+  "kb.mchSideLight": "Light box",
+  "kb.mchEffect": "Effect",
+  "kb.mchEffectRaw": "The keyboard reports effect {n}, which the vendor app does not list for this model.",
+  "kb.mchBrightness": "Brightness",
+  "kb.mchSpeed": "Speed",
+  "kb.mchReverse": "Reverse direction",
+  "kb.mchRainbow": "Colourful",
+  "kb.mchColor": "Colour",
+  "kb.mchKeyColorsTitle": "Per-key colours",
+  "kb.mchKeyColorsNote": "Colours shown by the Custom backlight effect. Select keys, pick a colour, apply.",
+  "kb.mchKeyColorsInactive": "These colours show only with the Custom backlight effect. You can still edit them now.",
+  "kb.mchScanRate": "Scan rate",
+  "kb.mchScanRateNote": "How often the keyboard reads its switches.",
+  "kb.mchAltTabLock": "Lock Alt+Tab",
+  "kb.mchAltF4Lock": "Lock Alt+F4",
+  "kb.mchMacMode": "Mac layout",
+  "kb.mchMacModeNote": "Uses the Mac layers. Turning it on also releases the Windows key lock.",
+  "kb.mchBerserk": "Berserk mode",
+  "kb.mchBerserkNote": "Lowers the shortest rapid trigger distance. Recalibrate after changing switches.",
+  "kb.mchStability": "Stability mode",
+  "kb.mchStabilityNote": "Prevents mistouches caused by desk vibration or resting fingers.",
+  "kb.mchAutoCalibration": "Adaptive calibration",
+  "kb.mchAutoCalibrationNote": "The keyboard adjusts its calibration while you type.",
+  "kb.mchDebounce": "Debounce optimisation",
+  "kb.mchDebounceNote": "Reduces repeated presses caused by switch bounce.",
+  "kb.mchSleep": "Sleep when idle",
+  "kb.mchSleepTime": "Sleep after",
+  "kb.mchMinutes": "{n} min",
+  "kb.mchSwitchType": "Switch type",
+  "kb.mchPrecision": "Rapid trigger precision",
+  "kb.mchProfileName": "Profile name",
+  "kb.mchCalibrationTitle": "Calibration",
+  "kb.mchCalibrationNote": "Place the keyboard on a flat surface. Start calibration, press every key slowly to the bottom a few times, then finish. Recalibrate after changing switches.",
+  "kb.mchCalibrationRunning": "Calibrating: press every key fully a few times, then finish. Finishing early stores the travel of keys you have not pressed.",
+  "kb.mchCalibrationStart": "Start calibration",
+  "kb.mchCalibrationRestart": "Start over",
+  "kb.mchCalibrationEnd": "Finish calibration",
   "kb.brand": "Wuque Studio",
   "kb.available": "Available",
   "kb.keyboardLabel": "KEYBOARD",
@@ -1867,6 +2179,68 @@ const en = {
   "map.buttonForward": "Forward",
   "map.buttonBackward": "Backward",
 
+  "kb.glUnverified": "Glorious support is ported from Wheelguard, which decoded the protocol by reading Glorious CORE. It has not been tested on a real keyboard yet.",
+  "kb.glNote": "This keyboard can't report its settings. OpenMouse shows what it last sent from this browser.",
+  "kb.glLayout": "Layout",
+  "kb.glUsbId": "USB id",
+  "kb.glUnlock": "Allow changes",
+  "kb.glLockedNote": "Changes are off. Turn them on to send settings to this keyboard.",
+  "kb.glUnlockedNote": "Changes are sent straight to the keyboard and can't be read back.",
+  "kb.glProfileTitle": "Profile and layer",
+  "kb.glProfileNote": "Choose the profile and layer the keyboard uses and that key changes apply to.",
+  "kb.glProfileN": "Profile {n}",
+  "kb.glLayerTitle": "Layer",
+  "kb.glLayerN": "Layer {n}",
+  "kb.glLayerEditOnly": "This keyboard has no layer switch command; the layer only chooses which keys you edit.",
+  "kb.glSentNote": "Shows the value OpenMouse last sent.",
+  "kb.glDebounce": "Debounce",
+  "kb.glDebounceNote": "Applies to the active profile and resets lighting to the keyboard's default.",
+  "kb.glDebounceBoard": "Applies to the whole keyboard.",
+  "kb.glSleep": "Lights off after",
+  "kb.glNever": "Never",
+  "kb.glMinutes": "{n} min",
+  "kb.glLightingReset": "Changing this resets lighting to the keyboard's default.",
+  "kb.glAnalogTitle": "Actuation and rapid trigger",
+  "kb.glAnalogNote": "Applies to every key on the active profile and layer.",
+  "kb.glActuation": "Actuation point",
+  "kb.glRapid": "Rapid trigger",
+  "kb.glSensitivity": "Rapid trigger sensitivity",
+  "kb.glKeysTitle": "Key assignments",
+  "kb.glKeysNote": "Profile {profile}, layer {layer}. Fn and the knob always keep their own function.",
+  "kb.glSelectKey": "Select a key to change what it does.",
+  "kb.glEditing": "Editing {key}",
+  "kb.glAction": "Action",
+  "kb.glKey": "Key",
+  "kb.glMacro": "Macro",
+  "kb.glKindDefault": "Keyboard default",
+  "kb.glKindDisabled": "Disabled",
+  "kb.glKindKey": "Key or shortcut",
+  "kb.glKindMedia": "Media",
+  "kb.glKindMouse": "Mouse",
+  "kb.glKindFunction": "Profile or layer",
+  "kb.glKindMacro": "Macro",
+  "kb.glApply": "Apply",
+  "kb.glResetLayer": "Reset layer",
+  "kb.glMacrosTitle": "Macros",
+  "kb.glMacrosNote": "Up to 10 macros. A macro is stored on the keyboard once a key plays it.",
+  "kb.glNoMacros": "No macros yet.",
+  "kb.glNoMacroSupport": "This keyboard has no macros.",
+  "kb.glNewMacro": "New macro",
+  "kb.glMacroName": "Macro name",
+  "kb.glMacroMode": "Play mode",
+  "kb.glModeOnce": "Once",
+  "kb.glModeRepeat": "While held",
+  "kb.glModeToggle": "Toggle",
+  "kb.glRecord": "Record",
+  "kb.glStopRecording": "Stop recording",
+  "kb.glRecordHint": "Press keys here to record them.",
+  "kb.glMacroEmpty": "Nothing recorded yet.",
+  "kb.glClear": "Clear",
+  "kb.glCancel": "Cancel",
+  "kb.glSave": "Save",
+  "kb.glEdit": "Edit",
+  "kb.glDelete": "Delete",
+  "kb.glSteps": "{n} steps",
 } as const;
 
 export type I18nKey = keyof typeof en;
@@ -1897,6 +2271,59 @@ let extraTurkish: Readonly<Record<string, string>> = {};
 type DisplayPattern = { pattern: RegExp; names: string[]; translation: string; preserveNames: boolean };
 let displayPatterns: DisplayPattern[] | undefined;
 
+/** Bounded memo of displayText results keyed by locale and source text.
+ * Locale tables load once and never change, so entries stay valid until the
+ * next table load clears the whole memo (see ensureLocale). */
+const DISPLAY_MEMO_LIMIT = 500;
+const displayMemo = new Map<string, string>();
+
+function displayMemoGet(locale: InterfaceLocale, value: string): string | undefined {
+  const key = `${locale} ${value}`;
+  const hit = displayMemo.get(key);
+  if (hit !== undefined) {
+    displayMemo.delete(key);
+    displayMemo.set(key, hit);
+  }
+  return hit;
+}
+
+function displayMemoSet(locale: InterfaceLocale, value: string, translated: string): void {
+  const key = `${locale} ${value}`;
+  if (displayMemo.has(key)) {
+    displayMemo.delete(key);
+  } else if (displayMemo.size >= DISPLAY_MEMO_LIMIT) {
+    const oldest = displayMemo.keys().next();
+    if (!oldest.done) displayMemo.delete(oldest.value);
+  }
+  displayMemo.set(key, translated);
+}
+
+/** Compile the template patterns translateDisplay matches against. Runs once
+ * when the Turkish table arrives (and again only if it ever reloads), not on
+ * the first render-time translation. */
+function buildDisplayPatterns(): DisplayPattern[] {
+  const templates = new Map<string, string>();
+  for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t("tr", key));
+  for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
+  const patterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
+    const names: string[] = [];
+    let pattern = "";
+    let end = 0;
+    for (const match of english.matchAll(/\{(\w+)\}/g)) {
+      pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      names.push(match[1]);
+      const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
+      pattern += pluralSuffix ? "(s?)" : "(.*?)";
+      end = match.index! + match[0].length;
+    }
+    pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return { pattern: new RegExp(`^${pattern}$`), names, translation,
+      preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
+  });
+  patterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+  return patterns;
+}
+
 const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<LocaleTable>> = {
   pt: () => import("./locales/pt.ts").then((m) => m.pt),
   es: () => import("./locales/es.ts").then((m) => m.es),
@@ -1909,8 +2336,11 @@ const LOCALE_LOADERS: Record<Exclude<InterfaceLocale, "en">, () => Promise<Local
   vi: () => import("./locales/vi.ts").then((m) => m.vi),
   ar: () => import("./locales/ar.ts").then((m) => m.ar),
   tr: () => Promise.all([import("./locales/tr.ts"), import("./locales/tr-extra.ts")]).then(([main, extra]) => {
+    tables.tr = main.tr;
     extraTurkish = extra.trExtra;
-    displayPatterns = undefined;
+    // The table this compiles from just changed: drop patterns and memo together.
+    displayPatterns = buildDisplayPatterns();
+    displayMemo.clear();
     return main.tr;
   }),
 };
@@ -1919,9 +2349,10 @@ export function ensureLocale(locale: InterfaceLocale): Promise<void> {
   if (locale === "en" || tables[locale]) return Promise.resolve();
   return LOCALE_LOADERS[locale]().then((table) => {
     tables[locale] = table;
+    // Entries cached before the table arrived hold English fallbacks.
+    displayMemo.clear();
   });
 }
-
 /** Load display copy without blocking startup on a missing/offline lazy chunk.
  * Failed loads do not populate the locale cache, so a later call can retry. */
 export async function ensureDisplayLocale(
@@ -1956,10 +2387,21 @@ const sourceTextKeys = new Map<string, I18nKey>(
 );
 
 /** Translate display strings from legacy UI and driver catalogs at the render boundary.
+ *
+ * tr-only scope: only the Turkish display path (tr-extra catalog, template
+ * patterns, separator splits) rewrites legacy English copy. Every other locale
+ * falls back to the keyed table via t() or passes the source through
+ * untouched — displayText never invents translations for locales without a
+ * catalog.
+ *
  * Never use this for protocol commands, comparisons, identifiers or saved user data. */
 export function displayText<T extends string | number | null | undefined>(locale: InterfaceLocale, value: T): T {
   if (locale === "en" || typeof value !== "string") return value;
-  return translateDisplay(locale, value, 0) as T;
+  const hit = displayMemoGet(locale, value);
+  if (hit !== undefined) return hit as T;
+  const translated = translateDisplay(locale, value, 0);
+  displayMemoSet(locale, value, translated);
+  return translated as T;
 }
 
 /** Translate complete display copy before inserting values, preserving user data. */
@@ -1975,29 +2417,8 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   const padding = (text: string) => (value.match(/^\s*/)?.[0] ?? "") + text + (value.match(/\s*$/)?.[0] ?? "");
   if (translated !== undefined) return padding(translated);
   if (locale !== "tr") return value;
-  if (!displayPatterns) {
-    const templates = new Map<string, string>();
-    for (const [english, key] of sourceTextKeys) if (/\{\w+\}/.test(english)) templates.set(english, t(locale, key));
-    for (const [english, turkish] of Object.entries(extraTurkish)) if (/\{\w+\}/.test(english)) templates.set(english, turkish);
-    displayPatterns = [...templates].filter(([english]) => /[a-zA-Z]{3}/.test(english.replace(/\{\w+\}/g, ""))).map(([english, translation]) => {
-      const names: string[] = [];
-      let pattern = "";
-      let end = 0;
-      for (const match of english.matchAll(/\{(\w+)\}/g)) {
-        pattern += english.slice(end, match.index).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        names.push(match[1]);
-        const pluralSuffix = match[1] === "s" && /\w$/.test(english.slice(0, match.index));
-        pattern += pluralSuffix ? "(s?)" : "(.*?)";
-        end = match.index! + match[0].length;
-      }
-      pattern += english.slice(end).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return { pattern: new RegExp(`^${pattern}$`), names, translation,
-        preserveNames: /^(?:Loaded |Saved |Deleted |Open |Opening |Name |Rename |Renaming |\{0\} has )/.test(english) || /\{name\}/.test(english) || english.startsWith("Push this profile") };
-    });
-    // Specific sentences must win over broad patterns such as "Mouse {0}".
-    displayPatterns.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
-  }
-  for (const { pattern, names, translation, preserveNames } of displayPatterns) {
+  const patterns = displayPatterns ??= buildDisplayPatterns();
+  for (const { pattern, names, translation, preserveNames } of patterns) {
     const match = pattern.exec(source);
     if (!match) continue;
     return padding(translation.replace(/\{(\w+)\}/g, (_, name: string) => {
@@ -2011,15 +2432,23 @@ function translateDisplay(locale: InterfaceLocale, value: string, depth: number)
   return value;
 }
 
-/** Translate a template with {placeholders}. */
+/** Translate a template with {placeholders}. A missing value keeps its
+ * {placeholder} verbatim in the rendered string (DEV still warns) instead of
+ * silently blanking user-visible copy. */
 export function tp(locale: InterfaceLocale, key: I18nKey, vars: Record<string, string | number>): string {
   return t(locale, key).replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = vars[name];
     if (value === undefined && import.meta.env?.DEV === true) {
       console.warn(`[i18n] missing placeholder {${name}} for key "${key}" (${locale})`);
     }
-    return String(value ?? "");
+    return value === undefined ? `{${name}}` : String(value);
   });
+}
+
+/** Looks up `value` in a display-text table, passing unknown values through untranslated. */
+function mapDisplayText(locale: InterfaceLocale, table: Readonly<Record<string, I18nKey>>, value: string): string {
+  const key = table[value];
+  return key ? t(locale, key) : value;
 }
 
 /** Known battery states reported by drivers; unknown values pass through. */
@@ -2033,8 +2462,7 @@ const BATTERY_STATES: Readonly<Record<string, I18nKey>> = {
 };
 
 export function batteryStateText(locale: InterfaceLocale, state: string): string {
-  const key = BATTERY_STATES[state];
-  return key ? t(locale, key) : state;
+  return mapDisplayText(locale, BATTERY_STATES, state);
 }
 
 /** Known connect-button labels stored by the controller; dynamic labels
@@ -2046,8 +2474,7 @@ const CONNECT_LABELS: Readonly<Record<string, I18nKey>> = {
 };
 
 export function connectLabelText(locale: InterfaceLocale, label: string): string {
-  const key = CONNECT_LABELS[label];
-  return key ? t(locale, key) : label;
+  return mapDisplayText(locale, CONNECT_LABELS, label);
 }
 
 /** Display name for a device connection type; unknown values pass through. */
@@ -2062,8 +2489,7 @@ export function connectionText(
   fallback: I18nKey = "conn.wireless",
 ): string {
   if (!connection) return t(locale, fallback);
-  const key = CONNECTIONS[connection];
-  return key ? t(locale, key) : connection;
+  return mapDisplayText(locale, CONNECTIONS, connection);
 }
 
 /** Localize a "Layer N" label produced by the protocol library without

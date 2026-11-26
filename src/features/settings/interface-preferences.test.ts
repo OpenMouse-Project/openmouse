@@ -86,6 +86,7 @@ test("every interface theme persists and maps to its stylesheet slug", () => {
     ["Ice", "ice"],
     ["Ember", "ember"],
     ["Mono", "mono"],
+    ["OLED", "oled"],
     ["Miku", "miku"],
     ["Catppuccin Mocha", "catppuccin-mocha"],
     ["Catppuccin Macchiato", "catppuccin-macchiato"],

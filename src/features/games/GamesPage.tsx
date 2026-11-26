@@ -2,8 +2,8 @@ import { displayText, t, type I18nKey } from "../../i18n/index";
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Download, Gamepad2, Plus } from "lucide-react";
 import { bridgeGames, bridgeLocalApplications, bridgeProfiles, BridgeHttpError, type BridgeGame, type BridgeStatus, type LocalApplication } from "../bridge/bridge";
-import { isBridgeHidActive, subscribeBridgeHidActive } from "../bridge/bridge-hid";
-import { subscribeBridgeStatus } from "../bridge/bridge-status-store";
+import { isBridgeHidActive, subscribeBridgeHidActive, tryInstallBridgeHid } from "../bridge/bridge-hid";
+import { currentBridgeStatus, subscribeBridgeStatus } from "../bridge/bridge-status-store";
 import type { ControlSnapshot } from "../../device/types";
 import { fetchGamesCatalog, gameArtwork } from "./games-catalog";
 import { GameProfilePanel } from "./GameProfilePanel";
@@ -46,12 +46,27 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
   const [applications, setApplications] = useState<LocalApplication[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error" | "unsupported">("loading");
   const [revision, setRevision] = useState(0);
-  const [status, setStatus] = useState<BridgeStatus | null>(null);
+  const [status, setStatus] = useState<BridgeStatus | null>(() => currentBridgeStatus());
   const [profiled, setProfiled] = useState<Set<string>>(new Set());
   const [selectedGame, setSelectedGame] = useState<BridgeGame | null>(null);
   const [dialog, setDialog] = useState<{ application?: LocalApplication; remove?: boolean } | null>(null);
   const presets = presetGames(active ? bridgeList : [], catalog.games);
 
+  useEffect(() => {
+    if (!isBridgeHidActive()) void tryInstallBridgeHid();
+    const retry = (): void => {
+      if (!isBridgeHidActive()) void tryInstallBridgeHid();
+    };
+    const onVisibility = (): void => {
+      if (!document.hidden) retry();
+    };
+    window.addEventListener("focus", retry);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", retry);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
   useEffect(() => subscribeBridgeStatus(setStatus), []);
 
   useEffect(() => {
@@ -61,20 +76,37 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     setSelectedGame(null);
     if (!active) return;
     const controller = new AbortController();
-    void bridgeGames(controller.signal).then((games) => { if (!controller.signal.aborted) setBridgeList(games); }).catch(() => undefined);
-    return () => controller.abort();
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    const controller = new AbortController();
     setLoadState("loading");
+    // Settle independently: a games failure must not keep local apps (and
+    // Add/Edit/Remove) unusable. A games error sticks in loadState; local
+    // apps still populate underneath it.
+    let gamesDone = false;
+    let gamesOk = false;
+    let appsDone = false;
+    function maybeReady(): void {
+      if (gamesDone && appsDone && gamesOk && !controller.signal.aborted) setLoadState("ready");
+    }
+    void bridgeGames(controller.signal).then((games) => {
+      if (controller.signal.aborted) return;
+      setBridgeList(games);
+      gamesDone = true;
+      gamesOk = true;
+      maybeReady();
+    }).catch((cause: unknown) => {
+      if (controller.signal.aborted) return;
+      gamesDone = true;
+      if (cause instanceof BridgeHttpError && cause.status === 404) setLoadState("unsupported");
+      else setLoadState("error");
+    });
     void bridgeLocalApplications(controller.signal).then((apps) => {
       if (controller.signal.aborted) return;
       setApplications(apps);
-      setLoadState("ready");
-    }).catch((cause) => {
-      if (!controller.signal.aborted) setLoadState(cause instanceof BridgeHttpError && cause.status === 404 ? "unsupported" : "error");
+      appsDone = true;
+      maybeReady();
+    }).catch(() => {
+      if (controller.signal.aborted) return;
+      appsDone = true;
+      setLoadState("error");
     });
     return () => controller.abort();
   }, [active, revision]);
@@ -83,11 +115,16 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
     if (!active || selectedGame) return;
     const controller = new AbortController();
     void bridgeProfiles(controller.signal)
-      .then((profiles) => setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
-        .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`))))
-      .catch(() => setProfiled(new Set()));
+      .then((profiles) => {
+        if (controller.signal.aborted) return;
+        setProfiled(new Set(profiles.filter((profile) => profile.enabled !== false)
+          .map((profile) => profile.application.localId ?? `preset:${profile.application.name.toLowerCase()}`)));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProfiled(new Set());
+      });
     return () => controller.abort();
-  }, [active, selectedGame, applications]);
+  }, [active, selectedGame, revision]);
 
   if (selectedGame) return <GameProfilePanel snapshot={snapshot} game={selectedGame} onBack={() => setSelectedGame(null)} />;
 
@@ -149,7 +186,9 @@ export function GamesPage({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
       </li>)}</ul>
     </section>
     {dialog ? <Suspense fallback={<p className="om-meta" role="status">{t(locale, "localApps.loading")}</p>}>
-      <LocalApplicationDialog locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
+      {/* Remount per target: dialog state (name, target, id) snapshots the
+          clicked row, so Edit/Remove on another row must not reuse it. */}
+      <LocalApplicationDialog key={dialog.application?.id ?? "new"} locale={locale} active={active} application={dialog.application} remove={dialog.remove} onClose={() => setDialog(null)}
         onSaved={(apps, created) => {
           setApplications(apps);
           setLoadState("ready");
