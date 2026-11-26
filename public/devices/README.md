@@ -7,6 +7,14 @@ restricted to maintainers) and served from
 `DEVICE_IMAGE_BASE_URL` in `src/ui/device-images.ts`. This file stays as
 the provenance/licensing record for every image that's been uploaded.
 
+## Button layout diagrams
+
+`steelseries-rival-650-button-layout.svg` is used in the Buttons editor, not as a
+product render. It comes from the [Rivalcfg Rival 650 documentation](https://flozz.github.io/rivalcfg/devices/rival650.html#buttons),
+under the Rivalcfg project's [WTFPL v2 license](https://github.com/flozz/rivalcfg/blob/master/LICENSE).
+OpenMouse adds a high-contrast background and uses number-only labels to match
+the localized button rows.
+
 ## Contributing artwork (no bucket access needed)
 
 Only a maintainer can upload to the bucket, so don't open a PR with a binary
@@ -27,6 +35,11 @@ image file — it has nowhere to go. Instead:
    source/licensing note below.
 
 ## Maintainer upload steps
+
+For the G6 HE use `keychron-g6-he.png`; for a separate TurboLink receiver render
+use `keychron-turbolink-8k.png`. Upload at the bucket root. Both name mappings are
+in `src/shared/device-images.ts`; the G6 mapping precedes the generic HE keyboard
+fallback. These mappings are ready for upload and do not imply the files exist.
 
 1. Save a **transparent** PNG or WebP named after the model in kebab-case,
    e.g. `razer-viper-v3-pro.png`. The panel sits on a dark background, so an
@@ -165,6 +178,10 @@ M2-NEX. A local render from the vendor configurator may be used for development
 previews, but it is deliberately not committed here. Before publishing the
 asset, Noir Gear must confirm redistribution rights or OpenMouse should use a
 maintainer-created silhouette instead.
+
+`leobog-gm3.png` is reserved for the LEOBOG GM3 name-fallback mapping. The
+render must not be committed or uploaded to R2 until LEOBOG confirms
+redistribution rights or OpenMouse uses a maintainer-created replacement.
 
 `noir-s1.png` is reserved for the NOIR S1 name-fallback mapping. The code PR
 does not include a vendor configurator render; request artwork separately via

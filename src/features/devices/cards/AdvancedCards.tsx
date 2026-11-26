@@ -1,6 +1,6 @@
 import { displayText } from "../../../i18n/index";
 import { useUiLocale } from "../../../shared/ui-locale";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import {
   EGG_BUTTON_MAPPINGS,
@@ -23,8 +23,29 @@ import {
 import { teevolutionSensorModeUi } from "@openmouse/protocol/teevolution";
 import type { KsnakeMacroProfile, KsnakeMacroStep } from "@openmouse/protocol/ksnake";
 import type { WallhackMacroStep } from "@openmouse/protocol/wallhack";
+import {
+  XIAOMI_BUTTON_NAMES,
+  XIAOMI_KEY_CODES,
+  XIAOMI_KEY_COMBOS,
+  XIAOMI_KEY_MODIFIERS,
+  xiaomiBindingLabel,
+  type XiaomiMacroEvent,
+} from "@openmouse/protocol/xiaomi";
+import {
+  LEOBOG_GM3_MACRO_MAX_STEPS,
+  type LeobogGm3MacroStep,
+} from "@openmouse/protocol/leobog";
 import { isPulsarProProtocol } from "../../../device/traits";
 import { isNoirKsnakeStatus } from "../../../device/noir.ts";
+import {
+  RIVAL650_ACTION_LABELS,
+  RIVAL650_BUTTON_LABELS,
+  RIVAL650_KEY_LABELS,
+  RIVAL650_KEY_NAMES,
+  RIVAL650_CUSTOM_ASSIGNMENT,
+  rival650ButtonLocked,
+} from "../../../device/rival650-buttons.ts";
+import type { Rival650ButtonName } from "@openmouse/protocol/steelseries";
 import {
   SLX_CLICK_ANALOG,
   SLX_CLICK_MECHANICAL,
@@ -39,6 +60,16 @@ import {
 } from "../../../device/finalmouse-slx.ts";
 import { lunafurySettingLabel, lunafuryTrackingVisible } from "../../../device/lunafury-labels.ts";
 import * as control from "../../../device/controller";
+import {
+  LEOBOG_MACRO_DOM_BUTTON,
+  LEOBOG_MACRO_MOUSE_CHOICES,
+  leobogMacroAcceptRecordedStep,
+  leobogMacroEventFromInput,
+  leobogMacroEventTime,
+  leobogMacroInputValue,
+  leobogMacroIsMouse,
+  leobogMacroIsRelease,
+} from "../../../device/leobog-macro-timing.ts";
 import { PULSAR_SLEEP_OPTIONS } from "../../../device/controller";
 import { selectableValues, sleepLabel, sleepParts, sleepTotalSeconds, snapCpiToDevice, valuesWithCurrent, KEYCHRON_SLEEP_MAX_HOURS, KEYCHRON_SLEEP_MAX_SECONDS, KEYCHRON_SLEEP_MIN_SECONDS, type CpiLimits } from "../../../device/options";
 import type { ControlSnapshot } from "../../../device/types";
@@ -309,7 +340,7 @@ export function SleepCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNod
 export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const status = snapshot.status;
   const locale = snapshot.preferences.locale;
-  if (status?.ui?.family !== "ksnake" || status.scrollDirection == null) return null;
+  if (status?.scrollDirection == null || !["ksnake", "keychron-8k"].includes(status.ui?.family ?? "") && !isNoirKsnakeStatus(status)) return null;
   const staged = snapshot.pending.keys.includes("ksnake-scroll-direction");
   return (
     <article id="ksnake-scroll-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
@@ -338,7 +369,12 @@ export function KsnakeScrollCard({ snapshot }: { snapshot: ControlSnapshot }): R
           </span>
         </label>
       </div>
-      <small className="setting-note">{t(locale, "adv.scrollStored")}</small>
+      {status.brand === "Keychron" && /Windows|Macintosh|Mac OS X/.test(navigator.userAgent) ?
+        <a className="om-btn" href={/Macintosh|Mac OS X/.test(navigator.userAgent)
+          ? "x-apple.systempreferences:com.apple.Mouse-Settings.extension" : "ms-settings:mousetouchpad"}>
+          {t(locale, "magnetic.openSystem")}
+        </a> : null}
+      <small className="setting-note">{status.ui?.family === "keychron-8k" ? t(locale, "magnetic.scrollStored") : t(locale, "adv.scrollStored")}</small>
     </article>
   );
 }
@@ -2356,6 +2392,502 @@ export function KsnakeMacroCard({ snapshot }: { snapshot: ControlSnapshot }): Re
 }
 
 /**
+ * Xiaomi Mi Gaming Mouse button bindings: each of the eight bindable buttons
+ * gets either a custom key combo (modifier mask + HID key) or a macro (a list
+ * of press/release events, optionally with a per-event delay before it).
+ */
+const XIAOMI_MODIFIER_BITS: ReadonlyArray<{ bit: number; label: string }> = [
+  { bit: XIAOMI_KEY_MODIFIERS.LEFT_CTRL, label: "Ctrl" },
+  { bit: XIAOMI_KEY_MODIFIERS.LEFT_SHIFT, label: "Shift" },
+  { bit: XIAOMI_KEY_MODIFIERS.LEFT_ALT, label: "Alt" },
+  { bit: XIAOMI_KEY_MODIFIERS.LEFT_WIN, label: "Win" },
+  { bit: XIAOMI_KEY_MODIFIERS.RIGHT_CTRL, label: "R-Ctrl" },
+  { bit: XIAOMI_KEY_MODIFIERS.RIGHT_SHIFT, label: "R-Shift" },
+  { bit: XIAOMI_KEY_MODIFIERS.RIGHT_ALT, label: "R-Alt" },
+  { bit: XIAOMI_KEY_MODIFIERS.RIGHT_WIN, label: "R-Win" },
+];
+
+const XIAOMI_KEY_CODE_BY_EVENT_CODE: Readonly<Record<string, number>> = {
+  ...Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter, index) => [`Key${letter}`, XIAOMI_KEY_CODES.A + index])),
+  ...Object.fromEntries(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((digit, index) => [`Digit${digit}`, XIAOMI_KEY_CODES.ONE + index])),
+  Enter: XIAOMI_KEY_CODES.ENTER,
+  Escape: XIAOMI_KEY_CODES.ESCAPE,
+  Backspace: XIAOMI_KEY_CODES.BACKSPACE,
+  Tab: XIAOMI_KEY_CODES.TAB,
+  Space: XIAOMI_KEY_CODES.SPACE,
+  Minus: XIAOMI_KEY_CODES.SUB,
+  Equal: XIAOMI_KEY_CODES.EQUAL,
+  BracketLeft: XIAOMI_KEY_CODES.SQR_BRKT_OPEN,
+  BracketRight: XIAOMI_KEY_CODES.SQR_BRKT_CLOSE,
+  Backslash: XIAOMI_KEY_CODES.BACKSLASH,
+  Semicolon: XIAOMI_KEY_CODES.SEMICOLON,
+  Quote: XIAOMI_KEY_CODES.APOSTROPHE,
+  Backquote: XIAOMI_KEY_CODES.BACKTICK,
+  Comma: XIAOMI_KEY_CODES.COMMA,
+  Period: XIAOMI_KEY_CODES.DOT,
+  Slash: XIAOMI_KEY_CODES.SLASH,
+  CapsLock: XIAOMI_KEY_CODES.CAPS_LOCK,
+  ...Object.fromEntries(Array.from({ length: 12 }, (_, index) => [`F${index + 1}`, XIAOMI_KEY_CODES.F1 + index])),
+  PrintScreen: XIAOMI_KEY_CODES.PRINT_SCREEN,
+  ScrollLock: XIAOMI_KEY_CODES.SCROLL_LOCK,
+  Pause: XIAOMI_KEY_CODES.PAUSE,
+  Insert: XIAOMI_KEY_CODES.INSERT,
+  Home: XIAOMI_KEY_CODES.HOME,
+  PageUp: XIAOMI_KEY_CODES.PAGE_UP,
+  Delete: XIAOMI_KEY_CODES.DELETE,
+  End: XIAOMI_KEY_CODES.END,
+  PageDown: XIAOMI_KEY_CODES.PAGE_DOWN,
+  ArrowRight: XIAOMI_KEY_CODES.RIGHT_ARROW,
+  ArrowLeft: XIAOMI_KEY_CODES.LEFT_ARROW,
+  ArrowDown: XIAOMI_KEY_CODES.DOWN_ARROW,
+  ArrowUp: XIAOMI_KEY_CODES.UP_ARROW,
+  NumLock: XIAOMI_KEY_CODES.NUM_LOCK,
+  NumpadDivide: XIAOMI_KEY_CODES.NUMPAD_DIV,
+  NumpadMultiply: XIAOMI_KEY_CODES.NUMPAD_MULT,
+  NumpadSubtract: XIAOMI_KEY_CODES.NUMPAD_SUB,
+  NumpadAdd: XIAOMI_KEY_CODES.NUMPAD_ADD,
+  NumpadEnter: XIAOMI_KEY_CODES.NUMPAD_ENTER,
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`Numpad${index + 1}`, XIAOMI_KEY_CODES.NUMPAD_1 + index])),
+  Numpad0: XIAOMI_KEY_CODES.NUMPAD_0,
+  NumpadDecimal: XIAOMI_KEY_CODES.NUMPAD_DOT,
+  ControlLeft: XIAOMI_KEY_CODES.LEFT_CTRL,
+  ShiftLeft: XIAOMI_KEY_CODES.LEFT_SHIFT,
+  AltLeft: XIAOMI_KEY_CODES.LEFT_ALT,
+  MetaLeft: XIAOMI_KEY_CODES.LEFT_WIN,
+  OSLeft: XIAOMI_KEY_CODES.LEFT_WIN,
+  ControlRight: XIAOMI_KEY_CODES.RIGHT_CTRL,
+  ShiftRight: XIAOMI_KEY_CODES.RIGHT_SHIFT,
+  AltRight: XIAOMI_KEY_CODES.RIGHT_ALT,
+  MetaRight: XIAOMI_KEY_CODES.RIGHT_WIN,
+  OSRight: XIAOMI_KEY_CODES.RIGHT_WIN,
+};
+
+const XIAOMI_KEY_CODE_NAMES: Readonly<Record<number, string>> = Object.fromEntries(
+  Object.entries(XIAOMI_KEY_CODES).map(([name, code]) => [code, name.replace(/_/g, " ")]),
+);
+
+function xiaomiKeyCodeLabel(code: number): string {
+  return XIAOMI_KEY_CODE_NAMES[code] ?? `0x${code.toString(16)}`;
+}
+
+function xiaomiMacroEventLabel(event: XiaomiMacroEvent): string {
+  return `${event.state === 0 ? "Press" : "Release"} · ${xiaomiKeyCodeLabel(event.key)}`;
+}
+
+export function XiaomiMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
+  const macroCapable = status?.ui?.family === "xiaomi";
+  const bindings = snapshot.xiaomiBindings ?? null;
+  const macros = snapshot.xiaomiMacros ?? null;
+
+  const [button, setButton] = useState(0);
+  const [mode, setMode] = useState<"combo" | "macro">("combo");
+  const [modifiers, setModifiers] = useState(0);
+  const [key, setKey] = useState<number>(XIAOMI_KEY_CODES.A);
+  const [timing, setTiming] = useState<"no-delay" | "with-delay">("no-delay");
+  const [events, setEvents] = useState<XiaomiMacroEvent[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedEvents, setRecordedEvents] = useState<XiaomiMacroEvent[]>([]);
+  const recordedEventsRef = useRef<XiaomiMacroEvent[]>([]);
+  const recordingClockRef = useRef<number | null>(null);
+  const recorderFocusRef = useRef<HTMLElement | null>(null);
+  // Tracks the last (device, button, content) triple the sync effect applied,
+  // so a snapshot rebuild that leaves the selected button's binding/macro
+  // unchanged does not clobber an in-progress draft. The device key resets
+  // the sync state when the active device changes, discarding any draft.
+  const syncedSelectionRef = useRef<{ device: string | null; button: number; signature: string } | null>(null);
+  const lastDeviceKeyRef = useRef<string | null>(null);
+
+  const staged = snapshot.pending.keys.includes(`xiaomi-combo-${button}`)
+    || snapshot.pending.keys.includes(`xiaomi-macro-${button}`);
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy;
+  const controlsDisabled = disabled || isRecording;
+
+  // Cancel any in-progress recording when the active device changes, so keys
+  // pressed during the switch cannot be recorded into the new device's draft.
+  useEffect(() => {
+    const deviceKey = snapshot.activeDeviceKey;
+    if (lastDeviceKeyRef.current === null || lastDeviceKeyRef.current === deviceKey) {
+      lastDeviceKeyRef.current = deviceKey;
+      return;
+    }
+    lastDeviceKeyRef.current = deviceKey;
+    setIsRecording(false);
+    setRecordedEvents([]);
+    recordedEventsRef.current = [];
+    recordingClockRef.current = null;
+  }, [snapshot.activeDeviceKey]);
+
+  // Prepare the editor from the device snapshot whenever the selected button
+  // changes or a read/apply completes.
+  useEffect(() => {
+    if (!bindings || !macros) return;
+    const binding = bindings[button];
+    if (!binding) return;
+    // The snapshot arrays get new identity on every write (even for other
+    // buttons), so re-syncing on every rebuild would clobber an in-progress
+    // draft; only re-sync when the selected button's own content changed.
+    const signature = JSON.stringify([binding, macros[button] ?? null]);
+    const deviceKey = snapshot.activeDeviceKey;
+    const synced = syncedSelectionRef.current;
+    if (synced && synced.device === deviceKey && synced.button === button && synced.signature === signature) return;
+    syncedSelectionRef.current = { device: deviceKey, button, signature };
+    if (binding.mode === XIAOMI_KEY_COMBOS.MACROS_NO_DELAY || binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY) {
+      setMode("macro");
+      setTiming(binding.mode === XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY ? "with-delay" : "no-delay");
+      setEvents((macros[button] ?? []).map((event) => ({ ...event })));
+    } else if (binding.mode === XIAOMI_KEY_COMBOS.CUSTOM_KEY_COMBO) {
+      setMode("combo");
+      setModifiers(binding.modifiers ?? 0);
+      setKey(binding.key ?? XIAOMI_KEY_CODES.A);
+      setEvents([]);
+    } else {
+      setMode("combo");
+      setModifiers(0);
+      setKey(XIAOMI_KEY_CODES.A);
+      setEvents([]);
+    }
+  }, [bindings, macros, button, snapshot.activeDeviceKey]);
+
+  useEffect(() => {
+    if (macroCapable
+      && snapshot.xiaomiMacros === null
+      && !snapshot.xiaomiMacrosLoading
+      && snapshot.xiaomiMacrosError === null) {
+      control.loadXiaomiMacros();
+    }
+  }, [macroCapable, snapshot.xiaomiMacros, snapshot.xiaomiMacrosLoading, snapshot.xiaomiMacrosError]);
+
+  const appendRecordedEvent = (event: XiaomiMacroEvent): void => {
+    const now = performance.now();
+    const previous = recordingClockRef.current;
+    recordingClockRef.current = now;
+    const delayMs = previous === null
+      ? 0
+      : Math.min(65535, Math.max(0, Math.round(now - previous)));
+    // Xiaomi stores the delay before each event, so the interval measured
+    // before the new event belongs to the new event itself.
+    const next = [...recordedEventsRef.current, { ...event, delayMs }];
+    recordedEventsRef.current = next;
+    setRecordedEvents(next);
+  };
+
+  const finishRecording = (): void => {
+    const next = timing === "no-delay"
+      ? recordedEventsRef.current.map((event) => ({ ...event, delayMs: 0 }))
+      : recordedEventsRef.current.map((event) => ({ ...event }));
+    setIsRecording(false);
+    setEvents(next);
+    setRecordedEvents([]);
+    recordedEventsRef.current = [];
+    recordingClockRef.current = null;
+  };
+
+  const cancelRecording = (): void => {
+    setIsRecording(false);
+    setRecordedEvents([]);
+    recordedEventsRef.current = [];
+    recordingClockRef.current = null;
+  };
+
+  const startRecording = (): void => {
+    if (disabled || isRecording) return;
+    recordedEventsRef.current = [];
+    setRecordedEvents([]);
+    recordingClockRef.current = performance.now();
+    setIsRecording(true);
+  };
+
+  useEffect(() => {
+    if (!isRecording) return undefined;
+
+    // The Record button keeps focus after it is clicked. Keyboard events then
+    // target that button, and the recorder-control guard (correctly) ignores
+    // them as UI input. Move focus to a neutral capture surface so the first
+    // physical key pressed after starting a recording is captured.
+    recorderFocusRef.current?.focus();
+
+    const isRecorderControl = (target: EventTarget | null): boolean => (
+      target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
+    );
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      if (event.code === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        finishRecording();
+        return;
+      }
+      if (event.repeat) return;
+      const code = XIAOMI_KEY_CODE_BY_EVENT_CODE[event.code];
+      if (code === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      appendRecordedEvent({ key: code, state: 0, delayMs: 0 });
+    };
+
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const code = XIAOMI_KEY_CODE_BY_EVENT_CODE[event.code];
+      if (code === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      appendRecordedEvent({ key: code, state: 1, delayMs: 0 });
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
+  }, [isRecording]);
+
+  if (!status || !macroCapable) return null;
+
+  const updateEvent = (index: number, change: Partial<XiaomiMacroEvent>): void => {
+    setEvents((current) => current.map((event, eventIndex) => eventIndex === index ? { ...event, ...change } : event));
+  };
+  const addEvent = (): void => {
+    setEvents((current) => [...current, { key: XIAOMI_KEY_CODES.A, state: 0, delayMs: 0 }]);
+  };
+  const removeEvent = (index: number): void => {
+    setEvents((current) => current.filter((_, eventIndex) => eventIndex !== index));
+  };
+  const saveMacro = (): void => {
+    const macroMode = timing === "with-delay" ? XIAOMI_KEY_COMBOS.MACROS_WITH_DELAY : XIAOMI_KEY_COMBOS.MACROS_NO_DELAY;
+    const next = timing === "no-delay"
+      ? events.map((event) => ({ ...event, delayMs: 0 }))
+      : events.map((event) => ({ ...event }));
+    control.applyXiaomiMacro(button, macroMode, next);
+  };
+
+  if (snapshot.xiaomiMacrosLoading) {
+    return (
+      <article id="xiaomi-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{t(locale, "macro.xmLoading")}</p>
+      </article>
+    );
+  }
+
+  if (snapshot.xiaomiMacrosError !== null) {
+    return (
+      <article id="xiaomi-macro-settings" className="setting-card">
+        <div className="setting-heading compact"><div><h2>{t(locale, "macro.build")}</h2></div></div>
+        <p className="field-note">{displayText(locale, snapshot.xiaomiMacrosError)}</p>
+        <div className="setting-action"><button type="button" onClick={() => control.loadXiaomiMacros()}>{t(locale, "set.retry")}</button></div>
+      </article>
+    );
+  }
+
+  if (!bindings || !macros) return null;
+
+  return (
+    <article id="xiaomi-macro-settings" className={`setting-card${staged ? " is-staged" : ""}`}>
+      <div className="setting-heading ksnake-macro-heading">
+        <div>
+          <h2>{t(locale, "macro.build")}</h2>
+          <p className="ksnake-macro-lead">{t(locale, "macro.xmLead")}</p>
+        </div>
+      </div>
+      <label className="ksnake-macro-slot-picker">
+        <span>{t(locale, "macro.xmButton")}</span>
+        <select value={button} disabled={controlsDisabled} onChange={(event) => setButton(Number(event.currentTarget.value))}>
+          {XIAOMI_BUTTON_NAMES.map((name, index) => {
+            const entry = bindings[index];
+            const label = entry ? (xiaomiBindingLabel(entry) ?? "Unknown") : "…";
+            return <option key={index} value={index}>{displayText(locale, `${name} · ${label}`)}</option>;
+          })}
+        </select>
+      </label>
+      <Segmented
+        className="two"
+        ariaLabel={displayText(locale, "Binding type")}
+        options={[
+          { value: "combo", label: t(locale, "macro.xmCombo") },
+          { value: "macro", label: t(locale, "macro.xmMacro") },
+        ]}
+        value={mode}
+        disabled={controlsDisabled}
+        onChange={(next) => setMode(next)}
+      />
+      {mode === "combo" ? (
+        <section className="xiaomi-macro-combo">
+          <p className="field-note">{t(locale, "macro.xmComboHint")}</p>
+          <fieldset className="xiaomi-macro-modifiers">
+            <legend>{t(locale, "macro.xmModifiers")}</legend>
+            {XIAOMI_MODIFIER_BITS.map(({ bit, label }) => (
+              <label key={bit} className="xiaomi-macro-modifier">
+                <input
+                  type="checkbox"
+                  checked={(modifiers & bit) !== 0}
+                  disabled={controlsDisabled}
+                  onChange={(event) => setModifiers(event.currentTarget.checked ? modifiers | bit : modifiers & ~bit)}
+                />
+                {displayText(locale, label)}
+              </label>
+            ))}
+          </fieldset>
+          <label className="xiaomi-macro-key-picker">
+            <span>{t(locale, "macro.xmKey")}</span>
+            <select value={key} disabled={controlsDisabled} onChange={(event) => setKey(Number(event.currentTarget.value))}>
+              {Object.entries(XIAOMI_KEY_CODES).map(([name, code]) => (
+                <option key={name} value={code}>{displayText(locale, name.replace(/_/g, " "))}</option>
+              ))}
+            </select>
+          </label>
+          <div className="setting-action xiaomi-macro-actions">
+            <button className="xiaomi-macro-save" type="button" onClick={() => control.applyXiaomiCustomCombo(button, modifiers, key)} disabled={controlsDisabled}>
+              <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+              {t(locale, "macro.xmSaveCombo")}
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
+          <p className="field-note">{t(locale, "macro.xmMacroHint")}</p>
+          <Segmented
+            className="two"
+            ariaLabel={t(locale, "macro.xmTiming")}
+            options={[
+              { value: "no-delay", label: t(locale, "macro.xmNoDelay") },
+              { value: "with-delay", label: t(locale, "macro.xmWithDelay") },
+            ]}
+            value={timing}
+            disabled={controlsDisabled}
+            onChange={(next) => setTiming(next)}
+          />
+          <section
+            ref={recorderFocusRef}
+            className={`ksnake-macro-recorder${isRecording ? " is-recording" : ""}`}
+            aria-live="polite"
+            aria-label={displayText(locale, "Macro input capture")}
+            tabIndex={-1}
+          >
+            <div className="ksnake-macro-recorder-status">
+              <span className="ksnake-macro-recorder-dot" aria-hidden="true" />
+              <div>
+                <strong>{displayText(locale, isRecording ? t(locale, "macro.xmRecording") : t(locale, "macro.addActions"))}</strong>
+                <span>{displayText(locale, isRecording
+                  ? tp(locale, "macro.xmEventsHint", { n: recordedEvents.length })
+                  : t(locale, "macro.xmRecorderHint"))}</span>
+              </div>
+            </div>
+            <div className="ksnake-macro-recorder-tools">
+              {isRecording ? (
+                <div className="ksnake-macro-recorder-actions">
+                  <button className="ksnake-macro-stop" type="button" data-macro-recorder-control onClick={finishRecording}>{t(locale, "macro.xmStop")}</button>
+                  <button className="ksnake-macro-cancel" type="button" data-macro-recorder-control onClick={cancelRecording}>{t(locale, "set.cancel")}</button>
+                </div>
+              ) : (
+                <div className="ksnake-macro-recorder-actions">
+                  <button className="ksnake-macro-record" type="button" data-macro-recorder-control onClick={startRecording} disabled={disabled}>{t(locale, "macro.xmRecord")}</button>
+                  <button className="ksnake-macro-manual-add" type="button" data-macro-recorder-control onClick={addEvent} disabled={controlsDisabled}>
+                    <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
+                    {t(locale, "macro.xmAddEvent")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+          {isRecording ? (
+            <div className="ksnake-macro-recording-list">
+              <div className="ksnake-macro-recording-list-heading">
+                <span>{t(locale, "macro.xmLiveEvents")}</span>
+                <span>{tp(locale, "macro.xmEvents", { n: recordedEvents.length })}</span>
+              </div>
+              {recordedEvents.length === 0 ? (
+                <p className="ksnake-macro-recording-empty">{t(locale, "macro.xmRecordingEmpty")}</p>
+              ) : (
+                <ol>
+                  {recordedEvents.map((event, index) => (
+                    <li key={`${button}-recording-${index}`}>
+                      <span className="ksnake-macro-recording-step-number">{displayText(locale, String(index + 1).padStart(2, "0"))}</span>
+                      <strong>{displayText(locale, xiaomiMacroEventLabel(event))}</strong>
+                      <small>{displayText(locale, event.delayMs > 0
+                        ? `+${event.delayMs} ms`
+                        : index === recordedEvents.length - 1 ? "Waiting…" : "Next")}</small>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          ) : (
+            <div className="ksnake-macro-steps">
+              {events.length === 0 ? (
+                <div className="ksnake-macro-empty">
+                  <strong>{t(locale, "macro.xmNoEvents")}</strong>
+                  <span>{t(locale, "macro.xmNoEventsHint")}</span>
+                </div>
+              ) : null}
+              {events.map((event, index) => (
+                <div className="ksnake-macro-step xiaomi-macro-step" key={`${button}-${index}`}>
+                  <span className="ksnake-macro-step-number">{displayText(locale, String(index + 1).padStart(2, "0"))}</span>
+                  <label className="ksnake-macro-step-field">
+                    <span>{t(locale, "macro.colAction")}</span>
+                    <select
+                      aria-label={displayText(locale, `Macro event ${index + 1} action`)}
+                      value={event.state}
+                      disabled={controlsDisabled}
+                      onChange={(event) => updateEvent(index, { state: Number(event.currentTarget.value) as 0 | 1 })}
+                    >
+                      <option value={0}>{t(locale, "macro.xmPress")}</option>
+                      <option value={1}>{t(locale, "macro.xmRelease")}</option>
+                    </select>
+                  </label>
+                  <label className="ksnake-macro-step-field">
+                    <span>{t(locale, "macro.xmKey")}</span>
+                    <select
+                      aria-label={displayText(locale, `Macro event ${index + 1} key`)}
+                      value={event.key}
+                      disabled={controlsDisabled}
+                      onChange={(event) => updateEvent(index, { key: Number(event.currentTarget.value) })}
+                    >
+                      {Object.entries(XIAOMI_KEY_CODES).map(([name, code]) => (
+                        <option key={name} value={code}>{displayText(locale, name.replace(/_/g, " "))}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="ksnake-macro-number ksnake-macro-delay-field">
+                    {t(locale, "macro.xmDelayBefore")}
+                    <input
+                      type="number"
+                      min={0}
+                      max={65535}
+                      value={event.delayMs}
+                      disabled={controlsDisabled || timing === "no-delay"}
+                      onChange={(event) => updateEvent(index, { delayMs: Math.min(65535, Math.max(0, Number(event.currentTarget.value) || 0)) })}
+                    />
+                  </label>
+                  <small className="ksnake-macro-preview" title={displayText(locale, xiaomiKeyCodeLabel(event.key))}>{displayText(locale, xiaomiKeyCodeLabel(event.key))}</small>
+                  <button type="button" className="ksnake-macro-delete" disabled={controlsDisabled} onClick={() => removeEvent(index)} aria-label={tp(locale, "macro.xmRemoveEvent", { n: index + 1 })} title={t(locale, "macro.removeStepTitle")}>
+                    <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="setting-action xiaomi-macro-actions">
+            <button className="xiaomi-macro-save" type="button" onClick={saveMacro} disabled={controlsDisabled || events.length === 0}>
+              <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+              {t(locale, "macro.save")}
+            </button>
+            <button className="xiaomi-macro-clear" type="button" onClick={() => control.clearXiaomiMacro(button)} disabled={controlsDisabled || (macros[button] ?? []).length === 0}>{t(locale, "macro.xmClear")}</button>
+          </div>
+        </>
+      )}
+      <details className="ksnake-macro-help">
+        <summary>{t(locale, "macro.xmHelpToggle")}</summary>
+        <p>{t(locale, "macro.xmHelpBody")}</p>
+      </details>
+    </article>
+  );
+}
+
+/**
  * WALLHACK M-001 onboard macros: 4 slots of up to 30 steps, read from the
  * device and saved per slot. Manual step editor (no live recorder yet):
  * each step waits `delayMs` after the previous step, then emits its event.
@@ -2632,15 +3164,451 @@ export function WallhackMacroCard({ snapshot }: { snapshot: ControlSnapshot }): 
 }
 
 /**
+ * Keys the GM3 macro editor offers, keyed by HID usage. The base list is the
+ * same catalog the K-snake editor uses; modifiers sit at 0xE0-0xE7 because a
+ * macro step stores a plain usage byte.
+ */
+const LEOBOG_MACRO_KEY_LABELS: Readonly<Record<number, string>> = {
+  ...KSNAKE_KEY_LABELS,
+  // KSNAKE_KEY_LABELS carries no digits, but the recorder below does send
+  // them, so without these a recorded "3" would show up as a raw code.
+  30: "1", 31: "2", 32: "3", 33: "4", 34: "5", 35: "6", 36: "7", 37: "8", 38: "9", 39: "0",
+  0xe0: "Left Ctrl",
+  0xe1: "Left Shift",
+  0xe2: "Left Alt",
+  0xe3: "Left GUI",
+  0xe4: "Right Ctrl",
+  0xe5: "Right Shift",
+  0xe6: "Right Alt",
+  0xe7: "Right GUI",
+};
+
+const LEOBOG_MACRO_KEY_CHOICES = Object.entries(LEOBOG_MACRO_KEY_LABELS)
+  .map(([usage, label]) => ({ usage: Number(usage), label }))
+  .filter((choice) => choice.usage !== 0)
+  .sort((a, b) => a.usage - b.usage);
+
+function leobogMacroKeyLabel(usage: number): string {
+  return LEOBOG_MACRO_KEY_LABELS[usage] ?? `0x${usage.toString(16).padStart(2, "0")}`;
+}
+
+/** HID usage for a browser key event, including the modifier usages. */
+function leobogMacroUsageForEvent(code: string): number | null {
+  const modifier = KSNAKE_MODIFIER_BY_EVENT_CODE[code];
+  if (modifier !== undefined) return 0xe0 + Math.log2(modifier);
+  return KSNAKE_KEY_CODE_BY_EVENT_CODE[code] ?? null;
+}
+
+/** False for a code this build cannot name, so the row still shows its value. */
+function leobogMacroIsKnownInput(step: LeobogGm3MacroStep): boolean {
+  if (leobogMacroIsMouse(step)) {
+    return LEOBOG_MACRO_MOUSE_CHOICES.some((choice) => choice.button === step.event.hidUsage);
+  }
+  return Boolean(LEOBOG_MACRO_KEY_LABELS[step.event.hidUsage]);
+}
+
+/**
+ * LEOBOG GM3 macro editor.
+ *
+ * The device takes a macro through vendor command `03 00` but serves no read
+ * for it, so the slots below hold whatever this session uploaded — never a
+ * read of the mouse. Steps are the key and mouse-button records the vendor
+ * uploads, in the same `flags | time_ms | code` shape, so a slot can mix both.
+ * Mouse movement and wheel steps are not captured yet and are not offered.
+ */
+export function LeobogMacroCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const status = snapshot.status;
+  const locale = snapshot.preferences.locale;
+  const capable = status?.ui?.family === "leobog-gm3";
+  const macros = status?.leobogMacros ?? null;
+  const [slot, setSlot] = useState(0);
+  const [name, setName] = useState("");
+  const [steps, setSteps] = useState<LeobogGm3MacroStep[]>([]);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<HTMLDivElement | null>(null);
+  const recordingLastRef = useRef<number | null>(null);
+  const stepsRef = useRef<LeobogGm3MacroStep[]>([]);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
+  const slotDraftsRef = useRef<Record<number, { name: string; steps: LeobogGm3MacroStep[] }>>({});
+  const activeSlotRef = useRef(slot);
+  const activeDeviceRef = useRef<string | null>(null);
+  stepsRef.current = steps;
+  const selectedDevice = snapshot.devices.find((device) => device.selected);
+  const deviceKey = selectedDevice
+    ? `${selectedDevice.index}:${selectedDevice.vendorId}:${selectedDevice.productId}:${selectedDevice.transport}:${selectedDevice.kind}:${selectedDevice.name}`
+    : null;
+  const staged = snapshot.pending.keys.includes(`leobog-macro-${slot + 1}`);
+  const disabled = snapshot.settingInProgress || snapshot.pending.busy || recording;
+
+  // Seed the editor from the last record uploaded for this slot. Keyed on the
+  // stored value rather than on the status object, so a background refresh or
+  // a toast cannot throw away unsaved step edits.
+  const storedSignature = JSON.stringify(macros?.[slot] ?? null);
+  useLayoutEffect(() => {
+    if (activeDeviceRef.current !== deviceKey) {
+      stopRecordingRef.current?.();
+      activeDeviceRef.current = deviceKey;
+      slotDraftsRef.current = {};
+      activeSlotRef.current = slot;
+    }
+    const record = macros?.[slot] ?? null;
+    const stored = {
+      name: record?.name ?? `Macro ${slot + 1}`,
+      steps: record ? record.steps.map((step) => ({ ...step, event: { ...step.event } })) : [],
+    };
+    const previousSlot = activeSlotRef.current;
+    if (previousSlot !== slot) {
+      // Keep per-slot drafts so switching the picker cannot discard edits.
+      slotDraftsRef.current[previousSlot] = { name, steps };
+      activeSlotRef.current = slot;
+      const draft = slotDraftsRef.current[slot];
+      if (draft) {
+        setName(draft.name);
+        setSteps(draft.steps);
+        return;
+      }
+    }
+    setName(stored.name);
+    setSteps(stored.steps);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceKey, storedSignature, slot]);
+
+  // Recording appends to whatever is already in the slot so a mis-click cannot
+  // throw away hand-built steps, and timestamps each event against the one
+  // before it — the same thing the vendor editor stores.
+  useLayoutEffect(() => {
+    if (!recording) return undefined;
+    recorderRef.current?.focus();
+    const isRecorderControl = (target: EventTarget | null): boolean => (
+      target instanceof Element && Boolean(target.closest("[data-macro-recorder-control]"))
+    );
+    const held = new Map<string, LeobogGm3MacroStep["event"]>();
+    // `at` comes from the event's own timestamp, so a stalled handler cannot
+    // stretch the gap the way it could if we measured the handler time.
+    const append = (event: LeobogGm3MacroStep["event"], at: number): boolean => {
+      const previous = recordingLastRef.current;
+      const result = leobogMacroAcceptRecordedStep(
+        stepsRef.current,
+        event,
+        previous === null ? null : at - previous,
+        LEOBOG_GM3_MACRO_MAX_STEPS,
+      );
+      if (!result.accepted) return false;
+      stepsRef.current = result.steps;
+      recordingLastRef.current = at;
+      setSteps(result.steps);
+      return true;
+    };
+    const releaseHeld = (at: number): void => {
+      for (const [key, press] of held) {
+        append(
+          press.type === "keyDown"
+            ? { type: "keyUp", hidUsage: press.hidUsage }
+            : { type: "mouseUp", hidUsage: press.hidUsage },
+          at,
+        );
+        held.delete(key);
+      }
+    };
+    const stop = (): void => {
+      releaseHeld(performance.now());
+      setRecording(false);
+    };
+    stopRecordingRef.current = stop;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      if (event.code === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        stop();
+        return;
+      }
+      if (event.repeat) return;
+      const usage = leobogMacroUsageForEvent(event.code);
+      if (usage === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const press = { type: "keyDown" as const, hidUsage: usage };
+      if (append(press, leobogMacroEventTime(event))) held.set(`keyboard:${usage}`, press);
+    };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      const usage = leobogMacroUsageForEvent(event.code);
+      if (usage === null) return;
+      const closesCapturedPress = held.delete(`keyboard:${usage}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      append({ type: "keyUp", hidUsage: usage }, leobogMacroEventTime(event));
+    };
+    const onMouseDown = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const press = { type: "mouseDown" as const, hidUsage: button };
+      if (append(press, leobogMacroEventTime(event))) held.set(`mouse:${button}`, press);
+    };
+    const onMouseUp = (event: MouseEvent): void => {
+      const button = LEOBOG_MACRO_DOM_BUTTON[event.button];
+      if (button === undefined) return;
+      const closesCapturedPress = held.delete(`mouse:${button}`);
+      const onControl = isRecorderControl(event.target);
+      if (onControl && !closesCapturedPress) return;
+      if (!onControl) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      append({ type: "mouseUp", hidUsage: button }, leobogMacroEventTime(event));
+    };
+    // A recorded right button is a step, not a request for the browser menu.
+    const onContextMenu = (event: MouseEvent): void => {
+      if (isRecorderControl(event.target)) return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("mousedown", onMouseDown, true);
+    window.addEventListener("mouseup", onMouseUp, true);
+    window.addEventListener("contextmenu", onContextMenu, true);
+    return () => {
+      releaseHeld(performance.now());
+      stopRecordingRef.current = null;
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("mousedown", onMouseDown, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+      window.removeEventListener("contextmenu", onContextMenu, true);
+    };
+  }, [recording]);
+
+  if (!status || !capable || macros === null) return null;
+
+  const startRecording = (): void => {
+    recordingLastRef.current = null;
+    setRecording(true);
+  };
+  const updateStep = (index: number, next: LeobogGm3MacroStep): void => {
+    setSteps((current) => current.map((step, at) => (at === index ? next : step)));
+  };
+  const addStep = (): void => {
+    setSteps((current) => current.length < LEOBOG_GM3_MACRO_MAX_STEPS
+      ? [...current, { delayMs: 0, event: { type: "keyDown", hidUsage: 0x04 } }]
+      : current);
+  };
+  const removeStep = (index: number): void => {
+    setSteps((current) => current.filter((_, at) => at !== index));
+  };
+
+  return (
+    <article
+      id="leobog-macro-settings"
+      className={`setting-card${staged ? " is-staged" : ""}`}
+      data-pending-key={`leobog-macro-${slot + 1}`}
+    >
+      <div className="setting-heading compact">
+        <div>
+          <h2>{t(locale, "macro.build")}</h2>
+          <p className="ksnake-macro-lead">{t(locale, "macro.leobogLead")}</p>
+        </div>
+      </div>
+      <label className="ksnake-macro-slot-picker">
+        <span>{t(locale, "macro.slotLabel")}</span>
+        <select
+          value={slot}
+          disabled={disabled || recording}
+          onChange={(event) => setSlot(Number(event.currentTarget.value))}
+        >
+          {macros.map((record, index) => {
+            const count = index === slot ? steps.length : record?.steps.length ?? 0;
+            return (
+              <option key={index} value={index}>
+                {t(locale, "macro.option")} {index + 1}
+                {displayText(locale, count
+                  ? ` · ${tp(locale, "macro.steps", { n: count })}`
+                  : ` · ${t(locale, "macro.empty")}`)}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+      <div
+        className={`ksnake-macro-recorder${recording ? " is-recording" : ""}`}
+        ref={recorderRef}
+        tabIndex={-1}
+      >
+        <div className="ksnake-macro-recorder-status">
+          <span className="ksnake-macro-recorder-dot" aria-hidden="true" />
+          <span>
+            <strong>{displayText(locale, recording ? t(locale, "macro.recording") : t(locale, "macro.addActions"))}</strong>
+            <span>{displayText(locale, recording
+              ? tp(locale, "macro.eventsHint", { n: steps.length })
+              : t(locale, "macro.recorderHint"))}</span>
+          </span>
+        </div>
+        <div className="ksnake-macro-recorder-tools">
+          <label className="ksnake-macro-timing-picker">
+            <span>{t(locale, "macro.nameLabel")}</span>
+            <input
+              type="text"
+              maxLength={16}
+              value={name}
+              disabled={disabled || recording}
+              data-macro-recorder-control
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+          </label>
+          <div className="ksnake-macro-recorder-actions">
+            {recording ? (
+              <button
+                className="ksnake-macro-stop"
+                type="button"
+                data-macro-recorder-control
+                onClick={() => stopRecordingRef.current?.()}
+              >
+                {t(locale, "macro.stopRecording")}
+              </button>
+            ) : (
+              <button
+                className="ksnake-macro-record"
+                type="button"
+                data-macro-recorder-control
+                onClick={startRecording}
+                disabled={disabled}
+              >
+                {t(locale, "macro.recordInput")}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      {steps.length === 0 ? (
+        <p className="field-note">{t(locale, "macro.noActions")}</p>
+      ) : (
+        <div className="macro-steps">
+          {steps.map((step, index) => (
+            <div className="macro-step" key={`${slot}-${index}`}>
+              <span className="macro-step-index">{index + 1}</span>
+              <label>{t(locale, "macro.whStepType")}
+                <select
+                  value={leobogMacroIsRelease(step) ? "up" : "down"}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: step.delayMs,
+                    event: leobogMacroEventFromInput(
+                      leobogMacroInputValue(step),
+                      event.currentTarget.value === "up",
+                    ),
+                  })}
+                >
+                  <option value="down">{t(locale, "macro.stepDown")}</option>
+                  <option value="up">{t(locale, "macro.stepUp")}</option>
+                </select>
+              </label>
+              <label>{t(locale, "macro.colInput")}
+                <select
+                  value={leobogMacroInputValue(step)}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: step.delayMs,
+                    event: leobogMacroEventFromInput(
+                      event.currentTarget.value,
+                      leobogMacroIsRelease(step),
+                    ),
+                  })}
+                >
+                  {!leobogMacroIsKnownInput(step) ? (
+                    <option value={leobogMacroInputValue(step)}>
+                      {leobogMacroIsMouse(step)
+                        ? `${t(locale, "macro.whButton")} ${step.event.hidUsage}`
+                        : leobogMacroKeyLabel(step.event.hidUsage)}
+                    </option>
+                  ) : null}
+                  <optgroup label={t(locale, "macro.keyLabel")}>
+                    {LEOBOG_MACRO_KEY_CHOICES.map((choice) => (
+                      <option key={`key:${choice.usage}`} value={`key:${choice.usage}`}>{choice.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t(locale, "home.mouse")}>
+                    {LEOBOG_MACRO_MOUSE_CHOICES.map((choice) => (
+                      <option key={`mouse:${choice.button}`} value={`mouse:${choice.button}`}>
+                        {displayText(locale, choice.label)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
+              <label>{t(locale, "macro.colDelay")}
+                <input
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={step.delayMs}
+                  disabled={disabled}
+                  onChange={(event) => updateStep(index, {
+                    delayMs: Math.min(65535, Math.max(0, Number(event.currentTarget.value) || 0)),
+                    event: { ...step.event },
+                  })}
+                />
+              </label>
+              <button
+                type="button"
+                className="ksnake-macro-delete"
+                disabled={disabled}
+                onClick={() => removeStep(index)}
+                aria-label={tp(locale, "macro.removeStep", { n: index + 1 })}
+                title={t(locale, "macro.removeStepTitle")}
+              >
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="setting-action ksnake-macro-actions">
+        <button type="button" onClick={addStep} disabled={disabled || steps.length >= LEOBOG_GM3_MACRO_MAX_STEPS}>
+          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.whAdd")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSteps([])}
+          disabled={disabled || steps.length === 0}
+        >
+          <Trash2 size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.clearSlot")}
+        </button>
+        <button
+          className="ksnake-macro-save"
+          type="button"
+          data-macro-recorder-control
+          onClick={() => control.applyLeobogMacro(slot, name, steps)}
+          disabled={disabled || recording}
+        >
+          <Save size={16} strokeWidth={2.2} aria-hidden="true" />
+          {t(locale, "macro.save")}
+        </button>
+      </div>
+      <small className="setting-note">{t(locale, "macro.noticeWriteOnly")}</small>
+    </article>
+  );
+}
+
+/**
  * Button remapping for drivers that publish a plain name -> action map. Stays
  * brand-agnostic: the driver supplies both the button list and the vocabulary,
  * so nothing here knows what a given mouse can do.
  */
 export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const [leftLocked, setLeftLocked] = useState(true);
   const status = snapshot.status;
   if (!status?.buttonMappings || !status.buttonOptions?.length) return null;
   const locale = snapshot.preferences.locale;
   const options = status.buttonOptions;
+  const isRival650 = status.ui?.family === "steelseries-rival650";
   const isNoirProfile = isNoirKsnakeStatus(status)
     && snapshot.m2nexProfiles !== null;
   const selectedM2NexProfile = isNoirProfile
@@ -2650,34 +3618,54 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
   const mappings = selectedM2NexProfile?.buttonMappings ?? status.buttonMappings;
   const pendingButtons = new Set(snapshot.pending.keys);
   const resettingButtons = pendingButtons.has("ksnake-button-reset");
+  // Drivers that publish their factory table get the generic restore button.
+  const canResetDefaults = status.defaultButtonMappings !== undefined && !selectedM2NexProfile;
+  const resettingDefaults = pendingButtons.has("button-defaults");
+  const showingDefaults = resettingButtons || resettingDefaults;
   // fixedButtons lands with mouse-protocol#68; read defensively so this
   // builds against the published protocol until then.
   const fixed = new Set((status as unknown as { fixedButtons?: readonly string[] }).fixedButtons ?? []);
   return (
     <article id="button-mapping-settings" className="setting-card">
       <div className="setting-heading compact"><div><h2>{t(locale, "map.remap")}</h2></div></div>
+      {isRival650 ? (
+        <>
+          <p className="field-note">{t(locale, "map.rival650Note")}</p>
+          <img className="rival650-button-diagram" src="/devices/steelseries-rival-650-button-layout.svg"
+            width={800} height={450} alt={t(locale, "adv.eggHandedTitle")} />
+        </>
+      ) : null}
+      {status.brand === "Keychron" ? <SwitchRow id="keychron-left-lock" label={t(locale, "magnetic.leftLock")} value={leftLocked} onChange={setLeftLocked} /> : null}
       <div className="button-map-list">
         {Object.entries(status.buttonMappings).map(([button, deviceAssigned], index) => {
-          const assigned = resettingButtons || pendingButtons.has(`button-${button}`)
+          const assigned = showingDefaults || pendingButtons.has(`button-${button}`)
             ? status.buttonMappings?.[button] ?? mappings[button] ?? deviceAssigned
             : mappings[button] ?? deviceAssigned;
           const selectId = `button-${button.toLowerCase()}-select`;
-          const isFixed = fixed.has(button) || (isNoirKsnakeStatus(status) && button === "Left");
+          const isFixed = fixed.has(button) || (isRival650 && rival650ButtonLocked(button, mappings))
+            || (isNoirKsnakeStatus(status) && button === "Left") || (status.brand === "Keychron" && leftLocked && button === "Left");
+          const buttonLabel = isRival650
+            ? t(locale, RIVAL650_BUTTON_LABELS[button as Rival650ButtonName])
+            : displayText(locale, button);
           return (
             <label key={button} className={`button-map-row${isFixed ? " is-fixed" : ""}`} htmlFor={selectId}>
               <span className="button-map-control">
-                <span className="button-map-index" aria-hidden="true">{displayText(locale, String(index + 1).padStart(2, "0"))}</span>
-                <span className="button-map-name">{displayText(locale, button)}</span>
+                <span className="button-map-index" aria-hidden={!isRival650}>
+                  {displayText(locale, String(index + 1).padStart(isRival650 ? 1 : 2, "0"))}
+                </span>
+                <span className="button-map-name">{buttonLabel}</span>
               </span>
               <span className="button-map-connector" aria-hidden="true">{displayText(locale, "to")}</span>
               <span className="button-map-select-wrap">
                 <select
                   id={selectId}
                   value={options.includes(assigned) ? assigned : ""}
-                  disabled={isFixed}
+                  disabled={isFixed || (isRival650 && (!assigned || snapshot.settingInProgress))}
                   onChange={(event) => {
-                    // M2-NEX edits its selected local profile slot; every other
-                    // driver writes straight through to the device.
+                    if (isRival650) {
+                      control.stageRival650Button(button, event.currentTarget.value);
+                      return;
+                    }
                     if (selectedM2NexProfile) {
                       control.updateM2NexProfileButton(button, event.currentTarget.value);
                       return;
@@ -2686,25 +3674,54 @@ export function ButtonMappingCard({ snapshot }: { snapshot: ControlSnapshot }): 
                   }}
                 >
                   {/* A macro or an assignment this build cannot name still shows. */}
-                  {!options.includes(assigned) && <option value="">{displayText(locale, assigned)}</option>}
-                  {options.map((option) => <option key={option} value={option}>{displayText(locale, option)}</option>)}
+                  {!options.includes(assigned) && (
+                    <option value="">
+                      {isRival650 ? t(locale, assigned === RIVAL650_CUSTOM_ASSIGNMENT ? "common.custom" : "diag.unknown")
+                        : displayText(locale, assigned)}
+                    </option>
+                  )}
+                  {isRival650
+                    ? <>
+                      {[...RIVAL650_ACTION_LABELS].map(([option, label]) => (
+                        <option key={option} value={option}>{t(locale, label)}</option>
+                      ))}
+                      <optgroup label={t(locale, "map.keysSection")}>
+                        {Object.entries(RIVAL650_KEY_NAMES).map(([option, label]) => (
+                          <option key={option} value={option}>{t(locale, label)}</option>
+                        ))}
+                        {[...RIVAL650_KEY_LABELS].map(([option, label]) => (
+                          <option key={option} value={option}>{label}</option>
+                        ))}
+                      </optgroup>
+                    </>
+                    : options.map(option => <option key={option} value={option}>{displayText(locale, option)}</option>)}
                 </select>
               </span>
             </label>
           );
         })}
       </div>
-      {canResetKsnake ? (
+      {canResetKsnake || isRival650 || canResetDefaults ? (
         <div className="button-map-footer">
-          <button
-            type="button"
-            className="button-map-reset"
-            disabled={snapshot.settingInProgress || snapshot.pending.busy}
-            onClick={control.resetKsnakeButtonMappings}
-          > {displayText(locale, "Reset to default")} </button>
+          {canResetDefaults ? (
+            <button
+              type="button"
+              className="button-map-reset"
+              disabled={snapshot.settingInProgress || snapshot.pending.busy}
+              onClick={control.restoreDefaultButtonMappings}
+            > {displayText(locale, "Reset to default")} </button>
+          ) : null}
+          {canResetKsnake || isRival650 ? (
+            <button
+              type="button"
+              className="button-map-reset"
+              disabled={snapshot.settingInProgress || snapshot.pending.busy}
+              onClick={isRival650 ? control.resetRival650ButtonMappings : control.resetKsnakeButtonMappings}
+            > {isRival650 ? t(locale, "map.rival650Defaults") : displayText(locale, "Reset to default")} </button>
+          ) : null}
         </div>
       ) : null}
-      {!selectedM2NexProfile ? (
+      {!selectedM2NexProfile && !isRival650 ? (
         <p className="field-note">{t(locale, "map.defaultNote")}</p>
       ) : null}
     </article>

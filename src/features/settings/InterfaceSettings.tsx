@@ -16,6 +16,7 @@ const THEME_ORDER: readonly InterfaceTheme[] = [
   "Ice",
   "Ember",
   "Mono",
+  "OLED",
   "Miku",
   "Catppuccin Mocha",
   "Catppuccin Macchiato",

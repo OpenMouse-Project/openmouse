@@ -154,3 +154,10 @@ test("steelseries-gen2 fixture pairs its stage table with the Y table", () => {
   // A fixture whose axes never differ would not exercise the column at all.
   assert.notDeepEqual(status.dpiStagesY, status.dpiStages);
 });
+
+test("incott fixture opens the receiver card and the macro card", () => {
+  const has = cardAvailability(snapshotFor("incott"));
+  assert.equal(has.incott, true);
+  assert.equal(has.incottMacros, true);
+  assert.equal(has.buttonMapping, true);
+});
