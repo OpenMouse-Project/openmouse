@@ -14,7 +14,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openmouse/keyboard-protocol": "1.6.1",
+    "@openmouse/keyboard-protocol": "1.7.0",
     "@openmouse/protocol": "0.60.0",
     "lucide-react": "^1.43.0",
     "posthog-js": "^1.438.17",
