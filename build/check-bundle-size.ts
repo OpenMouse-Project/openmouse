@@ -50,8 +50,14 @@ export const BUDGET_BYTES: Record<string, number> = {
   // G6 HE/receiver panels, travel charts, battery tooltips and OLED theme,
   // with protocol 0.60.0: measured 177,450 bytes CSS and 3,992,589 bytes JS.
   // Main stays at 1,459,853 bytes, below its existing separate cap.
+  // 2026-11-26: @openmouse/protocol 0.60.0 -> 0.62.0 (Kmart, G-Wolves receiver
+  // names, Attack Shark X11 read-back, UtechSmart Venus, Cosmic Byte Kilonova
+  // and the other drivers merged for this release) and keyboard-protocol
+  // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
+  // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
+  // below its cap. 4.2 MB leaves room for one more protocol release.
   ".css": 178_000,
-  ".js": 4_000_000,
+  ".js": 4_200_000,
 };
 
 // main-*.js measured 1,511,619 bytes right after the split (posthog ~377 kB
