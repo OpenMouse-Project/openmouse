@@ -346,6 +346,18 @@ let xiaomiMacros: (XiaomiMacroEvent[] | null)[] | null = null;
 let xiaomiBindings: (XiaomiBinding | null)[] | null = null;
 let xiaomiMacrosLoading = false;
 let xiaomiMacrosError: string | null = null;
+/**
+ * Bumped whenever the cached Xiaomi bindings stop matching the device (a
+ * preset remap wrote a binding). A load that started before the bump drops
+ * what it read, and the macro card's effect then loads again.
+ */
+let xiaomiCacheGeneration = 0;
+
+function invalidateXiaomiCache(): void {
+  xiaomiCacheGeneration += 1;
+  xiaomiMacros = null;
+  xiaomiBindings = null;
+}
 let wallhackCurves: Record<"classic" | "natural" | "jump" | "custom", WallhackCurvePoint[]> | null = null;
 let wallhackCurvesLoading = false;
 let wallhackCurvesError: string | null = null;
@@ -1524,6 +1536,7 @@ export function loadXiaomiMacros(): void {
   }
   xiaomiMacrosLoading = true;
   xiaomiMacrosError = null;
+  const generation = xiaomiCacheGeneration;
   emit();
   void (async () => {
     try {
@@ -1538,7 +1551,8 @@ export function loadXiaomiMacros(): void {
           macros.push(null);
         }
       }
-      if (xiaomiMacroClient() !== client) return;
+      // A remap landed during the scan: these reads may predate it.
+      if (xiaomiMacroClient() !== client || generation !== xiaomiCacheGeneration) return;
       xiaomiMacros = macros;
       xiaomiBindings = bindings;
       xiaomiMacrosError = null;
@@ -7135,6 +7149,12 @@ export function applyDeviceButtonMapping(button: string, action: string): void {
         setButtonMapping(button: string, action: string): Promise<unknown>;
       };
       await client.setButtonMapping(button, action);
+      // The Xiaomi macro card caches every button's binding; a preset remap
+      // rewrites one behind its back, so drop the cache and let it reload.
+      if (xiaomiButtonIndex !== -1 && xiaomiMacroClient()) {
+        invalidateXiaomiCache();
+        emit();
+      }
       // S1's firmware acknowledges SET_KEYS but returns an all-0xff map on
       // the next GET_KEYS. Keep the selected local profile in sync with the
       // confirmed write so the profile overlay does not put the old value
