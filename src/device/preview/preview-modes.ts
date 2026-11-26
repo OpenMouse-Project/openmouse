@@ -47,11 +47,13 @@ export const PREVIEW_KEYS = [
   "incott",
   "arbiter-polar-65-pro",
   "arbiter-polar-65",
+  "glorious-gmmk2-65-iso",
+  "glorious-gmmk3-he-75",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
 /** Keyboard previews have no mouse status; they run a stand-in keyboard client instead. */
-export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65";
+export type KeyboardPreviewMode = "arbiter-polar-65-pro" | "arbiter-polar-65" | "glorious-gmmk2-65-iso" | "glorious-gmmk3-he-75";
 export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike" | KeyboardPreviewMode>;
 
 export function previewsEnabled(buildChannel: string, viteDev: boolean): boolean {
@@ -105,6 +107,8 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "incott": return "incott";
     case "arbiter-polar-65-pro": return "arbiter-polar-65-pro";
     case "arbiter-polar-65": return "arbiter-polar-65";
+    case "glorious-gmmk2-65-iso": return "glorious-gmmk2-65-iso";
+    case "glorious-gmmk3-he-75": return "glorious-gmmk3-he-75";
     default: return null;
   }
 }

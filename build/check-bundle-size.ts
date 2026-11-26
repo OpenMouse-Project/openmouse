@@ -56,7 +56,13 @@ export const BUDGET_BYTES: Record<string, number> = {
   // 1.7.0 -> 1.8.0 (ATK, MCHOSE, Glorious, Arbiter user mode) add 121,607 bytes
   // of JS (3,997,595 -> 4,119,202 measured); main grew to 1,494,869 bytes,
   // below its cap. 4.2 MB leaves room for one more protocol release.
-  ".css": 178_000,
+  // 2026-11-26: Glorious keyboards on stock firmware (GMMK Pro, GMMK 2, GMMK 3,
+  // HE, Numpad, GMBK, Eternal): model and key position tables, factory key
+  // maps, the key deck, macro recorder and their strings add 1,172 bytes of
+  // CSS (177,456 -> 178,628) and 58,744 bytes of JS (4,119,202 -> 4,177,946)
+  // against keyboard-protocol 1.8.0; main grew 42,727 bytes to 1,537,596,
+  // below its cap.
+  ".css": 180_000,
   ".js": 4_200_000,
 };
 
