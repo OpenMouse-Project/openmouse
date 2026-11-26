@@ -164,8 +164,10 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
-  // Keychron Hall-effect keyboards share one neutral silhouette until real art exists.
-  if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return "keychron-keyboard.svg";
+  if (/\bkeychron\s*turbo\s*link\b/i.test(displayName)) return "keychron-turbolink-8k.png";
+  if (/\bkeychron\s*g6\s*he\b/i.test(displayName)) return "keychron-g6-he.png";
+  // Keychron Hall-effect keyboards share the keyboard placeholder until real art exists.
+  if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return UNKNOWN_KEYBOARD_FILENAME;
   // Starlight X is a different shell from the ULX/Starlight-12, so it gets its
   // own render instead of borrowing the ULX's. Until the file is uploaded the
   // panel falls back to the placeholder at image-load time.
@@ -187,6 +189,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bm1\s*[-_]?\s*nex\b/i.test(displayName)) return "noir-m1-nex.png";
   if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
   if (/fantech/i.test(displayName)) return "unknown-device.png";
+  // The driver reports the model as "Mi Gaming Mouse" for both the wired
+  // (0x5009) and wireless (0x500b) PIDs, so one name rule covers both.
+  if (/mi\s*gaming\s*mouse/i.test(displayName)) return "xiaomi-mi-gaming-mouse.png";
   return "unknown-device.png";
 }
 
@@ -215,13 +220,41 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   "delux-m800-mini.png": "/devices/delux-m800-mini.png",
   "ipi-float-88.png": "/devices/ipi-float-88.png",
   "asus-rog-harpe-ace-aim-lab.png": "/devices/asus-rog-harpe-ace-aim-lab.png",
-  // A generic keyboard outline, not product art; it stays until Keychron renders are uploaded.
-  "keychron-keyboard.svg": "/devices/keychron-keyboard.svg",
+  // The keyboard placeholder: a black keyboard silhouette with a question mark,
+  // the keyboard twin of unknown-device.png. Served locally until it is in the bucket.
+  "unknown-keyboard.png": "/devices/unknown-keyboard.png",
+  // Rendered from the reference app's animation frames (black background
+  // removed); served locally until the R2 upload happens.
+  "xiaomi-mi-gaming-mouse.png": "/devices/xiaomi-mi-gaming-mouse.png",
 };
 
-export function deviceImage(device: HIDDevice | null | undefined, displayName = ""): string {
-  const filename = resolveDeviceImageFilename(device, displayName);
+export type DeviceImageKind = "mouse" | "keyboard";
+
+/**
+ * A keyboard with no art of its own gets the keyboard placeholder, not the
+ * mouse one. That covers anything the app labels a keyboard, plus any device
+ * whose reported name says "keyboard".
+ */
+function withPlaceholder(filename: string, displayName: string, kind: DeviceImageKind): string {
+  if (filename !== UNKNOWN_DEVICE_FILENAME) return filename;
+  return kind === "keyboard" || /\bkeyboard\b/i.test(displayName) ? UNKNOWN_KEYBOARD_FILENAME : filename;
+}
+
+function imageUrl(filename: string): string {
   return LOCAL_OVERRIDES[filename] ?? DEVICE_IMAGE_BASE_URL + filename;
+}
+
+export function deviceImage(
+  device: HIDDevice | null | undefined,
+  displayName = "",
+  kind: DeviceImageKind = "mouse",
+): string {
+  return imageUrl(withPlaceholder(resolveDeviceImageFilename(device, displayName), displayName, kind));
+}
+
+/** The placeholder an image falls back to when its own art fails to load. */
+export function placeholderImage(kind: DeviceImageKind = "mouse"): string {
+  return imageUrl(kind === "keyboard" ? UNKNOWN_KEYBOARD_FILENAME : UNKNOWN_DEVICE_FILENAME);
 }
 
 export function deviceImageFilename(displayName = ""): string {
@@ -254,6 +287,7 @@ export function showcaseDeviceImageUrls(): readonly string[] {
 }
 
 export const UNKNOWN_DEVICE_FILENAME = "unknown-device.png";
+export const UNKNOWN_KEYBOARD_FILENAME = "unknown-keyboard.png";
 
 export function isUnknownDevice(device: HIDDevice | null | undefined, displayName = ""): boolean {
   return resolveDeviceImageFilename(device, displayName) === UNKNOWN_DEVICE_FILENAME;

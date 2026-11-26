@@ -20,7 +20,9 @@ function snapshot(overrides: {
   capabilities?: Partial<DeviceCapabilities>;
   settingsPending?: boolean;
   showExperimental?: boolean;
+  gameProfileDraft?: boolean;
   buttons?: ControlSnapshot["buttons"];
+  devices?: ControlSnapshot["devices"];
 }): ControlSnapshot {
   const status = overrides.status === null ? null : { ...STATUS, ...overrides.status };
   return {
@@ -28,7 +30,9 @@ function snapshot(overrides: {
     traits: traitsFor(status),
     capabilities: overrides.capabilities ?? null,
     settingsPending: overrides.settingsPending ?? false,
+    gameProfileDraft: overrides.gameProfileDraft ?? false,
     buttons: overrides.buttons ?? null,
+    devices: overrides.devices ?? [],
     preferences: { showExperimental: overrides.showExperimental ?? true },
   } as unknown as ControlSnapshot;
 }
@@ -38,6 +42,16 @@ const CONTROL = {
   name: "Gesture button", taskName: "Gesture button", reprogrammable: true,
   mappedTo: 0x00c3, diverted: false, remappableTo: [0x0052], remapFlags: 0,
 } as unknown as NonNullable<ControlSnapshot["buttons"]>[number];
+
+test("the selected TurboLink keeps its receiver tab available when optional reads fail", () => {
+  const receiver = { index: 0, name: "Keychron G6 HE 8K", detail: "", selected: true,
+    vendorId: 0x3434, productId: 0xd05a, kind: "mouse" as const, transport: "webhid" as const };
+  const status = { brand: "Keychron" as const, ui: { family: "keychron-8k" } };
+  assert.equal(cardAvailability(snapshot({ status, devices: [receiver] })).keychronReceiver, true);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, selected: false }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status, devices: [{ ...receiver, productId: 0xd086 }] })).keychronReceiver, false);
+  assert.equal(cardAvailability(snapshot({ status: { ...status, ui: { ...status.ui, receiverControls: true } } })).keychronReceiver, true);
+});
 
 test("LunaFury exposes only successfully read controls and replaces global debounce", () => {
   const has = cardAvailability(snapshot({ status: {
@@ -738,4 +752,27 @@ test("the Glorious Model O2 Pro 4K/8K opens debounce, Motion Sync and the profil
   assert.equal(cards.onboardProfiles, true);
   assert.equal(cards.sleep, false);
   assert.equal(cards.signal, false);
+});
+
+test("Incott macros follow a driver that can bind a button to its own macro", () => {
+  const incott = (buttonOptions: string[]) => cardAvailability(snapshot({
+    status: {
+      brand: "Incott",
+      name: "G23V2 Pro",
+      ui: { family: "incott", showAdvancedSection: true },
+      buttonMappings: { Left: "Left click" },
+      buttonOptions,
+    },
+  }));
+  assert.equal(incott(["Left click", "Macro"]).incottMacros, true);
+  // An older driver has no per-button "Macro" action, and a macro uploaded
+  // without one cannot be bound to the buffer it went into.
+  assert.equal(incott(["Left click"]).incottMacros, false);
+});
+
+test("Rival 650 shows the button editor only outside game profile drafts", () => {
+  const status = { brand: "SteelSeries" as const, ui: { family: "steelseries-rival650" },
+    buttonMappings: { button1: "adv.leftButton" }, buttonOptions: ["adv.leftButton"] };
+  assert.equal(cardAvailability(snapshot({ status })).buttonMapping, true);
+  assert.equal(cardAvailability(snapshot({ status, gameProfileDraft: true })).buttonMapping, false);
 });
