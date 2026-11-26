@@ -54,6 +54,8 @@ export interface DeviceCapabilities {
   dpiStagesWritable: boolean;
   activeDpiStageWritable: boolean;
   dpiStageAxesWritable: boolean;
+  /** The client can recolour a DPI stage (`setDpiStageColor`). */
+  dpiStageColorWritable?: boolean;
   sleepOptions: number[] | null;
   debounceMaxMs: number | null;
   debounceOptions?: number[] | null;
