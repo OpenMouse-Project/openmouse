@@ -60,8 +60,10 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bcobra\b/i.test(displayName)) return "razer-cobra.webp";
   if (/\bnape\s*pro\b/i.test(displayName)) return "unknown-device.png";
   if (/\bko-one\b/i.test(displayName)) return "crdrako-ko-one.png";
+  // VXE R1 family: the series render was never uploaded to the bucket, so
+  // this returns the locally committed R1 SE art (the family shares the shell).
   if (/\bvxe\s+r1(?:\s+(?:se\+?|pro(?:\s+max)?))?\b/i.test(displayName)) {
-    return "vxe-r1-series.png";
+    return "vxe-r1-se.png";
   }
   if (/\br5\s*ultra\b/i.test(displayName)) return "attackshark-r5-ultra.png";
   if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
@@ -141,6 +143,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bsora\s*v3\b/i.test(displayName)) return "ninjutso-sora-v3.png";
   if (/\bsora\s*v2\b/i.test(displayName)) return "ninjutso-sora-v2.png";
   if (/\bninjutso\b.*\bten\b/i.test(displayName)) return "ninjutso-ten.png";
+  // LEOBOG GM3: the driver reports "LEOBOG GM3" for both the wired and the
+  // 2.4 GHz receiver connection, so the name is enough to pick the render.
+  if (/\bleobog\s*gm3\b/i.test(displayName)) return "leobog-gm3.png";
   // Incott: six model families, each sold in a base and a Pro version with
   // a different shell finish, so all twelve get their own render. The driver
   // reads the model from the device and appends "Pro" when the PAW3950 is
@@ -164,6 +169,8 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
+  if (/\bkeychron\s*turbo\s*link\b/i.test(displayName)) return "keychron-turbolink-8k.png";
+  if (/\bkeychron\s*g6\s*he\b/i.test(displayName)) return "keychron-g6-he.png";
   // Keychron Hall-effect keyboards share the keyboard placeholder until real art exists.
   if (/\bkeychron\b.*\b(he|tmr)\b/i.test(displayName)) return UNKNOWN_KEYBOARD_FILENAME;
   // Starlight X is a different shell from the ULX/Starlight-12, so it gets its
@@ -187,6 +194,9 @@ function computeDeviceImageFilename(displayName: string): string {
   if (/\bm1\s*[-_]?\s*nex\b/i.test(displayName)) return "noir-m1-nex.png";
   if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
   if (/fantech/i.test(displayName)) return "unknown-device.png";
+  // The driver reports the model as "Mi Gaming Mouse" for both the wired
+  // (0x5009) and wireless (0x500b) PIDs, so one name rule covers both.
+  if (/mi\s*gaming\s*mouse/i.test(displayName)) return "xiaomi-mi-gaming-mouse.png";
   return "unknown-device.png";
 }
 
@@ -218,6 +228,10 @@ const LOCAL_OVERRIDES: Readonly<Record<string, string>> = {
   // The keyboard placeholder: a black keyboard silhouette with a question mark,
   // the keyboard twin of unknown-device.png. Served locally until it is in the bucket.
   "unknown-keyboard.png": "/devices/unknown-keyboard.png",
+  // Rendered from the reference app's animation frames (black background
+  // removed); served locally until the R2 upload happens.
+  "xiaomi-mi-gaming-mouse.png": "/devices/xiaomi-mi-gaming-mouse.png",
+  "vxe-r1-se.png": "/devices/vxe-r1-se.png",
 };
 
 export type DeviceImageKind = "mouse" | "keyboard";

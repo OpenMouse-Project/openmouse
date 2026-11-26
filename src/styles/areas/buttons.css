@@ -1,3 +1,7 @@
+.rival650-button-diagram {
+  display: block; width: min(100%, 480px); height: auto; object-fit: contain;
+  margin-block: 8px; border-radius: var(--r-sm);
+}
 .button-remap-list { display: grid; min-width: 0; }
 .button-remap-row, :is(#button-mapping-settings, #ksnake-scroll-settings) .button-map-row {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 42%);
