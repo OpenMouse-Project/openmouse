@@ -671,6 +671,7 @@ export const SUPPORTED_DEVICES: readonly SupportedDeviceEntry[] = [
   { brand: "Razer", model: "DeathAdder Essential (2021)", status: "pending" },
   { brand: "Razer", model: "RC30-030501", status: "pending" },
   { brand: "Razer", model: "RZ01-0385", status: "pending" },
+  { brand: "Redgear", model: "X13 Pro", status: "supported", pids: [0xb412] },
   { brand: "Redgear", model: "A10", status: "pending" },
   { brand: "Redgear", model: "X12 V2", status: "pending" },
   { brand: "Redgear", model: "A20", status: "pending" },

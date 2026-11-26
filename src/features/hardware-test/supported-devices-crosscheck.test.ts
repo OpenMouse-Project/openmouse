@@ -97,6 +97,14 @@ test("Delux M800 Mini still resolves to its supported row on the shared PIDs", (
     assert.equal(m719.status, "supported");
     assert.equal(m719.pageModel, "M719 Invader Pro");
   }
+  const x13 = crosscheckSupportedDevices(
+    device({ brand: "Redgear", name: "Redgear X13 Pro", vendorId: 0x1b80, productId: 0xb412 }),
+    "pass",
+  );
+  assert.equal(x13.listed, true);
+  assert.equal(x13.matchedBy, "pid");
+  assert.equal(x13.status, "supported");
+  assert.equal(x13.pageModel, "X13 Pro");
 });
 
 test("M2-NEX resolves by product name since its row pins no PIDs", () => {
