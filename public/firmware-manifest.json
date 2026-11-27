@@ -75,6 +75,48 @@
       ]
     },
     {
+      "id": "coolermaster-mm710",
+      "brand": "Cooler Master",
+      "nameMatch": [
+        "MM710"
+      ],
+      "interfaceIds": [
+        "2516_0100"
+      ],
+      "latestVersion": "1.05.00",
+      "required": false,
+      "downloadUrl": "https://masterplus.coolermaster.com/",
+      "releaseNotes": "Firmware 1.05.00 is the latest stable release for MM710 via MasterPlus+."
+    },
+    {
+      "id": "coolermaster-mm711",
+      "brand": "Cooler Master",
+      "nameMatch": [
+        "MM711"
+      ],
+      "interfaceIds": [
+        "2516_0101"
+      ],
+      "latestVersion": "1.05.00",
+      "required": false,
+      "downloadUrl": "https://masterplus.coolermaster.com/",
+      "releaseNotes": "Firmware 1.05.00 is the latest stable release for MM711 via MasterPlus+."
+    },
+    {
+      "id": "coolermaster-mm720",
+      "brand": "Cooler Master",
+      "nameMatch": [
+        "MM720"
+      ],
+      "interfaceIds": [
+        "2516_0104"
+      ],
+      "latestVersion": "1.04.00",
+      "required": false,
+      "downloadUrl": "https://masterplus.coolermaster.com/",
+      "releaseNotes": "Firmware 1.04.00 is the latest stable release for MM720 via MasterPlus+."
+    },
+    {
       "brand": "Finalmouse",
       "nameMatch": [
         "Starlight X"
